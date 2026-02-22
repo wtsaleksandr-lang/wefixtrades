@@ -1,5 +1,5 @@
-import { designTokens } from '@/components/designTokens';
 import WizardCard from '@/components/wizard/WizardCard';
+import { Calculator, Zap, Users, ArrowRight } from 'lucide-react';
 
 export default function Wizard() {
   const isEmbed = ['1', 'true'].includes(
@@ -15,24 +15,43 @@ export default function Wizard() {
   }
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-start"
-      style={{
-        background: 'linear-gradient(180deg, #E2E8F0 0%, #CBD5E1 100%)',
-        paddingTop: '40px',
-        paddingBottom: '40px',
-        paddingLeft: '24px',
-        paddingRight: '24px',
-      }}
-    >
-      <div className="text-center mb-6 w-full max-w-[960px] mx-auto">
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight" data-testid="text-wizard-title">
-          Build Your Instant Quote System
-        </h1>
-        <p className="mt-2 text-sm text-slate-500">Launch today. Start capturing qualified leads.</p>
-      </div>
-      <div style={{ width: '100%', maxWidth: '960px', margin: '0 auto' }}>
-        <WizardCard />
+    <div className="min-h-screen gradient-mesh">
+      <div className="max-w-[1080px] mx-auto px-5 sm:px-8 pt-12 pb-16">
+        <div className="text-center mb-10 animate-fade-in-up">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 mb-5" data-testid="badge-hero">
+            <Zap className="w-3.5 h-3.5 text-indigo-500" />
+            <span className="text-xs font-semibold text-indigo-600 tracking-wide uppercase">AI-Powered Quote Builder</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3" data-testid="text-wizard-title">
+            <span className="text-slate-800">Build Your </span>
+            <span className="text-gradient">Instant Quote System</span>
+          </h1>
+          <p className="text-base text-slate-500 max-w-md mx-auto leading-relaxed">
+            Create a professional quote calculator in under 60 seconds. Embed it on your site and start capturing leads.
+          </p>
+        </div>
+
+        <div className="animate-fade-in-up animation-delay-100">
+          <WizardCard />
+        </div>
+
+        <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-5 animate-fade-in-up animation-delay-300">
+          {[
+            { icon: Calculator, title: 'AI Pricing', desc: 'Smart pricing questions generated for your trade' },
+            { icon: Users, title: 'Lead Capture', desc: 'Collect contact info with every quote request' },
+            { icon: ArrowRight, title: 'Embed Anywhere', desc: 'Add your calculator to any website in seconds' },
+          ].map((item, i) => (
+            <div key={i} className="flex items-start gap-3.5 p-5 rounded-xl bg-white/60 border border-slate-200/60" data-testid={`feature-card-${i}`}>
+              <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                <item.icon className="w-4.5 h-4.5 text-indigo-500" style={{ width: '18px', height: '18px' }} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800 mb-0.5">{item.title}</p>
+                <p className="text-xs text-slate-500 leading-relaxed">{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
