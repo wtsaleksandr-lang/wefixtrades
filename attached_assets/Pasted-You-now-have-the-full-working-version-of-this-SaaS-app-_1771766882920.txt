@@ -1,0 +1,50 @@
+You now have the full working version of this SaaS app.
+Your task is to upgrade it from MVP/draft quality to premium SaaS quality.
+Goal: Transform the app into a modern, high-end, Apple-level SaaS experience with strong UI/UX, smooth animations, and strong perceived value.
+Work autonomously and improve it from your own standpoint, focusing on:
+Visual Upgrade
+Improve typography hierarchy (clear H1/H2/body structure)
+Use modern spacing system (more breathing room)
+Add subtle gradients where appropriate
+Improve button styles (hover, active, disabled states)
+Add better iconography (consistent icon set)
+Improve cards (soft shadows, rounded corners, layered depth)
+Improve form fields (floating labels, focus states, validation visuals)
+Improve dashboard layout balance
+Premium SaaS Feel
+Add subtle micro-animations (Framer Motion or CSS transitions)
+Smooth page transitions
+Animated stepper progress in wizard
+Loading skeletons instead of spinners
+Better empty states
+Toast notifications for success/errors
+Subtle hover effects on interactive elements
+Live Preview Experience
+Improve preview panel layout
+Add slide-in preview drawer animation
+Add smooth transitions when design settings change
+Add real-time visual feedback when toggling features
+Make preview feel like a real embedded widget
+WOW Factor
+Add light glassmorphism where appropriate
+Improve onboarding experience
+Add better visual indicators for pricing tiers
+Make subscription upgrade flow feel premium
+Improve overall polish and consistency
+UX Improvements
+Reduce cognitive overload
+Simplify wizard flow
+Make pricing tiers clearer
+Improve mobile responsiveness
+Ensure accessibility basics (contrast, focus states)
+Technical Constraints
+Do NOT break existing logic
+Do NOT remove current functionality
+Improve using existing tech stack (React + Tailwind + animations)
+Keep code clean and maintainable
+Update design tokens if needed, but centralize them
+After making improvements:
+Explain what you changed
+Explain why each change improves user perception
+Suggest 3 additional premium features that could increase perceived value
+Make this feel like a $79–$149/month SaaS product.
