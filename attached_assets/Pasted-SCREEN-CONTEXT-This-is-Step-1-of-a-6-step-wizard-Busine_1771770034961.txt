@@ -1,0 +1,140 @@
+SCREEN CONTEXT
+This is Step 1 of a 6-step wizard: “Business Details”.
+Primary purpose: capture basic business info + allow user to pick a service category. If user picks “Custom / Not Listed”, show a custom request panel (inline or modal as defined below).
+
+LAYOUT STRUCTURE (TOP → BOTTOM)
+1) Wizard Card Container
+- A centered card (the “wizard card”) that contains the whole step.
+- Contains:
+  A) Header row
+  B) Title + subtitle block
+  C) Form section
+  D) Category selection grid
+  E) Conditional “Request a Custom Quote Tool” area (only for Custom/Not Listed)
+  F) Bottom navigation row (Back + Continue)
+
+2) Header Row (inside the wizard card)
+- Left: “STEP 1 OF 6”
+- Right: small help/info icon button (opens help modal or tooltip; see “Help Modal/Drawer” section)
+
+3) Title + Subtitle Block
+- Title: “Business Details”
+- Subtitle: “This info appears on your quote page.”
+
+4) Form Section
+- Field 1: Business Name (required)
+  - Label: “BUSINESS NAME *”
+  - Text input with placeholder
+- Field 2: Service Category (required)
+  - Label: “SERVICE CATEGORY *”
+  - Helper text under label: “Select your primary service. We’ll generate a tailored pricing structure.”
+
+5) Category Selection Grid
+- A grid of category cards (two columns on desktop/tablet, one column on narrow mobile if needed).
+- Cards shown in screenshot:
+  - Cleaning & Maintenance
+  - Home Construction & Renovation
+  - Driveway & Concrete
+  - Mechanical & Systems
+  - Emergency Services
+  - Auto & Mobile Services
+  - Professional Services
+  - Custom / Not Listed
+- Each category card is clickable/selectable.
+- Selected state:
+  - visually indicates selection (e.g., border highlight + check indicator).
+  - only one category selected at a time.
+
+6) Conditional “Request a Custom Quote Tool” Panel
+- Only appears when selected category = “Custom / Not Listed”.
+- Appears directly BELOW the category grid inside the wizard card.
+- Panel includes:
+  - Panel title: “Request a Custom Quote Tool”
+  - Panel subtitle: “Tell us about your service and we’ll build it for you.”
+  - Field A (required): “What service do you offer? *” (text input)
+  - Field B (optional): “How do you calculate pricing? (optional)” (text input)
+  - Field C (optional): “Your website (optional)” (url input)
+  - Field D (required): “Your email *” (email input)
+  - CTA button: “Request Custom Quote Tool”
+- Validation behavior:
+  - Clicking the CTA validates required fields (service offered + email).
+  - If invalid, show inline errors under fields and prevent submission.
+
+7) Bottom Navigation Row (inside the wizard card, at bottom)
+- Left: “Back” button (disabled on Step 1 OR navigates to previous screen if exists)
+- Right: “Continue” button
+- Continue button behavior:
+  - Disabled until Business Name is filled AND a Service Category is selected.
+  - If category = Custom/Not Listed, Continue is disabled until the custom panel required fields are valid OR until custom request is submitted (choose one rule and implement consistently).
+  - On click: saves Step 1 data and navigates to Step 2.
+
+FUNCTIONALITY & EFFECTS
+
+A) Selection Behavior (Category Cards)
+- Clicking a category card:
+  - sets selectedCategory in state
+  - updates UI selected styling
+  - if selectedCategory != “Custom / Not Listed”, hide/remove the custom request panel and clear its values (or keep cached values but hide—pick one and implement).
+  - if selectedCategory == “Custom / Not Listed”, reveal the custom request panel with a smooth expand/collapse transition (height + opacity).
+
+B) Animations / Transitions (no visual redesign, only effects)
+- Wizard step transitions:
+  - When entering Step 1: fade + slight slide up of the wizard card content.
+- Category card interaction:
+  - Hover (desktop): subtle lift/shadow or highlight.
+  - Press/tap: slight scale down then release.
+- Custom request panel:
+  - Expand/collapse animation (height/opacity).
+- Buttons:
+  - Hover state (desktop): subtle highlight.
+  - Press state: slight scale down.
+  - Disabled state: visually muted and not clickable.
+
+C) Help Modal/Drawer (top-right icon)
+- Clicking help icon opens a help UI (modal or side drawer).
+- Required behavior:
+  - Background behind help UI becomes blurred/dimmed (backdrop overlay).
+  - Focus is on the modal/drawer; underlying wizard content is not clickable.
+  - ESC key closes (desktop); close “X” button closes; clicking outside closes.
+  - Opening and closing are animated (fade/slide).
+- Backdrop:
+  - Use a full-screen overlay that applies blur to the background + darkens slightly.
+  - Ensure correct z-index stacking above wizard.
+  - Ensure scroll lock while modal is open (prevent background scroll).
+
+D) “Request Custom Quote Tool” CTA (inside the panel)
+- On click:
+  1) validate required fields
+  2) show loading state on the button (spinner or “Requesting…”)
+  3) simulate or call API endpoint to submit request
+  4) on success: show a success message (inline inside the panel) and optionally mark custom request as “submitted”
+  5) keep the user able to continue to next step based on rule chosen
+
+DATA MODEL (Step 1)
+Store these values:
+- businessName: string
+- selectedCategory: string
+- customRequest (only if custom category):
+  - serviceOffered: string
+  - pricingMethod: string (optional)
+  - website: string (optional)
+  - email: string
+  - submitted: boolean
+
+ACCESSIBILITY / UX BEHAVIOR (functional)
+- All inputs have labels properly associated.
+- Tab order is logical.
+- Modal traps focus while open.
+- Enter key in an input does not accidentally jump steps; it should either submit the custom request (when inside that panel) or do nothing unless user clicks Continue.
+
+IMPLEMENTATION NOTES
+- Keep current component structure if it exists; adjust only what’s needed.
+- If there is an existing WizardStep wrapper, make Step 1 use it consistently (avoid duplicated “Step” labels or duplicated subtitles).
+- Ensure the progress bar / step indicator is clipped to the wizard card border radius (no overflow outside edges).
+- Ensure no “ugly borders” from background gradients/containers appear around the card; the card container should not show unintended outlines from parent backgrounds.
+
+DELIVERABLES
+1) Implement/adjust Step 1 screen as described.
+2) Ensure help modal/drawer uses backdrop blur + click-outside-to-close + scroll lock.
+3) Ensure category selection and conditional custom request panel behaviors work.
+4) Ensure Continue enable/disable logic matches rules above
