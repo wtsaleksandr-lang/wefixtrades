@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { platformTheme } from '@/theme/platformTheme';
 import { CATEGORIES, TRADES, getTradesByCategory, type Trade } from '@/data/trades';
+import { calculatorSettingsSchema, type CalculatorSettings } from '@shared/schema';
+import DesignStudio from './DesignStudio';
 import {
   Loader2, ArrowRight, ArrowLeft, Check, Sparkles, Wrench, Hammer,
   Layers, AlertTriangle, Car, Briefcase, Plus, HelpCircle, X,
@@ -33,23 +35,36 @@ interface WizardState {
   primaryColor: string;
   tagline: string;
   logoUrl: string;
+  calculatorSettings: CalculatorSettings;
 }
 
 const INITIAL_CUSTOM: CustomRequest = {
   serviceOffered: '', pricingMethod: '', website: '', email: '', submitted: false,
 };
 
+const DEFAULT_SETTINGS = calculatorSettingsSchema.parse({});
+
 const INITIAL_STATE: WizardState = {
   businessName: '', selectedCategory: '', selectedTrade: '',
   customRequest: { ...INITIAL_CUSTOM },
   ownerEmail: '', businessDescription: '', primaryColor: '#0284C7',
   tagline: '', logoUrl: '',
+  calculatorSettings: DEFAULT_SETTINGS,
 };
 
 function loadState(): WizardState {
   try {
     const s = localStorage.getItem('qq_wizard');
-    if (s) return { ...INITIAL_STATE, ...JSON.parse(s) };
+    if (s) {
+      const parsed = JSON.parse(s);
+      return {
+        ...INITIAL_STATE,
+        ...parsed,
+        calculatorSettings: parsed.calculatorSettings
+          ? { ...DEFAULT_SETTINGS, ...parsed.calculatorSettings }
+          : DEFAULT_SETTINGS,
+      };
+    }
   } catch {}
   return { ...INITIAL_STATE };
 }
@@ -71,20 +86,29 @@ function loadStep(): number {
 }
 
 const p = platformTheme;
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 6;
 
-const STEP_TITLES = ['Business Details', 'Service Info', 'Brand & Generate', 'Your Calculator'];
+const STEP_TITLES = [
+  'Business Details',
+  'Design Your Calculator',
+  'Brand Color',
+  'Pricing Logic',
+  'Final Preview',
+  'Your Calculator',
+];
 const STEP_SUBTITLES = [
-  'This info appears on your quote page.',
-  'Help us generate accurate pricing.',
-  'Pick your brand color and launch.',
+  'Tell us about your business, services, and branding.',
+  'Customize how your calculator looks and converts.',
+  'Pick your brand color for your calculator.',
+  'AI will generate optimized pricing questions.',
+  'Review everything and generate your calculator.',
   'Share your links and start collecting leads.',
-] as const;
+];
 
 export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const savedResult = loadResult();
   const savedStep = loadStep();
-  const [step, setStep] = useState(savedResult && savedStep === 3 ? 3 : (savedStep < 3 ? savedStep : 0));
+  const [step, setStep] = useState(savedResult && savedStep === 5 ? 5 : (savedStep < 5 ? savedStep : 0));
   const [ws, setWs] = useState<WizardState>(loadState);
   const [showHelp, setShowHelp] = useState(false);
   const [tradeSearch, setTradeSearch] = useState('');
@@ -198,6 +222,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           primary_color: ws.primaryColor,
           tagline: ws.tagline || undefined,
           logo_url: ws.logoUrl || undefined,
+          calculator_settings: ws.calculatorSettings,
         });
         const d = await createRes.json();
         if (!d.success) throw new Error(d.error || 'Failed to create calculator.');
@@ -212,7 +237,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     },
     onSuccess: (d) => {
       setResult(d);
-      setTimeout(() => setStep(3), 500);
+      setTimeout(() => setStep(5), 500);
     },
   });
 
@@ -267,6 +292,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         generating={generateMutation.isPending} genProgress={genProgress}
       >
 
+        {/* Step 0: Business Details (merged with old step 1 service info) */}
         {step === 0 && (
           <div className="animate-fade-in-up">
             <InputField
@@ -356,6 +382,21 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             )}
 
             <div style={{ marginTop: '24px' }}>
+              <InputField id="biz-desc" testId="input-business-description"
+                label="Describe Your Services" sublabel="(helps AI generate better pricing)"
+                value={ws.businessDescription} onChange={v => set('businessDescription', v)}
+                placeholder="e.g., Residential and commercial plumbing, drain cleaning, bathroom renovations..."
+                multiline rows={3} />
+            </div>
+
+            <div style={{ marginTop: '18px' }}>
+              <InputField id="owner-email" testId="input-owner-email"
+                label="Your Email" sublabel="(for lead notifications)" type="email"
+                value={ws.ownerEmail} onChange={v => set('ownerEmail', v)}
+                placeholder="you@company.com" />
+            </div>
+
+            <div style={{ marginTop: '24px' }}>
               <label style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
                 Brand Logo <span style={{ fontWeight: 400, color: p.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
               </label>
@@ -419,37 +460,19 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           </div>
         )}
 
+        {/* Step 1: Design Your Calculator (new - 4 tabs) */}
         {step === 1 && (
-          <div className="animate-fade-in-up">
-            <InputField id="biz-desc" testId="input-business-description"
-              label="Describe Your Services"
-              value={ws.businessDescription} onChange={v => set('businessDescription', v)}
-              placeholder="e.g., Residential and commercial plumbing, drain cleaning, bathroom renovations..."
-              multiline rows={3} />
-
-            <div style={{ marginTop: '18px' }}>
-              <InputField id="owner-email" testId="input-owner-email"
-                label="Your Email" sublabel="(for lead notifications)" type="email"
-                value={ws.ownerEmail} onChange={v => set('ownerEmail', v)}
-                placeholder="you@company.com" />
-            </div>
-
-            <div style={{
-              marginTop: '20px', padding: '14px 16px', borderRadius: p.radius.md,
-              background: p.colors.accentLighter, border: `1px solid ${p.colors.accentLighter}`,
-              display: 'flex', alignItems: 'flex-start', gap: '10px',
-            }}>
-              <Sparkles style={{ width: '16px', height: '16px', color: p.colors.accent, flexShrink: 0, marginTop: '1px' }} />
-              <p style={{ fontSize: '13px', color: p.colors.accentDark, lineHeight: 1.5 }}>
-                The more detail you provide, the better your AI-generated pricing will be.
-              </p>
-            </div>
-
+          <div>
+            <DesignStudio
+              settings={ws.calculatorSettings}
+              onChange={(newSettings) => set('calculatorSettings', newSettings)}
+            />
             <Footer onBack={() => setStep(0)} onNext={() => setStep(2)} />
           </div>
         )}
 
-        {step === 2 && !generateMutation.isPending && (
+        {/* Step 2: Brand Color */}
+        {step === 2 && (
           <div className="animate-fade-in-up">
             <label style={{ ...p.typography.label, display: 'block', marginBottom: '12px' }}>
               Brand Color
@@ -487,9 +510,85 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               </div>
             </div>
 
+            <Footer onBack={() => setStep(1)} onNext={() => setStep(3)} />
+          </div>
+        )}
+
+        {/* Step 3: Pricing Logic (info about AI-powered pricing) */}
+        {step === 3 && (
+          <div className="animate-fade-in-up" style={{ padding: '8px 0' }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '50%',
+              background: p.colors.accentLighter,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 16px',
+            }}>
+              <Zap style={{ width: '24px', height: '24px', color: p.colors.accent }} />
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: p.colors.heading, marginBottom: '8px', textAlign: 'center' }}>
+              AI-Powered Pricing
+            </h3>
+            <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.5, marginBottom: '20px', maxWidth: '340px', margin: '0 auto 20px', textAlign: 'center' }}>
+              Our AI will analyze your trade and generate optimized pricing questions. You can review and edit them after creation.
+            </p>
+            <div style={{
+              padding: '14px 16px', borderRadius: p.radius.md,
+              background: p.colors.accentLighter, border: `1px solid ${p.colors.accentLighter}`,
+              display: 'flex', alignItems: 'flex-start', gap: '10px', textAlign: 'left',
+            }}>
+              <Sparkles style={{ width: '16px', height: '16px', color: p.colors.accent, flexShrink: 0, marginTop: '1px' }} />
+              <p style={{ fontSize: '13px', color: p.colors.accentDark, lineHeight: 1.5 }}>
+                The more detail you provided in Step 1, the more accurate your pricing will be.
+              </p>
+            </div>
+            <Footer onBack={() => setStep(2)} onNext={() => setStep(4)} />
+          </div>
+        )}
+
+        {/* Step 4: Final Preview + Generate (hides bottom live preview) */}
+        {step === 4 && !generateMutation.isPending && (
+          <div className="animate-fade-in-up">
+            <div style={{
+              padding: '20px', borderRadius: p.radius.lg,
+              border: `1px solid ${p.colors.border}`, background: '#FFFFFF',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                {ws.logoUrl ? (
+                  <img data-testid="final-preview-logo" src={ws.logoUrl} alt="Logo" style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '10px' }} />
+                ) : (
+                  <div style={{ width: '48px', height: '48px', borderRadius: '10px', background: ws.primaryColor || '#0284C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '20px', fontWeight: 700, color: 'white' }}>
+                      {(ws.businessName || 'Q').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: '18px', fontWeight: 700, color: p.colors.heading }}>
+                    {ws.businessName || 'Your Business'}
+                  </p>
+                  {ws.tagline && <p style={{ fontSize: '13px', color: p.colors.muted, marginTop: '2px' }}>{ws.tagline}</p>}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <PreviewRow label="Category" value={selectedCategoryLabel || ws.customRequest.serviceOffered || 'Not selected'} />
+                {selectedTradeLabel && <PreviewRow label="Trade" value={selectedTradeLabel} />}
+                {ws.businessDescription && <PreviewRow label="Services" value={ws.businessDescription} />}
+                {ws.ownerEmail && <PreviewRow label="Email" value={ws.ownerEmail} />}
+                <PreviewRow label="Brand Color" value={ws.primaryColor}>
+                  <div style={{ width: '20px', height: '20px', borderRadius: '6px', background: ws.primaryColor, border: `1px solid ${p.colors.border}` }} />
+                </PreviewRow>
+                <PreviewRow label="Button Style" value={ws.calculatorSettings.appearance.button_style} />
+                <PreviewRow label="Font" value={ws.calculatorSettings.appearance.font} />
+                {ws.calculatorSettings.appearance.trust_badge && (
+                  <PreviewRow label="Trust Badge" value={ws.calculatorSettings.appearance.trust_badge_text} />
+                )}
+              </div>
+            </div>
+
             <SummaryCard ws={ws} tradeLabel={selectedTradeLabel} />
 
-            <Footer onBack={() => setStep(1)}>
+            <Footer onBack={() => setStep(3)}>
               <PrimaryBtn testId="button-generate" onClick={() => generateMutation.mutate()}
                 disabled={generateMutation.isPending} loading={generateMutation.isPending}>
                 <Sparkles style={{ width: '16px', height: '16px' }} /> Generate Calculator
@@ -505,20 +604,21 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           </div>
         )}
 
-        {step === 2 && generateMutation.isPending && (
+        {step === 4 && generateMutation.isPending && (
           <GeneratingAnimation progress={genProgress} businessName={ws.businessName} />
         )}
 
-        {step === 3 && result && (
+        {/* Step 5: Publish & Share (was step 3) */}
+        {step === 5 && result && (
           <LaunchStep result={result} showEmbed={showEmbed} onToggleEmbed={() => setShowEmbed(p => !p)} onStartOver={startOver} />
         )}
 
-        {step === 3 && !result && (
+        {step === 5 && !result && (
           <div className="animate-fade-in-up" style={{ textAlign: 'center', padding: '24px 0' }}>
             <p style={{ fontSize: '14px', color: p.colors.muted, marginBottom: '16px' }}>
               Your previous session expired. Let's generate a fresh calculator.
             </p>
-            <PrimaryBtn testId="button-back-to-generate" onClick={() => setStep(2)} fullWidth>
+            <PrimaryBtn testId="button-back-to-generate" onClick={() => setStep(4)} fullWidth>
               <ArrowLeft style={{ width: '16px', height: '16px' }} /> Back to Generate
             </PrimaryBtn>
           </div>
@@ -535,11 +635,27 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 }
 
 
+function PreviewRow({ label, value, children }: { label: string; value: string; children?: any }) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      padding: '10px 14px', borderRadius: '8px', background: '#F9FAFB',
+    }}>
+      <span style={{ fontSize: '12px', color: platformTheme.colors.muted, fontWeight: 500 }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {children}
+        <span style={{ fontSize: '13px', fontWeight: 500, color: platformTheme.colors.heading, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
+      </div>
+    </div>
+  );
+}
+
+
 function LivePreview({ ws, tradeLabel, categoryLabel, isOpen, onToggle, step }: {
   ws: WizardState; tradeLabel: string; categoryLabel: string;
   isOpen: boolean; onToggle: () => void; step: number;
 }) {
-  if (step === 3) return null;
+  if (step === 4 || step === 5) return null;
 
   return (
     <div style={{ marginTop: '20px', borderTop: `1px solid ${p.colors.borderLight}`, paddingTop: '16px' }}>
@@ -618,6 +734,15 @@ function LivePreview({ ws, tradeLabel, categoryLabel, isOpen, onToggle, step }: 
             <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: ws.primaryColor || '#0284C7' }} />
             <span style={{ fontSize: '12px', color: p.colors.muted }}>Brand color: <strong>{ws.primaryColor || '#0284C7'}</strong></span>
           </div>
+
+          {ws.calculatorSettings.appearance.button_style !== 'soft-rounded' && (
+            <div style={{ marginTop: '8px', padding: '10px 16px', borderRadius: p.radius.sm, background: '#F9FAFB' }}>
+              <span style={{ fontSize: '12px', color: p.colors.muted }}>
+                Button: <strong>{ws.calculatorSettings.appearance.button_style}</strong>
+                {' · '}Font: <strong>{ws.calculatorSettings.appearance.font}</strong>
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>

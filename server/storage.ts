@@ -54,6 +54,7 @@ export class DatabaseStorage implements IStorage {
       lead_thank_you_message: original.lead_thank_you_message,
       pricing_config: original.pricing_config,
       theme_overrides: original.theme_overrides,
+      calculator_settings: original.calculator_settings,
       edit_token: newToken,
       token_expires_at: newExpiry,
       is_duplicated: false,
