@@ -42,7 +42,7 @@ const INITIAL_CUSTOM: CustomRequest = {
 const INITIAL_STATE: WizardState = {
   businessName: '', selectedCategory: '', selectedTrade: '',
   customRequest: { ...INITIAL_CUSTOM },
-  ownerEmail: '', businessDescription: '', primaryColor: '#4F46E5',
+  ownerEmail: '', businessDescription: '', primaryColor: '#2563EB',
   tagline: '', logoUrl: '',
 };
 
@@ -79,7 +79,7 @@ const STEP_SUBTITLES = [
   'Help us generate accurate pricing.',
   'Pick your brand color and launch.',
   'Share your links and start collecting leads.',
-];
+] as const;
 
 export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const savedResult = loadResult();
@@ -282,7 +282,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 Service Category <span style={{ color: t.colors.danger }}>*</span>
               </label>
               <p style={{ fontSize: '13px', color: t.colors.muted, lineHeight: 1.5 }}>
-                Select your primary service. We'll generate a tailored pricing structure.
+                Choose your core service area. We'll generate optimized pricing logic automatically.
               </p>
             </div>
 
@@ -394,7 +394,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               <div style={{ position: 'relative' }}>
                 <input id="tagline" data-testid="input-tagline"
                   value={ws.tagline} onChange={e => { if (e.target.value.length <= 120) set('tagline', e.target.value); }}
-                  placeholder="e.g. Premium driveway paving in Toronto."
+                  placeholder="e.g. Trusted concrete specialists serving the GTA."
                   className="premium-input"
                   maxLength={120}
                 />
@@ -449,7 +449,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               Brand Color
             </label>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '24px' }}>
-              {['#4F46E5', '#6366F1', '#0ea5e9', '#2563EB', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'].map(color => (
+              {['#2563EB', '#0ea5e9', '#0891B2', '#059669', '#f59e0b', '#ef4444', '#7C3AED', '#ec4899'].map(color => (
                 <button
                   key={color}
                   data-testid={`color-option-${color.replace('#', '')}`}
@@ -548,8 +548,8 @@ function LivePreview({ ws, tradeLabel, categoryLabel, isOpen, onToggle, step }: 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Eye style={{ width: '16px', height: '16px', color: t.colors.primary }} />
           <div style={{ textAlign: 'left' }}>
-            <span style={{ fontSize: '14px', fontWeight: 600, color: t.colors.heading, display: 'block' }}>Quote Page Preview</span>
-            <span style={{ fontSize: '11px', color: t.colors.muted }}>Live preview of your calculator page</span>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: t.colors.heading, display: 'block' }}>Live Quote Preview</span>
+            <span style={{ fontSize: '11px', color: t.colors.muted }}>See how your calculator will appear to customers.</span>
           </div>
         </div>
         <ChevronDown style={{
@@ -812,12 +812,12 @@ function Shell({ children, step, total, onHelp, title, subtitle, generating, gen
 
   return (
     <div style={{
-      borderRadius: t.radius['2xl'], overflow: 'visible',
-      background: '#FFFFFF', boxShadow: t.shadows.lg,
+      borderRadius: '20px', overflow: 'visible',
+      background: '#FFFFFF', boxShadow: t.shadows.wizardCard,
     }}>
       <div className="wizard-gradient-header" style={{
-        padding: '20px 20px 24px', color: 'white', position: 'relative',
-        borderRadius: `${t.radius['2xl']} ${t.radius['2xl']} 0 0`,
+        padding: '24px 20px 28px', color: 'white', position: 'relative',
+        borderRadius: '20px 20px 0 0',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.85 }}>
@@ -927,7 +927,7 @@ function TradeDropdown({ trades, searched, selectedId, selectedLabel, search, is
   return (
     <div className="animate-fade-in" style={{ marginBottom: '8px' }}>
       <label style={{ ...t.typography.label, display: 'block', marginBottom: '8px' }}>
-        Select Your Trade <span style={{ color: t.colors.danger }}>*</span>
+        Choose Your Primary Trade <span style={{ color: t.colors.danger }}>*</span>
       </label>
       <button ref={triggerRef} data-testid="trade-dropdown-trigger" onClick={onToggle}
         style={{
@@ -1127,19 +1127,26 @@ function PrimaryBtn({ children, onClick, disabled, loading, testId, fullWidth, s
   children: any; onClick?: () => void; disabled?: boolean; loading?: boolean;
   testId?: string; fullWidth?: boolean; style?: any;
 }) {
+  const [hovered, setHovered] = useState(false);
+  const [pressed, setPressed] = useState(false);
+
   return (
     <button data-testid={testId}
       onClick={disabled ? undefined : onClick} disabled={disabled}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => { setHovered(false); setPressed(false); }}
+      onMouseDown={() => setPressed(true)} onMouseUp={() => setPressed(false)}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
         padding: '12px 24px', borderRadius: t.radius.md, border: 'none',
-        background: disabled && !loading ? '#CBD5E1' : t.colors.gradientButton,
+        background: disabled && !loading ? '#CBD5E1' : (hovered && !disabled ? t.colors.gradientButtonHover : t.colors.gradientButton),
         color: disabled && !loading ? '#94A3B8' : 'white',
         cursor: disabled ? (loading ? 'wait' : 'not-allowed') : 'pointer',
         fontSize: '14px', fontWeight: 600,
-        boxShadow: disabled ? 'none' : t.shadows.button,
+        boxShadow: disabled ? 'none' : (hovered && !disabled ? t.shadows.buttonHover : t.shadows.button),
         opacity: loading ? 0.9 : 1,
         width: fullWidth ? '100%' : 'auto',
+        transform: pressed && !disabled ? 'scale(0.98)' : (hovered && !disabled ? 'translateY(-1px)' : 'none'),
+        transition: 'all 0.15s ease-out',
         WebkitTapHighlightColor: 'transparent', minHeight: '44px',
         ...extraStyle,
       }}
