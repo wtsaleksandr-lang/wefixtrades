@@ -209,7 +209,7 @@ function QuestionEditor({
   );
 }
 
-const PRESET_COLORS = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
+const PRESET_COLORS = ['#2563EB', '#0ea5e9', '#0891B2', '#059669', '#f59e0b', '#ef4444', '#7C3AED', '#ec4899'];
 
 export default function EditCalculator() {
   const params = new URLSearchParams(window.location.search);
@@ -470,7 +470,7 @@ export default function EditCalculator() {
                         data-testid={`color-${color.replace('#', '')}`} />
                     ))}
                     <div className="w-px h-6 bg-slate-200 mx-1" />
-                    <input type="color" data-testid="input-edit-custom-color" value={editData.primary_color || '#6366f1'} onChange={e => set('primary_color', e.target.value)}
+                    <input type="color" data-testid="input-edit-custom-color" value={editData.primary_color || '#2563EB'} onChange={e => set('primary_color', e.target.value)}
                       className="w-9 h-9 rounded-full border-2 border-slate-200 cursor-pointer p-0.5 bg-white" />
                   </div>
                 </div>
