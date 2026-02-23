@@ -36,6 +36,7 @@ const createCalculatorBody = z.object({
   pricing_config: z.record(z.any()),
   primary_color: z.string().optional(),
   theme_overrides: z.record(z.any()).nullable().optional(),
+  calculator_settings: z.record(z.any()).nullable().optional(),
 });
 
 const updateCalculatorBody = z.object({
@@ -51,6 +52,7 @@ const updateCalculatorBody = z.object({
     cta_button_text: z.string().nullable().optional(),
     lead_thank_you_message: z.string().nullable().optional(),
     theme_overrides: z.record(z.any()).nullable().optional(),
+    calculator_settings: z.record(z.any()).nullable().optional(),
     pricing_config: z.object({
       questions: z.array(z.object({
         id: z.string(),
@@ -169,6 +171,7 @@ Return ONLY the JSON, no explanation.`;
         pricing_config: parsed.data.pricing_config,
         primary_color: parsed.data.primary_color || "#6366f1",
         theme_overrides: parsed.data.theme_overrides || null,
+        calculator_settings: parsed.data.calculator_settings || null,
         edit_token,
         token_expires_at,
       });

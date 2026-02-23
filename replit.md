@@ -42,15 +42,23 @@ Two separate theme systems to maintain strict isolation:
 - **Premium inputs**: `.premium-input` class with sage focus states (border + ring)
 
 ## Key Features
-1. **Wizard (4-step)**: Business Details -> Service Info -> Brand & Generate -> Launch
-   - Step 1: Business name, 8 category cards (2-col grid), searchable trade dropdown (portal-rendered), brand logo upload (optional, PNG/JPG/SVG, 2MB max), tagline (optional, 120 char max with counter), custom request panel, live preview accordion
-   - Step 2: Service description (multiline), email for notifications
+1. **Wizard (6-step)**: Business Details -> Design Calculator -> Brand Color -> Pricing Logic -> Final Preview & Generate -> Publish & Share
+   - Step 1: Business name, 8 category cards (2-col grid), searchable trade dropdown, brand logo upload, tagline, **service description**, **email** (moved from old step 2), custom request panel
+   - Step 2: **Design Your Calculator** — 4 horizontal tabs (Appearance, Layout, Conversion, Integrations)
+     - Appearance: color theme presets (graphite/navy/emerald/slate/custom), accent color picker, button style (soft-rounded/sharp/pill), border radius, surface style, font selector, hover effects, click animation, gradient toggle, button size, CTA text, trust badge, phone, logo URL, powered-by toggle with 10% discount
+     - Layout: card spacing, input field style, progress style, single/two-column, sticky summary
+     - Conversion: price display (range/exact), disclaimer, breakdown toggle, upsell section, booking button, redirect URL, email gate, phone (hidden/optional/required), starting price, urgency message, delay result
+     - Integrations: GTM ID (validated), Facebook Pixel ID (validated), webhook URL (validated), CRM toggle, email template. Advanced (Pro) section: custom CSS/JS, language, currency, dark mode, animation speed (all disabled)
+     - Top banner: "All selections can be changed anytime. Custom modifications available for an additional fee."
    - Step 3: Color picker (8 presets + custom), summary card, "Generate Calculator" with AI loading animation
-   - Step 4: Links (calculator URL, edit link, leads dashboard), embed code toggle, "Create Another" button
-   - State persisted in localStorage (qq_wizard, qq_step, qq_result)
+   - Step 4: Pricing Logic placeholder (AI-generated, editable after creation)
+   - Step 5: Final Preview (shows complete calculator preview, hides bottom live preview accordion)
+   - Step 6: Links (calculator URL, edit link, leads dashboard), embed code toggle, "Create Another" button
+   - State persisted in localStorage (qq_wizard, qq_step, qq_result) — includes calculatorSettings
    - Inline validation with error messages on Continue
-   - Live Preview accordion persists across steps 1-3, shows real-time WizardState
+   - Live Preview accordion persists across steps 1-4, hidden on steps 5 & 6
    - Help Modal: "How it works" numbered list, FAQ accordion (5 items), custom CTA. Desktop=centered dialog, Mobile=bottom sheet
+   - **calculator_settings** stored as jsonb column with settings_version: 1, nested structure for all 4 tab groups
 2. **Calculator**: Customer-facing widget that walks through pricing questions and shows an estimate
 3. **Lead Form**: Captures contact info after showing a quote
 4. **Edit Calculator**: Token-gated editor for business details, branding, lead form settings, pricing questions
@@ -66,7 +74,8 @@ server/db.ts              - Database connection
 client/src/App.tsx         - Wouter routing setup
 client/src/pages/          - Page components (wizard, calculator, edit-calculator, leads)
 client/src/components/     - Reusable components
-  wizard/WizardCard.tsx    - 4-step wizard form (sage/neutral theme, portal dropdown, help modal, live preview)
+  wizard/WizardCard.tsx    - 6-step wizard form (sage/neutral theme, portal dropdown, help modal, live preview)
+  wizard/DesignStudio.tsx  - Step 2 design studio (4-tab customization: Appearance, Layout, Conversion, Integrations)
   calculator/CalculatorWidget.tsx - Customer-facing quote calculator
   designTokens.tsx         - DEPRECATED design system tokens
   themeUtils.tsx           - Widget theme bridge utility
@@ -113,6 +122,7 @@ client/src/data/trades.ts  - 8 categories, ~80 trades dataset
 - Wizard-bg: neutral #F7F8FA
 
 ## Recent Changes
+- Feb 23 2026: Expanded wizard from 4 to 6 steps with Design Studio (Step 2). Added calculator_settings jsonb column with 40+ customization options. Built 4-tab design interface (Appearance/Layout/Conversion/Integrations). Service description and email merged into Step 1. Steps 3-5 added for pricing logic, final preview, and publish flow.
 - Feb 23 2026: Theme architecture separation - PlatformTheme (sage #2D6A4F builder) vs WidgetTheme (per-client colors). Replaced navy/indigo with neutral/sage. White wizard header. Widget CSS isolation via .widget-scope.
 - Feb 23 2026: Navy + blue theme overhaul (replaced all indigo/purple with navy #0B1F3A + blue #2563EB), premium text copy, button hover/press effects, wizard card shadow depth
 - Feb 23 2026: Premium theme overhaul (emerald → indigo), Help Modal rebuild (Base44 match), Live Preview accordion, trade dropdown portal fix, logo upload, tagline with counter, inline validation
