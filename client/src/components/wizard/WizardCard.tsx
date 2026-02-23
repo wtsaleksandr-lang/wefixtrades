@@ -2,13 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { platformTheme } from '@/theme/platformTheme';
 import { CATEGORIES, TRADES, getTradesByCategory, type Trade } from '@/data/trades';
-import { calculatorSettingsSchema, type CalculatorSettings } from '@shared/schema';
+import { calculatorSettingsSchema, customTradeDataSchema, type CalculatorSettings, type CustomTradeData } from '@shared/schema';
 import DesignStudio from './DesignStudio';
+import CustomTradeQuestionnaire from './CustomTradeQuestionnaire';
 import {
   Loader2, ArrowRight, ArrowLeft, Check, Sparkles, Wrench, Hammer,
   Layers, AlertTriangle, Car, Briefcase, Plus, HelpCircle, X,
   Search, ChevronDown, ExternalLink, Copy, Zap, AlertCircle,
-  RotateCcw, Code2, Eye, Upload, Trash2, Image as ImageIcon, ChevronRight
+  RotateCcw, Code2, Eye, Upload, Trash2, Image as ImageIcon, ChevronRight,
+  FileText, ClipboardCheck, Shield, Mail, Phone, User, Building2,
+  CheckCircle2, XCircle, TriangleAlert
 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -17,39 +20,63 @@ const ICON_MAP: Record<string, any> = {
   Sparkles, Hammer, Layers, Wrench, AlertTriangle, Car, Briefcase, Plus,
 };
 
-interface CustomRequest {
-  serviceOffered: string;
-  pricingMethod: string;
-  website: string;
-  email: string;
-  submitted: boolean;
+interface LeadFormField {
+  id: string;
+  label: string;
+  type: 'text' | 'email' | 'phone' | 'textarea';
+  required: boolean;
+  enabled: boolean;
+}
+
+interface TestScenario {
+  label: string;
+  answers: Record<string, string>;
+  expectedMin: string;
+  expectedMax: string;
+  confirmed: boolean;
 }
 
 interface WizardState {
   businessName: string;
   selectedCategory: string;
   selectedTrade: string;
-  customRequest: CustomRequest;
+  isCustomTrade: boolean;
+  customTradeData: CustomTradeData;
   ownerEmail: string;
-  businessDescription: string;
   primaryColor: string;
   tagline: string;
   logoUrl: string;
   calculatorSettings: CalculatorSettings;
+  leadFormFields: LeadFormField[];
+  leadThankYouMessage: string;
+  testScenarios: TestScenario[];
+  testPassed: boolean;
 }
 
-const INITIAL_CUSTOM: CustomRequest = {
-  serviceOffered: '', pricingMethod: '', website: '', email: '', submitted: false,
-};
-
 const DEFAULT_SETTINGS = calculatorSettingsSchema.parse({});
+const DEFAULT_CUSTOM_TRADE = customTradeDataSchema.parse({});
+
+const DEFAULT_LEAD_FIELDS: LeadFormField[] = [
+  { id: 'name', label: 'Full Name', type: 'text', required: true, enabled: true },
+  { id: 'email', label: 'Email Address', type: 'email', required: true, enabled: true },
+  { id: 'phone', label: 'Phone Number', type: 'phone', required: false, enabled: true },
+  { id: 'company', label: 'Company Name', type: 'text', required: false, enabled: false },
+];
+
+const EMPTY_SCENARIO: TestScenario = {
+  label: '', answers: {}, expectedMin: '', expectedMax: '', confirmed: false,
+};
 
 const INITIAL_STATE: WizardState = {
   businessName: '', selectedCategory: '', selectedTrade: '',
-  customRequest: { ...INITIAL_CUSTOM },
-  ownerEmail: '', businessDescription: '', primaryColor: '#0284C7',
+  isCustomTrade: false, customTradeData: DEFAULT_CUSTOM_TRADE,
+  ownerEmail: '', primaryColor: '#0284C7',
   tagline: '', logoUrl: '',
   calculatorSettings: DEFAULT_SETTINGS,
+  leadFormFields: [...DEFAULT_LEAD_FIELDS],
+  leadThankYouMessage: 'Thanks! We\'ll be in touch soon.',
+  testScenarios: [{ ...EMPTY_SCENARIO }, { ...EMPTY_SCENARIO }, { ...EMPTY_SCENARIO }],
+  testPassed: false,
 };
 
 function loadState(): WizardState {
@@ -60,9 +87,14 @@ function loadState(): WizardState {
       return {
         ...INITIAL_STATE,
         ...parsed,
+        customTradeData: parsed.customTradeData
+          ? { ...DEFAULT_CUSTOM_TRADE, ...parsed.customTradeData }
+          : DEFAULT_CUSTOM_TRADE,
         calculatorSettings: parsed.calculatorSettings
           ? { ...DEFAULT_SETTINGS, ...parsed.calculatorSettings }
           : DEFAULT_SETTINGS,
+        leadFormFields: parsed.leadFormFields || [...DEFAULT_LEAD_FIELDS],
+        testScenarios: parsed.testScenarios || [{ ...EMPTY_SCENARIO }, { ...EMPTY_SCENARIO }, { ...EMPTY_SCENARIO }],
       };
     }
   } catch {}
@@ -89,19 +121,19 @@ const p = platformTheme;
 const TOTAL_STEPS = 6;
 
 const STEP_TITLES = [
-  'Business Details',
+  'Business & Trade Setup',
   'Design Your Calculator',
-  'Brand Color',
   'Pricing Logic',
-  'Final Preview',
-  'Your Calculator',
+  'Lead Form Builder',
+  'Final Test & Preview',
+  'Publish & Share',
 ];
 const STEP_SUBTITLES = [
-  'Tell us about your business, services, and branding.',
-  'Customize how your calculator looks and converts.',
-  'Pick your brand color for your calculator.',
-  'AI will generate optimized pricing questions.',
-  'Review everything and generate your calculator.',
+  'Tell us about your business and trade.',
+  'Customize appearance, layout, and branding.',
+  'Review and confirm your pricing configuration.',
+  'Configure how you collect customer information.',
+  'Test your calculator before publishing.',
   'Share your links and start collecting leads.',
 ];
 
@@ -113,13 +145,13 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const [showHelp, setShowHelp] = useState(false);
   const [tradeSearch, setTradeSearch] = useState('');
   const [tradeOpen, setTradeOpen] = useState(false);
-  const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
-  const [customSubmitting, setCustomSubmitting] = useState(false);
   const [result, setResult] = useState<any>(savedResult);
   const [genProgress, setGenProgress] = useState(0);
   const [showEmbed, setShowEmbed] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [pricingDraftLoading, setPricingDraftLoading] = useState(false);
+  const [showCustomInHelp, setShowCustomInHelp] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('qq_wizard', JSON.stringify(ws));
@@ -138,11 +170,6 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     if (validationErrors[k]) setValidationErrors(p => { const n = { ...p }; delete n[k]; return n; });
   }, [validationErrors]);
 
-  const setCR = useCallback((k: keyof CustomRequest, v: any) => {
-    setWs(p => ({ ...p, customRequest: { ...p.customRequest, [k]: v } }));
-    if (customErrors[k]) setCustomErrors(p => { const n = { ...p }; delete n[k]; return n; });
-  }, [customErrors]);
-
   const filteredTrades = ws.selectedCategory && ws.selectedCategory !== 'custom'
     ? getTradesByCategory(ws.selectedCategory) : [];
   const searchedTrades = tradeSearch
@@ -153,7 +180,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     if (id === ws.selectedCategory) return;
     setWs(p => ({
       ...p, selectedCategory: id, selectedTrade: '',
-      customRequest: id !== 'custom' ? { ...INITIAL_CUSTOM } : p.customRequest,
+      isCustomTrade: id === 'custom',
+      customTradeData: id === 'custom' ? p.customTradeData : DEFAULT_CUSTOM_TRADE,
     }));
     setTradeSearch('');
     setTradeOpen(false);
@@ -165,37 +193,82 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     setTradeSearch('');
   };
 
-  const validateCR = () => {
-    const e: Record<string, string> = {};
-    if (!ws.customRequest.serviceOffered.trim()) e.serviceOffered = 'Please describe your service.';
-    if (!ws.customRequest.email.trim()) e.email = 'Email is required.';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ws.customRequest.email)) e.email = 'Enter a valid email.';
-    setCustomErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const submitCR = async () => {
-    if (!validateCR()) return;
-    setCustomSubmitting(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setCR('submitted', true);
-    setCustomSubmitting(false);
-  };
-
   const canContinueStep0 = () => {
     if (!ws.businessName.trim()) return false;
+    if (!ws.ownerEmail.trim()) return false;
     if (!ws.selectedCategory) return false;
-    if (ws.selectedCategory === 'custom') return ws.customRequest.submitted;
+    if (ws.selectedCategory === 'custom') return true;
     return !!ws.selectedTrade;
   };
 
   const tryStep0Continue = () => {
     const errs: Record<string, string> = {};
     if (!ws.businessName.trim()) errs.businessName = 'Business name is required.';
+    if (!ws.ownerEmail.trim()) errs.ownerEmail = 'Email is required for lead notifications.';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ws.ownerEmail)) errs.ownerEmail = 'Enter a valid email address.';
     if (!ws.selectedCategory) errs.selectedCategory = 'Please select a service category.';
     else if (ws.selectedCategory !== 'custom' && !ws.selectedTrade) errs.selectedTrade = 'Please select your trade.';
     setValidationErrors(errs);
-    if (Object.keys(errs).length === 0) setStep(1);
+    if (Object.keys(errs).length === 0) {
+      if (ws.isCustomTrade) {
+        triggerPricingDraft();
+      }
+      setStep(1);
+    }
+  };
+
+  const triggerPricingDraft = async () => {
+    if (pricingDraftLoading) return;
+    setPricingDraftLoading(true);
+    setWs(prev => ({
+      ...prev,
+      calculatorSettings: {
+        ...prev.calculatorSettings,
+        pricing_draft: {
+          template_family_id: '',
+          inputs: [],
+          calculation_config: {},
+          assumptions: [],
+          confidence_score: 0,
+          needs_human_review: true,
+          status: 'generating' as const,
+        },
+      },
+    }));
+    try {
+      const res = await apiRequest('POST', '/api/ai/generate-pricing-draft', {
+        custom_trade_data: ws.customTradeData,
+        business_name: ws.businessName,
+      });
+      const data = await res.json();
+      if (data.success && data.pricing_draft) {
+        setWs(prev => ({
+          ...prev,
+          calculatorSettings: {
+            ...prev.calculatorSettings,
+            pricing_draft: { ...data.pricing_draft, status: 'ready' as const },
+          },
+        }));
+      }
+    } catch {
+      setWs(prev => ({
+        ...prev,
+        calculatorSettings: {
+          ...prev.calculatorSettings,
+          pricing_draft: {
+            template_family_id: 'fallback',
+            inputs: [],
+            calculation_config: {},
+            assumptions: [],
+            confidence_score: 0,
+            needs_human_review: true,
+            status: 'failed' as const,
+          },
+        },
+      }));
+    } finally {
+      setPricingDraftLoading(false);
+    }
   };
 
   const generateMutation = useMutation({
@@ -205,11 +278,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         setGenProgress(p => Math.min(p + Math.random() * 12, 90));
       }, 400);
       try {
-        const tradeLabel = TRADES.find(tr => tr.id === ws.selectedTrade)?.label || ws.customRequest.serviceOffered || ws.selectedCategory;
+        const tradeLabel = TRADES.find(tr => tr.id === ws.selectedTrade)?.label || ws.customTradeData.short_description || ws.selectedCategory;
         const aiRes = await apiRequest('POST', '/api/ai/generate-pricing', {
           trade_type: tradeLabel,
-          business_description: ws.businessDescription || tradeLabel,
-          services: ws.businessDescription || tradeLabel,
+          business_description: tradeLabel,
+          services: tradeLabel,
         });
         const aiData = await aiRes.json();
         if (!aiData.success || !aiData.pricing_config) throw new Error(aiData.error || 'Failed to generate pricing.');
@@ -285,6 +358,20 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     e.target.value = '';
   };
 
+  const runTestValidation = () => {
+    const errors: string[] = [];
+    ws.testScenarios.forEach((s, i) => {
+      if (!s.label.trim()) errors.push(`Scenario ${i + 1}: needs a label`);
+      const min = parseFloat(s.expectedMin);
+      const max = parseFloat(s.expectedMax);
+      if (isNaN(min) || isNaN(max)) errors.push(`Scenario ${i + 1}: enter valid min/max`);
+      else if (min < 0 || max < 0) errors.push(`Scenario ${i + 1}: no negative values`);
+      else if (min > max) errors.push(`Scenario ${i + 1}: min must be less than max`);
+      if (!s.confirmed) errors.push(`Scenario ${i + 1}: must be confirmed`);
+    });
+    return errors;
+  };
+
   return (
     <>
       <Shell step={step} total={TOTAL_STEPS} onHelp={() => setShowHelp(true)}
@@ -292,7 +379,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         generating={generateMutation.isPending} genProgress={genProgress}
       >
 
-        {/* Step 0: Business Details (merged with old step 1 service info) */}
+        {/* Step 0: Business & Trade Setup */}
         {step === 0 && (
           <div className="animate-fade-in-up">
             <InputField
@@ -308,7 +395,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 Service Category <span style={{ color: p.colors.danger }}>*</span>
               </label>
               <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.5 }}>
-                Choose your core service area. We'll generate optimized pricing logic automatically.
+                Choose your core service area.
               </p>
             </div>
 
@@ -336,7 +423,6 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                         position: 'absolute', top: '6px', right: '6px',
                         width: '20px', height: '20px', borderRadius: '50%',
                         background: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease',
                       }}>
                         <Check style={{ width: '12px', height: '12px', color: 'white' }} />
                       </div>
@@ -346,7 +432,6 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                       background: sel ? '#2D6A4F' : '#EF4444',
                       border: `1.5px solid ${sel ? '#2D6A4F' : '#EF4444'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'background 0.25s ease, border-color 0.25s ease',
                       flexShrink: 0,
                     }}>
                       <Icon style={{ width: '20px', height: '20px', color: 'white', flexShrink: 0 }} />
@@ -377,92 +462,105 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             )}
 
             {ws.selectedCategory === 'custom' && (
-              <CustomPanel cr={ws.customRequest} errors={customErrors}
-                submitting={customSubmitting} onUpdate={setCR} onSubmit={submitCR} />
+              <CustomTradeQuestionnaire
+                data={ws.customTradeData}
+                onChange={(data) => set('customTradeData', data)}
+              />
             )}
-
-            <div style={{ marginTop: '24px' }}>
-              <InputField id="biz-desc" testId="input-business-description"
-                label="Describe Your Services" sublabel="(helps AI generate better pricing)"
-                value={ws.businessDescription} onChange={v => set('businessDescription', v)}
-                placeholder="e.g., Residential and commercial plumbing, drain cleaning, bathroom renovations..."
-                multiline rows={3} />
-            </div>
 
             <div style={{ marginTop: '18px' }}>
               <InputField id="owner-email" testId="input-owner-email"
-                label="Your Email" sublabel="(for lead notifications)" type="email"
+                label="Your Email" sublabel="(for lead notifications)" type="email" required
                 value={ws.ownerEmail} onChange={v => set('ownerEmail', v)}
-                placeholder="you@company.com" />
+                placeholder="you@company.com"
+                error={validationErrors.ownerEmail} />
             </div>
 
-            <div style={{ marginTop: '24px' }}>
-              <label style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
-                Brand Logo <span style={{ fontWeight: 400, color: p.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
+            <Footer onBack={undefined} onNext={tryStep0Continue}
+              nextDisabled={false} backDisabled />
+          </div>
+        )}
+
+        {/* Step 1: Design Your Calculator (with logo + tagline moved here) */}
+        {step === 1 && (
+          <div>
+            <div className="animate-fade-in-up" style={{ marginBottom: '20px' }}>
+              <label style={{ ...p.typography.label, display: 'block', marginBottom: '12px' }}>
+                Brand Color
               </label>
-              {ws.logoUrl ? (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '12px',
-                  padding: '12px 16px', borderRadius: p.radius.md,
-                  border: `1px solid ${p.colors.border}`, background: p.colors.surfaceRaised,
-                }}>
-                  <img src={ws.logoUrl} alt="Logo" style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '8px', background: 'white', border: `1px solid ${p.colors.borderLight}` }} />
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: '13px', fontWeight: 500, color: p.colors.heading }}>Logo uploaded</p>
-                    <p style={{ fontSize: '11px', color: p.colors.muted }}>PNG, JPG, or SVG</p>
-                  </div>
-                  <button data-testid="button-remove-logo" onClick={() => set('logoUrl', '')}
-                    style={{ width: '36px', height: '36px', borderRadius: '8px', border: `1px solid ${p.colors.border}`, background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Trash2 style={{ width: '14px', height: '14px', color: p.colors.danger }} />
-                  </button>
-                </div>
-              ) : (
-                <label data-testid="button-upload-logo" style={{
-                  display: 'flex', alignItems: 'center', gap: '10px',
-                  padding: '14px 16px', borderRadius: p.radius.md,
-                  border: `1.5px dashed ${p.colors.border}`, background: p.colors.surfaceRaised,
-                  cursor: 'pointer', transition: p.transitions.fast,
-                }}>
-                  <Upload style={{ width: '18px', height: '18px', color: p.colors.subtle }} />
-                  <span style={{ fontSize: '14px', color: p.colors.muted }}>Upload PNG, JPG or SVG</span>
-                  <input type="file" accept=".png,.jpg,.jpeg,.svg" onChange={handleLogoUpload} style={{ display: 'none' }} />
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px' }}>
+                {['#0284C7', '#0ea5e9', '#2563EB', '#059669', '#f59e0b', '#ef4444', '#7C3AED', '#ec4899'].map(color => (
+                  <button
+                    key={color}
+                    data-testid={`color-option-${color.replace('#', '')}`}
+                    onClick={() => set('primaryColor', color)}
+                    style={{
+                      width: '40px', height: '40px', borderRadius: '50%', backgroundColor: color,
+                      border: ws.primaryColor === color ? `3px solid ${p.colors.heading}` : '2px solid transparent',
+                      cursor: 'pointer', transform: ws.primaryColor === color ? 'scale(1.15)' : 'scale(1)',
+                      transition: p.transitions.spring,
+                      boxShadow: ws.primaryColor === color ? `0 4px 14px ${color}40` : '0 1px 3px rgba(0,0,0,0.08)',
+                      outline: 'none', WebkitTapHighlightColor: 'transparent',
+                    }}
+                  />
+                ))}
+                <div style={{ width: '1px', height: '24px', background: p.colors.border, margin: '0 2px' }} />
+                <input data-testid="input-custom-color" type="color" value={ws.primaryColor}
+                  onChange={e => set('primaryColor', e.target.value)}
+                  style={{ width: '40px', height: '40px', borderRadius: '50%', border: `1px solid ${p.colors.border}`, cursor: 'pointer', padding: '3px', background: 'white' }} />
+              </div>
+
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
+                  Brand Logo <span style={{ fontWeight: 400, color: p.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
                 </label>
-              )}
-              {logoError && <p data-testid="text-logo-error" style={{ fontSize: '12px', color: p.colors.danger, marginTop: '6px' }}>{logoError}</p>}
-            </div>
+                {ws.logoUrl ? (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    padding: '12px 16px', borderRadius: p.radius.md,
+                    border: `1px solid ${p.colors.border}`, background: p.colors.surfaceRaised,
+                  }}>
+                    <img src={ws.logoUrl} alt="Logo" style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '8px', background: 'white', border: `1px solid ${p.colors.borderLight}` }} />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: '13px', fontWeight: 500, color: p.colors.heading }}>Logo uploaded</p>
+                      <p style={{ fontSize: '11px', color: p.colors.muted }}>PNG, JPG, or SVG</p>
+                    </div>
+                    <button data-testid="button-remove-logo" onClick={() => set('logoUrl', '')}
+                      style={{ width: '36px', height: '36px', borderRadius: '8px', border: `1px solid ${p.colors.border}`, background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Trash2 style={{ width: '14px', height: '14px', color: p.colors.danger }} />
+                    </button>
+                  </div>
+                ) : (
+                  <label data-testid="button-upload-logo" style={{
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '14px 16px', borderRadius: p.radius.md,
+                    border: `1.5px dashed ${p.colors.border}`, background: p.colors.surfaceRaised,
+                    cursor: 'pointer', transition: p.transitions.fast,
+                  }}>
+                    <Upload style={{ width: '18px', height: '18px', color: p.colors.subtle }} />
+                    <span style={{ fontSize: '14px', color: p.colors.muted }}>Upload PNG, JPG or SVG</span>
+                    <input type="file" accept=".png,.jpg,.jpeg,.svg" onChange={handleLogoUpload} style={{ display: 'none' }} />
+                  </label>
+                )}
+                {logoError && <p data-testid="text-logo-error" style={{ fontSize: '12px', color: p.colors.danger, marginTop: '6px' }}>{logoError}</p>}
+              </div>
 
-            <div style={{ marginTop: '18px' }}>
-              <label htmlFor="tagline" style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
-                Tagline <span style={{ fontWeight: 400, color: p.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
-              </label>
-              <div>
+              <div style={{ marginBottom: '18px' }}>
+                <label htmlFor="tagline" style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
+                  Tagline <span style={{ fontWeight: 400, color: p.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
+                </label>
                 <input id="tagline" data-testid="input-tagline"
                   value={ws.tagline} onChange={e => { if (e.target.value.length <= 120) set('tagline', e.target.value); }}
                   placeholder="e.g. Trusted concrete specialists serving the GTA."
-                  className="premium-input"
-                  maxLength={120}
-                />
-                <div style={{
-                  display: 'flex', justifyContent: 'flex-end', marginTop: '4px',
-                }}>
-                  <span style={{
-                    fontSize: '11px', color: ws.tagline.length > 100 ? p.colors.warning : p.colors.subtle,
-                    fontWeight: 500,
-                  }}>
+                  className="premium-input" maxLength={120} />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+                  <span style={{ fontSize: '11px', color: ws.tagline.length > 100 ? p.colors.warning : p.colors.subtle, fontWeight: 500 }}>
                     {ws.tagline.length}/120
                   </span>
                 </div>
               </div>
             </div>
 
-            <Footer onBack={undefined} onNext={canContinueStep0() ? tryStep0Continue : tryStep0Continue}
-              nextDisabled={false} backDisabled />
-          </div>
-        )}
-
-        {/* Step 1: Design Your Calculator (new - 4 tabs) */}
-        {step === 1 && (
-          <div>
             <DesignStudio
               settings={ws.calculatorSettings}
               onChange={(newSettings) => set('calculatorSettings', newSettings)}
@@ -471,129 +569,349 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           </div>
         )}
 
-        {/* Step 2: Brand Color */}
+        {/* Step 2: Pricing Logic */}
         {step === 2 && (
           <div className="animate-fade-in-up">
-            <label style={{ ...p.typography.label, display: 'block', marginBottom: '12px' }}>
-              Brand Color
-            </label>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '24px' }}>
-              {['#0284C7', '#0ea5e9', '#2563EB', '#059669', '#f59e0b', '#ef4444', '#7C3AED', '#ec4899'].map(color => (
-                <button
-                  key={color}
-                  data-testid={`color-option-${color.replace('#', '')}`}
-                  onClick={() => set('primaryColor', color)}
-                  style={{
-                    width: '40px', height: '40px', borderRadius: '50%', backgroundColor: color,
-                    border: ws.primaryColor === color ? `3px solid ${p.colors.heading}` : '2px solid transparent',
-                    cursor: 'pointer', transform: ws.primaryColor === color ? 'scale(1.15)' : 'scale(1)',
-                    transition: p.transitions.spring,
-                    boxShadow: ws.primaryColor === color ? `0 4px 14px ${color}40` : '0 1px 3px rgba(0,0,0,0.08)',
-                    outline: 'none', WebkitTapHighlightColor: 'transparent',
-                  }}
-                />
-              ))}
-              <div style={{ width: '1px', height: '24px', background: p.colors.border, margin: '0 2px' }} />
-              <input data-testid="input-custom-color" type="color" value={ws.primaryColor}
-                onChange={e => set('primaryColor', e.target.value)}
-                style={{ width: '40px', height: '40px', borderRadius: '50%', border: `1px solid ${p.colors.border}`, cursor: 'pointer', padding: '3px', background: 'white' }} />
-            </div>
+            {ws.isCustomTrade ? (
+              <>
+                {pricingDraftLoading ? (
+                  <div style={{ textAlign: 'center', padding: '32px 0' }}>
+                    <div style={{
+                      width: '56px', height: '56px', borderRadius: '50%',
+                      background: p.colors.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      margin: '0 auto 16px', boxShadow: `0 8px 24px ${p.colors.accentGlow}`,
+                    }}>
+                      <Loader2 style={{ width: '24px', height: '24px', color: 'white', animation: 'spin 1.2s linear infinite' }} />
+                    </div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 700, color: p.colors.heading, marginBottom: '6px' }}>
+                      Generating Pricing Draft
+                    </h3>
+                    <p style={{ fontSize: '13px', color: p.colors.muted }}>
+                      AI is analyzing your trade and building a pricing configuration...
+                    </p>
+                  </div>
+                ) : ws.calculatorSettings.pricing_draft?.status === 'ready' ? (
+                  <div>
+                    <div style={{
+                      padding: '16px', borderRadius: p.radius.md,
+                      background: '#F0FDF4', border: '1px solid #BBF7D0', marginBottom: '16px',
+                      display: 'flex', alignItems: 'flex-start', gap: '10px',
+                    }}>
+                      <CheckCircle2 style={{ width: '18px', height: '18px', color: '#059669', flexShrink: 0, marginTop: '1px' }} />
+                      <div>
+                        <p style={{ fontSize: '14px', fontWeight: 600, color: '#065F46', marginBottom: '4px' }}>AI Draft Ready</p>
+                        <p style={{ fontSize: '13px', color: '#047857', lineHeight: 1.5 }}>
+                          Confidence: {Math.round((ws.calculatorSettings.pricing_draft?.confidence_score || 0) * 100)}%
+                          {ws.calculatorSettings.pricing_draft?.needs_human_review && ' — Review recommended'}
+                        </p>
+                      </div>
+                    </div>
 
-            <div style={{
-              padding: '16px', borderRadius: p.radius.lg, border: `1px solid ${p.colors.border}`,
-              display: 'flex', alignItems: 'center', gap: '14px', background: p.colors.surfaceRaised,
-            }}>
-              <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: ws.primaryColor, transition: p.transitions.normal, flexShrink: 0, boxShadow: `0 4px 12px ${ws.primaryColor}25` }} />
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, marginBottom: '2px' }}>{ws.businessName || 'Your Business'}</p>
-                <p style={{ fontSize: '12px', color: p.colors.muted }}>{selectedTradeLabel || 'Your Trade'}</p>
+                    <div style={{ padding: '16px', borderRadius: p.radius.md, border: `1px solid ${p.colors.border}`, background: '#FFFFFF', marginBottom: '16px' }}>
+                      <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
+                        Template Family
+                      </p>
+                      <p style={{ fontSize: '14px', fontWeight: 500, color: p.colors.heading, marginBottom: '16px' }}>
+                        {ws.calculatorSettings.pricing_draft?.template_family_id || 'Custom'}
+                      </p>
+
+                      {(ws.calculatorSettings.pricing_draft?.assumptions || []).length > 0 && (
+                        <>
+                          <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '8px' }}>
+                            Assumptions
+                          </p>
+                          <ul style={{ margin: 0, padding: '0 0 0 16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {ws.calculatorSettings.pricing_draft?.assumptions.map((a: string, i: number) => (
+                              <li key={i} style={{ fontSize: '13px', color: p.colors.body, lineHeight: 1.5 }}>{a}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+
+                    <button data-testid="button-regenerate-draft" onClick={triggerPricingDraft}
+                      style={{
+                        width: '100%', padding: '12px', borderRadius: p.radius.md,
+                        border: `1px solid ${p.colors.border}`, background: '#FFFFFF',
+                        cursor: 'pointer', fontSize: '14px', fontWeight: 500, color: p.colors.muted,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                        marginBottom: '8px',
+                      }}>
+                      <RotateCcw style={{ width: '14px', height: '14px' }} /> Regenerate Draft
+                    </button>
+                  </div>
+                ) : ws.calculatorSettings.pricing_draft?.status === 'failed' ? (
+                  <div>
+                    <div style={{
+                      padding: '16px', borderRadius: p.radius.md,
+                      background: '#FEF3C7', border: '1px solid #FDE68A', marginBottom: '16px',
+                      display: 'flex', alignItems: 'flex-start', gap: '10px',
+                    }}>
+                      <TriangleAlert style={{ width: '18px', height: '18px', color: '#D97706', flexShrink: 0, marginTop: '1px' }} />
+                      <div>
+                        <p style={{ fontSize: '14px', fontWeight: 600, color: '#92400E', marginBottom: '4px' }}>Fallback Mode</p>
+                        <p style={{ fontSize: '13px', color: '#A16207', lineHeight: 1.5 }}>
+                          AI couldn't generate high-confidence pricing. Your calculator will use a safe price range / request quote fallback.
+                        </p>
+                      </div>
+                    </div>
+                    <button data-testid="button-retry-draft" onClick={triggerPricingDraft}
+                      style={{
+                        width: '100%', padding: '12px', borderRadius: p.radius.md,
+                        border: `1px solid ${p.colors.border}`, background: '#FFFFFF',
+                        cursor: 'pointer', fontSize: '14px', fontWeight: 500, color: p.colors.muted,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                      }}>
+                      <RotateCcw style={{ width: '14px', height: '14px' }} /> Try Again
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                    <div style={{
+                      width: '56px', height: '56px', borderRadius: '50%',
+                      background: p.colors.accentLighter,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      margin: '0 auto 16px',
+                    }}>
+                      <Zap style={{ width: '24px', height: '24px', color: p.colors.accent }} />
+                    </div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 700, color: p.colors.heading, marginBottom: '8px' }}>
+                      Generate Pricing Draft
+                    </h3>
+                    <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.5, maxWidth: '340px', margin: '0 auto 20px' }}>
+                      Click below to have AI analyze your custom trade and generate a pricing configuration.
+                    </p>
+                    <PrimaryBtn testId="button-generate-draft" onClick={triggerPricingDraft} fullWidth>
+                      <Sparkles style={{ width: '16px', height: '16px' }} /> Generate Pricing Draft
+                    </PrimaryBtn>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                <div style={{
+                  width: '56px', height: '56px', borderRadius: '50%',
+                  background: p.colors.accentLighter,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  margin: '0 auto 16px',
+                }}>
+                  <Zap style={{ width: '24px', height: '24px', color: p.colors.accent }} />
+                </div>
+                <h3 style={{ fontSize: '18px', fontWeight: 700, color: p.colors.heading, marginBottom: '8px' }}>
+                  Predefined Pricing Templates
+                </h3>
+                <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.5, maxWidth: '340px', margin: '0 auto 20px' }}>
+                  Your trade ({selectedTradeLabel || 'selected'}) uses an optimized pricing template. AI will generate questions based on industry standards when you publish.
+                </p>
+                <div style={{
+                  padding: '14px 16px', borderRadius: p.radius.md,
+                  background: p.colors.accentLighter, border: `1px solid ${p.colors.accentLighter}`,
+                  display: 'flex', alignItems: 'flex-start', gap: '10px', textAlign: 'left',
+                }}>
+                  <Sparkles style={{ width: '16px', height: '16px', color: p.colors.accent, flexShrink: 0, marginTop: '1px' }} />
+                  <p style={{ fontSize: '13px', color: p.colors.accentDark, lineHeight: 1.5 }}>
+                    Pricing will be auto-generated in the final step. You'll be able to review before publishing.
+                  </p>
+                </div>
               </div>
-            </div>
-
+            )}
             <Footer onBack={() => setStep(1)} onNext={() => setStep(3)} />
           </div>
         )}
 
-        {/* Step 3: Pricing Logic (info about AI-powered pricing) */}
+        {/* Step 3: Lead Form Builder */}
         {step === 3 && (
-          <div className="animate-fade-in-up" style={{ padding: '8px 0' }}>
-            <div style={{
-              width: '56px', height: '56px', borderRadius: '50%',
-              background: p.colors.accentLighter,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 16px',
-            }}>
-              <Zap style={{ width: '24px', height: '24px', color: p.colors.accent }} />
-            </div>
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: p.colors.heading, marginBottom: '8px', textAlign: 'center' }}>
-              AI-Powered Pricing
-            </h3>
-            <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.5, marginBottom: '20px', maxWidth: '340px', margin: '0 auto 20px', textAlign: 'center' }}>
-              Our AI will analyze your trade and generate optimized pricing questions. You can review and edit them after creation.
+          <div className="animate-fade-in-up">
+            <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.5, marginBottom: '20px' }}>
+              Configure which fields appear on your lead capture form after a customer receives their quote.
             </p>
-            <div style={{
-              padding: '14px 16px', borderRadius: p.radius.md,
-              background: p.colors.accentLighter, border: `1px solid ${p.colors.accentLighter}`,
-              display: 'flex', alignItems: 'flex-start', gap: '10px', textAlign: 'left',
-            }}>
-              <Sparkles style={{ width: '16px', height: '16px', color: p.colors.accent, flexShrink: 0, marginTop: '1px' }} />
-              <p style={{ fontSize: '13px', color: p.colors.accentDark, lineHeight: 1.5 }}>
-                The more detail you provided in Step 1, the more accurate your pricing will be.
-              </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+              {ws.leadFormFields.map((field, idx) => (
+                <div key={field.id} data-testid={`lead-field-${field.id}`} style={{
+                  padding: '14px 16px', borderRadius: p.radius.md,
+                  border: `1px solid ${field.enabled ? p.colors.border : p.colors.borderLight}`,
+                  background: field.enabled ? '#FFFFFF' : '#F9FAFB',
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  opacity: field.enabled ? 1 : 0.6,
+                }}>
+                  <button data-testid={`toggle-field-${field.id}`}
+                    onClick={() => {
+                      const updated = [...ws.leadFormFields];
+                      updated[idx] = { ...updated[idx], enabled: !updated[idx].enabled };
+                      set('leadFormFields', updated);
+                    }}
+                    style={{
+                      width: '44px', height: '24px', borderRadius: '12px', border: 'none',
+                      background: field.enabled ? p.colors.accent : '#D1D5DB',
+                      cursor: 'pointer', position: 'relative', flexShrink: 0,
+                      transition: 'background 0.2s ease',
+                    }}>
+                    <div style={{
+                      width: '20px', height: '20px', borderRadius: '50%', background: 'white',
+                      position: 'absolute', top: '2px',
+                      left: field.enabled ? '22px' : '2px',
+                      transition: 'left 0.2s ease',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                    }} />
+                  </button>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: '14px', fontWeight: 500, color: p.colors.heading }}>{field.label}</p>
+                    <p style={{ fontSize: '11px', color: p.colors.muted }}>{field.type}</p>
+                  </div>
+                  {field.enabled && (
+                    <button data-testid={`toggle-required-${field.id}`}
+                      onClick={() => {
+                        const updated = [...ws.leadFormFields];
+                        updated[idx] = { ...updated[idx], required: !updated[idx].required };
+                        set('leadFormFields', updated);
+                      }}
+                      style={{
+                        padding: '4px 10px', borderRadius: '6px', border: 'none',
+                        background: field.required ? '#FEE2E2' : '#F3F4F6',
+                        cursor: 'pointer', fontSize: '11px', fontWeight: 600,
+                        color: field.required ? '#991B1B' : p.colors.muted,
+                      }}>
+                      {field.required ? 'Required' : 'Optional'}
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
+
+            <div>
+              <label style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
+                Thank You Message
+              </label>
+              <textarea data-testid="input-thank-you-message"
+                value={ws.leadThankYouMessage}
+                onChange={e => set('leadThankYouMessage', e.target.value)}
+                className="premium-input" rows={2} maxLength={200}
+                placeholder="Thanks! We'll be in touch soon."
+                style={{ resize: 'vertical' }} />
+            </div>
+
             <Footer onBack={() => setStep(2)} onNext={() => setStep(4)} />
           </div>
         )}
 
-        {/* Step 4: Final Preview + Generate (hides bottom live preview) */}
+        {/* Step 4: Final Test & Preview (quality gate) */}
         {step === 4 && !generateMutation.isPending && (
           <div className="animate-fade-in-up">
             <div style={{
-              padding: '20px', borderRadius: p.radius.lg,
-              border: `1px solid ${p.colors.border}`, background: '#FFFFFF',
+              padding: '14px 16px', borderRadius: p.radius.md,
+              background: '#FEF3C7', border: '1px solid #FDE68A', marginBottom: '20px',
+              display: 'flex', alignItems: 'flex-start', gap: '10px',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                {ws.logoUrl ? (
-                  <img data-testid="final-preview-logo" src={ws.logoUrl} alt="Logo" style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '10px' }} />
-                ) : (
-                  <div style={{ width: '48px', height: '48px', borderRadius: '10px', background: ws.primaryColor || '#0284C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontSize: '20px', fontWeight: 700, color: 'white' }}>
-                      {(ws.businessName || 'Q').charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: '18px', fontWeight: 700, color: p.colors.heading }}>
-                    {ws.businessName || 'Your Business'}
-                  </p>
-                  {ws.tagline && <p style={{ fontSize: '13px', color: p.colors.muted, marginTop: '2px' }}>{ws.tagline}</p>}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <PreviewRow label="Category" value={selectedCategoryLabel || ws.customRequest.serviceOffered || 'Not selected'} />
-                {selectedTradeLabel && <PreviewRow label="Trade" value={selectedTradeLabel} />}
-                {ws.businessDescription && <PreviewRow label="Services" value={ws.businessDescription} />}
-                {ws.ownerEmail && <PreviewRow label="Email" value={ws.ownerEmail} />}
-                <PreviewRow label="Brand Color" value={ws.primaryColor}>
-                  <div style={{ width: '20px', height: '20px', borderRadius: '6px', background: ws.primaryColor, border: `1px solid ${p.colors.border}` }} />
-                </PreviewRow>
-                <PreviewRow label="Button Style" value={ws.calculatorSettings.appearance.button_style} />
-                <PreviewRow label="Font" value={ws.calculatorSettings.appearance.font} />
-                {ws.calculatorSettings.appearance.trust_badge && (
-                  <PreviewRow label="Trust Badge" value={ws.calculatorSettings.appearance.trust_badge_text} />
-                )}
-              </div>
+              <Shield style={{ width: '16px', height: '16px', color: '#D97706', flexShrink: 0, marginTop: '1px' }} />
+              <p style={{ fontSize: '13px', color: '#92400E', lineHeight: 1.5 }}>
+                Enter at least 3 test scenarios to verify your calculator produces accurate estimates.
+              </p>
             </div>
 
-            <SummaryCard ws={ws} tradeLabel={selectedTradeLabel} />
+            {ws.testScenarios.map((scenario, idx) => (
+              <div key={idx} data-testid={`test-scenario-${idx}`} style={{
+                padding: '16px', borderRadius: p.radius.md,
+                border: `1px solid ${scenario.confirmed ? '#BBF7D0' : p.colors.border}`,
+                background: scenario.confirmed ? '#F0FDF4' : '#FFFFFF',
+                marginBottom: '12px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <div style={{
+                    width: '24px', height: '24px', borderRadius: '50%',
+                    background: scenario.confirmed ? '#059669' : p.colors.borderLight,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '12px', fontWeight: 700,
+                    color: scenario.confirmed ? 'white' : p.colors.muted,
+                  }}>
+                    {scenario.confirmed ? <Check style={{ width: '14px', height: '14px' }} /> : idx + 1}
+                  </div>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading }}>
+                    {idx === 0 ? 'Low Estimate' : idx === 1 ? 'Typical Job' : 'High-End Job'}
+                  </span>
+                </div>
 
-            <Footer onBack={() => setStep(3)}>
-              <PrimaryBtn testId="button-generate" onClick={() => generateMutation.mutate()}
-                disabled={generateMutation.isPending} loading={generateMutation.isPending}>
-                <Sparkles style={{ width: '16px', height: '16px' }} /> Generate Calculator
-              </PrimaryBtn>
-            </Footer>
+                <input data-testid={`input-scenario-label-${idx}`}
+                  value={scenario.label} placeholder={`Describe the ${idx === 0 ? 'simplest' : idx === 1 ? 'average' : 'most complex'} job`}
+                  onChange={e => {
+                    const updated = [...ws.testScenarios];
+                    updated[idx] = { ...updated[idx], label: e.target.value };
+                    set('testScenarios', updated);
+                  }}
+                  className="premium-input" style={{ marginBottom: '10px' }} />
+
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.muted, display: 'block', marginBottom: '4px' }}>Min ($)</label>
+                    <input data-testid={`input-scenario-min-${idx}`} type="number" min="0"
+                      value={scenario.expectedMin}
+                      onChange={e => {
+                        const updated = [...ws.testScenarios];
+                        updated[idx] = { ...updated[idx], expectedMin: e.target.value };
+                        set('testScenarios', updated);
+                      }}
+                      className="premium-input" placeholder="0" />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.muted, display: 'block', marginBottom: '4px' }}>Max ($)</label>
+                    <input data-testid={`input-scenario-max-${idx}`} type="number" min="0"
+                      value={scenario.expectedMax}
+                      onChange={e => {
+                        const updated = [...ws.testScenarios];
+                        updated[idx] = { ...updated[idx], expectedMax: e.target.value };
+                        set('testScenarios', updated);
+                      }}
+                      className="premium-input" placeholder="0" />
+                  </div>
+                </div>
+
+                <button data-testid={`button-confirm-scenario-${idx}`}
+                  onClick={() => {
+                    const updated = [...ws.testScenarios];
+                    updated[idx] = { ...updated[idx], confirmed: !updated[idx].confirmed };
+                    set('testScenarios', updated);
+                    const allConfirmed = updated.every(s => s.confirmed && s.label.trim() && s.expectedMin && s.expectedMax);
+                    if (allConfirmed) set('testPassed', true);
+                    else set('testPassed', false);
+                  }}
+                  style={{
+                    width: '100%', padding: '10px', borderRadius: p.radius.md, border: 'none',
+                    background: scenario.confirmed ? '#059669' : p.colors.accentLighter,
+                    color: scenario.confirmed ? 'white' : p.colors.accent,
+                    cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  }}>
+                  {scenario.confirmed ? <><Check style={{ width: '14px', height: '14px' }} /> Confirmed</> : <><ClipboardCheck style={{ width: '14px', height: '14px' }} /> Confirm Estimate</>}
+                </button>
+              </div>
+            ))}
+
+            {(() => {
+              const errs = runTestValidation();
+              const allGood = errs.length === 0;
+              return (
+                <>
+                  {!allGood && ws.testScenarios.some(s => s.confirmed) && (
+                    <div style={{
+                      padding: '12px 16px', borderRadius: p.radius.md,
+                      background: p.colors.dangerLight, border: '1px solid #FCA5A5', marginBottom: '16px',
+                    }}>
+                      {errs.map((e, i) => (
+                        <p key={i} style={{ fontSize: '12px', color: '#991B1B', lineHeight: 1.5, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <XCircle style={{ width: '12px', height: '12px', flexShrink: 0 }} /> {e}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  <Footer onBack={() => setStep(3)}>
+                    <PrimaryBtn testId="button-generate" onClick={() => generateMutation.mutate()}
+                      disabled={!ws.testPassed || generateMutation.isPending} loading={generateMutation.isPending}>
+                      <Sparkles style={{ width: '16px', height: '16px' }} /> Generate & Publish
+                    </PrimaryBtn>
+                  </Footer>
+                </>
+              );
+            })()}
 
             {genError && (
               <div className="animate-fade-in-up" style={{ marginTop: '14px', padding: '12px 16px', borderRadius: p.radius.md, background: p.colors.dangerLight, border: '1px solid #FCA5A5', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -711,19 +1029,12 @@ function LivePreview({ ws, tradeLabel, categoryLabel, isOpen, onToggle, step }: 
           }}>
             <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Category</p>
             <p data-testid="preview-category" style={{ fontSize: '14px', fontWeight: 500, color: p.colors.heading }}>
-              {categoryLabel || ws.customRequest.serviceOffered || 'Not selected'}
+              {categoryLabel || ws.customTradeData.short_description || 'Not selected'}
             </p>
             {tradeLabel && (
               <p data-testid="preview-trade" style={{ fontSize: '12px', color: p.colors.muted, marginTop: '2px' }}>{tradeLabel}</p>
             )}
           </div>
-
-          {ws.businessDescription && (
-            <div style={{ padding: '12px 16px', borderRadius: p.radius.sm, background: '#F9FAFB' }}>
-              <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Services</p>
-              <p style={{ fontSize: '13px', color: p.colors.body, lineHeight: 1.5 }}>{ws.businessDescription}</p>
-            </div>
-          )}
 
           <div style={{
             marginTop: '12px', padding: '10px 16px', borderRadius: p.radius.sm,
@@ -761,9 +1072,8 @@ function SummaryCard({ ws, tradeLabel }: { ws: WizardState; tradeLabel: string }
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <SummaryRow label="Business" value={ws.businessName} />
-        <SummaryRow label="Trade" value={tradeLabel || ws.customRequest.serviceOffered || '---'} />
+        <SummaryRow label="Trade" value={tradeLabel || ws.customTradeData.short_description || '---'} />
         {ws.tagline && <SummaryRow label="Tagline" value={ws.tagline} />}
-        {ws.businessDescription && <SummaryRow label="Services" value={ws.businessDescription} />}
         {ws.ownerEmail && <SummaryRow label="Email" value={ws.ownerEmail} />}
       </div>
     </div>
@@ -1138,72 +1448,6 @@ function TradeDropdown({ trades, searched, selectedId, selectedLabel, search, is
 }
 
 
-function CustomPanel({ cr, errors, submitting, onUpdate, onSubmit }: {
-  cr: CustomRequest; errors: Record<string, string>; submitting: boolean;
-  onUpdate: (k: keyof CustomRequest, v: any) => void; onSubmit: () => void;
-}) {
-  if (cr.submitted) {
-    return (
-      <div className="animate-fade-in" style={{
-        padding: '20px', borderRadius: p.radius.lg,
-        background: '#ECFDF5', border: `1.5px solid #A7F3D0`, marginBottom: '8px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-          <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Check style={{ width: '14px', height: '14px', color: 'white' }} />
-          </div>
-          <span style={{ fontSize: '14px', fontWeight: 600, color: '#065F46' }}>Request submitted!</span>
-        </div>
-        <p style={{ fontSize: '13px', color: '#047857', marginLeft: '34px' }}>
-          We'll build a tailored quote tool for you. Click Continue.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="animate-expand" style={{
-      padding: '20px', borderRadius: p.radius.lg,
-      background: '#FFFFFF', border: `1.5px dashed ${p.colors.border}`, marginBottom: '8px',
-    }}>
-      <h4 style={{ fontSize: '15px', fontWeight: 600, color: p.colors.heading, marginBottom: '4px' }}>
-        Request a Custom Quote Tool
-      </h4>
-      <p style={{ fontSize: '13px', color: p.colors.muted, marginBottom: '18px', lineHeight: 1.5 }}>
-        Tell us about your service and we'll build it for you.
-      </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <MiniField label="What service do you offer?" required error={errors.serviceOffered}>
-          <input data-testid="input-custom-service" value={cr.serviceOffered}
-            onChange={e => onUpdate('serviceOffered', e.target.value)}
-            placeholder="e.g. Residential solar panel installation" className="premium-input" />
-        </MiniField>
-        <MiniField label="How do you calculate pricing?" optional>
-          <input data-testid="input-custom-pricing" value={cr.pricingMethod}
-            onChange={e => onUpdate('pricingMethod', e.target.value)}
-            placeholder="e.g. By panel count, roof type, complexity" className="premium-input" />
-        </MiniField>
-        <MiniField label="Your website" optional>
-          <input data-testid="input-custom-website" type="url" value={cr.website}
-            onChange={e => onUpdate('website', e.target.value)}
-            placeholder="https://yoursite.com" className="premium-input" />
-        </MiniField>
-        <MiniField label="Your email" required error={errors.email}>
-          <input data-testid="input-custom-email" type="email" value={cr.email}
-            onChange={e => onUpdate('email', e.target.value)}
-            placeholder="you@example.com" className="premium-input" />
-        </MiniField>
-      </div>
-      <PrimaryBtn testId="button-custom-submit" onClick={onSubmit}
-        disabled={submitting} loading={submitting} fullWidth style={{ marginTop: '18px' }}>
-        {submitting
-          ? <><Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> Requesting...</>
-          : 'Request Custom Quote Tool'
-        }
-      </PrimaryBtn>
-    </div>
-  );
-}
 
 function MiniField({ label, required, optional, error, children }: {
   label: string; required?: boolean; optional?: boolean; error?: string; children: any;

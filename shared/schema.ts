@@ -3,8 +3,46 @@ import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean } fr
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const customTradeDataSchema = z.object({
+  charge_method: z.enum(['per_hour', 'per_sqft', 'per_linear_ft', 'per_item', 'fixed_project', 'base_plus_variable', 'not_sure']).default('not_sure'),
+  has_minimum_charge: z.boolean().default(false),
+  minimum_charge_amount: z.number().optional(),
+  has_trip_fee: z.boolean().default(false),
+  trip_fee_amount: z.number().optional(),
+  price_factors: z.array(z.string()).default([]),
+  price_factors_other: z.string().optional(),
+  price_range_min: z.number().optional(),
+  price_range_max: z.number().optional(),
+  short_description: z.string().optional(),
+});
+
+export type CustomTradeData = z.infer<typeof customTradeDataSchema>;
+
+export const pricingDraftSchema = z.object({
+  template_family_id: z.string(),
+  inputs: z.array(z.object({
+    id: z.string(),
+    label: z.string(),
+    type: z.string(),
+    options: z.array(z.object({
+      label: z.string(),
+      value: z.string(),
+      price_impact: z.number(),
+    })).optional(),
+  })),
+  calculation_config: z.record(z.any()),
+  assumptions: z.array(z.string()),
+  confidence_score: z.number(),
+  needs_human_review: z.boolean().default(true),
+  status: z.enum(['pending', 'generating', 'ready', 'failed']).default('pending'),
+}).optional();
+
+export type PricingDraft = z.infer<typeof pricingDraftSchema>;
+
 export const calculatorSettingsSchema = z.object({
   settings_version: z.number().default(1),
+
+  pricing_draft: pricingDraftSchema,
 
   appearance: z.object({
     color_theme: z.enum(['graphite', 'navy', 'emerald', 'slate', 'custom']).default('emerald'),

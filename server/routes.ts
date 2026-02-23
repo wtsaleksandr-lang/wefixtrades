@@ -150,6 +150,82 @@ Return ONLY the JSON, no explanation.`;
     }
   });
 
+  app.post("/api/ai/generate-pricing-draft", async (req, res) => {
+    try {
+      const body = z.object({
+        custom_trade_data: z.object({
+          charge_method: z.string().optional(),
+          has_minimum_charge: z.boolean().optional(),
+          minimum_charge_amount: z.number().optional(),
+          has_trip_fee: z.boolean().optional(),
+          trip_fee_amount: z.number().optional(),
+          price_factors: z.array(z.string()).optional(),
+          price_factors_other: z.string().optional(),
+          price_range_min: z.number().optional(),
+          price_range_max: z.number().optional(),
+          short_description: z.string().optional(),
+        }),
+        business_name: z.string().min(1),
+      }).safeParse(req.body);
+
+      if (!body.success) {
+        return res.status(400).json({ error: "Invalid request", details: body.error.flatten() });
+      }
+
+      const { custom_trade_data, business_name } = body.data;
+
+      const prompt = `You are a pricing expert for trades businesses. A business called "${business_name}" offers a custom service.
+
+Here is the information they provided:
+- Charge method: ${custom_trade_data.charge_method || 'not specified'}
+- Has minimum charge: ${custom_trade_data.has_minimum_charge ? 'Yes, $' + (custom_trade_data.minimum_charge_amount || 'not specified') : 'No'}
+- Has trip/service fee: ${custom_trade_data.has_trip_fee ? 'Yes, $' + (custom_trade_data.trip_fee_amount || 'not specified') : 'No'}
+- Main price factors: ${(custom_trade_data.price_factors || []).join(', ') || 'none specified'}${custom_trade_data.price_factors_other ? ', ' + custom_trade_data.price_factors_other : ''}
+- Typical price range: $${custom_trade_data.price_range_min || '?'} - $${custom_trade_data.price_range_max || '?'}
+- Description: ${custom_trade_data.short_description || 'not provided'}
+
+Generate a JSON pricing draft with this structure:
+{
+  "template_family_id": "custom_[descriptive_name]",
+  "inputs": [
+    {
+      "id": "q1",
+      "label": "Question text",
+      "type": "select",
+      "options": [
+        { "label": "Option A", "value": "a", "price_impact": 100 }
+      ]
+    }
+  ],
+  "calculation_config": { "base_price": 100, "currency": "USD" },
+  "assumptions": ["List of assumptions made about pricing"],
+  "confidence_score": 0.7,
+  "needs_human_review": true
+}
+
+Generate 3-5 relevant pricing questions based on the trade information. Return ONLY the JSON.`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-5-mini",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+      });
+
+      const content = completion.choices[0]?.message?.content || "{}";
+      let draft;
+      try {
+        draft = JSON.parse(content);
+      } catch {
+        return res.status(500).json({ error: "AI returned invalid JSON" });
+      }
+
+      res.json({ success: true, pricing_draft: draft });
+    } catch (error: any) {
+      console.error("AI pricing draft generation error:", error);
+      res.status(500).json({ error: "Failed to generate pricing draft" });
+    }
+  });
+
   app.post("/api/calculators", async (req, res) => {
     try {
       const parsed = createCalculatorBody.safeParse(req.body);
