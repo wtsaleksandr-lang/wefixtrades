@@ -295,13 +295,12 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     key={cat.id}
                     data-testid={`category-${cat.id}`}
                     onClick={() => selectCategory(cat.id)}
-                    className="category-card hover-elevate active-elevate-2"
+                    className="category-card"
                     style={{
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
                       padding: '18px 8px', borderRadius: p.radius.lg, cursor: 'pointer',
                       border: sel ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
                       background: sel ? p.colors.accentLighter : '#FFFFFF',
-                      boxShadow: sel ? p.shadows.selected : p.shadows.xs,
                       position: 'relative', outline: 'none',
                       WebkitTapHighlightColor: 'transparent',
                     }}
@@ -1105,9 +1104,9 @@ function Footer({ onBack, onNext, nextDisabled, backDisabled, children }: {
         style={{
           display: 'flex', alignItems: 'center', gap: '6px',
           padding: '10px 16px', borderRadius: p.radius.md,
-          border: `1px solid ${p.colors.border}`, background: 'white',
+          border: '1px solid #F5D76E', background: '#FEF9E7',
           cursor: backDisabled ? 'default' : 'pointer',
-          fontSize: '14px', fontWeight: 500, color: backDisabled ? p.colors.subtle : p.colors.muted,
+          fontSize: '14px', fontWeight: 500, color: backDisabled ? p.colors.subtle : '#92750C',
           transition: p.transitions.fast, opacity: backDisabled ? 0.5 : 1,
           WebkitTapHighlightColor: 'transparent', minHeight: '44px',
         }}
@@ -1291,7 +1290,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
 
         <div style={{
           marginTop: '24px', padding: '16px', borderRadius: p.radius.md,
-          background: p.colors.accentLighter, textAlign: 'center',
+          background: '#FFFBEB', textAlign: 'center',
         }}>
           <p style={{ fontSize: '14px', fontWeight: 500, color: p.colors.heading, marginBottom: '12px' }}>
             Need something custom?
@@ -1302,9 +1301,9 @@ function HelpModal({ onClose }: { onClose: () => void }) {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '6px',
               padding: '10px 20px', borderRadius: p.radius.md, border: 'none',
-              background: p.colors.accent, color: 'white',
+              background: '#FBBF24', color: '#78350F',
               cursor: 'pointer', fontSize: '14px', fontWeight: 600,
-              boxShadow: p.shadows.button,
+              boxShadow: '0 1px 3px rgba(251,191,36,0.3), 0 1px 2px rgba(0,0,0,0.06)',
               transition: p.transitions.fast,
               WebkitTapHighlightColor: 'transparent',
             }}
