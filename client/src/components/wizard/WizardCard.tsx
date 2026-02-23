@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { designTokens } from '@/components/designTokens';
 import { CATEGORIES, TRADES, getTradesByCategory, type Trade } from '@/data/trades';
 import {
   Loader2, ArrowRight, ArrowLeft, Check, Sparkles, Wrench, Hammer,
   Layers, AlertTriangle, Car, Briefcase, Plus, HelpCircle, X,
   Search, ChevronDown, ExternalLink, Copy, Zap, AlertCircle,
-  RotateCcw, Code2, Eye
+  RotateCcw, Code2, Eye, Upload, Trash2, Image as ImageIcon, ChevronRight
 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -30,6 +31,8 @@ interface WizardState {
   ownerEmail: string;
   businessDescription: string;
   primaryColor: string;
+  tagline: string;
+  logoUrl: string;
 }
 
 const INITIAL_CUSTOM: CustomRequest = {
@@ -39,7 +42,8 @@ const INITIAL_CUSTOM: CustomRequest = {
 const INITIAL_STATE: WizardState = {
   businessName: '', selectedCategory: '', selectedTrade: '',
   customRequest: { ...INITIAL_CUSTOM },
-  ownerEmail: '', businessDescription: '', primaryColor: '#059669',
+  ownerEmail: '', businessDescription: '', primaryColor: '#4F46E5',
+  tagline: '', logoUrl: '',
 };
 
 function loadState(): WizardState {
@@ -71,7 +75,7 @@ const TOTAL_STEPS = 4;
 
 const STEP_TITLES = ['Business Details', 'Service Info', 'Brand & Generate', 'Your Calculator'];
 const STEP_SUBTITLES = [
-  'Tell us about your business.',
+  'This info appears on your quote page.',
   'Help us generate accurate pricing.',
   'Pick your brand color and launch.',
   'Share your links and start collecting leads.',
@@ -90,6 +94,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const [result, setResult] = useState<any>(savedResult);
   const [genProgress, setGenProgress] = useState(0);
   const [showEmbed, setShowEmbed] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     localStorage.setItem('qq_wizard', JSON.stringify(ws));
@@ -105,7 +111,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
   const set = useCallback(<K extends keyof WizardState>(k: K, v: WizardState[K]) => {
     setWs(p => ({ ...p, [k]: v }));
-  }, []);
+    if (validationErrors[k]) setValidationErrors(p => { const n = { ...p }; delete n[k]; return n; });
+  }, [validationErrors]);
 
   const setCR = useCallback((k: keyof CustomRequest, v: any) => {
     setWs(p => ({ ...p, customRequest: { ...p.customRequest, [k]: v } }));
@@ -158,6 +165,15 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     return !!ws.selectedTrade;
   };
 
+  const tryStep0Continue = () => {
+    const errs: Record<string, string> = {};
+    if (!ws.businessName.trim()) errs.businessName = 'Business name is required.';
+    if (!ws.selectedCategory) errs.selectedCategory = 'Please select a service category.';
+    else if (ws.selectedCategory !== 'custom' && !ws.selectedTrade) errs.selectedTrade = 'Please select your trade.';
+    setValidationErrors(errs);
+    if (Object.keys(errs).length === 0) setStep(1);
+  };
+
   const generateMutation = useMutation({
     mutationFn: async () => {
       setGenProgress(0);
@@ -180,6 +196,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           owner_email: ws.ownerEmail || undefined,
           pricing_config: aiData.pricing_config,
           primary_color: ws.primaryColor,
+          tagline: ws.tagline || undefined,
+          logo_url: ws.logoUrl || undefined,
         });
         const d = await createRes.json();
         if (!d.success) throw new Error(d.error || 'Failed to create calculator.');
@@ -200,6 +218,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
   const genError = generateMutation.error ? (generateMutation.error as Error).message : null;
   const selectedTradeLabel = TRADES.find(tr => tr.id === ws.selectedTrade)?.label || '';
+  const selectedCategoryLabel = CATEGORIES.find(c => c.id === ws.selectedCategory)?.label || '';
 
   const startOver = () => {
     setStep(0);
@@ -208,10 +227,37 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     setGenProgress(0);
     setShowEmbed(false);
     setShowHelp(false);
+    setShowPreview(false);
+    setValidationErrors({});
     generateMutation.reset();
     localStorage.removeItem('qq_wizard');
     localStorage.removeItem('qq_result');
     localStorage.removeItem('qq_step');
+  };
+
+  const [logoError, setLogoError] = useState('');
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const valid = ['image/png', 'image/jpeg', 'image/svg+xml'];
+    if (!valid.includes(file.type)) {
+      setLogoError('Please upload a PNG, JPG, or SVG file.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setLogoError('File must be under 2MB.');
+      e.target.value = '';
+      return;
+    }
+    setLogoError('');
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (ev.target?.result) set('logoUrl', ev.target.result as string);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   return (
@@ -228,6 +274,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               label="Business Name" required
               value={ws.businessName} onChange={v => set('businessName', v)}
               placeholder="e.g. Sunshine Cleaning Co."
+              error={validationErrors.businessName}
             />
 
             <div style={{ marginTop: '24px', marginBottom: '12px' }}>
@@ -235,7 +282,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 Service Category <span style={{ color: t.colors.danger }}>*</span>
               </label>
               <p style={{ fontSize: '13px', color: t.colors.muted, lineHeight: 1.5 }}>
-                Select your primary service type.
+                Select your primary service. We'll generate a tailored pricing structure.
               </p>
             </div>
 
@@ -248,12 +295,12 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     key={cat.id}
                     data-testid={`category-${cat.id}`}
                     onClick={() => selectCategory(cat.id)}
+                    className="category-card hover-elevate active-elevate-2"
                     style={{
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
                       padding: '18px 8px', borderRadius: t.radius.lg, cursor: 'pointer',
                       border: sel ? `2px solid ${t.colors.primary}` : `1.5px solid ${t.colors.border}`,
                       background: sel ? t.colors.primaryLighter : '#FFFFFF',
-                      transition: t.transitions.normal,
                       boxShadow: sel ? t.shadows.selected : t.shadows.xs,
                       position: 'relative', outline: 'none',
                       WebkitTapHighlightColor: 'transparent',
@@ -272,7 +319,6 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                       width: '40px', height: '40px', borderRadius: '12px',
                       background: sel ? t.colors.gradientHeader : '#F1F5F9',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: t.transitions.normal,
                     }}>
                       <Icon style={{ width: '20px', height: '20px', color: sel ? 'white' : t.colors.muted }} />
                     </div>
@@ -286,6 +332,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 );
               })}
             </div>
+            {validationErrors.selectedCategory && (
+              <p style={{ fontSize: '12px', color: t.colors.danger, marginBottom: '8px' }}>{validationErrors.selectedCategory}</p>
+            )}
 
             {ws.selectedCategory && ws.selectedCategory !== 'custom' && (
               <TradeDropdown
@@ -294,6 +343,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 search={tradeSearch} isOpen={tradeOpen}
                 onSearch={setTradeSearch} onToggle={() => setTradeOpen(p => !p)}
                 onSelect={selectTrade} onClose={() => setTradeOpen(false)}
+                error={validationErrors.selectedTrade}
               />
             )}
 
@@ -302,8 +352,64 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 submitting={customSubmitting} onUpdate={setCR} onSubmit={submitCR} />
             )}
 
-            <Footer onBack={undefined} onNext={canContinueStep0() ? () => setStep(1) : undefined}
-              nextDisabled={!canContinueStep0()} backDisabled />
+            <div style={{ marginTop: '24px' }}>
+              <label style={{ ...t.typography.label, display: 'block', marginBottom: '8px' }}>
+                Brand Logo <span style={{ fontWeight: 400, color: t.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
+              </label>
+              {ws.logoUrl ? (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  padding: '12px 16px', borderRadius: t.radius.md,
+                  border: `1.5px solid ${t.colors.border}`, background: '#FAFBFC',
+                }}>
+                  <img src={ws.logoUrl} alt="Logo" style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '8px', background: 'white', border: `1px solid ${t.colors.borderLight}` }} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: '13px', fontWeight: 500, color: t.colors.heading }}>Logo uploaded</p>
+                    <p style={{ fontSize: '11px', color: t.colors.muted }}>PNG, JPG, or SVG</p>
+                  </div>
+                  <button data-testid="button-remove-logo" onClick={() => set('logoUrl', '')}
+                    style={{ width: '36px', height: '36px', borderRadius: '8px', border: `1px solid ${t.colors.border}`, background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Trash2 style={{ width: '14px', height: '14px', color: t.colors.danger }} />
+                  </button>
+                </div>
+              ) : (
+                <label data-testid="button-upload-logo" style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '14px 16px', borderRadius: t.radius.md,
+                  border: `1.5px dashed ${t.colors.border}`, background: '#FAFBFC',
+                  cursor: 'pointer', transition: t.transitions.fast,
+                }}>
+                  <Upload style={{ width: '18px', height: '18px', color: t.colors.subtle }} />
+                  <span style={{ fontSize: '14px', color: t.colors.muted }}>Upload PNG, JPG or SVG</span>
+                  <input type="file" accept=".png,.jpg,.jpeg,.svg" onChange={handleLogoUpload} style={{ display: 'none' }} />
+                </label>
+              )}
+              {logoError && <p data-testid="text-logo-error" style={{ fontSize: '12px', color: t.colors.danger, marginTop: '6px' }}>{logoError}</p>}
+            </div>
+
+            <div style={{ marginTop: '18px' }}>
+              <label htmlFor="tagline" style={{ ...t.typography.label, display: 'block', marginBottom: '8px' }}>
+                Tagline <span style={{ fontWeight: 400, color: t.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input id="tagline" data-testid="input-tagline"
+                  value={ws.tagline} onChange={e => { if (e.target.value.length <= 120) set('tagline', e.target.value); }}
+                  placeholder="e.g. Premium driveway paving in Toronto."
+                  className="premium-input"
+                  maxLength={120}
+                />
+                <span style={{
+                  position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                  fontSize: '11px', color: ws.tagline.length > 100 ? t.colors.warning : t.colors.subtle,
+                  fontWeight: 500, pointerEvents: 'none',
+                }}>
+                  {ws.tagline.length}/120
+                </span>
+              </div>
+            </div>
+
+            <Footer onBack={undefined} onNext={canContinueStep0() ? tryStep0Continue : tryStep0Continue}
+              nextDisabled={false} backDisabled />
           </div>
         )}
 
@@ -324,11 +430,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
             <div style={{
               marginTop: '20px', padding: '14px 16px', borderRadius: t.radius.md,
-              background: '#F0FDF4', border: `1px solid ${t.colors.primaryLighter}`,
+              background: t.colors.primaryLighter, border: `1px solid ${t.colors.primaryLighter}`,
               display: 'flex', alignItems: 'flex-start', gap: '10px',
             }}>
               <Sparkles style={{ width: '16px', height: '16px', color: t.colors.primary, flexShrink: 0, marginTop: '1px' }} />
-              <p style={{ fontSize: '13px', color: '#065F46', lineHeight: 1.5 }}>
+              <p style={{ fontSize: '13px', color: t.colors.primaryDark, lineHeight: 1.5 }}>
                 The more detail you provide, the better your AI-generated pricing will be.
               </p>
             </div>
@@ -343,7 +449,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               Brand Color
             </label>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '24px' }}>
-              {['#059669', '#10B981', '#0ea5e9', '#2563EB', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'].map(color => (
+              {['#4F46E5', '#6366F1', '#0ea5e9', '#2563EB', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'].map(color => (
                 <button
                   key={color}
                   data-testid={`color-option-${color.replace('#', '')}`}
@@ -412,10 +518,103 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           </div>
         )}
 
+        <LivePreview ws={ws} tradeLabel={selectedTradeLabel} categoryLabel={selectedCategoryLabel}
+          isOpen={showPreview} onToggle={() => setShowPreview(p => !p)} step={step} />
+
       </Shell>
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </>
+  );
+}
+
+
+function LivePreview({ ws, tradeLabel, categoryLabel, isOpen, onToggle, step }: {
+  ws: WizardState; tradeLabel: string; categoryLabel: string;
+  isOpen: boolean; onToggle: () => void; step: number;
+}) {
+  if (step === 3) return null;
+
+  return (
+    <div style={{ marginTop: '20px', borderTop: `1px solid ${t.colors.borderLight}`, paddingTop: '16px' }}>
+      <button data-testid="button-live-preview-toggle" onClick={onToggle}
+        style={{
+          width: '100%', padding: '12px 16px', borderRadius: t.radius.md,
+          border: `1.5px solid ${t.colors.border}`, background: '#FAFBFC',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Eye style={{ width: '16px', height: '16px', color: t.colors.primary }} />
+          <div style={{ textAlign: 'left' }}>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: t.colors.heading, display: 'block' }}>Quote Page Preview</span>
+            <span style={{ fontSize: '11px', color: t.colors.muted }}>Live preview of your calculator page</span>
+          </div>
+        </div>
+        <ChevronDown style={{
+          width: '18px', height: '18px', color: t.colors.muted,
+          transition: t.transitions.fast, transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
+        }} />
+      </button>
+
+      {isOpen && (
+        <div className="animate-expand" style={{
+          marginTop: '10px', padding: '20px', borderRadius: t.radius.md,
+          border: `1.5px solid ${t.colors.border}`, background: 'white',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            {ws.logoUrl ? (
+              <img data-testid="preview-logo" src={ws.logoUrl} alt="Logo" style={{ width: '40px', height: '40px', objectFit: 'contain', borderRadius: '8px' }} />
+            ) : (
+              <div data-testid="preview-logo-placeholder" style={{ width: '40px', height: '40px', borderRadius: '8px', background: ws.primaryColor || t.colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: 'white' }}>
+                  {(ws.businessName || 'Q').charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
+            <div style={{ flex: 1 }}>
+              <p data-testid="preview-business-name" style={{ fontSize: '16px', fontWeight: 700, color: t.colors.heading }}>
+                {ws.businessName || 'Your Business Name'}
+              </p>
+              {ws.tagline && (
+                <p data-testid="preview-tagline" style={{ fontSize: '12px', color: t.colors.muted, marginTop: '2px' }}>{ws.tagline}</p>
+              )}
+            </div>
+          </div>
+
+          <div style={{
+            padding: '12px 16px', borderRadius: t.radius.sm,
+            background: t.colors.primaryLighter, marginBottom: '12px',
+          }}>
+            <p style={{ fontSize: '11px', fontWeight: 700, color: t.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Category</p>
+            <p data-testid="preview-category" style={{ fontSize: '14px', fontWeight: 500, color: t.colors.heading }}>
+              {categoryLabel || ws.customRequest.serviceOffered || 'Not selected'}
+            </p>
+            {tradeLabel && (
+              <p data-testid="preview-trade" style={{ fontSize: '12px', color: t.colors.muted, marginTop: '2px' }}>{tradeLabel}</p>
+            )}
+          </div>
+
+          {ws.businessDescription && (
+            <div style={{ padding: '12px 16px', borderRadius: t.radius.sm, background: '#F8FAFC' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, color: t.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Services</p>
+              <p style={{ fontSize: '13px', color: t.colors.body, lineHeight: 1.5 }}>{ws.businessDescription}</p>
+            </div>
+          )}
+
+          <div style={{
+            marginTop: '12px', padding: '10px 16px', borderRadius: t.radius.sm,
+            background: `${ws.primaryColor || t.colors.primary}12`,
+            border: `1px solid ${ws.primaryColor || t.colors.primary}20`,
+            display: 'flex', alignItems: 'center', gap: '8px',
+          }}>
+            <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: ws.primaryColor || t.colors.primary }} />
+            <span style={{ fontSize: '12px', color: t.colors.muted }}>Brand color: <strong>{ws.primaryColor || t.colors.primary}</strong></span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -432,6 +631,7 @@ function SummaryCard({ ws, tradeLabel }: { ws: WizardState; tradeLabel: string }
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <SummaryRow label="Business" value={ws.businessName} />
         <SummaryRow label="Trade" value={tradeLabel || ws.customRequest.serviceOffered || '---'} />
+        {ws.tagline && <SummaryRow label="Tagline" value={ws.tagline} />}
         {ws.businessDescription && <SummaryRow label="Services" value={ws.businessDescription} />}
         {ws.ownerEmail && <SummaryRow label="Email" value={ws.ownerEmail} />}
       </div>
@@ -509,10 +709,10 @@ function LaunchStep({ result, showEmbed, onToggleEmbed, onStartOver }: {
       <div style={{ textAlign: 'center', marginBottom: '24px' }}>
         <div className="animate-checkmark" style={{
           width: '56px', height: '56px', borderRadius: '50%',
-          background: t.colors.gradientHeader,
+          background: 'linear-gradient(135deg, #059669 0%, #10B981 100%)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           margin: '0 auto 12px',
-          boxShadow: `0 8px 24px ${t.colors.primaryGlow}`,
+          boxShadow: '0 8px 24px rgba(16, 185, 129, 0.25)',
         }}>
           <Check style={{ width: '28px', height: '28px', color: 'white' }} />
         </div>
@@ -572,8 +772,8 @@ function LaunchStep({ result, showEmbed, onToggleEmbed, onStartOver }: {
       )}
 
       <div style={{
-        marginTop: '16px', padding: '14px 16px', background: '#F0FDF4',
-        borderRadius: t.radius.md, fontSize: '13px', color: '#065F46',
+        marginTop: '16px', padding: '14px 16px', background: t.colors.primaryLighter,
+        borderRadius: t.radius.md, fontSize: '13px', color: t.colors.primaryDark,
         display: 'flex', alignItems: 'flex-start', gap: '10px',
         border: `1px solid ${t.colors.primaryLighter}`,
       }}>
@@ -612,11 +812,12 @@ function Shell({ children, step, total, onHelp, title, subtitle, generating, gen
 
   return (
     <div style={{
-      borderRadius: t.radius['2xl'], overflow: 'hidden',
+      borderRadius: t.radius['2xl'], overflow: 'visible',
       background: '#FFFFFF', boxShadow: t.shadows.lg,
     }}>
       <div className="wizard-gradient-header" style={{
         padding: '20px 20px 24px', color: 'white', position: 'relative',
+        borderRadius: `${t.radius['2xl']} ${t.radius['2xl']} 0 0`,
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.85 }}>
@@ -655,7 +856,7 @@ function Shell({ children, step, total, onHelp, title, subtitle, generating, gen
         </div>
       </div>
 
-      <div style={{ padding: '24px 20px 20px' }}>
+      <div style={{ padding: '24px 20px 20px', position: 'relative' }}>
         {children}
       </div>
     </div>
@@ -663,10 +864,10 @@ function Shell({ children, step, total, onHelp, title, subtitle, generating, gen
 }
 
 
-function InputField({ id, testId, label, sublabel, required, value, onChange, placeholder, type, multiline, rows }: {
+function InputField({ id, testId, label, sublabel, required, value, onChange, placeholder, type, multiline, rows, error }: {
   id: string; testId: string; label: string; sublabel?: string; required?: boolean;
   value: string; onChange: (v: string) => void; placeholder: string;
-  type?: string; multiline?: boolean; rows?: number;
+  type?: string; multiline?: boolean; rows?: number; error?: string;
 }) {
   return (
     <div>
@@ -681,37 +882,57 @@ function InputField({ id, testId, label, sublabel, required, value, onChange, pl
       ) : (
         <input id={id} data-testid={testId} type={type || 'text'}
           value={value} onChange={e => onChange(e.target.value)}
-          placeholder={placeholder} className="premium-input" />
+          placeholder={placeholder} className="premium-input"
+          style={error ? { borderColor: t.colors.danger } : undefined}
+        />
       )}
+      {error && <p style={{ fontSize: '12px', color: t.colors.danger, marginTop: '4px' }}>{error}</p>}
     </div>
   );
 }
 
 
-function TradeDropdown({ trades, searched, selectedId, selectedLabel, search, isOpen, onSearch, onToggle, onSelect, onClose }: {
+function TradeDropdown({ trades, searched, selectedId, selectedLabel, search, isOpen, onSearch, onToggle, onSelect, onClose, error }: {
   trades: Trade[]; searched: Trade[]; selectedId: string; selectedLabel: string;
   search: string; isOpen: boolean; onSearch: (v: string) => void;
   onToggle: () => void; onSelect: (t: Trade) => void; onClose: () => void;
+  error?: string;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+
+  useEffect(() => {
+    if (isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+    }
+  }, [isOpen]);
 
   useEffect(() => { if (isOpen && searchRef.current) searchRef.current.focus(); }, [isOpen]);
+
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
-    if (isOpen) document.addEventListener('mousedown', h);
+    if (!isOpen) return;
+    const h = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+          triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [isOpen, onClose]);
 
   return (
-    <div ref={ref} className="animate-fade-in" style={{ marginBottom: '8px', position: 'relative' }}>
+    <div className="animate-fade-in" style={{ marginBottom: '8px' }}>
       <label style={{ ...t.typography.label, display: 'block', marginBottom: '8px' }}>
         Select Your Trade <span style={{ color: t.colors.danger }}>*</span>
       </label>
-      <button data-testid="trade-dropdown-trigger" onClick={onToggle}
+      <button ref={triggerRef} data-testid="trade-dropdown-trigger" onClick={onToggle}
         style={{
           width: '100%', padding: '14px 16px', borderRadius: t.radius.md,
-          border: `1.5px solid ${isOpen ? t.colors.primary : t.colors.border}`,
+          border: `1.5px solid ${isOpen ? t.colors.primary : error ? t.colors.danger : t.colors.border}`,
           background: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           fontSize: '15px', color: selectedId ? t.colors.heading : t.colors.subtle,
@@ -726,52 +947,59 @@ function TradeDropdown({ trades, searched, selectedId, selectedLabel, search, is
           transition: t.transitions.fast, transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
         }} />
       </button>
+      {error && !isOpen && <p style={{ fontSize: '12px', color: t.colors.danger, marginTop: '4px' }}>{error}</p>}
 
-      {isOpen && (
-        <div className="animate-scale-in" style={{
-          position: 'absolute', top: '100%', left: 0, right: 0,
-          marginTop: '6px', borderRadius: t.radius.md,
-          border: `1.5px solid ${t.colors.border}`, background: '#FFFFFF',
-          boxShadow: t.shadows.lg, zIndex: 50, overflow: 'hidden',
-        }}>
-          <div style={{ padding: '10px 12px', borderBottom: `1px solid ${t.colors.borderLight}` }}>
-            <div style={{ position: 'relative' }}>
-              <Search style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: t.colors.subtle }} />
-              <input ref={searchRef} data-testid="trade-search-input" value={search}
-                onChange={e => onSearch(e.target.value)} placeholder="Search trades..."
-                style={{
-                  width: '100%', padding: '10px 12px 10px 34px', borderRadius: '8px',
-                  border: `1px solid ${t.colors.border}`, fontSize: '14px',
-                  background: t.colors.surfaceRaised, boxSizing: 'border-box', outline: 'none',
-                }}
-                onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = t.colors.primary; }}
-                onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = t.colors.border; }}
-              />
+      {isOpen && createPortal(
+        <>
+          <div className="trade-dropdown-overlay" onClick={onClose} />
+          <div ref={dropdownRef} className="animate-scale-in" style={{
+            position: 'fixed',
+            top: `${dropdownPos.top}px`, left: `${dropdownPos.left}px`,
+            width: `${dropdownPos.width}px`,
+            borderRadius: t.radius.md,
+            border: `1.5px solid ${t.colors.border}`, background: '#FFFFFF',
+            boxShadow: t.shadows.xl, zIndex: 50, overflow: 'hidden',
+          }}>
+            <div style={{ padding: '10px 12px', borderBottom: `1px solid ${t.colors.borderLight}` }}>
+              <div style={{ position: 'relative' }}>
+                <Search style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: t.colors.subtle }} />
+                <input ref={searchRef} data-testid="trade-search-input" value={search}
+                  onChange={e => onSearch(e.target.value)} placeholder="Search trades..."
+                  style={{
+                    width: '100%', padding: '10px 12px 10px 34px', borderRadius: '8px',
+                    border: `1px solid ${t.colors.border}`, fontSize: '14px',
+                    background: t.colors.surfaceRaised, boxSizing: 'border-box', outline: 'none',
+                  }}
+                  onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = t.colors.primary; }}
+                  onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = t.colors.border; }}
+                />
+              </div>
+            </div>
+            <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
+              {searched.length === 0 ? (
+                <div style={{ padding: '20px 16px', textAlign: 'center', fontSize: '13px', color: t.colors.muted }}>
+                  No trades found for "{search}"
+                </div>
+              ) : searched.map(tr => (
+                <button key={tr.id} data-testid={`trade-option-${tr.id}`} onClick={() => onSelect(tr)}
+                  style={{
+                    width: '100%', padding: '12px 16px', border: 'none',
+                    background: tr.id === selectedId ? t.colors.primaryLighter : 'transparent',
+                    cursor: 'pointer', textAlign: 'left', fontSize: '14px',
+                    color: tr.id === selectedId ? t.colors.primaryDark : t.colors.body,
+                    fontWeight: tr.id === selectedId ? 600 : 400,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    transition: t.transitions.fast, WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  <span>{tr.label}</span>
+                  {tr.id === selectedId && <Check style={{ width: '16px', height: '16px', color: t.colors.primary }} />}
+                </button>
+              ))}
             </div>
           </div>
-          <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
-            {searched.length === 0 ? (
-              <div style={{ padding: '20px 16px', textAlign: 'center', fontSize: '13px', color: t.colors.muted }}>
-                No trades found for "{search}"
-              </div>
-            ) : searched.map(tr => (
-              <button key={tr.id} data-testid={`trade-option-${tr.id}`} onClick={() => onSelect(tr)}
-                style={{
-                  width: '100%', padding: '12px 16px', border: 'none',
-                  background: tr.id === selectedId ? t.colors.primaryLighter : 'transparent',
-                  cursor: 'pointer', textAlign: 'left', fontSize: '14px',
-                  color: tr.id === selectedId ? t.colors.primaryDark : t.colors.body,
-                  fontWeight: tr.id === selectedId ? 600 : 400,
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  transition: t.transitions.fast, WebkitTapHighlightColor: 'transparent',
-                }}
-              >
-                <span>{tr.label}</span>
-                {tr.id === selectedId && <Check style={{ width: '16px', height: '16px', color: t.colors.primary }} />}
-              </button>
-            ))}
-          </div>
-        </div>
+        </>,
+        document.body
       )}
     </div>
   );
@@ -786,15 +1014,15 @@ function CustomPanel({ cr, errors, submitting, onUpdate, onSubmit }: {
     return (
       <div className="animate-fade-in" style={{
         padding: '20px', borderRadius: t.radius.lg,
-        background: '#F0FDF4', border: `1.5px solid ${t.colors.primaryLighter}`, marginBottom: '8px',
+        background: '#ECFDF5', border: `1.5px solid #A7F3D0`, marginBottom: '8px',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-          <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: t.colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Check style={{ width: '14px', height: '14px', color: 'white' }} />
           </div>
           <span style={{ fontSize: '14px', fontWeight: 600, color: '#065F46' }}>Request submitted!</span>
         </div>
-        <p style={{ fontSize: '13px', color: t.colors.primaryDark, marginLeft: '34px' }}>
+        <p style={{ fontSize: '13px', color: '#047857', marginLeft: '34px' }}>
           We'll build a tailored quote tool for you. Click Continue.
         </p>
       </div>
@@ -910,7 +1138,6 @@ function PrimaryBtn({ children, onClick, disabled, loading, testId, fullWidth, s
         cursor: disabled ? (loading ? 'wait' : 'not-allowed') : 'pointer',
         fontSize: '14px', fontWeight: 600,
         boxShadow: disabled ? 'none' : t.shadows.button,
-        transition: t.transitions.fast,
         opacity: loading ? 0.9 : 1,
         width: fullWidth ? '100%' : 'auto',
         WebkitTapHighlightColor: 'transparent', minHeight: '44px',
@@ -925,6 +1152,15 @@ function PrimaryBtn({ children, onClick, disabled, loading, testId, fullWidth, s
 
 function HelpModal({ onClose }: { onClose: () => void }) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const [expandedQ, setExpandedQ] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -933,71 +1169,144 @@ function HelpModal({ onClose }: { onClose: () => void }) {
     return () => { document.body.style.overflow = ''; document.removeEventListener('keydown', h); };
   }, [onClose]);
 
-  return (
-    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+  const faqs = [
+    { q: 'Do I need an account?', a: 'No account needed. You\'ll receive a secure edit link to manage your calculator for 7 days. After that, you can duplicate it to keep going.' },
+    { q: 'How do I add this to my website?', a: 'After generating your calculator, you\'ll receive an embed code. Copy the HTML snippet and paste it into your website\'s code wherever you want the calculator to appear.' },
+    { q: 'What if I don\'t have a website?', a: 'No problem! Every calculator gets a unique shareable link. Send it directly to customers via email, text, or social media.' },
+    { q: 'How do I receive leads?', a: 'When customers submit a quote request through your calculator, their contact info and quote details are captured. View all leads from your Leads Dashboard.' },
+    { q: 'Can I edit later?', a: 'Yes! Use your edit link to update business details, pricing, questions, branding, and more anytime within the 7-day window.' },
+  ];
+
+  return createPortal(
+    <div
+      className="animate-modal-overlay"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        display: 'flex',
+        alignItems: isMobile ? 'flex-end' : 'center',
+        justifyContent: 'center',
         background: 'rgba(15, 23, 42, 0.4)',
-        backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
-        animation: 'fadeIn 0.2s ease-out', padding: '0',
+        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+        padding: isMobile ? '0' : '20px',
       }}
     >
-      <div ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Help"
-        className="animate-slide-up"
+      <div ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="How it works"
+        className={isMobile ? 'animate-modal-sheet' : 'animate-modal-content'}
         style={{
-          width: '100%', maxWidth: '480px', background: '#FFFFFF',
-          borderRadius: `${t.radius.xl} ${t.radius.xl} 0 0`,
-          boxShadow: t.shadows.xl, padding: '24px 20px 32px',
-          outline: 'none', maxHeight: '85vh', overflowY: 'auto',
+          width: '100%',
+          maxWidth: isMobile ? '100%' : '420px',
+          background: '#FFFFFF',
+          borderRadius: isMobile ? `${t.radius.xl} ${t.radius.xl} 0 0` : t.radius.xl,
+          boxShadow: t.shadows.xl,
+          padding: '24px 20px 28px',
+          outline: 'none',
+          maxHeight: isMobile ? '85vh' : '80vh',
+          overflowY: 'auto',
           position: 'relative',
         }}
       >
-        <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: t.colors.border, margin: '0 auto 20px' }} />
-        <button data-testid="button-close-help" onClick={onClose}
-          aria-label="Close"
-          style={{
-            position: 'absolute', top: '16px', right: '16px',
-            width: '32px', height: '32px', borderRadius: '50%',
-            border: 'none', background: t.colors.borderLight,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <X style={{ width: '16px', height: '16px', color: t.colors.muted }} />
-        </button>
+        {isMobile && (
+          <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: t.colors.border, margin: '0 auto 16px' }} />
+        )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <HelpCircle style={{ width: '20px', height: '20px', color: t.colors.primary }} />
-          </div>
-          <h3 style={{ fontSize: '18px', fontWeight: 700, color: t.colors.heading }}>How It Works</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <h3 style={{ fontSize: '20px', fontWeight: 700, color: t.colors.heading }}>How it works</h3>
+          <button data-testid="button-close-help" onClick={onClose} aria-label="Close"
+            style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              border: 'none', background: t.colors.borderLight,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <X style={{ width: '16px', height: '16px', color: t.colors.muted }} />
+          </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '28px' }}>
           {[
-            { n: 1, t: 'Business Details', d: 'Enter your business name and select your service.' },
-            { n: 2, t: 'Service Info', d: 'Describe what you do and add your email.' },
-            { n: 3, t: 'Brand & Generate', d: 'Pick your color and AI creates your pricing.' },
-            { n: 4, t: 'Launch', d: 'Get your link, embed code, and start collecting leads.' },
+            { n: 1, text: 'Customize your instant quote tool' },
+            { n: 2, text: 'Set your pricing logic' },
+            { n: 3, text: 'Publish and start receiving qualified leads' },
           ].map(item => (
-            <div key={item.n} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+            <div key={item.n} style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
               <div style={{
-                width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
-                background: t.colors.gradientHeader,
+                width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
+                background: t.colors.primaryLighter,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '12px', fontWeight: 700, color: 'white',
+                fontSize: '14px', fontWeight: 700, color: t.colors.primary,
               }}>
                 {item.n}
               </div>
-              <div>
-                <p style={{ fontSize: '14px', fontWeight: 600, color: t.colors.heading, marginBottom: '2px' }}>{item.t}</p>
-                <p style={{ fontSize: '13px', color: t.colors.muted, lineHeight: 1.4 }}>{item.d}</p>
-              </div>
+              <p style={{ fontSize: '15px', fontWeight: 500, color: t.colors.heading, lineHeight: 1.4 }}>
+                {item.text}
+              </p>
             </div>
           ))}
         </div>
+
+        <p style={{
+          fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+          color: t.colors.subtle, marginBottom: '12px',
+        }}>
+          Questions
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', borderTop: `1px solid ${t.colors.borderLight}` }}>
+          {faqs.map((faq, i) => (
+            <div key={i} style={{ borderBottom: `1px solid ${t.colors.borderLight}` }}>
+              <button
+                data-testid={`faq-toggle-${i}`}
+                onClick={() => setExpandedQ(expandedQ === i ? null : i)}
+                style={{
+                  width: '100%', padding: '14px 0', border: 'none', background: 'none',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  fontSize: '14px', fontWeight: 500, color: t.colors.heading, textAlign: 'left',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <span>{faq.q}</span>
+                <ChevronDown style={{
+                  width: '16px', height: '16px', color: t.colors.muted, flexShrink: 0,
+                  transition: t.transitions.fast,
+                  transform: expandedQ === i ? 'rotate(180deg)' : 'rotate(0)',
+                }} />
+              </button>
+              {expandedQ === i && (
+                <div className="animate-expand" style={{ paddingBottom: '14px' }}>
+                  <p style={{ fontSize: '13px', color: t.colors.muted, lineHeight: 1.6 }}>{faq.a}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          marginTop: '24px', padding: '16px', borderRadius: t.radius.md,
+          background: t.colors.primaryLighter, textAlign: 'center',
+        }}>
+          <p style={{ fontSize: '14px', fontWeight: 500, color: t.colors.heading, marginBottom: '12px' }}>
+            Need something custom?
+          </p>
+          <button
+            data-testid="button-request-custom-tool"
+            onClick={onClose}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              padding: '10px 20px', borderRadius: t.radius.md, border: 'none',
+              background: t.colors.gradientButton, color: 'white',
+              cursor: 'pointer', fontSize: '14px', fontWeight: 600,
+              boxShadow: t.shadows.button,
+              transition: t.transitions.fast,
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            Request Custom Tool <ArrowRight style={{ width: '14px', height: '14px' }} />
+          </button>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -1005,8 +1314,6 @@ function HelpModal({ onClose }: { onClose: () => void }) {
 function LinkRow({ label, url, icon, actionLabel, onAction }: {
   label: string; url: string; icon?: any; actionLabel?: string; onAction?: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => { navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); };
   return (
     <div>
       <label style={{ fontSize: '11px', fontWeight: 700, color: t.colors.muted, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
@@ -1047,14 +1354,14 @@ function CopyBtn({ text, size }: { text: string; size?: 'small' }) {
         borderRadius: '8px', border: size === 'small' ? 'none' : `1px solid ${t.colors.border}`,
         background: size === 'small' ? 'rgba(255,255,255,0.1)' : 'white',
         cursor: 'pointer',
-        fontSize: size === 'small' ? '11px' : '12px', fontWeight: 600,
-        color: copied ? (size === 'small' ? '#10B981' : t.colors.primary) : (size === 'small' ? '#94A3B8' : t.colors.muted),
-        transition: t.transitions.fast, flexShrink: 0,
-        minHeight: size === 'small' ? '24px' : '32px',
+        fontSize: '12px', fontWeight: 500,
+        color: size === 'small' ? '#E2E8F0' : t.colors.muted,
+        transition: t.transitions.fast, minHeight: '32px',
         WebkitTapHighlightColor: 'transparent',
       }}
     >
-      {copied ? <><Check style={{ width: '12px', height: '12px' }} /> Copied</> : <><Copy style={{ width: '12px', height: '12px' }} /> Copy</>}
+      {copied ? <Check style={{ width: '12px', height: '12px' }} /> : <Copy style={{ width: '12px', height: '12px' }} />}
+      {copied ? 'Copied' : 'Copy'}
     </button>
   );
 }
