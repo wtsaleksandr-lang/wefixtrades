@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { designTokens } from '@/components/designTokens';
+import { platformTheme } from '@/theme/platformTheme';
 import { CATEGORIES, TRADES, getTradesByCategory, type Trade } from '@/data/trades';
 import {
   Loader2, ArrowRight, ArrowLeft, Check, Sparkles, Wrench, Hammer,
@@ -42,7 +42,7 @@ const INITIAL_CUSTOM: CustomRequest = {
 const INITIAL_STATE: WizardState = {
   businessName: '', selectedCategory: '', selectedTrade: '',
   customRequest: { ...INITIAL_CUSTOM },
-  ownerEmail: '', businessDescription: '', primaryColor: '#2563EB',
+  ownerEmail: '', businessDescription: '', primaryColor: '#0284C7',
   tagline: '', logoUrl: '',
 };
 
@@ -70,7 +70,7 @@ function loadStep(): number {
   return 0;
 }
 
-const t = designTokens;
+const p = platformTheme;
 const TOTAL_STEPS = 4;
 
 const STEP_TITLES = ['Business Details', 'Service Info', 'Brand & Generate', 'Your Calculator'];
@@ -278,10 +278,10 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             />
 
             <div style={{ marginTop: '24px', marginBottom: '12px' }}>
-              <label style={{ ...t.typography.label, display: 'block', marginBottom: '6px' }}>
-                Service Category <span style={{ color: t.colors.danger }}>*</span>
+              <label style={{ ...p.typography.label, display: 'block', marginBottom: '6px' }}>
+                Service Category <span style={{ color: p.colors.danger }}>*</span>
               </label>
-              <p style={{ fontSize: '13px', color: t.colors.muted, lineHeight: 1.5 }}>
+              <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.5 }}>
                 Choose your core service area. We'll generate optimized pricing logic automatically.
               </p>
             </div>
@@ -298,10 +298,10 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     className="category-card hover-elevate active-elevate-2"
                     style={{
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
-                      padding: '18px 8px', borderRadius: t.radius.lg, cursor: 'pointer',
-                      border: sel ? `2px solid ${t.colors.primary}` : `1.5px solid ${t.colors.border}`,
-                      background: sel ? t.colors.primaryLighter : '#FFFFFF',
-                      boxShadow: sel ? t.shadows.selected : t.shadows.xs,
+                      padding: '18px 8px', borderRadius: p.radius.lg, cursor: 'pointer',
+                      border: sel ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
+                      background: sel ? p.colors.accentLighter : '#FFFFFF',
+                      boxShadow: sel ? p.shadows.selected : p.shadows.xs,
                       position: 'relative', outline: 'none',
                       WebkitTapHighlightColor: 'transparent',
                     }}
@@ -310,21 +310,21 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                       <div style={{
                         position: 'absolute', top: '6px', right: '6px',
                         width: '20px', height: '20px', borderRadius: '50%',
-                        background: t.colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: p.colors.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
                         <Check style={{ width: '12px', height: '12px', color: 'white' }} />
                       </div>
                     )}
                     <div style={{
                       width: '40px', height: '40px', borderRadius: '12px',
-                      background: sel ? t.colors.gradientHeader : '#F1F5F9',
+                      background: sel ? p.colors.accentLighter : '#F3F4F6',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <Icon style={{ width: '20px', height: '20px', color: sel ? 'white' : t.colors.muted }} />
+                      <Icon style={{ width: '20px', height: '20px', color: sel ? p.colors.accent : p.colors.muted }} />
                     </div>
                     <span style={{
                       fontSize: '12px', fontWeight: 600, textAlign: 'center', lineHeight: 1.3,
-                      color: sel ? t.colors.primaryDark : t.colors.heading,
+                      color: sel ? p.colors.accentDark : p.colors.heading,
                     }}>
                       {cat.label}
                     </span>
@@ -333,7 +333,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               })}
             </div>
             {validationErrors.selectedCategory && (
-              <p style={{ fontSize: '12px', color: t.colors.danger, marginBottom: '8px' }}>{validationErrors.selectedCategory}</p>
+              <p style={{ fontSize: '12px', color: p.colors.danger, marginBottom: '8px' }}>{validationErrors.selectedCategory}</p>
             )}
 
             {ws.selectedCategory && ws.selectedCategory !== 'custom' && (
@@ -353,43 +353,43 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             )}
 
             <div style={{ marginTop: '24px' }}>
-              <label style={{ ...t.typography.label, display: 'block', marginBottom: '8px' }}>
-                Brand Logo <span style={{ fontWeight: 400, color: t.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
+              <label style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
+                Brand Logo <span style={{ fontWeight: 400, color: p.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
               </label>
               {ws.logoUrl ? (
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: '12px',
-                  padding: '12px 16px', borderRadius: t.radius.md,
-                  border: `1.5px solid ${t.colors.border}`, background: '#FAFBFC',
+                  padding: '12px 16px', borderRadius: p.radius.md,
+                  border: `1px solid ${p.colors.border}`, background: p.colors.surfaceRaised,
                 }}>
-                  <img src={ws.logoUrl} alt="Logo" style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '8px', background: 'white', border: `1px solid ${t.colors.borderLight}` }} />
+                  <img src={ws.logoUrl} alt="Logo" style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '8px', background: 'white', border: `1px solid ${p.colors.borderLight}` }} />
                   <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: '13px', fontWeight: 500, color: t.colors.heading }}>Logo uploaded</p>
-                    <p style={{ fontSize: '11px', color: t.colors.muted }}>PNG, JPG, or SVG</p>
+                    <p style={{ fontSize: '13px', fontWeight: 500, color: p.colors.heading }}>Logo uploaded</p>
+                    <p style={{ fontSize: '11px', color: p.colors.muted }}>PNG, JPG, or SVG</p>
                   </div>
                   <button data-testid="button-remove-logo" onClick={() => set('logoUrl', '')}
-                    style={{ width: '36px', height: '36px', borderRadius: '8px', border: `1px solid ${t.colors.border}`, background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Trash2 style={{ width: '14px', height: '14px', color: t.colors.danger }} />
+                    style={{ width: '36px', height: '36px', borderRadius: '8px', border: `1px solid ${p.colors.border}`, background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Trash2 style={{ width: '14px', height: '14px', color: p.colors.danger }} />
                   </button>
                 </div>
               ) : (
                 <label data-testid="button-upload-logo" style={{
                   display: 'flex', alignItems: 'center', gap: '10px',
-                  padding: '14px 16px', borderRadius: t.radius.md,
-                  border: `1.5px dashed ${t.colors.border}`, background: '#FAFBFC',
-                  cursor: 'pointer', transition: t.transitions.fast,
+                  padding: '14px 16px', borderRadius: p.radius.md,
+                  border: `1.5px dashed ${p.colors.border}`, background: p.colors.surfaceRaised,
+                  cursor: 'pointer', transition: p.transitions.fast,
                 }}>
-                  <Upload style={{ width: '18px', height: '18px', color: t.colors.subtle }} />
-                  <span style={{ fontSize: '14px', color: t.colors.muted }}>Upload PNG, JPG or SVG</span>
+                  <Upload style={{ width: '18px', height: '18px', color: p.colors.subtle }} />
+                  <span style={{ fontSize: '14px', color: p.colors.muted }}>Upload PNG, JPG or SVG</span>
                   <input type="file" accept=".png,.jpg,.jpeg,.svg" onChange={handleLogoUpload} style={{ display: 'none' }} />
                 </label>
               )}
-              {logoError && <p data-testid="text-logo-error" style={{ fontSize: '12px', color: t.colors.danger, marginTop: '6px' }}>{logoError}</p>}
+              {logoError && <p data-testid="text-logo-error" style={{ fontSize: '12px', color: p.colors.danger, marginTop: '6px' }}>{logoError}</p>}
             </div>
 
             <div style={{ marginTop: '18px' }}>
-              <label htmlFor="tagline" style={{ ...t.typography.label, display: 'block', marginBottom: '8px' }}>
-                Tagline <span style={{ fontWeight: 400, color: t.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
+              <label htmlFor="tagline" style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
+                Tagline <span style={{ fontWeight: 400, color: p.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
               </label>
               <div style={{ position: 'relative' }}>
                 <input id="tagline" data-testid="input-tagline"
@@ -400,7 +400,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 />
                 <span style={{
                   position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-                  fontSize: '11px', color: ws.tagline.length > 100 ? t.colors.warning : t.colors.subtle,
+                  fontSize: '11px', color: ws.tagline.length > 100 ? p.colors.warning : p.colors.subtle,
                   fontWeight: 500, pointerEvents: 'none',
                 }}>
                   {ws.tagline.length}/120
@@ -429,12 +429,12 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             </div>
 
             <div style={{
-              marginTop: '20px', padding: '14px 16px', borderRadius: t.radius.md,
-              background: t.colors.primaryLighter, border: `1px solid ${t.colors.primaryLighter}`,
+              marginTop: '20px', padding: '14px 16px', borderRadius: p.radius.md,
+              background: p.colors.accentLighter, border: `1px solid ${p.colors.accentLighter}`,
               display: 'flex', alignItems: 'flex-start', gap: '10px',
             }}>
-              <Sparkles style={{ width: '16px', height: '16px', color: t.colors.primary, flexShrink: 0, marginTop: '1px' }} />
-              <p style={{ fontSize: '13px', color: t.colors.primaryDark, lineHeight: 1.5 }}>
+              <Sparkles style={{ width: '16px', height: '16px', color: p.colors.accent, flexShrink: 0, marginTop: '1px' }} />
+              <p style={{ fontSize: '13px', color: p.colors.accentDark, lineHeight: 1.5 }}>
                 The more detail you provide, the better your AI-generated pricing will be.
               </p>
             </div>
@@ -445,39 +445,39 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
         {step === 2 && !generateMutation.isPending && (
           <div className="animate-fade-in-up">
-            <label style={{ ...t.typography.label, display: 'block', marginBottom: '12px' }}>
+            <label style={{ ...p.typography.label, display: 'block', marginBottom: '12px' }}>
               Brand Color
             </label>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '24px' }}>
-              {['#2563EB', '#0ea5e9', '#0891B2', '#059669', '#f59e0b', '#ef4444', '#7C3AED', '#ec4899'].map(color => (
+              {['#0284C7', '#0ea5e9', '#2563EB', '#059669', '#f59e0b', '#ef4444', '#7C3AED', '#ec4899'].map(color => (
                 <button
                   key={color}
                   data-testid={`color-option-${color.replace('#', '')}`}
                   onClick={() => set('primaryColor', color)}
                   style={{
-                    width: '44px', height: '44px', borderRadius: '50%', backgroundColor: color,
-                    border: ws.primaryColor === color ? '3px solid #0F172A' : '2px solid transparent',
+                    width: '40px', height: '40px', borderRadius: '50%', backgroundColor: color,
+                    border: ws.primaryColor === color ? `3px solid ${p.colors.heading}` : '2px solid transparent',
                     cursor: 'pointer', transform: ws.primaryColor === color ? 'scale(1.15)' : 'scale(1)',
-                    transition: t.transitions.spring,
-                    boxShadow: ws.primaryColor === color ? `0 4px 14px ${color}50` : '0 1px 3px rgba(0,0,0,0.1)',
+                    transition: p.transitions.spring,
+                    boxShadow: ws.primaryColor === color ? `0 4px 14px ${color}40` : '0 1px 3px rgba(0,0,0,0.08)',
                     outline: 'none', WebkitTapHighlightColor: 'transparent',
                   }}
                 />
               ))}
-              <div style={{ width: '1px', height: '28px', background: t.colors.border, margin: '0 2px' }} />
+              <div style={{ width: '1px', height: '24px', background: p.colors.border, margin: '0 2px' }} />
               <input data-testid="input-custom-color" type="color" value={ws.primaryColor}
                 onChange={e => set('primaryColor', e.target.value)}
-                style={{ width: '44px', height: '44px', borderRadius: '50%', border: `2px solid ${t.colors.border}`, cursor: 'pointer', padding: '3px', background: 'white' }} />
+                style={{ width: '40px', height: '40px', borderRadius: '50%', border: `1px solid ${p.colors.border}`, cursor: 'pointer', padding: '3px', background: 'white' }} />
             </div>
 
             <div style={{
-              padding: '16px', borderRadius: t.radius.lg, border: `1.5px solid ${t.colors.border}`,
-              display: 'flex', alignItems: 'center', gap: '14px', background: '#FAFBFC',
+              padding: '16px', borderRadius: p.radius.lg, border: `1px solid ${p.colors.border}`,
+              display: 'flex', alignItems: 'center', gap: '14px', background: p.colors.surfaceRaised,
             }}>
-              <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: ws.primaryColor, transition: t.transitions.normal, flexShrink: 0, boxShadow: `0 4px 12px ${ws.primaryColor}30` }} />
+              <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: ws.primaryColor, transition: p.transitions.normal, flexShrink: 0, boxShadow: `0 4px 12px ${ws.primaryColor}25` }} />
               <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '14px', fontWeight: 600, color: t.colors.heading, marginBottom: '2px' }}>{ws.businessName || 'Your Business'}</p>
-                <p style={{ fontSize: '12px', color: t.colors.muted }}>{selectedTradeLabel || 'Your Trade'}</p>
+                <p style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, marginBottom: '2px' }}>{ws.businessName || 'Your Business'}</p>
+                <p style={{ fontSize: '12px', color: p.colors.muted }}>{selectedTradeLabel || 'Your Trade'}</p>
               </div>
             </div>
 
@@ -491,8 +491,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             </Footer>
 
             {genError && (
-              <div className="animate-fade-in-up" style={{ marginTop: '14px', padding: '12px 16px', borderRadius: t.radius.md, background: t.colors.dangerLight, border: '1px solid #FCA5A5', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <AlertCircle style={{ width: '15px', height: '15px', color: t.colors.danger, flexShrink: 0 }} />
+              <div className="animate-fade-in-up" style={{ marginTop: '14px', padding: '12px 16px', borderRadius: p.radius.md, background: p.colors.dangerLight, border: '1px solid #FCA5A5', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <AlertCircle style={{ width: '15px', height: '15px', color: p.colors.danger, flexShrink: 0 }} />
                 <span style={{ fontSize: '13px', color: '#991B1B' }}>{genError}</span>
               </div>
             )}
@@ -509,7 +509,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
         {step === 3 && !result && (
           <div className="animate-fade-in-up" style={{ textAlign: 'center', padding: '24px 0' }}>
-            <p style={{ fontSize: '14px', color: t.colors.muted, marginBottom: '16px' }}>
+            <p style={{ fontSize: '14px', color: p.colors.muted, marginBottom: '16px' }}>
               Your previous session expired. Let's generate a fresh calculator.
             </p>
             <PrimaryBtn testId="button-back-to-generate" onClick={() => setStep(2)} fullWidth>
@@ -536,81 +536,81 @@ function LivePreview({ ws, tradeLabel, categoryLabel, isOpen, onToggle, step }: 
   if (step === 3) return null;
 
   return (
-    <div style={{ marginTop: '20px', borderTop: `1px solid ${t.colors.borderLight}`, paddingTop: '16px' }}>
+    <div style={{ marginTop: '20px', borderTop: `1px solid ${p.colors.borderLight}`, paddingTop: '16px' }}>
       <button data-testid="button-live-preview-toggle" onClick={onToggle}
         style={{
-          width: '100%', padding: '12px 16px', borderRadius: t.radius.md,
-          border: `1.5px solid ${t.colors.border}`, background: '#FAFBFC',
+          width: '100%', padding: '12px 16px', borderRadius: p.radius.md,
+          border: `1px solid ${p.colors.border}`, background: p.colors.surfaceRaised,
           cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           WebkitTapHighlightColor: 'transparent',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Eye style={{ width: '16px', height: '16px', color: t.colors.primary }} />
+          <Eye style={{ width: '16px', height: '16px', color: p.colors.accent }} />
           <div style={{ textAlign: 'left' }}>
-            <span style={{ fontSize: '14px', fontWeight: 600, color: t.colors.heading, display: 'block' }}>Live Quote Preview</span>
-            <span style={{ fontSize: '11px', color: t.colors.muted }}>See how your calculator will appear to customers.</span>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, display: 'block' }}>Live Quote Preview</span>
+            <span style={{ fontSize: '11px', color: p.colors.muted }}>See how your calculator will appear to customers.</span>
           </div>
         </div>
         <ChevronDown style={{
-          width: '18px', height: '18px', color: t.colors.muted,
-          transition: t.transitions.fast, transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
+          width: '18px', height: '18px', color: p.colors.muted,
+          transition: p.transitions.fast, transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
         }} />
       </button>
 
       {isOpen && (
-        <div className="animate-expand" style={{
-          marginTop: '10px', padding: '20px', borderRadius: t.radius.md,
-          border: `1.5px solid ${t.colors.border}`, background: 'white',
+        <div className="animate-expand widget-scope" style={{
+          marginTop: '10px', padding: '20px', borderRadius: p.radius.md,
+          border: `1px solid ${p.colors.border}`, background: 'white',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
             {ws.logoUrl ? (
               <img data-testid="preview-logo" src={ws.logoUrl} alt="Logo" style={{ width: '40px', height: '40px', objectFit: 'contain', borderRadius: '8px' }} />
             ) : (
-              <div data-testid="preview-logo-placeholder" style={{ width: '40px', height: '40px', borderRadius: '8px', background: ws.primaryColor || t.colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div data-testid="preview-logo-placeholder" style={{ width: '40px', height: '40px', borderRadius: '8px', background: ws.primaryColor || '#0284C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ fontSize: '16px', fontWeight: 700, color: 'white' }}>
                   {(ws.businessName || 'Q').charAt(0).toUpperCase()}
                 </span>
               </div>
             )}
             <div style={{ flex: 1 }}>
-              <p data-testid="preview-business-name" style={{ fontSize: '16px', fontWeight: 700, color: t.colors.heading }}>
+              <p data-testid="preview-business-name" style={{ fontSize: '16px', fontWeight: 700, color: p.colors.heading }}>
                 {ws.businessName || 'Your Business Name'}
               </p>
               {ws.tagline && (
-                <p data-testid="preview-tagline" style={{ fontSize: '12px', color: t.colors.muted, marginTop: '2px' }}>{ws.tagline}</p>
+                <p data-testid="preview-tagline" style={{ fontSize: '12px', color: p.colors.muted, marginTop: '2px' }}>{ws.tagline}</p>
               )}
             </div>
           </div>
 
           <div style={{
-            padding: '12px 16px', borderRadius: t.radius.sm,
-            background: t.colors.primaryLighter, marginBottom: '12px',
+            padding: '12px 16px', borderRadius: p.radius.sm,
+            background: '#F3F4F6', marginBottom: '12px',
           }}>
-            <p style={{ fontSize: '11px', fontWeight: 700, color: t.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Category</p>
-            <p data-testid="preview-category" style={{ fontSize: '14px', fontWeight: 500, color: t.colors.heading }}>
+            <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Category</p>
+            <p data-testid="preview-category" style={{ fontSize: '14px', fontWeight: 500, color: p.colors.heading }}>
               {categoryLabel || ws.customRequest.serviceOffered || 'Not selected'}
             </p>
             {tradeLabel && (
-              <p data-testid="preview-trade" style={{ fontSize: '12px', color: t.colors.muted, marginTop: '2px' }}>{tradeLabel}</p>
+              <p data-testid="preview-trade" style={{ fontSize: '12px', color: p.colors.muted, marginTop: '2px' }}>{tradeLabel}</p>
             )}
           </div>
 
           {ws.businessDescription && (
-            <div style={{ padding: '12px 16px', borderRadius: t.radius.sm, background: '#F8FAFC' }}>
-              <p style={{ fontSize: '11px', fontWeight: 700, color: t.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Services</p>
-              <p style={{ fontSize: '13px', color: t.colors.body, lineHeight: 1.5 }}>{ws.businessDescription}</p>
+            <div style={{ padding: '12px 16px', borderRadius: p.radius.sm, background: '#F9FAFB' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Services</p>
+              <p style={{ fontSize: '13px', color: p.colors.body, lineHeight: 1.5 }}>{ws.businessDescription}</p>
             </div>
           )}
 
           <div style={{
-            marginTop: '12px', padding: '10px 16px', borderRadius: t.radius.sm,
-            background: `${ws.primaryColor || t.colors.primary}12`,
-            border: `1px solid ${ws.primaryColor || t.colors.primary}20`,
+            marginTop: '12px', padding: '10px 16px', borderRadius: p.radius.sm,
+            background: `${ws.primaryColor || '#0284C7'}0A`,
+            border: `1px solid ${ws.primaryColor || '#0284C7'}18`,
             display: 'flex', alignItems: 'center', gap: '8px',
           }}>
-            <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: ws.primaryColor || t.colors.primary }} />
-            <span style={{ fontSize: '12px', color: t.colors.muted }}>Brand color: <strong>{ws.primaryColor || t.colors.primary}</strong></span>
+            <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: ws.primaryColor || '#0284C7' }} />
+            <span style={{ fontSize: '12px', color: p.colors.muted }}>Brand color: <strong>{ws.primaryColor || '#0284C7'}</strong></span>
           </div>
         </div>
       )}
@@ -622,10 +622,10 @@ function LivePreview({ ws, tradeLabel, categoryLabel, isOpen, onToggle, step }: 
 function SummaryCard({ ws, tradeLabel }: { ws: WizardState; tradeLabel: string }) {
   return (
     <div style={{
-      marginTop: '20px', padding: '16px', borderRadius: t.radius.md,
-      background: '#F8FAFC', border: `1px solid ${t.colors.borderLight}`,
+      marginTop: '20px', padding: '16px', borderRadius: p.radius.md,
+      background: p.colors.surfaceRaised, border: `1px solid ${p.colors.borderLight}`,
     }}>
-      <p style={{ fontSize: '11px', fontWeight: 700, color: t.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
+      <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
         Summary
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -642,8 +642,8 @@ function SummaryCard({ ws, tradeLabel }: { ws: WizardState; tradeLabel: string }
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-      <span style={{ fontSize: '12px', color: t.colors.muted, flexShrink: 0, minWidth: '60px' }}>{label}</span>
-      <span style={{ fontSize: '13px', fontWeight: 500, color: t.colors.heading, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{value}</span>
+      <span style={{ fontSize: '12px', color: p.colors.muted, flexShrink: 0, minWidth: '60px' }}>{label}</span>
+      <span style={{ fontSize: '13px', fontWeight: 500, color: p.colors.heading, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{value}</span>
     </div>
   );
 }
@@ -662,34 +662,34 @@ function GeneratingAnimation({ progress, businessName }: { progress: number; bus
   return (
     <div className="animate-fade-in" style={{ textAlign: 'center', padding: '16px 0 8px' }}>
       <div style={{
-        width: '64px', height: '64px', borderRadius: '50%',
-        background: t.colors.gradientHeader,
+        width: '56px', height: '56px', borderRadius: '50%',
+        background: p.colors.accent,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         margin: '0 auto 20px',
-        boxShadow: `0 8px 24px ${t.colors.primaryGlow}`,
+        boxShadow: `0 8px 24px ${p.colors.accentGlow}`,
       }}>
-        <Loader2 style={{ width: '28px', height: '28px', color: 'white', animation: 'spin 1.2s linear infinite' }} />
+        <Loader2 style={{ width: '24px', height: '24px', color: 'white', animation: 'spin 1.2s linear infinite' }} />
       </div>
 
-      <h3 style={{ fontSize: '18px', fontWeight: 700, color: t.colors.heading, marginBottom: '6px' }}>
+      <h3 style={{ fontSize: '18px', fontWeight: 700, color: p.colors.heading, marginBottom: '6px' }}>
         Building {businessName || 'Your Calculator'}
       </h3>
-      <p style={{ fontSize: '13px', color: t.colors.muted, marginBottom: '24px', minHeight: '20px' }}>
+      <p style={{ fontSize: '13px', color: p.colors.muted, marginBottom: '24px', minHeight: '20px' }}>
         {messages[msgIndex]}
       </p>
 
       <div style={{
-        height: '6px', borderRadius: '3px',
-        background: t.colors.borderLight, overflow: 'hidden',
+        height: '4px', borderRadius: '2px',
+        background: p.colors.borderLight, overflow: 'hidden',
         margin: '0 8px',
       }}>
         <div style={{
           height: '100%', width: `${progress}%`,
-          background: t.colors.gradientHeader, borderRadius: '3px',
+          background: p.colors.accent, borderRadius: '2px',
           transition: 'width 0.4s ease-out',
         }} />
       </div>
-      <p style={{ fontSize: '12px', color: t.colors.subtle, marginTop: '8px' }}>
+      <p style={{ fontSize: '12px', color: p.colors.subtle, marginTop: '8px' }}>
         {Math.round(progress)}%
       </p>
     </div>
@@ -712,7 +712,7 @@ function LaunchStep({ result, showEmbed, onToggleEmbed, onStartOver }: {
           background: 'linear-gradient(135deg, #059669 0%, #10B981 100%)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           margin: '0 auto 12px',
-          boxShadow: '0 8px 24px rgba(16, 185, 129, 0.25)',
+          boxShadow: '0 8px 24px rgba(16, 185, 129, 0.2)',
         }}>
           <Check style={{ width: '28px', height: '28px', color: 'white' }} />
         </div>
@@ -733,36 +733,36 @@ function LaunchStep({ result, showEmbed, onToggleEmbed, onStartOver }: {
         onClick={onToggleEmbed}
         style={{
           width: '100%', marginTop: '16px', padding: '12px 16px',
-          borderRadius: t.radius.md, border: `1.5px solid ${t.colors.border}`,
+          borderRadius: p.radius.md, border: `1px solid ${p.colors.border}`,
           background: '#FFFFFF', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          fontSize: '14px', fontWeight: 500, color: t.colors.heading,
-          transition: t.transitions.fast,
+          fontSize: '14px', fontWeight: 500, color: p.colors.heading,
+          transition: p.transitions.fast,
           WebkitTapHighlightColor: 'transparent',
         }}
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Code2 style={{ width: '16px', height: '16px', color: t.colors.primary }} />
+          <Code2 style={{ width: '16px', height: '16px', color: p.colors.accent }} />
           Embed on Your Website
         </span>
         <ChevronDown style={{
-          width: '16px', height: '16px', color: t.colors.muted,
-          transition: t.transitions.fast,
+          width: '16px', height: '16px', color: p.colors.muted,
+          transition: p.transitions.fast,
           transform: showEmbed ? 'rotate(180deg)' : 'rotate(0)',
         }} />
       </button>
 
       {showEmbed && (
         <div className="animate-expand" style={{
-          marginTop: '8px', padding: '14px', borderRadius: t.radius.md,
-          background: '#0F172A', border: 'none',
+          marginTop: '8px', padding: '14px', borderRadius: p.radius.md,
+          background: '#111827', border: 'none',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: '#94A3B8', letterSpacing: '0.04em', textTransform: 'uppercase' }}>HTML</span>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#9CA3AF', letterSpacing: '0.04em', textTransform: 'uppercase' }}>HTML</span>
             <CopyBtn text={embedCode} size="small" />
           </div>
           <pre style={{
-            fontSize: '11px', color: '#E2E8F0', lineHeight: 1.6,
+            fontSize: '11px', color: '#E5E7EB', lineHeight: 1.6,
             whiteSpace: 'pre-wrap', wordBreak: 'break-all',
             fontFamily: 'monospace', margin: 0,
           }}>
@@ -772,10 +772,10 @@ function LaunchStep({ result, showEmbed, onToggleEmbed, onStartOver }: {
       )}
 
       <div style={{
-        marginTop: '16px', padding: '14px 16px', background: t.colors.primaryLighter,
-        borderRadius: t.radius.md, fontSize: '13px', color: t.colors.primaryDark,
+        marginTop: '16px', padding: '14px 16px', background: p.colors.accentLighter,
+        borderRadius: p.radius.md, fontSize: '13px', color: p.colors.accentDark,
         display: 'flex', alignItems: 'flex-start', gap: '10px',
-        border: `1px solid ${t.colors.primaryLighter}`,
+        border: `1px solid ${p.colors.accentLighter}`,
       }}>
         <AlertCircle style={{ width: '16px', height: '16px', flexShrink: 0, marginTop: '1px' }} />
         <span><strong>Bookmark your links.</strong> The edit link expires in 7 days.</span>
@@ -786,11 +786,11 @@ function LaunchStep({ result, showEmbed, onToggleEmbed, onStartOver }: {
         onClick={onStartOver}
         style={{
           width: '100%', marginTop: '16px', padding: '12px',
-          borderRadius: t.radius.md, border: `1.5px solid ${t.colors.border}`,
+          borderRadius: p.radius.md, border: `1px solid ${p.colors.border}`,
           background: '#FFFFFF', cursor: 'pointer', fontSize: '14px',
-          fontWeight: 500, color: t.colors.muted,
+          fontWeight: 500, color: p.colors.muted,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-          transition: t.transitions.fast,
+          transition: p.transitions.fast,
           WebkitTapHighlightColor: 'transparent',
         }}
       >
@@ -813,50 +813,51 @@ function Shell({ children, step, total, onHelp, title, subtitle, generating, gen
   return (
     <div style={{
       borderRadius: '20px', overflow: 'visible',
-      background: '#FFFFFF', boxShadow: t.shadows.wizardCard,
+      background: '#FFFFFF', boxShadow: p.shadows.wizardCard,
+      border: `1px solid ${p.colors.border}`,
     }}>
-      <div className="wizard-gradient-header" style={{
-        padding: '24px 20px 28px', color: 'white', position: 'relative',
-        borderRadius: '20px 20px 0 0',
+      <div style={{
+        padding: '20px 24px 20px', position: 'relative',
+        borderRadius: '20px 20px 0 0', borderBottom: `1px solid ${p.colors.borderLight}`,
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.85 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.04em', color: p.colors.muted }}>
             Step {step + 1} of {total}
           </span>
           <button data-testid="button-help" onClick={onHelp}
             style={{
-              width: '30px', height: '30px', borderRadius: '50%',
-              border: '1.5px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.15)',
+              width: '28px', height: '28px', borderRadius: '50%',
+              border: `1px solid ${p.colors.border}`, background: '#FFFFFF',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               WebkitTapHighlightColor: 'transparent',
             }}
             aria-label="Help"
           >
-            <HelpCircle style={{ width: '16px', height: '16px', color: 'white' }} />
+            <HelpCircle style={{ width: '15px', height: '15px', color: p.colors.subtle }} />
           </button>
         </div>
 
         {title && (
           <div style={{ marginBottom: '4px' }}>
-            <h2 style={{ fontSize: '22px', fontWeight: 700, lineHeight: 1.2, marginBottom: '4px' }}>{title}</h2>
-            {subtitle && <p style={{ fontSize: '13px', opacity: 0.8, lineHeight: 1.4 }}>{subtitle}</p>}
+            <h2 style={{ fontSize: '20px', fontWeight: 700, lineHeight: 1.2, marginBottom: '4px', color: p.colors.heading }}>{title}</h2>
+            {subtitle && <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.4 }}>{subtitle}</p>}
           </div>
         )}
 
         <div style={{
-          height: '4px', borderRadius: '2px',
-          background: 'rgba(255,255,255,0.25)',
-          marginTop: '16px', overflow: 'hidden',
+          height: '3px', borderRadius: '2px',
+          background: p.colors.borderLight,
+          marginTop: '14px', overflow: 'hidden',
         }}>
           <div style={{
             height: '100%', width: `${progress}%`,
-            background: 'white', borderRadius: '2px',
+            background: p.colors.accent, borderRadius: '2px',
             transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
           }} />
         </div>
       </div>
 
-      <div style={{ padding: '24px 20px 20px', position: 'relative' }}>
+      <div style={{ padding: '24px 24px 20px', position: 'relative' }}>
         {children}
       </div>
     </div>
@@ -871,9 +872,9 @@ function InputField({ id, testId, label, sublabel, required, value, onChange, pl
 }) {
   return (
     <div>
-      <label htmlFor={id} style={{ ...t.typography.label, display: 'block', marginBottom: '8px' }}>
-        {label} {required && <span style={{ color: t.colors.danger }}>*</span>}
-        {sublabel && <span style={{ fontWeight: 400, color: t.colors.subtle, textTransform: 'none', fontSize: '11px', marginLeft: '4px' }}>{sublabel}</span>}
+      <label htmlFor={id} style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
+        {label} {required && <span style={{ color: p.colors.danger }}>*</span>}
+        {sublabel && <span style={{ fontWeight: 400, color: p.colors.subtle, textTransform: 'none', fontSize: '11px', marginLeft: '4px' }}>{sublabel}</span>}
       </label>
       {multiline ? (
         <textarea id={id} data-testid={testId} value={value}
@@ -883,10 +884,10 @@ function InputField({ id, testId, label, sublabel, required, value, onChange, pl
         <input id={id} data-testid={testId} type={type || 'text'}
           value={value} onChange={e => onChange(e.target.value)}
           placeholder={placeholder} className="premium-input"
-          style={error ? { borderColor: t.colors.danger } : undefined}
+          style={error ? { borderColor: p.colors.danger } : undefined}
         />
       )}
-      {error && <p style={{ fontSize: '12px', color: t.colors.danger, marginTop: '4px' }}>{error}</p>}
+      {error && <p style={{ fontSize: '12px', color: p.colors.danger, marginTop: '4px' }}>{error}</p>}
     </div>
   );
 }
@@ -926,28 +927,28 @@ function TradeDropdown({ trades, searched, selectedId, selectedLabel, search, is
 
   return (
     <div className="animate-fade-in" style={{ marginBottom: '8px' }}>
-      <label style={{ ...t.typography.label, display: 'block', marginBottom: '8px' }}>
-        Choose Your Primary Trade <span style={{ color: t.colors.danger }}>*</span>
+      <label style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
+        Choose Your Primary Trade <span style={{ color: p.colors.danger }}>*</span>
       </label>
       <button ref={triggerRef} data-testid="trade-dropdown-trigger" onClick={onToggle}
         style={{
-          width: '100%', padding: '14px 16px', borderRadius: t.radius.md,
-          border: `1.5px solid ${isOpen ? t.colors.primary : error ? t.colors.danger : t.colors.border}`,
+          width: '100%', padding: '12px 16px', borderRadius: p.radius.md,
+          border: `1px solid ${isOpen ? p.colors.accent : error ? p.colors.danger : p.colors.border}`,
           background: '#FFFFFF', cursor: 'pointer', textAlign: 'left',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          fontSize: '15px', color: selectedId ? t.colors.heading : t.colors.subtle,
-          transition: t.transitions.fast,
-          boxShadow: isOpen ? t.shadows.focus : 'none',
+          fontSize: '15px', color: selectedId ? p.colors.heading : p.colors.subtle,
+          transition: p.transitions.fast,
+          boxShadow: isOpen ? p.shadows.focus : 'none',
           WebkitTapHighlightColor: 'transparent',
         }}
       >
         <span>{selectedLabel || 'Choose a trade...'}</span>
         <ChevronDown style={{
-          width: '18px', height: '18px', color: t.colors.muted,
-          transition: t.transitions.fast, transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
+          width: '18px', height: '18px', color: p.colors.muted,
+          transition: p.transitions.fast, transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
         }} />
       </button>
-      {error && !isOpen && <p style={{ fontSize: '12px', color: t.colors.danger, marginTop: '4px' }}>{error}</p>}
+      {error && !isOpen && <p style={{ fontSize: '12px', color: p.colors.danger, marginTop: '4px' }}>{error}</p>}
 
       {isOpen && createPortal(
         <>
@@ -956,44 +957,44 @@ function TradeDropdown({ trades, searched, selectedId, selectedLabel, search, is
             position: 'fixed',
             top: `${dropdownPos.top}px`, left: `${dropdownPos.left}px`,
             width: `${dropdownPos.width}px`,
-            borderRadius: t.radius.md,
-            border: `1.5px solid ${t.colors.border}`, background: '#FFFFFF',
-            boxShadow: t.shadows.xl, zIndex: 50, overflow: 'hidden',
+            borderRadius: p.radius.md,
+            border: `1px solid ${p.colors.border}`, background: '#FFFFFF',
+            boxShadow: p.shadows.xl, zIndex: 50, overflow: 'hidden',
           }}>
-            <div style={{ padding: '10px 12px', borderBottom: `1px solid ${t.colors.borderLight}` }}>
+            <div style={{ padding: '10px 12px', borderBottom: `1px solid ${p.colors.borderLight}` }}>
               <div style={{ position: 'relative' }}>
-                <Search style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: t.colors.subtle }} />
+                <Search style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: p.colors.subtle }} />
                 <input ref={searchRef} data-testid="trade-search-input" value={search}
                   onChange={e => onSearch(e.target.value)} placeholder="Search trades..."
                   style={{
                     width: '100%', padding: '10px 12px 10px 34px', borderRadius: '8px',
-                    border: `1px solid ${t.colors.border}`, fontSize: '14px',
-                    background: t.colors.surfaceRaised, boxSizing: 'border-box', outline: 'none',
+                    border: `1px solid ${p.colors.border}`, fontSize: '14px',
+                    background: p.colors.surfaceRaised, boxSizing: 'border-box', outline: 'none',
                   }}
-                  onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = t.colors.primary; }}
-                  onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = t.colors.border; }}
+                  onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = p.colors.accent; }}
+                  onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = p.colors.border; }}
                 />
               </div>
             </div>
             <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
               {searched.length === 0 ? (
-                <div style={{ padding: '20px 16px', textAlign: 'center', fontSize: '13px', color: t.colors.muted }}>
+                <div style={{ padding: '20px 16px', textAlign: 'center', fontSize: '13px', color: p.colors.muted }}>
                   No trades found for "{search}"
                 </div>
               ) : searched.map(tr => (
                 <button key={tr.id} data-testid={`trade-option-${tr.id}`} onClick={() => onSelect(tr)}
                   style={{
                     width: '100%', padding: '12px 16px', border: 'none',
-                    background: tr.id === selectedId ? t.colors.primaryLighter : 'transparent',
+                    background: tr.id === selectedId ? p.colors.accentLighter : 'transparent',
                     cursor: 'pointer', textAlign: 'left', fontSize: '14px',
-                    color: tr.id === selectedId ? t.colors.primaryDark : t.colors.body,
+                    color: tr.id === selectedId ? p.colors.accentDark : p.colors.body,
                     fontWeight: tr.id === selectedId ? 600 : 400,
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    transition: t.transitions.fast, WebkitTapHighlightColor: 'transparent',
+                    transition: p.transitions.fast, WebkitTapHighlightColor: 'transparent',
                   }}
                 >
                   <span>{tr.label}</span>
-                  {tr.id === selectedId && <Check style={{ width: '16px', height: '16px', color: t.colors.primary }} />}
+                  {tr.id === selectedId && <Check style={{ width: '16px', height: '16px', color: p.colors.accent }} />}
                 </button>
               ))}
             </div>
@@ -1013,7 +1014,7 @@ function CustomPanel({ cr, errors, submitting, onUpdate, onSubmit }: {
   if (cr.submitted) {
     return (
       <div className="animate-fade-in" style={{
-        padding: '20px', borderRadius: t.radius.lg,
+        padding: '20px', borderRadius: p.radius.lg,
         background: '#ECFDF5', border: `1.5px solid #A7F3D0`, marginBottom: '8px',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
@@ -1031,13 +1032,13 @@ function CustomPanel({ cr, errors, submitting, onUpdate, onSubmit }: {
 
   return (
     <div className="animate-expand" style={{
-      padding: '20px', borderRadius: t.radius.lg,
-      background: '#FFFFFF', border: `1.5px dashed ${t.colors.border}`, marginBottom: '8px',
+      padding: '20px', borderRadius: p.radius.lg,
+      background: '#FFFFFF', border: `1.5px dashed ${p.colors.border}`, marginBottom: '8px',
     }}>
-      <h4 style={{ fontSize: '15px', fontWeight: 600, color: t.colors.heading, marginBottom: '4px' }}>
+      <h4 style={{ fontSize: '15px', fontWeight: 600, color: p.colors.heading, marginBottom: '4px' }}>
         Request a Custom Quote Tool
       </h4>
-      <p style={{ fontSize: '13px', color: t.colors.muted, marginBottom: '18px', lineHeight: 1.5 }}>
+      <p style={{ fontSize: '13px', color: p.colors.muted, marginBottom: '18px', lineHeight: 1.5 }}>
         Tell us about your service and we'll build it for you.
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -1078,12 +1079,12 @@ function MiniField({ label, required, optional, error, children }: {
 }) {
   return (
     <div>
-      <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500, color: t.colors.body }}>
-        {label} {required && <span style={{ color: t.colors.danger }}>*</span>}
-        {optional && <span style={{ fontWeight: 400, color: t.colors.subtle, fontSize: '11px' }}> (optional)</span>}
+      <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500, color: p.colors.body }}>
+        {label} {required && <span style={{ color: p.colors.danger }}>*</span>}
+        {optional && <span style={{ fontWeight: 400, color: p.colors.subtle, fontSize: '11px' }}> (optional)</span>}
       </label>
       {children}
-      {error && <p style={{ fontSize: '12px', color: t.colors.danger, marginTop: '4px' }}>{error}</p>}
+      {error && <p style={{ fontSize: '12px', color: p.colors.danger, marginTop: '4px' }}>{error}</p>}
     </div>
   );
 }
@@ -1097,17 +1098,17 @@ function Footer({ onBack, onNext, nextDisabled, backDisabled, children }: {
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       marginTop: '28px', paddingTop: '20px',
-      borderTop: `1px solid ${t.colors.borderLight}`,
+      borderTop: `1px solid ${p.colors.borderLight}`,
     }}>
       <button data-testid="button-back"
         onClick={backDisabled ? undefined : onBack} disabled={backDisabled}
         style={{
           display: 'flex', alignItems: 'center', gap: '6px',
-          padding: '12px 16px', borderRadius: t.radius.md,
-          border: `1.5px solid ${t.colors.border}`, background: 'white',
+          padding: '10px 16px', borderRadius: p.radius.md,
+          border: `1px solid ${p.colors.border}`, background: 'white',
           cursor: backDisabled ? 'default' : 'pointer',
-          fontSize: '14px', fontWeight: 500, color: backDisabled ? t.colors.subtle : t.colors.muted,
-          transition: t.transitions.fast, opacity: backDisabled ? 0.5 : 1,
+          fontSize: '14px', fontWeight: 500, color: backDisabled ? p.colors.subtle : p.colors.muted,
+          transition: p.transitions.fast, opacity: backDisabled ? 0.5 : 1,
           WebkitTapHighlightColor: 'transparent', minHeight: '44px',
         }}
       >
@@ -1137,12 +1138,12 @@ function PrimaryBtn({ children, onClick, disabled, loading, testId, fullWidth, s
       onMouseDown={() => setPressed(true)} onMouseUp={() => setPressed(false)}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-        padding: '12px 24px', borderRadius: t.radius.md, border: 'none',
-        background: disabled && !loading ? '#CBD5E1' : (hovered && !disabled ? t.colors.gradientButtonHover : t.colors.gradientButton),
-        color: disabled && !loading ? '#94A3B8' : 'white',
+        padding: '10px 22px', borderRadius: p.radius.md, border: 'none',
+        background: disabled && !loading ? '#D1D5DB' : (hovered && !disabled ? p.colors.accentDark : p.colors.accent),
+        color: disabled && !loading ? '#9CA3AF' : 'white',
         cursor: disabled ? (loading ? 'wait' : 'not-allowed') : 'pointer',
         fontSize: '14px', fontWeight: 600,
-        boxShadow: disabled ? 'none' : (hovered && !disabled ? t.shadows.buttonHover : t.shadows.button),
+        boxShadow: disabled ? 'none' : (hovered && !disabled ? p.shadows.buttonHover : p.shadows.button),
         opacity: loading ? 0.9 : 1,
         width: fullWidth ? '100%' : 'auto',
         transform: pressed && !disabled ? 'scale(0.98)' : (hovered && !disabled ? 'translateY(-1px)' : 'none'),
@@ -1193,7 +1194,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
         display: 'flex',
         alignItems: isMobile ? 'flex-end' : 'center',
         justifyContent: 'center',
-        background: 'rgba(15, 23, 42, 0.4)',
+        background: 'rgba(0, 0, 0, 0.2)',
         backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
         padding: isMobile ? '0' : '20px',
       }}
@@ -1204,8 +1205,8 @@ function HelpModal({ onClose }: { onClose: () => void }) {
           width: '100%',
           maxWidth: isMobile ? '100%' : '420px',
           background: '#FFFFFF',
-          borderRadius: isMobile ? `${t.radius.xl} ${t.radius.xl} 0 0` : t.radius.xl,
-          boxShadow: t.shadows.xl,
+          borderRadius: isMobile ? `${p.radius.xl} ${p.radius.xl} 0 0` : p.radius.xl,
+          boxShadow: p.shadows.xl,
           padding: '24px 20px 28px',
           outline: 'none',
           maxHeight: isMobile ? '85vh' : '80vh',
@@ -1214,19 +1215,19 @@ function HelpModal({ onClose }: { onClose: () => void }) {
         }}
       >
         {isMobile && (
-          <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: t.colors.border, margin: '0 auto 16px' }} />
+          <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: p.colors.border, margin: '0 auto 16px' }} />
         )}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h3 style={{ fontSize: '20px', fontWeight: 700, color: t.colors.heading }}>How it works</h3>
+          <h3 style={{ fontSize: '20px', fontWeight: 700, color: p.colors.heading }}>How it works</h3>
           <button data-testid="button-close-help" onClick={onClose} aria-label="Close"
             style={{
               width: '32px', height: '32px', borderRadius: '50%',
-              border: 'none', background: t.colors.borderLight,
+              border: 'none', background: p.colors.borderLight,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
-            <X style={{ width: '16px', height: '16px', color: t.colors.muted }} />
+            <X style={{ width: '16px', height: '16px', color: p.colors.muted }} />
           </button>
         </div>
 
@@ -1239,13 +1240,13 @@ function HelpModal({ onClose }: { onClose: () => void }) {
             <div key={item.n} style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
               <div style={{
                 width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
-                background: t.colors.primaryLighter,
+                background: p.colors.accentLighter,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '14px', fontWeight: 700, color: t.colors.primary,
+                fontSize: '14px', fontWeight: 700, color: p.colors.accent,
               }}>
                 {item.n}
               </div>
-              <p style={{ fontSize: '15px', fontWeight: 500, color: t.colors.heading, lineHeight: 1.4 }}>
+              <p style={{ fontSize: '15px', fontWeight: 500, color: p.colors.heading, lineHeight: 1.4 }}>
                 {item.text}
               </p>
             </div>
@@ -1254,34 +1255,34 @@ function HelpModal({ onClose }: { onClose: () => void }) {
 
         <p style={{
           fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-          color: t.colors.subtle, marginBottom: '12px',
+          color: p.colors.subtle, marginBottom: '12px',
         }}>
           Questions
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', borderTop: `1px solid ${t.colors.borderLight}` }}>
+        <div style={{ display: 'flex', flexDirection: 'column', borderTop: `1px solid ${p.colors.borderLight}` }}>
           {faqs.map((faq, i) => (
-            <div key={i} style={{ borderBottom: `1px solid ${t.colors.borderLight}` }}>
+            <div key={i} style={{ borderBottom: `1px solid ${p.colors.borderLight}` }}>
               <button
                 data-testid={`faq-toggle-${i}`}
                 onClick={() => setExpandedQ(expandedQ === i ? null : i)}
                 style={{
                   width: '100%', padding: '14px 0', border: 'none', background: 'none',
                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  fontSize: '14px', fontWeight: 500, color: t.colors.heading, textAlign: 'left',
+                  fontSize: '14px', fontWeight: 500, color: p.colors.heading, textAlign: 'left',
                   WebkitTapHighlightColor: 'transparent',
                 }}
               >
                 <span>{faq.q}</span>
                 <ChevronDown style={{
-                  width: '16px', height: '16px', color: t.colors.muted, flexShrink: 0,
-                  transition: t.transitions.fast,
+                  width: '16px', height: '16px', color: p.colors.muted, flexShrink: 0,
+                  transition: p.transitions.fast,
                   transform: expandedQ === i ? 'rotate(180deg)' : 'rotate(0)',
                 }} />
               </button>
               {expandedQ === i && (
                 <div className="animate-expand" style={{ paddingBottom: '14px' }}>
-                  <p style={{ fontSize: '13px', color: t.colors.muted, lineHeight: 1.6 }}>{faq.a}</p>
+                  <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.6 }}>{faq.a}</p>
                 </div>
               )}
             </div>
@@ -1289,10 +1290,10 @@ function HelpModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div style={{
-          marginTop: '24px', padding: '16px', borderRadius: t.radius.md,
-          background: t.colors.primaryLighter, textAlign: 'center',
+          marginTop: '24px', padding: '16px', borderRadius: p.radius.md,
+          background: p.colors.accentLighter, textAlign: 'center',
         }}>
-          <p style={{ fontSize: '14px', fontWeight: 500, color: t.colors.heading, marginBottom: '12px' }}>
+          <p style={{ fontSize: '14px', fontWeight: 500, color: p.colors.heading, marginBottom: '12px' }}>
             Need something custom?
           </p>
           <button
@@ -1300,11 +1301,11 @@ function HelpModal({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '6px',
-              padding: '10px 20px', borderRadius: t.radius.md, border: 'none',
-              background: t.colors.gradientButton, color: 'white',
+              padding: '10px 20px', borderRadius: p.radius.md, border: 'none',
+              background: p.colors.accent, color: 'white',
               cursor: 'pointer', fontSize: '14px', fontWeight: 600,
-              boxShadow: t.shadows.button,
-              transition: t.transitions.fast,
+              boxShadow: p.shadows.button,
+              transition: p.transitions.fast,
               WebkitTapHighlightColor: 'transparent',
             }}
           >
@@ -1323,12 +1324,12 @@ function LinkRow({ label, url, icon, actionLabel, onAction }: {
 }) {
   return (
     <div>
-      <label style={{ fontSize: '11px', fontWeight: 700, color: t.colors.muted, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+      <label style={{ fontSize: '11px', fontWeight: 700, color: p.colors.muted, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
         {icon} {label}
       </label>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F8FAFC', borderRadius: '10px', padding: '8px 10px', border: `1px solid ${t.colors.border}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: p.colors.surfaceRaised, borderRadius: '10px', padding: '8px 10px', border: `1px solid ${p.colors.border}` }}>
         <span data-testid={`text-url-${label.toLowerCase().replace(/[^a-z]/g, '-')}`}
-          style={{ fontSize: '11px', color: t.colors.body, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{url}</span>
+          style={{ fontSize: '11px', color: p.colors.body, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{url}</span>
         <CopyBtn text={url} />
         {actionLabel && onAction && (
           <button data-testid={`action-${label.toLowerCase().replace(/[^a-z]/g, '-')}`}
@@ -1336,7 +1337,7 @@ function LinkRow({ label, url, icon, actionLabel, onAction }: {
             style={{
               display: 'flex', alignItems: 'center', gap: '4px',
               padding: '6px 10px', borderRadius: '8px', border: 'none',
-              background: t.colors.gradientButton, color: 'white',
+              background: p.colors.accent, color: 'white',
               cursor: 'pointer', fontSize: '12px', fontWeight: 600,
               minHeight: '32px', flexShrink: 0,
               WebkitTapHighlightColor: 'transparent',
@@ -1358,12 +1359,12 @@ function CopyBtn({ text, size }: { text: string; size?: 'small' }) {
       style={{
         display: 'flex', alignItems: 'center', gap: '4px',
         padding: size === 'small' ? '4px 8px' : '6px 10px',
-        borderRadius: '8px', border: size === 'small' ? 'none' : `1px solid ${t.colors.border}`,
+        borderRadius: '8px', border: size === 'small' ? 'none' : `1px solid ${p.colors.border}`,
         background: size === 'small' ? 'rgba(255,255,255,0.1)' : 'white',
         cursor: 'pointer',
         fontSize: '12px', fontWeight: 500,
-        color: size === 'small' ? '#E2E8F0' : t.colors.muted,
-        transition: t.transitions.fast, minHeight: '32px',
+        color: size === 'small' ? '#E5E7EB' : p.colors.muted,
+        transition: p.transitions.fast, minHeight: '32px',
         WebkitTapHighlightColor: 'transparent',
       }}
     >

@@ -1,7 +1,7 @@
 # QuickQuote - SaaS Quote Calculator Builder
 
 ## Overview
-A SaaS application that enables trades businesses (plumbing, concrete, cleaning, etc.) to create instant quote calculators, embed them on websites, and collect leads. Responsive mobile-first design with navy + clean blue premium theme.
+A SaaS application that enables trades businesses (plumbing, concrete, cleaning, etc.) to create instant quote calculators, embed them on websites, and collect leads. Responsive mobile-first design with premium sage/neutral SaaS aesthetic.
 
 ## Architecture
 - **Frontend**: React + TypeScript + Wouter routing + Tailwind CSS + Shadcn UI
@@ -10,14 +10,36 @@ A SaaS application that enables trades businesses (plumbing, concrete, cleaning,
 - **AI**: OpenAI via Replit AI Integrations (gpt-5-mini for pricing generation)
 - **Auth**: Token-based edit access (7-day expiry tokens, no user auth required)
 
+## Theme Architecture (IMPORTANT)
+Two separate theme systems to maintain strict isolation:
+
+### PlatformTheme (Builder UI)
+- **File**: `client/src/theme/platformTheme.ts`
+- **Purpose**: Generic premium SaaS aesthetic for the wizard builder, edit pages, leads dashboard
+- **Accent**: Sage #2D6A4F (used sparingly for buttons, active states, highlights)
+- **Surfaces**: Neutral whites/grays (#F7F8FA page bg, #FFFFFF cards)
+- **Shadows**: Soft, minimal elevation (card: 0 1px 3px)
+- **Typography**: Inter font stack, #111827 headings, #374151 body, #6B7280 muted
+- **Rule**: Platform UI must NEVER be affected by client widget theme changes
+
+### WidgetTheme (Customer Calculator)
+- **File**: `client/src/theme/widgetTheme.ts`
+- **Purpose**: Per-client calculator appearance, isolated within .widget-scope container
+- **Default accent**: Sky blue #0284C7
+- **Dynamic**: Each calculator has its own primary_color that drives the entire widget palette
+- **CSS isolation**: Applied only within `.widget-scope` class
+
+### Theme Utilities
+- `client/src/components/themeUtils.tsx` - Bridge helper, wraps widgetTheme
+- `client/src/components/designTokens.tsx` - DEPRECATED (old navy/indigo tokens, kept for reference)
+
 ## Design System
-- **Theme**: Navy (#0B1F3A) + clean blue (#2563EB) accent, gradient headers #0B1F3A → #132D52 → #1A3A68
 - **Pattern**: Mobile-first, card-based layouts with soft shadows, fully responsive desktop
-- **Design Tokens**: `client/src/components/designTokens.tsx` (colors, shadows, radius, typography)
 - **Touch**: Min 44px touch targets, full-width inputs on mobile
 - **Animations**: CSS keyframe animations (fadeInUp, scaleIn, slideUp, checkmark, modalFadeIn, modalScaleIn, modalSlideUp)
 - **Hover**: Use `hover-elevate` and `active-elevate-2` utility classes for interactive elements
 - **No emojis**: Use lucide-react icons instead
+- **Premium inputs**: `.premium-input` class with sage focus states (border + ring)
 
 ## Key Features
 1. **Wizard (4-step)**: Business Details -> Service Info -> Brand & Generate -> Launch
@@ -44,10 +66,13 @@ server/db.ts              - Database connection
 client/src/App.tsx         - Wouter routing setup
 client/src/pages/          - Page components (wizard, calculator, edit-calculator, leads)
 client/src/components/     - Reusable components
-  wizard/WizardCard.tsx    - 4-step wizard form (indigo theme, portal dropdown, help modal, live preview)
+  wizard/WizardCard.tsx    - 4-step wizard form (sage/neutral theme, portal dropdown, help modal, live preview)
   calculator/CalculatorWidget.tsx - Customer-facing quote calculator
-  designTokens.tsx         - Design system tokens (indigo/blue palette)
-  themeUtils.tsx           - Theme override utilities for calculator theming
+  designTokens.tsx         - DEPRECATED design system tokens
+  themeUtils.tsx           - Widget theme bridge utility
+client/src/theme/          - Theme architecture
+  platformTheme.ts         - Builder UI theme (sage accent, neutral surfaces)
+  widgetTheme.ts           - Widget theme generator (per-client colors)
 client/src/data/trades.ts  - 8 categories, ~80 trades dataset
 ```
 
@@ -69,25 +94,26 @@ client/src/data/trades.ts  - 8 categories, ~80 trades dataset
 
 ## Design Decisions
 - Mobile-first: 480px max-width wizard card, centered on desktop
-- Page title "Build Your Instant Quote System" above wizard
-- Wizard card with deep indigo gradient header (#1E1B4B → #312E81 → #4338CA)
-- Premium inputs with indigo focus states
-- Progress bar in header (white on indigo gradient)
+- Page title "Set Up Your Instant Quote Engine" above wizard
+- Wizard card with white/neutral header, sage accent progress bar
+- Premium inputs with sage focus states (#2D6A4F border + ring)
+- Progress bar in header (sage on light gray)
 - Category selection: 2-col grid with icon cards, check badge on selection, hover-elevate
 - Trade dropdown: portal-rendered to prevent clipping, searchable with type-ahead, overlay behind
 - Help modal: createPortal, backdrop-blur, responsive (centered dialog on desktop, bottom sheet on mobile)
 - Live Preview: accordion below wizard content, shows business name, logo, tagline, category, trade, color
 - Custom category: inline form for requesting new trade support
-- Color picker: 8 presets + native color input
-- Generation: animated progress bar with status messages
+- Color picker: 8 presets (sky blue default) + native color input
+- Generation: animated progress bar with sage accent
 - Launch: copy-to-clipboard links, expandable embed code section
 - All API routes use Zod validation schemas
 - All frontend data fetching uses @tanstack/react-query (useQuery, useMutation)
 - Token expiry enforced on all token-gated routes
 - Foreign key constraint on leads.calculator_id referencing calculators.id
-- Wizard-bg: soft blue-gray gradient (#F0F4FF → #EFF2F7 → #F8FAFC → #F1F5F9)
+- Wizard-bg: neutral #F7F8FA
 
 ## Recent Changes
+- Feb 23 2026: Theme architecture separation - PlatformTheme (sage #2D6A4F builder) vs WidgetTheme (per-client colors). Replaced navy/indigo with neutral/sage. White wizard header. Widget CSS isolation via .widget-scope.
 - Feb 23 2026: Navy + blue theme overhaul (replaced all indigo/purple with navy #0B1F3A + blue #2563EB), premium text copy, button hover/press effects, wizard card shadow depth
 - Feb 23 2026: Premium theme overhaul (emerald → indigo), Help Modal rebuild (Base44 match), Live Preview accordion, trade dropdown portal fix, logo upload, tagline with counter, inline validation
 - Feb 23 2026: Complete mobile-first wizard rebuild with 4-step flow, AI generation with loading animation, launch page with embed code

@@ -48,8 +48,8 @@ function UrlRow({ url }: { url: string }) {
 function SectionHeader({ icon: Icon, title, iconBg, iconColor }: { icon: any; title: string; iconBg?: string; iconColor?: string }) {
   return (
     <div className="flex items-center gap-2.5 mb-4">
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconBg || 'bg-blue-50'}`}>
-        <Icon className={`w-4 h-4 ${iconColor || 'text-blue-600'}`} />
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconBg || 'bg-emerald-50'}`}>
+        <Icon className={`w-4 h-4 ${iconColor || 'text-emerald-700'}`} />
       </div>
       <h3 className="font-semibold text-slate-800 text-sm">{title}</h3>
     </div>
@@ -209,7 +209,7 @@ function QuestionEditor({
   );
 }
 
-const PRESET_COLORS = ['#2563EB', '#0ea5e9', '#0891B2', '#059669', '#f59e0b', '#ef4444', '#7C3AED', '#ec4899'];
+const PRESET_COLORS = ['#0284C7', '#0ea5e9', '#2563EB', '#059669', '#f59e0b', '#ef4444', '#7C3AED', '#ec4899'];
 
 export default function EditCalculator() {
   const params = new URLSearchParams(window.location.search);
@@ -394,7 +394,7 @@ export default function EditCalculator() {
                   </div>
                 </div>
               ) : (
-                <Button onClick={() => duplicateMutation.mutate()} disabled={duplicateMutation.isPending || calculator.is_duplicated} className="w-full bg-blue-600 hover:bg-blue-700 h-11" data-testid="button-duplicate">
+                <Button onClick={() => duplicateMutation.mutate()} disabled={duplicateMutation.isPending || calculator.is_duplicated} className="w-full bg-emerald-700 hover:bg-emerald-800 h-11" data-testid="button-duplicate">
                   {duplicateMutation.isPending ? <><Loader2 className="mr-2 w-4 h-4 animate-spin" /> Duplicating...</> : <><RefreshCw className="mr-2 w-4 h-4" /> Duplicate & Get New Edit Period</>}
                 </Button>
               )}
@@ -470,7 +470,7 @@ export default function EditCalculator() {
                         data-testid={`color-${color.replace('#', '')}`} />
                     ))}
                     <div className="w-px h-6 bg-slate-200 mx-1" />
-                    <input type="color" data-testid="input-edit-custom-color" value={editData.primary_color || '#2563EB'} onChange={e => set('primary_color', e.target.value)}
+                    <input type="color" data-testid="input-edit-custom-color" value={editData.primary_color || '#0284C7'} onChange={e => set('primary_color', e.target.value)}
                       className="w-9 h-9 rounded-full border-2 border-slate-200 cursor-pointer p-0.5 bg-white" />
                   </div>
                 </div>
@@ -562,7 +562,7 @@ export default function EditCalculator() {
           <Button
             onClick={handleSave}
             disabled={saveMutation.isPending}
-            className={`w-full h-12 text-sm font-semibold transition-all ${saved ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+            className={`w-full h-12 text-sm font-semibold transition-all ${saved ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-emerald-700 hover:bg-emerald-800'}`}
             data-testid="button-save"
           >
             {saveMutation.isPending ? (
