@@ -318,11 +318,12 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     <div data-testid={`icon-container-${cat.id}`} style={{
                       width: '40px', height: '40px', borderRadius: '12px',
                       background: sel ? '#2D6A4F' : '#EF4444',
-                      border: sel ? 'none' : '1.5px solid #EF4444',
+                      border: `1.5px solid ${sel ? '#2D6A4F' : '#EF4444'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'background 0.25s ease, border 0.25s ease',
+                      transition: 'background 0.25s ease, border-color 0.25s ease',
+                      flexShrink: 0,
                     }}>
-                      <Icon style={{ width: '20px', height: '20px', color: 'white' }} />
+                      <Icon style={{ width: '20px', height: '20px', color: 'white', flexShrink: 0 }} />
                     </div>
                     <span style={{
                       fontSize: '12px', fontWeight: 600, textAlign: 'center', lineHeight: 1.3,
@@ -829,13 +830,13 @@ function Shell({ children, step, total, onHelp, title, subtitle, generating, gen
           <button data-testid="button-help" onClick={onHelp}
             style={{
               width: '28px', height: '28px', borderRadius: '50%',
-              border: `1px solid ${p.colors.border}`, background: '#FFFFFF',
+              border: '1px solid #BFDBFE', background: '#EFF6FF',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               WebkitTapHighlightColor: 'transparent',
             }}
             aria-label="Help"
           >
-            <HelpCircle style={{ width: '15px', height: '15px', color: p.colors.subtle }} />
+            <HelpCircle style={{ width: '15px', height: '15px', color: '#3B82F6' }} />
           </button>
         </div>
 
