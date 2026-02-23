@@ -41,15 +41,29 @@ const updateCalculatorBody = z.object({
   token: z.string().min(1),
   updates: z.object({
     business_name: z.string().optional(),
-    tagline: z.string().optional(),
-    logo_url: z.string().optional(),
-    owner_email: z.string().optional(),
-    owner_phone: z.string().optional(),
-    website_url: z.string().optional(),
+    tagline: z.string().nullable().optional(),
+    logo_url: z.string().nullable().optional(),
+    owner_email: z.string().nullable().optional(),
+    owner_phone: z.string().nullable().optional(),
+    website_url: z.string().nullable().optional(),
     primary_color: z.string().optional(),
-    cta_button_text: z.string().optional(),
-    lead_thank_you_message: z.string().optional(),
-    theme_overrides: z.record(z.any()).optional(),
+    cta_button_text: z.string().nullable().optional(),
+    lead_thank_you_message: z.string().nullable().optional(),
+    theme_overrides: z.record(z.any()).nullable().optional(),
+    pricing_config: z.object({
+      questions: z.array(z.object({
+        id: z.string(),
+        label: z.string(),
+        type: z.string(),
+        options: z.array(z.object({
+          label: z.string(),
+          value: z.string(),
+          price_impact: z.number(),
+        })),
+      })),
+      base_price: z.number(),
+      currency: z.string(),
+    }).optional(),
   }),
 });
 
