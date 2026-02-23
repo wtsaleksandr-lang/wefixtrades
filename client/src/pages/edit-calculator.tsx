@@ -48,8 +48,8 @@ function UrlRow({ url }: { url: string }) {
 function SectionHeader({ icon: Icon, title, iconBg, iconColor }: { icon: any; title: string; iconBg?: string; iconColor?: string }) {
   return (
     <div className="flex items-center gap-2.5 mb-4">
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconBg || 'bg-indigo-50'}`}>
-        <Icon className={`w-4 h-4 ${iconColor || 'text-indigo-500'}`} />
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconBg || 'bg-blue-50'}`}>
+        <Icon className={`w-4 h-4 ${iconColor || 'text-blue-600'}`} />
       </div>
       <h3 className="font-semibold text-slate-800 text-sm">{title}</h3>
     </div>
@@ -394,7 +394,7 @@ export default function EditCalculator() {
                   </div>
                 </div>
               ) : (
-                <Button onClick={() => duplicateMutation.mutate()} disabled={duplicateMutation.isPending || calculator.is_duplicated} className="w-full bg-indigo-600 hover:bg-indigo-700 h-11" data-testid="button-duplicate">
+                <Button onClick={() => duplicateMutation.mutate()} disabled={duplicateMutation.isPending || calculator.is_duplicated} className="w-full bg-blue-600 hover:bg-blue-700 h-11" data-testid="button-duplicate">
                   {duplicateMutation.isPending ? <><Loader2 className="mr-2 w-4 h-4 animate-spin" /> Duplicating...</> : <><RefreshCw className="mr-2 w-4 h-4" /> Duplicate & Get New Edit Period</>}
                 </Button>
               )}
@@ -562,7 +562,7 @@ export default function EditCalculator() {
           <Button
             onClick={handleSave}
             disabled={saveMutation.isPending}
-            className={`w-full h-12 text-sm font-semibold transition-all ${saved ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+            className={`w-full h-12 text-sm font-semibold transition-all ${saved ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'}`}
             data-testid="button-save"
           >
             {saveMutation.isPending ? (
