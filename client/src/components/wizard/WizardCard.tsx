@@ -394,20 +394,23 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               <label htmlFor="tagline" style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
                 Tagline <span style={{ fontWeight: 400, color: p.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
               </label>
-              <div style={{ position: 'relative' }}>
+              <div>
                 <input id="tagline" data-testid="input-tagline"
                   value={ws.tagline} onChange={e => { if (e.target.value.length <= 120) set('tagline', e.target.value); }}
                   placeholder="e.g. Trusted concrete specialists serving the GTA."
                   className="premium-input"
                   maxLength={120}
                 />
-                <span style={{
-                  position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-                  fontSize: '11px', color: ws.tagline.length > 100 ? p.colors.warning : p.colors.subtle,
-                  fontWeight: 500, pointerEvents: 'none',
+                <div style={{
+                  display: 'flex', justifyContent: 'flex-end', marginTop: '4px',
                 }}>
-                  {ws.tagline.length}/120
-                </span>
+                  <span style={{
+                    fontSize: '11px', color: ws.tagline.length > 100 ? p.colors.warning : p.colors.subtle,
+                    fontWeight: 500,
+                  }}>
+                    {ws.tagline.length}/120
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1110,7 +1113,7 @@ function Footer({ onBack, onNext, nextDisabled, backDisabled, children }: {
           padding: '10px 16px', borderRadius: p.radius.md,
           border: '1px solid #F5D76E', background: '#FEF9E7',
           cursor: backDisabled ? 'default' : 'pointer',
-          fontSize: '14px', fontWeight: 500, color: backDisabled ? p.colors.subtle : '#111827',
+          fontSize: '14px', fontWeight: 600, color: backDisabled ? p.colors.subtle : '#000000',
           transition: p.transitions.fast, opacity: backDisabled ? 0.5 : 1,
           WebkitTapHighlightColor: 'transparent', minHeight: '44px',
         }}
