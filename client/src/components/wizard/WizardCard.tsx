@@ -317,7 +317,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     )}
                     <div data-testid={`icon-container-${cat.id}`} style={{
                       width: '40px', height: '40px', borderRadius: '12px',
-                      background: sel ? '#2D6A4F' : '#FEE2E2',
+                      background: sel ? '#2D6A4F' : '#EF4444',
                       border: sel ? 'none' : '1.5px solid #EF4444',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: 'background 0.25s ease, border 0.25s ease',
