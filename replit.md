@@ -1,7 +1,7 @@
 # QuickQuote - SaaS Quote Calculator Builder
 
 ## Overview
-A SaaS application that enables trades businesses (plumbing, concrete, cleaning, etc.) to create instant quote calculators, embed them on websites, and collect leads. Responsive mobile-first design with deep indigo/blue premium theme.
+A SaaS application that enables trades businesses (plumbing, concrete, cleaning, etc.) to create instant quote calculators, embed them on websites, and collect leads. Responsive mobile-first design with navy + clean blue premium theme.
 
 ## Architecture
 - **Frontend**: React + TypeScript + Wouter routing + Tailwind CSS + Shadcn UI
@@ -11,7 +11,7 @@ A SaaS application that enables trades businesses (plumbing, concrete, cleaning,
 - **Auth**: Token-based edit access (7-day expiry tokens, no user auth required)
 
 ## Design System
-- **Theme**: Deep indigo/blue accent (#4F46E5 primary, gradient headers #1E1B4B → #312E81 → #4338CA)
+- **Theme**: Navy (#0B1F3A) + clean blue (#2563EB) accent, gradient headers #0B1F3A → #132D52 → #1A3A68
 - **Pattern**: Mobile-first, card-based layouts with soft shadows, fully responsive desktop
 - **Design Tokens**: `client/src/components/designTokens.tsx` (colors, shadows, radius, typography)
 - **Touch**: Min 44px touch targets, full-width inputs on mobile
@@ -85,9 +85,10 @@ client/src/data/trades.ts  - 8 categories, ~80 trades dataset
 - All frontend data fetching uses @tanstack/react-query (useQuery, useMutation)
 - Token expiry enforced on all token-gated routes
 - Foreign key constraint on leads.calculator_id referencing calculators.id
-- Wizard-bg: soft indigo gradient (#F0F1FF → #EEF2FF → #F8FAFC → #F1F5F9)
+- Wizard-bg: soft blue-gray gradient (#F0F4FF → #EFF2F7 → #F8FAFC → #F1F5F9)
 
 ## Recent Changes
+- Feb 23 2026: Navy + blue theme overhaul (replaced all indigo/purple with navy #0B1F3A + blue #2563EB), premium text copy, button hover/press effects, wizard card shadow depth
 - Feb 23 2026: Premium theme overhaul (emerald → indigo), Help Modal rebuild (Base44 match), Live Preview accordion, trade dropdown portal fix, logo upload, tagline with counter, inline validation
 - Feb 23 2026: Complete mobile-first wizard rebuild with 4-step flow, AI generation with loading animation, launch page with embed code
 - Feb 2026: Initial migration from Base44 to Replit fullstack

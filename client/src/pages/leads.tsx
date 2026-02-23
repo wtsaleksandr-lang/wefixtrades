@@ -156,7 +156,7 @@ export default function Leads() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-7">
-          <StatCard icon={Users} label="Total Leads" value={leadsList.length} color="#6366f1" />
+          <StatCard icon={Users} label="Total Leads" value={leadsList.length} color="#2563EB" />
           <StatCard icon={Eye} label="Calculator Views" value={totalViews} color="#0ea5e9" />
           <StatCard icon={TrendingUp} label="Conversion Rate" value={`${conversionRate}%`} color="#10b981" />
         </div>
