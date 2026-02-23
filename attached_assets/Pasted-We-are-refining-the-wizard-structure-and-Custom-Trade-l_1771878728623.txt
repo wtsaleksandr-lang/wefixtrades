@@ -1,0 +1,258 @@
+We are refining the wizard structure and Custom Trade logic. Apply the following changes carefully.
+
+WIZARD STRUCTURE (DO NOT CHANGE STEP COUNT)
+
+Keep the 6-step structure exactly as is.
+
+Step 1 – Business & Trade Setup
+Step 2 – Design Your Calculator
+Step 3 – Pricing Logic
+Step 4 – Lead Form Builder
+Step 5 – Final Test & Preview
+Step 6 – Publish & Share
+
+Do NOT restructure the wizard.
+
+STEP 1 – BUSINESS & TRADE SETUP
+
+Step 1 should only collect essential structured data.
+
+Always include:
+
+Business Name
+
+Primary Category
+
+Trade (from predefined list)
+
+Email (lead notification)
+
+Remove:
+
+Logo upload
+
+Tagline
+
+Any open text “Describe your services” fields
+
+PREDEFINED TRADES LOGIC
+
+If user selects a predefined trade:
+
+Do NOT show any extra text input fields.
+
+Do NOT show any service description field.
+
+Pricing logic will be handled in Step 3 using predefined templates (to be provided later).
+
+Keep Step 1 clean and minimal for listed trades.
+
+CUSTOM / NOT LISTED TRADE FLOW
+
+If user selects “Custom / Not Listed”:
+
+Expand a structured questionnaire below using mostly toggles and checkboxes.
+
+Avoid open text fields as much as possible.
+
+Use the following structured inputs:
+
+How do you usually charge?
+(radio buttons)
+
+Per hour
+
+Per square foot
+
+Per linear foot
+
+Per item
+
+Fixed project price
+
+Base fee + variable
+
+Not sure
+
+Do you have a minimum charge?
+(Yes/No toggle)
+If Yes → show numeric field
+
+Do you charge a service call / trip fee?
+(Yes/No toggle)
+If Yes → show numeric field
+
+What affects the price most?
+(multi-select checkboxes)
+
+Size
+
+Time required
+
+Materials
+
+Distance
+
+Difficulty level
+
+Quantity
+
+Other (small optional text field)
+
+Typical job price range?
+
+Min amount
+
+Max amount
+
+Optional:
+
+Short description (2 lines max, optional only)
+
+Keep it simple. Use toggles, radios, and checkboxes wherever possible.
+
+CUSTOM TRADE AUTO-DRAFT (ASYNC AI)
+
+When “Custom / Not Listed” is selected and Step 1 is submitted:
+
+Immediately trigger a backend AI job to generate a draft pricing configuration.
+
+The AI must:
+
+Classify the trade into an existing pricing template family
+
+Select allowed calculation building blocks
+
+Suggest inputs
+
+Generate structured pricing configuration
+
+AI must NOT invent formulas freely.
+
+The AI output must be strict JSON only and saved inside:
+
+calculator_settings.pricing_draft
+
+Include:
+
+template_family_id
+
+inputs[]
+
+calculation_config
+
+assumptions[]
+
+confidence_score
+
+needs_human_review: true
+
+USER FLOW FOR CUSTOM TRADES
+
+After Step 1:
+
+User proceeds normally to Step 2 (Design).
+
+AI runs in background.
+
+At Step 3:
+
+If AI draft is ready → preload pricing configuration for review/edit.
+
+If still generating → show clean loading state.
+
+If confidence is low → show safe fallback (price range only / request quote) and allow regeneration.
+
+Step 3 must always require user confirmation before publish.
+
+Do NOT skip Step 3.
+
+STEP 2 – DESIGN YOUR CALCULATOR
+
+Move Logo upload and Tagline to Step 2.
+
+Step 2 contains 4 horizontal tabs:
+
+Appearance
+
+Layout
+
+Conversion
+
+Integrations
+
+Do not rename tabs.
+
+All changes must update live preview in real time, including bottom preview section.
+
+Store all customization inside single JSON object:
+
+calculator_settings
+Include: settings_version: 1
+
+Custom CSS, Custom JS, language, currency, dark mode, animation speed must be grouped under:
+
+Integrations → Advanced (Pro)
+
+Disabled by default.
+
+STEP 3 – PRICING LOGIC
+
+For predefined trades:
+
+Load prepared pricing templates (will be provided later).
+
+For custom trades:
+
+Load AI-generated draft from calculator_settings.pricing_draft.
+
+Allow user to review, edit, regenerate, and confirm.
+
+Do not auto-publish AI-generated logic.
+
+STEP 5 – FINAL TEST (QUALITY GATE)
+
+Add mandatory calculator test before publish.
+
+User must:
+
+Enter at least 3 test scenarios (low, typical, high)
+
+Confirm estimates are accurate
+
+Run automatic validation:
+
+No negative values
+
+No zero unless allowed
+
+No NaN/undefined
+
+Required inputs present
+
+Publish is locked until test is completed.
+
+HELP MODAL
+
+Keep Help modal simple with 3-step explanation only.
+
+Do NOT expand to 6 steps inside modal.
+
+The “Request Custom Tool” CTA inside modal must open the same Custom Trade questionnaire component used in Step 1.
+
+Do not create a separate logic system.
+
+Reuse the same component.
+
+REMOVE
+
+Remove any bottom text input fields shown for existing trades.
+
+Custom questionnaire should only appear when “Custom / Not Listed” is selected.
+
+DESIGN RULES
+
+Do not change global design system.
+Maintain premium neutral aesthetic.
+Use collapsible sections where needed.
+Validate GTM ID, Pixel ID, Webhook URL in Integrations tab.
