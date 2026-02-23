@@ -1,0 +1,198 @@
+We are refining the wizard structure and Custom Trade logic. Apply the following changes carefully.
+
+WIZARD STRUCTURE (DO NOT CHANGE STEP COUNT)
+
+Keep the 6-step structure exactly as is.
+
+Step 1 – Business & Trade Setup
+Step 2 – Design Your Calculator
+Step 3 – Pricing Logic (already partially prepared from previous Base44 work)
+Step 4 – Lead Form Builder
+Step 5 – Final Test & Preview
+Step 6 – Publish & Share
+
+Do NOT restructure the wizard.
+
+STEP 1 – BUSINESS & TRADE SETUP
+
+Step 1 should only collect essential structured data.
+
+Always include:
+
+Business Name
+
+Primary Category
+
+Trade (from predefined list)
+
+Email (lead notification)
+
+Remove:
+
+Logo upload
+
+Tagline
+
+Any open text “Describe your services” fields
+
+PREDEFINED TRADES LOGIC
+
+If user selects a predefined trade:
+
+Do NOT show any extra text input fields.
+
+Do NOT show any service description field.
+
+Pricing logic will be handled in Step 3 using predefined templates.
+
+Keep Step 1 clean and minimal for listed trades.
+
+CUSTOM / NOT LISTED TRADE FLOW
+
+If user selects “Custom / Not Listed”:
+
+Expand a structured questionnaire below using mostly toggles and checkboxes.
+
+Avoid open text fields as much as possible.
+
+Use the following structured inputs:
+
+How do you usually charge?
+(radio buttons)
+
+Per hour
+
+Per square foot
+
+Per linear foot
+
+Per item
+
+Fixed project price
+
+Base fee + variable
+
+Not sure
+
+Do you have a minimum charge?
+(Yes/No toggle)
+If Yes → show numeric field
+
+Do you charge a service call / trip fee?
+(Yes/No toggle)
+If Yes → show numeric field
+
+What affects the price most?
+(multi-select checkboxes)
+
+Size
+
+Time required
+
+Materials
+
+Distance
+
+Difficulty level
+
+Quantity
+
+Other (small optional text field)
+
+Typical job price range?
+
+Min amount
+
+Max amount
+
+Optional:
+
+Short description (2 lines max, optional only)
+
+Keep it simple. Use toggles, radios, and checkboxes wherever possible.
+
+This data will help AI classify into a pricing template family in Step 3.
+
+AI LOGIC SAFETY RULE
+
+AI must NOT invent formulas freely.
+
+It must:
+
+Classify the custom trade into an existing pricing template family
+
+Suggest inputs
+
+Suggest structure
+
+Final pricing logic will be confirmed in Step 3 before publishing.
+
+STEP 2 – DESIGN YOUR CALCULATOR
+
+Logo upload and Tagline move here.
+
+This step contains:
+4 horizontal tabs:
+
+Appearance
+
+Layout
+
+Conversion
+
+Integrations
+
+Do not rename tabs.
+
+All changes must update live preview in real time.
+
+STEP 3 – PRICING LOGIC
+
+We already have predefined template logic from prior Base44 implementation.
+
+Integrate custom trade questionnaire output into this step.
+
+For predefined trades → load prepared templates.
+For custom trades → map questionnaire answers to template family.
+
+STEP 5 – FINAL TEST (QUALITY GATE)
+
+Add mandatory calculator test before publish.
+
+User must:
+
+Enter at least 3 test scenarios (low, typical, high)
+
+Confirm estimates are accurate
+
+Publish is locked until completed.
+
+HELP MODAL (IMPORTANT)
+
+Keep it simple. Keep the 3-step explanation.
+
+Do NOT expand to 6 steps inside the modal.
+
+Simplicity > technical accuracy in marketing.
+
+However:
+
+The “Request Custom Tool” CTA inside modal must open the same Custom Trade questionnaire (same structured version as Step 1).
+
+Do not create a separate system.
+
+Reuse the same logic component.
+
+REMOVE
+
+Remove any bottom text input fields shown for existing trades.
+
+Custom questionnaire should only appear if “Custom / Not Listed” is selected.
+
+DESIGN RULES
+
+Do not change global design system.
+Maintain premium neutral aesthetic.
+Use collapsible sections where needed.
+Validate GTM ID, Pixel ID, Webhook URL in Integrations tab.
+Store customization in single JSON object: calculator_settings (with settings_version: 1).
