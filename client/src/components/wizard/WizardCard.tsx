@@ -309,17 +309,20 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                       <div style={{
                         position: 'absolute', top: '6px', right: '6px',
                         width: '20px', height: '20px', borderRadius: '50%',
-                        background: p.colors.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease',
                       }}>
                         <Check style={{ width: '12px', height: '12px', color: 'white' }} />
                       </div>
                     )}
-                    <div style={{
+                    <div data-testid={`icon-container-${cat.id}`} style={{
                       width: '40px', height: '40px', borderRadius: '12px',
-                      background: sel ? p.colors.accentLighter : '#F3F4F6',
+                      background: sel ? '#2D6A4F' : '#FEE2E2',
+                      border: sel ? 'none' : '1.5px solid #EF4444',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'background 0.25s ease, border 0.25s ease',
                     }}>
-                      <Icon style={{ width: '20px', height: '20px', color: sel ? p.colors.accent : p.colors.muted }} />
+                      <Icon style={{ width: '20px', height: '20px', color: 'white' }} />
                     </div>
                     <span style={{
                       fontSize: '12px', fontWeight: 600, textAlign: 'center', lineHeight: 1.3,
@@ -1106,7 +1109,7 @@ function Footer({ onBack, onNext, nextDisabled, backDisabled, children }: {
           padding: '10px 16px', borderRadius: p.radius.md,
           border: '1px solid #F5D76E', background: '#FEF9E7',
           cursor: backDisabled ? 'default' : 'pointer',
-          fontSize: '14px', fontWeight: 500, color: backDisabled ? p.colors.subtle : '#92750C',
+          fontSize: '14px', fontWeight: 500, color: backDisabled ? p.colors.subtle : '#111827',
           transition: p.transitions.fast, opacity: backDisabled ? 0.5 : 1,
           WebkitTapHighlightColor: 'transparent', minHeight: '44px',
         }}
