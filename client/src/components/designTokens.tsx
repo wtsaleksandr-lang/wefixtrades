@@ -1,16 +1,19 @@
 const COLORS = {
-  primary: '#4F46E5',
-  primaryDark: '#4338CA',
-  primaryLight: '#6366F1',
-  primaryLighter: '#EEF2FF',
-  primaryTint: 'rgba(79, 70, 229, 0.08)',
-  primaryGlow: 'rgba(99, 102, 241, 0.25)',
+  primary: '#2563EB',
+  primaryDark: '#1D4ED8',
+  primaryLight: '#3B82F6',
+  primaryLighter: '#EFF6FF',
+  primaryTint: 'rgba(37, 99, 235, 0.06)',
+  primaryGlow: 'rgba(37, 99, 235, 0.2)',
 
-  gradientStart: '#312E81',
-  gradientEnd: '#4F46E5',
-  gradientHeader: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 40%, #4338CA 100%)',
-  gradientButton: 'linear-gradient(135deg, #4F46E5 0%, #4338CA 100%)',
-  gradientButtonHover: 'linear-gradient(135deg, #4338CA 0%, #3730A3 100%)',
+  navy: '#0B1F3A',
+  navyLight: '#132D4F',
+
+  gradientStart: '#0B1F3A',
+  gradientEnd: '#132D4F',
+  gradientHeader: 'linear-gradient(135deg, #0B1F3A 0%, #132D4F 50%, #1A3A5C 100%)',
+  gradientButton: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+  gradientButtonHover: 'linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%)',
 
   success: '#059669',
   successLight: '#ECFDF5',
@@ -32,7 +35,7 @@ const COLORS = {
   border: '#E2E8F0',
   borderLight: '#F1F5F9',
   borderHover: '#CBD5E1',
-  borderSelected: '#4F46E5',
+  borderSelected: '#2563EB',
 
   textPrimary: '#0F172A',
   textSecondary: '#475569',
@@ -46,12 +49,13 @@ const SHADOWS = {
   md: '0 4px 12px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.04)',
   lg: '0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)',
   xl: '0 16px 40px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.04)',
-  button: '0 2px 8px rgba(79,70,229,0.25), 0 1px 3px rgba(79,70,229,0.15)',
-  buttonHover: '0 6px 20px rgba(79,70,229,0.35), 0 2px 6px rgba(79,70,229,0.2)',
-  focus: '0 0 0 3px rgba(79,70,229,0.2)',
-  card: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)',
+  button: '0 2px 8px rgba(37,99,235,0.2), 0 1px 3px rgba(37,99,235,0.12)',
+  buttonHover: '0 6px 20px rgba(37,99,235,0.3), 0 2px 6px rgba(37,99,235,0.15)',
+  focus: '0 0 0 3px rgba(37,99,235,0.15)',
+  card: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
   cardHover: '0 8px 25px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.04)',
-  selected: '0 0 0 2px rgba(79,70,229,0.2), 0 2px 8px rgba(79,70,229,0.1)',
+  wizardCard: '0 4px 24px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.03)',
+  selected: '0 0 0 2px rgba(37,99,235,0.15), 0 2px 8px rgba(37,99,235,0.08)',
 };
 
 const RADIUS = {
