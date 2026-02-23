@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getEffectiveTheme } from '@/components/themeUtils';
+import { getWidgetTheme } from '@/theme/widgetTheme';
 import { Loader2, PartyPopper, AlertCircle, ChevronLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -36,7 +36,7 @@ interface CalculatorWidgetProps {
 }
 
 export default function CalculatorWidget({ calculator, isEmbed = false }: CalculatorWidgetProps) {
-  const theme = getEffectiveTheme(calculator.theme_overrides);
+  const theme = getWidgetTheme(calculator.theme_overrides, calculator.primary_color);
   const config = calculator.pricing_config as PricingConfig;
   const questions = config?.questions || [];
 
@@ -47,7 +47,7 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
   const [leadSubmitted, setLeadSubmitted] = useState(false);
   const [leadData, setLeadData] = useState({ name: '', email: '', phone: '', company: '' });
 
-  const accentColor = calculator.primary_color || theme.colors.primary;
+  const accentColor = theme.colors.primary;
 
   const calculateTotal = () => {
     let total = config?.base_price || 0;

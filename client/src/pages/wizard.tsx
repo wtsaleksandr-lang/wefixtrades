@@ -1,4 +1,7 @@
 import WizardCard from '@/components/wizard/WizardCard';
+import { platformTheme } from '@/theme/platformTheme';
+
+const p = platformTheme;
 
 export default function Wizard() {
   const isEmbed = ['1', 'true'].includes(
@@ -23,13 +26,13 @@ export default function Wizard() {
         maxWidth: '600px', width: '100%',
       }}>
         <h1 style={{
-          fontSize: '24px', fontWeight: 700, color: '#0F172A',
+          fontSize: '24px', fontWeight: 700, color: p.colors.heading,
           lineHeight: 1.3, letterSpacing: '-0.01em',
           marginBottom: '6px',
         }}>
           Set Up Your Instant Quote Engine
         </h1>
-        <p style={{ fontSize: '14px', color: '#64748B', lineHeight: 1.5 }}>
+        <p style={{ fontSize: '14px', color: p.colors.muted, lineHeight: 1.5 }}>
           Customize your automated quoting system in minutes.
         </p>
       </div>
