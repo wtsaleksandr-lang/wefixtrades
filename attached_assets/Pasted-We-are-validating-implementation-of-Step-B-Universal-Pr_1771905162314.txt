@@ -1,0 +1,103 @@
+We are validating implementation of Step B (Universal Pricing Questions).
+
+Run a full structural audit and confirm whether ALL requirements below are implemented and working.
+
+Do NOT modify code yet.
+Only return:
+1) PASS / FAIL per section
+2) Missing pieces (if any)
+3) Exact file locations involved
+
+--------------------------------------------------
+SECTION 1 — STAGE 1 UI
+--------------------------------------------------
+
+Confirm:
+[ ] Stage 1 renders only when:
+     - user selects “Custom / Not Listed”
+     OR
+     - user clicks “Custom pricing” override
+[ ] Stage 1 is NOT forced for normal listed trades by default
+[ ] All fields exist:
+     - chargeModel (radio)
+     - hasMinCharge + amount
+     - hasTripFee + amount
+     - offersPackages
+     - priceDrivers (multi-select)
+     - typicalRangeMin
+     - typicalRangeMax
+     - outputPreference
+[ ] Conditional numeric fields appear/disappear correctly
+[ ] Validation blocks Continue if required fields missing
+
+--------------------------------------------------
+SECTION 2 — STAGE 2 ADAPTIVE LOGIC
+--------------------------------------------------
+
+Confirm:
+[ ] Stage 2 dynamically renders based on Stage 1 answers
+[ ] Hourly branch works (crew size + hour ranges)
+[ ] Per sqft branch works (materials + setup fee)
+[ ] Base+variable branch works (unit selector + base fee)
+[ ] Packages branch works (2–3 packages builder)
+[ ] Materials markup branch works (preset % + custom)
+[ ] Distance branch works (multiplier OR flat)
+[ ] Difficulty branch works (preset tiers)
+[ ] No essay/open text except small optional labels
+
+--------------------------------------------------
+SECTION 3 — DATA PERSISTENCE
+--------------------------------------------------
+
+Confirm:
+[ ] All Stage 1 + Stage 2 answers stored in:
+     calculator_settings.pricing_intake
+[ ] version: 1 included
+[ ] Data survives navigation forward/back
+[ ] Data survives page refresh (if applicable)
+
+--------------------------------------------------
+SECTION 4 — DETERMINISTIC MAPPER
+--------------------------------------------------
+
+Confirm:
+[ ] pricing_intake is converted into valid PricingConfigV1
+[ ] Mapping selects ONE allowed formula family only
+[ ] No legacy template_config keys are generated
+[ ] validatePricingConfig() runs before continuing
+[ ] Invalid configs block progression
+
+--------------------------------------------------
+SECTION 5 — EDGE CASES
+--------------------------------------------------
+
+Test these scenarios and confirm no crash:
+
+1) hourly + no min charge
+2) base+variable + setup fee + distance multiplier
+3) packages only
+4) materials + markup custom %
+5) user selects "not_sure"
+6) user leaves typicalRange fields empty
+
+--------------------------------------------------
+SECTION 6 — SAFETY
+--------------------------------------------------
+
+Confirm:
+[ ] No path allows arbitrary pricingType outside allowed enum
+[ ] Unknown fields are rejected
+[ ] If mapping fails → fallback to call_for_quote_only
+
+--------------------------------------------------
+
+Return structured report:
+
+OVERALL STATUS: PASS / PARTIAL / FAIL
+
+Then per section:
+Section X: PASS / FAIL
+Issues:
+- ...
+File references:
+- ...
