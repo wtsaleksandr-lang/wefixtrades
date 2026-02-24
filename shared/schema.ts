@@ -253,6 +253,17 @@ export const calculatorSettingsSchema = z.object({
     confirmed: z.boolean(),
     advanced_adjustments: z.record(z.number()).nullable(),
     timestamp: z.number(),
+    refinement: z.object({
+      version: z.number(),
+      last_tier: z.enum(['strong', 'close', 'needs_adjustment']),
+      last_answers: z.object({
+        q1: z.array(z.string()),
+        q2: z.string(),
+        q3: z.string(),
+      }),
+      tune_count: z.number(),
+      last_tuned_at: z.number().nullable(),
+    }).optional(),
   }).optional(),
 }).default({});
 
