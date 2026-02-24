@@ -7,6 +7,7 @@ import DesignStudio from './DesignStudio';
 import CustomTradeQuestionnaire from './CustomTradeQuestionnaire';
 import PricingIntakeStage2 from './PricingIntakeStage2';
 import TestGateStep, { type TestGateResult } from './TestGateStep';
+import LeadFormStep from './LeadFormStep';
 import { mapPricingIntakeToConfig } from '@shared/pricingIntakeMapper';
 import {
   Loader2, ArrowRight, ArrowLeft, Check, Sparkles, Wrench, Hammer,
@@ -23,13 +24,6 @@ const ICON_MAP: Record<string, any> = {
   Sparkles, Hammer, Layers, Wrench, AlertTriangle, Car, Briefcase, Plus,
 };
 
-interface LeadFormField {
-  id: string;
-  label: string;
-  type: 'text' | 'email' | 'phone' | 'textarea';
-  required: boolean;
-  enabled: boolean;
-}
 
 interface TestScenario {
   label: string;
@@ -52,8 +46,6 @@ interface WizardState {
   tagline: string;
   logoUrl: string;
   calculatorSettings: CalculatorSettings;
-  leadFormFields: LeadFormField[];
-  leadThankYouMessage: string;
   testScenarios: TestScenario[];
   testPassed: boolean;
   draftJobId: string;
@@ -61,13 +53,6 @@ interface WizardState {
 
 const DEFAULT_SETTINGS = calculatorSettingsSchema.parse({});
 const DEFAULT_CUSTOM_TRADE = customTradeDataSchema.parse({});
-
-const DEFAULT_LEAD_FIELDS: LeadFormField[] = [
-  { id: 'name', label: 'Full Name', type: 'text', required: true, enabled: true },
-  { id: 'email', label: 'Email Address', type: 'email', required: true, enabled: true },
-  { id: 'phone', label: 'Phone Number', type: 'phone', required: false, enabled: true },
-  { id: 'company', label: 'Company Name', type: 'text', required: false, enabled: false },
-];
 
 const EMPTY_SCENARIO: TestScenario = {
   label: '', answers: {}, expectedMin: '', expectedMax: '', confirmed: false,
@@ -87,8 +72,6 @@ const INITIAL_STATE: WizardState = {
   ownerEmail: '', primaryColor: '#0284C7',
   tagline: '', logoUrl: '',
   calculatorSettings: DEFAULT_SETTINGS,
-  leadFormFields: [...DEFAULT_LEAD_FIELDS],
-  leadThankYouMessage: 'Thanks! We\'ll be in touch soon.',
   testScenarios: [{ ...EMPTY_SCENARIO }, { ...EMPTY_SCENARIO }, { ...EMPTY_SCENARIO }],
   testPassed: false,
   draftJobId: '',
@@ -108,9 +91,8 @@ function loadState(): WizardState {
         stage2Data: parsed.stage2Data || {},
         sampleQuotes: parsed.sampleQuotes || DEFAULT_SAMPLE_QUOTES.map(q => ({ ...q, inputs: { ...q.inputs } })),
         calculatorSettings: parsed.calculatorSettings
-          ? { ...DEFAULT_SETTINGS, ...parsed.calculatorSettings }
+          ? calculatorSettingsSchema.parse(parsed.calculatorSettings)
           : DEFAULT_SETTINGS,
-        leadFormFields: parsed.leadFormFields || [...DEFAULT_LEAD_FIELDS],
         testScenarios: parsed.testScenarios || [{ ...EMPTY_SCENARIO }, { ...EMPTY_SCENARIO }, { ...EMPTY_SCENARIO }],
         draftJobId: parsed.draftJobId || '',
       };
@@ -142,7 +124,7 @@ const STEP_TITLES = [
   'Business & Trade Setup',
   'Design Your Calculator',
   'Pricing Logic',
-  'Lead Form Builder',
+  'Capture Leads',
   'Validate Your Pricing',
   'Publish & Share',
 ];
@@ -1045,90 +1027,16 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
         {/* Step 3: Lead Form Builder */}
         {step === 3 && (
-          <div className="animate-fade-in-up">
-            {ws.draftJobId && (
-              <div data-testid="draft-generating-banner" style={{
-                padding: '12px 16px', borderRadius: p.radius.md,
-                background: p.colors.accentLighter, border: `1px solid ${p.colors.accentLight}`,
-                display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px',
-              }}>
-                <Loader2 style={{ width: '16px', height: '16px', color: p.colors.accent, animation: 'spin 1s linear infinite' }} />
-                <p style={{ fontSize: '13px', color: p.colors.accentDark, margin: 0, lineHeight: 1.4 }}>
-                  AI is generating your pricing draft in the background...
-                </p>
-              </div>
-            )}
-            <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.5, marginBottom: '20px' }}>
-              Configure which fields appear on your lead capture form after a customer receives their quote.
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
-              {ws.leadFormFields.map((field, idx) => (
-                <div key={field.id} data-testid={`lead-field-${field.id}`} style={{
-                  padding: '14px 16px', borderRadius: p.radius.md,
-                  border: `1px solid ${field.enabled ? p.colors.border : p.colors.borderLight}`,
-                  background: field.enabled ? '#FFFFFF' : '#F9FAFB',
-                  display: 'flex', alignItems: 'center', gap: '12px',
-                  opacity: field.enabled ? 1 : 0.6,
-                }}>
-                  <button data-testid={`toggle-field-${field.id}`}
-                    onClick={() => {
-                      const updated = [...ws.leadFormFields];
-                      updated[idx] = { ...updated[idx], enabled: !updated[idx].enabled };
-                      set('leadFormFields', updated);
-                    }}
-                    style={{
-                      width: '44px', height: '24px', borderRadius: '12px', border: 'none',
-                      background: field.enabled ? p.colors.accent : '#D1D5DB',
-                      cursor: 'pointer', position: 'relative', flexShrink: 0,
-                      transition: 'background 0.2s ease',
-                    }}>
-                    <div style={{
-                      width: '20px', height: '20px', borderRadius: '50%', background: 'white',
-                      position: 'absolute', top: '2px',
-                      left: field.enabled ? '22px' : '2px',
-                      transition: 'left 0.2s ease',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-                    }} />
-                  </button>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: '14px', fontWeight: 500, color: p.colors.heading }}>{field.label}</p>
-                    <p style={{ fontSize: '11px', color: p.colors.muted }}>{field.type}</p>
-                  </div>
-                  {field.enabled && (
-                    <button data-testid={`toggle-required-${field.id}`}
-                      onClick={() => {
-                        const updated = [...ws.leadFormFields];
-                        updated[idx] = { ...updated[idx], required: !updated[idx].required };
-                        set('leadFormFields', updated);
-                      }}
-                      style={{
-                        padding: '4px 10px', borderRadius: '6px', border: 'none',
-                        background: field.required ? '#FEE2E2' : '#F3F4F6',
-                        cursor: 'pointer', fontSize: '11px', fontWeight: 600,
-                        color: field.required ? '#991B1B' : p.colors.muted,
-                      }}>
-                      {field.required ? 'Required' : 'Optional'}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div>
-              <label style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
-                Thank You Message
-              </label>
-              <textarea data-testid="input-thank-you-message"
-                value={ws.leadThankYouMessage}
-                onChange={e => set('leadThankYouMessage', e.target.value)}
-                className="premium-input" rows={2} maxLength={200}
-                placeholder="Thanks! We'll be in touch soon."
-                style={{ resize: 'vertical' }} />
-            </div>
-
-            <Footer onBack={() => setStep(2)} onNext={() => setStep(4)} />
-          </div>
+          <LeadFormStep
+            leadForm={ws.calculatorSettings.lead_form}
+            ownerEmail={ws.ownerEmail}
+            onChange={(lf) => {
+              set('calculatorSettings', { ...ws.calculatorSettings, lead_form: lf });
+            }}
+            onBack={() => setStep(2)}
+            onNext={() => setStep(4)}
+            draftGenerating={!!ws.draftJobId}
+          />
         )}
 
         {/* Step 4: Final Test & Preview (quality gate) */}
