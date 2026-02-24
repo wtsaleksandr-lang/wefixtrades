@@ -1,11 +1,14 @@
 import { useState, useCallback } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
 import type { CalculatorSettings } from '@shared/schema';
+import { TEMPLATE_LIBRARY, getTemplateById } from '@shared/templateLibrary';
+import type { TemplateDefinition } from '@shared/templateLibrary';
 import {
   Palette, Layout, TrendingUp, Link2, ChevronDown, ChevronRight,
   Info, Lock, Check, Type, Smartphone, Monitor, Globe, DollarSign,
   Mail, Phone, Clock, Eye, EyeOff, Calendar, ExternalLink,
-  Sparkles, AlertTriangle, Code2, Zap, Moon, Languages, Gauge
+  Sparkles, AlertTriangle, Code2, Zap, Moon, Languages, Gauge,
+  LayoutGrid, Columns2, ListOrdered, CreditCard, ShieldCheck, CalendarCheck
 } from 'lucide-react';
 
 const p = platformTheme;
@@ -24,8 +27,67 @@ interface DesignStudioProps {
   onChange: (settings: CalculatorSettings) => void;
 }
 
+const TEMPLATE_ICONS: Record<string, any> = {
+  classic_single: LayoutGrid,
+  classic_two_column: Columns2,
+  multi_step_progressive: ListOrdered,
+  package_selector: CreditCard,
+  range_only_leadgate: ShieldCheck,
+  estimate_then_book: CalendarCheck,
+};
+
 export default function DesignStudio({ settings, onChange }: DesignStudioProps) {
   const [activeTab, setActiveTab] = useState<TabId>('appearance');
+
+  const selectedTemplateId = settings.ui_template?.template_id || 'classic_single';
+
+  const selectTemplate = useCallback((template: TemplateDefinition) => {
+    onChange({
+      ...settings,
+      ui_template: {
+        ...settings.ui_template,
+        template_id: template.id,
+        version: 1,
+        layout: {
+          style: template.layout_style,
+          sticky_summary: template.defaults.sticky_summary,
+          show_breakdown: template.defaults.show_breakdown,
+          show_trust_block: template.defaults.show_trust_block,
+          show_testimonials: template.defaults.show_testimonials,
+          show_images: template.defaults.show_images,
+        },
+        inputs: {
+          ...settings.ui_template?.inputs,
+          use_sliders: settings.ui_template?.inputs?.use_sliders ?? true,
+          slider_defaults: settings.ui_template?.inputs?.slider_defaults ?? {
+            step: 1,
+            show_value_bubble: true,
+            show_min_max_labels: true,
+          },
+        },
+      },
+    });
+  }, [settings, onChange]);
+
+  const updateUiTemplateLayout = useCallback((key: string, value: any) => {
+    onChange({
+      ...settings,
+      ui_template: {
+        ...settings.ui_template,
+        layout: { ...settings.ui_template?.layout, [key]: value },
+      },
+    });
+  }, [settings, onChange]);
+
+  const updateUiTemplateInputs = useCallback((key: string, value: any) => {
+    onChange({
+      ...settings,
+      ui_template: {
+        ...settings.ui_template,
+        inputs: { ...settings.ui_template?.inputs, [key]: value },
+      },
+    });
+  }, [settings, onChange]);
 
   const updateAppearance = useCallback((key: string, value: any) => {
     onChange({ ...settings, appearance: { ...settings.appearance, [key]: value } });
@@ -43,6 +105,8 @@ export default function DesignStudio({ settings, onChange }: DesignStudioProps) 
     onChange({ ...settings, integrations: { ...settings.integrations, [key]: value } });
   }, [settings, onChange]);
 
+  const currentTemplate = getTemplateById(selectedTemplateId);
+
   return (
     <div className="animate-fade-in-up">
       <div data-testid="design-studio-remark" style={{
@@ -54,6 +118,117 @@ export default function DesignStudio({ settings, onChange }: DesignStudioProps) 
         <p style={{ fontSize: '12px', color: '#166534', lineHeight: 1.5 }}>
           All selections can be changed anytime. Custom modifications also available on request for an additional fee.
         </p>
+      </div>
+
+      <SectionHeader title="Template" />
+      <div
+        data-testid="template-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '10px',
+          marginBottom: '20px',
+        }}
+        className="template-grid-responsive"
+      >
+        {TEMPLATE_LIBRARY.map(template => {
+          const active = selectedTemplateId === template.id;
+          const Icon = TEMPLATE_ICONS[template.id] || LayoutGrid;
+          return (
+            <button
+              key={template.id}
+              data-testid={`template-card-${template.id}`}
+              onClick={() => selectTemplate(template)}
+              style={{
+                position: 'relative',
+                padding: '14px 12px',
+                borderRadius: p.radius.md,
+                border: active ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
+                background: active ? p.colors.accentLighter : '#FFFFFF',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: '6px',
+                textAlign: 'left',
+                transition: 'all 0.2s ease',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              {active && (
+                <div style={{
+                  position: 'absolute', top: '8px', right: '8px',
+                  width: '20px', height: '20px', borderRadius: '50%',
+                  background: p.colors.accent,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Check style={{ width: '12px', height: '12px', color: '#FFFFFF' }} />
+                </div>
+              )}
+              <Icon style={{
+                width: '20px', height: '20px',
+                color: active ? p.colors.accent : p.colors.subtle,
+              }} />
+              <span style={{
+                fontSize: '13px', fontWeight: 600,
+                color: active ? p.colors.accentDark : p.colors.heading,
+                lineHeight: 1.3,
+              }}>
+                {template.name}
+              </span>
+              <span style={{
+                fontSize: '11px', fontWeight: 400,
+                color: active ? p.colors.accent : p.colors.muted,
+                lineHeight: 1.4,
+              }}>
+                {template.best_for.slice(0, 3).join(', ')}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <style>{`
+        @media (min-width: 768px) {
+          .template-grid-responsive {
+            grid-template-columns: repeat(3, 1fr) !important;
+          }
+        }
+      `}</style>
+
+      <SectionHeader title="Inputs" />
+      <div style={{ marginBottom: '20px' }}>
+        <ToggleSwitch
+          value={settings.ui_template?.inputs?.use_sliders ?? true}
+          onChange={v => updateUiTemplateInputs('use_sliders', v)}
+          testId="toggle-use-sliders"
+          label="Use sliders where possible"
+          sublabel="Replace number inputs with draggable sliders"
+        />
+        <ToggleSwitch
+          value={settings.ui_template?.layout?.sticky_summary ?? false}
+          onChange={v => updateUiTemplateLayout('sticky_summary', v)}
+          testId="toggle-template-sticky-summary"
+          label="Show sticky price summary"
+          sublabel={currentTemplate?.layout_style === 'single_page' ? 'Not available for single-page templates' : 'Keep quote visible while scrolling'}
+        />
+        <ToggleSwitch
+          value={settings.ui_template?.layout?.show_breakdown ?? true}
+          onChange={v => updateUiTemplateLayout('show_breakdown', v)}
+          testId="toggle-template-breakdown"
+          label="Show breakdown"
+          sublabel="Display itemized price breakdown"
+        />
+        <ToggleSwitch
+          value={settings.ui_template?.layout?.show_trust_block ?? false}
+          onChange={v => {
+            updateUiTemplateLayout('show_trust_block', v);
+            if (!v) updateUiTemplateLayout('show_testimonials', false);
+          }}
+          testId="toggle-template-trust"
+          label="Show trust + testimonials blocks"
+          sublabel="Build credibility with trust badges and reviews"
+        />
       </div>
 
       <div data-testid="design-studio-tabs" style={{

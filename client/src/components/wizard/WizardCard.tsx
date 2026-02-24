@@ -10,6 +10,7 @@ import TestGateStep, { type TestGateResult } from './TestGateStep';
 import LeadFormStep from './LeadFormStep';
 import PublishStep from './PublishStep';
 import { mapPricingIntakeToConfig } from '@shared/pricingIntakeMapper';
+import { getRecommendedTemplate, getTemplateById } from '@shared/templateLibrary';
 import {
   Loader2, ArrowRight, ArrowLeft, Check, Sparkles, Wrench, Hammer,
   Layers, AlertTriangle, Car, Briefcase, Plus, HelpCircle, X,
@@ -170,6 +171,40 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     if (validationErrors[k]) setValidationErrors(p => { const n = { ...p }; delete n[k]; return n; });
   }, [validationErrors]);
 
+  useEffect(() => {
+    const currentTemplateId = ws.calculatorSettings.ui_template?.template_id || 'classic_single';
+    if (currentTemplateId !== 'classic_single' && currentTemplateId !== 'estimate_then_book') return;
+
+    const bookingEnabled = ws.calculatorSettings.calculator_type === 'estimate_plus_booking';
+    const tradeId = ws.selectedTrade || '';
+    const recommended = getRecommendedTemplate(tradeId, bookingEnabled);
+
+    if (recommended !== currentTemplateId) {
+      const tmpl = getTemplateById(recommended);
+      if (tmpl) {
+        setWs(prev => ({
+          ...prev,
+          calculatorSettings: {
+            ...prev.calculatorSettings,
+            ui_template: {
+              ...prev.calculatorSettings.ui_template,
+              template_id: recommended,
+              layout: {
+                ...prev.calculatorSettings.ui_template?.layout,
+                style: tmpl.layout_style,
+                sticky_summary: tmpl.defaults.sticky_summary,
+                show_breakdown: tmpl.defaults.show_breakdown,
+                show_trust_block: tmpl.defaults.show_trust_block,
+                show_testimonials: tmpl.defaults.show_testimonials,
+                show_images: tmpl.defaults.show_images,
+              },
+            },
+          },
+        }));
+      }
+    }
+  }, [ws.calculatorSettings.calculator_type]);
+
   const filteredTrades = ws.selectedCategory && ws.selectedCategory !== 'custom'
     ? getTradesByCategory(ws.selectedCategory) : [];
   const searchedTrades = tradeSearch
@@ -191,6 +226,37 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     set('selectedTrade', tr.id);
     setTradeOpen(false);
     setTradeSearch('');
+
+    const currentTemplateId = ws.calculatorSettings.ui_template?.template_id || 'classic_single';
+    if (currentTemplateId === 'classic_single') {
+      const bookingEnabled = ws.calculatorSettings.calculator_type === 'estimate_plus_booking';
+      const recommended = getRecommendedTemplate(tr.id, bookingEnabled);
+      if (recommended !== 'classic_single') {
+        const tmpl = getTemplateById(recommended);
+        if (tmpl) {
+          setWs(prev => ({
+            ...prev,
+            selectedTrade: tr.id,
+            calculatorSettings: {
+              ...prev.calculatorSettings,
+              ui_template: {
+                ...prev.calculatorSettings.ui_template,
+                template_id: recommended,
+                layout: {
+                  ...prev.calculatorSettings.ui_template?.layout,
+                  style: tmpl.layout_style,
+                  sticky_summary: tmpl.defaults.sticky_summary,
+                  show_breakdown: tmpl.defaults.show_breakdown,
+                  show_trust_block: tmpl.defaults.show_trust_block,
+                  show_testimonials: tmpl.defaults.show_testimonials,
+                  show_images: tmpl.defaults.show_images,
+                },
+              },
+            },
+          }));
+        }
+      }
+    }
   };
 
   const canContinueStep0 = () => {

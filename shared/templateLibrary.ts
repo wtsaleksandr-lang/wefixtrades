@@ -1,0 +1,164 @@
+export interface TemplateDefinition {
+  id: string;
+  name: string;
+  description: string;
+  best_for: string[];
+  layout_style: 'single_page' | 'multi_step' | 'two_column';
+  defaults: {
+    sticky_summary: boolean;
+    show_breakdown: boolean;
+    show_trust_block: boolean;
+    show_testimonials: boolean;
+    show_images: boolean;
+  };
+  features: {
+    stepper?: boolean;
+    package_cards?: boolean;
+    hides_exact_total?: boolean;
+    encourages_contact?: boolean;
+    booking_cta_emphasis?: boolean;
+  };
+}
+
+export const TEMPLATE_LIBRARY: TemplateDefinition[] = [
+  {
+    id: 'classic_single',
+    name: 'Classic (Single Page)',
+    description: 'Simple, scrollable layout — works for everything',
+    best_for: ['general', 'small_services', 'mobile_first'],
+    layout_style: 'single_page',
+    defaults: {
+      sticky_summary: false,
+      show_breakdown: true,
+      show_trust_block: false,
+      show_testimonials: false,
+      show_images: false,
+    },
+    features: {},
+  },
+  {
+    id: 'classic_two_column',
+    name: 'Classic (Two Column)',
+    description: 'Inputs on left, live price summary on right',
+    best_for: ['cleaning', 'painting', 'landscaping'],
+    layout_style: 'two_column',
+    defaults: {
+      sticky_summary: true,
+      show_breakdown: true,
+      show_trust_block: false,
+      show_testimonials: false,
+      show_images: false,
+    },
+    features: {},
+  },
+  {
+    id: 'multi_step_progressive',
+    name: 'Progressive (Multi-Step)',
+    description: 'Step-by-step with progress bar — great for complex quotes',
+    best_for: ['renovation', 'concrete', 'higher_ticket'],
+    layout_style: 'multi_step',
+    defaults: {
+      sticky_summary: true,
+      show_breakdown: true,
+      show_trust_block: true,
+      show_testimonials: false,
+      show_images: false,
+    },
+    features: { stepper: true },
+  },
+  {
+    id: 'package_selector',
+    name: 'Packages (Cards)',
+    description: 'Compare packages side-by-side as cards',
+    best_for: ['photography', 'detailing', 'moving'],
+    layout_style: 'single_page',
+    defaults: {
+      sticky_summary: false,
+      show_breakdown: true,
+      show_trust_block: false,
+      show_testimonials: false,
+      show_images: false,
+    },
+    features: { package_cards: true },
+  },
+  {
+    id: 'range_only_leadgate',
+    name: 'Range Only (Lead Gate)',
+    description: 'Shows price range, encourages contact for exact quote',
+    best_for: ['complex_quotes', 'renovation', 'roofing'],
+    layout_style: 'single_page',
+    defaults: {
+      sticky_summary: false,
+      show_breakdown: false,
+      show_trust_block: true,
+      show_testimonials: false,
+      show_images: false,
+    },
+    features: { hides_exact_total: true, encourages_contact: true },
+  },
+  {
+    id: 'estimate_then_book',
+    name: 'Estimate → Book',
+    description: 'Get estimate, then book instantly — ideal with booking enabled',
+    best_for: ['cleaning', 'photography', 'therapy', 'massage'],
+    layout_style: 'two_column',
+    defaults: {
+      sticky_summary: true,
+      show_breakdown: true,
+      show_trust_block: false,
+      show_testimonials: false,
+      show_images: false,
+    },
+    features: { booking_cta_emphasis: true },
+  },
+];
+
+export function getTemplateById(id: string): TemplateDefinition | undefined {
+  return TEMPLATE_LIBRARY.find(t => t.id === id);
+}
+
+const TRADE_TEMPLATE_MAP: Record<string, string> = {
+  house_cleaning: 'classic_two_column',
+  office_cleaning: 'classic_two_column',
+  deep_cleaning: 'classic_two_column',
+  carpet_cleaning: 'classic_two_column',
+  window_cleaning: 'classic_two_column',
+  pressure_washing: 'classic_two_column',
+  interior_painting: 'classic_two_column',
+  exterior_painting: 'classic_two_column',
+  lawn_mowing: 'classic_two_column',
+  landscaping: 'classic_two_column',
+  tree_trimming: 'classic_two_column',
+  garden_maintenance: 'classic_two_column',
+  fence_installation: 'classic_two_column',
+
+  photography: 'package_selector',
+  auto_detailing: 'package_selector',
+  moving_services: 'package_selector',
+  personal_training: 'package_selector',
+  tutoring: 'package_selector',
+  dog_grooming: 'package_selector',
+  pet_sitting: 'package_selector',
+  dj_services: 'package_selector',
+
+  kitchen_remodel: 'multi_step_progressive',
+  bathroom_remodel: 'multi_step_progressive',
+  general_renovation: 'multi_step_progressive',
+  concrete_driveway: 'multi_step_progressive',
+  concrete_patio: 'multi_step_progressive',
+  concrete_foundation: 'multi_step_progressive',
+  roofing: 'multi_step_progressive',
+  deck_building: 'multi_step_progressive',
+  flooring_installation: 'multi_step_progressive',
+
+  plumbing_services: 'classic_single',
+  electrical_services: 'classic_single',
+  hvac_services: 'classic_single',
+  appliance_repair: 'classic_single',
+  locksmith: 'classic_single',
+};
+
+export function getRecommendedTemplate(tradeId: string, bookingEnabled: boolean): string {
+  if (bookingEnabled) return 'estimate_then_book';
+  return TRADE_TEMPLATE_MAP[tradeId] || 'classic_single';
+}
