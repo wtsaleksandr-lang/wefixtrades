@@ -60,6 +60,10 @@ const updateCalculatorBody = z.object({
   }),
 });
 
+const checkSlugBody = z.object({
+  slug: z.string().min(1).max(60).regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/, 'Slug must be lowercase alphanumeric with hyphens'),
+});
+
 const createLeadBody = z.object({
   calculator_id: z.number(),
   name: z.string().nullable().optional(),
@@ -305,6 +309,20 @@ Return ONLY the JSON pricing config object.`;
     } catch (error: any) {
       console.error("Create calculator error:", error);
       res.status(500).json({ error: "Failed to create calculator" });
+    }
+  });
+
+  app.get("/api/calculators/check-slug", async (req, res) => {
+    try {
+      const parsed = checkSlugBody.safeParse(req.query);
+      if (!parsed.success) {
+        return res.status(400).json({ available: false, error: parsed.error.flatten().fieldErrors.slug?.[0] || 'Invalid slug' });
+      }
+      const existing = await storage.getCalculatorBySlug(parsed.data.slug);
+      res.json({ available: !existing, slug: parsed.data.slug });
+    } catch (error: any) {
+      console.error("Check slug error:", error);
+      res.status(500).json({ available: false, error: "Failed to check slug" });
     }
   });
 

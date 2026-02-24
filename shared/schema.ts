@@ -234,6 +234,15 @@ export const calculatorSettingsSchema = z.object({
     }).default({}),
   }).default({}),
 
+  publish: z.object({
+    version: z.number().default(1),
+    status: z.enum(['draft', 'published']).default('draft'),
+    slug: z.string().default(''),
+    published_at: z.number().nullable().default(null),
+    embed_id: z.string().default(''),
+    last_modified: z.number().nullable().default(null),
+  }).default({}),
+
   test_history: z.object({
     scenarios: z.array(z.object({
       label: z.string(),
