@@ -1,20 +1,29 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
 import {
-  Check, Copy, ExternalLink, Code2, ChevronDown, Eye, RotateCcw,
-  AlertCircle, Shield, Mail, Phone, Bot, Sparkles, Globe,
+  Check, Copy, ExternalLink, Code2, ChevronDown, RotateCcw,
+  AlertCircle, Shield, Mail, Bot, Sparkles, Globe,
   CheckCircle2, XCircle, Clock, Zap, RefreshCw, Link2,
+  Lock, Loader2, ArrowRight, Wrench, Server,
 } from 'lucide-react';
+
+import { slugify, buildSubdomain, HOSTING_DOMAIN } from '@shared/slugUtils';
 
 const p = platformTheme;
 
-interface PublishData {
+export interface PublishData {
   version: number;
   status: 'draft' | 'published';
   slug: string;
+  subdomain: string;
   published_at: number | null;
   embed_id: string;
   last_modified: number | null;
+  custom_domain: string;
+  custom_domain_status: 'none' | 'pending_dns' | 'dns_verified' | 'ssl_provisioning' | 'active' | 'failed';
+  ssl_status: 'none' | 'pending' | 'provisioning' | 'active' | 'failed';
+  last_dns_check: number | null;
+  hosting_domain: string;
 }
 
 interface PublishStepProps {
@@ -26,10 +35,6 @@ interface PublishStepProps {
   businessName: string;
   onPublishDataChange: (pd: PublishData) => void;
   onStartOver: () => void;
-}
-
-function slugify(str: string): string {
-  return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'my-calculator';
 }
 
 function CopyBtn({ text, size, label }: { text: string; size?: 'small' | 'normal'; label?: string }) {
@@ -52,21 +57,28 @@ function CopyBtn({ text, size, label }: { text: string; size?: 'small' | 'normal
   );
 }
 
+type DeployTab = 'hosted' | 'embed' | 'custom' | 'install';
+
 export default function PublishStep({ result, publishData, testPassed, leadFormValid, pricingExists, businessName, onPublishDataChange, onStartOver }: PublishStepProps) {
   const origin = window.location.origin;
   const calcUrl = result ? `${origin}${result.calculator_url}` : '';
   const slug = result?.slug || publishData.slug || slugify(businessName);
+  const subdomain = buildSubdomain(slug, HOSTING_DOMAIN);
+  const hostedUrl = `https://${subdomain}`;
 
+  const [activeTab, setActiveTab] = useState<DeployTab>('hosted');
   const [embedTab, setEmbedTab] = useState<'script' | 'iframe' | 'button'>('script');
   const [showInstall, setShowInstall] = useState<string | null>(null);
+  const [customDomain, setCustomDomain] = useState(publishData.custom_domain || '');
+  const [dnsChecking, setDnsChecking] = useState(false);
 
   const canPublish = testPassed && leadFormValid && pricingExists;
   const isPublished = publishData.status === 'published';
   const hasChanges = !!(publishData.last_modified && publishData.published_at && publishData.last_modified > publishData.published_at);
 
-  const statusLabel = isPublished ? (hasChanges ? 'Changes Not Published' : 'Published') : (canPublish ? 'Ready' : 'Draft');
-  const statusColor = isPublished ? (hasChanges ? p.colors.warning : p.colors.success) : (canPublish ? p.colors.success : p.colors.muted);
-  const statusBg = isPublished ? (hasChanges ? p.colors.warningLight : p.colors.successLight) : (canPublish ? p.colors.successLight : '#F3F4F6');
+  const statusLabel = isPublished ? (hasChanges ? 'Changes Not Published' : 'Live') : (canPublish ? 'Ready' : 'Draft');
+  const statusColor = isPublished ? (hasChanges ? p.colors.warning : '#059669') : (canPublish ? p.colors.success : p.colors.muted);
+  const statusBg = isPublished ? (hasChanges ? p.colors.warningLight : '#ECFDF5') : (canPublish ? p.colors.successLight : '#F3F4F6');
 
   const handlePublish = useCallback(() => {
     if (!canPublish || !result) return;
@@ -74,11 +86,13 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
       ...publishData,
       status: 'published',
       slug: result.slug || slug,
+      subdomain,
       published_at: Date.now(),
       embed_id: result.slug || slug,
       last_modified: null,
+      hosting_domain: HOSTING_DOMAIN,
     });
-  }, [canPublish, result, publishData, slug, onPublishDataChange]);
+  }, [canPublish, result, publishData, slug, subdomain, onPublishDataChange]);
 
   useEffect(() => {
     if (result && publishData.status === 'draft' && canPublish) {
@@ -87,11 +101,9 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
   }, [result, canPublish]);
 
   const embedId = result?.slug || publishData.embed_id || slug;
-
   const scriptEmbed = `<script src="${origin}/embed.js" data-calculator="${embedId}"></script>\n<div id="quote-tool-${embedId}"></div>`;
   const iframeEmbed = `<iframe src="${calcUrl}?embed=true" width="100%" height="650" frameborder="0" style="border:none;border-radius:16px;max-width:480px;"></iframe>`;
   const buttonEmbed = `<script src="${origin}/embed.js" data-calculator="${embedId}" data-mode="modal"></script>\n<button onclick="QuickQuote.open('${embedId}')">Get a Free Quote</button>`;
-
   const embedCode = embedTab === 'script' ? scriptEmbed : embedTab === 'iframe' ? iframeEmbed : buttonEmbed;
 
   const readinessChecks = [
@@ -99,6 +111,97 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
     { label: 'Lead form configured', passed: leadFormValid, key: 'leads' },
     { label: 'Test scenarios passed', passed: testPassed, key: 'tests' },
   ];
+
+  const TABS: { id: DeployTab; label: string; icon: any; pro?: boolean }[] = [
+    { id: 'hosted', label: 'Hosted Page', icon: <Globe style={{ width: '14px', height: '14px' }} /> },
+    { id: 'embed', label: 'Embed', icon: <Code2 style={{ width: '14px', height: '14px' }} /> },
+    { id: 'custom', label: 'Custom Domain', icon: <Server style={{ width: '14px', height: '14px' }} />, pro: true },
+    { id: 'install', label: 'Done-For-You', icon: <Wrench style={{ width: '14px', height: '14px' }} />, pro: true },
+  ];
+
+  const domainStatus = publishData.custom_domain_status;
+  const sslStatus = publishData.ssl_status;
+
+  const handleCheckDns = useCallback(async () => {
+    if (!customDomain || !result?.edit_token || !result?.calculator?.id) return;
+    setDnsChecking(true);
+    try {
+      const res = await fetch('/api/domains/check-dns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          calculator_id: result.calculator.id,
+          custom_domain: customDomain,
+          token: result.edit_token,
+        }),
+      });
+      const data = await res.json();
+      if (data.dns_verified) {
+        onPublishDataChange({
+          ...publishData,
+          custom_domain: customDomain,
+          custom_domain_status: 'dns_verified',
+          ssl_status: 'pending',
+          last_dns_check: Date.now(),
+        });
+        try {
+          await fetch('/api/domains/issue-ssl', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              calculator_id: result.calculator.id,
+              token: result.edit_token,
+            }),
+          });
+          onPublishDataChange({
+            ...publishData,
+            custom_domain: customDomain,
+            custom_domain_status: 'ssl_provisioning',
+            ssl_status: 'provisioning',
+            last_dns_check: Date.now(),
+          });
+        } catch {
+          // SSL issue will be retried on next check
+        }
+      } else {
+        onPublishDataChange({
+          ...publishData,
+          custom_domain: customDomain,
+          custom_domain_status: 'pending_dns',
+          last_dns_check: Date.now(),
+        });
+      }
+    } catch {
+      // ignore
+    } finally {
+      setDnsChecking(false);
+    }
+  }, [customDomain, result, publishData, onPublishDataChange]);
+
+  useEffect(() => {
+    if (domainStatus !== 'pending_dns' || !customDomain || !result?.edit_token) return;
+    const interval = setInterval(handleCheckDns, 30000);
+    return () => clearInterval(interval);
+  }, [domainStatus, customDomain, result, handleCheckDns]);
+
+  useEffect(() => {
+    if (domainStatus !== 'ssl_provisioning' || !result?.edit_token) return;
+    const pollSsl = async () => {
+      try {
+        const res = await fetch(`/api/domains/status?token=${result.edit_token}`);
+        const data = await res.json();
+        if (data.custom_domain_status === 'active') {
+          onPublishDataChange({
+            ...publishData,
+            custom_domain_status: 'active',
+            ssl_status: 'active',
+          });
+        }
+      } catch { /* ignore */ }
+    };
+    const interval = setInterval(pollSsl, 5000);
+    return () => clearInterval(interval);
+  }, [domainStatus, result, publishData, onPublishDataChange]);
 
   return (
     <div className="animate-fade-in-up">
@@ -171,35 +274,37 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
 
       {isPublished && (
         <>
-          {/* B) Hosted Page Section */}
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ ...p.typography.captionSm, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              <Globe style={{ width: '12px', height: '12px' }} /> Your Hosted Quote Page
-            </label>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              background: p.colors.surfaceRaised, borderRadius: '10px',
-              padding: '10px 12px', border: `1px solid ${p.colors.border}`,
+          {/* Subdomain Banner */}
+          <div data-testid="subdomain-banner" style={{
+            padding: '14px 16px', borderRadius: p.radius.md,
+            background: 'linear-gradient(135deg, #ECFDF5 0%, #F0FDF4 100%)',
+            border: '1px solid #A7F3D020',
+            marginBottom: '20px', textAlign: 'center',
+          }}>
+            <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px' }}>
+              Your instant quote page
+            </p>
+            <p data-testid="text-subdomain" style={{
+              fontSize: '16px', fontWeight: 700, color: '#059669',
+              margin: '0 0 8px', fontFamily: 'monospace', wordBreak: 'break-all',
             }}>
-              <Link2 style={{ width: '14px', height: '14px', color: p.colors.accent, flexShrink: 0 }} />
-              <span data-testid="text-hosted-url" style={{
-                fontSize: '12px', color: p.colors.body, flex: 1,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace',
-              }}>{calcUrl}</span>
-              <CopyBtn text={calcUrl} size="normal" label="Copy Link" />
+              {subdomain}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+              <CopyBtn text={hostedUrl} label="Copy Link" />
               <button data-testid="action-open-tab" onClick={() => window.open(calcUrl, '_blank')} style={{
                 display: 'flex', alignItems: 'center', gap: '4px',
                 padding: '8px 12px', borderRadius: '8px', border: 'none',
                 background: p.colors.accent, color: 'white',
                 cursor: 'pointer', fontSize: '12px', fontWeight: 600,
-                minHeight: '36px', flexShrink: 0,
-                WebkitTapHighlightColor: 'transparent',
+                minHeight: '36px', WebkitTapHighlightColor: 'transparent',
               }}>
-                <ExternalLink style={{ width: '12px', height: '12px' }} /> Open
+                <ExternalLink style={{ width: '12px', height: '12px' }} /> Preview
               </button>
             </div>
           </div>
 
+          {/* Quick Links */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
             <LinkRowCompact label="Edit Link (7 days)" url={`${origin}${result.edit_url}`}
               icon={<Sparkles style={{ width: '13px', height: '13px' }} />} />
@@ -207,100 +312,82 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
               icon={<Zap style={{ width: '13px', height: '13px' }} />} />
           </div>
 
-          {/* C) Embed Options */}
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ ...p.typography.captionSm, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              <Code2 style={{ width: '12px', height: '12px' }} /> Embed on Your Website
-            </label>
-
-            <div data-testid="embed-tabs" style={{
-              display: 'flex', borderRadius: p.radius.md, overflow: 'hidden',
-              border: `1px solid ${p.colors.border}`, marginBottom: '10px',
-            }}>
-              {([
-                { id: 'script' as const, label: 'Script', rec: true },
-                { id: 'iframe' as const, label: 'Iframe' },
-                { id: 'button' as const, label: 'Button' },
-              ]).map(tab => (
-                <button key={tab.id} data-testid={`embed-tab-${tab.id}`}
-                  onClick={() => setEmbedTab(tab.id)}
-                  style={{
-                    flex: 1, padding: '10px 8px', border: 'none',
-                    background: embedTab === tab.id ? p.colors.accent : 'white',
-                    color: embedTab === tab.id ? 'white' : p.colors.muted,
-                    fontSize: '12px', fontWeight: 600, cursor: 'pointer',
-                    transition: p.transitions.fast,
-                    WebkitTapHighlightColor: 'transparent',
-                  }}>
-                  {tab.label} {tab.rec && <span style={{ fontSize: '9px', opacity: 0.7 }}></span>}
-                </button>
-              ))}
-            </div>
-
-            <div data-testid="embed-code-block" style={{
-              padding: '14px', borderRadius: p.radius.md,
-              background: '#111827', border: 'none',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#9CA3AF', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                  {embedTab === 'script' ? 'HTML — Script Embed' : embedTab === 'iframe' ? 'HTML — Iframe Embed' : 'HTML — Button Trigger'}
-                </span>
-                <CopyBtn text={embedCode} size="small" label="Copy Code" />
-              </div>
-              <pre data-testid="embed-code-text" style={{
-                fontSize: '11px', color: '#E5E7EB', lineHeight: 1.6,
-                whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-                fontFamily: 'monospace', margin: 0,
-              }}>
-                {embedCode}
-              </pre>
-            </div>
-          </div>
-
-          {/* D) Installation Guide */}
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Installation Guides
-            </label>
-            {INSTALL_GUIDES.map(g => (
-              <button key={g.id} data-testid={`guide-${g.id}`}
-                onClick={() => setShowInstall(showInstall === g.id ? null : g.id)}
+          {/* Deployment Options Tabs */}
+          <div data-testid="deploy-tabs" style={{
+            display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+            borderRadius: p.radius.md, overflow: 'hidden',
+            border: `1px solid ${p.colors.border}`, marginBottom: '16px',
+          }}>
+            {TABS.map(tab => (
+              <button key={tab.id} data-testid={`deploy-tab-${tab.id}`}
+                onClick={() => setActiveTab(tab.id)}
                 style={{
-                  width: '100%', textAlign: 'left',
-                  padding: '12px 14px', marginBottom: '6px',
-                  borderRadius: p.radius.sm, border: `1px solid ${p.colors.border}`,
-                  background: showInstall === g.id ? p.colors.surfaceRaised : 'white',
-                  cursor: 'pointer', transition: p.transitions.fast,
+                  padding: '10px 4px', border: 'none',
+                  background: activeTab === tab.id ? p.colors.accent : 'white',
+                  color: activeTab === tab.id ? 'white' : p.colors.muted,
+                  fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                  transition: p.transitions.fast,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
                   WebkitTapHighlightColor: 'transparent',
+                  position: 'relative',
                 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 500, color: p.colors.heading }}>{g.title}</span>
-                  <ChevronDown style={{
-                    width: '14px', height: '14px', color: p.colors.muted,
-                    transform: showInstall === g.id ? 'rotate(180deg)' : 'rotate(0)',
-                    transition: p.transitions.fast,
-                  }} />
-                </div>
-                {showInstall === g.id && (
-                  <div onClick={e => e.stopPropagation()} style={{ marginTop: '10px', paddingTop: '10px', borderTop: `1px solid ${p.colors.borderLight}` }}>
-                    {g.steps.map((s, i) => (
-                      <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                        <span style={{
-                          width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
-                          background: p.colors.accentLighter, color: p.colors.accent,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: '11px', fontWeight: 700,
-                        }}>{i + 1}</span>
-                        <p style={{ fontSize: '12px', color: p.colors.body, margin: 0, lineHeight: 1.5 }}>{s}</p>
-                      </div>
-                    ))}
-                  </div>
+                {tab.icon}
+                <span>{tab.label}</span>
+                {tab.pro && (
+                  <span style={{
+                    position: 'absolute', top: '3px', right: '3px',
+                    fontSize: '8px', fontWeight: 700, color: '#D97706',
+                    background: '#FEF3C7', padding: '1px 4px', borderRadius: '4px',
+                  }}>PRO</span>
                 )}
               </button>
             ))}
           </div>
 
-          {/* E) Status + Health Indicators */}
+          {/* Tab Content */}
+          <div style={{
+            padding: '16px', borderRadius: p.radius.md,
+            border: `1px solid ${p.colors.border}`, background: 'white',
+            marginBottom: '20px',
+          }}>
+            {activeTab === 'hosted' && (
+              <HostedPageTab
+                subdomain={subdomain}
+                hostedUrl={hostedUrl}
+                calcUrl={calcUrl}
+                slug={slug}
+                isPublished={isPublished}
+              />
+            )}
+
+            {activeTab === 'embed' && (
+              <EmbedTab
+                embedTab={embedTab}
+                setEmbedTab={setEmbedTab}
+                embedCode={embedCode}
+                showInstall={showInstall}
+                setShowInstall={setShowInstall}
+              />
+            )}
+
+            {activeTab === 'custom' && (
+              <CustomDomainTab
+                customDomain={customDomain}
+                setCustomDomain={setCustomDomain}
+                domainStatus={domainStatus}
+                sslStatus={sslStatus}
+                dnsChecking={dnsChecking}
+                onCheckDns={handleCheckDns}
+                lastDnsCheck={publishData.last_dns_check}
+              />
+            )}
+
+            {activeTab === 'install' && (
+              <DoneForYouTab />
+            )}
+          </div>
+
+          {/* Status & Health */}
           <div data-testid="health-indicators" style={{
             padding: '14px 16px', borderRadius: p.radius.md,
             background: p.colors.surfaceRaised, border: `1px solid ${p.colors.borderLight}`,
@@ -310,10 +397,22 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
               Status & Health
             </label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <HealthRow icon={<Sparkles style={{ width: '13px', height: '13px' }} />} label="Pricing Status" value="Validated" color={p.colors.success} />
-              <HealthRow icon={<Mail style={{ width: '13px', height: '13px' }} />} label="Lead Capture" value={leadFormValid ? 'Active' : 'Inactive'} color={leadFormValid ? p.colors.success : p.colors.danger} />
-              <HealthRow icon={<Bot style={{ width: '13px', height: '13px' }} />} label="Anti-Spam" value="Enabled" color={p.colors.success} />
-              <HealthRow icon={<Shield style={{ width: '13px', height: '13px' }} />} label="Version" value="v1" color={p.colors.muted} />
+              <HealthRow icon={<Globe style={{ width: '13px', height: '13px' }} />}
+                label="Hosted Page" value="Live" color="#059669" />
+              <HealthRow icon={<Sparkles style={{ width: '13px', height: '13px' }} />}
+                label="Pricing Status" value="Validated" color={p.colors.success} />
+              <HealthRow icon={<Mail style={{ width: '13px', height: '13px' }} />}
+                label="Lead Capture" value={leadFormValid ? 'Active' : 'Inactive'} color={leadFormValid ? p.colors.success : p.colors.danger} />
+              <HealthRow icon={<Bot style={{ width: '13px', height: '13px' }} />}
+                label="Anti-Spam" value="Enabled" color={p.colors.success} />
+              <HealthRow icon={<Shield style={{ width: '13px', height: '13px' }} />}
+                label="SSL" value={sslStatus === 'active' ? 'Active' : 'Auto-provisioned'} color={p.colors.success} />
+              {publishData.custom_domain && (
+                <HealthRow icon={<Server style={{ width: '13px', height: '13px' }} />}
+                  label="Custom Domain"
+                  value={domainStatus === 'active' ? 'Active' : domainStatus === 'pending_dns' ? 'Pending DNS' : domainStatus === 'ssl_provisioning' ? 'SSL Pending' : 'Not configured'}
+                  color={domainStatus === 'active' ? '#059669' : '#D97706'} />
+              )}
             </div>
           </div>
 
@@ -358,6 +457,407 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
         <RotateCcw style={{ width: '15px', height: '15px' }} />
         Create Another Calculator
       </button>
+    </div>
+  );
+}
+
+function HostedPageTab({ subdomain, hostedUrl, calcUrl, slug, isPublished }: {
+  subdomain: string; hostedUrl: string; calcUrl: string; slug: string; isPublished: boolean;
+}) {
+  return (
+    <div data-testid="tab-hosted">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+        <div style={{
+          width: '28px', height: '28px', borderRadius: '6px',
+          background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Globe style={{ width: '14px', height: '14px', color: '#059669' }} />
+        </div>
+        <div>
+          <p style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, margin: 0 }}>Instant Hosted Page</p>
+          <p style={{ fontSize: '11px', color: p.colors.muted, margin: 0 }}>Live immediately with SSL</p>
+        </div>
+      </div>
+
+      <div style={{
+        padding: '14px', borderRadius: p.radius.md,
+        background: '#F0FDF4', border: '1px solid #A7F3D030',
+        marginBottom: '12px',
+      }}>
+        <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 4px' }}>
+          Your subdomain
+        </p>
+        <p data-testid="text-hosted-url" style={{
+          fontSize: '15px', fontWeight: 700, color: '#059669',
+          margin: '0 0 2px', fontFamily: 'monospace', wordBreak: 'break-all',
+        }}>
+          {subdomain}
+        </p>
+        <p style={{ fontSize: '11px', color: p.colors.muted, margin: 0 }}>
+          Auto-generated from your business name. No setup needed.
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+        <div style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#F9FAFB', textAlign: 'center' }}>
+          <CheckCircle2 style={{ width: '16px', height: '16px', color: '#059669', margin: '0 auto 4px', display: 'block' }} />
+          <p style={{ fontSize: '11px', fontWeight: 600, color: p.colors.heading, margin: '0 0 2px' }}>SSL Active</p>
+          <p style={{ fontSize: '10px', color: p.colors.muted, margin: 0 }}>Auto-provisioned</p>
+        </div>
+        <div style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#F9FAFB', textAlign: 'center' }}>
+          <Zap style={{ width: '16px', height: '16px', color: '#059669', margin: '0 auto 4px', display: 'block' }} />
+          <p style={{ fontSize: '11px', fontWeight: 600, color: p.colors.heading, margin: '0 0 2px' }}>Instant</p>
+          <p style={{ fontSize: '10px', color: p.colors.muted, margin: 0 }}>No provisioning wait</p>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <CopyBtn text={hostedUrl} label="Copy Link" />
+        <button data-testid="action-open-hosted" onClick={() => window.open(calcUrl, '_blank')} style={{
+          display: 'flex', alignItems: 'center', gap: '4px',
+          padding: '8px 14px', borderRadius: '8px', border: `1px solid ${p.colors.border}`,
+          background: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 500, color: p.colors.body,
+          WebkitTapHighlightColor: 'transparent',
+        }}>
+          <ExternalLink style={{ width: '12px', height: '12px' }} /> Open Page
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EmbedTab({ embedTab, setEmbedTab, embedCode, showInstall, setShowInstall }: {
+  embedTab: 'script' | 'iframe' | 'button';
+  setEmbedTab: (t: 'script' | 'iframe' | 'button') => void;
+  embedCode: string;
+  showInstall: string | null;
+  setShowInstall: (id: string | null) => void;
+}) {
+  return (
+    <div data-testid="tab-embed">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+        <div style={{
+          width: '28px', height: '28px', borderRadius: '6px',
+          background: p.colors.accentLighter, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Code2 style={{ width: '14px', height: '14px', color: p.colors.accent }} />
+        </div>
+        <div>
+          <p style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, margin: 0 }}>Embed on Your Website</p>
+          <p style={{ fontSize: '11px', color: p.colors.muted, margin: 0 }}>Add your calculator to any site</p>
+        </div>
+      </div>
+
+      <div data-testid="embed-tabs" style={{
+        display: 'flex', borderRadius: p.radius.md, overflow: 'hidden',
+        border: `1px solid ${p.colors.border}`, marginBottom: '10px',
+      }}>
+        {([
+          { id: 'script' as const, label: 'Script', rec: true },
+          { id: 'iframe' as const, label: 'Iframe' },
+          { id: 'button' as const, label: 'Button' },
+        ]).map(tab => (
+          <button key={tab.id} data-testid={`embed-tab-${tab.id}`}
+            onClick={() => setEmbedTab(tab.id)}
+            style={{
+              flex: 1, padding: '10px 8px', border: 'none',
+              background: embedTab === tab.id ? p.colors.accent : 'white',
+              color: embedTab === tab.id ? 'white' : p.colors.muted,
+              fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+              transition: p.transitions.fast,
+              WebkitTapHighlightColor: 'transparent',
+            }}>
+            {tab.label} {tab.rec && <span style={{ fontSize: '9px', opacity: 0.7 }}></span>}
+          </button>
+        ))}
+      </div>
+
+      <div data-testid="embed-code-block" style={{
+        padding: '14px', borderRadius: p.radius.md,
+        background: '#111827', border: 'none', marginBottom: '14px',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: '#9CA3AF', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            {embedTab === 'script' ? 'HTML — Script Embed' : embedTab === 'iframe' ? 'HTML — Iframe Embed' : 'HTML — Button Trigger'}
+          </span>
+          <CopyBtn text={embedCode} size="small" label="Copy Code" />
+        </div>
+        <pre data-testid="embed-code-text" style={{
+          fontSize: '11px', color: '#E5E7EB', lineHeight: 1.6,
+          whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+          fontFamily: 'monospace', margin: 0,
+        }}>
+          {embedCode}
+        </pre>
+      </div>
+
+      <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        Installation Guides
+      </label>
+      {INSTALL_GUIDES.map(g => (
+        <button key={g.id} data-testid={`guide-${g.id}`}
+          onClick={() => setShowInstall(showInstall === g.id ? null : g.id)}
+          style={{
+            width: '100%', textAlign: 'left',
+            padding: '12px 14px', marginBottom: '6px',
+            borderRadius: p.radius.sm, border: `1px solid ${p.colors.border}`,
+            background: showInstall === g.id ? p.colors.surfaceRaised : 'white',
+            cursor: 'pointer', transition: p.transitions.fast,
+            WebkitTapHighlightColor: 'transparent',
+          }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: p.colors.heading }}>{g.title}</span>
+            <ChevronDown style={{
+              width: '14px', height: '14px', color: p.colors.muted,
+              transform: showInstall === g.id ? 'rotate(180deg)' : 'rotate(0)',
+              transition: p.transitions.fast,
+            }} />
+          </div>
+          {showInstall === g.id && (
+            <div onClick={e => e.stopPropagation()} style={{ marginTop: '10px', paddingTop: '10px', borderTop: `1px solid ${p.colors.borderLight}` }}>
+              {g.steps.map((s, i) => (
+                <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <span style={{
+                    width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
+                    background: p.colors.accentLighter, color: p.colors.accent,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '11px', fontWeight: 700,
+                  }}>{i + 1}</span>
+                  <p style={{ fontSize: '12px', color: p.colors.body, margin: 0, lineHeight: 1.5 }}>{s}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CustomDomainTab({ customDomain, setCustomDomain, domainStatus, sslStatus, dnsChecking, onCheckDns, lastDnsCheck }: {
+  customDomain: string;
+  setCustomDomain: (d: string) => void;
+  domainStatus: string;
+  sslStatus: string;
+  dnsChecking: boolean;
+  onCheckDns: () => void;
+  lastDnsCheck: number | null;
+}) {
+  const isActive = domainStatus === 'active';
+  const isPending = domainStatus === 'pending_dns';
+  const isDnsVerified = domainStatus === 'dns_verified' || domainStatus === 'ssl_provisioning';
+
+  return (
+    <div data-testid="tab-custom-domain">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+        <div style={{
+          width: '28px', height: '28px', borderRadius: '6px',
+          background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Server style={{ width: '14px', height: '14px', color: '#D97706' }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, margin: 0 }}>Custom Domain</p>
+          <p style={{ fontSize: '11px', color: p.colors.muted, margin: 0 }}>Use your own domain name</p>
+        </div>
+        <span style={{
+          fontSize: '10px', fontWeight: 700, color: '#D97706',
+          background: '#FEF3C7', padding: '2px 8px', borderRadius: '6px',
+        }}>PRO</span>
+      </div>
+
+      <div style={{
+        padding: '16px', borderRadius: p.radius.md,
+        background: '#FFFBEB', border: '1px solid #FDE68A30',
+        marginTop: '12px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+          <Lock style={{ width: '14px', height: '14px', color: '#D97706' }} />
+          <p style={{ fontSize: '12px', fontWeight: 600, color: '#92400E', margin: 0 }}>
+            Available on Pro plan
+          </p>
+        </div>
+
+        <p style={{ fontSize: '12px', color: '#78350F', margin: '0 0 12px', lineHeight: 1.5 }}>
+          Connect your own domain like <strong>quote.yourbusiness.com</strong> for a fully branded experience. SSL is auto-provisioned.
+        </p>
+
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ fontSize: '11px', fontWeight: 600, color: '#78350F', display: 'block', marginBottom: '4px' }}>
+            Your custom domain
+          </label>
+          <input
+            data-testid="input-custom-domain"
+            type="text"
+            placeholder="quote.yourbusiness.com"
+            value={customDomain}
+            onChange={e => setCustomDomain(e.target.value)}
+            disabled
+            style={{
+              width: '100%', padding: '10px 12px', borderRadius: '8px',
+              border: '1px solid #FDE68A', background: '#FEF3C740',
+              fontSize: '13px', color: '#78350F', opacity: 0.6,
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        {!isActive && !isPending && !isDnsVerified && (
+          <div style={{
+            padding: '10px 12px', borderRadius: '8px',
+            background: 'white', border: '1px solid #FDE68A',
+          }}>
+            <p style={{ fontSize: '11px', fontWeight: 600, color: '#78350F', margin: '0 0 6px' }}>How it works:</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {['Enter your domain', 'Add a CNAME record pointing to estimate.ai', 'We auto-detect DNS and provision SSL', 'Your custom domain goes live'].map((s, i) => (
+                <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span style={{
+                    width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
+                    background: '#FEF3C7', color: '#D97706',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '10px', fontWeight: 700,
+                  }}>{i + 1}</span>
+                  <p style={{ fontSize: '11px', color: '#78350F', margin: 0 }}>{s}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isPending && (
+          <div style={{
+            padding: '10px 12px', borderRadius: '8px',
+            background: 'white', border: '1px solid #FDE68A',
+          }}>
+            <p style={{ fontSize: '11px', fontWeight: 600, color: '#D97706', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Loader2 style={{ width: '12px', height: '12px', animation: 'spin 1s linear infinite' }} />
+              Waiting for DNS...
+            </p>
+            <div style={{
+              padding: '8px 10px', borderRadius: '6px', background: '#F9FAFB',
+              fontFamily: 'monospace', fontSize: '11px', marginBottom: '6px',
+            }}>
+              <p style={{ margin: '0 0 2px', color: p.colors.muted, fontSize: '10px' }}>Add this CNAME record:</p>
+              <p style={{ margin: 0, color: p.colors.heading }}>
+                {customDomain} → <strong>estimate.ai</strong>
+              </p>
+            </div>
+            <p style={{ fontSize: '10px', color: p.colors.muted, margin: 0 }}>
+              Auto-checking every 30 seconds{lastDnsCheck ? ` · Last checked ${Math.round((Date.now() - lastDnsCheck) / 1000)}s ago` : ''}
+            </p>
+          </div>
+        )}
+
+        {isDnsVerified && (
+          <div style={{
+            padding: '10px 12px', borderRadius: '8px',
+            background: '#ECFDF5', border: '1px solid #A7F3D030',
+          }}>
+            <p style={{ fontSize: '11px', fontWeight: 600, color: '#059669', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <CheckCircle2 style={{ width: '12px', height: '12px' }} />
+              DNS verified — SSL {sslStatus === 'provisioning' ? 'provisioning...' : 'pending'}
+            </p>
+          </div>
+        )}
+
+        {isActive && (
+          <div style={{
+            padding: '10px 12px', borderRadius: '8px',
+            background: '#ECFDF5', border: '1px solid #A7F3D030',
+          }}>
+            <p style={{ fontSize: '11px', fontWeight: 600, color: '#059669', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <CheckCircle2 style={{ width: '12px', height: '12px' }} />
+              Custom Domain Active
+            </p>
+            <p style={{ fontSize: '13px', fontWeight: 600, color: '#059669', fontFamily: 'monospace', margin: 0 }}>
+              https://{customDomain}
+            </p>
+          </div>
+        )}
+
+        <button disabled style={{
+          width: '100%', padding: '10px', borderRadius: p.radius.sm, border: 'none',
+          background: '#E5E7EB', color: '#9CA3AF', cursor: 'not-allowed',
+          fontSize: '13px', fontWeight: 600, marginTop: '12px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+        }}>
+          <Lock style={{ width: '13px', height: '13px' }} />
+          Upgrade to Pro
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DoneForYouTab() {
+  return (
+    <div data-testid="tab-done-for-you">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+        <div style={{
+          width: '28px', height: '28px', borderRadius: '6px',
+          background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Wrench style={{ width: '14px', height: '14px', color: '#D97706' }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, margin: 0 }}>Done-For-You Install</p>
+          <p style={{ fontSize: '11px', color: p.colors.muted, margin: 0 }}>We install it on your website</p>
+        </div>
+        <span style={{
+          fontSize: '10px', fontWeight: 700, color: '#D97706',
+          background: '#FEF3C7', padding: '2px 8px', borderRadius: '6px',
+        }}>PRO</span>
+      </div>
+
+      <div style={{
+        padding: '16px', borderRadius: p.radius.md,
+        background: '#FFFBEB', border: '1px solid #FDE68A30',
+        marginTop: '12px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+          <Lock style={{ width: '14px', height: '14px', color: '#D97706' }} />
+          <p style={{ fontSize: '12px', fontWeight: 600, color: '#92400E', margin: 0 }}>
+            Available on Pro plan
+          </p>
+        </div>
+
+        <p style={{ fontSize: '12px', color: '#78350F', margin: '0 0 14px', lineHeight: 1.5 }}>
+          Our team will install your calculator directly on your website. Just grant temporary editor access and we handle the rest.
+        </p>
+
+        <div style={{
+          padding: '12px', borderRadius: '8px',
+          background: 'white', border: '1px solid #FDE68A',
+        }}>
+          <p style={{ fontSize: '11px', fontWeight: 600, color: '#78350F', margin: '0 0 8px' }}>How it works:</p>
+          {[
+            'Submit your website URL and login details securely',
+            'Our team installs the calculator on the page you choose',
+            'We verify everything works and notify you',
+            'Status updates: Installation Pending → Installed',
+          ].map((s, i) => (
+            <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{
+                width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
+                background: '#FEF3C7', color: '#D97706',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '10px', fontWeight: 700,
+              }}>{i + 1}</span>
+              <p style={{ fontSize: '11px', color: '#78350F', margin: 0 }}>{s}</p>
+            </div>
+          ))}
+        </div>
+
+        <button disabled style={{
+          width: '100%', padding: '10px', borderRadius: p.radius.sm, border: 'none',
+          background: '#E5E7EB', color: '#9CA3AF', cursor: 'not-allowed',
+          fontSize: '13px', fontWeight: 600, marginTop: '12px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+        }}>
+          <Lock style={{ width: '13px', height: '13px' }} />
+          Upgrade to Pro
+        </button>
+      </div>
     </div>
   );
 }

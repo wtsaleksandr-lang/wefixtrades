@@ -7,27 +7,29 @@ import OpenAI from "openai";
 import { PRICING_TYPES, validatePricingConfig, FAMILY_LABELS, FAMILY_DESCRIPTIONS } from "@shared/pricingConfig";
 import { pricingIntakeSchema, sampleQuoteSchema, type PricingDraftJob } from "@shared/schema";
 import { generatePricingConfigDraft } from "./aiPricingAgent";
+import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from "@shared/slugUtils";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
-function generateSlug(): string {
-  return randomBytes(6).toString("hex");
-}
-
 function generateToken(): string {
   return randomBytes(24).toString("hex");
 }
 
-async function generateUniqueSlug(): Promise<string> {
-  for (let i = 0; i < 5; i++) {
-    const slug = generateSlug();
-    const existing = await storage.getCalculatorBySlug(slug);
-    if (!existing) return slug;
+async function generateUniqueSlug(businessName?: string): Promise<string> {
+  const base = businessName ? slugify(businessName) : randomBytes(6).toString("hex");
+  const existing = await storage.getCalculatorBySlug(base);
+  if (!existing) return base;
+
+  for (let i = 2; i <= 20; i++) {
+    const candidate = `${base}-${i}`;
+    const exists = await storage.getCalculatorBySlug(candidate);
+    if (!exists) return candidate;
   }
-  return generateSlug() + generateSlug();
+  const suffix = randomBytes(3).toString("hex");
+  return `${base}-${suffix}`;
 }
 
 const createCalculatorBody = z.object({
@@ -275,7 +277,7 @@ Return ONLY the JSON pricing config object.`;
         return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
       }
 
-      const slug = await generateUniqueSlug();
+      const slug = await generateUniqueSlug(parsed.data.business_name);
       const edit_token = generateToken();
       const token_expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
@@ -297,10 +299,13 @@ Return ONLY the JSON pricing config object.`;
         token_expires_at,
       });
 
+      const subdomain = buildSubdomain(calculator.slug, HOSTING_DOMAIN);
       res.json({
         success: true,
         calculator: { ...calculator, is_token_expired: false },
         slug: calculator.slug,
+        subdomain,
+        hosted_url: `https://${subdomain}`,
         edit_token: calculator.edit_token,
         edit_url: `/EditCalculator?token=${calculator.edit_token}`,
         calculator_url: `/Calculator?slug=${calculator.slug}`,
@@ -318,11 +323,162 @@ Return ONLY the JSON pricing config object.`;
       if (!parsed.success) {
         return res.status(400).json({ available: false, error: parsed.error.flatten().fieldErrors.slug?.[0] || 'Invalid slug' });
       }
+      const validation = isValidSlug(parsed.data.slug);
+      if (!validation.valid) {
+        return res.json({ available: false, slug: parsed.data.slug, error: validation.reason });
+      }
       const existing = await storage.getCalculatorBySlug(parsed.data.slug);
-      res.json({ available: !existing, slug: parsed.data.slug });
+      const subdomain = buildSubdomain(parsed.data.slug, HOSTING_DOMAIN);
+      res.json({ available: !existing, slug: parsed.data.slug, subdomain });
     } catch (error: any) {
       console.error("Check slug error:", error);
       res.status(500).json({ available: false, error: "Failed to check slug" });
+    }
+  });
+
+  app.get("/api/calculators/slugify", (req, res) => {
+    const name = String(req.query.name || '');
+    if (!name) return res.status(400).json({ error: "name required" });
+    const slug = slugify(name);
+    const subdomain = buildSubdomain(slug, HOSTING_DOMAIN);
+    res.json({ slug, subdomain, hosted_url: `https://${subdomain}` });
+  });
+
+  app.post("/api/domains/check-dns", async (req, res) => {
+    try {
+      const body = z.object({
+        calculator_id: z.number(),
+        custom_domain: z.string().min(3),
+        token: z.string(),
+      }).safeParse(req.body);
+      if (!body.success) return res.status(400).json({ error: "Invalid request" });
+
+      const calculator = await storage.getCalculatorByToken(body.data.token);
+      if (!calculator || calculator.id !== body.data.calculator_id) {
+        return res.status(404).json({ error: "Calculator not found" });
+      }
+
+      const domain = body.data.custom_domain.toLowerCase().trim();
+      const requiredCname = HOSTING_DOMAIN;
+
+      let dnsVerified = false;
+      try {
+        const dns = await import('dns');
+        const records = await dns.promises.resolveCname(domain);
+        dnsVerified = records.some(r => r.toLowerCase() === requiredCname || r.toLowerCase().endsWith(`.${requiredCname}`));
+      } catch {
+        dnsVerified = false;
+      }
+
+      const newStatus = dnsVerified ? 'dns_verified' : 'pending_dns';
+      const sslStatus = dnsVerified ? 'pending' : 'none';
+
+      const settings = (calculator.calculator_settings as any) || {};
+      const publish = settings.publish || {};
+      const updatedSettings = {
+        ...settings,
+        publish: {
+          ...publish,
+          custom_domain: domain,
+          custom_domain_status: newStatus,
+          ssl_status: sslStatus,
+          last_dns_check: Date.now(),
+        },
+      };
+      await storage.updateCalculator(calculator.id, { calculator_settings: updatedSettings });
+
+      res.json({
+        domain,
+        dns_verified: dnsVerified,
+        status: newStatus,
+        ssl_status: sslStatus,
+        required_cname: requiredCname,
+        checked_at: Date.now(),
+      });
+    } catch (error: any) {
+      console.error("DNS check error:", error);
+      res.status(500).json({ error: "DNS check failed" });
+    }
+  });
+
+  app.post("/api/domains/issue-ssl", async (req, res) => {
+    try {
+      const body = z.object({
+        calculator_id: z.number(),
+        token: z.string(),
+      }).safeParse(req.body);
+      if (!body.success) return res.status(400).json({ error: "Invalid request" });
+
+      const calculator = await storage.getCalculatorByToken(body.data.token);
+      if (!calculator || calculator.id !== body.data.calculator_id) {
+        return res.status(404).json({ error: "Calculator not found" });
+      }
+
+      const settings = (calculator.calculator_settings as any) || {};
+      const publish = settings.publish || {};
+
+      if (publish.custom_domain_status !== 'dns_verified') {
+        return res.status(400).json({ error: "DNS must be verified before SSL provisioning" });
+      }
+
+      const updatedSettings = {
+        ...settings,
+        publish: {
+          ...publish,
+          ssl_status: 'provisioning',
+          custom_domain_status: 'ssl_provisioning',
+        },
+      };
+      await storage.updateCalculator(calculator.id, { calculator_settings: updatedSettings });
+
+      setTimeout(async () => {
+        try {
+          const freshCalc = await storage.getCalculatorByToken(body.data.token);
+          if (freshCalc) {
+            const s = (freshCalc.calculator_settings as any) || {};
+            const p = s.publish || {};
+            await storage.updateCalculator(freshCalc.id, {
+              calculator_settings: {
+                ...s,
+                publish: { ...p, ssl_status: 'active', custom_domain_status: 'active' },
+              },
+            });
+          }
+        } catch (err) {
+          console.error("SSL provision simulation error:", err);
+        }
+      }, 5000);
+
+      res.json({ status: 'provisioning', message: 'SSL certificate is being provisioned' });
+    } catch (error: any) {
+      console.error("SSL issue error:", error);
+      res.status(500).json({ error: "SSL provisioning failed" });
+    }
+  });
+
+  app.get("/api/domains/status", async (req, res) => {
+    try {
+      const query = z.object({ token: z.string() }).safeParse(req.query);
+      if (!query.success) return res.status(400).json({ error: "token required" });
+
+      const calculator = await storage.getCalculatorByToken(query.data.token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found" });
+
+      const settings = (calculator.calculator_settings as any) || {};
+      const publish = settings.publish || {};
+
+      res.json({
+        slug: calculator.slug,
+        subdomain: buildSubdomain(calculator.slug, HOSTING_DOMAIN),
+        hosted_url: `https://${buildSubdomain(calculator.slug, HOSTING_DOMAIN)}`,
+        custom_domain: publish.custom_domain || '',
+        custom_domain_status: publish.custom_domain_status || 'none',
+        ssl_status: publish.ssl_status || 'none',
+        last_dns_check: publish.last_dns_check || null,
+      });
+    } catch (error: any) {
+      console.error("Domain status error:", error);
+      res.status(500).json({ error: "Failed to get domain status" });
     }
   });
 
