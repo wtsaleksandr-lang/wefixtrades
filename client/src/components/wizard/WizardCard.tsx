@@ -227,6 +227,13 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       if (ctd.has_trip_fee && (!ctd.trip_fee_amount || ctd.trip_fee_amount <= 0)) {
         errs.customTradeTripFee = 'Enter your trip fee amount.';
       }
+      if (ctd.charge_method && ctd.charge_method !== 'not_sure') {
+        if (ctd.price_range_min == null || ctd.price_range_max == null) {
+          errs.customTradePriceRange = 'Enter your typical price range (min and max).';
+        } else if (ctd.price_range_max < ctd.price_range_min) {
+          errs.customTradePriceRange = 'Max price must be greater than or equal to min price.';
+        }
+      }
     }
 
     setValidationErrors(errs);
@@ -235,6 +242,78 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         triggerPricingDraft();
       }
       setStep(1);
+    }
+  };
+
+  const validateStage2 = (): Record<string, string> => {
+    const errs: Record<string, string> = {};
+    const ctd = ws.customTradeData;
+    const s2 = ws.stage2Data;
+    const charge = ctd.charge_method;
+
+    if (charge === 'per_hour') {
+      if (!s2.hourly_rate || s2.hourly_rate <= 0) errs.stage2Rate = 'Enter your hourly rate (must be greater than $0).';
+      if (!s2.crew_size || s2.crew_size <= 0) errs.stage2Crew = 'Enter your typical crew size.';
+      if (!s2.min_hours || s2.min_hours <= 0) errs.stage2MinHours = 'Enter minimum hours per job.';
+      if (s2.max_hours != null && s2.min_hours != null && s2.max_hours < s2.min_hours) errs.stage2MaxHours = 'Max hours must be greater than or equal to min hours.';
+    }
+
+    if (charge === 'per_sqft') {
+      if (!s2.sqft_rate || s2.sqft_rate <= 0) errs.stage2Rate = 'Enter your rate per square foot (must be greater than $0).';
+    }
+
+    if (charge === 'per_linear_ft') {
+      if (!s2.unit_rate || s2.unit_rate <= 0) errs.stage2Rate = 'Enter your rate per linear foot (must be greater than $0).';
+    }
+
+    if (charge === 'per_item') {
+      if (!s2.unit_rate || s2.unit_rate <= 0) errs.stage2Rate = 'Enter your price per unit (must be greater than $0).';
+    }
+
+    if (charge === 'base_plus_variable') {
+      if (!s2.unit_rate || s2.unit_rate <= 0) errs.stage2Rate = 'Enter your variable unit rate (must be greater than $0).';
+    }
+
+    if (charge === 'fixed_project') {
+      const hasValidPkgs = s2.packages && s2.packages.filter(pk => pk.label && pk.price > 0).length >= 2;
+      const hasMinCharge = ctd.has_minimum_charge && ctd.minimum_charge_amount && ctd.minimum_charge_amount > 0;
+      const hasRange = ctd.price_range_min != null && ctd.price_range_max != null && ctd.price_range_max >= ctd.price_range_min;
+      if (!hasValidPkgs && !hasMinCharge && !hasRange) {
+        errs.stage2Fixed = 'For fixed project pricing, provide at least 2 packages with prices, a minimum charge, or a valid price range.';
+      }
+    }
+
+    if (ctd.offers_packages && charge !== 'fixed_project') {
+      const pkgs = s2.packages || [];
+      const validPkgs = pkgs.filter(pk => pk.label && pk.price > 0);
+      if (validPkgs.length < 2) {
+        errs.stage2Packages = 'Each package needs a name and a price greater than $0. At least 2 packages required.';
+      }
+    }
+
+    if ((ctd.price_factors || []).includes('Materials') && s2.materials_markup_pct != null) {
+      if (s2.materials_markup_pct <= 0 || s2.materials_markup_pct > 100) {
+        errs.stage2Markup = 'Materials markup must be between 1% and 100%.';
+      }
+    }
+
+    if (s2.after_hours_multiplier != null && s2.after_hours_multiplier > 0 && s2.after_hours_multiplier < 1) {
+      errs.stage2AfterHours = 'After-hours multiplier must be 1 or greater.';
+    }
+
+    return errs;
+  };
+
+  const tryStep2Continue = () => {
+    if (!ws.isCustomTrade || ws.customTradeData.charge_method === 'not_sure') {
+      setValidationErrors({});
+      setStep(3);
+      return;
+    }
+    const errs = validateStage2();
+    setValidationErrors(errs);
+    if (Object.keys(errs).length === 0) {
+      setStep(3);
     }
   };
 
@@ -304,18 +383,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           if (mapResult.success) {
             pricingConfig = mapResult.config;
             setGenProgress(50);
-          } else if (ws.calculatorSettings.pricing_draft?.status === 'ready' && ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType) {
-            pricingConfig = ws.calculatorSettings.pricing_draft.pricing_config;
-            setGenProgress(50);
           } else {
-            const aiRes = await apiRequest('POST', '/api/ai/generate-pricing', {
-              trade_type: tradeLabel,
-              business_description: tradeLabel,
-              services: tradeLabel,
-            });
-            const aiData = await aiRes.json();
-            if (!aiData.success || !aiData.pricing_config) throw new Error(aiData.error || 'Failed to generate pricing.');
-            pricingConfig = aiData.pricing_config;
+            throw new Error(mapResult.errors[0] || 'Please go back and fill in all required pricing fields.');
           }
         } else if (ws.isCustomTrade && ws.calculatorSettings.pricing_draft?.status === 'ready' && ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType) {
           pricingConfig = ws.calculatorSettings.pricing_draft.pricing_config;
@@ -518,7 +587,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                   data={ws.customTradeData}
                   onChange={(data) => set('customTradeData', data)}
                 />
-                {(validationErrors.customTrade || validationErrors.customTradeMinCharge || validationErrors.customTradeTripFee) && (
+                {(validationErrors.customTrade || validationErrors.customTradeMinCharge || validationErrors.customTradeTripFee || validationErrors.customTradePriceRange) && (
                   <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {validationErrors.customTrade && (
                       <p data-testid="error-custom-trade" style={{ fontSize: '12px', color: p.colors.danger }}>{validationErrors.customTrade}</p>
@@ -528,6 +597,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     )}
                     {validationErrors.customTradeTripFee && (
                       <p data-testid="error-custom-trip-fee" style={{ fontSize: '12px', color: p.colors.danger }}>{validationErrors.customTradeTripFee}</p>
+                    )}
+                    {validationErrors.customTradePriceRange && (
+                      <p data-testid="error-custom-price-range" style={{ fontSize: '12px', color: p.colors.danger }}>{validationErrors.customTradePriceRange}</p>
                     )}
                   </div>
                 )}
@@ -790,7 +862,14 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 </div>
               </div>
             )}
-            <Footer onBack={() => setStep(1)} onNext={() => setStep(3)} />
+            {Object.keys(validationErrors).some(k => k.startsWith('stage2')) && (
+              <div data-testid="stage2-errors" style={{ marginTop: '12px', padding: '12px 14px', borderRadius: p.radius.md, background: '#FEF2F2', border: '1px solid #FECACA', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {Object.entries(validationErrors).filter(([k]) => k.startsWith('stage2')).map(([k, v]) => (
+                  <p key={k} data-testid={`error-${k}`} style={{ fontSize: '12px', color: '#DC2626', margin: 0 }}>{v}</p>
+                ))}
+              </div>
+            )}
+            <Footer onBack={() => setStep(1)} onNext={tryStep2Continue} />
           </div>
         )}
 

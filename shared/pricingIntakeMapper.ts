@@ -44,7 +44,8 @@ export function mapPricingIntakeToConfig(
   }
 
   if (charge_method === 'per_hour') {
-    const rate = stage2.hourly_rate ?? guessRate(stage1);
+    const rate = stage2.hourly_rate;
+    if (!rate || rate <= 0) return fail('Hourly rate is required and must be greater than 0.');
     return validated({
       pricingType: 'hourly',
       unitName: 'hour' as const,
@@ -54,30 +55,33 @@ export function mapPricingIntakeToConfig(
   }
 
   if (charge_method === 'per_sqft') {
-    const rate = stage2.sqft_rate ?? guessRate(stage1);
+    const rate = stage2.sqft_rate;
+    if (!rate || rate <= 0) return fail('Square foot rate is required and must be greater than 0.');
     return validated({
       pricingType: 'per_sqft',
       unitName: 'sq ft' as const,
       rate,
       ...buildSharedFields(stage1, stage2, factors),
-      ...(stage2.setup_fee ? { baseFee: stage2.setup_fee } : {}),
+      ...(stage2.setup_fee && stage2.setup_fee > 0 ? { baseFee: stage2.setup_fee } : {}),
     });
   }
 
   if (charge_method === 'per_linear_ft') {
-    const rate = stage2.unit_rate ?? guessRate(stage1);
+    const rate = stage2.unit_rate;
+    if (!rate || rate <= 0) return fail('Linear foot rate is required and must be greater than 0.');
     return validated({
       pricingType: 'per_linear_ft',
       unitName: 'linear ft' as const,
       rate,
       ...buildSharedFields(stage1, stage2, factors),
-      ...(stage2.base_fee ? { baseFee: stage2.base_fee } : {}),
+      ...(stage2.base_fee && stage2.base_fee > 0 ? { baseFee: stage2.base_fee } : {}),
     });
   }
 
   if (charge_method === 'per_item') {
     const unitName = stage2.unit_name || 'unit';
-    const rate = stage2.unit_rate ?? guessRate(stage1);
+    const rate = stage2.unit_rate;
+    if (!rate || rate <= 0) return fail('Unit rate is required and must be greater than 0.');
     return validated({
       pricingType: 'per_unit',
       unitName,
@@ -87,9 +91,10 @@ export function mapPricingIntakeToConfig(
   }
 
   if (charge_method === 'base_plus_variable') {
-    const baseFee = stage2.base_fee ?? 0;
     const unitName = stage2.unit_name || 'unit';
-    const rate = stage2.unit_rate ?? guessRate(stage1);
+    const rate = stage2.unit_rate;
+    const baseFee = stage2.base_fee ?? 0;
+    if (!rate || rate <= 0) return fail('Variable unit rate is required and must be greater than 0.');
     return validated({
       pricingType: 'base_plus_rate',
       unitName,
@@ -112,7 +117,7 @@ export function mapPricingIntakeToConfig(
       }
     }
 
-    if (stage1.has_minimum_charge && stage1.minimum_charge_amount) {
+    if (stage1.has_minimum_charge && stage1.minimum_charge_amount && stage1.minimum_charge_amount > 0) {
       return validated({
         pricingType: 'min_charge_plus_addons',
         minCharge: stage1.minimum_charge_amount,
@@ -120,16 +125,18 @@ export function mapPricingIntakeToConfig(
       });
     }
 
-    const rangeMin = stage1.price_range_min ?? 0;
-    const rangeMax = stage1.price_range_max ?? (rangeMin > 0 ? rangeMin * 2 : 500);
-    return validated({
-      pricingType: 'price_range_only',
-      rangeMin: rangeMin > 0 ? rangeMin : 100,
-      rangeMax: Math.max(rangeMax, rangeMin > 0 ? rangeMin : 100),
-    });
+    if (stage1.price_range_min != null && stage1.price_range_max != null && stage1.price_range_max >= stage1.price_range_min) {
+      return validated({
+        pricingType: 'price_range_only',
+        rangeMin: stage1.price_range_min,
+        rangeMax: stage1.price_range_max,
+      });
+    }
+
+    return fail('Fixed project pricing requires packages, a minimum charge, or a valid price range.');
   }
 
-  if (stage1.has_minimum_charge && stage1.minimum_charge_amount) {
+  if (stage1.has_minimum_charge && stage1.minimum_charge_amount && stage1.minimum_charge_amount > 0) {
     return validated({
       pricingType: 'min_charge_plus_addons',
       minCharge: stage1.minimum_charge_amount,
@@ -137,21 +144,15 @@ export function mapPricingIntakeToConfig(
     });
   }
 
-  if (stage1.price_range_min != null || stage1.price_range_max != null) {
-    const rangeMin = stage1.price_range_min ?? 0;
-    const rangeMax = stage1.price_range_max ?? (rangeMin > 0 ? rangeMin * 2 : 500);
+  if (stage1.price_range_min != null && stage1.price_range_max != null && stage1.price_range_max >= stage1.price_range_min) {
     return validated({
       pricingType: 'price_range_only',
-      rangeMin: rangeMin > 0 ? rangeMin : 100,
-      rangeMax: Math.max(rangeMax, rangeMin > 0 ? rangeMin : 100),
+      rangeMin: stage1.price_range_min,
+      rangeMax: stage1.price_range_max,
     });
   }
 
-  return {
-    success: false,
-    config: CALL_FOR_QUOTE_FALLBACK,
-    errors: ['Could not determine pricing type from intake answers'],
-  };
+  return fail('Could not determine pricing type from intake answers.');
 }
 
 function buildSharedFields(
@@ -197,13 +198,12 @@ function buildSharedFields(
   return shared;
 }
 
-function guessRate(stage1: CustomTradeData): number {
-  if (stage1.price_range_min != null && stage1.price_range_max != null && stage1.price_range_max > 0) {
-    return Math.round((stage1.price_range_min + stage1.price_range_max) / 2);
-  }
-  if (stage1.price_range_min != null && stage1.price_range_min > 0) return stage1.price_range_min;
-  if (stage1.price_range_max != null && stage1.price_range_max > 0) return Math.round(stage1.price_range_max / 2);
-  return 50;
+function fail(message: string): MapperResult {
+  return {
+    success: false,
+    config: CALL_FOR_QUOTE_FALLBACK,
+    errors: [message],
+  };
 }
 
 function validated(raw: Record<string, unknown>): MapperResult {
