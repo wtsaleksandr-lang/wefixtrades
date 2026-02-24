@@ -199,6 +199,18 @@ export const calculatorSettingsSchema = z.object({
     dark_mode: z.boolean().default(false),
     animation_speed: z.enum(['slow', 'normal', 'fast']).default('normal'),
   }).default({}),
+
+  test_history: z.object({
+    scenarios: z.array(z.object({
+      label: z.string(),
+      inputs: z.record(z.any()),
+      yourCharge: z.string(),
+    })),
+    accuracy_score: z.number(),
+    confirmed: z.boolean(),
+    advanced_adjustments: z.record(z.number()).nullable(),
+    timestamp: z.number(),
+  }).optional(),
 }).default({});
 
 export type CalculatorSettings = z.infer<typeof calculatorSettingsSchema>;
