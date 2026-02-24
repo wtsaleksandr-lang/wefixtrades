@@ -325,7 +325,7 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
               marginBottom: '16px',
             }}>
               <span style={{ fontSize: '13px', fontWeight: 500, color: p.colors.warning }}>Changes not published</span>
-              <button data-testid="button-republish" style={{
+              <button data-testid="button-republish" onClick={handlePublish} style={{
                 padding: '6px 14px', borderRadius: p.radius.sm, border: 'none',
                 background: p.colors.warning, color: 'white', cursor: 'pointer',
                 fontSize: '12px', fontWeight: 600,
