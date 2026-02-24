@@ -9,12 +9,12 @@ import {
   ExternalLink, Copy, Search, Download, Trash2, RefreshCw,
   Check, Circle, AlertCircle, Shield, ChevronRight, Globe,
   Loader2, ArrowLeft, Zap, Send, Clock, ChevronDown, ChevronUp,
-  Mail, MessageSquare, Play, Pause, Eye,
+  Mail, MessageSquare, Play, Pause, Eye, CalendarDays, Phone,
 } from 'lucide-react';
 
 const p = platformTheme;
 
-type Section = 'overview' | 'pricing' | 'leads' | 'analytics' | 'followup' | 'settings';
+type Section = 'overview' | 'pricing' | 'leads' | 'analytics' | 'followup' | 'settings' | 'bookings';
 
 const NAV_ITEMS: { id: Section; label: string; icon: any }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -23,6 +23,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: any }[] = [
   { id: 'followup', label: 'Follow-Up', icon: Zap },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'bookings', label: 'Bookings', icon: CalendarDays },
 ];
 
 function getToken() {
@@ -103,6 +104,7 @@ export default function Dashboard() {
         {section === 'followup' && <FollowUpSection token={token} />}
         {section === 'analytics' && <AnalyticsSection token={token} />}
         {section === 'settings' && <SettingsSection token={token} />}
+        {section === 'bookings' && <BookingsSection token={token} />}
       </main>
     </div>
   );
@@ -373,7 +375,7 @@ function LeadStatusBadge({ status, leadId, token }: { status: string; leadId: nu
         <div style={{
           position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10,
           background: '#fff', border: `1px solid ${p.colors.border}`, borderRadius: p.radius.sm,
-          boxShadow: p.shadows.md, minWidth: 100, overflow: 'hidden',
+          boxShadow: p.shadows.card, minWidth: 100, overflow: 'hidden',
         }}>
           {Object.entries(LEAD_STATUS_COLORS).map(([key, val]) => (
             <button
@@ -1040,6 +1042,220 @@ function SettingsSection({ token }: { token: string }) {
           </div>
         </SettingsCard>
       </div>
+    </div>
+  );
+}
+
+const BOOKING_STATUS_COLORS: Record<string, { bg: string; text: string; label: string }> = {
+  pending: { bg: '#FFFBEB', text: '#92400E', label: 'Pending' },
+  confirmed: { bg: '#ECFDF5', text: '#065F46', label: 'Confirmed' },
+  cancelled: { bg: '#FEF2F2', text: '#991B1B', label: 'Cancelled' },
+};
+
+function BookingStatusBadge({ status, bookingId, token }: { status: string; bookingId: number; token: string }) {
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+  const colors = BOOKING_STATUS_COLORS[status] || BOOKING_STATUS_COLORS.pending;
+
+  const mutation = useMutation({
+    mutationFn: async (newStatus: string) => {
+      await apiRequest('PATCH', `/api/dashboard/bookings/${bookingId}/status?token=${token}`, { status: newStatus });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/bookings'] });
+      setOpen(false);
+      toast({ title: 'Booking status updated' });
+    },
+    onError: () => {
+      toast({ title: 'Failed to update status', variant: 'destructive' });
+    },
+  });
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        data-testid={`button-booking-status-${bookingId}`}
+        onClick={() => setOpen(!open)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: '3px 10px', borderRadius: 999, border: 'none', cursor: 'pointer',
+          background: colors.bg, color: colors.text, fontSize: 11, fontWeight: 600,
+        }}
+      >
+        {colors.label}
+        <ChevronDown style={{ width: 10, height: 10 }} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10,
+          background: '#fff', border: `1px solid ${p.colors.border}`, borderRadius: p.radius.sm,
+          boxShadow: p.shadows.sm, minWidth: 110, overflow: 'hidden',
+        }}>
+          {Object.entries(BOOKING_STATUS_COLORS).map(([key, val]) => (
+            <button
+              key={key}
+              data-testid={`booking-status-option-${key}`}
+              onClick={() => mutation.mutate(key)}
+              disabled={mutation.isPending}
+              style={{
+                display: 'block', width: '100%', padding: '6px 12px', border: 'none',
+                background: key === status ? p.colors.accentLighter : 'transparent',
+                cursor: 'pointer', fontSize: 12, textAlign: 'left', color: val.text,
+                fontWeight: key === status ? 600 : 400,
+              }}
+            >
+              {val.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BookingsSection({ token }: { token: string }) {
+  const { toast } = useToast();
+
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ['/api/dashboard/bookings', `?token=${token}`],
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      await apiRequest('PATCH', `/api/dashboard/bookings/${id}/status?token=${token}`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/bookings'] });
+      toast({ title: 'Booking status updated' });
+    },
+    onError: () => {
+      toast({ title: 'Failed to update status', variant: 'destructive' });
+    },
+  });
+
+  const bookings = data?.bookings || [];
+
+  return (
+    <div>
+      <SectionHeader title="Bookings" sub={`${bookings.length} total bookings`} />
+
+      {isLoading ? <LoadingSkeleton /> : bookings.length === 0 ? (
+        <div style={{
+          textAlign: 'center', padding: '48px 0', color: p.colors.muted,
+          background: p.colors.surface, borderRadius: p.radius.md,
+          border: `1px solid ${p.colors.borderLight}`,
+        }}>
+          <CalendarDays style={{ width: 32, height: 32, margin: '0 auto 12px', color: p.colors.subtle }} />
+          <p data-testid="text-no-bookings" style={{ ...p.typography.body }}>No bookings yet</p>
+          <p style={{ ...p.typography.captionSm, marginTop: 4 }}>Bookings will appear here when customers schedule appointments.</p>
+        </div>
+      ) : (
+        <div style={{
+          background: p.colors.surface, borderRadius: p.radius.md,
+          border: `1px solid ${p.colors.borderLight}`, overflow: 'hidden',
+        }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${p.colors.borderLight}` }}>
+                {['Name', 'Date', 'Time', 'Status', 'Deposit Paid', 'Contact', 'Quote Value', ''].map(h => (
+                  <th key={h} style={{
+                    ...p.typography.captionSm, padding: '10px 14px', textAlign: 'left',
+                    fontWeight: 600,
+                  }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {bookings.map((booking: any) => (
+                <tr key={booking.id} data-testid={`booking-row-${booking.id}`} style={{
+                  borderBottom: `1px solid ${p.colors.borderLight}`,
+                }}>
+                  <td style={{ padding: '10px 14px', ...p.typography.bodySm }}>{booking.customer_name || '—'}</td>
+                  <td style={{ padding: '10px 14px', ...p.typography.bodySm }}>{booking.date || '—'}</td>
+                  <td style={{ padding: '10px 14px', ...p.typography.bodySm }}>{booking.time || '—'}</td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <BookingStatusBadge status={booking.status || 'pending'} bookingId={booking.id} token={token} />
+                  </td>
+                  <td style={{ padding: '10px 14px', ...p.typography.bodySm }}>
+                    {booking.deposit_paid ? (
+                      <span data-testid={`text-deposit-paid-${booking.id}`} style={{ color: p.colors.success, fontWeight: 600, fontSize: 12 }}>
+                        <Check style={{ width: 12, height: 12, display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
+                        Paid
+                      </span>
+                    ) : booking.deposit_amount > 0 ? (
+                      <span data-testid={`text-deposit-unpaid-${booking.id}`} style={{ color: p.colors.warning, fontSize: 12 }}>
+                        ${(booking.deposit_amount / 100).toFixed(2)} due
+                      </span>
+                    ) : (
+                      <span style={{ color: p.colors.subtle, fontSize: 12 }}>N/A</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {booking.customer_email && (
+                        <a data-testid={`link-email-${booking.id}`} href={`mailto:${booking.customer_email}`} title={booking.customer_email} style={{ color: p.colors.muted }}>
+                          <Mail style={{ width: 14, height: 14 }} />
+                        </a>
+                      )}
+                      {booking.customer_phone && (
+                        <a data-testid={`link-phone-${booking.id}`} href={`tel:${booking.customer_phone}`} title={booking.customer_phone} style={{ color: p.colors.muted }}>
+                          <Phone style={{ width: 14, height: 14 }} />
+                        </a>
+                      )}
+                      {!booking.customer_email && !booking.customer_phone && (
+                        <span style={{ ...p.typography.captionSm }}>—</span>
+                      )}
+                    </div>
+                  </td>
+                  <td style={{ padding: '10px 14px', ...p.typography.bodySm, fontWeight: 600 }}>
+                    {booking.quote_amount ? `$${booking.quote_amount}` : '—'}
+                  </td>
+                  <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                      {booking.status !== 'confirmed' && (
+                        <button
+                          data-testid={`button-confirm-booking-${booking.id}`}
+                          onClick={() => statusMutation.mutate({ id: booking.id, status: 'confirmed' })}
+                          disabled={statusMutation.isPending}
+                          title="Confirm"
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
+                            borderRadius: p.radius.sm, border: 'none', cursor: 'pointer',
+                            background: p.colors.successLight, color: p.colors.success,
+                            fontSize: 11, fontWeight: 600,
+                          }}
+                        >
+                          <Check style={{ width: 12, height: 12 }} /> Confirm
+                        </button>
+                      )}
+                      {booking.status !== 'cancelled' && (
+                        <button
+                          data-testid={`button-cancel-booking-${booking.id}`}
+                          onClick={() => {
+                            if (confirm('Cancel this booking?')) {
+                              statusMutation.mutate({ id: booking.id, status: 'cancelled' });
+                            }
+                          }}
+                          disabled={statusMutation.isPending}
+                          title="Cancel"
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
+                            borderRadius: p.radius.sm, border: 'none', cursor: 'pointer',
+                            background: p.colors.dangerLight, color: p.colors.danger,
+                            fontSize: 11, fontWeight: 600,
+                          }}
+                        >
+                          <Trash2 style={{ width: 12, height: 12 }} /> Cancel
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

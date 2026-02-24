@@ -727,6 +727,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 <CustomTradeQuestionnaire
                   data={ws.customTradeData}
                   onChange={(data) => set('customTradeData', data)}
+                  calculatorSettings={ws.calculatorSettings}
+                  onSettingsChange={(s) => set('calculatorSettings', s)}
                 />
                 {(validationErrors.customTrade || validationErrors.customTradeMinCharge || validationErrors.customTradeTripFee || validationErrors.customTradePriceRange) && (
                   <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>

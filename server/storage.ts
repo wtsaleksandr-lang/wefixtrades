@@ -2,7 +2,7 @@ import { db } from "./db";
 import {
   calculators, leads, analyticsEvents, deploymentStatus,
   calculatorAnalyticsSummary, jobLogs,
-  notificationQueue, followupJobs,
+  notificationQueue, followupJobs, bookings,
   type Calculator, type InsertCalculator,
   type Lead, type InsertLead,
   type AnalyticsEvent, type InsertAnalyticsEvent,
@@ -11,6 +11,7 @@ import {
   type JobLog, type InsertJobLog,
   type NotificationQueue, type InsertNotificationQueue,
   type FollowupJob, type InsertFollowupJob,
+  type Booking, type InsertBooking,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull } from "drizzle-orm";
 
@@ -61,6 +62,13 @@ export interface IStorage {
   updateFollowupJob(id: number, updates: Record<string, any>): Promise<void>;
   getFollowupLogs(calculatorId: number, limit?: number): Promise<FollowupJob[]>;
   cancelFollowupsForLead(leadId: number): Promise<void>;
+
+  createBooking(data: InsertBooking): Promise<Booking>;
+  getBookingsByCalculatorId(calculatorId: number): Promise<Booking[]>;
+  getBookingById(id: number): Promise<Booking | undefined>;
+  updateBookingStatus(id: number, status: string): Promise<Booking | undefined>;
+  updateBooking(id: number, updates: Partial<InsertBooking>): Promise<Booking | undefined>;
+  getConfirmedBookingsForDate(calculatorId: number, date: string): Promise<Booking[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -392,6 +400,42 @@ export class DatabaseStorage implements IStorage {
   async getCalculatorById(id: number): Promise<Calculator | undefined> {
     const [calc] = await db.select().from(calculators).where(eq(calculators.id, id)).limit(1);
     return calc;
+  }
+
+  async createBooking(data: InsertBooking): Promise<Booking> {
+    const [booking] = await db.insert(bookings).values(data).returning();
+    return booking;
+  }
+
+  async getBookingsByCalculatorId(calculatorId: number): Promise<Booking[]> {
+    return db.select().from(bookings)
+      .where(eq(bookings.calculator_id, calculatorId))
+      .orderBy(desc(bookings.created_at));
+  }
+
+  async getBookingById(id: number): Promise<Booking | undefined> {
+    const [booking] = await db.select().from(bookings).where(eq(bookings.id, id)).limit(1);
+    return booking;
+  }
+
+  async updateBookingStatus(id: number, status: string): Promise<Booking | undefined> {
+    const [booking] = await db.update(bookings).set({ status }).where(eq(bookings.id, id)).returning();
+    return booking;
+  }
+
+  async updateBooking(id: number, updates: Partial<InsertBooking>): Promise<Booking | undefined> {
+    const [booking] = await db.update(bookings).set(updates).where(eq(bookings.id, id)).returning();
+    return booking;
+  }
+
+  async getConfirmedBookingsForDate(calculatorId: number, date: string): Promise<Booking[]> {
+    return db.select().from(bookings)
+      .where(and(
+        eq(bookings.calculator_id, calculatorId),
+        eq(bookings.date, date),
+        sql`${bookings.status} IN ('pending', 'confirmed')`,
+      ))
+      .orderBy(bookings.time);
   }
 }
 
