@@ -102,6 +102,12 @@ export const pricingDraftSchema = z.object({
   confidence_score: z.number().default(50),
   needs_human_review: z.boolean().default(true),
   status: z.enum(['pending', 'generating', 'ready', 'failed']).default('pending'),
+  pricing_audit: z.object({
+    source: z.string().optional(),
+    derivation_attempted: z.boolean().optional(),
+    derivation_result: z.record(z.any()).optional(),
+    timestamp: z.number().optional(),
+  }).optional(),
 }).optional();
 
 export type PricingDraft = z.infer<typeof pricingDraftSchema>;
