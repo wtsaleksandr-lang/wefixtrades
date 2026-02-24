@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { platformTheme } from '@/theme/platformTheme';
 import { CATEGORIES, TRADES, getTradesByCategory, type Trade } from '@/data/trades';
-import { calculatorSettingsSchema, customTradeDataSchema, type CalculatorSettings, type CustomTradeData, type Stage2Data } from '@shared/schema';
+import { calculatorSettingsSchema, customTradeDataSchema, type CalculatorSettings, type CustomTradeData, type Stage2Data, type SampleQuote } from '@shared/schema';
 import DesignStudio from './DesignStudio';
 import CustomTradeQuestionnaire from './CustomTradeQuestionnaire';
 import PricingIntakeStage2 from './PricingIntakeStage2';
@@ -45,6 +45,7 @@ interface WizardState {
   isCustomTrade: boolean;
   customTradeData: CustomTradeData;
   stage2Data: Stage2Data;
+  sampleQuotes: SampleQuote[];
   ownerEmail: string;
   primaryColor: string;
   tagline: string;
@@ -54,6 +55,7 @@ interface WizardState {
   leadThankYouMessage: string;
   testScenarios: TestScenario[];
   testPassed: boolean;
+  draftJobId: string;
 }
 
 const DEFAULT_SETTINGS = calculatorSettingsSchema.parse({});
@@ -70,10 +72,17 @@ const EMPTY_SCENARIO: TestScenario = {
   label: '', answers: {}, expectedMin: '', expectedMax: '', confirmed: false,
 };
 
+const DEFAULT_SAMPLE_QUOTES: SampleQuote[] = [
+  { label: 'small', inputs: { qty: 0, notes_optional: '' }, final_price: 0 },
+  { label: 'typical', inputs: { qty: 0, notes_optional: '' }, final_price: 0 },
+  { label: 'big', inputs: { qty: 0, notes_optional: '' }, final_price: 0 },
+];
+
 const INITIAL_STATE: WizardState = {
   businessName: '', selectedCategory: '', selectedTrade: '',
   isCustomTrade: false, customTradeData: DEFAULT_CUSTOM_TRADE,
   stage2Data: {},
+  sampleQuotes: DEFAULT_SAMPLE_QUOTES.map(q => ({ ...q, inputs: { ...q.inputs } })),
   ownerEmail: '', primaryColor: '#0284C7',
   tagline: '', logoUrl: '',
   calculatorSettings: DEFAULT_SETTINGS,
@@ -81,6 +90,7 @@ const INITIAL_STATE: WizardState = {
   leadThankYouMessage: 'Thanks! We\'ll be in touch soon.',
   testScenarios: [{ ...EMPTY_SCENARIO }, { ...EMPTY_SCENARIO }, { ...EMPTY_SCENARIO }],
   testPassed: false,
+  draftJobId: '',
 };
 
 function loadState(): WizardState {
@@ -95,11 +105,13 @@ function loadState(): WizardState {
           ? { ...DEFAULT_CUSTOM_TRADE, ...parsed.customTradeData }
           : DEFAULT_CUSTOM_TRADE,
         stage2Data: parsed.stage2Data || {},
+        sampleQuotes: parsed.sampleQuotes || DEFAULT_SAMPLE_QUOTES.map(q => ({ ...q, inputs: { ...q.inputs } })),
         calculatorSettings: parsed.calculatorSettings
           ? { ...DEFAULT_SETTINGS, ...parsed.calculatorSettings }
           : DEFAULT_SETTINGS,
         leadFormFields: parsed.leadFormFields || [...DEFAULT_LEAD_FIELDS],
         testScenarios: parsed.testScenarios || [{ ...EMPTY_SCENARIO }, { ...EMPTY_SCENARIO }, { ...EMPTY_SCENARIO }],
+        draftJobId: parsed.draftJobId || '',
       };
     }
   } catch {}
@@ -336,23 +348,26 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       },
     }));
     try {
-      const res = await apiRequest('POST', '/api/ai/generate-pricing-draft', {
-        custom_trade_data: ws.customTradeData,
-        business_name: ws.businessName,
+      const validQuotes = ws.sampleQuotes.filter(q => q.inputs.qty > 0 && q.final_price > 0);
+      const res = await apiRequest('POST', '/api/ai/pricing-config-draft', {
+        pricing_intake: {
+          version: 1,
+          stage1: ws.customTradeData,
+          stage2: ws.stage2Data,
+          sample_quotes: validQuotes.length > 0 ? validQuotes : undefined,
+        },
+        sample_quotes: validQuotes.length > 0 ? validQuotes : undefined,
       });
       const data = await res.json();
-      if (data.success && data.pricing_draft) {
-        setWs(prev => ({
-          ...prev,
-          calculatorSettings: {
-            ...prev.calculatorSettings,
-            pricing_draft: { ...data.pricing_draft, status: 'ready' as const },
-          },
-        }));
+      if (data.success && data.job_id) {
+        set('draftJobId', data.job_id);
+      } else {
+        throw new Error('Failed to start draft job');
       }
     } catch {
       setWs(prev => ({
         ...prev,
+        draftJobId: '',
         calculatorSettings: {
           ...prev.calculatorSettings,
           pricing_draft: {
@@ -368,6 +383,79 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       setPricingDraftLoading(false);
     }
   };
+
+  const draftJobIdRef = useRef(ws.draftJobId);
+  draftJobIdRef.current = ws.draftJobId;
+
+  useEffect(() => {
+    if (!ws.draftJobId) return;
+    const draft = ws.calculatorSettings.pricing_draft;
+    if (draft && (draft.status === 'ready' || draft.status === 'failed')) return;
+
+    const currentJobId = ws.draftJobId;
+    let attempts = 0;
+    const maxAttempts = 15;
+    const interval = setInterval(async () => {
+      if (draftJobIdRef.current !== currentJobId) {
+        clearInterval(interval);
+        return;
+      }
+      attempts++;
+      if (attempts > maxAttempts) {
+        clearInterval(interval);
+        setWs(prev => ({
+          ...prev,
+          draftJobId: '',
+          calculatorSettings: {
+            ...prev.calculatorSettings,
+            pricing_draft: {
+              pricing_config: { pricingType: 'call_for_quote_only', message: 'Request a quote' },
+              assumptions: [],
+              confidence_score: 0,
+              needs_human_review: true,
+              status: 'failed' as const,
+            },
+          },
+        }));
+        return;
+      }
+      try {
+        const res = await fetch(`/api/ai/pricing-config-draft/${currentJobId}`);
+        const data = await res.json();
+        if (data.status === 'completed' && data.result) {
+          clearInterval(interval);
+          const { pricing_audit, ...draftData } = data.result;
+          setWs(prev => ({
+            ...prev,
+            draftJobId: '',
+            calculatorSettings: {
+              ...prev.calculatorSettings,
+              pricing_draft: { ...draftData, status: 'ready' as const },
+              pricing_audit: pricing_audit || undefined,
+            },
+          }));
+        } else if (data.status === 'failed') {
+          clearInterval(interval);
+          setWs(prev => ({
+            ...prev,
+            draftJobId: '',
+            calculatorSettings: {
+              ...prev.calculatorSettings,
+              pricing_draft: {
+                pricing_config: { pricingType: 'call_for_quote_only', message: 'Request a quote' },
+                assumptions: [],
+                confidence_score: 0,
+                needs_human_review: true,
+                status: 'failed' as const,
+              },
+            },
+          }));
+        }
+      } catch {}
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [ws.draftJobId]);
 
   const generateMutation = useMutation({
     mutationFn: async () => {
@@ -815,21 +903,68 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     </button>
                   </div>
                 ) : (
-                  <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                  <div style={{ padding: '8px 0' }}>
                     <div style={{
-                      width: '56px', height: '56px', borderRadius: '50%',
-                      background: p.colors.accentLighter,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      margin: '0 auto 16px',
+                      padding: '16px', borderRadius: p.radius.md,
+                      border: `1px solid ${p.colors.border}`, background: '#FFFFFF', marginBottom: '20px',
                     }}>
-                      <Zap style={{ width: '24px', height: '24px', color: p.colors.accent }} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                        <FileText style={{ width: '16px', height: '16px', color: p.colors.accent }} />
+                        <p style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, margin: 0 }}>
+                          Sample Quotes <span style={{ fontSize: '12px', fontWeight: 400, color: p.colors.muted }}>(optional)</span>
+                        </p>
+                      </div>
+                      <p style={{ fontSize: '12px', color: p.colors.muted, lineHeight: 1.5, marginBottom: '14px' }}>
+                        Share 1-3 past jobs so AI can calibrate pricing. Leave blank to skip.
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {ws.sampleQuotes.map((sq, idx) => (
+                          <div key={idx} data-testid={`sample-quote-${idx}`} style={{
+                            padding: '12px', borderRadius: p.radius.sm,
+                            border: `1px solid ${p.colors.borderLight}`, background: '#FAFBFC',
+                            display: 'flex', alignItems: 'center', gap: '10px',
+                          }}>
+                            <span style={{ fontSize: '11px', fontWeight: 700, color: p.colors.subtle, textTransform: 'uppercase', minWidth: '46px' }}>
+                              {sq.label}
+                            </span>
+                            <input data-testid={`input-sq-qty-${idx}`}
+                              type="number" placeholder="Qty" min="0"
+                              value={sq.inputs.qty || ''}
+                              onChange={e => {
+                                const updated = [...ws.sampleQuotes];
+                                updated[idx] = { ...updated[idx], inputs: { ...updated[idx].inputs, qty: Number(e.target.value) || 0 } };
+                                set('sampleQuotes', updated);
+                              }}
+                              className="premium-input"
+                              style={{ width: '70px', padding: '8px 10px', fontSize: '13px' }}
+                            />
+                            <input data-testid={`input-sq-price-${idx}`}
+                              type="number" placeholder="$" min="0" step="0.01"
+                              value={sq.final_price || ''}
+                              onChange={e => {
+                                const updated = [...ws.sampleQuotes];
+                                updated[idx] = { ...updated[idx], final_price: Number(e.target.value) || 0 };
+                                set('sampleQuotes', updated);
+                              }}
+                              className="premium-input"
+                              style={{ width: '90px', padding: '8px 10px', fontSize: '13px' }}
+                            />
+                            <input data-testid={`input-sq-notes-${idx}`}
+                              type="text" placeholder="Notes"
+                              value={sq.inputs.notes_optional || ''}
+                              onChange={e => {
+                                const updated = [...ws.sampleQuotes];
+                                updated[idx] = { ...updated[idx], inputs: { ...updated[idx].inputs, notes_optional: e.target.value } };
+                                set('sampleQuotes', updated);
+                              }}
+                              className="premium-input"
+                              style={{ flex: 1, minWidth: 0, padding: '8px 10px', fontSize: '13px' }}
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <h3 style={{ fontSize: '18px', fontWeight: 700, color: p.colors.heading, marginBottom: '8px' }}>
-                      Generate Pricing Draft
-                    </h3>
-                    <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.5, maxWidth: '340px', margin: '0 auto 20px' }}>
-                      Click below to have AI analyze your custom trade and generate a pricing configuration.
-                    </p>
+
                     <PrimaryBtn testId="button-generate-draft" onClick={triggerPricingDraft} fullWidth>
                       <Sparkles style={{ width: '16px', height: '16px' }} /> Generate Pricing Draft
                     </PrimaryBtn>
@@ -878,6 +1013,18 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         {/* Step 3: Lead Form Builder */}
         {step === 3 && (
           <div className="animate-fade-in-up">
+            {ws.draftJobId && (
+              <div data-testid="draft-generating-banner" style={{
+                padding: '12px 16px', borderRadius: p.radius.md,
+                background: p.colors.accentLighter, border: `1px solid ${p.colors.accentLight}`,
+                display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px',
+              }}>
+                <Loader2 style={{ width: '16px', height: '16px', color: p.colors.accent, animation: 'spin 1s linear infinite' }} />
+                <p style={{ fontSize: '13px', color: p.colors.accentDark, margin: 0, lineHeight: 1.4 }}>
+                  AI is generating your pricing draft in the background...
+                </p>
+              </div>
+            )}
             <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.5, marginBottom: '20px' }}>
               Configure which fields appear on your lead capture form after a customer receives their quote.
             </p>

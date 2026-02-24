@@ -55,29 +55,87 @@ export const stage2DataSchema = z.object({
 
 export type Stage2Data = z.infer<typeof stage2DataSchema>;
 
+export const sampleQuoteSchema = z.object({
+  label: z.enum(['small', 'typical', 'big']),
+  inputs: z.object({
+    qty: z.number().min(0),
+    notes_optional: z.string().optional(),
+  }),
+  final_price: z.number().min(0),
+});
+
+export type SampleQuote = z.infer<typeof sampleQuoteSchema>;
+
 export const pricingIntakeSchema = z.object({
   version: z.literal(1).default(1),
   stage1: customTradeDataSchema,
   stage2: stage2DataSchema.default({}),
+  sample_quotes: z.array(sampleQuoteSchema).max(3).optional(),
 });
 
 export type PricingIntake = z.infer<typeof pricingIntakeSchema>;
 
+export const aiDraftRequestSchema = z.object({
+  pricing_intake: pricingIntakeSchema,
+  sample_quotes: z.array(sampleQuoteSchema).max(3).optional(),
+  constraints: z.object({
+    allowed_pricing_types: z.array(z.string()),
+    allowed_ops: z.array(z.string()),
+    no_other_math: z.literal(true),
+  }),
+});
+
+export type AIDraftRequest = z.infer<typeof aiDraftRequestSchema>;
+
+export const aiDraftResponseSchema = z.object({
+  pricing_config: z.record(z.any()),
+  confidence_score: z.number().min(0).max(100),
+  assumptions: z.array(z.string()).max(12),
+  needs_human_review: z.boolean(),
+});
+
+export type AIDraftResponse = z.infer<typeof aiDraftResponseSchema>;
+
 export const pricingDraftSchema = z.object({
   pricing_config: z.record(z.any()),
   assumptions: z.array(z.string()).default([]),
-  confidence_score: z.number().default(0.5),
+  confidence_score: z.number().default(50),
   needs_human_review: z.boolean().default(true),
   status: z.enum(['pending', 'generating', 'ready', 'failed']).default('pending'),
 }).optional();
 
 export type PricingDraft = z.infer<typeof pricingDraftSchema>;
 
+export const pricingDraftJobSchema = z.object({
+  job_id: z.string(),
+  status: z.enum(['pending', 'processing', 'completed', 'failed']),
+  result: pricingDraftSchema.unwrap().optional(),
+  error: z.string().optional(),
+  created_at: z.number(),
+});
+
+export type PricingDraftJob = z.infer<typeof pricingDraftJobSchema>;
+
+export const pricingAuditLogSchema = z.object({
+  pricing_intake: pricingIntakeSchema.optional(),
+  sample_quotes: z.array(sampleQuoteSchema).optional(),
+  ai_raw_output: z.record(z.any()).optional(),
+  ai_validated_output: z.record(z.any()).optional(),
+  derivation_attempted: z.boolean().optional(),
+  derivation_result: z.record(z.any()).optional(),
+  final_config: z.record(z.any()).optional(),
+  source: z.enum(['deterministic', 'derivation', 'ai', 'fallback']).optional(),
+  timestamp: z.number().optional(),
+});
+
+export type PricingAuditLog = z.infer<typeof pricingAuditLogSchema>;
+
 export const calculatorSettingsSchema = z.object({
   settings_version: z.number().default(1),
 
   pricing_draft: pricingDraftSchema,
   pricing_intake: pricingIntakeSchema.optional(),
+  pricing_audit: pricingAuditLogSchema.optional(),
 
   appearance: z.object({
     color_theme: z.enum(['graphite', 'navy', 'emerald', 'slate', 'custom']).default('emerald'),
