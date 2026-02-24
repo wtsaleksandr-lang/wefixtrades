@@ -8,6 +8,7 @@ import CustomTradeQuestionnaire from './CustomTradeQuestionnaire';
 import PricingIntakeStage2 from './PricingIntakeStage2';
 import TestGateStep, { type TestGateResult } from './TestGateStep';
 import LeadFormStep from './LeadFormStep';
+import PublishStep from './PublishStep';
 import { mapPricingIntakeToConfig } from '@shared/pricingIntakeMapper';
 import {
   Loader2, ArrowRight, ArrowLeft, Check, Sparkles, Wrench, Hammer,
@@ -147,7 +148,6 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const [tradeOpen, setTradeOpen] = useState(false);
   const [result, setResult] = useState<any>(savedResult);
   const [genProgress, setGenProgress] = useState(0);
-  const [showEmbed, setShowEmbed] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [pricingDraftLoading, setPricingDraftLoading] = useState(false);
@@ -540,7 +540,19 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     return { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 };
   }, [ws.isCustomTrade, ws.customTradeData, ws.stage2Data, ws.calculatorSettings.pricing_draft, ws.selectedTrade]);
 
-  const [testHistory, setTestHistory] = useState<TestGateResult | null>(null);
+  const [testHistory, setTestHistory] = useState<TestGateResult | null>(() => {
+    const th = ws.calculatorSettings.test_history;
+    if (th) {
+      return {
+        scenarios: th.scenarios.map(s => ({ ...s, confirmed: true })),
+        accuracyScore: th.accuracy_score,
+        confirmed: th.confirmed,
+        advancedAdjustments: th.advanced_adjustments ?? null,
+        timestamp: th.timestamp,
+      };
+    }
+    return null;
+  });
 
   const handlePricingConfigChange = useCallback((newConfig: any) => {
     if (ws.isCustomTrade && ws.calculatorSettings.pricing_draft) {
@@ -562,7 +574,6 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     setWs({ ...INITIAL_STATE });
     setResult(null);
     setGenProgress(0);
-    setShowEmbed(false);
     setShowHelp(false);
     setShowPreview(false);
     setValidationErrors({});
@@ -1057,9 +1068,18 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           <GeneratingAnimation progress={genProgress} businessName={ws.businessName} />
         )}
 
-        {/* Step 5: Publish & Share (was step 3) */}
+        {/* Step 5: Publish & Share */}
         {step === 5 && result && (
-          <LaunchStep result={result} showEmbed={showEmbed} onToggleEmbed={() => setShowEmbed(p => !p)} onStartOver={startOver} />
+          <PublishStep
+            result={result}
+            publishData={ws.calculatorSettings.publish}
+            testPassed={!!testHistory?.confirmed}
+            leadFormValid={!!(ws.calculatorSettings.lead_form.delivery.primary_email)}
+            pricingExists={!!resolvedPricingConfig}
+            businessName={ws.businessName}
+            onPublishDataChange={(pd) => set('calculatorSettings', { ...ws.calculatorSettings, publish: pd })}
+            onStartOver={startOver}
+          />
         )}
 
         {step === 5 && !result && (
@@ -1269,109 +1289,6 @@ function GeneratingAnimation({ progress, businessName }: { progress: number; bus
 }
 
 
-function LaunchStep({ result, showEmbed, onToggleEmbed, onStartOver }: {
-  result: any; showEmbed: boolean; onToggleEmbed: () => void; onStartOver: () => void;
-}) {
-  const origin = window.location.origin;
-  const calcUrl = `${origin}${result.calculator_url}`;
-  const embedCode = `<iframe src="${calcUrl}?embed=true" width="100%" height="700" frameborder="0" style="border:none;border-radius:16px;max-width:480px;"></iframe>`;
-
-  return (
-    <div className="animate-fade-in-up">
-      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-        <div className="animate-checkmark" style={{
-          width: '56px', height: '56px', borderRadius: '50%',
-          background: 'linear-gradient(135deg, #059669 0%, #10B981 100%)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 12px',
-          boxShadow: '0 8px 24px rgba(16, 185, 129, 0.2)',
-        }}>
-          <Check style={{ width: '28px', height: '28px', color: 'white' }} />
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <LinkRow label="Calculator URL" url={calcUrl}
-          icon={<ExternalLink style={{ width: '14px', height: '14px' }} />}
-          actionLabel="Open" onAction={() => window.open(calcUrl, '_blank')} />
-        <LinkRow label="Edit Link (7 days)" url={`${origin}${result.edit_url}`}
-          icon={<Sparkles style={{ width: '14px', height: '14px' }} />} />
-        <LinkRow label="Leads Dashboard" url={`${origin}${result.leads_url}`}
-          icon={<Zap style={{ width: '14px', height: '14px' }} />} />
-      </div>
-
-      <button
-        data-testid="button-embed-toggle"
-        onClick={onToggleEmbed}
-        style={{
-          width: '100%', marginTop: '16px', padding: '12px 16px',
-          borderRadius: p.radius.md, border: `1px solid ${p.colors.border}`,
-          background: '#FFFFFF', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          fontSize: '14px', fontWeight: 500, color: p.colors.heading,
-          transition: p.transitions.fast,
-          WebkitTapHighlightColor: 'transparent',
-        }}
-      >
-        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Code2 style={{ width: '16px', height: '16px', color: p.colors.accent }} />
-          Embed on Your Website
-        </span>
-        <ChevronDown style={{
-          width: '16px', height: '16px', color: p.colors.muted,
-          transition: p.transitions.fast,
-          transform: showEmbed ? 'rotate(180deg)' : 'rotate(0)',
-        }} />
-      </button>
-
-      {showEmbed && (
-        <div className="animate-expand" style={{
-          marginTop: '8px', padding: '14px', borderRadius: p.radius.md,
-          background: '#111827', border: 'none',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: '#9CA3AF', letterSpacing: '0.04em', textTransform: 'uppercase' }}>HTML</span>
-            <CopyBtn text={embedCode} size="small" />
-          </div>
-          <pre style={{
-            fontSize: '11px', color: '#E5E7EB', lineHeight: 1.6,
-            whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-            fontFamily: 'monospace', margin: 0,
-          }}>
-            {embedCode}
-          </pre>
-        </div>
-      )}
-
-      <div style={{
-        marginTop: '16px', padding: '14px 16px', background: p.colors.accentLighter,
-        borderRadius: p.radius.md, fontSize: '13px', color: p.colors.accentDark,
-        display: 'flex', alignItems: 'flex-start', gap: '10px',
-        border: `1px solid ${p.colors.accentLighter}`,
-      }}>
-        <AlertCircle style={{ width: '16px', height: '16px', flexShrink: 0, marginTop: '1px' }} />
-        <span><strong>Bookmark your links.</strong> The edit link expires in 7 days.</span>
-      </div>
-
-      <button
-        data-testid="button-start-over"
-        onClick={onStartOver}
-        style={{
-          width: '100%', marginTop: '16px', padding: '12px',
-          borderRadius: p.radius.md, border: `1px solid ${p.colors.border}`,
-          background: '#FFFFFF', cursor: 'pointer', fontSize: '14px',
-          fontWeight: 500, color: p.colors.muted,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-          transition: p.transitions.fast,
-          WebkitTapHighlightColor: 'transparent',
-        }}
-      >
-        <RotateCcw style={{ width: '15px', height: '15px' }} />
-        Create Another Calculator
-      </button>
-    </div>
-  );
-}
 
 
 function Shell({ children, step, total, onHelp, title, subtitle, generating, genProgress }: {
@@ -1825,57 +1742,3 @@ function HelpModal({ onClose }: { onClose: () => void }) {
 }
 
 
-function LinkRow({ label, url, icon, actionLabel, onAction }: {
-  label: string; url: string; icon?: any; actionLabel?: string; onAction?: () => void;
-}) {
-  return (
-    <div>
-      <label style={{ fontSize: '11px', fontWeight: 700, color: p.colors.muted, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-        {icon} {label}
-      </label>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: p.colors.surfaceRaised, borderRadius: '10px', padding: '8px 10px', border: `1px solid ${p.colors.border}` }}>
-        <span data-testid={`text-url-${label.toLowerCase().replace(/[^a-z]/g, '-')}`}
-          style={{ fontSize: '11px', color: p.colors.body, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{url}</span>
-        <CopyBtn text={url} />
-        {actionLabel && onAction && (
-          <button data-testid={`action-${label.toLowerCase().replace(/[^a-z]/g, '-')}`}
-            onClick={onAction}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '4px',
-              padding: '6px 10px', borderRadius: '8px', border: 'none',
-              background: p.colors.accent, color: 'white',
-              cursor: 'pointer', fontSize: '12px', fontWeight: 600,
-              minHeight: '32px', flexShrink: 0,
-              WebkitTapHighlightColor: 'transparent',
-            }}
-          >
-            <Eye style={{ width: '12px', height: '12px' }} /> {actionLabel}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function CopyBtn({ text, size }: { text: string; size?: 'small' }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); };
-  return (
-    <button onClick={copy}
-      style={{
-        display: 'flex', alignItems: 'center', gap: '4px',
-        padding: size === 'small' ? '4px 8px' : '6px 10px',
-        borderRadius: '8px', border: size === 'small' ? 'none' : `1px solid ${p.colors.border}`,
-        background: size === 'small' ? 'rgba(255,255,255,0.1)' : 'white',
-        cursor: 'pointer',
-        fontSize: '12px', fontWeight: 500,
-        color: size === 'small' ? '#E5E7EB' : p.colors.muted,
-        transition: p.transitions.fast, minHeight: '32px',
-        WebkitTapHighlightColor: 'transparent',
-      }}
-    >
-      {copied ? <Check style={{ width: '12px', height: '12px' }} /> : <Copy style={{ width: '12px', height: '12px' }} />}
-      {copied ? 'Copied' : 'Copy'}
-    </button>
-  );
-}
