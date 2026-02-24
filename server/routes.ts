@@ -1541,7 +1541,7 @@ Return ONLY the JSON pricing config object.`;
       }
 
       const bookingsList = await storage.getBookingsByCalculatorId(calc.id);
-      res.json(bookingsList);
+      res.json({ bookings: bookingsList });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
