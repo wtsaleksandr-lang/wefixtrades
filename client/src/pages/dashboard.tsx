@@ -847,15 +847,68 @@ function AnalyticsSection({ token }: { token: string }) {
   const trend = data.weekly_trend || [];
   const maxViews = Math.max(...trend.map((w: any) => w.views), 1);
 
+  const funnelSteps = [
+    { label: 'Views', value: data.views, pct: null },
+    { label: 'Leads', value: data.leads, pct: data.conversion_rate },
+    { label: 'Bookings', value: data.bookings_confirmed ?? 0, pct: data.estimate_to_booking_pct },
+    { label: 'Payments', value: data.payments_completed ?? 0, pct: data.booking_to_payment_pct },
+  ];
+  const maxFunnelValue = Math.max(...funnelSteps.map(s => s.value), 1);
+
   return (
     <div>
       <SectionHeader title="Analytics" sub="Last 30 days performance" />
 
-      <div style={{ display: 'flex', gap: 16, marginBottom: 32, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
         <StatCard label="Total views" value={data.views} />
         <StatCard label="Total leads" value={data.leads} />
         <StatCard label="Conversion rate" value={`${data.conversion_rate}%`} />
         <StatCard label="Avg quote" value={data.avg_quote > 0 ? `$${data.avg_quote}` : '—'} />
+      </div>
+
+      <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+        <StatCard label="Bookings" value={data.bookings_confirmed ?? 0} sub="Confirmed bookings" />
+        <StatCard label="Payments" value={data.payments_completed ?? 0} sub="Deposits paid" />
+        <StatCard label="Coupon Uses" value={data.coupon_uses ?? 0} sub="Promo codes redeemed" />
+      </div>
+
+      <div data-testid="conversion-funnel" style={{
+        background: p.colors.surface, borderRadius: p.radius.md, padding: 24,
+        border: `1px solid ${p.colors.borderLight}`, marginBottom: 24,
+      }}>
+        <div style={{ ...p.typography.label, marginBottom: 20 }}>Conversion Funnel</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {funnelSteps.map((step, i) => {
+            const barWidth = maxFunnelValue > 0 ? Math.max((step.value / maxFunnelValue) * 100, step.value > 0 ? 2 : 0) : 0;
+            return (
+              <div key={step.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ ...p.typography.captionSm, width: 64, textAlign: 'right', flexShrink: 0 }}>{step.label}</div>
+                <div style={{ flex: 1, background: p.colors.borderLight, borderRadius: 4, height: 20, position: 'relative', overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${barWidth}%`, height: '100%',
+                    background: i === 0 ? p.colors.accent : i === 1 ? p.colors.accent + 'cc' : i === 2 ? p.colors.accent + '99' : p.colors.accent + '66',
+                    borderRadius: 4, transition: 'width 0.3s ease',
+                  }} />
+                </div>
+                <div style={{ ...p.typography.captionSm, width: 32, textAlign: 'right', fontWeight: 600, flexShrink: 0 }}>{step.value}</div>
+                {step.pct !== null && step.pct !== undefined && (
+                  <div style={{
+                    ...p.typography.captionSm, width: 48, textAlign: 'right', flexShrink: 0,
+                    color: p.colors.muted,
+                  }}>
+                    {step.pct}%
+                  </div>
+                )}
+                {(step.pct === null || step.pct === undefined) && (
+                  <div style={{ width: 48, flexShrink: 0 }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ ...p.typography.captionSm, marginTop: 12, color: p.colors.subtle }}>
+          Views → Leads ({data.conversion_rate}%) → Bookings ({data.estimate_to_booking_pct}%) → Payments ({data.booking_to_payment_pct}%)
+        </div>
       </div>
 
       <div style={{

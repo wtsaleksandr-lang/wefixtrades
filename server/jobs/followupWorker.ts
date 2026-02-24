@@ -18,14 +18,26 @@ function replaceVariables(template: string, vars: Record<string, string>): strin
   return result;
 }
 
-function buildFollowupHtml(body: string, businessName: string): string {
+function buildFollowupHtml(body: string, businessName: string, discountCode?: string, discountValue?: string): string {
   const htmlBody = body.replace(/\n/g, '<br/>');
+  const discountSection = discountCode && discountValue
+    ? `<tr><td style="padding:16px 28px;">
+    <table cellpadding="0" cellspacing="0" width="100%" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;">
+      <tr><td style="padding:16px;text-align:center;">
+        <p style="margin:0 0 8px;font-size:13px;color:#92400e;font-weight:600;">Special Offer Just For You</p>
+        <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#78350f;letter-spacing:2px;">${discountCode}</p>
+        <p style="margin:0;font-size:13px;color:#92400e;">Use this code to save <strong>${discountValue}</strong> on your project</p>
+      </td></tr>
+    </table>
+  </td></tr>`
+    : '';
   return `<!DOCTYPE html>
 <html><body style="font-family:'Inter',Arial,sans-serif;margin:0;padding:0;background:#f5f5f5;">
 <table cellpadding="0" cellspacing="0" width="100%" style="max-width:520px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
   <tr><td style="padding:28px;font-size:14px;line-height:1.7;color:#333;">
     ${htmlBody}
   </td></tr>
+  ${discountSection}
   <tr><td style="padding:12px 28px;background:#f9fafb;text-align:center;">
     <p style="font-size:11px;color:#9ca3af;margin:0;">Sent on behalf of ${businessName}</p>
   </td></tr>
@@ -83,7 +95,23 @@ export async function processFollowupJobs(): Promise<{ processed: number; skippe
         phone: payload.personalization?.phone || '',
         booking_link: payload.personalization?.booking_link || '',
         service_area: payload.personalization?.service_area || '',
+        discount_code: '',
+        discount_value: '',
       };
+
+      if (job.type === 'last_call') {
+        const reminders = calcSettings.followup?.reminders;
+        if (reminders?.reminder_2_include_discount && reminders?.reminder_2_coupon_id) {
+          const coupons: any[] = calcSettings.promotions?.coupons || [];
+          const coupon = coupons.find((c: any) => c.id === reminders.reminder_2_coupon_id && c.active);
+          if (coupon) {
+            templateVars.discount_code = coupon.code;
+            templateVars.discount_value = coupon.type === 'percentage'
+              ? `${coupon.value}%`
+              : `$${coupon.value}`;
+          }
+        }
+      }
 
       if (job.channel === 'email') {
         if (!mail) {
@@ -109,7 +137,7 @@ export async function processFollowupJobs(): Promise<{ processed: number; skippe
         const template = payload.template || {};
         const subject = replaceVariables(template.subject || '', templateVars);
         const body = replaceVariables(template.body || '', templateVars);
-        const html = buildFollowupHtml(body, templateVars.business_name);
+        const html = buildFollowupHtml(body, templateVars.business_name, templateVars.discount_code || undefined, templateVars.discount_value || undefined);
         const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@quickquote.app';
 
         await mail.sendMail({ from, to: lead.email, subject, html });

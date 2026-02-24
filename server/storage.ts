@@ -69,6 +69,9 @@ export interface IStorage {
   updateBookingStatus(id: number, status: string): Promise<Booking | undefined>;
   updateBooking(id: number, updates: Partial<InsertBooking>): Promise<Booking | undefined>;
   getConfirmedBookingsForDate(calculatorId: number, date: string): Promise<Booking[]>;
+  getBookingStats(calculatorId: number): Promise<{ bookings_total: number; bookings_confirmed: number; payments_completed: number }>;
+
+  incrementCouponUsage(calculatorId: number, couponCode: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -436,6 +439,42 @@ export class DatabaseStorage implements IStorage {
         sql`${bookings.status} IN ('pending', 'confirmed')`,
       ))
       .orderBy(bookings.time);
+  }
+
+  async getBookingStats(calculatorId: number): Promise<{ bookings_total: number; bookings_confirmed: number; payments_completed: number }> {
+    const [totals] = await db.select({
+      bookings_total: sql<number>`count(*)::int`,
+      bookings_confirmed: sql<number>`count(*) filter (where ${bookings.status} in ('confirmed', 'completed'))::int`,
+      payments_completed: sql<number>`count(*) filter (where ${bookings.deposit_paid} = true)::int`,
+    }).from(bookings).where(eq(bookings.calculator_id, calculatorId));
+    return totals || { bookings_total: 0, bookings_confirmed: 0, payments_completed: 0 };
+  }
+
+  async incrementCouponUsage(calculatorId: number, couponCode: string): Promise<void> {
+    const calc = await this.getCalculatorById(calculatorId);
+    if (!calc) return;
+
+    const settings = (calc.calculator_settings as any) || {};
+    const promotions = settings.promotions || {};
+    const coupons: any[] = promotions.coupons || [];
+
+    const normalizedCode = couponCode.toUpperCase();
+    const updatedCoupons = coupons.map((c: any) => {
+      if (c.code.toUpperCase() === normalizedCode) {
+        return { ...c, usage_count: (c.usage_count || 0) + 1 };
+      }
+      return c;
+    });
+
+    await this.updateCalculator(calculatorId, {
+      calculator_settings: {
+        ...settings,
+        promotions: {
+          ...promotions,
+          coupons: updatedCoupons,
+        },
+      },
+    });
   }
 }
 

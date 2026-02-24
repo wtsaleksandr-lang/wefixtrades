@@ -20,6 +20,7 @@ const TABS = [
   { id: 'layout', label: 'Layout', icon: Layout },
   { id: 'conversion', label: 'Conversion', icon: TrendingUp },
   { id: 'integrations', label: 'Integrations', icon: Link2 },
+  { id: 'automation', label: 'Automation', icon: Zap },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -109,6 +110,18 @@ export default function DesignStudio({ settings, onChange }: DesignStudioProps) 
 
   const updateConversionBlocks = useCallback((blocks: ConversionBlocks) => {
     onChange({ ...settings, conversion_blocks: blocks });
+  }, [settings, onChange]);
+
+  const updatePromotions = useCallback((patch: Partial<CalculatorSettings['promotions']>) => {
+    onChange({ ...settings, promotions: { ...settings.promotions, ...patch } });
+  }, [settings, onChange]);
+
+  const updateQuoteRules = useCallback((patch: Partial<CalculatorSettings['quote_rules']>) => {
+    onChange({ ...settings, quote_rules: { ...settings.quote_rules, ...patch } });
+  }, [settings, onChange]);
+
+  const updateFollowup = useCallback((patch: Partial<CalculatorSettings['followup']>) => {
+    onChange({ ...settings, followup: { ...settings.followup, ...patch } });
   }, [settings, onChange]);
 
   const currentTemplate = getTemplateById(selectedTemplateId);
@@ -288,6 +301,14 @@ export default function DesignStudio({ settings, onChange }: DesignStudioProps) 
       )}
       {activeTab === 'integrations' && (
         <IntegrationsTab settings={settings.integrations} onChange={updateIntegrations} />
+      )}
+      {activeTab === 'automation' && (
+        <AutomationTab
+          settings={settings}
+          onPromotionsChange={updatePromotions}
+          onQuoteRulesChange={updateQuoteRules}
+          onFollowupChange={updateFollowup}
+        />
       )}
     </div>
   );
@@ -1426,6 +1447,520 @@ function ConversionTab({ settings, onChange, conversionBlocks, onBlocksChange }:
               <p style={{ fontSize: '11px', color: p.colors.muted, marginTop: '2px', textAlign: 'right' }}>
                 {(blocks.trust.microcopy || '').length}/80
               </p>
+            </div>
+          </div>
+        )}
+      </CollapsibleSection>
+    </div>
+  );
+}
+
+
+function generateCouponId() {
+  return 'coupon_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+type Coupon = CalculatorSettings['promotions']['coupons'][number];
+
+function AutomationTab({ settings, onPromotionsChange, onQuoteRulesChange, onFollowupChange }: {
+  settings: CalculatorSettings;
+  onPromotionsChange: (patch: Partial<CalculatorSettings['promotions']>) => void;
+  onQuoteRulesChange: (patch: Partial<CalculatorSettings['quote_rules']>) => void;
+  onFollowupChange: (patch: Partial<CalculatorSettings['followup']>) => void;
+}) {
+  const promotions = settings.promotions || { version: 1, enabled: false, coupons: [] };
+  const quoteRules = settings.quote_rules || { expiration_enabled: false, valid_days: 7, show_countdown: false };
+  const followup = settings.followup || { version: 1, enabled: false };
+
+  const [newCoupon, setNewCoupon] = useState<{
+    code: string;
+    type: 'percentage' | 'fixed';
+    value: string;
+    applies_to: 'estimate_total' | 'deposit_only';
+    expires_at: string;
+    usage_limit: string;
+  }>({
+    code: '',
+    type: 'percentage',
+    value: '',
+    applies_to: 'estimate_total',
+    expires_at: '',
+    usage_limit: '',
+  });
+  const [couponError, setCouponError] = useState('');
+
+  const addCoupon = () => {
+    if (!newCoupon.code.trim()) { setCouponError('Code is required'); return; }
+    if (!newCoupon.value || isNaN(Number(newCoupon.value)) || Number(newCoupon.value) <= 0) {
+      setCouponError('Enter a valid discount value'); return;
+    }
+    const existing = promotions.coupons || [];
+    if (existing.length >= 10) { setCouponError('Max 10 coupons'); return; }
+    const code = newCoupon.code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (existing.some(c => c.code === code)) { setCouponError('Coupon code already exists'); return; }
+    const coupon: Coupon = {
+      id: generateCouponId(),
+      code,
+      type: newCoupon.type,
+      value: Number(newCoupon.value),
+      applies_to: newCoupon.applies_to,
+      expires_at: newCoupon.expires_at ? new Date(newCoupon.expires_at).getTime() : null,
+      usage_limit: newCoupon.usage_limit ? Number(newCoupon.usage_limit) : null,
+      usage_count: 0,
+      active: true,
+    };
+    onPromotionsChange({ coupons: [...existing, coupon] });
+    setNewCoupon({ code: '', type: 'percentage', value: '', applies_to: 'estimate_total', expires_at: '', usage_limit: '' });
+    setCouponError('');
+  };
+
+  const removeCoupon = (id: string) => {
+    onPromotionsChange({ coupons: (promotions.coupons || []).filter(c => c.id !== id) });
+  };
+
+  const toggleCouponActive = (id: string) => {
+    onPromotionsChange({
+      coupons: (promotions.coupons || []).map(c => c.id === id ? { ...c, active: !c.active } : c),
+    });
+  };
+
+  const getCouponStatus = (coupon: Coupon): { label: string; color: string; bg: string } => {
+    if (!coupon.active) return { label: 'Inactive', color: '#6B7280', bg: '#F3F4F6' };
+    if (coupon.expires_at && coupon.expires_at < Date.now()) return { label: 'Expired', color: '#DC2626', bg: '#FEF2F2' };
+    if (coupon.usage_limit !== null && coupon.usage_count >= coupon.usage_limit) return { label: 'Limit Reached', color: '#D97706', bg: '#FFFBEB' };
+    return { label: 'Active', color: '#059669', bg: '#F0FDF4' };
+  };
+
+  const availableCoupons = (promotions.coupons || []).filter(c => c.active);
+
+  const reminder1Enabled = followup.reminders?.reminder_1_enabled ?? true;
+  const reminder1Hours = followup.reminders?.reminder_1_delay_hours ?? 24;
+  const reminder2Enabled = followup.reminders?.reminder_2_enabled ?? true;
+  const reminder2Days = followup.reminders?.reminder_2_delay_days ?? 3;
+  const reminder2IncludeDiscount = followup.reminders?.reminder_2_include_discount ?? false;
+  const reminder2CouponId = followup.reminders?.reminder_2_coupon_id ?? null;
+
+  const updateReminders = (patch: Partial<NonNullable<typeof followup.reminders>>) => {
+    onFollowupChange({ reminders: { ...followup.reminders, ...patch } });
+  };
+
+  const updateTemplates = (patch: Partial<NonNullable<typeof followup.templates>>) => {
+    onFollowupChange({ templates: { ...followup.templates, ...patch } });
+  };
+
+  return (
+    <div>
+      <CollapsibleSection title="Promo Codes" testId="section-coupons">
+        <ToggleSwitch
+          value={promotions.enabled}
+          onChange={v => onPromotionsChange({ enabled: v })}
+          testId="toggle-promotions-enabled"
+          label="Enable promo codes"
+          sublabel="Allow customers to apply discount codes"
+        />
+        {promotions.enabled && (
+          <div style={{ marginTop: '16px' }}>
+            {(promotions.coupons || []).length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                {(promotions.coupons || []).map(coupon => {
+                  const status = getCouponStatus(coupon);
+                  return (
+                    <div key={coupon.id} data-testid={`coupon-row-${coupon.id}`} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '10px 12px', borderRadius: p.radius.sm,
+                      border: `1px solid ${p.colors.borderLight}`,
+                      background: '#FAFAFA', marginBottom: '8px', gap: '8px',
+                    }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 700, color: p.colors.heading, fontFamily: 'monospace' }}>
+                            {coupon.code}
+                          </span>
+                          <span style={{
+                            fontSize: '11px', fontWeight: 600, color: status.color,
+                            background: status.bg, padding: '2px 7px', borderRadius: '10px',
+                            border: `1px solid ${status.color}30`,
+                          }}>
+                            {status.label}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '11px', color: p.colors.muted }}>
+                          {coupon.type === 'percentage' ? `${coupon.value}% off` : `$${coupon.value} off`}
+                          {coupon.applies_to === 'deposit_only' ? ' (deposit)' : ''}
+                          {coupon.usage_limit !== null ? ` · ${coupon.usage_count}/${coupon.usage_limit} uses` : ''}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                        <button
+                          data-testid={`coupon-toggle-${coupon.id}`}
+                          onClick={() => toggleCouponActive(coupon.id)}
+                          title={coupon.active ? 'Deactivate' : 'Activate'}
+                          style={{
+                            padding: '4px 8px', borderRadius: '6px', border: `1px solid ${p.colors.border}`,
+                            background: 'white', cursor: 'pointer', fontSize: '11px',
+                            color: coupon.active ? p.colors.muted : p.colors.accent,
+                          }}
+                        >
+                          {coupon.active ? 'Disable' : 'Enable'}
+                        </button>
+                        <button
+                          data-testid={`coupon-remove-${coupon.id}`}
+                          onClick={() => removeCoupon(coupon.id)}
+                          style={{
+                            width: '28px', height: '28px', borderRadius: '6px', border: `1px solid #FCA5A5`,
+                            background: '#FEF2F2', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <X style={{ width: '12px', height: '12px', color: '#DC2626' }} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {(promotions.coupons || []).length < 10 && (
+              <div style={{
+                padding: '14px', borderRadius: p.radius.md,
+                border: `1px dashed ${p.colors.border}`, background: '#FAFAFA',
+              }}>
+                <p style={{ fontSize: '12px', fontWeight: 600, color: p.colors.body, marginBottom: '10px' }}>Add Coupon</p>
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.subtle, display: 'block', marginBottom: '4px' }}>
+                    Code (alphanumeric)
+                  </label>
+                  <input
+                    data-testid="input-coupon-code"
+                    type="text"
+                    value={newCoupon.code}
+                    onChange={e => setNewCoupon(prev => ({ ...prev, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') }))}
+                    placeholder="e.g. SAVE20"
+                    className="premium-input"
+                    maxLength={20}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.subtle, display: 'block', marginBottom: '6px' }}>Type</label>
+                  <ChipGroup
+                    options={[
+                      { value: 'percentage', label: 'Percentage' },
+                      { value: 'fixed', label: 'Fixed ($)' },
+                    ]}
+                    value={newCoupon.type}
+                    onChange={v => setNewCoupon(prev => ({ ...prev, type: v as 'percentage' | 'fixed' }))}
+                    testIdPrefix="coupon-type"
+                  />
+                </div>
+
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.subtle, display: 'block', marginBottom: '4px' }}>
+                    Value {newCoupon.type === 'percentage' ? '(%)' : '($)'}
+                  </label>
+                  <input
+                    data-testid="input-coupon-value"
+                    type="number"
+                    min="0"
+                    value={newCoupon.value}
+                    onChange={e => setNewCoupon(prev => ({ ...prev, value: e.target.value }))}
+                    placeholder={newCoupon.type === 'percentage' ? 'e.g. 20' : 'e.g. 50'}
+                    className="premium-input"
+                  />
+                </div>
+
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.subtle, display: 'block', marginBottom: '6px' }}>Applies To</label>
+                  <ChipGroup
+                    options={[
+                      { value: 'estimate_total', label: 'Estimate Total' },
+                      { value: 'deposit_only', label: 'Deposit Only' },
+                    ]}
+                    value={newCoupon.applies_to}
+                    onChange={v => setNewCoupon(prev => ({ ...prev, applies_to: v as 'estimate_total' | 'deposit_only' }))}
+                    testIdPrefix="coupon-applies"
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.subtle, display: 'block', marginBottom: '4px' }}>
+                      Expiry Date <span style={{ fontWeight: 400 }}>(optional)</span>
+                    </label>
+                    <input
+                      data-testid="input-coupon-expires"
+                      type="date"
+                      value={newCoupon.expires_at}
+                      onChange={e => setNewCoupon(prev => ({ ...prev, expires_at: e.target.value }))}
+                      className="premium-input"
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.subtle, display: 'block', marginBottom: '4px' }}>
+                      Usage Limit <span style={{ fontWeight: 400 }}>(optional)</span>
+                    </label>
+                    <input
+                      data-testid="input-coupon-limit"
+                      type="number"
+                      min="1"
+                      value={newCoupon.usage_limit}
+                      onChange={e => setNewCoupon(prev => ({ ...prev, usage_limit: e.target.value }))}
+                      placeholder="Unlimited"
+                      className="premium-input"
+                    />
+                  </div>
+                </div>
+
+                {couponError && (
+                  <p style={{ fontSize: '11px', color: p.colors.danger, marginBottom: '8px' }}>{couponError}</p>
+                )}
+
+                <button
+                  data-testid="button-add-coupon"
+                  onClick={addCoupon}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '8px 16px', borderRadius: p.radius.sm,
+                    border: `1px solid ${p.colors.accent}`,
+                    background: p.colors.accent, color: 'white',
+                    fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  <Plus style={{ width: '14px', height: '14px' }} />
+                  Add Coupon
+                </button>
+              </div>
+            )}
+            {(promotions.coupons || []).length >= 10 && (
+              <p style={{ fontSize: '12px', color: p.colors.muted }}>Maximum 10 coupons reached.</p>
+            )}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Quote Expiration" testId="section-expiration">
+        <ToggleSwitch
+          value={quoteRules.expiration_enabled}
+          onChange={v => onQuoteRulesChange({ expiration_enabled: v })}
+          testId="toggle-expiration-enabled"
+          label="Enable quote expiration"
+          sublabel="Quotes become invalid after a set number of days"
+        />
+        {quoteRules.expiration_enabled && (
+          <div style={{ marginTop: '12px' }}>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: p.colors.body, display: 'block', marginBottom: '6px' }}>
+                Valid for (days)
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <input
+                  data-testid="input-valid-days"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={quoteRules.valid_days}
+                  onChange={e => {
+                    const v = Math.min(365, Math.max(1, Number(e.target.value)));
+                    onQuoteRulesChange({ valid_days: v });
+                  }}
+                  className="premium-input"
+                  style={{ width: '80px' }}
+                />
+                <span style={{ fontSize: '13px', color: p.colors.muted }}>days</span>
+              </div>
+            </div>
+            <ToggleSwitch
+              value={quoteRules.show_countdown}
+              onChange={v => onQuoteRulesChange({ show_countdown: v })}
+              testId="toggle-show-countdown"
+              label="Show countdown timer"
+              sublabel="Display time remaining on the quote"
+            />
+          </div>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Follow-Up Reminders" testId="section-reminders">
+        <p style={{ fontSize: '12px', color: p.colors.muted, marginBottom: '12px', lineHeight: 1.5 }}>
+          Configure the follow-up emails sent to leads after they submit a quote request.
+        </p>
+        <ToggleSwitch
+          value={followup.enabled}
+          onChange={v => onFollowupChange({ enabled: v })}
+          testId="toggle-followup-enabled"
+          label="Enable follow-up emails"
+          sublabel="Automatically follow up with leads via email"
+        />
+        {followup.enabled && (
+          <div style={{ marginTop: '16px' }}>
+            <div style={{
+              padding: '14px', borderRadius: p.radius.md,
+              border: `1px solid ${p.colors.borderLight}`,
+              background: '#FAFAFA', marginBottom: '12px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <p style={{ fontSize: '13px', fontWeight: 600, color: p.colors.heading }}>Reminder 1</p>
+                <button
+                  data-testid="toggle-reminder-1"
+                  onClick={() => updateReminders({ reminder_1_enabled: !reminder1Enabled })}
+                  style={{
+                    width: '36px', height: '20px', borderRadius: '10px', border: 'none',
+                    background: reminder1Enabled ? p.colors.accent : '#D1D5DB',
+                    cursor: 'pointer', position: 'relative', transition: 'background 0.2s ease', flexShrink: 0,
+                  }}
+                >
+                  <div style={{
+                    width: '16px', height: '16px', borderRadius: '50%',
+                    background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                    position: 'absolute', top: '2px',
+                    left: reminder1Enabled ? '18px' : '2px',
+                    transition: 'left 0.2s ease',
+                  }} />
+                </button>
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.subtle, display: 'block', marginBottom: '4px' }}>
+                  Delay (hours)
+                </label>
+                <input
+                  data-testid="input-reminder-1-hours"
+                  type="number"
+                  min="1"
+                  max="168"
+                  value={reminder1Hours}
+                  onChange={e => updateReminders({ reminder_1_delay_hours: Number(e.target.value) })}
+                  className="premium-input"
+                  style={{ width: '80px' }}
+                />
+              </div>
+              <div style={{ marginBottom: '8px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.subtle, display: 'block', marginBottom: '4px' }}>Subject</label>
+                <input
+                  data-testid="input-reminder-1-subject"
+                  type="text"
+                  value={followup.templates?.reminder?.subject || ''}
+                  onChange={e => updateTemplates({ reminder: { ...followup.templates?.reminder, subject: e.target.value } })}
+                  placeholder="Following up on your quote..."
+                  className="premium-input"
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.subtle, display: 'block', marginBottom: '4px' }}>Body</label>
+                <textarea
+                  data-testid="input-reminder-1-body"
+                  value={followup.templates?.reminder?.body || ''}
+                  onChange={e => updateTemplates({ reminder: { ...followup.templates?.reminder, body: e.target.value } })}
+                  placeholder="Hi {{name}}, just checking in..."
+                  className="premium-input"
+                  rows={4}
+                  style={{ resize: 'vertical', fontFamily: 'inherit', fontSize: '12px' }}
+                />
+              </div>
+            </div>
+
+            <div style={{
+              padding: '14px', borderRadius: p.radius.md,
+              border: `1px solid ${p.colors.borderLight}`,
+              background: '#FAFAFA',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <p style={{ fontSize: '13px', fontWeight: 600, color: p.colors.heading }}>Reminder 2 (Last Call)</p>
+                <button
+                  data-testid="toggle-reminder-2"
+                  onClick={() => updateReminders({ reminder_2_enabled: !reminder2Enabled })}
+                  style={{
+                    width: '36px', height: '20px', borderRadius: '10px', border: 'none',
+                    background: reminder2Enabled ? p.colors.accent : '#D1D5DB',
+                    cursor: 'pointer', position: 'relative', transition: 'background 0.2s ease', flexShrink: 0,
+                  }}
+                >
+                  <div style={{
+                    width: '16px', height: '16px', borderRadius: '50%',
+                    background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                    position: 'absolute', top: '2px',
+                    left: reminder2Enabled ? '18px' : '2px',
+                    transition: 'left 0.2s ease',
+                  }} />
+                </button>
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.subtle, display: 'block', marginBottom: '4px' }}>
+                  Delay (days)
+                </label>
+                <input
+                  data-testid="input-reminder-2-days"
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={reminder2Days}
+                  onChange={e => updateReminders({ reminder_2_delay_days: Number(e.target.value) })}
+                  className="premium-input"
+                  style={{ width: '80px' }}
+                />
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <ToggleSwitch
+                  value={reminder2IncludeDiscount}
+                  onChange={v => updateReminders({ reminder_2_include_discount: v })}
+                  testId="toggle-reminder-2-discount"
+                  label="Include discount code"
+                  sublabel="Attach a promo code to this reminder email"
+                />
+              </div>
+              {reminder2IncludeDiscount && (
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.subtle, display: 'block', marginBottom: '4px' }}>
+                    Select Coupon
+                  </label>
+                  {availableCoupons.length === 0 ? (
+                    <p style={{ fontSize: '12px', color: p.colors.muted }}>
+                      No active coupons. Enable promo codes and add a coupon above.
+                    </p>
+                  ) : (
+                    <select
+                      data-testid="select-reminder-2-coupon"
+                      value={reminder2CouponId || ''}
+                      onChange={e => updateReminders({ reminder_2_coupon_id: e.target.value || null })}
+                      className="premium-input"
+                      style={{ width: '100%' }}
+                    >
+                      <option value="">Select a coupon...</option>
+                      {availableCoupons.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.code} — {c.type === 'percentage' ? `${c.value}% off` : `$${c.value} off`}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+              <div style={{ marginBottom: '8px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.subtle, display: 'block', marginBottom: '4px' }}>Subject</label>
+                <input
+                  data-testid="input-reminder-2-subject"
+                  type="text"
+                  value={followup.templates?.last_call?.subject || ''}
+                  onChange={e => updateTemplates({ last_call: { ...followup.templates?.last_call, subject: e.target.value } })}
+                  placeholder="Last chance to lock in your slot..."
+                  className="premium-input"
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.subtle, display: 'block', marginBottom: '4px' }}>Body</label>
+                <textarea
+                  data-testid="input-reminder-2-body"
+                  value={followup.templates?.last_call?.body || ''}
+                  onChange={e => updateTemplates({ last_call: { ...followup.templates?.last_call, body: e.target.value } })}
+                  placeholder="Hi {{name}}, last chance..."
+                  className="premium-input"
+                  rows={4}
+                  style={{ resize: 'vertical', fontFamily: 'inherit', fontSize: '12px' }}
+                />
+                <p style={{ fontSize: '10px', color: p.colors.muted, marginTop: '4px' }}>
+                  Use {'{{discount_code}}'} and {'{{discount_value}}'} as placeholders for the coupon.
+                </p>
+              </div>
             </div>
           </div>
         )}
