@@ -32,6 +32,12 @@ The application features a decoupled architecture with a React + TypeScript fron
 - **Automation:** Auto-tracking of analytics events (views, leads) wired into existing routes. Auto-republish on pricing changes when `auto_republish` enabled in `deployment_status`. Background analytics aggregation via `analytics_events` table with weekly trend queries.
 - **Database Tables:** `calculators` (main config, single source of truth via `calculator_settings` JSONB), `leads` (captured leads), `analytics_events` (view/lead/quote events with timestamps), `deployment_status` (per-calculator deployment state, auto-republish flag).
 - **Data Handling:** All API routes use Zod validation schemas. Frontend data fetching uses `@tanstack/react-query`. Token expiry is enforced on all token-gated routes.
+- **Analytics & Automation Layer (`server/jobs/`):**
+    - **Event Tracking:** Enhanced `POST /api/dashboard/track` and `POST /api/calculators/track-view` endpoints track page views, quote generated, lead submitted, confidence tier, and device type (mobile/tablet/desktop) with metadata stored in `analytics_events`.
+    - **Daily Aggregation Job (`server/jobs/aggregation.ts`):** Runs at 02:00 UTC daily via `node-cron`. Aggregates per-calculator stats (total_views, total_quotes, total_leads, conversion_rate, avg_quote_value, best_day) into `calculator_analytics_summary` table.
+    - **Weekly Email Report (`server/jobs/weeklyReport.ts`):** Runs at 13:00 UTC every Monday (~8AM EST) via `node-cron`. Sends HTML email with views, leads, conversion rate, avg quote, best day, and CTA "Edit Pricing to Improve Conversions". Uses Nodemailer with SMTP config (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM). SMS summary is Pro-only stub.
+    - **Job Scheduler (`server/jobs/scheduler.ts`):** Central scheduler with retry logic (3 retries, exponential backoff), failure logging to `job_logs` table, and startup initialization in `server/index.ts`.
+    - **Database Tables:** `calculator_analytics_summary` (aggregated daily stats), `job_logs` (job execution history with status/errors).
 
 ## External Dependencies
 - **PostgreSQL:** Used as the primary database, backed by Neon via Replit.

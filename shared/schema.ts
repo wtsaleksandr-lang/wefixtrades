@@ -350,6 +350,39 @@ export const insertDeploymentStatusSchema = createInsertSchema(deploymentStatus)
   updated_at: true,
 });
 
+export const calculatorAnalyticsSummary = pgTable("calculator_analytics_summary", {
+  id: serial("id").primaryKey(),
+  calculator_id: integer("calculator_id").notNull().references(() => calculators.id),
+  period_date: timestamp("period_date").notNull(),
+  total_views: integer("total_views").default(0),
+  total_quotes: integer("total_quotes").default(0),
+  total_leads: integer("total_leads").default(0),
+  conversion_rate: integer("conversion_rate").default(0),
+  avg_quote_value: integer("avg_quote_value").default(0),
+  best_day: text("best_day"),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const jobLogs = pgTable("job_logs", {
+  id: serial("id").primaryKey(),
+  job_name: varchar("job_name", { length: 100 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull(),
+  started_at: timestamp("started_at").defaultNow(),
+  finished_at: timestamp("finished_at"),
+  error_message: text("error_message"),
+  metadata: jsonb("metadata"),
+});
+
+export const insertAnalyticsSummarySchema = createInsertSchema(calculatorAnalyticsSummary).omit({
+  id: true,
+  created_at: true,
+});
+
+export const insertJobLogSchema = createInsertSchema(jobLogs).omit({
+  id: true,
+});
+
 export type InsertCalculator = z.infer<typeof insertCalculatorSchema>;
 export type Calculator = typeof calculators.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
@@ -358,3 +391,7 @@ export type InsertAnalyticsEvent = z.infer<typeof insertAnalyticsEventSchema>;
 export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 export type InsertDeploymentStatus = z.infer<typeof insertDeploymentStatusSchema>;
 export type DeploymentStatus = typeof deploymentStatus.$inferSelect;
+export type InsertAnalyticsSummary = z.infer<typeof insertAnalyticsSummarySchema>;
+export type AnalyticsSummary = typeof calculatorAnalyticsSummary.$inferSelect;
+export type InsertJobLog = z.infer<typeof insertJobLogSchema>;
+export type JobLog = typeof jobLogs.$inferSelect;

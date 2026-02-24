@@ -1,12 +1,15 @@
 import { db } from "./db";
 import {
   calculators, leads, analyticsEvents, deploymentStatus,
+  calculatorAnalyticsSummary, jobLogs,
   type Calculator, type InsertCalculator,
   type Lead, type InsertLead,
   type AnalyticsEvent, type InsertAnalyticsEvent,
   type DeploymentStatus, type InsertDeploymentStatus,
+  type AnalyticsSummary, type InsertAnalyticsSummary,
+  type JobLog, type InsertJobLog,
 } from "@shared/schema";
-import { eq, desc, sql, and, gte, ilike, or } from "drizzle-orm";
+import { eq, desc, sql, and, gte, ilike, or, isNotNull } from "drizzle-orm";
 
 export interface IStorage {
   createCalculator(data: InsertCalculator): Promise<Calculator>;
@@ -30,6 +33,15 @@ export interface IStorage {
 
   getDeploymentStatus(calculatorId: number): Promise<DeploymentStatus | undefined>;
   upsertDeploymentStatus(data: InsertDeploymentStatus): Promise<DeploymentStatus>;
+
+  getAllCalculatorsWithEmail(): Promise<Calculator[]>;
+  upsertAnalyticsSummary(data: InsertAnalyticsSummary): Promise<AnalyticsSummary>;
+  getAnalyticsSummary(calculatorId: number): Promise<AnalyticsSummary | undefined>;
+  getDailyEventCounts(calculatorId: number, date: Date): Promise<{ views: number; leads: number; quotes: number }>;
+  getBestDay(calculatorId: number, since: Date): Promise<string | null>;
+
+  createJobLog(data: InsertJobLog): Promise<JobLog>;
+  updateJobLog(id: number, updates: Partial<InsertJobLog>): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -196,6 +208,85 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(deploymentStatus).values(data).returning();
     return created;
+  }
+
+  async getAllCalculatorsWithEmail(): Promise<Calculator[]> {
+    return db.select().from(calculators).where(isNotNull(calculators.owner_email));
+  }
+
+  async upsertAnalyticsSummary(data: InsertAnalyticsSummary): Promise<AnalyticsSummary> {
+    const existing = await this.getAnalyticsSummary(data.calculator_id);
+    if (existing) {
+      const [updated] = await db.update(calculatorAnalyticsSummary)
+        .set({ ...data })
+        .where(eq(calculatorAnalyticsSummary.calculator_id, data.calculator_id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(calculatorAnalyticsSummary).values(data).returning();
+    return created;
+  }
+
+  async getAnalyticsSummary(calculatorId: number): Promise<AnalyticsSummary | undefined> {
+    const [summary] = await db.select().from(calculatorAnalyticsSummary)
+      .where(eq(calculatorAnalyticsSummary.calculator_id, calculatorId))
+      .orderBy(desc(calculatorAnalyticsSummary.period_date))
+      .limit(1);
+    return summary;
+  }
+
+  async getDailyEventCounts(calculatorId: number, date: Date): Promise<{ views: number; leads: number; quotes: number }> {
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const rows = await db.select({
+      event_type: analyticsEvents.event_type,
+      count: sql<number>`count(*)::int`,
+    })
+      .from(analyticsEvents)
+      .where(and(
+        eq(analyticsEvents.calculator_id, calculatorId),
+        gte(analyticsEvents.created_at, dayStart),
+        sql`${analyticsEvents.created_at} <= ${dayEnd}`,
+      ))
+      .groupBy(analyticsEvents.event_type);
+
+    const counts = { views: 0, leads: 0, quotes: 0 };
+    for (const r of rows) {
+      if (r.event_type === 'view') counts.views = r.count;
+      else if (r.event_type === 'lead') counts.leads = r.count;
+      else if (r.event_type === 'quote_generated') counts.quotes = r.count;
+    }
+    return counts;
+  }
+
+  async getBestDay(calculatorId: number, since: Date): Promise<string | null> {
+    const rows = await db.select({
+      day: sql<string>`to_char(${analyticsEvents.created_at}::date, 'Day')`,
+      count: sql<number>`count(*)::int`,
+    })
+      .from(analyticsEvents)
+      .where(and(
+        eq(analyticsEvents.calculator_id, calculatorId),
+        gte(analyticsEvents.created_at, since),
+        eq(analyticsEvents.event_type, 'lead'),
+      ))
+      .groupBy(sql`${analyticsEvents.created_at}::date, to_char(${analyticsEvents.created_at}::date, 'Day')`)
+      .orderBy(sql`count(*) desc`)
+      .limit(1);
+
+    return rows.length > 0 ? rows[0].day.trim() : null;
+  }
+
+  async createJobLog(data: InsertJobLog): Promise<JobLog> {
+    const [log] = await db.insert(jobLogs).values(data).returning();
+    return log;
+  }
+
+  async updateJobLog(id: number, updates: Partial<InsertJobLog>): Promise<void> {
+    await db.update(jobLogs).set(updates).where(eq(jobLogs.id, id));
   }
 
   private async getCalculatorById(id: number): Promise<Calculator | undefined> {

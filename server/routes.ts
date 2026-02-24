@@ -633,7 +633,15 @@ Return ONLY the JSON pricing config object.`;
       const parsed = trackViewBody.safeParse(_req.body);
       if (parsed.success) {
         await storage.incrementViews(parsed.data.calculator_id);
-        storage.trackEvent({ calculator_id: parsed.data.calculator_id, event_type: 'view', metadata: null }).catch(() => {});
+        const ua = _req.headers['user-agent'] || '';
+        const isMobile = /Mobile|Android|iPhone/i.test(ua);
+        const isTablet = /iPad|Tablet/i.test(ua);
+        const device_type = isMobile ? 'mobile' : isTablet ? 'tablet' : 'desktop';
+        storage.trackEvent({
+          calculator_id: parsed.data.calculator_id,
+          event_type: 'view',
+          metadata: { device_type, user_agent: ua.substring(0, 200) },
+        }).catch(() => {});
       }
       res.json({ success: true });
     } catch {
@@ -862,8 +870,13 @@ Return ONLY the JSON pricing config object.`;
     try {
       const body = z.object({
         calculator_id: z.number(),
-        event_type: z.enum(['view', 'lead', 'quote_generated']),
-        metadata: z.record(z.any()).optional(),
+        event_type: z.enum(['view', 'lead', 'quote_generated', 'confidence_tier']),
+        metadata: z.object({
+          device_type: z.enum(['mobile', 'tablet', 'desktop']).optional(),
+          confidence_tier: z.enum(['strong', 'close', 'needs_adjustment']).optional(),
+          quote_amount: z.number().optional(),
+          user_agent: z.string().optional(),
+        }).optional(),
       }).safeParse(req.body);
       if (!body.success) return res.status(400).json({ error: "Invalid request" });
 
