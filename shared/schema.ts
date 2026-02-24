@@ -154,11 +154,35 @@ export const bookingSettingsSchema = z.object({
 
 export type BookingSettings = z.infer<typeof bookingSettingsSchema>;
 
+export const uiTemplateSchema = z.object({
+  template_id: z.string().default('classic_single'),
+  version: z.number().default(1),
+  layout: z.object({
+    style: z.enum(['single_page', 'multi_step', 'two_column']).default('single_page'),
+    sticky_summary: z.boolean().default(false),
+    show_breakdown: z.boolean().default(true),
+    show_trust_block: z.boolean().default(false),
+    show_testimonials: z.boolean().default(false),
+    show_images: z.boolean().default(false),
+  }).default({}),
+  inputs: z.object({
+    use_sliders: z.boolean().default(true),
+    slider_defaults: z.object({
+      step: z.number().default(1),
+      show_value_bubble: z.boolean().default(true),
+      show_min_max_labels: z.boolean().default(true),
+    }).default({}),
+  }).default({}),
+}).default({});
+
+export type UITemplate = z.infer<typeof uiTemplateSchema>;
+
 export const calculatorSettingsSchema = z.object({
   settings_version: z.number().default(1),
 
   calculator_type: z.enum(['estimate_only', 'estimate_plus_booking', 'booking_only']).default('estimate_only'),
   booking_settings: bookingSettingsSchema,
+  ui_template: uiTemplateSchema,
 
   pricing_draft: pricingDraftSchema,
   pricing_intake: pricingIntakeSchema.optional(),
