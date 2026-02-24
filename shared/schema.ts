@@ -19,20 +19,9 @@ export const customTradeDataSchema = z.object({
 export type CustomTradeData = z.infer<typeof customTradeDataSchema>;
 
 export const pricingDraftSchema = z.object({
-  template_family_id: z.string(),
-  inputs: z.array(z.object({
-    id: z.string(),
-    label: z.string(),
-    type: z.string(),
-    options: z.array(z.object({
-      label: z.string(),
-      value: z.string(),
-      price_impact: z.number(),
-    })).optional(),
-  })),
-  calculation_config: z.record(z.any()),
-  assumptions: z.array(z.string()),
-  confidence_score: z.number(),
+  pricing_config: z.record(z.any()),
+  assumptions: z.array(z.string()).default([]),
+  confidence_score: z.number().default(0.5),
   needs_human_review: z.boolean().default(true),
   status: z.enum(['pending', 'generating', 'ready', 'failed']).default('pending'),
 }).optional();

@@ -1,0 +1,129 @@
+You are implementing “Formula Families” as the ONLY allowed pricing patterns for QuickQuote.
+Goal: prevent AI hallucinations by constraining pricing to a small set of strict families.
+Implement the following in the Replit app:
+
+1) Create a canonical enum + schema (PricingConfigV1)
+- Add a single source of truth for pricing config: calculator_settings.pricing (JSON)
+- Add settings_version: 1
+- AI and UI must ONLY output one of the allowed families below.
+- No custom math, no new operators.
+
+2) Define EXACT Formula Families (8–12) with strict allowed fields
+Create these 10 families (final list). Each one must map to an explicit pricingType:
+
+FAMILY 1: HOURLY
+pricingType: "hourly"
+Required:
+- unitName must be "hour"
+- rate (hourlyRate) number >= 0
+Optional:
+- baseFee (dispatch/setup) >= 0
+- minCharge >= 0
+- travelFee >= 0
+- afterHoursMult >= 1
+- difficultyTiers (multiplier)
+- addOns (fixed or pct)
+- callUsThreshold
+
+FAMILY 2: PER_UNIT
+pricingType: "per_unit"
+Required:
+- unitName (e.g., "item","room","fixture","job")
+- rate number >= 0
+Optional:
+- baseFee, minCharge, travelFee, afterHoursMult, difficultyTiers, addOns, callUsThreshold
+
+FAMILY 3: PER_SQFT
+pricingType: "per_sqft"
+Required:
+- unitName must be "sq ft"
+- rate number >= 0
+Optional:
+- baseFee, minCharge, travelFee, afterHoursMult, difficultyTiers, addOns, callUsThreshold
+
+FAMILY 4: PER_LINEAR_FT
+pricingType: "per_linear_ft"
+Required:
+- unitName must be "linear ft"
+- rate number >= 0
+Optional:
+- baseFee, minCharge, travelFee, afterHoursMult, difficultyTiers, addOns, callUsThreshold
+
+FAMILY 5: BASE_PLUS_RATE
+pricingType: "base_plus_rate"
+Required:
+- unitName (e.g., "sq ft","item","bedroom","page")
+- baseFee number >= 0
+- rate number >= 0
+Optional:
+- minCharge, travelFee, afterHoursMult, difficultyTiers, addOns, callUsThreshold
+
+FAMILY 6: TIERED_PACKAGES_FIXED
+pricingType: "tiered_packages"
+tierMode: "fixed"
+Required:
+- tiers[] each has: { label, price>=0 }
+Optional:
+- addOns, travelFee, afterHoursMult, difficultyTiers, callUsThreshold
+Rules:
+- user selects package tier -> price = tier.price (+ modifiers)
+
+FAMILY 7: TIERED_RANGES_FIXED
+pricingType: "tiered_ranges"
+tierMode: "fixed"
+Required:
+- unitName (e.g., "sq ft","yard","hours","items")
+- tiers[] each has: { min>=0, max|null, price>=0 }
+Rules:
+- find matching tier by qty -> price = tier.price (+ modifiers)
+
+FAMILY 8: MIN_CHARGE_PLUS_ADDONS
+pricingType: "min_charge_plus_addons"
+Required:
+- minCharge >= 0 (acts as base)
+Optional:
+- addOns, travelFee, afterHoursMult, difficultyTiers, callUsThreshold
+Rules:
+- total starts at minCharge then adds modifiers/addOns
+
+FAMILY 9: PRICE_RANGE_ONLY (SAFE FALLBACK)
+pricingType: "price_range_only"
+Required:
+- rangeMin >= 0
+- rangeMax >= rangeMin
+Optional:
+- callUsThreshold
+Rules:
+- always display range only; no exact math
+
+FAMILY 10: CALL_FOR_QUOTE_ONLY (ULTRA SAFE)
+pricingType: "call_for_quote_only"
+Required:
+- message string (default: “Request a quote”)
+Rules:
+- no pricing shown; just lead capture CTA
+
+3) Enforce “NO EXCEPTIONS” at code level
+- Add a validation function validatePricingConfig(config) that:
+  a) checks pricingType is in allowed list above
+  b) checks required fields per family
+  c) rejects unknown fields (strict mode)
+- If invalid:
+  - builder must block “Continue”
+  - runtime must fallback to CALL_FOR_QUOTE_ONLY
+
+4) Implement a single runtime calculator engine
+- Create calculateEstimate(config, inputs) that supports ONLY these families.
+- Remove/avoid any legacy template_config hardcoded keys.
+- The visitor-facing calculator MUST use calculateEstimate().
+
+5) UI: Prebuilt + Custom must select a family
+- Prebuilt mode = family selector + defaults
+- Hybrid/manual mode = choose family + fill required fields
+- AI mode = AI chooses family + fills fields ONLY from allowed schema
+
+Deliverables:
+- pricingTypes enum + Zod (or equivalent) schema
+- strict validation per family
+- calculateEstimate() implementation stubs for each family
+- unit tests for validate + calculate for at least 5 families (hourly, per_unit, base_plus_rate, tiered_ranges, price_range_only)
