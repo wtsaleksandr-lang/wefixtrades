@@ -1,4 +1,5 @@
 import CalculatorWidget from '@/components/calculator/CalculatorWidget';
+import AIChatBubble from '@/components/ai/AIChatBubble';
 import { Loader2, SearchX } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
@@ -57,9 +58,28 @@ export default function Calculator() {
     );
   }
 
+  const aiEmployee = calculator?.calculator_settings?.ai_employee;
+  const showChatBubble =
+    !isEmbed &&
+    aiEmployee?.enabled === true &&
+    (aiEmployee?.subscription_status === 'trial' || aiEmployee?.subscription_status === 'active');
+
+  const accentColor =
+    calculator?.calculator_settings?.appearance?.accent_color ||
+    calculator?.primary_color ||
+    '#6366f1';
+
   return (
     <div className={isEmbed ? '' : 'min-h-screen bg-slate-50 py-8 px-4'}>
       <CalculatorWidget calculator={calculator} isEmbed={isEmbed} />
+      {showChatBubble && (
+        <AIChatBubble
+          calculatorId={calculator.id}
+          accentColor={accentColor}
+          businessName={calculator.business_name}
+          theme={calculator.theme_overrides}
+        />
+      )}
     </div>
   );
 }

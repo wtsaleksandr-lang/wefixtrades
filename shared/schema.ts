@@ -425,6 +425,28 @@ export const calculatorSettingsSchema = z.object({
     show_countdown: z.boolean().default(false),
   }).default({}),
 
+  ai_employee: z.object({
+    enabled: z.boolean().default(false),
+    trial_started_at: z.number().nullable().default(null),
+    subscription_status: z.enum(['inactive', 'trial', 'active']).default('inactive'),
+    chat_enabled: z.boolean().default(true),
+    voice_enabled: z.boolean().default(false),
+    training_profile: z.object({
+      business_summary: z.string().max(200).default(''),
+      services: z.array(z.string()).default([]),
+      service_area: z.string().max(60).default(''),
+      working_hours: z.object({
+        days: z.array(z.string()).default(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']),
+        start_time: z.string().default('08:00'),
+        end_time: z.string().default('17:00'),
+      }).default({}),
+      emergency_service: z.boolean().default(false),
+      escalation_phone: z.string().nullable().default(null),
+      escalation_email: z.string().nullable().default(null),
+      tone: z.enum(['professional', 'friendly', 'direct', 'premium']).default('professional'),
+    }).default({}),
+  }).default({}),
+
   test_history: z.object({
     scenarios: z.array(z.object({
       label: z.string(),
@@ -628,6 +650,40 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   created_at: true,
 });
 
+export const aiConversations = pgTable("ai_conversations", {
+  id: serial("id").primaryKey(),
+  agent_type: varchar("agent_type", { length: 30 }).notNull(),
+  account_id: integer("account_id").references(() => calculators.id),
+  calculator_id: integer("calculator_id").references(() => calculators.id),
+  session_id: varchar("session_id", { length: 100 }).notNull(),
+  messages_json: jsonb("messages_json").notNull().default([]),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const supportTickets = pgTable("support_tickets", {
+  id: serial("id").primaryKey(),
+  calculator_id: integer("calculator_id").references(() => calculators.id),
+  status: varchar("status", { length: 20 }).notNull().default("open"),
+  description: text("description").notNull(),
+  transcript_json: jsonb("transcript_json").default([]),
+  admin_notified: boolean("admin_notified").default(false),
+  created_at: timestamp("created_at").defaultNow(),
+  resolved_at: timestamp("resolved_at"),
+});
+
+export const insertAiConversationSchema = createInsertSchema(aiConversations).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+
+export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({
+  id: true,
+  created_at: true,
+  resolved_at: true,
+});
+
 export type InsertCalculator = z.infer<typeof insertCalculatorSchema>;
 export type Calculator = typeof calculators.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
@@ -646,3 +702,7 @@ export type InsertFollowupJob = z.infer<typeof insertFollowupJobSchema>;
 export type FollowupJob = typeof followupJobs.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Booking = typeof bookings.$inferSelect;
+export type InsertAiConversation = z.infer<typeof insertAiConversationSchema>;
+export type AiConversation = typeof aiConversations.$inferSelect;
+export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+export type SupportTicket = typeof supportTickets.$inferSelect;

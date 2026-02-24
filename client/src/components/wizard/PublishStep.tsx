@@ -1,14 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'wouter';
 import { platformTheme } from '@/theme/platformTheme';
 import {
   Check, Copy, ExternalLink, Code2, ChevronDown, RotateCcw,
   AlertCircle, Shield, Mail, Bot, Sparkles, Globe,
   CheckCircle2, XCircle, Clock, Zap, RefreshCw, Link2,
-  Lock, Loader2, ArrowRight, Wrench, Server,
+  Lock, Loader2, ArrowRight, Wrench, Server, MessageCircle,
+  X, Send, Phone, User as UserIcon, Mic, Star,
 } from 'lucide-react';
 
 import { slugify, buildSubdomain, HOSTING_DOMAIN } from '@shared/slugUtils';
+import type { CalculatorSettings } from '@shared/schema';
 
 const p = platformTheme;
 
@@ -27,6 +29,8 @@ export interface PublishData {
   hosting_domain: string;
 }
 
+type AIEmployee = CalculatorSettings['ai_employee'];
+
 interface PublishStepProps {
   result: any;
   publishData: PublishData;
@@ -34,7 +38,10 @@ interface PublishStepProps {
   leadFormValid: boolean;
   pricingExists: boolean;
   businessName: string;
+  aiEmployee: AIEmployee;
+  tradeCategory?: string;
   onPublishDataChange: (pd: PublishData) => void;
+  onAiEmployeeChange: (ae: AIEmployee) => void;
   onStartOver: () => void;
 }
 
@@ -60,7 +67,7 @@ function CopyBtn({ text, size, label }: { text: string; size?: 'small' | 'normal
 
 type DeployTab = 'hosted' | 'embed' | 'custom' | 'install';
 
-export default function PublishStep({ result, publishData, testPassed, leadFormValid, pricingExists, businessName, onPublishDataChange, onStartOver }: PublishStepProps) {
+export default function PublishStep({ result, publishData, testPassed, leadFormValid, pricingExists, businessName, aiEmployee, tradeCategory, onPublishDataChange, onAiEmployeeChange, onStartOver }: PublishStepProps) {
   const origin = window.location.origin;
   const calcUrl = result ? `${origin}${result.calculator_url}` : '';
   const slug = result?.slug || publishData.slug || slugify(businessName);
@@ -447,6 +454,13 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
           </div>
         </>
       )}
+
+      {/* AI Employee Section */}
+      <AIEmployeeSection
+        aiEmployee={aiEmployee}
+        tradeCategory={tradeCategory}
+        onAiEmployeeChange={onAiEmployeeChange}
+      />
 
       {isPublished && result?.edit_token && (
         <Link
@@ -877,6 +891,676 @@ function DoneForYouTab() {
         </button>
       </div>
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   AI Employee Section
+──────────────────────────────────────────────────────────── */
+
+const TONE_OPTIONS = [
+  { id: 'professional', label: 'Professional' },
+  { id: 'friendly', label: 'Friendly' },
+  { id: 'direct', label: 'Direct' },
+  { id: 'premium', label: 'Premium' },
+] as const;
+
+const DAY_OPTIONS = [
+  { id: 'Monday', label: 'M' },
+  { id: 'Tuesday', label: 'T' },
+  { id: 'Wednesday', label: 'W' },
+  { id: 'Thursday', label: 'Th' },
+  { id: 'Friday', label: 'F' },
+  { id: 'Saturday', label: 'Sa' },
+  { id: 'Sunday', label: 'Su' },
+];
+
+const SUGGESTED_SERVICES = [
+  'Free estimates', 'Emergency service', 'Same-day availability',
+  'Licensed & insured', 'Financing available', 'Senior discount',
+];
+
+function AIDemoModal({ tradeCategory, onClose }: { tradeCategory?: string; onClose: () => void }) {
+  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([
+    { role: 'assistant', content: `Hi! I'm your AI assistant. I can help answer questions about services, pricing, and scheduling. What would you like to know?` },
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const send = useCallback(async () => {
+    const text = input.trim();
+    if (!text || loading) return;
+    setInput('');
+    const next = [...messages, { role: 'user' as const, content: text }];
+    setMessages(next);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/ai/demo-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: next, trade_category: tradeCategory }),
+      });
+      const data = await res.json();
+      setMessages(m => [...m, { role: 'assistant', content: data.reply || 'I can help answer questions about this service.' }]);
+    } catch {
+      setMessages(m => [...m, { role: 'assistant', content: 'Sorry, I had trouble connecting. Please try again.' }]);
+    } finally {
+      setLoading(false);
+    }
+  }, [input, messages, loading, tradeCategory]);
+
+  return (
+    <div data-testid="ai-demo-modal" style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '16px',
+    }}>
+      <div style={{
+        background: 'white', borderRadius: '16px', width: '100%', maxWidth: '360px',
+        display: 'flex', flexDirection: 'column', maxHeight: '90vh',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.2)',
+        overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '16px', background: p.colors.accent,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '36px', height: '36px', borderRadius: '50%',
+              background: 'rgba(255,255,255,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Bot style={{ width: '18px', height: '18px', color: 'white' }} />
+            </div>
+            <div>
+              <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'white' }}>AI Employee Demo</p>
+              <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.75)' }}>See it in action</p>
+            </div>
+          </div>
+          <button data-testid="button-close-demo" onClick={onClose} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'white', display: 'flex', padding: '4px',
+          }}>
+            <X style={{ width: '18px', height: '18px' }} />
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div ref={scrollRef} style={{
+          flex: 1, overflowY: 'auto', padding: '16px',
+          display: 'flex', flexDirection: 'column', gap: '10px',
+          minHeight: '280px', maxHeight: '340px',
+        }}>
+          {messages.map((msg, i) => (
+            <div key={i} style={{
+              display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+            }}>
+              <div style={{
+                maxWidth: '80%', padding: '10px 12px', borderRadius: '12px',
+                background: msg.role === 'user' ? p.colors.accent : '#F3F4F6',
+                color: msg.role === 'user' ? 'white' : p.colors.heading,
+                fontSize: '13px', lineHeight: 1.5,
+              }}>
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+              <div style={{
+                padding: '10px 14px', borderRadius: '12px', background: '#F3F4F6',
+                display: 'flex', gap: '4px', alignItems: 'center',
+              }}>
+                {[0, 1, 2].map(i => (
+                  <div key={i} style={{
+                    width: '6px', height: '6px', borderRadius: '50%',
+                    background: p.colors.muted,
+                    animation: `bounce 1s ease-in-out ${i * 0.2}s infinite`,
+                  }} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Input */}
+        <div style={{
+          padding: '12px 16px', borderTop: `1px solid ${p.colors.borderLight}`,
+          display: 'flex', gap: '8px',
+        }}>
+          <input
+            data-testid="input-demo-message"
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && send()}
+            placeholder="Ask anything..."
+            style={{
+              flex: 1, padding: '8px 12px', borderRadius: '8px',
+              border: `1px solid ${p.colors.border}`, fontSize: '13px',
+              outline: 'none',
+            }}
+          />
+          <button data-testid="button-send-demo" onClick={send} disabled={!input.trim() || loading} style={{
+            padding: '8px 12px', borderRadius: '8px', border: 'none',
+            background: p.colors.accent, color: 'white',
+            cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
+            opacity: input.trim() && !loading ? 1 : 0.5,
+            display: 'flex', alignItems: 'center',
+          }}>
+            <Send style={{ width: '14px', height: '14px' }} />
+          </button>
+        </div>
+
+        {/* Footer Note */}
+        <div style={{
+          padding: '10px 16px', background: '#F9FAFB',
+          borderTop: `1px solid ${p.colors.borderLight}`,
+          textAlign: 'center',
+        }}>
+          <p style={{ fontSize: '10px', color: p.colors.muted, margin: 0 }}>
+            This is a demo using sample data. Enable AI Employee for your calculator to go live.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AIEmployeeSection({ aiEmployee, tradeCategory, onAiEmployeeChange }: {
+  aiEmployee: AIEmployee;
+  tradeCategory?: string;
+  onAiEmployeeChange: (ae: AIEmployee) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [trainingExpanded, setTrainingExpanded] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
+  const [customService, setCustomService] = useState('');
+
+  const enabled = aiEmployee.enabled;
+  const subscriptionStatus = aiEmployee.subscription_status;
+  const trialStartedAt = aiEmployee.trial_started_at;
+  const profile = aiEmployee.training_profile;
+
+  const daysRemaining = trialStartedAt
+    ? Math.max(0, 14 - Math.floor((Date.now() - trialStartedAt) / 86400000))
+    : 14;
+  const trialExpired = subscriptionStatus === 'trial' && daysRemaining === 0;
+  const isActive = subscriptionStatus === 'active';
+  const isTrial = subscriptionStatus === 'trial';
+
+  const handleToggle = useCallback(() => {
+    if (!enabled) {
+      onAiEmployeeChange({
+        ...aiEmployee,
+        enabled: true,
+        subscription_status: 'trial',
+        trial_started_at: aiEmployee.trial_started_at ?? Date.now(),
+      });
+      setTrainingExpanded(true);
+    } else {
+      onAiEmployeeChange({ ...aiEmployee, enabled: false });
+    }
+  }, [enabled, aiEmployee, onAiEmployeeChange]);
+
+  const updateProfile = useCallback((patch: Partial<typeof profile>) => {
+    onAiEmployeeChange({ ...aiEmployee, training_profile: { ...profile, ...patch } });
+  }, [aiEmployee, profile, onAiEmployeeChange]);
+
+  const toggleDay = (day: string) => {
+    const days = profile.working_hours.days;
+    const next = days.includes(day) ? days.filter(d => d !== day) : [...days, day];
+    updateProfile({ working_hours: { ...profile.working_hours, days: next } });
+  };
+
+  const toggleService = (svc: string) => {
+    const services = profile.services;
+    const next = services.includes(svc) ? services.filter(s => s !== svc) : [...services, svc];
+    updateProfile({ services: next });
+  };
+
+  const addCustomService = () => {
+    const trimmed = customService.trim();
+    if (!trimmed || profile.services.includes(trimmed)) return;
+    updateProfile({ services: [...profile.services, trimmed] });
+    setCustomService('');
+  };
+
+  return (
+    <>
+      {showDemo && <AIDemoModal tradeCategory={tradeCategory} onClose={() => setShowDemo(false)} />}
+
+      <div data-testid="ai-employee-section" style={{
+        borderRadius: p.radius.md, border: `1px solid ${p.colors.border}`,
+        background: 'white', marginBottom: '16px', overflow: 'hidden',
+      }}>
+        {/* Section Header */}
+        <button
+          data-testid="button-toggle-ai-section"
+          onClick={() => setCollapsed(c => !c)}
+          style={{
+            width: '100%', padding: '14px 16px', background: 'none', border: 'none',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '32px', height: '32px', borderRadius: '8px',
+              background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <Bot style={{ width: '16px', height: '16px', color: 'white' }} />
+            </div>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: p.colors.heading }}>AI Employee</p>
+                <span style={{
+                  fontSize: '9px', fontWeight: 700, color: '#7C3AED',
+                  background: '#EDE9FE', padding: '2px 6px', borderRadius: '4px',
+                }}>14-DAY FREE TRIAL</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '11px', color: p.colors.muted }}>
+                Chat assistant for your calculator
+              </p>
+            </div>
+          </div>
+          <ChevronDown style={{
+            width: '16px', height: '16px', color: p.colors.muted,
+            transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+            transition: p.transitions.fast, flexShrink: 0,
+          }} />
+        </button>
+
+        {!collapsed && (
+          <div style={{ padding: '0 16px 16px', borderTop: `1px solid ${p.colors.borderLight}` }}>
+            {/* Trial Status Badge */}
+            {isTrial && !trialExpired && (
+              <div data-testid="trial-status-badge" style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '4px 10px', borderRadius: p.radius.pill,
+                background: '#EDE9FE', fontSize: '11px', fontWeight: 600,
+                color: '#7C3AED', marginTop: '12px', marginBottom: '12px',
+              }}>
+                <Clock style={{ width: '11px', height: '11px' }} />
+                Trial: {daysRemaining} days remaining
+              </div>
+            )}
+            {trialExpired && (
+              <div data-testid="trial-expired-banner" style={{
+                padding: '10px 12px', borderRadius: p.radius.sm,
+                background: '#FFFBEB', border: '1px solid #FDE68A',
+                marginTop: '12px', marginBottom: '12px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
+              }}>
+                <span style={{ fontSize: '12px', color: '#92400E', fontWeight: 500 }}>
+                  Trial ended — upgrade to reactivate
+                </span>
+                <button disabled style={{
+                  padding: '4px 10px', borderRadius: '6px', border: 'none',
+                  background: '#D97706', color: 'white', fontSize: '11px',
+                  fontWeight: 600, cursor: 'not-allowed', opacity: 0.7,
+                }}>
+                  Upgrade
+                </button>
+              </div>
+            )}
+            {isActive && (
+              <div data-testid="active-status-badge" style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '4px 10px', borderRadius: p.radius.pill,
+                background: '#ECFDF5', fontSize: '11px', fontWeight: 600,
+                color: '#059669', marginTop: '12px', marginBottom: '12px',
+              }}>
+                <CheckCircle2 style={{ width: '11px', height: '11px' }} />
+                Active
+              </div>
+            )}
+            {!isTrial && !isActive && !trialExpired && (
+              <div style={{ marginTop: '12px', marginBottom: '8px' }} />
+            )}
+
+            {/* Enable Toggle Row */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 0', borderBottom: `1px solid ${p.colors.borderLight}`,
+              marginBottom: '12px',
+            }}>
+              <div>
+                <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: p.colors.heading }}>
+                  Enable AI Employee for this calculator
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: '11px', color: p.colors.muted }}>
+                  Adds a chat bubble to your calculator page
+                </p>
+              </div>
+              <button
+                data-testid="toggle-ai-employee"
+                onClick={handleToggle}
+                style={{
+                  width: '42px', height: '24px', borderRadius: '12px', border: 'none',
+                  background: enabled ? '#6366F1' : '#D1D5DB',
+                  cursor: 'pointer', position: 'relative', flexShrink: 0,
+                  transition: 'background 0.2s',
+                }}
+              >
+                <div style={{
+                  position: 'absolute', top: '3px',
+                  left: enabled ? '21px' : '3px',
+                  width: '18px', height: '18px', borderRadius: '50%',
+                  background: 'white',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  transition: 'left 0.2s',
+                }} />
+              </button>
+            </div>
+
+            {/* Try Demo Button */}
+            <button data-testid="button-try-demo" onClick={() => setShowDemo(true)} style={{
+              width: '100%', padding: '10px', borderRadius: p.radius.sm,
+              border: `1px solid #C4B5FD`, background: '#F5F3FF',
+              cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#7C3AED',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              marginBottom: '12px', WebkitTapHighlightColor: 'transparent',
+            }}>
+              <MessageCircle style={{ width: '14px', height: '14px' }} />
+              Try Demo — See AI in Action
+            </button>
+
+            {/* Training Form — visible when enabled */}
+            {enabled && (
+              <div data-testid="ai-training-section">
+                <button
+                  data-testid="button-toggle-training"
+                  onClick={() => setTrainingExpanded(e => !e)}
+                  style={{
+                    width: '100%', padding: '10px 12px',
+                    borderRadius: p.radius.sm, border: `1px solid ${p.colors.border}`,
+                    background: p.colors.surfaceRaised, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    marginBottom: trainingExpanded ? '12px' : '0',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: p.colors.heading }}>
+                    Configure Your AI Employee
+                  </span>
+                  <ChevronDown style={{
+                    width: '14px', height: '14px', color: p.colors.muted,
+                    transform: trainingExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: p.transitions.fast,
+                  }} />
+                </button>
+
+                {trainingExpanded && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {/* Business Summary */}
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: p.colors.heading, display: 'block', marginBottom: '4px' }}>
+                        Business Summary
+                      </label>
+                      <textarea
+                        data-testid="input-business-summary"
+                        maxLength={200}
+                        rows={3}
+                        value={profile.business_summary}
+                        onChange={e => updateProfile({ business_summary: e.target.value })}
+                        placeholder="Briefly describe your business (e.g. Family-owned plumbing company serving Denver since 2008...)"
+                        style={{
+                          width: '100%', padding: '8px 10px', borderRadius: '8px',
+                          border: `1px solid ${p.colors.border}`, fontSize: '12px',
+                          resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.5,
+                          fontFamily: 'inherit', outline: 'none',
+                        }}
+                      />
+                      <p style={{ fontSize: '10px', color: p.colors.muted, margin: '2px 0 0', textAlign: 'right' }}>
+                        {profile.business_summary.length}/200
+                      </p>
+                    </div>
+
+                    {/* Services */}
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: p.colors.heading, display: 'block', marginBottom: '6px' }}>
+                        Services / Features
+                      </label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                        {SUGGESTED_SERVICES.map(svc => {
+                          const active = profile.services.includes(svc);
+                          return (
+                            <button key={svc} data-testid={`chip-service-${svc.toLowerCase().replace(/\s+/g, '-')}`}
+                              onClick={() => toggleService(svc)}
+                              style={{
+                                padding: '4px 10px', borderRadius: p.radius.pill,
+                                border: `1px solid ${active ? '#6366F1' : p.colors.border}`,
+                                background: active ? '#EDE9FE' : 'white',
+                                color: active ? '#6366F1' : p.colors.body,
+                                fontSize: '11px', fontWeight: 500, cursor: 'pointer',
+                                WebkitTapHighlightColor: 'transparent',
+                              }}>
+                              {svc}
+                            </button>
+                          );
+                        })}
+                        {profile.services.filter(s => !SUGGESTED_SERVICES.includes(s)).map(svc => (
+                          <button key={svc} data-testid={`chip-service-custom-${svc.toLowerCase().replace(/\s+/g, '-')}`}
+                            onClick={() => toggleService(svc)}
+                            style={{
+                              padding: '4px 10px', borderRadius: p.radius.pill,
+                              border: '1px solid #6366F1', background: '#EDE9FE',
+                              color: '#6366F1', fontSize: '11px', fontWeight: 500,
+                              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+                            }}>
+                            {svc} ×
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <input
+                          data-testid="input-custom-service"
+                          type="text"
+                          value={customService}
+                          onChange={e => setCustomService(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && addCustomService()}
+                          placeholder="Add custom service..."
+                          style={{
+                            flex: 1, padding: '6px 10px', borderRadius: '8px',
+                            border: `1px solid ${p.colors.border}`, fontSize: '12px', outline: 'none',
+                          }}
+                        />
+                        <button data-testid="button-add-service" onClick={addCustomService} style={{
+                          padding: '6px 12px', borderRadius: '8px', border: 'none',
+                          background: p.colors.accent, color: 'white', fontSize: '12px',
+                          fontWeight: 600, cursor: 'pointer',
+                        }}>
+                          Add
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Service Area */}
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: p.colors.heading, display: 'block', marginBottom: '4px' }}>
+                        Service Area
+                      </label>
+                      <input
+                        data-testid="input-service-area"
+                        type="text"
+                        maxLength={60}
+                        value={profile.service_area}
+                        onChange={e => updateProfile({ service_area: e.target.value })}
+                        placeholder="e.g. Denver metro, 30-mile radius..."
+                        style={{
+                          width: '100%', padding: '8px 10px', borderRadius: '8px',
+                          border: `1px solid ${p.colors.border}`, fontSize: '12px',
+                          boxSizing: 'border-box', outline: 'none',
+                        }}
+                      />
+                    </div>
+
+                    {/* Working Days */}
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: p.colors.heading, display: 'block', marginBottom: '6px' }}>
+                        Working Days
+                      </label>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {DAY_OPTIONS.map(day => {
+                          const active = profile.working_hours.days.includes(day.id);
+                          return (
+                            <button key={day.id} data-testid={`checkbox-day-${day.id.toLowerCase()}`}
+                              onClick={() => toggleDay(day.id)}
+                              style={{
+                                flex: 1, padding: '6px 2px', borderRadius: '6px',
+                                border: `1px solid ${active ? '#6366F1' : p.colors.border}`,
+                                background: active ? '#EDE9FE' : 'white',
+                                color: active ? '#6366F1' : p.colors.muted,
+                                fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                                WebkitTapHighlightColor: 'transparent',
+                              }}>
+                              {day.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Working Hours */}
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: p.colors.heading, display: 'block', marginBottom: '6px' }}>
+                        Working Hours
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          data-testid="input-start-time"
+                          type="time"
+                          value={profile.working_hours.start_time}
+                          onChange={e => updateProfile({ working_hours: { ...profile.working_hours, start_time: e.target.value } })}
+                          style={{
+                            flex: 1, padding: '7px 10px', borderRadius: '8px',
+                            border: `1px solid ${p.colors.border}`, fontSize: '12px', outline: 'none',
+                          }}
+                        />
+                        <span style={{ fontSize: '12px', color: p.colors.muted }}>to</span>
+                        <input
+                          data-testid="input-end-time"
+                          type="time"
+                          value={profile.working_hours.end_time}
+                          onChange={e => updateProfile({ working_hours: { ...profile.working_hours, end_time: e.target.value } })}
+                          style={{
+                            flex: 1, padding: '7px 10px', borderRadius: '8px',
+                            border: `1px solid ${p.colors.border}`, fontSize: '12px', outline: 'none',
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Emergency Service Toggle */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: p.colors.heading }}>Emergency Service</p>
+                        <p style={{ margin: '2px 0 0', fontSize: '11px', color: p.colors.muted }}>Available 24/7 for emergencies</p>
+                      </div>
+                      <button
+                        data-testid="toggle-emergency-service"
+                        onClick={() => updateProfile({ emergency_service: !profile.emergency_service })}
+                        style={{
+                          width: '42px', height: '24px', borderRadius: '12px', border: 'none',
+                          background: profile.emergency_service ? '#6366F1' : '#D1D5DB',
+                          cursor: 'pointer', position: 'relative', flexShrink: 0,
+                          transition: 'background 0.2s',
+                        }}
+                      >
+                        <div style={{
+                          position: 'absolute', top: '3px',
+                          left: profile.emergency_service ? '21px' : '3px',
+                          width: '18px', height: '18px', borderRadius: '50%',
+                          background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                          transition: 'left 0.2s',
+                        }} />
+                      </button>
+                    </div>
+
+                    {/* Escalation Contacts */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: 600, color: p.colors.heading, display: 'block', marginBottom: '4px' }}>
+                          Escalation Phone (optional)
+                        </label>
+                        <input
+                          data-testid="input-escalation-phone"
+                          type="tel"
+                          value={profile.escalation_phone ?? ''}
+                          onChange={e => updateProfile({ escalation_phone: e.target.value || null })}
+                          placeholder="(555) 123-4567"
+                          style={{
+                            width: '100%', padding: '8px 10px', borderRadius: '8px',
+                            border: `1px solid ${p.colors.border}`, fontSize: '12px',
+                            boxSizing: 'border-box', outline: 'none',
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: 600, color: p.colors.heading, display: 'block', marginBottom: '4px' }}>
+                          Escalation Email (optional)
+                        </label>
+                        <input
+                          data-testid="input-escalation-email"
+                          type="email"
+                          value={profile.escalation_email ?? ''}
+                          onChange={e => updateProfile({ escalation_email: e.target.value || null })}
+                          placeholder="support@yourbusiness.com"
+                          style={{
+                            width: '100%', padding: '8px 10px', borderRadius: '8px',
+                            border: `1px solid ${p.colors.border}`, fontSize: '12px',
+                            boxSizing: 'border-box', outline: 'none',
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Tone Selector */}
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: p.colors.heading, display: 'block', marginBottom: '6px' }}>
+                        Assistant Tone
+                      </label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                        {TONE_OPTIONS.map(tone => {
+                          const active = profile.tone === tone.id;
+                          return (
+                            <button key={tone.id} data-testid={`tone-option-${tone.id}`}
+                              onClick={() => updateProfile({ tone: tone.id })}
+                              style={{
+                                padding: '8px 10px', borderRadius: '8px',
+                                border: `1px solid ${active ? '#6366F1' : p.colors.border}`,
+                                background: active ? '#EDE9FE' : 'white',
+                                color: active ? '#6366F1' : p.colors.body,
+                                fontSize: '12px', fontWeight: active ? 600 : 500,
+                                cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+                              }}>
+                              {tone.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

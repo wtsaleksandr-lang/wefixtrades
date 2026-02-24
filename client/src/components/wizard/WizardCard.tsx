@@ -1170,7 +1170,10 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             leadFormValid={!!(ws.calculatorSettings.lead_form.delivery.primary_email)}
             pricingExists={!!resolvedPricingConfig}
             businessName={ws.businessName}
+            aiEmployee={ws.calculatorSettings.ai_employee}
+            tradeCategory={ws.selectedTrade || ws.selectedCategory}
             onPublishDataChange={(pd) => set('calculatorSettings', { ...ws.calculatorSettings, publish: pd })}
+            onAiEmployeeChange={(ae) => set('calculatorSettings', { ...ws.calculatorSettings, ai_employee: ae })}
             onStartOver={startOver}
           />
         )}

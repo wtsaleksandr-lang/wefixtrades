@@ -3,6 +3,7 @@ import {
   calculators, leads, analyticsEvents, deploymentStatus,
   calculatorAnalyticsSummary, jobLogs,
   notificationQueue, followupJobs, bookings,
+  aiConversations, supportTickets,
   type Calculator, type InsertCalculator,
   type Lead, type InsertLead,
   type AnalyticsEvent, type InsertAnalyticsEvent,
@@ -12,6 +13,8 @@ import {
   type NotificationQueue, type InsertNotificationQueue,
   type FollowupJob, type InsertFollowupJob,
   type Booking, type InsertBooking,
+  type AiConversation, type InsertAiConversation,
+  type SupportTicket, type InsertSupportTicket,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull } from "drizzle-orm";
 
@@ -72,6 +75,13 @@ export interface IStorage {
   getBookingStats(calculatorId: number): Promise<{ bookings_total: number; bookings_confirmed: number; payments_completed: number }>;
 
   incrementCouponUsage(calculatorId: number, couponCode: string): Promise<void>;
+
+  createAiConversation(data: InsertAiConversation): Promise<AiConversation>;
+  updateAiConversation(id: number, updates: Partial<InsertAiConversation>): Promise<void>;
+  getAiConversationBySession(sessionId: string): Promise<AiConversation | undefined>;
+
+  createSupportTicket(data: Partial<InsertSupportTicket> & { description: string }): Promise<SupportTicket>;
+  updateSupportTicket(id: number, updates: Record<string, any>): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -448,6 +458,35 @@ export class DatabaseStorage implements IStorage {
       payments_completed: sql<number>`count(*) filter (where ${bookings.deposit_paid} = true)::int`,
     }).from(bookings).where(eq(bookings.calculator_id, calculatorId));
     return totals || { bookings_total: 0, bookings_confirmed: 0, payments_completed: 0 };
+  }
+
+  async createAiConversation(data: InsertAiConversation): Promise<AiConversation> {
+    const [conv] = await db.insert(aiConversations).values(data).returning();
+    return conv;
+  }
+
+  async updateAiConversation(id: number, updates: Partial<InsertAiConversation>): Promise<void> {
+    await db.update(aiConversations).set(updates).where(eq(aiConversations.id, id));
+  }
+
+  async getAiConversationBySession(sessionId: string): Promise<AiConversation | undefined> {
+    const [conv] = await db.select().from(aiConversations).where(eq(aiConversations.session_id, sessionId)).limit(1);
+    return conv;
+  }
+
+  async createSupportTicket(data: Partial<InsertSupportTicket> & { description: string }): Promise<SupportTicket> {
+    const [ticket] = await db.insert(supportTickets).values({
+      description: data.description,
+      calculator_id: data.calculator_id ?? null,
+      status: data.status || "open",
+      transcript_json: data.transcript_json ?? [],
+      admin_notified: data.admin_notified ?? false,
+    }).returning();
+    return ticket;
+  }
+
+  async updateSupportTicket(id: number, updates: Record<string, any>): Promise<void> {
+    await db.update(supportTickets).set(updates).where(eq(supportTickets.id, id));
   }
 
   async incrementCouponUsage(calculatorId: number, couponCode: string): Promise<void> {

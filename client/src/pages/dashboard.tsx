@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -10,6 +10,7 @@ import {
   Check, Circle, AlertCircle, Shield, ChevronRight, Globe,
   Loader2, ArrowLeft, Zap, Send, Clock, ChevronDown, ChevronUp,
   Mail, MessageSquare, Play, Pause, Eye, CalendarDays, Phone,
+  HelpCircle, X, TicketCheck,
 } from 'lucide-react';
 
 const p = platformTheme;
@@ -33,6 +34,7 @@ function getToken() {
 
 export default function Dashboard() {
   const [section, setSection] = useState<Section>('overview');
+  const [supportOpen, setSupportOpen] = useState(false);
   const token = getToken();
   const [, setLocation] = useLocation();
 
@@ -106,6 +108,28 @@ export default function Dashboard() {
         {section === 'settings' && <SettingsSection token={token} />}
         {section === 'bookings' && <BookingsSection token={token} />}
       </main>
+
+      {supportOpen && (
+        <SupportChatPanel token={token} onClose={() => setSupportOpen(false)} />
+      )}
+
+      <button
+        data-testid="button-help-support"
+        onClick={() => setSupportOpen(prev => !prev)}
+        title="Help & Support"
+        style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 10000,
+          width: 52, height: 52, borderRadius: '50%', border: 'none',
+          background: p.colors.accent, color: '#fff', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+        }}
+      >
+        {supportOpen
+          ? <X style={{ width: 22, height: 22 }} />
+          : <HelpCircle style={{ width: 22, height: 22 }} />
+        }
+      </button>
     </div>
   );
 }
@@ -1362,6 +1386,202 @@ function ErrorState({ message }: { message: string }) {
     <div style={{ textAlign: 'center', padding: '48px 0' }}>
       <AlertCircle style={{ width: 32, height: 32, color: p.colors.danger, margin: '0 auto 12px' }} />
       <p style={{ ...p.typography.body, color: p.colors.muted }}>{message}</p>
+    </div>
+  );
+}
+
+type SupportMessage = { role: 'user' | 'assistant'; content: string };
+
+function SupportChatPanel({ token, onClose }: { token: string; onClose: () => void }) {
+  const [messages, setMessages] = useState<SupportMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [ticketCreated, setTicketCreated] = useState(false);
+  const [ticketId, setTicketId] = useState<number | null>(null);
+  const [creatingTicket, setCreatingTicket] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isLoading]);
+
+  async function sendMessage() {
+    const trimmed = input.trim();
+    if (!trimmed || isLoading) return;
+
+    const newMessages: SupportMessage[] = [...messages, { role: 'user', content: trimmed }];
+    setMessages(newMessages);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      const res = await apiRequest('POST', '/api/ai/support-chat', {
+        messages: newMessages,
+        token,
+        session_id: sessionId || undefined,
+      });
+      const data = await res.json();
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      if (data.session_id && !sessionId) setSessionId(data.session_id);
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' }]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function createTicket() {
+    setCreatingTicket(true);
+    try {
+      const description = messages.length > 0
+        ? messages.filter(m => m.role === 'user').map(m => m.content).join(' | ')
+        : 'Manual support request from dashboard';
+      const res = await apiRequest('POST', '/api/ai/create-ticket', {
+        token,
+        description,
+        transcript: messages,
+      });
+      const data = await res.json();
+      setTicketId(data.ticket_id);
+      setTicketCreated(true);
+      toast({ title: 'Support ticket created', description: `Ticket #${data.ticket_id} submitted successfully.` });
+    } catch {
+      toast({ title: 'Failed to create ticket', variant: 'destructive' });
+    } finally {
+      setCreatingTicket(false);
+    }
+  }
+
+  return (
+    <div
+      data-testid="support-chat-panel"
+      style={{
+        position: 'fixed', bottom: 96, right: 24, zIndex: 9999,
+        width: 340, maxHeight: 520, display: 'flex', flexDirection: 'column',
+        background: p.colors.surface, borderRadius: p.radius.md,
+        border: `1px solid ${p.colors.border}`, boxShadow: '0 8px 32px rgba(0,0,0,0.14)',
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '14px 16px', borderBottom: `1px solid ${p.colors.borderLight}`,
+        background: p.colors.accent,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <HelpCircle style={{ width: 16, height: 16, color: '#fff' }} />
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>Help & Support</span>
+        </div>
+        <button
+          data-testid="button-close-support-chat"
+          onClick={onClose}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', padding: 2 }}
+        >
+          <X style={{ width: 16, height: 16 }} />
+        </button>
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8, minHeight: 200, maxHeight: 320 }}>
+        {messages.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '24px 12px', color: p.colors.muted }}>
+            <HelpCircle style={{ width: 28, height: 28, margin: '0 auto 8px', color: p.colors.subtle }} />
+            <p style={{ ...p.typography.bodySm }}>How can we help?</p>
+            <p style={{ ...p.typography.captionSm, marginTop: 4 }}>Ask anything about your calculator or account.</p>
+          </div>
+        )}
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            data-testid={`support-message-${i}`}
+            style={{
+              display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+            }}
+          >
+            <div style={{
+              maxWidth: '80%', padding: '8px 12px', borderRadius: p.radius.sm, fontSize: 13, lineHeight: 1.5,
+              background: msg.role === 'user' ? p.colors.accent : p.colors.surfaceRaised,
+              color: msg.role === 'user' ? '#fff' : p.colors.body,
+            }}>
+              {msg.content}
+            </div>
+          </div>
+        ))}
+        {isLoading && (
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{
+              padding: '8px 12px', borderRadius: p.radius.sm, background: p.colors.surfaceRaised,
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <Loader2 style={{ width: 12, height: 12, color: p.colors.muted, animation: 'spin 1s linear infinite' }} />
+              <span style={{ fontSize: 12, color: p.colors.muted }}>Thinking...</span>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div style={{ padding: '8px 12px', borderTop: `1px solid ${p.colors.borderLight}` }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+          <input
+            data-testid="input-support-message"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+            placeholder="Type your question..."
+            style={{
+              flex: 1, padding: '7px 10px', borderRadius: p.radius.sm,
+              border: `1px solid ${p.colors.border}`, fontSize: 13, color: p.colors.body,
+              background: p.colors.pageBg, outline: 'none',
+            }}
+          />
+          <button
+            data-testid="button-send-support-message"
+            onClick={sendMessage}
+            disabled={isLoading || !input.trim()}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 34, height: 34, borderRadius: p.radius.sm, border: 'none',
+              background: input.trim() && !isLoading ? p.colors.accent : p.colors.borderLight,
+              color: input.trim() && !isLoading ? '#fff' : p.colors.muted,
+              cursor: input.trim() && !isLoading ? 'pointer' : 'default',
+              flexShrink: 0,
+            }}
+          >
+            <Send style={{ width: 14, height: 14 }} />
+          </button>
+        </div>
+        {ticketCreated ? (
+          <div data-testid="text-ticket-created" style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
+            background: p.colors.successLight, borderRadius: p.radius.sm, fontSize: 12,
+            color: p.colors.success,
+          }}>
+            <TicketCheck style={{ width: 14, height: 14 }} />
+            Ticket #{ticketId} created — we'll be in touch!
+          </div>
+        ) : (
+          <button
+            data-testid="button-talk-to-person"
+            onClick={createTicket}
+            disabled={creatingTicket}
+            style={{
+              width: '100%', padding: '6px 12px', borderRadius: p.radius.sm,
+              border: `1px solid ${p.colors.border}`, background: p.colors.surface,
+              color: p.colors.body, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            {creatingTicket
+              ? <><Loader2 style={{ width: 12, height: 12, animation: 'spin 1s linear infinite' }} /> Creating ticket...</>
+              : <><MessageSquare style={{ width: 12, height: 12 }} /> Talk to a person</>
+            }
+          </button>
+        )}
+      </div>
     </div>
   );
 }
