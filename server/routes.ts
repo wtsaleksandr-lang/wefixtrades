@@ -11,6 +11,14 @@ import { generatePricingConfigDraft } from "./aiPricingAgent";
 import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from "@shared/slugUtils";
 import { sendBookingConfirmationToCustomer, sendBookingNotificationToBusiness } from "./bookingEmails";
 import { buildSystemPrompt, runChatCompletion, type AgentType } from "./aiChatEngine";
+import {
+  isTwilioConfigured,
+  sendSMS,
+  checkRateLimit,
+  storeSmsMessage,
+  matchLeadByPhone,
+  truncateSms,
+} from "./twilioClient";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -78,6 +86,8 @@ const createLeadBody = z.object({
   quote_amount: z.number().nullable().optional(),
   answers: z.record(z.any()).nullable().optional(),
   sms_consent: z.boolean().optional(),
+  consent_timestamp: z.string().nullable().optional(),
+  consent_text_version: z.string().max(50).nullable().optional(),
   coupon_code: z.string().nullable().optional(),
 });
 
@@ -671,6 +681,12 @@ Return ONLY the JSON pricing config object.`;
         answers: parsed.data.answers || null,
         status: 'new',
         sms_consent: parsed.data.sms_consent || false,
+        consent_timestamp: parsed.data.sms_consent && parsed.data.consent_timestamp
+          ? new Date(parsed.data.consent_timestamp)
+          : null,
+        consent_text_version: parsed.data.sms_consent && parsed.data.consent_text_version
+          ? parsed.data.consent_text_version
+          : null,
       });
 
       if (parsed.data.coupon_code) {
@@ -2014,6 +2030,157 @@ Return ONLY the JSON pricing config object.`;
     } catch (error: any) {
       console.error("Client chat error:", error);
       res.status(500).json({ error: "Failed to process chat" });
+    }
+  });
+
+  app.post("/api/twilio/inbound", async (req, res) => {
+    const twimlError = (msg: string) => {
+      res.set("Content-Type", "text/xml");
+      res.send(`<Response><Message>${msg}</Message></Response>`);
+    };
+
+    try {
+      const from: string = req.body?.From || "";
+      const body: string = req.body?.Body || "";
+      const messageSid: string = req.body?.MessageSid || "";
+
+      if (!from || !body) {
+        return twimlError("Invalid request.");
+      }
+
+      const isWhatsapp = from.startsWith("whatsapp:");
+      const channel = isWhatsapp ? "whatsapp" : "sms";
+      const cleanFrom = isWhatsapp ? from.replace("whatsapp:", "") : from;
+
+      const lead = await matchLeadByPhone(cleanFrom);
+      if (!lead) {
+        return twimlError("We couldn't find your record. Please contact us directly.");
+      }
+
+      await storeSmsMessage({
+        lead_id: lead.id,
+        calculator_id: lead.calculator_id,
+        direction: "inbound",
+        channel,
+        body,
+        from_number: cleanFrom,
+        to_number: null,
+        twilio_sid: messageSid,
+        is_ai: false,
+      });
+
+      if (lead.ai_paused) {
+        res.set("Content-Type", "text/xml");
+        res.send("<Response></Response>");
+        return;
+      }
+
+      const rateCheck = await checkRateLimit(lead.id, lead.calculator_id, channel);
+      if (!rateCheck.allowed) {
+        console.warn(`[Twilio] Rate limit hit for lead ${lead.id}: ${rateCheck.reason}`);
+        res.set("Content-Type", "text/xml");
+        res.send("<Response></Response>");
+        return;
+      }
+
+      const calculator = await storage.getCalculatorById(lead.calculator_id);
+      const settings = (calculator?.calculator_settings as any) || {};
+      const aiEmployee = settings.ai_employee || {};
+
+      if (!aiEmployee.enabled || !["trial", "active"].includes(aiEmployee.subscription_status)) {
+        return twimlError(`Thanks for reaching out! We'll get back to you shortly. — ${calculator?.business_name || "Your service provider"}`);
+      }
+
+      if (aiEmployee.subscription_status === "trial" && aiEmployee.trial_started_at) {
+        const trialDays = (Date.now() - aiEmployee.trial_started_at) / (1000 * 60 * 60 * 24);
+        if (trialDays > 14) {
+          return twimlError(`Thanks for reaching out! We'll get back to you shortly. — ${calculator?.business_name || "Your service provider"}`);
+        }
+      }
+
+      const trainingProfile = aiEmployee.training_profile || {};
+      const systemPrompt = buildSystemPrompt("client_ai_employee", {
+        businessName: calculator?.business_name,
+        tradeType: calculator?.trade_type,
+        trainingProfile,
+        pricingConfig: calculator?.pricing_config as Record<string, any>,
+        channel,
+      }) + "\n\nIMPORTANT: This is an SMS/WhatsApp conversation. Keep ALL replies under 160 characters. Be very concise.";
+
+      const chatMessages = [{ role: "user" as const, content: body }];
+      const { reply } = await runChatCompletion(
+        openai,
+        "client_ai_employee",
+        chatMessages,
+        systemPrompt,
+        { calculatorId: lead.calculator_id, calculator, sessionId: `sms-${lead.id}` }
+      );
+
+      const shortReply = truncateSms(reply);
+
+      await storeSmsMessage({
+        lead_id: lead.id,
+        calculator_id: lead.calculator_id,
+        direction: "outbound",
+        channel,
+        body: shortReply,
+        from_number: isWhatsapp ? process.env.TWILIO_WHATSAPP_NUMBER || null : process.env.TWILIO_FROM_NUMBER || null,
+        to_number: cleanFrom,
+        twilio_sid: null,
+        is_ai: true,
+      });
+
+      res.set("Content-Type", "text/xml");
+      res.send(`<Response><Message>${shortReply}</Message></Response>`);
+    } catch (error: any) {
+      console.error("[Twilio] Inbound webhook error:", error);
+      twimlError("Thanks for reaching out! We'll get back to you soon.");
+    }
+  });
+
+  app.get("/api/dashboard/messages", async (req, res) => {
+    try {
+      const { token } = req.query as { token: string };
+      const calculator = await storage.getCalculatorByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found" });
+
+      const threads = await storage.getSmsThreads(calculator.id);
+      res.json({ threads });
+    } catch (error: any) {
+      console.error("[Messages] Error:", error);
+      res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
+
+  app.get("/api/dashboard/sms-status", async (req, res) => {
+    try {
+      const { token } = req.query as { token: string };
+      const calculator = await storage.getCalculatorByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found" });
+
+      res.json({
+        configured: isTwilioConfigured(),
+        from_number: process.env.TWILIO_FROM_NUMBER || null,
+        whatsapp_number: process.env.TWILIO_WHATSAPP_NUMBER || null,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch SMS status" });
+    }
+  });
+
+  app.patch("/api/dashboard/leads/:leadId/ai-pause", async (req, res) => {
+    try {
+      const { token } = req.query as { token: string };
+      const leadId = parseInt(req.params.leadId);
+      const { paused } = z.object({ paused: z.boolean() }).parse(req.body);
+
+      const calculator = await storage.getCalculatorByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found" });
+
+      await storage.updateLeadAiPaused(leadId, calculator.id, paused);
+      res.json({ success: true, ai_paused: paused });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update AI pause status" });
     }
   });
 

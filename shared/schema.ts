@@ -445,6 +445,21 @@ export const calculatorSettingsSchema = z.object({
       escalation_email: z.string().nullable().default(null),
       tone: z.enum(['professional', 'friendly', 'direct', 'premium']).default('professional'),
     }).default({}),
+    channels: z.object({
+      web_chat: z.boolean().default(true),
+      sms: z.boolean().default(false),
+      whatsapp: z.boolean().default(false),
+    }).default({}),
+    twilio: z.object({
+      enabled: z.boolean().default(false),
+      from_number: z.string().nullable().default(null),
+      whatsapp_number: z.string().nullable().default(null),
+    }).default({}),
+    consent: z.object({
+      sms_required: z.boolean().default(true),
+      consent_text: z.string().default('I agree to receive text messages about my quote and booking from this business.'),
+      store_consent: z.boolean().default(true),
+    }).default({}),
   }).default({}),
 
   test_history: z.object({
@@ -508,6 +523,9 @@ export const leads = pgTable("leads", {
   answers: jsonb("answers"),
   status: varchar("status", { length: 20 }).default("new").notNull(),
   sms_consent: boolean("sms_consent").default(false),
+  consent_timestamp: timestamp("consent_timestamp"),
+  consent_text_version: varchar("consent_text_version", { length: 50 }),
+  ai_paused: boolean("ai_paused").default(false),
   created_date: timestamp("created_date").defaultNow(),
 });
 
@@ -684,6 +702,25 @@ export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit
   resolved_at: true,
 });
 
+export const smsMessages = pgTable("sms_messages", {
+  id: serial("id").primaryKey(),
+  lead_id: integer("lead_id").references(() => leads.id),
+  calculator_id: integer("calculator_id").references(() => calculators.id),
+  direction: varchar("direction", { length: 10 }).notNull(),
+  channel: varchar("channel", { length: 15 }).notNull().default("sms"),
+  body: text("body").notNull(),
+  from_number: varchar("from_number", { length: 30 }),
+  to_number: varchar("to_number", { length: 30 }),
+  twilio_sid: varchar("twilio_sid", { length: 60 }),
+  is_ai: boolean("is_ai").default(true),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({
+  id: true,
+  created_at: true,
+});
+
 export type InsertCalculator = z.infer<typeof insertCalculatorSchema>;
 export type Calculator = typeof calculators.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
@@ -706,3 +743,5 @@ export type InsertAiConversation = z.infer<typeof insertAiConversationSchema>;
 export type AiConversation = typeof aiConversations.$inferSelect;
 export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
 export type SupportTicket = typeof supportTickets.$inferSelect;
+export type InsertSmsMessage = z.infer<typeof insertSmsMessageSchema>;
+export type SmsMessage = typeof smsMessages.$inferSelect;

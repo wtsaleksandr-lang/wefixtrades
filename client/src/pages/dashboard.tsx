@@ -15,7 +15,7 @@ import {
 
 const p = platformTheme;
 
-type Section = 'overview' | 'pricing' | 'leads' | 'analytics' | 'followup' | 'settings' | 'bookings';
+type Section = 'overview' | 'pricing' | 'leads' | 'analytics' | 'followup' | 'settings' | 'bookings' | 'messages';
 
 const NAV_ITEMS: { id: Section; label: string; icon: any }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -23,6 +23,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: any }[] = [
   { id: 'leads', label: 'Leads', icon: Users },
   { id: 'followup', label: 'Follow-Up', icon: Zap },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { id: 'messages', label: 'Messages', icon: MessageSquare },
   { id: 'settings', label: 'Settings', icon: Settings },
   { id: 'bookings', label: 'Bookings', icon: CalendarDays },
 ];
@@ -107,6 +108,7 @@ export default function Dashboard() {
         {section === 'analytics' && <AnalyticsSection token={token} />}
         {section === 'settings' && <SettingsSection token={token} />}
         {section === 'bookings' && <BookingsSection token={token} />}
+        {section === 'messages' && <MessagesSection token={token} />}
       </main>
 
       {supportOpen && (
@@ -979,6 +981,9 @@ function SettingsSection({ token }: { token: string }) {
   const { data } = useQuery<any>({
     queryKey: ['/api/dashboard/overview', `?token=${token}`],
   });
+  const { data: smsStatus } = useQuery<any>({
+    queryKey: ['/api/dashboard/sms-status', `?token=${token}`],
+  });
   const [, setLocation] = useLocation();
 
   const [email, setEmail] = useState('');
@@ -1096,6 +1101,8 @@ function SettingsSection({ token }: { token: string }) {
             </button>
           </div>
         </SettingsCard>
+
+        <AiEmployeeSettingsCard token={token} data={data} smsStatus={smsStatus} />
 
         <SettingsCard title="Danger zone" danger>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1334,6 +1341,303 @@ function BookingsSection({ token }: { token: string }) {
         </div>
       )}
     </div>
+  );
+}
+
+function MessagesSection({ token }: { token: string }) {
+  const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
+  const { toast } = useToast();
+
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ['/api/dashboard/messages', `?token=${token}`],
+  });
+
+  const aiPauseMutation = useMutation({
+    mutationFn: async ({ leadId, paused }: { leadId: number; paused: boolean }) => {
+      await apiRequest('PATCH', `/api/dashboard/leads/${leadId}/ai-pause?token=${token}`, { paused });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/messages'] });
+      toast({ title: 'AI status updated' });
+    },
+  });
+
+  const threads: any[] = data?.threads || [];
+  const selectedThread = threads.find((t: any) => t.lead.id === selectedLeadId);
+
+  if (isLoading) return <LoadingSkeleton />;
+
+  return (
+    <div>
+      <SectionHeader title="Messages" sub="SMS and WhatsApp conversations with leads" />
+
+      {threads.length === 0 ? (
+        <div style={{
+          textAlign: 'center', padding: '48px 0', color: p.colors.muted,
+          background: p.colors.surface, borderRadius: p.radius.md,
+          border: `1px solid ${p.colors.borderLight}`,
+        }}>
+          <MessageSquare style={{ width: 32, height: 32, margin: '0 auto 12px', color: p.colors.subtle }} />
+          <p data-testid="text-no-messages" style={{ ...p.typography.body }}>No SMS conversations yet.</p>
+          <p style={{ ...p.typography.captionSm, marginTop: 4 }}>Enable SMS in Settings &rsaquo; AI Employee to get started.</p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 0, border: `1px solid ${p.colors.borderLight}`, borderRadius: p.radius.md, overflow: 'hidden', background: p.colors.surface }}>
+          <div style={{ width: 260, borderRight: `1px solid ${p.colors.borderLight}`, flexShrink: 0 }}>
+            {threads.map((thread: any) => {
+              const lead = thread.lead;
+              const messages: any[] = thread.messages || [];
+              const lastMsg = messages[messages.length - 1];
+              const isSelected = lead.id === selectedLeadId;
+              return (
+                <button
+                  key={lead.id}
+                  data-testid={`thread-${lead.id}`}
+                  onClick={() => setSelectedLeadId(lead.id)}
+                  style={{
+                    display: 'block', width: '100%', padding: '12px 14px',
+                    textAlign: 'left', border: 'none', cursor: 'pointer',
+                    background: isSelected ? p.colors.accentLighter : 'transparent',
+                    borderBottom: `1px solid ${p.colors.borderLight}`,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ ...p.typography.bodySm, fontWeight: 600, color: isSelected ? p.colors.accent : p.colors.heading }}>
+                      {lead.name || lead.phone || 'Unknown'}
+                    </span>
+                    {lead.ai_paused && (
+                      <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 5px', borderRadius: p.radius.pill, background: p.colors.warningLight, color: p.colors.warning }}>
+                        Paused
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ ...p.typography.captionSm, color: p.colors.muted }}>{lead.phone || '—'}</div>
+                  {lastMsg && (
+                    <div style={{ ...p.typography.captionSm, color: p.colors.subtle, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 210 }}>
+                      {lastMsg.direction === 'outbound' ? 'You: ' : ''}{lastMsg.body}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 400 }}>
+            {!selectedThread ? (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: p.colors.subtle }}>
+                <div style={{ textAlign: 'center' }}>
+                  <MessageSquare style={{ width: 24, height: 24, margin: '0 auto 8px' }} />
+                  <p style={{ ...p.typography.captionSm }}>Select a conversation</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ padding: '12px 16px', borderBottom: `1px solid ${p.colors.borderLight}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ ...p.typography.bodySm, fontWeight: 600 }}>{selectedThread.lead.name || selectedThread.lead.phone || 'Unknown'}</div>
+                    <div style={{ ...p.typography.captionSm, color: p.colors.muted }}>{selectedThread.lead.phone}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {selectedThread.lead.ai_paused ? (
+                      <button
+                        data-testid={`button-resume-ai-${selectedThread.lead.id}`}
+                        onClick={() => aiPauseMutation.mutate({ leadId: selectedThread.lead.id, paused: false })}
+                        disabled={aiPauseMutation.isPending}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+                          borderRadius: p.radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500,
+                          background: p.colors.successLight, color: p.colors.success,
+                        }}
+                      >
+                        <Play style={{ width: 12, height: 12 }} /> Resume AI
+                      </button>
+                    ) : (
+                      <button
+                        data-testid={`button-takeover-${selectedThread.lead.id}`}
+                        onClick={() => aiPauseMutation.mutate({ leadId: selectedThread.lead.id, paused: true })}
+                        disabled={aiPauseMutation.isPending}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+                          borderRadius: p.radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500,
+                          background: p.colors.warningLight, color: p.colors.warning,
+                        }}
+                      >
+                        <Pause style={{ width: 12, height: 12 }} /> Take Over
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {(selectedThread.messages || []).map((msg: any) => {
+                    const isOutbound = msg.direction === 'outbound';
+                    return (
+                      <div
+                        key={msg.id}
+                        data-testid={`msg-${msg.id}`}
+                        style={{ display: 'flex', justifyContent: isOutbound ? 'flex-end' : 'flex-start' }}
+                      >
+                        <div style={{
+                          maxWidth: '70%', padding: '8px 12px', borderRadius: p.radius.sm,
+                          background: isOutbound ? p.colors.accent : p.colors.surfaceRaised,
+                          color: isOutbound ? '#fff' : p.colors.body, fontSize: 13, lineHeight: 1.5,
+                        }}>
+                          <div>{msg.body}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, justifyContent: isOutbound ? 'flex-end' : 'flex-start' }}>
+                            {msg.is_ai && (
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: p.radius.pill, background: isOutbound ? 'rgba(255,255,255,0.2)' : p.colors.accentLighter, color: isOutbound ? '#fff' : p.colors.accent }}>
+                                AI
+                              </span>
+                            )}
+                            <span style={{ fontSize: 10, color: isOutbound ? 'rgba(255,255,255,0.7)' : p.colors.subtle }}>
+                              {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div style={{ padding: '10px 16px', borderTop: `1px solid ${p.colors.borderLight}` }}>
+                  <p style={{ ...p.typography.captionSm, color: p.colors.subtle }}>
+                    Manual reply via phone for now. Use the Take Over button to pause AI responses.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AiEmployeeSettingsCard({ token, data, smsStatus }: { token: string; data: any; smsStatus: any }) {
+  const settings = data?.calculator?.calculator_settings || {};
+  const aiEmployee = settings.ai_employee || {};
+  const channels = aiEmployee.channels || { web_chat: true, sms: false, whatsapp: false };
+  const consent = aiEmployee.consent || {};
+
+  const [webChat, setWebChat] = useState<boolean>(channels.web_chat ?? true);
+  const [sms, setSms] = useState<boolean>(channels.sms ?? false);
+  const [whatsapp, setWhatsapp] = useState<boolean>(channels.whatsapp ?? false);
+  const [consentText, setConsentText] = useState<string>(consent.consent_text || 'I agree to receive text messages about my quote and booking from this business.');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await apiRequest('PATCH', '/api/calculators', {
+        token,
+        updates: {
+          calculator_settings: {
+            ...settings,
+            ai_employee: {
+              ...aiEmployee,
+              channels: { web_chat: webChat, sms, whatsapp },
+              consent: { ...consent, consent_text: consentText },
+            },
+          },
+        },
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/overview'] });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const ToggleSwitch = ({ checked, onChange, testId }: { checked: boolean; onChange: (v: boolean) => void; testId: string }) => (
+    <button
+      data-testid={testId}
+      onClick={() => onChange(!checked)}
+      style={{
+        width: 40, height: 22, borderRadius: 11, border: 'none', cursor: 'pointer', padding: 0,
+        background: checked ? p.colors.accent : p.colors.borderLight,
+        position: 'relative', transition: p.transitions.fast,
+      }}
+    >
+      <div style={{
+        width: 18, height: 18, borderRadius: '50%', background: '#fff',
+        position: 'absolute', top: 2, left: checked ? 20 : 2,
+        transition: p.transitions.fast, boxShadow: p.shadows.xs,
+      }} />
+    </button>
+  );
+
+  return (
+    <SettingsCard title="AI Employee" badge="Beta">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ ...p.typography.captionSm, color: p.colors.muted }}>Control which channels your AI Employee responds on.</div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ ...p.typography.bodySm }}>Web Chat</span>
+            <ToggleSwitch checked={webChat} onChange={setWebChat} testId="toggle-channel-web-chat" />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ ...p.typography.bodySm }}>SMS</span>
+              {smsStatus && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: p.radius.pill,
+                  background: smsStatus.configured ? p.colors.successLight : p.colors.warningLight,
+                  color: smsStatus.configured ? p.colors.success : p.colors.warning,
+                }}>
+                  {smsStatus.configured ? 'Connected' : 'Setup Required'}
+                </span>
+              )}
+            </div>
+            <ToggleSwitch checked={sms} onChange={setSms} testId="toggle-channel-sms" />
+          </div>
+          {smsStatus?.from_number && (
+            <div style={{ ...p.typography.captionSm, color: p.colors.muted, paddingLeft: 0 }}>
+              From: {smsStatus.from_number}
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ ...p.typography.bodySm }}>WhatsApp</span>
+              {smsStatus?.whatsapp_number ? (
+                <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: p.radius.pill, background: p.colors.successLight, color: p.colors.success }}>Connected</span>
+              ) : (
+                <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: p.radius.pill, background: p.colors.borderLight, color: p.colors.muted }}>Not Configured</span>
+              )}
+            </div>
+            <ToggleSwitch checked={whatsapp} onChange={setWhatsapp} testId="toggle-channel-whatsapp" />
+          </div>
+        </div>
+
+        {(sms || whatsapp) && (
+          <div>
+            <div style={{ ...p.typography.captionSm, color: p.colors.muted, marginBottom: 6 }}>SMS consent text</div>
+            <textarea
+              data-testid="input-consent-text"
+              value={consentText}
+              onChange={e => setConsentText(e.target.value)}
+              rows={2}
+              style={{
+                width: '100%', padding: '8px 10px', borderRadius: p.radius.sm,
+                border: `1px solid ${p.colors.border}`, fontSize: 13, color: p.colors.body,
+                outline: 'none', resize: 'vertical', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+        )}
+
+        <button
+          data-testid="button-save-ai-employee"
+          onClick={handleSave}
+          disabled={saving}
+          style={{
+            alignSelf: 'flex-start', padding: '7px 16px', borderRadius: p.radius.sm, border: 'none',
+            background: p.colors.accent, color: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+          }}
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+    </SettingsCard>
   );
 }
 
