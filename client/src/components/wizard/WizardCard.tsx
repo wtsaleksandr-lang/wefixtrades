@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { platformTheme } from '@/theme/platformTheme';
 import { CATEGORIES, TRADES, getTradesByCategory, type Trade } from '@/data/trades';
@@ -6,14 +6,15 @@ import { calculatorSettingsSchema, customTradeDataSchema, type CalculatorSetting
 import DesignStudio from './DesignStudio';
 import CustomTradeQuestionnaire from './CustomTradeQuestionnaire';
 import PricingIntakeStage2 from './PricingIntakeStage2';
+import TestGateStep, { type TestGateResult } from './TestGateStep';
 import { mapPricingIntakeToConfig } from '@shared/pricingIntakeMapper';
 import {
   Loader2, ArrowRight, ArrowLeft, Check, Sparkles, Wrench, Hammer,
   Layers, AlertTriangle, Car, Briefcase, Plus, HelpCircle, X,
   Search, ChevronDown, ExternalLink, Copy, Zap, AlertCircle,
   RotateCcw, Code2, Eye, Upload, Trash2, Image as ImageIcon, ChevronRight,
-  FileText, ClipboardCheck, Shield, Mail, Phone, User, Building2,
-  CheckCircle2, XCircle, TriangleAlert
+  FileText, Shield, Mail, Phone, User, Building2,
+  CheckCircle2, TriangleAlert
 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -142,7 +143,7 @@ const STEP_TITLES = [
   'Design Your Calculator',
   'Pricing Logic',
   'Lead Form Builder',
-  'Final Test & Preview',
+  'Validate Your Pricing',
   'Publish & Share',
 ];
 const STEP_SUBTITLES = [
@@ -150,7 +151,7 @@ const STEP_SUBTITLES = [
   'Customize appearance, layout, and branding.',
   'Review and confirm your pricing configuration.',
   'Configure how you collect customer information.',
-  'Test your calculator before publishing.',
+  'Test real scenarios before publishing.',
   'Share your links and start collecting leads.',
 ];
 
@@ -508,12 +509,17 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             sample_quotes: ws.isCustomTrade
               ? ws.sampleQuotes.filter(q => q.inputs.qty > 0 && q.final_price > 0)
               : undefined,
-            test_scenarios: ws.testScenarios.map(s => ({
-              label: s.label,
-              expectedMin: s.expectedMin,
-              expectedMax: s.expectedMax,
-              confirmed: s.confirmed,
-            })),
+            test_history: testHistory ? {
+              scenarios: testHistory.scenarios.map(s => ({
+                label: s.label,
+                inputs: s.inputs,
+                yourCharge: s.yourCharge,
+              })),
+              accuracy_score: testHistory.accuracyScore,
+              confirmed: testHistory.confirmed,
+              advanced_adjustments: testHistory.advancedAdjustments,
+              timestamp: testHistory.timestamp,
+            } : undefined,
             pricing_edits_applied: ws.isCustomTrade
               && ws.calculatorSettings.pricing_draft?.status === 'ready'
               && ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType
@@ -538,6 +544,34 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   });
 
   const genError = generateMutation.error ? (generateMutation.error as Error).message : null;
+
+  const resolvedPricingConfig = useMemo(() => {
+    if (ws.isCustomTrade && ws.customTradeData.charge_method !== 'not_sure') {
+      const mapResult = mapPricingIntakeToConfig(ws.customTradeData, ws.stage2Data);
+      if (mapResult.success) return mapResult.config;
+    }
+    if (ws.isCustomTrade && ws.calculatorSettings.pricing_draft?.status === 'ready' && ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType) {
+      return ws.calculatorSettings.pricing_draft.pricing_config;
+    }
+    const trade = TRADES.find(tr => tr.id === ws.selectedTrade);
+    if (trade && (trade as any).defaultPricing) return (trade as any).defaultPricing;
+    return { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 };
+  }, [ws.isCustomTrade, ws.customTradeData, ws.stage2Data, ws.calculatorSettings.pricing_draft, ws.selectedTrade]);
+
+  const [testHistory, setTestHistory] = useState<TestGateResult | null>(null);
+
+  const handlePricingConfigChange = useCallback((newConfig: any) => {
+    if (ws.isCustomTrade && ws.calculatorSettings.pricing_draft) {
+      set('calculatorSettings', {
+        ...ws.calculatorSettings,
+        pricing_draft: {
+          ...ws.calculatorSettings.pricing_draft,
+          pricing_config: newConfig,
+        },
+      });
+    }
+  }, [ws.isCustomTrade, ws.calculatorSettings, set]);
+
   const selectedTradeLabel = TRADES.find(tr => tr.id === ws.selectedTrade)?.label || '';
   const selectedCategoryLabel = CATEGORIES.find(c => c.id === ws.selectedCategory)?.label || '';
 
@@ -579,20 +613,6 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     };
     reader.readAsDataURL(file);
     e.target.value = '';
-  };
-
-  const runTestValidation = () => {
-    const errors: string[] = [];
-    ws.testScenarios.forEach((s, i) => {
-      if (!s.label.trim()) errors.push(`Scenario ${i + 1}: needs a label`);
-      const min = parseFloat(s.expectedMin);
-      const max = parseFloat(s.expectedMax);
-      if (isNaN(min) || isNaN(max)) errors.push(`Scenario ${i + 1}: enter valid min/max`);
-      else if (min < 0 || max < 0) errors.push(`Scenario ${i + 1}: no negative values`);
-      else if (min > max) errors.push(`Scenario ${i + 1}: min must be less than max`);
-      if (!s.confirmed) errors.push(`Scenario ${i + 1}: must be confirmed`);
-    });
-    return errors;
   };
 
   return (
@@ -1113,129 +1133,16 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
         {/* Step 4: Final Test & Preview (quality gate) */}
         {step === 4 && !generateMutation.isPending && (
-          <div className="animate-fade-in-up">
-            <div style={{
-              padding: '14px 16px', borderRadius: p.radius.md,
-              background: '#FEF3C7', border: '1px solid #FDE68A', marginBottom: '20px',
-              display: 'flex', alignItems: 'flex-start', gap: '10px',
-            }}>
-              <Shield style={{ width: '16px', height: '16px', color: '#D97706', flexShrink: 0, marginTop: '1px' }} />
-              <p style={{ fontSize: '13px', color: '#92400E', lineHeight: 1.5 }}>
-                Enter at least 3 test scenarios to verify your calculator produces accurate estimates.
-              </p>
-            </div>
-
-            {ws.testScenarios.map((scenario, idx) => (
-              <div key={idx} data-testid={`test-scenario-${idx}`} style={{
-                padding: '16px', borderRadius: p.radius.md,
-                border: `1px solid ${scenario.confirmed ? '#BBF7D0' : p.colors.border}`,
-                background: scenario.confirmed ? '#F0FDF4' : '#FFFFFF',
-                marginBottom: '12px',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <div style={{
-                    width: '24px', height: '24px', borderRadius: '50%',
-                    background: scenario.confirmed ? '#059669' : p.colors.borderLight,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '12px', fontWeight: 700,
-                    color: scenario.confirmed ? 'white' : p.colors.muted,
-                  }}>
-                    {scenario.confirmed ? <Check style={{ width: '14px', height: '14px' }} /> : idx + 1}
-                  </div>
-                  <span style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading }}>
-                    {idx === 0 ? 'Low Estimate' : idx === 1 ? 'Typical Job' : 'High-End Job'}
-                  </span>
-                </div>
-
-                <input data-testid={`input-scenario-label-${idx}`}
-                  value={scenario.label} placeholder={`Describe the ${idx === 0 ? 'simplest' : idx === 1 ? 'average' : 'most complex'} job`}
-                  onChange={e => {
-                    const updated = [...ws.testScenarios];
-                    updated[idx] = { ...updated[idx], label: e.target.value };
-                    set('testScenarios', updated);
-                  }}
-                  className="premium-input" style={{ marginBottom: '10px' }} />
-
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.muted, display: 'block', marginBottom: '4px' }}>Min ($)</label>
-                    <input data-testid={`input-scenario-min-${idx}`} type="number" min="0"
-                      value={scenario.expectedMin}
-                      onChange={e => {
-                        const updated = [...ws.testScenarios];
-                        updated[idx] = { ...updated[idx], expectedMin: e.target.value };
-                        set('testScenarios', updated);
-                      }}
-                      className="premium-input" placeholder="0" />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.muted, display: 'block', marginBottom: '4px' }}>Max ($)</label>
-                    <input data-testid={`input-scenario-max-${idx}`} type="number" min="0"
-                      value={scenario.expectedMax}
-                      onChange={e => {
-                        const updated = [...ws.testScenarios];
-                        updated[idx] = { ...updated[idx], expectedMax: e.target.value };
-                        set('testScenarios', updated);
-                      }}
-                      className="premium-input" placeholder="0" />
-                  </div>
-                </div>
-
-                <button data-testid={`button-confirm-scenario-${idx}`}
-                  onClick={() => {
-                    const updated = [...ws.testScenarios];
-                    updated[idx] = { ...updated[idx], confirmed: !updated[idx].confirmed };
-                    set('testScenarios', updated);
-                    const allConfirmed = updated.every(s => s.confirmed && s.label.trim() && s.expectedMin && s.expectedMax);
-                    if (allConfirmed) set('testPassed', true);
-                    else set('testPassed', false);
-                  }}
-                  style={{
-                    width: '100%', padding: '10px', borderRadius: p.radius.md, border: 'none',
-                    background: scenario.confirmed ? '#059669' : p.colors.accentLighter,
-                    color: scenario.confirmed ? 'white' : p.colors.accent,
-                    cursor: 'pointer', fontSize: '13px', fontWeight: 600,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                  }}>
-                  {scenario.confirmed ? <><Check style={{ width: '14px', height: '14px' }} /> Confirmed</> : <><ClipboardCheck style={{ width: '14px', height: '14px' }} /> Confirm Estimate</>}
-                </button>
-              </div>
-            ))}
-
-            {(() => {
-              const errs = runTestValidation();
-              const allGood = errs.length === 0;
-              return (
-                <>
-                  {!allGood && ws.testScenarios.some(s => s.confirmed) && (
-                    <div style={{
-                      padding: '12px 16px', borderRadius: p.radius.md,
-                      background: p.colors.dangerLight, border: '1px solid #FCA5A5', marginBottom: '16px',
-                    }}>
-                      {errs.map((e, i) => (
-                        <p key={i} style={{ fontSize: '12px', color: '#991B1B', lineHeight: 1.5, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <XCircle style={{ width: '12px', height: '12px', flexShrink: 0 }} /> {e}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                  <Footer onBack={() => setStep(3)}>
-                    <PrimaryBtn testId="button-generate" onClick={() => generateMutation.mutate()}
-                      disabled={!ws.testPassed || generateMutation.isPending} loading={generateMutation.isPending}>
-                      <Sparkles style={{ width: '16px', height: '16px' }} /> Generate & Publish
-                    </PrimaryBtn>
-                  </Footer>
-                </>
-              );
-            })()}
-
-            {genError && (
-              <div className="animate-fade-in-up" style={{ marginTop: '14px', padding: '12px 16px', borderRadius: p.radius.md, background: p.colors.dangerLight, border: '1px solid #FCA5A5', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <AlertCircle style={{ width: '15px', height: '15px', color: p.colors.danger, flexShrink: 0 }} />
-                <span style={{ fontSize: '13px', color: '#991B1B' }}>{genError}</span>
-              </div>
-            )}
-          </div>
+          <TestGateStep
+            pricingConfig={resolvedPricingConfig}
+            onPricingConfigChange={handlePricingConfigChange}
+            onPublish={() => generateMutation.mutate()}
+            onBack={() => setStep(3)}
+            onTestHistoryChange={setTestHistory}
+            publishPending={generateMutation.isPending}
+            genError={genError}
+            initialTestHistory={testHistory}
+          />
         )}
 
         {step === 4 && generateMutation.isPending && (
