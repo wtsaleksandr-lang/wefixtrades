@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { getWidgetTheme } from '@/theme/widgetTheme';
-import { Loader2, PartyPopper, AlertCircle, ChevronLeft, ArrowRight, CheckCircle2, Plus, Minus, Phone, CalendarDays, Clock, ChevronRight, Shield, Star, MessageCircle, Award, Lock, ThumbsUp } from 'lucide-react';
+import { Loader2, PartyPopper, AlertCircle, ChevronLeft, ArrowRight, CheckCircle2, Plus, Minus, Phone, CalendarDays, Clock, ChevronRight, Shield, Star, MessageCircle, Award, Lock, ThumbsUp, Tag, X } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { calculateEstimate } from '@shared/calculateEstimate';
@@ -62,10 +62,27 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
   });
   const [bookingCustomer, setBookingCustomer] = useState({ name: '', email: '', phone: '' });
 
+  const [couponInput, setCouponInput] = useState('');
+  const [couponExpanded, setCouponExpanded] = useState(false);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ id: string; code: string; type: 'percentage' | 'fixed'; value: number; applies_to: string } | null>(null);
+
+  const [estimateGeneratedAt, setEstimateGeneratedAt] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [quoteExpired, setQuoteExpired] = useState(false);
+
   const calcSettings = calculator.calculator_settings || {};
   const bookingSettings = calcSettings.booking_settings || {};
   const isBookingEnabled = calcSettings.calculator_type === 'estimate_plus_booking' && bookingSettings.enabled;
   const workingDays: string[] = bookingSettings.availability?.working_days || ['mon', 'tue', 'wed', 'thu', 'fri'];
+
+  const promotionsSettings = calcSettings.promotions || {};
+  const promotionsEnabled = promotionsSettings.enabled === true;
+  const quoteRules = calcSettings.quote_rules || {};
+  const expirationEnabled = quoteRules.expiration_enabled === true;
+  const validDays = quoteRules.valid_days || 7;
+  const showCountdown = quoteRules.show_countdown === true;
 
   const uiTemplate = calcSettings.ui_template || {};
   const templateId: string = uiTemplate.template_id || 'classic_single';
@@ -111,6 +128,36 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
     }
   }, []);
 
+  useEffect(() => {
+    if (showResult && estimateGeneratedAt === null) {
+      setEstimateGeneratedAt(Date.now());
+      setQuoteExpired(false);
+    }
+    if (!showResult) {
+      setEstimateGeneratedAt(null);
+      setQuoteExpired(false);
+    }
+  }, [showResult]);
+
+  useEffect(() => {
+    if (!expirationEnabled || !estimateGeneratedAt) return;
+    const expiresAt = estimateGeneratedAt + validDays * 24 * 60 * 60 * 1000;
+    const update = () => {
+      const left = expiresAt - Date.now();
+      if (left <= 0) {
+        setTimeLeft(0);
+        setQuoteExpired(true);
+      } else {
+        setTimeLeft(left);
+        setQuoteExpired(false);
+      }
+    };
+    update();
+    if (!showCountdown) return;
+    const interval = setInterval(update, 10000);
+    return () => clearInterval(interval);
+  }, [expirationEnabled, estimateGeneratedAt, validDays, showCountdown]);
+
   const inputs: EstimateInputs = {
     quantity,
     selectedTierIndex,
@@ -120,6 +167,21 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
   };
 
   const estimate = useMemo(() => calculateEstimate(config, inputs), [config, quantity, selectedTierIndex, selectedAddOnIds, selectedDifficultyId, isAfterHours]);
+
+  const discountAmount = useMemo(() => {
+    if (!appliedCoupon || estimate.type === 'call_for_quote') return 0;
+    const baseTotal = estimate.type === 'exact' ? estimate.total : (estimate.rangeMin || 0);
+    if (appliedCoupon.applies_to === 'deposit_only') return 0;
+    if (appliedCoupon.type === 'percentage') {
+      return Math.round(estimate.total * appliedCoupon.value / 100);
+    }
+    return Math.min(appliedCoupon.value, estimate.total);
+  }, [appliedCoupon, estimate]);
+
+  const discountedTotal = useMemo(() => {
+    if (!appliedCoupon || estimate.type !== 'exact') return estimate.type === 'exact' ? estimate.total : 0;
+    return Math.max(0, estimate.total - discountAmount);
+  }, [estimate, discountAmount, appliedCoupon]);
 
   const depositInfo = useMemo(() => {
     if (!bookingSettings.require_deposit) return null;
@@ -135,6 +197,44 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
     setSelectedAddOnIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
+  const applyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponLoading(true);
+    setCouponError(null);
+    try {
+      const res = await fetch(`/api/calculators/${calculator.slug}/coupons/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponInput.trim() }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setAppliedCoupon(data.coupon);
+        setCouponExpanded(false);
+        setCouponError(null);
+      } else {
+        const errorMessages: Record<string, string> = {
+          not_found: 'Promo code not found.',
+          expired: 'This promo code has expired.',
+          limit_reached: 'This promo code has reached its usage limit.',
+          inactive: 'This promo code is no longer active.',
+        };
+        setCouponError(errorMessages[data.error] || 'Invalid promo code.');
+        setAppliedCoupon(null);
+      }
+    } catch {
+      setCouponError('Failed to validate promo code. Please try again.');
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput('');
+    setCouponError(null);
+  };
+
   const leadMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest('POST', '/api/leads', {
@@ -143,8 +243,9 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
         email: leadData.email,
         phone: leadData.phone,
         company: leadData.company,
-        quote_amount: estimate.total,
+        quote_amount: appliedCoupon && discountAmount > 0 ? discountedTotal : estimate.total,
         answers: { pricingType: config.pricingType, quantity, selectedTierIndex, selectedAddOnIds, selectedDifficultyId, isAfterHours },
+        ...(appliedCoupon ? { coupon_code: appliedCoupon.code } : {}),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Failed to submit.');
@@ -318,6 +419,34 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
   }
 
   if (showResult && estimate.type !== "call_for_quote") {
+    if (quoteExpired) {
+      return (
+        <div style={containerStyle}>
+          <div className="animate-scale-in" style={cardStyle}>
+            <div style={{ padding: '8px 0 0', borderTop: `4px solid ${accentColor}` }} />
+            <div style={{ padding: '36px 32px 32px', textAlign: 'center' }}>
+              <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <Clock style={{ width: '30px', height: '30px', color: '#D97706' }} />
+              </div>
+              <h2 data-testid="text-quote-expired" style={{ fontSize: '22px', fontWeight: 700, color: theme.colors.heading, marginBottom: '10px' }}>
+                Your Quote Has Expired
+              </h2>
+              <p style={{ fontSize: '15px', color: theme.colors.muted, marginBottom: '24px', lineHeight: 1.6 }}>
+                This estimate was valid for {validDays} day{validDays !== 1 ? 's' : ''}. Please recalculate to get a fresh quote.
+              </p>
+              <button
+                data-testid="button-recalculate"
+                onClick={() => { setShowResult(false); setQuantity(1); setSelectedTierIndex(0); setSelectedAddOnIds([]); setSelectedDifficultyId(""); setIsAfterHours(false); setAppliedCoupon(null); setCouponInput(''); setCouponError(null); setEstimateGeneratedAt(null); setQuoteExpired(false); }}
+                style={btnPrimary}
+              >
+                Recalculate Quote
+                <ArrowRight style={{ width: '18px', height: '18px' }} />
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <ResultPanel
         containerStyle={containerStyle}
@@ -329,9 +458,23 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
         calculator={calculator}
         isBookingEnabled={isBookingEnabled}
         showBreakdown={showBreakdown}
+        appliedCoupon={appliedCoupon}
+        discountAmount={discountAmount}
+        discountedTotal={discountedTotal}
+        promotionsEnabled={promotionsEnabled}
+        couponInput={couponInput}
+        couponExpanded={couponExpanded}
+        couponLoading={couponLoading}
+        couponError={couponError}
+        setCouponInput={setCouponInput}
+        setCouponExpanded={setCouponExpanded}
+        applyCoupon={applyCoupon}
+        removeCoupon={removeCoupon}
+        showCountdown={showCountdown}
+        timeLeft={timeLeft}
         onGetQuote={() => setShowLeadForm(true)}
         onBookNow={() => setShowBookingPanel(true)}
-        onStartOver={() => { setShowResult(false); setQuantity(1); setSelectedTierIndex(0); setSelectedAddOnIds([]); setSelectedDifficultyId(""); setIsAfterHours(false); }}
+        onStartOver={() => { setShowResult(false); setQuantity(1); setSelectedTierIndex(0); setSelectedAddOnIds([]); setSelectedDifficultyId(""); setIsAfterHours(false); setAppliedCoupon(null); setCouponInput(''); setCouponError(null); }}
       />
     );
   }
@@ -386,6 +529,11 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
               <span style={{ fontWeight: 500 }}>{item.amount > 0 ? `$${item.amount.toLocaleString()}` : '—'}</span>
             </div>
           ))}
+        </div>
+      )}
+      {showCountdown && timeLeft !== null && timeLeft > 0 && (
+        <div style={{ marginTop: '10px', borderTop: `1px solid ${accentColor}15`, paddingTop: '8px' }}>
+          <CountdownBadge timeLeft={timeLeft} accentColor={accentColor} />
         </div>
       )}
     </div>
@@ -1332,7 +1480,131 @@ function PricingInputsNoQuantityNoTiers({ config, selectedAddOnIds, toggleAddOn,
   );
 }
 
-function ResultPanel({ containerStyle, cardStyle, btnPrimary, theme, accentColor, estimate, calculator, isBookingEnabled, showBreakdown, onGetQuote, onBookNow, onStartOver }: {
+function formatTimeLeft(ms: number): string {
+  const totalMinutes = Math.floor(ms / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 24) {
+    const days = Math.floor(hours / 24);
+    return `${days}d ${hours % 24}h`;
+  }
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function CountdownBadge({ timeLeft, accentColor }: { timeLeft: number; accentColor: string }) {
+  return (
+    <div data-testid="badge-countdown" style={{
+      display: 'inline-flex', alignItems: 'center', gap: '5px',
+      padding: '4px 10px', borderRadius: '999px',
+      background: '#FEF3C7', border: '1px solid #FCD34D',
+      fontSize: '12px', fontWeight: 600, color: '#92400E',
+      marginTop: '8px',
+    }}>
+      <Clock style={{ width: '12px', height: '12px' }} />
+      Expires in {formatTimeLeft(timeLeft)}
+    </div>
+  );
+}
+
+function CouponInputBlock({ accentColor, theme, couponInput, setCouponInput, couponExpanded, setCouponExpanded, couponLoading, couponError, appliedCoupon, applyCoupon, removeCoupon }: {
+  accentColor: string;
+  theme: any;
+  couponInput: string;
+  setCouponInput: (v: string) => void;
+  couponExpanded: boolean;
+  setCouponExpanded: (v: boolean) => void;
+  couponLoading: boolean;
+  couponError: string | null;
+  appliedCoupon: { id: string; code: string; type: 'percentage' | 'fixed'; value: number; applies_to: string } | null;
+  applyCoupon: () => void;
+  removeCoupon: () => void;
+}) {
+  if (appliedCoupon) {
+    const displayValue = appliedCoupon.type === 'percentage' ? `${appliedCoupon.value}% off` : `$${appliedCoupon.value} off`;
+    const note = appliedCoupon.applies_to === 'deposit_only' ? ' (applies to deposit)' : '';
+    return (
+      <div data-testid="coupon-applied-block" style={{ marginTop: '12px', padding: '10px 14px', borderRadius: '10px', background: '#F0FDF4', border: '1px solid #86EFAC', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Tag style={{ width: '14px', height: '14px', color: '#16A34A', flexShrink: 0 }} />
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#15803D' }}>
+            {appliedCoupon.code} applied — {displayValue}{note}
+          </span>
+        </div>
+        <button
+          data-testid="button-remove-coupon"
+          onClick={removeCoupon}
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', color: '#15803D', display: 'flex', alignItems: 'center' }}
+        >
+          <X style={{ width: '14px', height: '14px' }} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="coupon-input-block" style={{ marginTop: '12px' }}>
+      {!couponExpanded ? (
+        <button
+          data-testid="button-toggle-coupon"
+          onClick={() => setCouponExpanded(true)}
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px 0', fontSize: '13px', color: accentColor, textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: '4px' }}
+        >
+          <Tag style={{ width: '13px', height: '13px' }} />
+          Have a promo code?
+        </button>
+      ) : (
+        <div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              data-testid="input-coupon-code"
+              type="text"
+              value={couponInput}
+              onChange={e => setCouponInput(e.target.value.toUpperCase())}
+              onKeyDown={e => e.key === 'Enter' && applyCoupon()}
+              placeholder="Enter promo code"
+              style={{
+                flex: 1, padding: '10px 14px', borderRadius: '10px', fontSize: '14px', fontWeight: 500,
+                border: `1.5px solid ${couponError ? '#FCA5A5' : theme.colors.border}`,
+                outline: 'none', background: theme.colors.surface, color: theme.colors.heading,
+              }}
+            />
+            <button
+              data-testid="button-apply-coupon"
+              onClick={applyCoupon}
+              disabled={couponLoading || !couponInput.trim()}
+              style={{
+                padding: '10px 16px', borderRadius: '10px', border: 'none',
+                background: accentColor, color: 'white', fontSize: '13px', fontWeight: 600,
+                cursor: couponLoading || !couponInput.trim() ? 'not-allowed' : 'pointer',
+                opacity: couponLoading || !couponInput.trim() ? 0.6 : 1,
+                display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap',
+              }}
+            >
+              {couponLoading ? <Loader2 style={{ width: '14px', height: '14px', animation: 'spin 1s linear infinite' }} /> : null}
+              Apply
+            </button>
+            <button
+              data-testid="button-cancel-coupon"
+              onClick={() => { setCouponExpanded(false); }}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', color: theme.colors.muted }}
+            >
+              <X style={{ width: '16px', height: '16px' }} />
+            </button>
+          </div>
+          {couponError && (
+            <div data-testid="text-coupon-error" style={{ marginTop: '6px', fontSize: '12px', color: '#DC2626', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <AlertCircle style={{ width: '12px', height: '12px', flexShrink: 0 }} />
+              {couponError}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultPanel({ containerStyle, cardStyle, btnPrimary, theme, accentColor, estimate, calculator, isBookingEnabled, showBreakdown, appliedCoupon, discountAmount, discountedTotal, promotionsEnabled, couponInput, couponExpanded, couponLoading, couponError, setCouponInput, setCouponExpanded, applyCoupon, removeCoupon, showCountdown, timeLeft, onGetQuote, onBookNow, onStartOver }: {
   containerStyle: React.CSSProperties;
   cardStyle: React.CSSProperties;
   btnPrimary: React.CSSProperties;
@@ -1342,10 +1614,25 @@ function ResultPanel({ containerStyle, cardStyle, btnPrimary, theme, accentColor
   calculator: CalculatorData;
   isBookingEnabled: boolean;
   showBreakdown: boolean;
+  appliedCoupon: { id: string; code: string; type: 'percentage' | 'fixed'; value: number; applies_to: string } | null;
+  discountAmount: number;
+  discountedTotal: number;
+  promotionsEnabled: boolean;
+  couponInput: string;
+  couponExpanded: boolean;
+  couponLoading: boolean;
+  couponError: string | null;
+  setCouponInput: (v: string) => void;
+  setCouponExpanded: (v: boolean) => void;
+  applyCoupon: () => void;
+  removeCoupon: () => void;
+  showCountdown: boolean;
+  timeLeft: number | null;
   onGetQuote: () => void;
   onBookNow: () => void;
   onStartOver: () => void;
 }) {
+  const showDiscount = appliedCoupon && discountAmount > 0 && estimate.type === 'exact' && appliedCoupon.applies_to !== 'deposit_only';
   return (
     <div style={containerStyle}>
       <div className="animate-scale-in" style={cardStyle}>
@@ -1353,14 +1640,32 @@ function ResultPanel({ containerStyle, cardStyle, btnPrimary, theme, accentColor
         <div style={{ padding: '36px 32px 32px', textAlign: 'center' }}>
           <p style={{ fontSize: '13px', fontWeight: 600, color: theme.colors.muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Your Estimated Quote</p>
           {estimate.type === "exact" && (
-            <p className="animate-count-up" style={{ fontSize: '48px', fontWeight: 800, color: accentColor, marginBottom: '24px', letterSpacing: '-0.02em', lineHeight: 1 }}>
-              ${estimate.total.toLocaleString()}
-            </p>
+            <>
+              {showDiscount ? (
+                <div style={{ marginBottom: '24px' }}>
+                  <p style={{ fontSize: '28px', fontWeight: 700, color: theme.colors.muted, letterSpacing: '-0.02em', lineHeight: 1, textDecoration: 'line-through', marginBottom: '4px' }}>
+                    ${estimate.total.toLocaleString()}
+                  </p>
+                  <p className="animate-count-up" data-testid="text-discounted-total" style={{ fontSize: '48px', fontWeight: 800, color: accentColor, letterSpacing: '-0.02em', lineHeight: 1 }}>
+                    ${discountedTotal.toLocaleString()}
+                  </p>
+                </div>
+              ) : (
+                <p className="animate-count-up" style={{ fontSize: '48px', fontWeight: 800, color: accentColor, marginBottom: '24px', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                  ${estimate.total.toLocaleString()}
+                </p>
+              )}
+            </>
           )}
           {estimate.type === "range" && (
             <p className="animate-count-up" style={{ fontSize: '36px', fontWeight: 800, color: accentColor, marginBottom: '24px', letterSpacing: '-0.02em', lineHeight: 1 }}>
               ${estimate.rangeMin?.toLocaleString()} – ${estimate.rangeMax?.toLocaleString()}
             </p>
+          )}
+          {showCountdown && timeLeft !== null && timeLeft > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+              <CountdownBadge timeLeft={timeLeft} accentColor={accentColor} />
+            </div>
           )}
           {estimate.callUs && (
             <div style={{ marginBottom: '16px', padding: '10px 14px', borderRadius: '10px', background: '#FEF3C7', border: '1px solid #FCD34D', fontSize: '13px', color: '#92400E', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1369,7 +1674,7 @@ function ResultPanel({ containerStyle, cardStyle, btnPrimary, theme, accentColor
             </div>
           )}
           {showBreakdown && (
-            <div style={{ marginBottom: '28px', textAlign: 'left' }}>
+            <div style={{ marginBottom: '16px', textAlign: 'left' }}>
               {estimate.breakdown.map((item, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${theme.colors.borderLight}`, fontSize: '14px' }}>
                   <span style={{ color: theme.colors.body }}>{item.label}</span>
@@ -1379,9 +1684,44 @@ function ResultPanel({ containerStyle, cardStyle, btnPrimary, theme, accentColor
                   </span>
                 </div>
               ))}
+              {showDiscount && (
+                <div data-testid="row-discount" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${theme.colors.borderLight}`, fontSize: '14px' }}>
+                  <span style={{ color: '#15803D', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Tag style={{ width: '13px', height: '13px' }} />
+                    Promo: {appliedCoupon!.code}
+                  </span>
+                  <span style={{ color: '#15803D', fontWeight: 600 }}>
+                    -{appliedCoupon!.type === 'percentage' ? `${appliedCoupon!.value}%` : `$${discountAmount.toLocaleString()}`}
+                  </span>
+                </div>
+              )}
+              {appliedCoupon && appliedCoupon.applies_to === 'deposit_only' && (
+                <div data-testid="row-discount-deposit" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${theme.colors.borderLight}`, fontSize: '13px', color: '#15803D' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Tag style={{ width: '12px', height: '12px' }} />
+                    Promo: {appliedCoupon.code}
+                  </span>
+                  <span>Discount applies to deposit</span>
+                </div>
+              )}
             </div>
           )}
-          <button data-testid="button-get-quote" onClick={onGetQuote} style={btnPrimary}>
+          {promotionsEnabled && (
+            <CouponInputBlock
+              accentColor={accentColor}
+              theme={theme}
+              couponInput={couponInput}
+              setCouponInput={setCouponInput}
+              couponExpanded={couponExpanded}
+              setCouponExpanded={setCouponExpanded}
+              couponLoading={couponLoading}
+              couponError={couponError}
+              appliedCoupon={appliedCoupon}
+              applyCoupon={applyCoupon}
+              removeCoupon={removeCoupon}
+            />
+          )}
+          <button data-testid="button-get-quote" onClick={onGetQuote} style={{ ...btnPrimary, marginTop: '16px' }}>
             {calculator.cta_button_text || 'Get My Free Quote'}
             <ArrowRight style={{ width: '18px', height: '18px' }} />
           </button>

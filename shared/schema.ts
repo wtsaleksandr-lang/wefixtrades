@@ -377,8 +377,8 @@ export const calculatorSettingsSchema = z.object({
       }).default({}),
       last_call: z.object({
         subject: z.string().default("Want to lock in a slot this week? — {{business_name}}"),
-        body: z.string().default("Hi {{name}},\n\nWe wanted to reach out one last time about your quote from {{business_name}}.\n\nYour estimate: {{quote_amount}}\n\nOur schedule fills up fast — if you'd like to lock in a slot this week, give us a call at {{phone}} or book here: {{booking_link}}\n\nThanks,\n{{business_name}}"),
-        sms: z.string().default("Hi {{name}}, last chance to lock in your slot with {{business_name}} this week! Call {{phone}}"),
+        body: z.string().default("Hi {{name}},\n\nWe wanted to reach out one last time about your quote from {{business_name}}.\n\nYour estimate: {{quote_amount}}\n\nOur schedule fills up fast — if you'd like to lock in a slot this week, give us a call at {{phone}} or book here: {{booking_link}}\n\nAs a special thank you, use code {{discount_code}} to save {{discount_value}} on your project.\n\nThanks,\n{{business_name}}"),
+        sms: z.string().default("Hi {{name}}, last chance to lock in your slot with {{business_name}} this week! Use code {{discount_code}} to save {{discount_value}}. Call {{phone}}"),
       }).default({}),
     }).default({}),
     personalization: z.object({
@@ -393,6 +393,36 @@ export const calculatorSettingsSchema = z.object({
       webhook_enabled: z.boolean().default(false),
       webhook_url: z.string().default(""),
     }).default({}),
+    reminders: z.object({
+      reminder_1_enabled: z.boolean().default(true),
+      reminder_1_delay_hours: z.number().default(24),
+      reminder_2_enabled: z.boolean().default(true),
+      reminder_2_delay_days: z.number().default(3),
+      reminder_2_include_discount: z.boolean().default(false),
+      reminder_2_coupon_id: z.string().nullable().default(null),
+    }).default({}),
+  }).default({}),
+
+  promotions: z.object({
+    version: z.number().default(1),
+    enabled: z.boolean().default(false),
+    coupons: z.array(z.object({
+      id: z.string(),
+      code: z.string(),
+      type: z.enum(['percentage', 'fixed']),
+      value: z.number().min(0),
+      applies_to: z.enum(['estimate_total', 'deposit_only']).default('estimate_total'),
+      expires_at: z.number().nullable().default(null),
+      usage_limit: z.number().nullable().default(null),
+      usage_count: z.number().default(0),
+      active: z.boolean().default(true),
+    })).default([]),
+  }).default({}),
+
+  quote_rules: z.object({
+    expiration_enabled: z.boolean().default(false),
+    valid_days: z.number().min(1).max(365).default(7),
+    show_countdown: z.boolean().default(false),
   }).default({}),
 
   test_history: z.object({

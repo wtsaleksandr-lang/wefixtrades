@@ -77,6 +77,7 @@ const createLeadBody = z.object({
   quote_amount: z.number().nullable().optional(),
   answers: z.record(z.any()).nullable().optional(),
   sms_consent: z.boolean().optional(),
+  coupon_code: z.string().nullable().optional(),
 });
 
 const generatePricingBody = z.object({
@@ -671,6 +672,12 @@ Return ONLY the JSON pricing config object.`;
         sms_consent: parsed.data.sms_consent || false,
       });
 
+      if (parsed.data.coupon_code) {
+        storage.incrementCouponUsage(parsed.data.calculator_id, parsed.data.coupon_code).catch(err => {
+          console.error("Failed to increment coupon usage:", err.message);
+        });
+      }
+
       storage.trackEvent({
         calculator_id: parsed.data.calculator_id,
         event_type: 'lead',
@@ -716,6 +723,60 @@ Return ONLY the JSON pricing config object.`;
     } catch (error: any) {
       console.error("Get leads error:", error);
       res.status(500).json({ error: "Failed to get leads" });
+    }
+  });
+
+  // ============ COUPON API ROUTES ============
+
+  app.post("/api/calculators/:slug/coupons/validate", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const body = z.object({ code: z.string().min(1) }).safeParse(req.body);
+      if (!body.success) {
+        return res.status(400).json({ valid: false, error: 'invalid_request' });
+      }
+
+      const calculator = await storage.getCalculatorBySlug(slug);
+      if (!calculator) {
+        return res.status(404).json({ valid: false, error: 'not_found' });
+      }
+
+      const settings = (calculator.calculator_settings as any) || {};
+      const promotions = settings.promotions || {};
+      const coupons: any[] = promotions.coupons || [];
+
+      const normalizedCode = body.data.code.toUpperCase();
+      const coupon = coupons.find((c: any) => c.code.toUpperCase() === normalizedCode);
+
+      if (!coupon) {
+        return res.json({ valid: false, error: 'not_found' });
+      }
+
+      if (!coupon.active) {
+        return res.json({ valid: false, error: 'inactive' });
+      }
+
+      if (coupon.expires_at !== null && coupon.expires_at !== undefined && coupon.expires_at < Date.now()) {
+        return res.json({ valid: false, error: 'expired' });
+      }
+
+      if (coupon.usage_limit !== null && coupon.usage_limit !== undefined && (coupon.usage_count || 0) >= coupon.usage_limit) {
+        return res.json({ valid: false, error: 'limit_reached' });
+      }
+
+      res.json({
+        valid: true,
+        coupon: {
+          id: coupon.id,
+          code: coupon.code,
+          type: coupon.type,
+          value: coupon.value,
+          applies_to: coupon.applies_to || 'estimate_total',
+        },
+      });
+    } catch (error: any) {
+      console.error("Coupon validate error:", error);
+      res.status(500).json({ valid: false, error: 'server_error' });
     }
   });
 
@@ -852,15 +913,26 @@ Return ONLY the JSON pricing config object.`;
       if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
 
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const [eventCounts, weeklyTrend, avgQuote, totalLeads] = await Promise.all([
+      const [eventCounts, weeklyTrend, avgQuote, allLeads, bookingStats] = await Promise.all([
         storage.getEventCounts(calculator.id, thirtyDaysAgo),
         storage.getWeeklyTrend(calculator.id),
         storage.getAvgQuoteAmount(calculator.id),
-        storage.getLeadsByCalculatorId(calculator.id).then(l => l.length),
+        storage.getLeadsByCalculatorId(calculator.id),
+        storage.getBookingStats(calculator.id),
       ]);
 
+      const totalLeads = allLeads.length;
       const totalViews = calculator.total_views || 0;
       const conversionRate = totalViews > 0 ? Math.round((totalLeads / totalViews) * 100) : 0;
+
+      const settings = (calculator.calculator_settings as any) || {};
+      const promotions = settings.promotions || {};
+      const coupons: any[] = promotions.coupons || [];
+      const couponUses = coupons.reduce((sum: number, c: any) => sum + (c.usage_count || 0), 0);
+
+      const { bookings_total, bookings_confirmed, payments_completed } = bookingStats;
+      const estimateToBookingPct = totalLeads > 0 ? Math.round((bookings_total / totalLeads) * 100) : 0;
+      const bookingToPaymentPct = bookings_total > 0 ? Math.round((payments_completed / bookings_total) * 100) : 0;
 
       res.json({
         views: totalViews,
@@ -868,6 +940,12 @@ Return ONLY the JSON pricing config object.`;
         conversion_rate: conversionRate,
         avg_quote: avgQuote,
         weekly_trend: weeklyTrend,
+        bookings_total,
+        bookings_confirmed,
+        payments_completed,
+        coupon_uses: couponUses,
+        estimate_to_booking_pct: estimateToBookingPct,
+        booking_to_payment_pct: bookingToPaymentPct,
       });
     } catch (error: any) {
       console.error("Dashboard analytics error:", error);
