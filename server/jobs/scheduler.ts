@@ -2,6 +2,8 @@ import cron from "node-cron";
 import { storage } from "../storage";
 import { runDailyAggregation } from "./aggregation";
 import { sendWeeklyReports } from "./weeklyReport";
+import { processNotificationQueue } from "./notificationWorker";
+import { processFollowupJobs } from "./followupWorker";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -88,7 +90,25 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  cron.schedule("* * * * *", async () => {
+    try {
+      await processNotificationQueue();
+    } catch (err: any) {
+      console.error("[Scheduler] notification_worker error:", err.message);
+    }
+  });
+
+  cron.schedule("* * * * *", async () => {
+    try {
+      await processFollowupJobs();
+    } catch (err: any) {
+      console.error("[Scheduler] followup_worker error:", err.message);
+    }
+  });
+
   console.log("[Scheduler] Jobs scheduled:");
   console.log("  - Daily aggregation: 02:00 UTC every day");
   console.log("  - Weekly email report: 13:00 UTC every Monday (~8AM EST)");
+  console.log("  - Notification queue worker: every minute");
+  console.log("  - Follow-up jobs worker: every minute");
 }

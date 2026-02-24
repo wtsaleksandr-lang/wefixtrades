@@ -2,17 +2,21 @@ import { db } from "./db";
 import {
   calculators, leads, analyticsEvents, deploymentStatus,
   calculatorAnalyticsSummary, jobLogs,
+  notificationQueue, followupJobs,
   type Calculator, type InsertCalculator,
   type Lead, type InsertLead,
   type AnalyticsEvent, type InsertAnalyticsEvent,
   type DeploymentStatus, type InsertDeploymentStatus,
   type AnalyticsSummary, type InsertAnalyticsSummary,
   type JobLog, type InsertJobLog,
+  type NotificationQueue, type InsertNotificationQueue,
+  type FollowupJob, type InsertFollowupJob,
 } from "@shared/schema";
-import { eq, desc, sql, and, gte, ilike, or, isNotNull } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull } from "drizzle-orm";
 
 export interface IStorage {
   createCalculator(data: InsertCalculator): Promise<Calculator>;
+  getCalculatorById(id: number): Promise<Calculator | undefined>;
   getCalculatorBySlug(slug: string): Promise<Calculator | undefined>;
   getCalculatorByToken(token: string): Promise<Calculator | undefined>;
   updateCalculator(id: number, updates: Partial<InsertCalculator>): Promise<Calculator | undefined>;
@@ -42,6 +46,21 @@ export interface IStorage {
 
   createJobLog(data: InsertJobLog): Promise<JobLog>;
   updateJobLog(id: number, updates: Partial<InsertJobLog>): Promise<void>;
+
+  getLeadById(id: number): Promise<Lead | undefined>;
+  updateLeadStatus(id: number, status: string): Promise<Lead | undefined>;
+
+  enqueueNotification(data: InsertNotificationQueue): Promise<NotificationQueue>;
+  fetchDueNotifications(limit?: number): Promise<NotificationQueue[]>;
+  updateNotification(id: number, updates: Record<string, any>): Promise<void>;
+  getNotificationLogs(calculatorId: number, limit?: number): Promise<NotificationQueue[]>;
+  getRecentNotificationCount(calculatorId: number, windowMinutes: number): Promise<number>;
+
+  enqueueFollowupJobs(data: InsertFollowupJob[]): Promise<FollowupJob[]>;
+  fetchDueFollowups(limit?: number): Promise<FollowupJob[]>;
+  updateFollowupJob(id: number, updates: Record<string, any>): Promise<void>;
+  getFollowupLogs(calculatorId: number, limit?: number): Promise<FollowupJob[]>;
+  cancelFollowupsForLead(leadId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -289,7 +308,88 @@ export class DatabaseStorage implements IStorage {
     await db.update(jobLogs).set(updates).where(eq(jobLogs.id, id));
   }
 
-  private async getCalculatorById(id: number): Promise<Calculator | undefined> {
+  async getLeadById(id: number): Promise<Lead | undefined> {
+    const [lead] = await db.select().from(leads).where(eq(leads.id, id)).limit(1);
+    return lead;
+  }
+
+  async updateLeadStatus(id: number, status: string): Promise<Lead | undefined> {
+    const [lead] = await db.update(leads).set({ status }).where(eq(leads.id, id)).returning();
+    return lead;
+  }
+
+  async enqueueNotification(data: InsertNotificationQueue): Promise<NotificationQueue> {
+    const [notif] = await db.insert(notificationQueue).values(data).returning();
+    return notif;
+  }
+
+  async fetchDueNotifications(limit = 20): Promise<NotificationQueue[]> {
+    return db.select().from(notificationQueue)
+      .where(and(
+        eq(notificationQueue.status, 'pending'),
+        sql`${notificationQueue.attempts} < ${notificationQueue.max_attempts}`,
+      ))
+      .orderBy(notificationQueue.created_at)
+      .limit(limit);
+  }
+
+  async updateNotification(id: number, updates: Record<string, any>): Promise<void> {
+    await db.update(notificationQueue).set(updates).where(eq(notificationQueue.id, id));
+  }
+
+  async getNotificationLogs(calculatorId: number, limit = 50): Promise<NotificationQueue[]> {
+    return db.select().from(notificationQueue)
+      .where(eq(notificationQueue.calculator_id, calculatorId))
+      .orderBy(desc(notificationQueue.created_at))
+      .limit(limit);
+  }
+
+  async getRecentNotificationCount(calculatorId: number, windowMinutes: number): Promise<number> {
+    const since = new Date(Date.now() - windowMinutes * 60 * 1000);
+    const [result] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(notificationQueue)
+      .where(and(
+        eq(notificationQueue.calculator_id, calculatorId),
+        gte(notificationQueue.created_at, since),
+      ));
+    return result?.count || 0;
+  }
+
+  async enqueueFollowupJobs(data: InsertFollowupJob[]): Promise<FollowupJob[]> {
+    if (data.length === 0) return [];
+    return db.insert(followupJobs).values(data).returning();
+  }
+
+  async fetchDueFollowups(limit = 20): Promise<FollowupJob[]> {
+    const now = new Date();
+    return db.select().from(followupJobs)
+      .where(and(
+        eq(followupJobs.status, 'pending'),
+        lte(followupJobs.run_at, now),
+        sql`${followupJobs.attempts} < ${followupJobs.max_attempts}`,
+      ))
+      .orderBy(followupJobs.run_at)
+      .limit(limit);
+  }
+
+  async updateFollowupJob(id: number, updates: Record<string, any>): Promise<void> {
+    await db.update(followupJobs).set(updates).where(eq(followupJobs.id, id));
+  }
+
+  async getFollowupLogs(calculatorId: number, limit = 50): Promise<FollowupJob[]> {
+    return db.select().from(followupJobs)
+      .where(eq(followupJobs.calculator_id, calculatorId))
+      .orderBy(desc(followupJobs.created_at))
+      .limit(limit);
+  }
+
+  async cancelFollowupsForLead(leadId: number): Promise<void> {
+    await db.update(followupJobs)
+      .set({ status: 'cancelled' })
+      .where(and(eq(followupJobs.lead_id, leadId), eq(followupJobs.status, 'pending')));
+  }
+
+  async getCalculatorById(id: number): Promise<Calculator | undefined> {
     const [calc] = await db.select().from(calculators).where(eq(calculators.id, id)).limit(1);
     return calc;
   }

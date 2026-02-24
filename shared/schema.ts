@@ -249,6 +249,54 @@ export const calculatorSettingsSchema = z.object({
     hosting_domain: z.string().default('estimate.ai'),
   }).default({}),
 
+  followup: z.object({
+    version: z.number().default(1),
+    enabled: z.boolean().default(false),
+    channels: z.object({
+      email: z.boolean().default(true),
+      sms: z.boolean().default(false),
+    }).default({}),
+    schedule: z.array(z.object({
+      offset_minutes: z.number().optional(),
+      offset_hours: z.number().optional(),
+      offset_days: z.number().optional(),
+      type: z.string(),
+    })).default([
+      { offset_minutes: 2, type: "thank_you" },
+      { offset_hours: 24, type: "reminder" },
+      { offset_days: 3, type: "last_call" },
+    ]),
+    templates: z.object({
+      thank_you: z.object({
+        subject: z.string().default("Thanks for your quote request!"),
+        body: z.string().default("Hi {{name}},\n\nThanks for requesting a quote from {{business_name}}. We received your request and will follow up shortly.\n\nYour estimated quote: {{quote_amount}}\n\nIf you'd like to discuss your project sooner, call us at {{phone}} or book a time: {{booking_link}}\n\nBest,\n{{business_name}}"),
+        sms: z.string().default("Thanks for your quote request from {{business_name}}! We'll follow up soon. Questions? Call {{phone}}"),
+      }).default({}),
+      reminder: z.object({
+        subject: z.string().default("Following up on your quote — {{business_name}}"),
+        body: z.string().default("Hi {{name}},\n\nJust checking in on the quote you requested from {{business_name}}.\n\nYour estimate: {{quote_amount}}\n\nWe'd love to help get your project started. Call us at {{phone}} or book a time: {{booking_link}}\n\nBest,\n{{business_name}}"),
+        sms: z.string().default("Hi {{name}}, just following up on your quote from {{business_name}}. Ready to get started? Call {{phone}}"),
+      }).default({}),
+      last_call: z.object({
+        subject: z.string().default("Want to lock in a slot this week? — {{business_name}}"),
+        body: z.string().default("Hi {{name}},\n\nWe wanted to reach out one last time about your quote from {{business_name}}.\n\nYour estimate: {{quote_amount}}\n\nOur schedule fills up fast — if you'd like to lock in a slot this week, give us a call at {{phone}} or book here: {{booking_link}}\n\nThanks,\n{{business_name}}"),
+        sms: z.string().default("Hi {{name}}, last chance to lock in your slot with {{business_name}} this week! Call {{phone}}"),
+      }).default({}),
+    }).default({}),
+    personalization: z.object({
+      business_name: z.string().default(""),
+      phone: z.string().default(""),
+      booking_link: z.string().default(""),
+      service_area: z.string().default(""),
+    }).default({}),
+    notifications: z.object({
+      email_enabled: z.boolean().default(true),
+      sms_enabled: z.boolean().default(false),
+      webhook_enabled: z.boolean().default(false),
+      webhook_url: z.string().default(""),
+    }).default({}),
+  }).default({}),
+
   test_history: z.object({
     scenarios: z.array(z.object({
       label: z.string(),
@@ -308,7 +356,39 @@ export const leads = pgTable("leads", {
   company: text("company"),
   quote_amount: integer("quote_amount"),
   answers: jsonb("answers"),
+  status: varchar("status", { length: 20 }).default("new").notNull(),
+  sms_consent: boolean("sms_consent").default(false),
   created_date: timestamp("created_date").defaultNow(),
+});
+
+export const notificationQueue = pgTable("notification_queue", {
+  id: serial("id").primaryKey(),
+  calculator_id: integer("calculator_id").notNull().references(() => calculators.id),
+  lead_id: integer("lead_id").notNull().references(() => leads.id),
+  type: varchar("type", { length: 20 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  attempts: integer("attempts").default(0),
+  max_attempts: integer("max_attempts").default(3),
+  last_error: text("last_error"),
+  payload: jsonb("payload"),
+  created_at: timestamp("created_at").defaultNow(),
+  processed_at: timestamp("processed_at"),
+});
+
+export const followupJobs = pgTable("followup_jobs", {
+  id: serial("id").primaryKey(),
+  lead_id: integer("lead_id").notNull().references(() => leads.id),
+  calculator_id: integer("calculator_id").notNull().references(() => calculators.id),
+  run_at: timestamp("run_at").notNull(),
+  type: varchar("type", { length: 30 }).notNull(),
+  channel: varchar("channel", { length: 20 }).notNull().default("email"),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  attempts: integer("attempts").default(0),
+  max_attempts: integer("max_attempts").default(3),
+  last_error: text("last_error"),
+  payload: jsonb("payload"),
+  created_at: timestamp("created_at").defaultNow(),
+  processed_at: timestamp("processed_at"),
 });
 
 export const analyticsEvents = pgTable("analytics_events", {
@@ -337,6 +417,18 @@ export const insertCalculatorSchema = createInsertSchema(calculators).omit({
 export const insertLeadSchema = createInsertSchema(leads).omit({
   id: true,
   created_date: true,
+});
+
+export const insertNotificationQueueSchema = createInsertSchema(notificationQueue).omit({
+  id: true,
+  created_at: true,
+  processed_at: true,
+});
+
+export const insertFollowupJobSchema = createInsertSchema(followupJobs).omit({
+  id: true,
+  created_at: true,
+  processed_at: true,
 });
 
 export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({
@@ -395,3 +487,7 @@ export type InsertAnalyticsSummary = z.infer<typeof insertAnalyticsSummarySchema
 export type AnalyticsSummary = typeof calculatorAnalyticsSummary.$inferSelect;
 export type InsertJobLog = z.infer<typeof insertJobLogSchema>;
 export type JobLog = typeof jobLogs.$inferSelect;
+export type InsertNotificationQueue = z.infer<typeof insertNotificationQueueSchema>;
+export type NotificationQueue = typeof notificationQueue.$inferSelect;
+export type InsertFollowupJob = z.infer<typeof insertFollowupJobSchema>;
+export type FollowupJob = typeof followupJobs.$inferSelect;
