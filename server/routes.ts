@@ -5,6 +5,8 @@ import { randomBytes } from "crypto";
 import { z } from "zod";
 import OpenAI from "openai";
 import { PRICING_TYPES, validatePricingConfig, FAMILY_LABELS, FAMILY_DESCRIPTIONS } from "@shared/pricingConfig";
+import { pricingIntakeSchema, sampleQuoteSchema, type PricingDraftJob } from "@shared/schema";
+import { generatePricingConfigDraft } from "./aiPricingAgent";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -141,21 +143,95 @@ Return ONLY the JSON pricing config object.`;
     }
   });
 
+  const draftJobs = new Map<string, PricingDraftJob>();
+
+  const JOB_TTL_MS = 5 * 60 * 1000;
+  function cleanupJobs() {
+    const now = Date.now();
+    Array.from(draftJobs.entries()).forEach(([id, job]) => {
+      if (now - job.created_at > JOB_TTL_MS) draftJobs.delete(id);
+    });
+  }
+  setInterval(cleanupJobs, 60_000);
+
+  const pricingDraftBody = z.object({
+    pricing_intake: pricingIntakeSchema,
+    sample_quotes: z.array(sampleQuoteSchema).max(3).optional(),
+  });
+
+  app.post("/api/ai/pricing-config-draft", async (req, res) => {
+    try {
+      const parsed = pricingDraftBody.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+      }
+
+      const { pricing_intake, sample_quotes } = parsed.data;
+      const jobId = randomBytes(12).toString("hex");
+
+      const job: PricingDraftJob = {
+        job_id: jobId,
+        status: "processing",
+        created_at: Date.now(),
+      };
+      draftJobs.set(jobId, job);
+
+      res.json({ success: true, job_id: jobId });
+
+      generatePricingConfigDraft(pricing_intake, sample_quotes, openai)
+        .then(result => {
+          const existingJob = draftJobs.get(jobId);
+          if (existingJob) {
+            existingJob.status = "completed";
+            existingJob.result = {
+              pricing_config: result.config as Record<string, unknown>,
+              assumptions: result.assumptions,
+              confidence_score: result.confidence_score,
+              needs_human_review: result.needs_human_review,
+              status: "ready",
+              pricing_audit: {
+                source: result.audit.source || "unknown",
+                derivation_attempted: result.audit.derivation_attempted,
+                derivation_result: result.audit.derivation_result,
+                timestamp: result.audit.timestamp,
+              },
+            };
+          }
+        })
+        .catch(err => {
+          console.error("Draft job failed:", err);
+          const existingJob = draftJobs.get(jobId);
+          if (existingJob) {
+            existingJob.status = "failed";
+            existingJob.error = err?.message || "Generation failed";
+          }
+        });
+    } catch (error: any) {
+      console.error("AI pricing draft creation error:", error);
+      res.status(500).json({ error: "Failed to create pricing draft job" });
+    }
+  });
+
+  app.get("/api/ai/pricing-config-draft/:jobId", (req, res) => {
+    const { jobId } = req.params;
+    const job = draftJobs.get(jobId);
+
+    if (!job) {
+      return res.status(404).json({ error: "Job not found or expired" });
+    }
+
+    res.json({
+      job_id: job.job_id,
+      status: job.status,
+      result: job.status === "completed" ? job.result : undefined,
+      error: job.status === "failed" ? job.error : undefined,
+    });
+  });
+
   app.post("/api/ai/generate-pricing-draft", async (req, res) => {
     try {
       const body = z.object({
-        custom_trade_data: z.object({
-          charge_method: z.string().optional(),
-          has_minimum_charge: z.boolean().optional(),
-          minimum_charge_amount: z.number().optional(),
-          has_trip_fee: z.boolean().optional(),
-          trip_fee_amount: z.number().optional(),
-          price_factors: z.array(z.string()).optional(),
-          price_factors_other: z.string().optional(),
-          price_range_min: z.number().optional(),
-          price_range_max: z.number().optional(),
-          short_description: z.string().optional(),
-        }),
+        custom_trade_data: z.record(z.any()),
         business_name: z.string().min(1),
       }).safeParse(req.body);
 
@@ -164,85 +240,23 @@ Return ONLY the JSON pricing config object.`;
       }
 
       const { custom_trade_data, business_name } = body.data;
-
-      const chargeMethodHint: Record<string, string> = {
-        per_hour: "hourly",
-        per_sqft: "per_sqft",
-        per_linear_ft: "per_linear_ft",
-        per_item: "per_unit",
-        fixed_project: "tiered_packages",
-        base_plus_variable: "base_plus_rate",
-        not_sure: "price_range_only",
-      };
-
-      const suggestedFamily = chargeMethodHint[custom_trade_data.charge_method || "not_sure"] || "price_range_only";
-      const familyList = PRICING_TYPES.map(t => `- "${t}": ${FAMILY_LABELS[t]} — ${FAMILY_DESCRIPTIONS[t]}`).join("\n");
-
-      const prompt = `You are a pricing expert for trades businesses. A business called "${business_name}" offers a custom service.
-
-Here is the information they provided:
-- Charge method: ${custom_trade_data.charge_method || 'not specified'}
-- Has minimum charge: ${custom_trade_data.has_minimum_charge ? 'Yes, $' + (custom_trade_data.minimum_charge_amount || 'not specified') : 'No'}
-- Has trip/service fee: ${custom_trade_data.has_trip_fee ? 'Yes, $' + (custom_trade_data.trip_fee_amount || 'not specified') : 'No'}
-- Main price factors: ${(custom_trade_data.price_factors || []).join(', ') || 'none specified'}${custom_trade_data.price_factors_other ? ', ' + custom_trade_data.price_factors_other : ''}
-- Typical price range: $${custom_trade_data.price_range_min || '?'} - $${custom_trade_data.price_range_max || '?'}
-- Description: ${custom_trade_data.short_description || 'not provided'}
-
-You MUST choose ONE of these exact pricing families (suggested: "${suggestedFamily}"):
-${familyList}
-
-Return a JSON object with this EXACT structure:
-{
-  "pricing_config": { <the pricing config matching the chosen family schema> },
-  "assumptions": ["List of assumptions made"],
-  "confidence_score": 0.7,
-  "needs_human_review": true
-}
-
-Schema rules for the pricing_config:
-- "hourly": requires pricingType, unitName="hour", rate. Optional: baseFee, minCharge, travelFee, afterHoursMult, difficultyTiers, addOns, callUsThreshold
-- "per_unit": requires pricingType, unitName (string), rate. Same optional fields.
-- "per_sqft": requires pricingType, unitName="sq ft", rate. Same optional fields.
-- "per_linear_ft": requires pricingType, unitName="linear ft", rate. Same optional fields.
-- "base_plus_rate": requires pricingType, unitName, baseFee, rate. Same optional fields.
-- "tiered_packages": requires pricingType, tierMode="fixed", tiers=[{label,price}]. Optional: addOns, travelFee, afterHoursMult, difficultyTiers, callUsThreshold
-- "tiered_ranges": requires pricingType, tierMode="fixed", unitName, tiers=[{min,max|null,price}]. Same optional as tiered_packages.
-- "min_charge_plus_addons": requires pricingType, minCharge. Optional: addOns, travelFee, afterHoursMult, difficultyTiers, callUsThreshold
-- "price_range_only": requires pricingType, rangeMin, rangeMax. Optional: callUsThreshold
-- "call_for_quote_only": requires pricingType, message (string)
-
-addOns schema: {id: string, label: string, type: "fixed"|"pct", amount: number >= 0}
-difficultyTiers schema: {id: string, label: string, multiplier: number >= 1}
-
-Use realistic market rates. Return ONLY the JSON.`;
-
-      const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
+      const intake = pricingIntakeSchema.parse({
+        version: 1,
+        stage1: custom_trade_data,
+        stage2: {},
       });
 
-      const content = completion.choices[0]?.message?.content || "{}";
-      let draft;
-      try {
-        draft = JSON.parse(content);
-      } catch {
-        return res.status(500).json({ error: "AI returned invalid JSON" });
-      }
-
-      const pricingConfig = draft.pricing_config || draft;
-      const validation = validatePricingConfig(pricingConfig);
+      const result = await generatePricingConfigDraft(intake, undefined, openai);
 
       res.json({
         success: true,
         pricing_draft: {
-          pricing_config: validation.config,
-          assumptions: Array.isArray(draft.assumptions) ? draft.assumptions : [],
-          confidence_score: typeof draft.confidence_score === "number" ? draft.confidence_score : 0.5,
-          needs_human_review: draft.needs_human_review !== false,
+          pricing_config: result.config,
+          assumptions: result.assumptions,
+          confidence_score: result.confidence_score,
+          needs_human_review: result.needs_human_review,
           status: "ready",
         },
-        validation_errors: validation.valid ? [] : validation.errors,
       });
     } catch (error: any) {
       console.error("AI pricing draft generation error:", error);
