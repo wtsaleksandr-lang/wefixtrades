@@ -128,7 +128,16 @@ client/src/data/trades.ts  - 8 categories, ~80 trades dataset
 - Foreign key constraint on leads.calculator_id referencing calculators.id
 - Wizard-bg: neutral #F7F8FA
 
+## Pricing Intake System (Universal Pricing Questions)
+Two-stage intake flow for custom trades, stored in `calculator_settings.pricing_intake`:
+- **Stage 1** (`CustomTradeQuestionnaire.tsx`): charge_method, min charge, trip fee, offers_packages, price_factors, price range, output_preference
+- **Stage 2** (`PricingIntakeStage2.tsx`): Adaptive follow-up based on Stage 1 — hourly (rate/crew/hours), per_sqft (rate/materials/setup), per_linear_ft, per_item (unit name/rate), base_plus_variable (base + unit), packages (2-5 tiers), materials markup (preset % or custom), distance (multiplier/flat), difficulty tiers, after-hours multiplier
+- **Deterministic Mapper** (`shared/pricingIntakeMapper.ts`): Pure function `mapPricingIntakeToConfig(stage1, stage2)` → PricingConfigV1. No AI needed when charge_method is known.
+- **AI Fallback**: Only triggers when charge_method === 'not_sure' OR mapper fails validation. Existing AI draft endpoint preserved.
+- **Data Schema**: `pricingIntakeSchema` (version: 1, stage1: CustomTradeData, stage2: Stage2Data) in shared/schema.ts
+
 ## Recent Changes
+- Feb 24 2026: Universal Pricing Questions — Stage 1 gets offers_packages + output_preference fields with validation. Stage 2 adaptive questionnaire branches by charge method + price factors. Deterministic mapper converts intake to PricingConfigV1 without AI. AI only used for not_sure or mapper failure. All data stored under calculator_settings.pricing_intake with version: 1.
 - Feb 24 2026: Formula Families pricing engine — 10 strict pricing families (hourly, per_unit, per_sqft, per_linear_ft, base_plus_rate, tiered_packages, tiered_ranges, min_charge_plus_addons, price_range_only, call_for_quote_only). Added shared/pricingConfig.ts (Zod schemas, validation, CALL_FOR_QUOTE_FALLBACK) and shared/calculateEstimate.ts (runtime engine). Updated AI endpoints to constrain output. Rebuilt CalculatorWidget with formula-family-aware inputs (quantity, tier selection, add-ons, difficulty, after-hours). Updated pricingDraftSchema to align with PricingConfigV1.
 - Feb 23 2026: Major wizard refactor — 6-step flow: Business & Trade Setup (simplified Step 0), Design Your Calculator (Step 1 with logo/tagline/DesignStudio), Pricing Logic (Step 2 with AI draft for custom trades), Lead Form Builder (Step 3), Final Test & Preview quality gate (Step 4), Publish & Share (Step 5). Added CustomTradeQuestionnaire with 6 structured input sections. New API endpoint for AI pricing draft generation. Removed old CustomPanel, customRequest, businessDescription. Added customTradeDataSchema/pricingDraftSchema to schema.
 - Feb 23 2026: Expanded wizard from 4 to 6 steps with Design Studio (Step 2). Added calculator_settings jsonb column with 40+ customization options. Built 4-tab design interface (Appearance/Layout/Conversion/Integrations). Service description and email merged into Step 1. Steps 3-5 added for pricing logic, final preview, and publish flow.

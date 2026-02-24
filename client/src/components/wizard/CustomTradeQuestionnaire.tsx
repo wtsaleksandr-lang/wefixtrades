@@ -28,6 +28,12 @@ const PRICE_FACTORS = [
   'Quantity',
 ];
 
+const OUTPUT_PREFERENCES: { label: string; value: CustomTradeData['output_preference'] }[] = [
+  { label: 'Show an exact price', value: 'exact_price' },
+  { label: 'Show a price range', value: 'price_range' },
+  { label: 'Just collect leads (no price shown)', value: 'call_for_quote' },
+];
+
 function toFactorTestId(label: string) {
   return label.toLowerCase().replace(/\s+/g, '');
 }
@@ -156,6 +162,19 @@ export default function CustomTradeQuestionnaire({ data, onChange }: CustomTrade
             style={{ marginTop: '4px' }}
           />
         )}
+      </div>
+
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <span style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading }}>
+            Do you offer fixed-price packages?
+          </span>
+          <ToggleSwitch
+            data-testid="toggle-offers-packages"
+            checked={data.offers_packages}
+            onChange={v => update({ offers_packages: v })}
+          />
+        </div>
       </div>
 
       <div>
@@ -291,6 +310,56 @@ export default function CustomTradeQuestionnaire({ data, onChange }: CustomTrade
             onChange={e => update({ price_range_max: e.target.value ? Number(e.target.value) : undefined })}
             style={{ flex: 1 }}
           />
+        </div>
+      </div>
+
+      <div>
+        <div style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, marginBottom: '10px' }}>
+          How should the calculator show pricing?
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {OUTPUT_PREFERENCES.map(opt => {
+            const selected = data.output_preference === opt.value;
+            return (
+              <button
+                key={opt.value}
+                data-testid={`radio-output-${opt.value}`}
+                type="button"
+                onClick={() => update({ output_preference: opt.value })}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  minHeight: '44px',
+                  padding: '10px 14px',
+                  borderRadius: p.radius.sm,
+                  border: selected ? `1.5px solid ${p.colors.accent}` : `1px solid ${p.colors.borderLight}`,
+                  background: selected ? p.colors.accentLighter : 'transparent',
+                  cursor: 'pointer',
+                  transition: p.transitions.fast,
+                  outline: 'none',
+                  WebkitTapHighlightColor: 'transparent',
+                  width: '100%',
+                  textAlign: 'left',
+                }}
+              >
+                <div
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    border: selected ? `6px solid ${p.colors.accent}` : `2px solid ${p.colors.borderHover}`,
+                    background: p.colors.surface,
+                    flexShrink: 0,
+                    transition: p.transitions.fast,
+                  }}
+                />
+                <span style={{ fontSize: '14px', fontWeight: selected ? 500 : 400, color: p.colors.body }}>
+                  {opt.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

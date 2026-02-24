@@ -2,9 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { platformTheme } from '@/theme/platformTheme';
 import { CATEGORIES, TRADES, getTradesByCategory, type Trade } from '@/data/trades';
-import { calculatorSettingsSchema, customTradeDataSchema, type CalculatorSettings, type CustomTradeData } from '@shared/schema';
+import { calculatorSettingsSchema, customTradeDataSchema, type CalculatorSettings, type CustomTradeData, type Stage2Data } from '@shared/schema';
 import DesignStudio from './DesignStudio';
 import CustomTradeQuestionnaire from './CustomTradeQuestionnaire';
+import PricingIntakeStage2 from './PricingIntakeStage2';
+import { mapPricingIntakeToConfig } from '@shared/pricingIntakeMapper';
 import {
   Loader2, ArrowRight, ArrowLeft, Check, Sparkles, Wrench, Hammer,
   Layers, AlertTriangle, Car, Briefcase, Plus, HelpCircle, X,
@@ -42,6 +44,7 @@ interface WizardState {
   selectedTrade: string;
   isCustomTrade: boolean;
   customTradeData: CustomTradeData;
+  stage2Data: Stage2Data;
   ownerEmail: string;
   primaryColor: string;
   tagline: string;
@@ -70,6 +73,7 @@ const EMPTY_SCENARIO: TestScenario = {
 const INITIAL_STATE: WizardState = {
   businessName: '', selectedCategory: '', selectedTrade: '',
   isCustomTrade: false, customTradeData: DEFAULT_CUSTOM_TRADE,
+  stage2Data: {},
   ownerEmail: '', primaryColor: '#0284C7',
   tagline: '', logoUrl: '',
   calculatorSettings: DEFAULT_SETTINGS,
@@ -90,6 +94,7 @@ function loadState(): WizardState {
         customTradeData: parsed.customTradeData
           ? { ...DEFAULT_CUSTOM_TRADE, ...parsed.customTradeData }
           : DEFAULT_CUSTOM_TRADE,
+        stage2Data: parsed.stage2Data || {},
         calculatorSettings: parsed.calculatorSettings
           ? { ...DEFAULT_SETTINGS, ...parsed.calculatorSettings }
           : DEFAULT_SETTINGS,
@@ -208,9 +213,25 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ws.ownerEmail)) errs.ownerEmail = 'Enter a valid email address.';
     if (!ws.selectedCategory) errs.selectedCategory = 'Please select a service category.';
     else if (ws.selectedCategory !== 'custom' && !ws.selectedTrade) errs.selectedTrade = 'Please select your trade.';
+
+    if (ws.selectedCategory === 'custom') {
+      const ctd = ws.customTradeData;
+      if (!ctd.charge_method || ctd.charge_method === 'not_sure') {
+        if ((ctd.price_factors || []).length === 0) {
+          errs.customTrade = 'Please select how you charge or at least one price factor.';
+        }
+      }
+      if (ctd.has_minimum_charge && (!ctd.minimum_charge_amount || ctd.minimum_charge_amount <= 0)) {
+        errs.customTradeMinCharge = 'Enter your minimum charge amount.';
+      }
+      if (ctd.has_trip_fee && (!ctd.trip_fee_amount || ctd.trip_fee_amount <= 0)) {
+        errs.customTradeTripFee = 'Enter your trip fee amount.';
+      }
+    }
+
     setValidationErrors(errs);
     if (Object.keys(errs).length === 0) {
-      if (ws.isCustomTrade) {
+      if (ws.isCustomTrade && ws.customTradeData.charge_method === 'not_sure') {
         triggerPricingDraft();
       }
       setStep(1);
@@ -277,7 +298,26 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         const tradeLabel = TRADES.find(tr => tr.id === ws.selectedTrade)?.label || ws.customTradeData.short_description || ws.selectedCategory;
 
         let pricingConfig: any;
-        if (ws.isCustomTrade && ws.calculatorSettings.pricing_draft?.status === 'ready' && ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType) {
+
+        if (ws.isCustomTrade && ws.customTradeData.charge_method !== 'not_sure') {
+          const mapResult = mapPricingIntakeToConfig(ws.customTradeData, ws.stage2Data);
+          if (mapResult.success) {
+            pricingConfig = mapResult.config;
+            setGenProgress(50);
+          } else if (ws.calculatorSettings.pricing_draft?.status === 'ready' && ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType) {
+            pricingConfig = ws.calculatorSettings.pricing_draft.pricing_config;
+            setGenProgress(50);
+          } else {
+            const aiRes = await apiRequest('POST', '/api/ai/generate-pricing', {
+              trade_type: tradeLabel,
+              business_description: tradeLabel,
+              services: tradeLabel,
+            });
+            const aiData = await aiRes.json();
+            if (!aiData.success || !aiData.pricing_config) throw new Error(aiData.error || 'Failed to generate pricing.');
+            pricingConfig = aiData.pricing_config;
+          }
+        } else if (ws.isCustomTrade && ws.calculatorSettings.pricing_draft?.status === 'ready' && ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType) {
           pricingConfig = ws.calculatorSettings.pricing_draft.pricing_config;
           setGenProgress(50);
         } else {
@@ -299,7 +339,14 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           primary_color: ws.primaryColor,
           tagline: ws.tagline || undefined,
           logo_url: ws.logoUrl || undefined,
-          calculator_settings: ws.calculatorSettings,
+          calculator_settings: {
+            ...ws.calculatorSettings,
+            pricing_intake: ws.isCustomTrade ? {
+              version: 1 as const,
+              stage1: ws.customTradeData,
+              stage2: ws.stage2Data,
+            } : undefined,
+          },
         });
         const d = await createRes.json();
         if (!d.success) throw new Error(d.error || 'Failed to create calculator.');
@@ -466,10 +513,25 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             )}
 
             {ws.selectedCategory === 'custom' && (
-              <CustomTradeQuestionnaire
-                data={ws.customTradeData}
-                onChange={(data) => set('customTradeData', data)}
-              />
+              <>
+                <CustomTradeQuestionnaire
+                  data={ws.customTradeData}
+                  onChange={(data) => set('customTradeData', data)}
+                />
+                {(validationErrors.customTrade || validationErrors.customTradeMinCharge || validationErrors.customTradeTripFee) && (
+                  <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {validationErrors.customTrade && (
+                      <p data-testid="error-custom-trade" style={{ fontSize: '12px', color: p.colors.danger }}>{validationErrors.customTrade}</p>
+                    )}
+                    {validationErrors.customTradeMinCharge && (
+                      <p data-testid="error-custom-min-charge" style={{ fontSize: '12px', color: p.colors.danger }}>{validationErrors.customTradeMinCharge}</p>
+                    )}
+                    {validationErrors.customTradeTripFee && (
+                      <p data-testid="error-custom-trip-fee" style={{ fontSize: '12px', color: p.colors.danger }}>{validationErrors.customTradeTripFee}</p>
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
             <div style={{ marginTop: '18px' }}>
@@ -578,6 +640,15 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           <div className="animate-fade-in-up">
             {ws.isCustomTrade ? (
               <>
+                {ws.customTradeData.charge_method !== 'not_sure' && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <PricingIntakeStage2
+                      stage1={ws.customTradeData}
+                      data={ws.stage2Data}
+                      onChange={(data) => set('stage2Data', data)}
+                    />
+                  </div>
+                )}
                 {pricingDraftLoading ? (
                   <div style={{ textAlign: 'center', padding: '32px 0' }}>
                     <div style={{

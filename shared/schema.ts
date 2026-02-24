@@ -9,14 +9,59 @@ export const customTradeDataSchema = z.object({
   minimum_charge_amount: z.number().optional(),
   has_trip_fee: z.boolean().default(false),
   trip_fee_amount: z.number().optional(),
+  offers_packages: z.boolean().default(false),
   price_factors: z.array(z.string()).default([]),
   price_factors_other: z.string().optional(),
   price_range_min: z.number().optional(),
   price_range_max: z.number().optional(),
+  output_preference: z.enum(['exact_price', 'price_range', 'call_for_quote']).default('exact_price'),
   short_description: z.string().optional(),
 });
 
 export type CustomTradeData = z.infer<typeof customTradeDataSchema>;
+
+export const stage2DataSchema = z.object({
+  hourly_rate: z.number().optional(),
+  crew_size: z.number().optional(),
+  min_hours: z.number().optional(),
+  max_hours: z.number().optional(),
+
+  sqft_rate: z.number().optional(),
+  materials_included: z.boolean().optional(),
+  setup_fee: z.number().optional(),
+
+  unit_name: z.string().optional(),
+  unit_rate: z.number().optional(),
+  base_fee: z.number().optional(),
+
+  packages: z.array(z.object({
+    label: z.string(),
+    price: z.number(),
+  })).optional(),
+
+  materials_markup_pct: z.number().optional(),
+  materials_markup_custom: z.boolean().optional(),
+
+  distance_mode: z.enum(['multiplier', 'flat']).optional(),
+  distance_value: z.number().optional(),
+
+  difficulty_tiers: z.array(z.object({
+    label: z.string(),
+    multiplier: z.number(),
+  })).optional(),
+
+  after_hours_multiplier: z.number().optional(),
+});
+
+export type Stage2Data = z.infer<typeof stage2DataSchema>;
+
+export const pricingIntakeSchema = z.object({
+  version: z.literal(1).default(1),
+  stage1: customTradeDataSchema,
+  stage2: stage2DataSchema.default({}),
+});
+
+export type PricingIntake = z.infer<typeof pricingIntakeSchema>;
 
 export const pricingDraftSchema = z.object({
   pricing_config: z.record(z.any()),
@@ -32,6 +77,7 @@ export const calculatorSettingsSchema = z.object({
   settings_version: z.number().default(1),
 
   pricing_draft: pricingDraftSchema,
+  pricing_intake: pricingIntakeSchema.optional(),
 
   appearance: z.object({
     color_theme: z.enum(['graphite', 'navy', 'emerald', 'slate', 'custom']).default('emerald'),
