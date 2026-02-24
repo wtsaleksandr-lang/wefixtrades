@@ -3,12 +3,14 @@ import { platformTheme } from '@/theme/platformTheme';
 import type { CalculatorSettings } from '@shared/schema';
 import { TEMPLATE_LIBRARY, getTemplateById } from '@shared/templateLibrary';
 import type { TemplateDefinition } from '@shared/templateLibrary';
+import type { ConversionBlocks, ConversionImageItem, ConversionTestimonialItem } from '@shared/schema';
 import {
   Palette, Layout, TrendingUp, Link2, ChevronDown, ChevronRight,
   Info, Lock, Check, Type, Smartphone, Monitor, Globe, DollarSign,
   Mail, Phone, Clock, Eye, EyeOff, Calendar, ExternalLink,
   Sparkles, AlertTriangle, Code2, Zap, Moon, Languages, Gauge,
-  LayoutGrid, Columns2, ListOrdered, CreditCard, ShieldCheck, CalendarCheck
+  LayoutGrid, Columns2, ListOrdered, CreditCard, ShieldCheck, CalendarCheck,
+  X, ArrowUp, ArrowDown, Star, Image, MessageSquare, Shield, Award, ThumbsUp, Plus, Upload
 } from 'lucide-react';
 
 const p = platformTheme;
@@ -103,6 +105,10 @@ export default function DesignStudio({ settings, onChange }: DesignStudioProps) 
 
   const updateIntegrations = useCallback((key: string, value: any) => {
     onChange({ ...settings, integrations: { ...settings.integrations, [key]: value } });
+  }, [settings, onChange]);
+
+  const updateConversionBlocks = useCallback((blocks: ConversionBlocks) => {
+    onChange({ ...settings, conversion_blocks: blocks });
   }, [settings, onChange]);
 
   const currentTemplate = getTemplateById(selectedTemplateId);
@@ -273,7 +279,12 @@ export default function DesignStudio({ settings, onChange }: DesignStudioProps) 
         <LayoutTab settings={settings.layout} onChange={updateLayout} />
       )}
       {activeTab === 'conversion' && (
-        <ConversionTab settings={settings.conversion} onChange={updateConversion} />
+        <ConversionTab
+          settings={settings.conversion}
+          onChange={updateConversion}
+          conversionBlocks={settings.conversion_blocks}
+          onBlocksChange={updateConversionBlocks}
+        />
       )}
       {activeTab === 'integrations' && (
         <IntegrationsTab settings={settings.integrations} onChange={updateIntegrations} />
@@ -780,9 +791,121 @@ function LayoutTab({ settings, onChange }: {
 }
 
 
-function ConversionTab({ settings, onChange }: {
-  settings: CalculatorSettings['conversion']; onChange: (key: string, value: any) => void;
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function sanitizeText(str: string) {
+  return str.replace(/<[^>]*>/g, '');
+}
+
+function ConversionTab({ settings, onChange, conversionBlocks, onBlocksChange }: {
+  settings: CalculatorSettings['conversion'];
+  onChange: (key: string, value: any) => void;
+  conversionBlocks?: ConversionBlocks;
+  onBlocksChange: (blocks: ConversionBlocks) => void;
 }) {
+  const blocks: ConversionBlocks = conversionBlocks || {
+    version: 1,
+    images: { enabled: false, placement: 'under_title', layout: 'grid', max_items: 6, items: [] },
+    testimonials: { enabled: false, placement: 'under_total', layout: 'cards', max_items: 6, items: [] },
+    trust: { enabled: true, placement: 'under_title', badges: { insured: true, licensed: true, bonded: false, satisfaction: true }, microcopy: null },
+  };
+
+  const updateImages = (patch: Partial<ConversionBlocks['images']>) => {
+    onBlocksChange({ ...blocks, images: { ...blocks.images, ...patch } });
+  };
+  const updateTestimonials = (patch: Partial<ConversionBlocks['testimonials']>) => {
+    onBlocksChange({ ...blocks, testimonials: { ...blocks.testimonials, ...patch } });
+  };
+  const updateTrust = (patch: Partial<ConversionBlocks['trust']>) => {
+    onBlocksChange({ ...blocks, trust: { ...blocks.trust, ...patch } });
+  };
+
+  const [reviewForm, setReviewForm] = useState({ name: '', location: '', rating: 5, text: '' });
+  const [reviewErrors, setReviewErrors] = useState<Record<string, string>>({});
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const currentItems = blocks.images.items || [];
+    const remaining = 6 - currentItems.length;
+    const filesToProcess = Array.from(files).slice(0, remaining);
+
+    filesToProcess.forEach(file => {
+      if (file.size > 5 * 1024 * 1024) return;
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const url = reader.result as string;
+        const newItem: ConversionImageItem = {
+          id: generateId(),
+          url,
+          caption: null,
+          sort_order: (blocks.images.items || []).length,
+        };
+        updateImages({ items: [...(blocks.images.items || []), newItem] });
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const removePhoto = (id: string) => {
+    updateImages({ items: (blocks.images.items || []).filter(i => i.id !== id) });
+  };
+
+  const reorderPhoto = (index: number, direction: 'up' | 'down') => {
+    const items = [...(blocks.images.items || [])];
+    const swapIdx = direction === 'up' ? index - 1 : index + 1;
+    if (swapIdx < 0 || swapIdx >= items.length) return;
+    [items[index], items[swapIdx]] = [items[swapIdx], items[index]];
+    items.forEach((item, i) => item.sort_order = i);
+    updateImages({ items });
+  };
+
+  const updatePhotoCaption = (id: string, caption: string) => {
+    updateImages({
+      items: (blocks.images.items || []).map(i =>
+        i.id === id ? { ...i, caption: sanitizeText(caption).slice(0, 60) } : i
+      ),
+    });
+  };
+
+  const addReview = () => {
+    const errs: Record<string, string> = {};
+    if (!reviewForm.name.trim()) errs.name = 'Name is required';
+    if (reviewForm.text.length < 20) errs.text = 'Min 20 characters';
+    if (reviewForm.text.length > 240) errs.text = 'Max 240 characters';
+    if (Object.keys(errs).length) { setReviewErrors(errs); return; }
+    if ((blocks.testimonials.items || []).length >= 6) return;
+
+    const newItem: ConversionTestimonialItem = {
+      id: generateId(),
+      name: sanitizeText(reviewForm.name.trim()),
+      location: reviewForm.location.trim() ? sanitizeText(reviewForm.location.trim()) : null,
+      rating: reviewForm.rating,
+      text: sanitizeText(reviewForm.text),
+      sort_order: (blocks.testimonials.items || []).length,
+    };
+    updateTestimonials({ items: [...(blocks.testimonials.items || []), newItem] });
+    setReviewForm({ name: '', location: '', rating: 5, text: '' });
+    setReviewErrors({});
+  };
+
+  const removeReview = (id: string) => {
+    updateTestimonials({ items: (blocks.testimonials.items || []).filter(i => i.id !== id) });
+  };
+
+  const reorderReview = (index: number, direction: 'up' | 'down') => {
+    const items = [...(blocks.testimonials.items || [])];
+    const swapIdx = direction === 'up' ? index - 1 : index + 1;
+    if (swapIdx < 0 || swapIdx >= items.length) return;
+    [items[index], items[swapIdx]] = [items[swapIdx], items[index]];
+    items.forEach((item, i) => item.sort_order = i);
+    updateTestimonials({ items });
+  };
+
   return (
     <div>
       <SectionHeader title="Result Page" />
@@ -906,6 +1029,406 @@ function ConversionTab({ settings, onChange }: {
           label="Delay result display"
           sublabel="1-2 second pause for psychological effect"
         />
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Photos" testId="section-photos">
+        <ToggleSwitch
+          value={blocks.images.enabled}
+          onChange={v => updateImages({ enabled: v })}
+          testId="toggle-photos-enabled"
+          label="Show photos"
+          sublabel="Display project photos on your calculator"
+        />
+        {blocks.images.enabled && (
+          <div style={{ marginTop: '12px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: p.colors.body, display: 'block', marginBottom: '6px' }}>Placement</label>
+            <select
+              data-testid="select-photos-placement"
+              value={blocks.images.placement}
+              onChange={e => updateImages({ placement: e.target.value as any })}
+              className="premium-input"
+              style={{ width: '100%', marginBottom: '12px' }}
+            >
+              <option value="top">Top</option>
+              <option value="under_title">Under Title</option>
+              <option value="near_cta">Near CTA</option>
+              <option value="under_total">Under Total</option>
+            </select>
+
+            <SectionHeader title="Layout" />
+            <ChipGroup
+              options={[
+                { value: 'grid', label: 'Grid' },
+                { value: 'carousel', label: 'Carousel' },
+              ]}
+              value={blocks.images.layout}
+              onChange={v => updateImages({ layout: v as any })}
+              testIdPrefix="photos-layout"
+            />
+
+            <div style={{ marginTop: '14px' }}>
+              <label
+                data-testid="upload-photos-area"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  padding: '16px', borderRadius: p.radius.md,
+                  border: `2px dashed ${p.colors.border}`, cursor: 'pointer',
+                  background: '#FAFAFA', transition: 'border-color 0.2s',
+                }}
+              >
+                <Upload style={{ width: '16px', height: '16px', color: p.colors.subtle }} />
+                <span style={{ fontSize: '13px', color: p.colors.muted }}>
+                  Upload photos (max 5MB, PNG/JPG/WebP)
+                </span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  multiple
+                  onChange={handlePhotoUpload}
+                  style={{ display: 'none' }}
+                  disabled={(blocks.images.items || []).length >= 6}
+                />
+              </label>
+              <p style={{ fontSize: '11px', color: p.colors.muted, marginTop: '4px' }}>
+                {(blocks.images.items || []).length}/6 photos
+              </p>
+            </div>
+
+            {blocks.images.enabled && (blocks.images.items || []).length === 0 && (
+              <div style={{
+                padding: '10px 14px', borderRadius: p.radius.sm,
+                background: '#FFFBEB', border: '1px solid #FDE68A',
+                display: 'flex', alignItems: 'center', gap: '8px',
+                marginTop: '8px',
+              }}>
+                <AlertTriangle style={{ width: '14px', height: '14px', color: '#D97706', flexShrink: 0 }} />
+                <span style={{ fontSize: '12px', color: '#92400E' }}>Add at least one photo to display</span>
+              </div>
+            )}
+
+            {(blocks.images.items || []).length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginTop: '12px' }}>
+                {(blocks.images.items || []).map((item, idx) => (
+                  <div key={item.id} style={{
+                    borderRadius: p.radius.md, border: `1px solid ${p.colors.borderLight}`,
+                    overflow: 'hidden', background: '#FAFAFA',
+                  }}>
+                    <div style={{ position: 'relative' }}>
+                      <img
+                        src={item.url}
+                        alt={item.caption || 'Photo'}
+                        style={{ width: '100%', height: '80px', objectFit: 'cover', display: 'block' }}
+                      />
+                      <div style={{ position: 'absolute', top: '4px', right: '4px', display: 'flex', gap: '2px' }}>
+                        {idx > 0 && (
+                          <button
+                            data-testid={`photo-up-${item.id}`}
+                            onClick={() => reorderPhoto(idx, 'up')}
+                            style={{
+                              width: '22px', height: '22px', borderRadius: '50%', border: 'none',
+                              background: 'rgba(0,0,0,0.5)', cursor: 'pointer',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                          >
+                            <ArrowUp style={{ width: '12px', height: '12px', color: '#fff' }} />
+                          </button>
+                        )}
+                        {idx < (blocks.images.items || []).length - 1 && (
+                          <button
+                            data-testid={`photo-down-${item.id}`}
+                            onClick={() => reorderPhoto(idx, 'down')}
+                            style={{
+                              width: '22px', height: '22px', borderRadius: '50%', border: 'none',
+                              background: 'rgba(0,0,0,0.5)', cursor: 'pointer',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                          >
+                            <ArrowDown style={{ width: '12px', height: '12px', color: '#fff' }} />
+                          </button>
+                        )}
+                        <button
+                          data-testid={`photo-remove-${item.id}`}
+                          onClick={() => removePhoto(item.id)}
+                          style={{
+                            width: '22px', height: '22px', borderRadius: '50%', border: 'none',
+                            background: 'rgba(220,38,38,0.8)', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <X style={{ width: '12px', height: '12px', color: '#fff' }} />
+                        </button>
+                      </div>
+                    </div>
+                    <div style={{ padding: '6px' }}>
+                      <input
+                        data-testid={`photo-caption-${item.id}`}
+                        type="text"
+                        value={item.caption || ''}
+                        onChange={e => updatePhotoCaption(item.id, e.target.value)}
+                        placeholder="Caption (optional)"
+                        maxLength={60}
+                        className="premium-input"
+                        style={{ fontSize: '11px' }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Reviews" testId="section-reviews">
+        <ToggleSwitch
+          value={blocks.testimonials.enabled}
+          onChange={v => updateTestimonials({ enabled: v })}
+          testId="toggle-reviews-enabled"
+          label="Show reviews"
+          sublabel="Display customer reviews on your calculator"
+        />
+        {blocks.testimonials.enabled && (
+          <div style={{ marginTop: '12px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: p.colors.body, display: 'block', marginBottom: '6px' }}>Placement</label>
+            <select
+              data-testid="select-reviews-placement"
+              value={blocks.testimonials.placement}
+              onChange={e => updateTestimonials({ placement: e.target.value as any })}
+              className="premium-input"
+              style={{ width: '100%', marginBottom: '12px' }}
+            >
+              <option value="under_total">Under Total</option>
+              <option value="near_cta">Near CTA</option>
+              <option value="bottom">Bottom</option>
+            </select>
+
+            <SectionHeader title="Layout" />
+            <ChipGroup
+              options={[
+                { value: 'cards', label: 'Cards' },
+                { value: 'carousel', label: 'Carousel' },
+              ]}
+              value={blocks.testimonials.layout}
+              onChange={v => updateTestimonials({ layout: v as any })}
+              testIdPrefix="reviews-layout"
+            />
+
+            {blocks.testimonials.enabled && (blocks.testimonials.items || []).length === 0 && (
+              <div style={{
+                padding: '10px 14px', borderRadius: p.radius.sm,
+                background: '#FFFBEB', border: '1px solid #FDE68A',
+                display: 'flex', alignItems: 'center', gap: '8px',
+                marginTop: '12px',
+              }}>
+                <AlertTriangle style={{ width: '14px', height: '14px', color: '#D97706', flexShrink: 0 }} />
+                <span style={{ fontSize: '12px', color: '#92400E' }}>Add at least one review to display</span>
+              </div>
+            )}
+
+            {(blocks.testimonials.items || []).length > 0 && (
+              <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {(blocks.testimonials.items || []).map((item, idx) => (
+                  <div key={item.id} style={{
+                    padding: '10px 12px', borderRadius: p.radius.md,
+                    border: `1px solid ${p.colors.borderLight}`, background: '#FAFAFA',
+                    display: 'flex', alignItems: 'flex-start', gap: '10px',
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: p.colors.heading }}>{item.name}</span>
+                        <span style={{ fontSize: '12px', color: '#F59E0B' }}>
+                          {'★'.repeat(item.rating)}{'☆'.repeat(5 - item.rating)}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '11px', color: p.colors.muted, marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.text}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                      {idx > 0 && (
+                        <button data-testid={`review-up-${item.id}`} onClick={() => reorderReview(idx, 'up')} style={{ width: '22px', height: '22px', borderRadius: '50%', border: 'none', background: '#E5E7EB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <ArrowUp style={{ width: '12px', height: '12px', color: p.colors.body }} />
+                        </button>
+                      )}
+                      {idx < (blocks.testimonials.items || []).length - 1 && (
+                        <button data-testid={`review-down-${item.id}`} onClick={() => reorderReview(idx, 'down')} style={{ width: '22px', height: '22px', borderRadius: '50%', border: 'none', background: '#E5E7EB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <ArrowDown style={{ width: '12px', height: '12px', color: p.colors.body }} />
+                        </button>
+                      )}
+                      <button data-testid={`review-remove-${item.id}`} onClick={() => removeReview(item.id)} style={{ width: '22px', height: '22px', borderRadius: '50%', border: 'none', background: '#FEE2E2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <X style={{ width: '12px', height: '12px', color: '#DC2626' }} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {(blocks.testimonials.items || []).length < 6 && (
+              <div style={{
+                marginTop: '14px', padding: '14px', borderRadius: p.radius.md,
+                border: `1px solid ${p.colors.borderLight}`, background: '#FAFAFA',
+              }}>
+                <p style={{ fontSize: '12px', fontWeight: 600, color: p.colors.heading, marginBottom: '10px' }}>Add Review</p>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <div style={{ flex: 1 }}>
+                    <input
+                      data-testid="input-review-name"
+                      type="text"
+                      value={reviewForm.name}
+                      onChange={e => setReviewForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Name *"
+                      className="premium-input"
+                      style={reviewErrors.name ? { borderColor: p.colors.danger } : undefined}
+                    />
+                    {reviewErrors.name && <p style={{ fontSize: '11px', color: p.colors.danger, marginTop: '2px' }}>{reviewErrors.name}</p>}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <input
+                      data-testid="input-review-location"
+                      type="text"
+                      value={reviewForm.location}
+                      onChange={e => setReviewForm(f => ({ ...f, location: e.target.value }))}
+                      placeholder="Location (optional)"
+                      className="premium-input"
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '8px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 600, color: p.colors.body, display: 'block', marginBottom: '4px' }}>Rating</label>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <button
+                        key={star}
+                        data-testid={`review-star-${star}`}
+                        onClick={() => setReviewForm(f => ({ ...f, rating: star }))}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer', padding: '2px',
+                          WebkitTapHighlightColor: 'transparent',
+                        }}
+                      >
+                        <Star style={{
+                          width: '20px', height: '20px',
+                          color: star <= reviewForm.rating ? '#F59E0B' : '#D1D5DB',
+                          fill: star <= reviewForm.rating ? '#F59E0B' : 'none',
+                        }} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '8px' }}>
+                  <textarea
+                    data-testid="input-review-text"
+                    value={reviewForm.text}
+                    onChange={e => setReviewForm(f => ({ ...f, text: e.target.value.slice(0, 240) }))}
+                    placeholder="Review text (20-240 characters)"
+                    className="premium-input"
+                    style={{
+                      width: '100%', minHeight: '60px', resize: 'vertical',
+                      ...(reviewErrors.text ? { borderColor: p.colors.danger } : {}),
+                    }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+                    {reviewErrors.text ? (
+                      <p style={{ fontSize: '11px', color: p.colors.danger }}>{reviewErrors.text}</p>
+                    ) : <span />}
+                    <span style={{ fontSize: '11px', color: p.colors.muted }}>{reviewForm.text.length}/240</span>
+                  </div>
+                </div>
+
+                <button
+                  data-testid="button-add-review"
+                  onClick={addReview}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '8px 16px', borderRadius: '8px', border: 'none',
+                    background: p.colors.accent, color: '#fff',
+                    fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  <Plus style={{ width: '14px', height: '14px' }} />
+                  Add
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Trust Badges" testId="section-trust">
+        <ToggleSwitch
+          value={blocks.trust.enabled}
+          onChange={v => updateTrust({ enabled: v })}
+          testId="toggle-trust-enabled"
+          label="Show trust badges"
+          sublabel="Display trust signals on your calculator"
+        />
+        {blocks.trust.enabled && (
+          <div style={{ marginTop: '12px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: p.colors.body, display: 'block', marginBottom: '6px' }}>Placement</label>
+            <select
+              data-testid="select-trust-placement"
+              value={blocks.trust.placement}
+              onChange={e => updateTrust({ placement: e.target.value as any })}
+              className="premium-input"
+              style={{ width: '100%', marginBottom: '12px' }}
+            >
+              <option value="under_title">Under Title</option>
+              <option value="near_cta">Near CTA</option>
+              <option value="bottom">Bottom</option>
+            </select>
+
+            <SectionHeader title="Badges" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+              <ToggleSwitch
+                value={blocks.trust.badges.insured}
+                onChange={v => updateTrust({ badges: { ...blocks.trust.badges, insured: v } })}
+                testId="toggle-badge-insured"
+                label="Insured"
+              />
+              <ToggleSwitch
+                value={blocks.trust.badges.licensed}
+                onChange={v => updateTrust({ badges: { ...blocks.trust.badges, licensed: v } })}
+                testId="toggle-badge-licensed"
+                label="Licensed"
+              />
+              <ToggleSwitch
+                value={blocks.trust.badges.bonded}
+                onChange={v => updateTrust({ badges: { ...blocks.trust.badges, bonded: v } })}
+                testId="toggle-badge-bonded"
+                label="Bonded"
+              />
+              <ToggleSwitch
+                value={blocks.trust.badges.satisfaction}
+                onChange={v => updateTrust({ badges: { ...blocks.trust.badges, satisfaction: v } })}
+                testId="toggle-badge-satisfaction"
+                label="Satisfaction Guarantee"
+              />
+            </div>
+
+            <div style={{ marginTop: '12px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: p.colors.body, display: 'block', marginBottom: '6px' }}>
+                Microcopy
+                <span style={{ fontWeight: 400, color: p.colors.subtle, fontSize: '11px', marginLeft: '4px' }}>(optional, max 80 chars)</span>
+              </label>
+              <input
+                data-testid="input-trust-microcopy"
+                type="text"
+                value={blocks.trust.microcopy || ''}
+                onChange={e => updateTrust({ microcopy: sanitizeText(e.target.value).slice(0, 80) || null })}
+                placeholder="e.g. Your project is in safe hands"
+                className="premium-input"
+                maxLength={80}
+              />
+              <p style={{ fontSize: '11px', color: p.colors.muted, marginTop: '2px', textAlign: 'right' }}>
+                {(blocks.trust.microcopy || '').length}/80
+              </p>
+            </div>
+          </div>
+        )}
       </CollapsibleSection>
     </div>
   );

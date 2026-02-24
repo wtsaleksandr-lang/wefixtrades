@@ -177,12 +177,65 @@ export const uiTemplateSchema = z.object({
 
 export type UITemplate = z.infer<typeof uiTemplateSchema>;
 
+export const conversionImageItemSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  caption: z.string().nullable().default(null),
+  sort_order: z.number().default(0),
+});
+
+export const conversionTestimonialItemSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  location: z.string().nullable().default(null),
+  rating: z.number().int().min(1).max(5).default(5),
+  text: z.string().min(20).max(240),
+  sort_order: z.number().default(0),
+});
+
+export const conversionBlocksSchema = z.object({
+  version: z.number().default(1),
+
+  images: z.object({
+    enabled: z.boolean().default(false),
+    placement: z.enum(['top', 'under_title', 'near_cta', 'under_total']).default('under_title'),
+    layout: z.enum(['grid', 'carousel']).default('grid'),
+    max_items: z.number().default(6),
+    items: z.array(conversionImageItemSchema).default([]),
+  }).default({}),
+
+  testimonials: z.object({
+    enabled: z.boolean().default(false),
+    placement: z.enum(['under_total', 'near_cta', 'bottom']).default('under_total'),
+    layout: z.enum(['cards', 'carousel']).default('cards'),
+    max_items: z.number().default(6),
+    items: z.array(conversionTestimonialItemSchema).default([]),
+  }).default({}),
+
+  trust: z.object({
+    enabled: z.boolean().default(true),
+    placement: z.enum(['under_title', 'near_cta', 'bottom']).default('under_title'),
+    badges: z.object({
+      insured: z.boolean().default(true),
+      licensed: z.boolean().default(true),
+      bonded: z.boolean().default(false),
+      satisfaction: z.boolean().default(true),
+    }).default({}),
+    microcopy: z.string().max(80).nullable().default(null),
+  }).default({}),
+}).default({});
+
+export type ConversionBlocks = z.infer<typeof conversionBlocksSchema>;
+export type ConversionImageItem = z.infer<typeof conversionImageItemSchema>;
+export type ConversionTestimonialItem = z.infer<typeof conversionTestimonialItemSchema>;
+
 export const calculatorSettingsSchema = z.object({
   settings_version: z.number().default(1),
 
   calculator_type: z.enum(['estimate_only', 'estimate_plus_booking', 'booking_only']).default('estimate_only'),
   booking_settings: bookingSettingsSchema,
   ui_template: uiTemplateSchema,
+  conversion_blocks: conversionBlocksSchema,
 
   pricing_draft: pricingDraftSchema,
   pricing_intake: pricingIntakeSchema.optional(),

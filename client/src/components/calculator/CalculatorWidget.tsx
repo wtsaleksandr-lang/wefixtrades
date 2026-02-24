@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { getWidgetTheme } from '@/theme/widgetTheme';
-import { Loader2, PartyPopper, AlertCircle, ChevronLeft, ArrowRight, CheckCircle2, Plus, Minus, Phone, CalendarDays, Clock, ChevronRight, Shield, Star, MessageCircle } from 'lucide-react';
+import { Loader2, PartyPopper, AlertCircle, ChevronLeft, ArrowRight, CheckCircle2, Plus, Minus, Phone, CalendarDays, Clock, ChevronRight, Shield, Star, MessageCircle, Award, Lock, ThumbsUp } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { calculateEstimate } from '@shared/calculateEstimate';
@@ -74,9 +74,12 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
   const useSliders: boolean = uiTemplate.inputs?.use_sliders !== false;
   const sliderDefaults = uiTemplate.inputs?.slider_defaults || {};
   const showBreakdown: boolean = uiTemplate.layout?.show_breakdown !== false;
-  const showTrustBlock: boolean = uiTemplate.layout?.show_trust_block === true;
-  const showTestimonials: boolean = uiTemplate.layout?.show_testimonials === true;
   const stickySummary: boolean = uiTemplate.layout?.sticky_summary === true;
+
+  const convBlocks = calcSettings.conversion_blocks || {};
+  const imgConfig = convBlocks.images || {};
+  const testConfig = convBlocks.testimonials || {};
+  const trustConfig = convBlocks.trust || {};
 
   useEffect(() => {
     if (!selectedDate || !calculator.id) return;
@@ -347,38 +350,21 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
     </div>
   ) : null;
 
-  const trustBlock = showTrustBlock ? (
-    <div data-testid="trust-block" style={{ padding: '16px', borderRadius: '12px', background: theme.colors.surfaceRaised, border: `1px solid ${theme.colors.borderLight}`, marginTop: '16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-        <Shield style={{ width: '16px', height: '16px', color: accentColor }} />
-        <span style={{ fontSize: '13px', fontWeight: 600, color: theme.colors.heading }}>Trusted & Verified</span>
-      </div>
-      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '12px', color: theme.colors.muted, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <CheckCircle2 style={{ width: '12px', height: '12px', color: theme.colors.success }} /> Licensed & Insured
-        </span>
-        <span style={{ fontSize: '12px', color: theme.colors.muted, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <CheckCircle2 style={{ width: '12px', height: '12px', color: theme.colors.success }} /> Satisfaction Guaranteed
-        </span>
-        <span style={{ fontSize: '12px', color: theme.colors.muted, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Star style={{ width: '12px', height: '12px', color: '#F59E0B' }} /> 5-Star Rated
-        </span>
-      </div>
-    </div>
-  ) : null;
-
-  const testimonialsBlock = showTestimonials ? (
-    <div data-testid="testimonials-block" style={{ padding: '16px', borderRadius: '12px', background: theme.colors.surfaceRaised, border: `1px solid ${theme.colors.borderLight}`, marginTop: '12px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-        <MessageCircle style={{ width: '14px', height: '14px', color: accentColor }} />
-        <span style={{ fontSize: '13px', fontWeight: 600, color: theme.colors.heading }}>What Our Customers Say</span>
-      </div>
-      <div style={{ fontSize: '13px', color: theme.colors.body, fontStyle: 'italic', lineHeight: 1.5 }}>
-        "Excellent service! The estimate was accurate and the work was completed on time."
-      </div>
-      <div style={{ fontSize: '11px', color: theme.colors.muted, marginTop: '6px' }}>— Satisfied Customer</div>
-    </div>
-  ) : null;
+  const renderPlacementSlot = (position: string) => {
+    const blocks: JSX.Element[] = [];
+    if (imgConfig.enabled && imgConfig.items?.length > 0 && imgConfig.placement === position) {
+      blocks.push(<ImagesBlock key="images" config={imgConfig} theme={theme} />);
+    }
+    if (testConfig.enabled && testConfig.items?.length > 0 && testConfig.placement === position) {
+      blocks.push(<TestimonialsBlock key="testimonials" config={testConfig} theme={theme} accentColor={accentColor} />);
+    }
+    const badges = trustConfig.badges || {};
+    const hasBadge = badges.insured || badges.licensed || badges.bonded || badges.satisfaction;
+    if (trustConfig.enabled && hasBadge && trustConfig.placement === position) {
+      blocks.push(<TrustBadgesBlock key="trust" config={trustConfig} theme={theme} accentColor={accentColor} />);
+    }
+    return blocks.length > 0 ? <>{blocks}</> : null;
+  };
 
   const liveEstimateBlock = (
     <div style={{ marginTop: '20px', padding: '16px', borderRadius: '12px', background: `${accentColor}08`, border: `1px solid ${accentColor}20` }}>
@@ -455,15 +441,15 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
     return (
       <div style={containerStyle}>
         {headerBlock}
+        {renderPlacementSlot('top')}
         <div className="animate-fade-in" style={cardStyle}>
           <div style={{ padding: '8px 0 0', borderTop: `4px solid ${accentColor}` }} />
           <div style={{ padding: '24px 28px 28px' }}>
+            {renderPlacementSlot('under_title')}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }} className="two-col-layout">
               <style>{`@media (min-width: 640px) { .two-col-layout { grid-template-columns: 1fr 320px !important; } }`}</style>
               <div>
                 <PricingInputs {...pricingInputsProps} />
-                {!isCallForQuote && trustBlock}
-                {!isCallForQuote && testimonialsBlock}
               </div>
               <div>
                 <div style={stickySummary ? { position: 'sticky', top: '20px' } : undefined}>
@@ -472,6 +458,7 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
                       {liveEstimateBlock}
                       {bookingCtaEmphasis ? (
                         <>
+                          {renderPlacementSlot('near_cta')}
                           <button
                             data-testid="button-book-now"
                             onClick={() => setShowBookingPanel(true)}
@@ -505,6 +492,7 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
                         </>
                       ) : (
                         <>
+                          {renderPlacementSlot('near_cta')}
                           {ctaButton}
                           {isBookingEnabled && (
                             <button
@@ -527,11 +515,13 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
                       )}
                     </>
                   )}
+                  {renderPlacementSlot('under_total')}
                 </div>
               </div>
             </div>
           </div>
         </div>
+        {renderPlacementSlot('bottom')}
       </div>
     );
   }
@@ -546,9 +536,11 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
     return (
       <div style={containerStyle}>
         {headerBlock}
+        {renderPlacementSlot('top')}
         <div className="animate-fade-in" style={cardStyle}>
           <div style={{ padding: '8px 0 0', borderTop: `4px solid ${accentColor}` }} />
           <div style={{ padding: '24px 28px 28px' }}>
+            {renderPlacementSlot('under_title')}
             <div style={{ marginBottom: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <span style={{ fontSize: '12px', fontWeight: 600, color: theme.colors.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -573,6 +565,7 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
             {stickySummary && !isCallForQuote && (
               <div style={{ position: 'sticky', bottom: '0', background: theme.colors.surface, paddingTop: '12px', borderTop: `1px solid ${theme.colors.borderLight}`, marginTop: '16px' }}>
                 {liveEstimateBlock}
+                {renderPlacementSlot('under_total')}
               </div>
             )}
 
@@ -608,15 +601,15 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
               ) : (
                 <>
                   {!stickySummary && liveEstimateBlock}
+                  {!stickySummary && renderPlacementSlot('under_total')}
+                  {renderPlacementSlot('near_cta')}
                   {ctaButton}
                 </>
               )}
             </div>
-
-            {trustBlock}
-            {testimonialsBlock}
           </div>
         </div>
+        {renderPlacementSlot('bottom')}
       </div>
     );
   }
@@ -625,9 +618,11 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
     return (
       <div style={containerStyle}>
         {headerBlock}
+        {renderPlacementSlot('top')}
         <div className="animate-fade-in" style={cardStyle}>
           <div style={{ padding: '8px 0 0', borderTop: `4px solid ${accentColor}` }} />
           <div style={{ padding: '24px 28px 28px' }}>
+            {renderPlacementSlot('under_title')}
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: theme.colors.heading, marginBottom: '16px', textAlign: 'center' }}>
               Choose Your Package
             </h3>
@@ -685,6 +680,8 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
             />
 
             {liveEstimateBlock}
+            {renderPlacementSlot('under_total')}
+            {renderPlacementSlot('near_cta')}
             {ctaButton}
             {isBookingEnabled && (
               <button
@@ -703,10 +700,9 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
                 Book Now
               </button>
             )}
-            {trustBlock}
-            {testimonialsBlock}
           </div>
         </div>
+        {renderPlacementSlot('bottom')}
       </div>
     );
   }
@@ -715,13 +711,17 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
     return (
       <div style={containerStyle}>
         {headerBlock}
+        {renderPlacementSlot('top')}
         <div className="animate-fade-in" style={cardStyle}>
           <div style={{ padding: '8px 0 0', borderTop: `4px solid ${accentColor}` }} />
           <div style={{ padding: '24px 28px 28px' }}>
+            {renderPlacementSlot('under_title')}
             {isCallForQuote ? callForQuoteBlock : (
               <>
                 <PricingInputs {...pricingInputsProps} />
                 {rangeOnlyBlock}
+                {renderPlacementSlot('under_total')}
+                {renderPlacementSlot('near_cta')}
                 <button
                   data-testid="button-get-quote"
                   onClick={() => setShowLeadForm(true)}
@@ -747,12 +747,11 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
                     Schedule a Consultation
                   </button>
                 )}
-                {trustBlock}
-                {testimonialsBlock}
               </>
             )}
           </div>
         </div>
+        {renderPlacementSlot('bottom')}
       </div>
     );
   }
@@ -760,14 +759,18 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
   return (
     <div style={containerStyle}>
       {headerBlock}
+      {renderPlacementSlot('top')}
       <div className="animate-fade-in" style={cardStyle}>
         <div style={{ padding: '8px 0 0', borderTop: `4px solid ${accentColor}` }} />
         <div style={{ padding: '24px 28px 28px' }}>
+          {renderPlacementSlot('under_title')}
           <PricingInputs {...pricingInputsProps} />
 
           {isCallForQuote ? callForQuoteBlock : (
             <>
               {liveEstimateBlock}
+              {renderPlacementSlot('under_total')}
+              {renderPlacementSlot('near_cta')}
               {ctaButton}
               {isBookingEnabled && (
                 <button
@@ -788,10 +791,9 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
               )}
             </>
           )}
-          {trustBlock}
-          {testimonialsBlock}
         </div>
       </div>
+      {renderPlacementSlot('bottom')}
     </div>
   );
 }
@@ -1762,4 +1764,142 @@ function formatTime12(time24: string): string {
   const suffix = h >= 12 ? 'PM' : 'AM';
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
   return `${h12}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
+function ImagesBlock({ config, theme }: { config: any; theme: any }) {
+  const items = [...(config.items || [])].sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+  if (items.length === 0) return null;
+
+  if (config.layout === 'carousel') {
+    return (
+      <div data-testid="images-block" style={{ marginTop: '16px', marginBottom: '8px' }}>
+        <div style={{
+          display: 'flex', gap: '12px', overflowX: 'auto', scrollSnapType: 'x mandatory',
+          WebkitOverflowScrolling: 'touch', paddingBottom: '8px',
+        }}>
+          {items.map((img: any) => (
+            <div key={img.id} style={{ scrollSnapAlign: 'start', flexShrink: 0, width: '260px' }}>
+              <img
+                src={img.url}
+                alt={img.caption || ''}
+                style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '12px', display: 'block' }}
+              />
+              {img.caption && (
+                <p style={{ fontSize: '12px', color: theme.colors.muted, marginTop: '4px', textAlign: 'center' }}>{img.caption}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="images-block" style={{ marginTop: '16px', marginBottom: '8px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}
+        className="img-block-grid">
+        <style>{`@media (min-width: 480px) { .img-block-grid { grid-template-columns: repeat(3, 1fr) !important; } }`}</style>
+        {items.map((img: any) => (
+          <div key={img.id}>
+            <img
+              src={img.url}
+              alt={img.caption || ''}
+              style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '12px', display: 'block' }}
+            />
+            {img.caption && (
+              <p style={{ fontSize: '12px', color: theme.colors.muted, marginTop: '4px', textAlign: 'center' }}>{img.caption}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TestimonialsBlock({ config, theme, accentColor }: { config: any; theme: any; accentColor: string }) {
+  const items = [...(config.items || [])].sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+  if (items.length === 0) return null;
+
+  const renderCard = (item: any) => (
+    <div
+      key={item.id}
+      style={{
+        padding: '16px', borderRadius: '12px',
+        background: theme.colors.surfaceRaised, border: `1px solid ${theme.colors.borderLight}`,
+      }}
+    >
+      <div style={{ display: 'flex', gap: '2px', marginBottom: '8px' }}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Star
+            key={i}
+            style={{
+              width: '14px', height: '14px',
+              color: i < (item.rating || 5) ? '#F59E0B' : theme.colors.borderLight,
+              fill: i < (item.rating || 5) ? '#F59E0B' : 'none',
+            }}
+          />
+        ))}
+      </div>
+      <p style={{ fontSize: '13px', color: theme.colors.body, fontStyle: 'italic', lineHeight: 1.5, marginBottom: '8px' }}>
+        "{item.text}"
+      </p>
+      <div style={{ fontSize: '12px', color: theme.colors.muted, fontWeight: 600 }}>
+        {item.name}
+        {item.location && <span style={{ fontWeight: 400 }}> — {item.location}</span>}
+      </div>
+    </div>
+  );
+
+  if (config.layout === 'carousel') {
+    return (
+      <div data-testid="testimonials-block" style={{ marginTop: '16px', marginBottom: '8px' }}>
+        <div style={{
+          display: 'flex', gap: '12px', overflowX: 'auto', scrollSnapType: 'x mandatory',
+          WebkitOverflowScrolling: 'touch', paddingBottom: '8px',
+        }}>
+          {items.map((item: any) => (
+            <div key={item.id} style={{ scrollSnapAlign: 'start', flexShrink: 0, width: '280px' }}>
+              {renderCard(item)}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="testimonials-block" style={{ marginTop: '16px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {items.map((item: any) => renderCard(item))}
+    </div>
+  );
+}
+
+function TrustBadgesBlock({ config, theme, accentColor }: { config: any; theme: any; accentColor: string }) {
+  const badges = config.badges || {};
+  const badgeList: { key: string; label: string; icon: any }[] = [];
+  if (badges.insured) badgeList.push({ key: 'insured', label: 'Insured', icon: Shield });
+  if (badges.licensed) badgeList.push({ key: 'licensed', label: 'Licensed', icon: Award });
+  if (badges.bonded) badgeList.push({ key: 'bonded', label: 'Bonded', icon: Lock });
+  if (badges.satisfaction) badgeList.push({ key: 'satisfaction', label: 'Satisfaction Guarantee', icon: ThumbsUp });
+
+  if (badgeList.length === 0) return null;
+
+  return (
+    <div data-testid="trust-badges-block" style={{ marginTop: '16px', marginBottom: '8px', padding: '16px', borderRadius: '12px', background: theme.colors.surfaceRaised, border: `1px solid ${theme.colors.borderLight}` }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'center' }}>
+        {badgeList.map(b => {
+          const Icon = b.icon;
+          return (
+            <div key={b.key} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Icon style={{ width: '16px', height: '16px', color: accentColor }} />
+              <span style={{ fontSize: '12px', fontWeight: 600, color: theme.colors.heading }}>{b.label}</span>
+            </div>
+          );
+        })}
+      </div>
+      {config.microcopy && (
+        <p style={{ fontSize: '11px', color: theme.colors.muted, textAlign: 'center', marginTop: '8px' }}>{config.microcopy}</p>
+      )}
+    </div>
+  );
 }
