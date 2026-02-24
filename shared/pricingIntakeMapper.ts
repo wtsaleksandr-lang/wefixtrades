@@ -22,12 +22,16 @@ export function mapPricingIntakeToConfig(
   }
 
   if (output_preference === 'price_range') {
-    const rangeMin = stage1.price_range_min ?? 0;
-    const rangeMax = stage1.price_range_max ?? (rangeMin * 2 || 500);
+    if (stage1.price_range_min == null || stage1.price_range_max == null) {
+      return fail('Price range output requires both a minimum and maximum price.');
+    }
+    if (stage1.price_range_max < stage1.price_range_min) {
+      return fail('Max price must be greater than or equal to min price.');
+    }
     return validated({
       pricingType: 'price_range_only',
-      rangeMin,
-      rangeMax: Math.max(rangeMax, rangeMin),
+      rangeMin: stage1.price_range_min,
+      rangeMax: stage1.price_range_max,
     });
   }
 

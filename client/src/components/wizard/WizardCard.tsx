@@ -260,6 +260,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
     if (charge === 'per_sqft') {
       if (!s2.sqft_rate || s2.sqft_rate <= 0) errs.stage2Rate = 'Enter your rate per square foot (must be greater than $0).';
+      if (s2.materials_included == null) errs.stage2Materials = 'Select whether your rate includes materials or is labor only.';
+      if (s2.setup_fee != null && s2.setup_fee <= 0) errs.stage2SetupFee = 'Setup fee must be greater than $0, or leave it empty.';
     }
 
     if (charge === 'per_linear_ft') {
