@@ -505,6 +505,19 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               stage1: ws.customTradeData,
               stage2: ws.stage2Data,
             } : undefined,
+            sample_quotes: ws.isCustomTrade
+              ? ws.sampleQuotes.filter(q => q.inputs.qty > 0 && q.final_price > 0)
+              : undefined,
+            test_scenarios: ws.testScenarios.map(s => ({
+              label: s.label,
+              expectedMin: s.expectedMin,
+              expectedMax: s.expectedMax,
+              confirmed: s.confirmed,
+            })),
+            pricing_edits_applied: ws.isCustomTrade
+              && ws.calculatorSettings.pricing_draft?.status === 'ready'
+              && ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType
+              && JSON.stringify(ws.calculatorSettings.pricing_draft.pricing_config) !== JSON.stringify(pricingConfig),
           },
         });
         const d = await createRes.json();
