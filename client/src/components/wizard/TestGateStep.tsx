@@ -557,7 +557,18 @@ export default function TestGateStep({
                   <input data-testid={`input-your-charge-${idx}`} type="number" min="0" step="0.01"
                     value={scenario.yourCharge}
                     onChange={e => updateScenario(idx, { yourCharge: e.target.value })}
-                    className="premium-input" placeholder="Enter your real price" />
+                    className="premium-input" placeholder="Enter your real price"
+                    style={scenario.yourCharge !== '' && parseFloat(scenario.yourCharge) <= 0
+                      ? { borderColor: '#FECACA', boxShadow: '0 0 0 2px rgba(220,38,38,0.10)' }
+                      : undefined
+                    } />
+                  {scenario.yourCharge !== '' && parseFloat(scenario.yourCharge) <= 0 && (
+                    <p data-testid={`error-your-charge-${idx}`} style={{
+                      fontSize: '12px', color: '#DC2626', marginTop: '4px', marginBottom: 0,
+                    }}>
+                      Enter a charge greater than $0
+                    </p>
+                  )}
                 </div>
 
                 {/* Deviation Display */}
