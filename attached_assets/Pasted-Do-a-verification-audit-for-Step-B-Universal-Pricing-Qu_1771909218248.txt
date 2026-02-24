@@ -1,0 +1,103 @@
+Do a verification audit for Step B (Universal Pricing Questions) implementation.
+
+Do NOT change code unless a FAIL is found.
+Return:
+1) PASS/FAIL per test
+2) If FAIL: exact file + line + minimal fix
+
+---------------------------------------
+A) DATA CONTRACT
+---------------------------------------
+1) Confirm saved structure is EXACT:
+calculator_settings.pricing_intake = {
+  version: 1,
+  stage1: { ... },
+  stage2: { ... }
+}
+PASS only if:
+- version exists and equals 1
+- no duplicate legacy fields required for flow (ws.customTradeData optional only as migration)
+
+---------------------------------------
+B) STAGE 1 VALIDATION (must block)
+---------------------------------------
+Test these:
+1) charge method empty -> cannot continue
+2) price factors empty -> cannot continue
+3) hasMinCharge=true but amount empty -> cannot continue
+4) hasTripFee=true but amount empty -> cannot continue
+5) typicalRangeMin/max empty -> cannot continue
+6) output_preference empty -> cannot continue
+Return PASS/FAIL per item.
+
+---------------------------------------
+C) STAGE 2 BRANCHING (show/hide + required)
+---------------------------------------
+For each charge method, verify fields appear AND required fields are enforced:
+
+Hourly:
+- hourlyRate required
+- crewSize required
+- hoursLow/Typical/High required, monotonic (low<=typ<=high)
+
+Per sqft:
+- rate required
+- includesMaterials required
+- setupFee amount required if toggle on
+
+Per linear ft:
+- rate required
+- includesMaterials required
+- setupFee amount required if toggle on
+
+Per item:
+- rate required
+- setupFee amount required if toggle on
+
+Fixed:
+- single_price vs range_only behaves correctly
+- range_only requires min/max
+
+Base_plus_variable:
+- unit choice required
+- baseFee required if hasBaseFee enabled
+
+---------------------------------------
+D) DETERMINISTIC MAPPER OUTPUT
+---------------------------------------
+For each scenario below, output the resulting PricingConfigV1 (redact UI noise) and validate with validatePricingConfig():
+
+1) hourly, no min charge, no trip fee
+2) per_sqft, has setup fee, materials markup 20%
+3) base_plus_variable (unit=bedroom), has min charge, difficulty enabled
+4) fixed -> range_only
+5) offers_packages true with 3 tiers
+6) not_sure -> must return null and trigger AI fallback (not deterministic)
+
+PASS only if:
+- pricingType is one of allowed families
+- required fields populated
+- no fake defaults that change user intent (ex: forcing $50 silently)
+
+---------------------------------------
+E) SAFETY + UX
+---------------------------------------
+1) Confirm AI fallback triggers ONLY on:
+- chargeModel == "not_sure"
+- mapper returns null
+- explicit “Generate with AI” button (if exists)
+2) Confirm mapper never writes unknown pricingType.
+3) Confirm “rate estimation never returns zero” does NOT override a user-entered 0 (it should block 0, not silently change).
+
+---------------------------------------
+F) FILES CHANGED / ADDED
+---------------------------------------
+List the exact files added/edited for this feature:
+- Stage 1 component
+- Stage 2 component
+- Mapper file
+- Schema/types
+- Wizard gating logic
+
+Return final verdict:
+OVERALL: PASS / PARTIAL / FAIL
