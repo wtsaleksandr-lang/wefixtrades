@@ -1,0 +1,128 @@
+Fix the PARTIAL failures for Step B. Make the flow “stupid simple” but with hard blocking (no silent fake defaults).
+
+Do NOT redesign UI. Minimal code changes only.
+Goal: remove silent defaults ($50 rate, $100–$500 range), enforce required Stage 2 fields, and block rate=0.
+
+FILES INVOLVED:
+- client/src/components/wizard/WizardCard.tsx
+- client/src/components/wizard/PricingIntakeStage2.tsx
+- shared/schema.ts
+- shared/pricingIntakeMapper.ts
+
+------------------------------------------------------------
+FIX 1 — Stage 1 must require Typical Price Range (B5)
+------------------------------------------------------------
+Requirement:
+If charge_method is selected AND charge_method != "not_sure",
+then price_range_min and price_range_max are REQUIRED.
+
+Implement in WizardCard.tsx where Stage 1 validation runs (currently lines ~217–229):
+Add:
+- if known charge_method and (price_range_min == null || price_range_max == null) -> block continue with clear error.
+
+Also enforce price_range_max >= price_range_min.
+
+Keep schema optional if you want, but validation must block progression.
+
+------------------------------------------------------------
+FIX 2 — Add Stage 2 validation gate (C FAIL)
+------------------------------------------------------------
+Requirement:
+Before advancing from Step 2 (Adaptive Pricing Details) to Step 3,
+validate required Stage 2 fields based on charge_method.
+
+Implement a function in WizardCard.tsx:
+validateStage2(charge_method, stage2Data, stage1Data) -> { valid, errors }
+
+Rules (hard requirements):
+A) hourly:
+- hourly_rate > 0 (block 0)
+- crew_size required (1/2/3/4_plus)
+- min_hours > 0
+- max_hours >= min_hours
+
+B) per_sqft:
+- sqft_rate > 0
+- materials_included required (labor_only or labor_plus_materials)
+- if has_setup_fee true -> setup_fee_amount > 0
+
+C) per_linear_ft:
+- linear_ft_rate > 0
+- materials_included required
+- if has_setup_fee true -> setup_fee_amount > 0
+
+D) per_item:
+- unit_rate > 0
+- unit_name optional (default “item” is fine)
+- if has_setup_fee true -> setup_fee_amount > 0
+
+E) base_plus_variable:
+- unit_name required (or variable unit selection)
+- unit_rate > 0
+- if has_base_fee true -> base_fee_amount > 0
+
+F) fixed:
+- if fixedPriceType == range_only -> fixedRangeMin and fixedRangeMax required and valid
+- if fixedPriceType == single_price -> fixedPriceAmount > 0
+- if fixedPriceType == starting_from -> startingFromAmount > 0
+
+G) packages:
+If offers_packages == true:
+- must have 2–3 packages
+- each package must have label (non-empty) + price > 0
+
+Also validate add-on modifiers only if enabled:
+- materials markup: if enabled -> pct > 0 and <= 100
+- distance multiplier: if enabled -> multipliers >= 1
+- afterHoursMult: if enabled -> >= 1
+
+Block Step 2 -> Step 3 if invalid and show inline error messages.
+
+------------------------------------------------------------
+FIX 3 — Remove all fake default pricing values (D1/D4)
+------------------------------------------------------------
+Requirement:
+Mapper must NOT fabricate pricing values when required inputs are missing.
+No $50 guessRate. No $100–$500 injected range.
+
+Actions in shared/pricingIntakeMapper.ts:
+- Remove guessRate() fallback entirely OR make it return null.
+- For fixed->range_only: if range missing -> return null (forces validation failure upstream).
+- For hourly/per_sqft/etc: if rate missing/<=0 -> return null.
+
+Then in WizardCard.tsx:
+- If mapper returns null -> DO NOT auto-switch to AI.
+- Instead show validation errors and keep user on Step 2.
+AI fallback should remain ONLY for charge_method == "not_sure" (as originally intended).
+
+------------------------------------------------------------
+FIX 4 — Disallow rate=0 at schema/validation (E3)
+------------------------------------------------------------
+Requirement:
+0 rate must be treated as invalid user input.
+
+Implement:
+- Stage 2 validation (Fix 2) enforces > 0
+Optionally tighten Zod in shared/schema.ts:
+- For rate fields: z.number().gt(0) (not min(0))
+
+Do not rely only on schema; ensure UI gate blocks it.
+
+------------------------------------------------------------
+POST-FIX VERIFICATION (must pass)
+------------------------------------------------------------
+After fixes, rerun this test matrix manually:
+
+1) hourly + no min charge + rate empty -> blocked in Step 2
+2) hourly + rate 0 -> blocked in Step 2
+3) per_sqft + missing materials_included -> blocked
+4) fixed range_only + missing range -> blocked (no fake defaults)
+5) packages true + package missing price -> blocked
+6) not_sure -> AI fallback triggers (still works)
+
+Return report:
+- Which fixes applied
+- Files and line ranges
+- Re-run audit: OVERALL PASS
+
+Proceed implementing now.
