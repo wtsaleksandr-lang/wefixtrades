@@ -1,0 +1,154 @@
+Run a full test suite (manual + automated checks) for the new Backend AI agent + async flow.
+Do NOT change code unless a test FAILS.
+Return: PASS/FAIL per test + exact file/line where the bug is + minimal fix.
+
+====================================================
+TEST GROUP 0 — QUICK INVENTORY
+====================================================
+0.1 List endpoints added/used:
+- POST /api/ai/pricing-config-draft
+- GET  /api/ai/pricing-config-draft/:job_id
+0.2 List files changed for:
+- payload builder (pricing_intake + sample_quotes)
+- async polling / job state
+- server validation (schema + allowed families + confidence rules)
+Return file paths.
+
+====================================================
+TEST GROUP 1 — DETERMINISTIC PATH (NO AI SHOULD RUN)
+====================================================
+Case 1A: Listed trade, no “Generate with AI”, charge_method != not_sure
+Steps:
+1) Select a LISTED trade
+2) Fill Stage 1 + Stage 2 fully (e.g. hourly_rate=120, crew_size=2, min/max hours)
+3) Proceed Step 2 -> Step 3
+Expected:
+- NO call to POST /api/ai/pricing-config-draft
+- pricing_config is created via deterministic mapper
+- validatePricingConfig(pricing_config) passes
+- pricing_config saved to calculator_settings.pricing (or wherever pricing config is stored)
+Result: PASS/FAIL
+
+Case 1B: Listed trade without custom pricing override
+Expected:
+- Stage 1/2 not forced
+- No AI calls
+Result: PASS/FAIL
+
+====================================================
+TEST GROUP 2 — AI PATH (ASYNC JOB) — NOT_SURE ONLY
+====================================================
+Case 2A: not_sure + NO sample quotes
+Steps:
+1) Choose Custom/Not Listed
+2) Stage 1: charge_method=not_sure
+3) Continue to Step 3
+Expected:
+- POST /api/ai/pricing-config-draft is called
+- job_id returned and stored
+- polling begins in Step 3
+- Response is STRICT JSON only:
+  { pricing_config, confidence_score, assumptions, needs_human_review }
+- Server validates pricing_config and rejects unknown fields
+- If confidence_score < 60 -> pricing_config is price_range_only OR call_for_quote_only and needs_human_review=true
+Result: PASS/FAIL
+
+Case 2B: not_sure + WITH sample quotes (3 jobs)
+Provide:
+- small: qty=1, final_price=150
+- typical: qty=2, final_price=250
+- big: qty=4, final_price=450
+Expected:
+- AI returns one allowed pricingType
+- confidence_score present
+- assumptions present (<=12)
+- validatePricingConfig passes
+- No invented fields, no equation strings
+Result: PASS/FAIL
+
+Case 2C: Explicit “Generate with AI” button when charge_method != not_sure
+Expected:
+- AI runs only when user explicitly clicks the button
+Result: PASS/FAIL
+
+====================================================
+TEST GROUP 3 — FAILURE SIMULATION (GUARDRAILS)
+====================================================
+Case 3A: AI returns invalid pricingType (simulate by forcing model output / mocking)
+Expected:
+- Server rejects response
+- Client shows safe fallback (range/call-for-quote) OR error state
+- No crash
+Result: PASS/FAIL
+
+Case 3B: AI returns non-JSON text
+Expected:
+- Server rejects response
+- Client does not accept it
+Result: PASS/FAIL
+
+Case 3C: Conflicting sample quotes (negative slope)
+Example:
+- qty=1 price=300
+- qty=2 price=200
+- qty=3 price=150
+Expected:
+- AI chooses price_range_only or call_for_quote_only
+- needs_human_review=true
+Result: PASS/FAIL
+
+Case 3D: Missing required intake fields
+Expected:
+- blocked before Step 3 (validation)
+- no AI call
+Result: PASS/FAIL
+
+====================================================
+TEST GROUP 4 — ASYNC UX BEHAVIOR
+====================================================
+Case 4A: Job completes while on Step 3
+Expected:
+- UI shows “Pricing draft ready”
+- pricing_config stored
+- No step reset, no lost wizard state
+Result: PASS/FAIL
+
+Case 4B: Job times out / fails
+Expected:
+- stops polling
+- shows safe fallback or retry
+Result: PASS/FAIL
+
+Case 4C: User navigates away mid-job and returns
+Expected:
+- job_id persists
+- polling resumes or final result is loaded
+Result: PASS/FAIL
+
+====================================================
+TEST GROUP 5 — TEST GATE (STEP 4) HARD LOCK
+====================================================
+Case 5A: Publish locked until test scenarios completed
+Expected:
+- user must enter 3 test cases (low/typical/high)
+- must confirm “Estimates accurate”
+- if not done -> cannot proceed to publish
+Result: PASS/FAIL
+
+Case 5B: Editing pricing after failed test
+Expected:
+- user can adjust allowed fields (baseFee/rate/minCharge/addOns)
+- re-run tests
+- pass unlocks publish
+Result: PASS/FAIL
+
+====================================================
+FINAL OUTPUT FORMAT
+====================================================
+OVERALL: PASS / FAIL
+
+Then list each case with:
+- PASS/FAIL
+- Evidence (what network calls happened, what config was stored)
+- File references for any failures + minimal fix
+```0
