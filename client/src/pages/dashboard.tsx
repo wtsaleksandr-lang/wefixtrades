@@ -8,17 +8,19 @@ import {
   LayoutDashboard, DollarSign, Users, BarChart3, Settings,
   ExternalLink, Copy, Search, Download, Trash2, RefreshCw,
   Check, Circle, AlertCircle, Shield, ChevronRight, Globe,
-  Loader2, ArrowLeft,
+  Loader2, ArrowLeft, Zap, Send, Clock, ChevronDown, ChevronUp,
+  Mail, MessageSquare, Play, Pause, Eye,
 } from 'lucide-react';
 
 const p = platformTheme;
 
-type Section = 'overview' | 'pricing' | 'leads' | 'analytics' | 'settings';
+type Section = 'overview' | 'pricing' | 'leads' | 'analytics' | 'followup' | 'settings';
 
 const NAV_ITEMS: { id: Section; label: string; icon: any }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'pricing', label: 'Pricing', icon: DollarSign },
   { id: 'leads', label: 'Leads', icon: Users },
+  { id: 'followup', label: 'Follow-Up', icon: Zap },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
@@ -98,6 +100,7 @@ export default function Dashboard() {
         {section === 'overview' && <OverviewSection token={token} onNavigate={setSection} />}
         {section === 'pricing' && <PricingSection token={token} />}
         {section === 'leads' && <LeadsSection token={token} />}
+        {section === 'followup' && <FollowUpSection token={token} />}
         {section === 'analytics' && <AnalyticsSection token={token} />}
         {section === 'settings' && <SettingsSection token={token} />}
       </main>
@@ -329,6 +332,71 @@ function PricingSection({ token }: { token: string }) {
   );
 }
 
+const LEAD_STATUS_COLORS: Record<string, { bg: string; text: string; label: string }> = {
+  new: { bg: '#dbeafe', text: '#1e40af', label: 'New' },
+  contacted: { bg: '#fef3c7', text: '#92400e', label: 'Contacted' },
+  won: { bg: '#d1fae5', text: '#065f46', label: 'Won' },
+  lost: { bg: '#fee2e2', text: '#991b1b', label: 'Lost' },
+};
+
+function LeadStatusBadge({ status, leadId, token }: { status: string; leadId: number; token: string }) {
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+  const colors = LEAD_STATUS_COLORS[status] || LEAD_STATUS_COLORS.new;
+
+  const mutation = useMutation({
+    mutationFn: async (newStatus: string) => {
+      await apiRequest('PATCH', `/api/dashboard/leads/${leadId}/status?token=${token}`, { status: newStatus });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/leads'] });
+      setOpen(false);
+      toast({ title: 'Status updated' });
+    },
+  });
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        data-testid={`button-lead-status-${leadId}`}
+        onClick={() => setOpen(!open)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: '3px 10px', borderRadius: 999, border: 'none', cursor: 'pointer',
+          background: colors.bg, color: colors.text, fontSize: 11, fontWeight: 600,
+        }}
+      >
+        {colors.label}
+        <ChevronDown style={{ width: 10, height: 10 }} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10,
+          background: '#fff', border: `1px solid ${p.colors.border}`, borderRadius: p.radius.sm,
+          boxShadow: p.shadows.md, minWidth: 100, overflow: 'hidden',
+        }}>
+          {Object.entries(LEAD_STATUS_COLORS).map(([key, val]) => (
+            <button
+              key={key}
+              data-testid={`lead-status-option-${key}`}
+              onClick={() => mutation.mutate(key)}
+              disabled={mutation.isPending}
+              style={{
+                display: 'block', width: '100%', padding: '6px 12px', border: 'none',
+                background: key === status ? p.colors.accentLighter : 'transparent',
+                cursor: 'pointer', fontSize: 12, textAlign: 'left', color: val.text,
+                fontWeight: key === status ? 600 : 400,
+              }}
+            >
+              {val.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LeadsSection({ token }: { token: string }) {
   const [search, setSearch] = useState('');
   const { toast } = useToast();
@@ -403,7 +471,7 @@ function LeadsSection({ token }: { token: string }) {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${p.colors.borderLight}` }}>
-                {['Name', 'Phone', 'Email', 'Quote', 'Date', ''].map(h => (
+                {['Name', 'Phone', 'Email', 'Quote', 'Status', 'Date', ''].map(h => (
                   <th key={h} style={{
                     ...p.typography.captionSm, padding: '10px 14px', textAlign: 'left',
                     fontWeight: 600,
@@ -421,6 +489,9 @@ function LeadsSection({ token }: { token: string }) {
                   <td style={{ padding: '10px 14px', ...p.typography.bodySm }}>{lead.email || '—'}</td>
                   <td style={{ padding: '10px 14px', ...p.typography.bodySm, fontWeight: 600 }}>
                     {lead.quote_amount ? `$${lead.quote_amount}` : '—'}
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <LeadStatusBadge status={lead.status || 'new'} leadId={lead.id} token={token} />
                   </td>
                   <td style={{ padding: '10px 14px', ...p.typography.captionSm }}>
                     {lead.created_date ? new Date(lead.created_date).toLocaleDateString() : '—'}
@@ -443,6 +514,320 @@ function LeadsSection({ token }: { token: string }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const DEFAULT_TEMPLATES: Record<string, { subject: string; body: string; sms?: string }> = {
+  thank_you: {
+    subject: 'Thanks for your quote, {{name}}!',
+    body: 'Hi {{name}},\n\nThanks for requesting a quote from {{business_name}}! Your estimated price was {{quote_amount}}.\n\nWe\'d love to help you get started. Reply to this email or call us at {{phone}} to book.\n\nBest,\n{{business_name}}',
+    sms: 'Hi {{name}}, thanks for your {{quote_amount}} quote from {{business_name}}! Call {{phone}} to book.',
+  },
+  reminder: {
+    subject: 'Still thinking about your project, {{name}}?',
+    body: 'Hi {{name}},\n\nJust checking in about your recent quote of {{quote_amount}} from {{business_name}}.\n\nWe have availability coming up and would love to get you scheduled. Book online: {{booking_link}}\n\nBest,\n{{business_name}}',
+    sms: 'Hi {{name}}, still thinking about your project? Book with {{business_name}}: {{booking_link}}',
+  },
+  last_call: {
+    subject: 'Your quote is expiring soon, {{name}}',
+    body: 'Hi {{name}},\n\nYour quote of {{quote_amount}} from {{business_name}} will expire soon.\n\nDon\'t miss out — reply to lock in your price or call {{phone}}.\n\nBest,\n{{business_name}}',
+    sms: 'Hi {{name}}, your {{quote_amount}} quote from {{business_name}} expires soon. Call {{phone}} to lock it in!',
+  },
+};
+
+const SCHEDULE_DEFAULTS = [
+  { type: 'thank_you', offset_minutes: 2, label: 'Thank You', timing: '2 minutes after' },
+  { type: 'reminder', offset_hours: 24, label: 'Reminder', timing: '24 hours after' },
+  { type: 'last_call', offset_days: 3, label: 'Last Call', timing: '3 days after' },
+];
+
+function FollowUpSection({ token }: { token: string }) {
+  const { toast } = useToast();
+  const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ['/api/dashboard/followup', token],
+    queryFn: async () => {
+      const res = await fetch(`/api/dashboard/followup?token=${token}`);
+      if (!res.ok) throw new Error('Failed to load');
+      return res.json();
+    },
+  });
+
+  const { data: logsData } = useQuery<any>({
+    queryKey: ['/api/dashboard/notification-logs', token],
+    queryFn: async () => {
+      const res = await fetch(`/api/dashboard/notification-logs?token=${token}`);
+      if (!res.ok) throw new Error('Failed to load logs');
+      return res.json();
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (followup: any) => {
+      await apiRequest('PUT', '/api/dashboard/followup', { token, followup });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/followup'] });
+      toast({ title: 'Settings saved' });
+    },
+  });
+
+  const testMutation = useMutation({
+    mutationFn: async (templateType: string) => {
+      const res = await apiRequest('POST', '/api/dashboard/followup/test', { token, template_type: templateType });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      toast({ title: data.message || 'Test email sent' });
+    },
+  });
+
+  const followup = data?.followup || {};
+  const enabled = followup.enabled || false;
+  const templates = { ...DEFAULT_TEMPLATES, ...(followup.templates || {}) };
+  const personalization = followup.personalization || {};
+  const channels = followup.channels || { email: true, sms: false };
+  const schedule = followup.schedule || SCHEDULE_DEFAULTS;
+  const followupLogs = logsData?.followups || [];
+  const notifLogs = logsData?.notifications || [];
+
+  const updateFollowup = (patch: any) => {
+    saveMutation.mutate({ ...followup, ...patch });
+  };
+
+  if (isLoading) return <LoadingSkeleton />;
+
+  return (
+    <div>
+      <SectionHeader title="Follow-Up Autopilot" sub="Automated lead nurturing sequences" />
+
+      <div style={{
+        background: p.colors.surface, borderRadius: p.radius.md, padding: '24px',
+        border: `1px solid ${p.colors.borderLight}`, marginBottom: 20,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div>
+            <div style={{ ...p.typography.h3, fontSize: 15, marginBottom: 4 }}>Autopilot Status</div>
+            <div style={{ ...p.typography.captionSm }}>
+              {enabled ? 'New leads will receive automated follow-up emails' : 'Follow-up sequences are paused'}
+            </div>
+          </div>
+          <button
+            data-testid="button-toggle-followup"
+            onClick={() => updateFollowup({ enabled: !enabled })}
+            disabled={saveMutation.isPending}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px',
+              borderRadius: p.radius.sm, border: 'none', cursor: 'pointer',
+              background: enabled ? p.colors.accent : p.colors.border,
+              color: enabled ? '#fff' : p.colors.body, fontWeight: 600, fontSize: 13,
+              transition: p.transitions.fast,
+            }}
+          >
+            {enabled ? <><Pause style={{ width: 14, height: 14 }} /> Enabled</> : <><Play style={{ width: 14, height: 14 }} /> Disabled</>}
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px',
+            borderRadius: 999, fontSize: 11, fontWeight: 500,
+            background: channels.email ? '#dbeafe' : '#f3f4f6', color: channels.email ? '#1e40af' : '#6b7280',
+          }}>
+            <Mail style={{ width: 12, height: 12 }} /> Email {channels.email ? 'On' : 'Off'}
+          </span>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px',
+            borderRadius: 999, fontSize: 11, fontWeight: 500,
+            background: '#f3f4f6', color: '#6b7280',
+          }}>
+            <MessageSquare style={{ width: 12, height: 12 }} /> SMS (Pro)
+          </span>
+        </div>
+      </div>
+
+      <div style={{
+        background: p.colors.surface, borderRadius: p.radius.md, padding: '24px',
+        border: `1px solid ${p.colors.borderLight}`, marginBottom: 20,
+      }}>
+        <div style={{ ...p.typography.h3, fontSize: 15, marginBottom: 4 }}>Personalization</div>
+        <div style={{ ...p.typography.captionSm, marginBottom: 16 }}>
+          These values fill in {'{{variables}}'} in your templates
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {[
+            { key: 'business_name', label: 'Business Name', placeholder: 'Your Business' },
+            { key: 'phone', label: 'Phone', placeholder: '(555) 123-4567' },
+            { key: 'booking_link', label: 'Booking Link', placeholder: 'https://...' },
+            { key: 'service_area', label: 'Service Area', placeholder: 'Greater Austin area' },
+          ].map(field => (
+            <div key={field.key}>
+              <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: 4, fontWeight: 600 }}>{field.label}</label>
+              <input
+                data-testid={`input-personalization-${field.key}`}
+                value={personalization[field.key] || ''}
+                onChange={e => {
+                  const updated = { ...personalization, [field.key]: e.target.value };
+                  updateFollowup({ personalization: updated });
+                }}
+                placeholder={field.placeholder}
+                style={{
+                  width: '100%', padding: '8px 12px', borderRadius: p.radius.sm,
+                  border: `1px solid ${p.colors.border}`, fontSize: 13, color: p.colors.body,
+                  outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{
+        background: p.colors.surface, borderRadius: p.radius.md,
+        border: `1px solid ${p.colors.borderLight}`, marginBottom: 20, overflow: 'hidden',
+      }}>
+        <div style={{ padding: '20px 24px', borderBottom: `1px solid ${p.colors.borderLight}` }}>
+          <div style={{ ...p.typography.h3, fontSize: 15, marginBottom: 4 }}>Email Sequence</div>
+          <div style={{ ...p.typography.captionSm }}>3-message drip sequence sent to new leads</div>
+        </div>
+
+        {SCHEDULE_DEFAULTS.map((step, idx) => {
+          const template = templates[step.type] || {};
+          const isExpanded = expandedTemplate === step.type;
+
+          return (
+            <div key={step.type} style={{ borderBottom: idx < 2 ? `1px solid ${p.colors.borderLight}` : 'none' }}>
+              <button
+                data-testid={`button-expand-template-${step.type}`}
+                onClick={() => setExpandedTemplate(isExpanded ? null : step.type)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  width: '100%', padding: '14px 24px', border: 'none', cursor: 'pointer',
+                  background: isExpanded ? p.colors.accentLighter : 'transparent',
+                  textAlign: 'left', transition: p.transitions.fast,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: '50%', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700,
+                    background: enabled ? p.colors.accent : p.colors.border,
+                    color: enabled ? '#fff' : p.colors.muted,
+                  }}>
+                    {idx + 1}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: p.colors.heading }}>{step.label}</div>
+                    <div style={{ fontSize: 12, color: p.colors.muted }}>{step.timing}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    data-testid={`button-test-template-${step.type}`}
+                    onClick={e => { e.stopPropagation(); testMutation.mutate(step.type); }}
+                    disabled={testMutation.isPending}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
+                      borderRadius: p.radius.sm, border: `1px solid ${p.colors.border}`,
+                      background: p.colors.surface, color: p.colors.body, fontSize: 11,
+                      fontWeight: 500, cursor: 'pointer',
+                    }}
+                  >
+                    <Send style={{ width: 10, height: 10 }} /> Test
+                  </button>
+                  {isExpanded ? <ChevronUp style={{ width: 16, height: 16, color: p.colors.muted }} /> : <ChevronDown style={{ width: 16, height: 16, color: p.colors.muted }} />}
+                </div>
+              </button>
+
+              {isExpanded && (
+                <div style={{ padding: '16px 24px 20px', background: '#fafbfc' }}>
+                  <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: 4, fontWeight: 600 }}>Subject</label>
+                  <input
+                    data-testid={`input-template-subject-${step.type}`}
+                    value={template.subject || ''}
+                    onChange={e => {
+                      const updated = { ...templates, [step.type]: { ...template, subject: e.target.value } };
+                      updateFollowup({ templates: updated });
+                    }}
+                    style={{
+                      width: '100%', padding: '8px 12px', borderRadius: p.radius.sm,
+                      border: `1px solid ${p.colors.border}`, fontSize: 13, marginBottom: 12,
+                      color: p.colors.body, outline: 'none', boxSizing: 'border-box',
+                    }}
+                  />
+                  <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: 4, fontWeight: 600 }}>Body</label>
+                  <textarea
+                    data-testid={`input-template-body-${step.type}`}
+                    value={template.body || ''}
+                    onChange={e => {
+                      const updated = { ...templates, [step.type]: { ...template, body: e.target.value } };
+                      updateFollowup({ templates: updated });
+                    }}
+                    rows={6}
+                    style={{
+                      width: '100%', padding: '8px 12px', borderRadius: p.radius.sm,
+                      border: `1px solid ${p.colors.border}`, fontSize: 13, lineHeight: 1.6,
+                      color: p.colors.body, outline: 'none', resize: 'vertical',
+                      fontFamily: "'Inter', system-ui, sans-serif", boxSizing: 'border-box',
+                    }}
+                  />
+                  <div style={{ ...p.typography.captionSm, marginTop: 8, color: p.colors.subtle }}>
+                    Variables: {'{{name}}'} {'{{quote_amount}}'} {'{{business_name}}'} {'{{phone}}'} {'{{booking_link}}'} {'{{service_area}}'}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {(followupLogs.length > 0 || notifLogs.length > 0) && (
+        <div style={{
+          background: p.colors.surface, borderRadius: p.radius.md,
+          border: `1px solid ${p.colors.borderLight}`, overflow: 'hidden',
+        }}>
+          <div style={{ padding: '20px 24px', borderBottom: `1px solid ${p.colors.borderLight}` }}>
+            <div style={{ ...p.typography.h3, fontSize: 15, marginBottom: 4 }}>Recent Activity</div>
+            <div style={{ ...p.typography.captionSm }}>Last 10 notifications and follow-ups</div>
+          </div>
+          <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+            {[...notifLogs.slice(0, 5), ...followupLogs.slice(0, 5)]
+              .sort((a: any, b: any) => new Date(b.created_at || b.run_at).getTime() - new Date(a.created_at || a.run_at).getTime())
+              .slice(0, 10)
+              .map((log: any, idx: number) => {
+                const isNotif = 'type' in log && !('channel' in log);
+                const status = log.status || 'pending';
+                const statusColor = status === 'sent' ? '#059669' : status === 'failed' ? '#dc2626' : status === 'pending' ? '#d97706' : '#6b7280';
+                return (
+                  <div key={`${isNotif ? 'n' : 'f'}-${log.id || idx}`} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 24px', borderBottom: `1px solid ${p.colors.borderLight}`,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {isNotif ? <Mail style={{ width: 14, height: 14, color: p.colors.muted }} /> : <Clock style={{ width: 14, height: 14, color: p.colors.muted }} />}
+                      <div>
+                        <div style={{ fontSize: 13, color: p.colors.body }}>
+                          {isNotif ? `Notification (${log.type})` : `Follow-up: ${log.type} via ${log.channel}`}
+                        </div>
+                        <div style={{ fontSize: 11, color: p.colors.muted }}>
+                          Lead #{log.lead_id} — {new Date(log.created_at || log.run_at).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 600, color: statusColor,
+                      textTransform: 'capitalize',
+                    }}>
+                      {status}
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
         </div>
       )}
     </div>

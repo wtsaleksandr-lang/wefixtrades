@@ -74,6 +74,7 @@ const createLeadBody = z.object({
   company: z.string().nullable().optional(),
   quote_amount: z.number().nullable().optional(),
   answers: z.record(z.any()).nullable().optional(),
+  sms_consent: z.boolean().optional(),
 });
 
 const generatePricingBody = z.object({
@@ -664,6 +665,8 @@ Return ONLY the JSON pricing config object.`;
         company: parsed.data.company || null,
         quote_amount: parsed.data.quote_amount || null,
         answers: parsed.data.answers || null,
+        status: 'new',
+        sms_consent: parsed.data.sms_consent || false,
       });
 
       storage.trackEvent({
@@ -671,6 +674,10 @@ Return ONLY the JSON pricing config object.`;
         event_type: 'lead',
         metadata: { quote_amount: parsed.data.quote_amount || null },
       }).catch(() => {});
+
+      enqueueLeadNotificationsAndFollowups(lead, parsed.data.calculator_id).catch(err => {
+        console.error("Failed to enqueue lead notifications:", err.message);
+      });
 
       res.json({ success: true, lead });
     } catch (error: any) {
@@ -963,6 +970,175 @@ Return ONLY the JSON pricing config object.`;
     }
   });
 
+  // ============ LEAD STATUS ============
+
+  app.patch("/api/dashboard/leads/:id/status", async (req, res) => {
+    try {
+      const token = String(req.query.token || req.body.token || '');
+      if (!token) return res.status(400).json({ error: "token required" });
+      const calculator = await requireCalcByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      const validStatuses = ['new', 'contacted', 'won', 'lost'];
+      const status = String(req.body.status || '');
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: "Invalid status. Must be: new, contacted, won, lost" });
+      }
+
+      const leadId = parseInt(req.params.id);
+      const lead = await storage.getLeadById(leadId);
+      if (!lead || lead.calculator_id !== calculator.id) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
+      const updated = await storage.updateLeadStatus(leadId, status);
+
+      if (status !== 'new') {
+        await storage.cancelFollowupsForLead(leadId);
+      }
+
+      res.json({ success: true, lead: updated });
+    } catch (error: any) {
+      console.error("Update lead status error:", error);
+      res.status(500).json({ error: "Failed to update lead status" });
+    }
+  });
+
+  // ============ FOLLOWUP SETTINGS ============
+
+  app.get("/api/dashboard/followup", async (req, res) => {
+    try {
+      const token = String(req.query.token || '');
+      if (!token) return res.status(400).json({ error: "token required" });
+      const calculator = await requireCalcByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      const settings = (calculator.calculator_settings as any) || {};
+      const followup = settings.followup || {};
+
+      res.json({ followup });
+    } catch (error: any) {
+      console.error("Get followup settings error:", error);
+      res.status(500).json({ error: "Failed to load follow-up settings" });
+    }
+  });
+
+  app.put("/api/dashboard/followup", async (req, res) => {
+    try {
+      const body = z.object({
+        token: z.string(),
+        followup: z.record(z.any()),
+      }).safeParse(req.body);
+      if (!body.success) return res.status(400).json({ error: "Invalid request" });
+
+      const calculator = await requireCalcByToken(body.data.token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      const settings = (calculator.calculator_settings as any) || {};
+      await storage.updateCalculator(calculator.id, {
+        calculator_settings: {
+          ...settings,
+          followup: { ...settings.followup, ...body.data.followup },
+        },
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Update followup settings error:", error);
+      res.status(500).json({ error: "Failed to update follow-up settings" });
+    }
+  });
+
+  app.post("/api/dashboard/followup/test", async (req, res) => {
+    try {
+      const body = z.object({
+        token: z.string(),
+        template_type: z.enum(['thank_you', 'reminder', 'last_call']),
+      }).safeParse(req.body);
+      if (!body.success) return res.status(400).json({ error: "Invalid request" });
+
+      const calculator = await requireCalcByToken(body.data.token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      if (!calculator.owner_email) {
+        return res.status(400).json({ error: "No business email configured" });
+      }
+
+      const settings = (calculator.calculator_settings as any) || {};
+      const followup = settings.followup || {};
+      const templates = followup.templates || {};
+      const personalization = followup.personalization || {};
+      const template = templates[body.data.template_type] || {};
+
+      const vars: Record<string, string> = {
+        name: 'Test Customer',
+        quote_amount: '$500',
+        business_name: personalization.business_name || calculator.business_name,
+        phone: personalization.phone || '',
+        booking_link: personalization.booking_link || '',
+        service_area: personalization.service_area || '',
+      };
+
+      let subject = template.subject || `Test: ${body.data.template_type}`;
+      let emailBody = template.body || 'This is a test message.';
+      for (const [key, value] of Object.entries(vars)) {
+        subject = subject.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+        emailBody = emailBody.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+      }
+
+      const nodemailer = await import('nodemailer');
+      const smtpHost = process.env.SMTP_HOST;
+      const smtpUser = process.env.SMTP_USER;
+      const smtpPass = process.env.SMTP_PASS;
+
+      if (!smtpHost || !smtpUser || !smtpPass) {
+        return res.json({ success: true, message: "Test email queued (SMTP not configured — would send when configured)" });
+      }
+
+      const port = parseInt(process.env.SMTP_PORT || "587", 10);
+      const transporter = nodemailer.default.createTransport({
+        host: smtpHost, port, secure: port === 465, auth: { user: smtpUser, pass: smtpPass },
+      });
+      const from = process.env.SMTP_FROM || smtpUser || 'noreply@quickquote.app';
+      const htmlBody = emailBody.replace(/\n/g, '<br/>');
+      const html = `<!DOCTYPE html><html><body style="font-family:'Inter',Arial,sans-serif;margin:0;padding:0;background:#f5f5f5;">
+<table cellpadding="0" cellspacing="0" width="100%" style="max-width:520px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+  <tr><td style="padding:28px;font-size:14px;line-height:1.7;color:#333;">${htmlBody}</td></tr>
+  <tr><td style="padding:12px 28px;background:#f9fafb;text-align:center;"><p style="font-size:11px;color:#9ca3af;margin:0;">Test email from QuickQuote Follow-Up Autopilot</p></td></tr>
+</table></body></html>`;
+
+      try {
+        await transporter.sendMail({ from, to: calculator.owner_email!, subject: `[TEST] ${subject}`, html });
+      } catch (sendErr: any) {
+        return res.json({ success: true, message: `Test email queued (send failed: ${sendErr.message})` });
+      }
+
+      res.json({ success: true, message: "Test email queued for delivery" });
+    } catch (error: any) {
+      console.error("Test followup error:", error);
+      res.status(500).json({ error: "Failed to send test" });
+    }
+  });
+
+  // ============ NOTIFICATION / FOLLOWUP LOGS ============
+
+  app.get("/api/dashboard/notification-logs", async (req, res) => {
+    try {
+      const token = String(req.query.token || '');
+      if (!token) return res.status(400).json({ error: "token required" });
+      const calculator = await requireCalcByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      const notifications = await storage.getNotificationLogs(calculator.id, 50);
+      const followups = await storage.getFollowupLogs(calculator.id, 50);
+
+      res.json({ notifications, followups });
+    } catch (error: any) {
+      console.error("Get logs error:", error);
+      res.status(500).json({ error: "Failed to load logs" });
+    }
+  });
+
   app.delete("/api/dashboard/calculator", async (req, res) => {
     try {
       const token = String(req.query.token || '');
@@ -977,6 +1153,123 @@ Return ONLY the JSON pricing config object.`;
       res.status(500).json({ error: "Failed to delete calculator" });
     }
   });
+
+  async function enqueueLeadNotificationsAndFollowups(lead: any, calculatorId: number) {
+    const allCalcs = await storage.getAllCalculatorsWithEmail();
+    const calc = allCalcs.find(c => c.id === calculatorId);
+    if (!calc) return;
+
+    const settings = (calc.calculator_settings as any) || {};
+    const followup = settings.followup || {};
+    const notifications = followup.notifications || {};
+    const leadFormSettings = settings.lead_form || {};
+    const deliveryEmail = leadFormSettings.delivery?.primary_email || calc.owner_email;
+
+    const devDomain = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : '';
+    const dashboardUrl = `${devDomain}/Dashboard?token=${calc.edit_token}`;
+    const hostedUrl = calc.slug ? `https://${calc.slug}.estimate.ai` : '';
+
+    if (notifications.email_enabled !== false && deliveryEmail) {
+      await storage.enqueueNotification({
+        calculator_id: calculatorId,
+        lead_id: lead.id,
+        type: 'email',
+        status: 'pending',
+        payload: {
+          edit_token: calc.edit_token,
+          delivery_email: deliveryEmail,
+          dashboard_url: dashboardUrl,
+          hosted_url: hostedUrl,
+        },
+      });
+    }
+
+    if (notifications.webhook_enabled && notifications.webhook_url) {
+      await storage.enqueueNotification({
+        calculator_id: calculatorId,
+        lead_id: lead.id,
+        type: 'webhook',
+        status: 'pending',
+        payload: {
+          webhook_url: notifications.webhook_url,
+          webhook_payload: {
+            lead_id: lead.id,
+            calculator_id: calculatorId,
+            name: lead.name,
+            phone: lead.phone,
+            email: lead.email,
+            quote_value: lead.quote_amount,
+            inputs_summary: lead.answers ? Object.entries(lead.answers as Record<string, any>).slice(0, 5) : [],
+            created_at: new Date().toISOString(),
+          },
+        },
+      });
+    }
+
+    if (followup.enabled) {
+      const schedule = followup.schedule || [];
+      const templates = followup.templates || {};
+      const personalization = followup.personalization || {};
+      const channels = followup.channels || { email: true, sms: false };
+
+      const jobsToEnqueue: any[] = [];
+      const now = Date.now();
+
+      for (const step of schedule) {
+        let offsetMs = 0;
+        if (step.offset_minutes) offsetMs = step.offset_minutes * 60 * 1000;
+        else if (step.offset_hours) offsetMs = step.offset_hours * 60 * 60 * 1000;
+        else if (step.offset_days) offsetMs = step.offset_days * 24 * 60 * 60 * 1000;
+
+        const runAt = new Date(now + offsetMs);
+        const template = templates[step.type] || {};
+
+        if (channels.email) {
+          jobsToEnqueue.push({
+            lead_id: lead.id,
+            calculator_id: calculatorId,
+            run_at: runAt,
+            type: step.type,
+            channel: 'email',
+            status: 'pending',
+            payload: {
+              followup_enabled: true,
+              template: { subject: template.subject, body: template.body },
+              personalization: {
+                business_name: personalization.business_name || calc.business_name,
+                phone: personalization.phone || calc.owner_phone || '',
+                booking_link: personalization.booking_link || '',
+                service_area: personalization.service_area || '',
+              },
+            },
+          });
+        }
+
+        if (channels.sms && lead.sms_consent) {
+          jobsToEnqueue.push({
+            lead_id: lead.id,
+            calculator_id: calculatorId,
+            run_at: runAt,
+            type: step.type,
+            channel: 'sms',
+            status: 'pending',
+            payload: {
+              followup_enabled: true,
+              template: { sms: template.sms },
+              personalization: {
+                business_name: personalization.business_name || calc.business_name,
+                phone: personalization.phone || calc.owner_phone || '',
+              },
+            },
+          });
+        }
+      }
+
+      if (jobsToEnqueue.length > 0) {
+        await storage.enqueueFollowupJobs(jobsToEnqueue);
+      }
+    }
+  }
 
   return httpServer;
 }
