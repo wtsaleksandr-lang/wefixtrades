@@ -238,9 +238,15 @@ export const calculatorSettingsSchema = z.object({
     version: z.number().default(1),
     status: z.enum(['draft', 'published']).default('draft'),
     slug: z.string().default(''),
+    subdomain: z.string().default(''),
     published_at: z.number().nullable().default(null),
     embed_id: z.string().default(''),
     last_modified: z.number().nullable().default(null),
+    custom_domain: z.string().default(''),
+    custom_domain_status: z.enum(['none', 'pending_dns', 'dns_verified', 'ssl_provisioning', 'active', 'failed']).default('none'),
+    ssl_status: z.enum(['none', 'pending', 'provisioning', 'active', 'failed']).default('none'),
+    last_dns_check: z.number().nullable().default(null),
+    hosting_domain: z.string().default('estimate.ai'),
   }).default({}),
 
   test_history: z.object({
