@@ -59,9 +59,20 @@ Two separate theme systems to maintain strict isolation:
 5. **Leads Dashboard**: View/export collected leads via token access
 6. **Duplicate**: When edit tokens expire, users can duplicate calculators for a fresh 7-day window
 
+## Pricing Architecture (Formula Families)
+**CRITICAL**: All pricing MUST use one of 10 strict formula families. No custom math allowed.
+- **File**: `shared/pricingConfig.ts` - Enum, Zod schemas, validation for all 10 families
+- **File**: `shared/calculateEstimate.ts` - Runtime calculator engine (single `calculateEstimate()` function)
+- **Families**: hourly, per_unit, per_sqft, per_linear_ft, base_plus_rate, tiered_packages, tiered_ranges, min_charge_plus_addons, price_range_only, call_for_quote_only
+- **Validation**: `validatePricingConfig(config)` validates against schemas, falls back to call_for_quote_only on invalid
+- **AI enforcement**: Both `/api/ai/generate-pricing` and `/api/ai/generate-pricing-draft` constrain AI output to these families and validate results
+- **CalculatorWidget**: Uses `calculateEstimate()` exclusively — no legacy question-based pricing
+
 ## Project Structure
 ```
 shared/schema.ts          - Database schema (calculators, leads tables)
+shared/pricingConfig.ts   - Formula families enum, Zod schemas, validation
+shared/calculateEstimate.ts - Runtime pricing calculator engine
 server/routes.ts          - Express API routes
 server/storage.ts         - Database storage layer
 server/db.ts              - Database connection
@@ -71,7 +82,7 @@ client/src/components/     - Reusable components
   wizard/WizardCard.tsx    - 6-step wizard form (sage/neutral theme, portal dropdown, help modal, live preview)
   wizard/DesignStudio.tsx  - Step 1 design studio (4-tab customization: Appearance, Layout, Conversion, Integrations)
   wizard/CustomTradeQuestionnaire.tsx - Step 0 custom trade structured input form (6 sections)
-  calculator/CalculatorWidget.tsx - Customer-facing quote calculator
+  calculator/CalculatorWidget.tsx - Customer-facing quote calculator (uses calculateEstimate engine)
   designTokens.tsx         - DEPRECATED design system tokens
   themeUtils.tsx           - Widget theme bridge utility
 client/src/theme/          - Theme architecture
@@ -118,6 +129,7 @@ client/src/data/trades.ts  - 8 categories, ~80 trades dataset
 - Wizard-bg: neutral #F7F8FA
 
 ## Recent Changes
+- Feb 24 2026: Formula Families pricing engine — 10 strict pricing families (hourly, per_unit, per_sqft, per_linear_ft, base_plus_rate, tiered_packages, tiered_ranges, min_charge_plus_addons, price_range_only, call_for_quote_only). Added shared/pricingConfig.ts (Zod schemas, validation, CALL_FOR_QUOTE_FALLBACK) and shared/calculateEstimate.ts (runtime engine). Updated AI endpoints to constrain output. Rebuilt CalculatorWidget with formula-family-aware inputs (quantity, tier selection, add-ons, difficulty, after-hours). Updated pricingDraftSchema to align with PricingConfigV1.
 - Feb 23 2026: Major wizard refactor — 6-step flow: Business & Trade Setup (simplified Step 0), Design Your Calculator (Step 1 with logo/tagline/DesignStudio), Pricing Logic (Step 2 with AI draft for custom trades), Lead Form Builder (Step 3), Final Test & Preview quality gate (Step 4), Publish & Share (Step 5). Added CustomTradeQuestionnaire with 6 structured input sections. New API endpoint for AI pricing draft generation. Removed old CustomPanel, customRequest, businessDescription. Added customTradeDataSchema/pricingDraftSchema to schema.
 - Feb 23 2026: Expanded wizard from 4 to 6 steps with Design Studio (Step 2). Added calculator_settings jsonb column with 40+ customization options. Built 4-tab design interface (Appearance/Layout/Conversion/Integrations). Service description and email merged into Step 1. Steps 3-5 added for pricing logic, final preview, and publish flow.
 - Feb 23 2026: Theme architecture separation - PlatformTheme (sage #2D6A4F builder) vs WidgetTheme (per-client colors). Replaced navy/indigo with neutral/sage. White wizard header. Widget CSS isolation via .widget-scope.

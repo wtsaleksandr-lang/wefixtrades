@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { randomBytes } from "crypto";
 import { z } from "zod";
 import OpenAI from "openai";
+import { PRICING_TYPES, validatePricingConfig, FAMILY_LABELS, FAMILY_DESCRIPTIONS } from "@shared/pricingConfig";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -53,20 +54,7 @@ const updateCalculatorBody = z.object({
     lead_thank_you_message: z.string().nullable().optional(),
     theme_overrides: z.record(z.any()).nullable().optional(),
     calculator_settings: z.record(z.any()).nullable().optional(),
-    pricing_config: z.object({
-      questions: z.array(z.object({
-        id: z.string(),
-        label: z.string(),
-        type: z.string(),
-        options: z.array(z.object({
-          label: z.string(),
-          value: z.string(),
-          price_impact: z.number(),
-        })),
-      })),
-      base_price: z.number(),
-      currency: z.string(),
-    }).optional(),
+    pricing_config: z.record(z.any()).optional(),
   }),
 });
 
@@ -99,31 +87,33 @@ export async function registerRoutes(
       }
       const { trade_type, business_description, services } = parsed.data;
 
-      const prompt = `You are a pricing expert for ${trade_type} businesses. Based on the following business description and services, generate a JSON pricing configuration for a quote calculator.
+      const familyList = PRICING_TYPES.map(t => `- "${t}": ${FAMILY_LABELS[t]} — ${FAMILY_DESCRIPTIONS[t]}`).join("\n");
+
+      const prompt = `You are a pricing expert for ${trade_type} businesses.
 
 Business: ${business_description || trade_type}
 Services: ${services || "General services"}
 
-Return a JSON object with this structure:
-{
-  "questions": [
-    {
-      "id": "q1",
-      "label": "What type of service do you need?",
-      "type": "select",
-      "options": [
-        { "label": "Option A", "value": "option_a", "price_impact": 100 },
-        { "label": "Option B", "value": "option_b", "price_impact": 200 }
-      ]
-    }
-  ],
-  "base_price": 150,
-  "currency": "USD"
-}
+You MUST choose ONE of these exact pricing families:
+${familyList}
 
-Generate 3-5 relevant questions for the ${trade_type} trade. Each question should have 2-5 options with realistic price_impact values.
+Return a JSON object that matches EXACTLY one of these schemas. Examples:
 
-Return ONLY the JSON, no explanation.`;
+For "hourly": { "pricingType": "hourly", "unitName": "hour", "rate": 85, "baseFee": 50, "travelFee": 25, "addOns": [{"id":"a1","label":"Emergency Service","type":"fixed","amount":75}] }
+For "per_sqft": { "pricingType": "per_sqft", "unitName": "sq ft", "rate": 4.5, "minCharge": 200 }
+For "base_plus_rate": { "pricingType": "base_plus_rate", "unitName": "room", "baseFee": 100, "rate": 50, "addOns": [{"id":"a1","label":"Deep Clean","type":"pct","amount":25}] }
+For "tiered_packages": { "pricingType": "tiered_packages", "tierMode": "fixed", "tiers": [{"label":"Basic","price":150},{"label":"Standard","price":300},{"label":"Premium","price":500}] }
+For "tiered_ranges": { "pricingType": "tiered_ranges", "tierMode": "fixed", "unitName": "sq ft", "tiers": [{"min":0,"max":500,"price":300},{"min":501,"max":1000,"price":500},{"min":1001,"max":null,"price":800}] }
+For "price_range_only": { "pricingType": "price_range_only", "rangeMin": 200, "rangeMax": 800 }
+
+Rules:
+- addOns must have: id (string), label (string), type ("fixed" or "pct"), amount (number >= 0)
+- difficultyTiers must have: id (string), label (string), multiplier (number >= 1)
+- afterHoursMult must be >= 1
+- All prices/rates must be >= 0
+- Choose the BEST family for this trade. Use realistic market rates.
+
+Return ONLY the JSON pricing config object.`;
 
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
@@ -139,11 +129,12 @@ Return ONLY the JSON, no explanation.`;
         return res.status(500).json({ error: "AI returned invalid JSON" });
       }
 
-      if (!pricing.questions || !Array.isArray(pricing.questions)) {
-        return res.status(500).json({ error: "AI returned invalid pricing structure" });
+      const validation = validatePricingConfig(pricing);
+      if (!validation.valid) {
+        console.warn("AI generated invalid pricing config, errors:", validation.errors);
       }
 
-      res.json({ success: true, pricing_config: pricing });
+      res.json({ success: true, pricing_config: validation.config, validation_errors: validation.valid ? [] : validation.errors });
     } catch (error: any) {
       console.error("AI pricing generation error:", error);
       res.status(500).json({ error: "Failed to generate pricing configuration" });
@@ -174,6 +165,19 @@ Return ONLY the JSON, no explanation.`;
 
       const { custom_trade_data, business_name } = body.data;
 
+      const chargeMethodHint: Record<string, string> = {
+        per_hour: "hourly",
+        per_sqft: "per_sqft",
+        per_linear_ft: "per_linear_ft",
+        per_item: "per_unit",
+        fixed_project: "tiered_packages",
+        base_plus_variable: "base_plus_rate",
+        not_sure: "price_range_only",
+      };
+
+      const suggestedFamily = chargeMethodHint[custom_trade_data.charge_method || "not_sure"] || "price_range_only";
+      const familyList = PRICING_TYPES.map(t => `- "${t}": ${FAMILY_LABELS[t]} — ${FAMILY_DESCRIPTIONS[t]}`).join("\n");
+
       const prompt = `You are a pricing expert for trades businesses. A business called "${business_name}" offers a custom service.
 
 Here is the information they provided:
@@ -184,26 +188,33 @@ Here is the information they provided:
 - Typical price range: $${custom_trade_data.price_range_min || '?'} - $${custom_trade_data.price_range_max || '?'}
 - Description: ${custom_trade_data.short_description || 'not provided'}
 
-Generate a JSON pricing draft with this structure:
+You MUST choose ONE of these exact pricing families (suggested: "${suggestedFamily}"):
+${familyList}
+
+Return a JSON object with this EXACT structure:
 {
-  "template_family_id": "custom_[descriptive_name]",
-  "inputs": [
-    {
-      "id": "q1",
-      "label": "Question text",
-      "type": "select",
-      "options": [
-        { "label": "Option A", "value": "a", "price_impact": 100 }
-      ]
-    }
-  ],
-  "calculation_config": { "base_price": 100, "currency": "USD" },
-  "assumptions": ["List of assumptions made about pricing"],
+  "pricing_config": { <the pricing config matching the chosen family schema> },
+  "assumptions": ["List of assumptions made"],
   "confidence_score": 0.7,
   "needs_human_review": true
 }
 
-Generate 3-5 relevant pricing questions based on the trade information. Return ONLY the JSON.`;
+Schema rules for the pricing_config:
+- "hourly": requires pricingType, unitName="hour", rate. Optional: baseFee, minCharge, travelFee, afterHoursMult, difficultyTiers, addOns, callUsThreshold
+- "per_unit": requires pricingType, unitName (string), rate. Same optional fields.
+- "per_sqft": requires pricingType, unitName="sq ft", rate. Same optional fields.
+- "per_linear_ft": requires pricingType, unitName="linear ft", rate. Same optional fields.
+- "base_plus_rate": requires pricingType, unitName, baseFee, rate. Same optional fields.
+- "tiered_packages": requires pricingType, tierMode="fixed", tiers=[{label,price}]. Optional: addOns, travelFee, afterHoursMult, difficultyTiers, callUsThreshold
+- "tiered_ranges": requires pricingType, tierMode="fixed", unitName, tiers=[{min,max|null,price}]. Same optional as tiered_packages.
+- "min_charge_plus_addons": requires pricingType, minCharge. Optional: addOns, travelFee, afterHoursMult, difficultyTiers, callUsThreshold
+- "price_range_only": requires pricingType, rangeMin, rangeMax. Optional: callUsThreshold
+- "call_for_quote_only": requires pricingType, message (string)
+
+addOns schema: {id: string, label: string, type: "fixed"|"pct", amount: number >= 0}
+difficultyTiers schema: {id: string, label: string, multiplier: number >= 1}
+
+Use realistic market rates. Return ONLY the JSON.`;
 
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
@@ -219,7 +230,20 @@ Generate 3-5 relevant pricing questions based on the trade information. Return O
         return res.status(500).json({ error: "AI returned invalid JSON" });
       }
 
-      res.json({ success: true, pricing_draft: draft });
+      const pricingConfig = draft.pricing_config || draft;
+      const validation = validatePricingConfig(pricingConfig);
+
+      res.json({
+        success: true,
+        pricing_draft: {
+          pricing_config: validation.config,
+          assumptions: Array.isArray(draft.assumptions) ? draft.assumptions : [],
+          confidence_score: typeof draft.confidence_score === "number" ? draft.confidence_score : 0.5,
+          needs_human_review: draft.needs_human_review !== false,
+          status: "ready",
+        },
+        validation_errors: validation.valid ? [] : validation.errors,
+      });
     } catch (error: any) {
       console.error("AI pricing draft generation error:", error);
       res.status(500).json({ error: "Failed to generate pricing draft" });
@@ -237,6 +261,9 @@ Generate 3-5 relevant pricing questions based on the trade information. Return O
       const edit_token = generateToken();
       const token_expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+      const pricingValidation = validatePricingConfig(parsed.data.pricing_config);
+      const validatedPricingConfig = pricingValidation.config;
+
       const calculator = await storage.createCalculator({
         slug,
         business_name: parsed.data.business_name,
@@ -244,7 +271,7 @@ Generate 3-5 relevant pricing questions based on the trade information. Return O
         tagline: parsed.data.tagline || null,
         logo_url: parsed.data.logo_url || null,
         owner_email: parsed.data.owner_email || null,
-        pricing_config: parsed.data.pricing_config,
+        pricing_config: validatedPricingConfig,
         primary_color: parsed.data.primary_color || "#6366f1",
         theme_overrides: parsed.data.theme_overrides || null,
         calculator_settings: parsed.data.calculator_settings || null,
@@ -327,7 +354,13 @@ Generate 3-5 relevant pricing questions based on the trade information. Return O
       const isExpired = new Date() > new Date(calculator.token_expires_at);
       if (isExpired) return res.status(403).json({ error: "Edit access expired" });
 
-      const updated = await storage.updateCalculator(calculator.id, parsed.data.updates);
+      const updates = { ...parsed.data.updates };
+      if (updates.pricing_config) {
+        const pricingValidation = validatePricingConfig(updates.pricing_config);
+        updates.pricing_config = pricingValidation.config;
+      }
+
+      const updated = await storage.updateCalculator(calculator.id, updates);
       res.json({ success: true, calculator: updated });
     } catch (error: any) {
       console.error("Update calculator error:", error);

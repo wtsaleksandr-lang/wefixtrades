@@ -225,9 +225,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       calculatorSettings: {
         ...prev.calculatorSettings,
         pricing_draft: {
-          template_family_id: '',
-          inputs: [],
-          calculation_config: {},
+          pricing_config: {},
           assumptions: [],
           confidence_score: 0,
           needs_human_review: true,
@@ -256,9 +254,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         calculatorSettings: {
           ...prev.calculatorSettings,
           pricing_draft: {
-            template_family_id: 'fallback',
-            inputs: [],
-            calculation_config: {},
+            pricing_config: { pricingType: 'call_for_quote_only', message: 'Request a quote' },
             assumptions: [],
             confidence_score: 0,
             needs_human_review: true,
@@ -279,19 +275,27 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       }, 400);
       try {
         const tradeLabel = TRADES.find(tr => tr.id === ws.selectedTrade)?.label || ws.customTradeData.short_description || ws.selectedCategory;
-        const aiRes = await apiRequest('POST', '/api/ai/generate-pricing', {
-          trade_type: tradeLabel,
-          business_description: tradeLabel,
-          services: tradeLabel,
-        });
-        const aiData = await aiRes.json();
-        if (!aiData.success || !aiData.pricing_config) throw new Error(aiData.error || 'Failed to generate pricing.');
+
+        let pricingConfig: any;
+        if (ws.isCustomTrade && ws.calculatorSettings.pricing_draft?.status === 'ready' && ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType) {
+          pricingConfig = ws.calculatorSettings.pricing_draft.pricing_config;
+          setGenProgress(50);
+        } else {
+          const aiRes = await apiRequest('POST', '/api/ai/generate-pricing', {
+            trade_type: tradeLabel,
+            business_description: tradeLabel,
+            services: tradeLabel,
+          });
+          const aiData = await aiRes.json();
+          if (!aiData.success || !aiData.pricing_config) throw new Error(aiData.error || 'Failed to generate pricing.');
+          pricingConfig = aiData.pricing_config;
+        }
         setGenProgress(70);
         const createRes = await apiRequest('POST', '/api/calculators', {
           business_name: ws.businessName,
           trade_type: tradeLabel,
           owner_email: ws.ownerEmail || undefined,
-          pricing_config: aiData.pricing_config,
+          pricing_config: pricingConfig,
           primary_color: ws.primaryColor,
           tagline: ws.tagline || undefined,
           logo_url: ws.logoUrl || undefined,
@@ -609,10 +613,10 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
                     <div style={{ padding: '16px', borderRadius: p.radius.md, border: `1px solid ${p.colors.border}`, background: '#FFFFFF', marginBottom: '16px' }}>
                       <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
-                        Template Family
+                        Pricing Family
                       </p>
                       <p style={{ fontSize: '14px', fontWeight: 500, color: p.colors.heading, marginBottom: '16px' }}>
-                        {ws.calculatorSettings.pricing_draft?.template_family_id || 'Custom'}
+                        {ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType || 'Custom'}
                       </p>
 
                       {(ws.calculatorSettings.pricing_draft?.assumptions || []).length > 0 && (
