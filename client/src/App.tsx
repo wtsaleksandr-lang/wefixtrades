@@ -8,6 +8,7 @@ import Wizard from "@/pages/wizard";
 import Calculator from "@/pages/calculator";
 import EditCalculator from "@/pages/edit-calculator";
 import LeadsPage from "@/pages/leads";
+import Dashboard from "@/pages/dashboard";
 
 function Router() {
   return (
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/Calculator" component={Calculator} />
       <Route path="/EditCalculator" component={EditCalculator} />
       <Route path="/Leads" component={LeadsPage} />
+      <Route path="/Dashboard" component={Dashboard} />
       <Route component={NotFound} />
     </Switch>
   );
