@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'wouter';
 import { platformTheme } from '@/theme/platformTheme';
 import {
   Check, Copy, ExternalLink, Code2, ChevronDown, RotateCcw,
@@ -445,6 +446,23 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
             <span><strong>Bookmark your links.</strong> The edit link expires in 7 days.</span>
           </div>
         </>
+      )}
+
+      {isPublished && result?.edit_token && (
+        <Link
+          data-testid="link-dashboard"
+          href={`/Dashboard?token=${result.edit_token}`}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            width: '100%', padding: '12px', borderRadius: p.radius.md,
+            background: p.colors.accent, color: '#fff',
+            fontSize: '14px', fontWeight: 600, textDecoration: 'none',
+            marginBottom: '8px', transition: p.transitions.fast,
+          }}
+        >
+          <Globe style={{ width: '15px', height: '15px' }} />
+          Go to Dashboard
+        </Link>
       )}
 
       <button data-testid="button-start-over" onClick={onStartOver} style={{

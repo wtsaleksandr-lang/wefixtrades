@@ -299,6 +299,13 @@ Return ONLY the JSON pricing config object.`;
         token_expires_at,
       });
 
+      await storage.upsertDeploymentStatus({
+        calculator_id: calculator.id,
+        status: 'live',
+        last_published_at: new Date(),
+        auto_republish: true,
+      });
+
       const subdomain = buildSubdomain(calculator.slug, HOSTING_DOMAIN);
       res.json({
         success: true,
@@ -310,6 +317,7 @@ Return ONLY the JSON pricing config object.`;
         edit_url: `/EditCalculator?token=${calculator.edit_token}`,
         calculator_url: `/Calculator?slug=${calculator.slug}`,
         leads_url: `/Leads?token=${calculator.edit_token}`,
+        dashboard_url: `/Dashboard?token=${calculator.edit_token}`,
       });
     } catch (error: any) {
       console.error("Create calculator error:", error);
@@ -543,13 +551,38 @@ Return ONLY the JSON pricing config object.`;
       if (isExpired) return res.status(403).json({ error: "Edit access expired" });
 
       const updates = { ...parsed.data.updates };
+      const pricingChanged = !!updates.pricing_config;
       if (updates.pricing_config) {
         const pricingValidation = validatePricingConfig(updates.pricing_config);
         updates.pricing_config = pricingValidation.config;
       }
 
       const updated = await storage.updateCalculator(calculator.id, updates);
-      res.json({ success: true, calculator: updated });
+
+      let autoRepublished = false;
+      if (pricingChanged) {
+        const deployment = await storage.getDeploymentStatus(calculator.id);
+        if (deployment?.auto_republish) {
+          const settings = (updated?.calculator_settings as any) || {};
+          const publish = settings.publish || {};
+          if (publish.status === 'published') {
+            await storage.updateCalculator(calculator.id, {
+              calculator_settings: {
+                ...settings,
+                publish: { ...publish, published_at: Date.now(), last_modified: null },
+              },
+            });
+            await storage.upsertDeploymentStatus({
+              calculator_id: calculator.id,
+              status: 'live',
+              last_published_at: new Date(),
+            });
+            autoRepublished = true;
+          }
+        }
+      }
+
+      res.json({ success: true, calculator: updated, auto_republished: autoRepublished });
     } catch (error: any) {
       console.error("Update calculator error:", error);
       res.status(500).json({ error: "Failed to update calculator" });
@@ -600,6 +633,7 @@ Return ONLY the JSON pricing config object.`;
       const parsed = trackViewBody.safeParse(_req.body);
       if (parsed.success) {
         await storage.incrementViews(parsed.data.calculator_id);
+        storage.trackEvent({ calculator_id: parsed.data.calculator_id, event_type: 'view', metadata: null }).catch(() => {});
       }
       res.json({ success: true });
     } catch {
@@ -623,6 +657,12 @@ Return ONLY the JSON pricing config object.`;
         quote_amount: parsed.data.quote_amount || null,
         answers: parsed.data.answers || null,
       });
+
+      storage.trackEvent({
+        calculator_id: parsed.data.calculator_id,
+        event_type: 'lead',
+        metadata: { quote_amount: parsed.data.quote_amount || null },
+      }).catch(() => {});
 
       res.json({ success: true, lead });
     } catch (error: any) {
@@ -659,6 +699,269 @@ Return ONLY the JSON pricing config object.`;
     } catch (error: any) {
       console.error("Get leads error:", error);
       res.status(500).json({ error: "Failed to get leads" });
+    }
+  });
+
+  // ============ DASHBOARD API ROUTES ============
+
+  async function requireCalcByToken(token: string) {
+    const calculator = await storage.getCalculatorByToken(token);
+    if (!calculator) return null;
+    const isExpired = new Date() > new Date(calculator.token_expires_at);
+    if (isExpired) return null;
+    return calculator;
+  }
+
+  app.get("/api/dashboard/overview", async (req, res) => {
+    try {
+      const token = String(req.query.token || '');
+      if (!token) return res.status(400).json({ error: "token required" });
+      const calculator = await requireCalcByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const [leadsThisWeek, totalLeads, eventCounts, deployment, avgQuote] = await Promise.all([
+        storage.getLeadCountSince(calculator.id, oneWeekAgo),
+        storage.getLeadsByCalculatorId(calculator.id).then(l => l.length),
+        storage.getEventCounts(calculator.id, oneWeekAgo),
+        storage.getDeploymentStatus(calculator.id),
+        storage.getAvgQuoteAmount(calculator.id),
+      ]);
+
+      const settings = (calculator.calculator_settings as any) || {};
+      const publish = settings.publish || {};
+
+      const totalViews = calculator.total_views || 0;
+      const conversionRate = totalViews > 0 ? Math.round((totalLeads / totalViews) * 100) : 0;
+
+      const subdomain = calculator.slug ? buildSubdomain(calculator.slug, HOSTING_DOMAIN) : '';
+
+      res.json({
+        calculator: {
+          id: calculator.id,
+          slug: calculator.slug,
+          business_name: calculator.business_name,
+          trade_type: calculator.trade_type,
+          owner_email: calculator.owner_email,
+          created_at: calculator.created_at,
+        },
+        status: publish.status || deployment?.status || 'draft',
+        hosted_url: subdomain ? `https://${subdomain}` : '',
+        subdomain,
+        custom_domain: publish.custom_domain || '',
+        custom_domain_status: publish.custom_domain_status || 'none',
+        stats: {
+          leads_this_week: leadsThisWeek,
+          total_leads: totalLeads,
+          total_views: totalViews,
+          views_this_week: eventCounts.views,
+          conversion_rate: conversionRate,
+          avg_quote: avgQuote,
+        },
+      });
+    } catch (error: any) {
+      console.error("Dashboard overview error:", error);
+      res.status(500).json({ error: "Failed to load overview" });
+    }
+  });
+
+  app.get("/api/dashboard/leads", async (req, res) => {
+    try {
+      const token = String(req.query.token || '');
+      const search = String(req.query.search || '');
+      if (!token) return res.status(400).json({ error: "token required" });
+      const calculator = await requireCalcByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      const leadsList = search
+        ? await storage.searchLeads(calculator.id, search)
+        : await storage.getLeadsByCalculatorId(calculator.id);
+
+      res.json({ leads: leadsList });
+    } catch (error: any) {
+      console.error("Dashboard leads error:", error);
+      res.status(500).json({ error: "Failed to load leads" });
+    }
+  });
+
+  app.delete("/api/dashboard/leads/:id", async (req, res) => {
+    try {
+      const token = String(req.query.token || '');
+      if (!token) return res.status(400).json({ error: "token required" });
+      const calculator = await requireCalcByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      await storage.deleteLead(parseInt(req.params.id), calculator.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Delete lead error:", error);
+      res.status(500).json({ error: "Failed to delete lead" });
+    }
+  });
+
+  app.get("/api/dashboard/leads/export", async (req, res) => {
+    try {
+      const token = String(req.query.token || '');
+      if (!token) return res.status(400).json({ error: "token required" });
+      const calculator = await requireCalcByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      const leadsList = await storage.getLeadsByCalculatorId(calculator.id);
+
+      const header = 'Name,Phone,Email,Quote,Date\n';
+      const rows = leadsList.map(l => {
+        const name = (l.name || '').replace(/,/g, ' ');
+        const phone = (l.phone || '').replace(/,/g, ' ');
+        const email = (l.email || '').replace(/,/g, ' ');
+        const quote = l.quote_amount || '';
+        const date = l.created_date ? new Date(l.created_date).toISOString().split('T')[0] : '';
+        return `${name},${phone},${email},${quote},${date}`;
+      }).join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="leads-${calculator.slug}.csv"`);
+      res.send(header + rows);
+    } catch (error: any) {
+      console.error("Export leads error:", error);
+      res.status(500).json({ error: "Failed to export leads" });
+    }
+  });
+
+  app.get("/api/dashboard/analytics", async (req, res) => {
+    try {
+      const token = String(req.query.token || '');
+      if (!token) return res.status(400).json({ error: "token required" });
+      const calculator = await requireCalcByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const [eventCounts, weeklyTrend, avgQuote, totalLeads] = await Promise.all([
+        storage.getEventCounts(calculator.id, thirtyDaysAgo),
+        storage.getWeeklyTrend(calculator.id),
+        storage.getAvgQuoteAmount(calculator.id),
+        storage.getLeadsByCalculatorId(calculator.id).then(l => l.length),
+      ]);
+
+      const totalViews = calculator.total_views || 0;
+      const conversionRate = totalViews > 0 ? Math.round((totalLeads / totalViews) * 100) : 0;
+
+      res.json({
+        views: totalViews,
+        leads: totalLeads,
+        conversion_rate: conversionRate,
+        avg_quote: avgQuote,
+        weekly_trend: weeklyTrend,
+      });
+    } catch (error: any) {
+      console.error("Dashboard analytics error:", error);
+      res.status(500).json({ error: "Failed to load analytics" });
+    }
+  });
+
+  app.post("/api/dashboard/track", async (req, res) => {
+    try {
+      const body = z.object({
+        calculator_id: z.number(),
+        event_type: z.enum(['view', 'lead', 'quote_generated']),
+        metadata: z.record(z.any()).optional(),
+      }).safeParse(req.body);
+      if (!body.success) return res.status(400).json({ error: "Invalid request" });
+
+      await storage.trackEvent({
+        calculator_id: body.data.calculator_id,
+        event_type: body.data.event_type,
+        metadata: body.data.metadata || null,
+      });
+
+      if (body.data.event_type === 'view') {
+        await storage.incrementViews(body.data.calculator_id);
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.json({ success: true });
+    }
+  });
+
+  app.patch("/api/dashboard/settings", async (req, res) => {
+    try {
+      const body = z.object({
+        token: z.string(),
+        notification_email: z.string().optional(),
+        auto_republish: z.boolean().optional(),
+      }).safeParse(req.body);
+      if (!body.success) return res.status(400).json({ error: "Invalid request" });
+
+      const calculator = await requireCalcByToken(body.data.token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      if (body.data.notification_email !== undefined) {
+        await storage.updateCalculator(calculator.id, { owner_email: body.data.notification_email });
+      }
+
+      if (body.data.auto_republish !== undefined) {
+        await storage.upsertDeploymentStatus({
+          calculator_id: calculator.id,
+          status: ((calculator.calculator_settings as any)?.publish?.status) || 'draft',
+          auto_republish: body.data.auto_republish,
+        });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Update settings error:", error);
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  app.post("/api/dashboard/republish", async (req, res) => {
+    try {
+      const body = z.object({ token: z.string() }).safeParse(req.body);
+      if (!body.success) return res.status(400).json({ error: "Invalid request" });
+
+      const calculator = await requireCalcByToken(body.data.token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      const settings = (calculator.calculator_settings as any) || {};
+      const publish = settings.publish || {};
+
+      await storage.updateCalculator(calculator.id, {
+        calculator_settings: {
+          ...settings,
+          publish: {
+            ...publish,
+            status: 'published',
+            published_at: Date.now(),
+            last_modified: null,
+          },
+        },
+      });
+
+      await storage.upsertDeploymentStatus({
+        calculator_id: calculator.id,
+        status: 'live',
+        last_published_at: new Date(),
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Republish error:", error);
+      res.status(500).json({ error: "Failed to republish" });
+    }
+  });
+
+  app.delete("/api/dashboard/calculator", async (req, res) => {
+    try {
+      const token = String(req.query.token || '');
+      if (!token) return res.status(400).json({ error: "token required" });
+      const calculator = await requireCalcByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      await storage.deleteCalculator(calculator.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Delete calculator error:", error);
+      res.status(500).json({ error: "Failed to delete calculator" });
     }
   });
 

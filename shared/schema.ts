@@ -311,6 +311,24 @@ export const leads = pgTable("leads", {
   created_date: timestamp("created_date").defaultNow(),
 });
 
+export const analyticsEvents = pgTable("analytics_events", {
+  id: serial("id").primaryKey(),
+  calculator_id: integer("calculator_id").notNull().references(() => calculators.id),
+  event_type: varchar("event_type", { length: 50 }).notNull(),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const deploymentStatus = pgTable("deployment_status", {
+  id: serial("id").primaryKey(),
+  calculator_id: integer("calculator_id").notNull().references(() => calculators.id).unique(),
+  status: varchar("status", { length: 20 }).notNull().default("draft"),
+  last_published_at: timestamp("last_published_at"),
+  auto_republish: boolean("auto_republish").default(true),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
 export const insertCalculatorSchema = createInsertSchema(calculators).omit({
   id: true,
   created_at: true,
@@ -321,7 +339,22 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
   created_date: true,
 });
 
+export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({
+  id: true,
+  created_at: true,
+});
+
+export const insertDeploymentStatusSchema = createInsertSchema(deploymentStatus).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+
 export type InsertCalculator = z.infer<typeof insertCalculatorSchema>;
 export type Calculator = typeof calculators.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type Lead = typeof leads.$inferSelect;
+export type InsertAnalyticsEvent = z.infer<typeof insertAnalyticsEventSchema>;
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type InsertDeploymentStatus = z.infer<typeof insertDeploymentStatusSchema>;
+export type DeploymentStatus = typeof deploymentStatus.$inferSelect;
