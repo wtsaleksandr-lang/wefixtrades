@@ -200,6 +200,40 @@ export const calculatorSettingsSchema = z.object({
     animation_speed: z.enum(['slow', 'normal', 'fast']).default('normal'),
   }).default({}),
 
+  lead_form: z.object({
+    version: z.number().default(1),
+    mode: z.enum(['optional', 'gated', 'call_only']).default('optional'),
+    fields: z.object({
+      name: z.boolean().default(true),
+      phone: z.boolean().default(true),
+      email: z.boolean().default(true),
+      address: z.boolean().default(false),
+      city: z.boolean().default(false),
+      postal_zip: z.boolean().default(false),
+      preferred_datetime: z.boolean().default(false),
+      job_notes: z.boolean().default(false),
+      file_upload: z.boolean().default(false),
+    }).default({}),
+    consent: z.object({
+      enabled: z.boolean().default(true),
+      text: z.string().default('I agree to be contacted about my quote.'),
+      sms_opt_in: z.boolean().default(false),
+    }).default({}),
+    cta: z.object({
+      button_text: z.string().default('Get My Quote'),
+      helper_text: z.string().default(''),
+    }).default({}),
+    delivery: z.object({
+      primary_email: z.string().default(''),
+      secondary_email: z.string().default(''),
+      webhook_url: z.string().default(''),
+    }).default({}),
+    spam: z.object({
+      honeypot: z.boolean().default(true),
+      recaptcha: z.boolean().default(false),
+    }).default({}),
+  }).default({}),
+
   test_history: z.object({
     scenarios: z.array(z.object({
       label: z.string(),
