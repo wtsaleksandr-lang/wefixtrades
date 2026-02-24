@@ -501,6 +501,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               confirmed: testHistory.confirmed,
               advanced_adjustments: testHistory.advancedAdjustments,
               timestamp: testHistory.timestamp,
+              refinement: testHistory.refinement || undefined,
             } : undefined,
             pricing_edits_applied: ws.isCustomTrade
               && ws.calculatorSettings.pricing_draft?.status === 'ready'
@@ -549,6 +550,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         confirmed: th.confirmed,
         advancedAdjustments: th.advanced_adjustments ?? null,
         timestamp: th.timestamp,
+        refinement: th.refinement ?? undefined,
       };
     }
     return null;
@@ -565,6 +567,29 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       });
     }
   }, [ws.isCustomTrade, ws.calculatorSettings, set]);
+
+  useEffect(() => {
+    if (testHistory) {
+      const serialized = {
+        scenarios: testHistory.scenarios.map(s => ({
+          label: s.label,
+          inputs: s.inputs,
+          yourCharge: s.yourCharge,
+        })),
+        accuracy_score: testHistory.accuracyScore,
+        confirmed: testHistory.confirmed,
+        advanced_adjustments: testHistory.advancedAdjustments,
+        timestamp: testHistory.timestamp,
+        refinement: testHistory.refinement || undefined,
+      };
+      if (JSON.stringify(ws.calculatorSettings.test_history) !== JSON.stringify(serialized)) {
+        set('calculatorSettings', {
+          ...ws.calculatorSettings,
+          test_history: serialized,
+        });
+      }
+    }
+  }, [testHistory]);
 
   const selectedTradeLabel = TRADES.find(tr => tr.id === ws.selectedTrade)?.label || '';
   const selectedCategoryLabel = CATEGORIES.find(c => c.id === ws.selectedCategory)?.label || '';

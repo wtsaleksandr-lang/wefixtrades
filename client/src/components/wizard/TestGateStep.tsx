@@ -1,11 +1,11 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
 import { calculateEstimate, type EstimateInputs, type EstimateResult } from '@shared/calculateEstimate';
 import { type PricingConfigV1 } from '@shared/pricingConfig';
 import {
   Shield, Check, AlertCircle, ArrowRight, Pencil, TrendingUp,
   TrendingDown, Minus, BarChart3, ChevronDown, ChevronUp, Settings2,
-  CheckCircle2
+  CheckCircle2, Sliders, RotateCcw, Zap, Target, Wrench
 } from 'lucide-react';
 
 const p = platformTheme;
@@ -17,12 +17,21 @@ interface ScenarioData {
   confirmed: boolean;
 }
 
+export interface RefinementData {
+  version: number;
+  last_tier: 'strong' | 'close' | 'needs_adjustment';
+  last_answers: { q1: string[]; q2: string; q3: string };
+  tune_count: number;
+  last_tuned_at: number | null;
+}
+
 export interface TestGateResult {
   scenarios: ScenarioData[];
   accuracyScore: number;
   confirmed: boolean;
   advancedAdjustments: Record<string, number> | null;
   timestamp: number;
+  refinement?: RefinementData;
 }
 
 interface TestGateStepProps {
@@ -50,6 +59,38 @@ const DEFAULT_QTY: Record<string, number[]> = {
   per_linear_ft: [10, 50, 200],
   base_plus_rate: [1, 5, 15],
   tiered_ranges: [1, 5, 20],
+};
+
+type ConfidenceTier = 'strong' | 'close' | 'needs_adjustment';
+
+function getConfidenceTier(avgAbsDev: number, score: number): ConfidenceTier {
+  if (avgAbsDev <= 10 && score >= 80) return 'strong';
+  if (avgAbsDev <= 20 && score >= 60) return 'close';
+  return 'needs_adjustment';
+}
+
+const TIER_META: Record<ConfidenceTier, { label: string; color: string; bg: string; micro: string; icon: any }> = {
+  strong: {
+    label: 'Strong Match',
+    color: '#059669',
+    bg: '#ECFDF5',
+    micro: 'Your pricing aligns well with real jobs.',
+    icon: CheckCircle2,
+  },
+  close: {
+    label: 'Close Match',
+    color: '#D97706',
+    bg: '#FFFBEB',
+    micro: 'Your pricing is close. You can fine-tune to reduce price objections.',
+    icon: Target,
+  },
+  needs_adjustment: {
+    label: 'Needs Adjustment',
+    color: '#DC2626',
+    bg: '#FEF2F2',
+    micro: "Let's tighten this before going live.",
+    icon: Wrench,
+  },
 };
 
 function getUnitLabel(config: any): string {
@@ -90,10 +131,71 @@ function calculateAccuracyScore(deviations: number[]): number {
   return Math.max(0, score);
 }
 
-function getAccuracyMeta(score: number): { color: string; bg: string; label: string } {
-  if (score >= 80) return { color: '#059669', bg: '#ECFDF5', label: 'Ready to Publish' };
-  if (score >= 60) return { color: '#D97706', bg: '#FFFBEB', label: 'Needs Attention' };
-  return { color: '#DC2626', bg: '#FEF2F2', label: 'Adjust Before Publishing' };
+const Q1_OPTIONS = [
+  { id: 'labor', label: 'Labor rate' },
+  { id: 'materials', label: 'Materials' },
+  { id: 'travel', label: 'Travel/time' },
+  { id: 'minimum', label: 'Minimum charge' },
+  { id: 'complexity', label: 'Complexity/difficulty' },
+];
+
+const Q2_OPTIONS = [
+  { id: 'raise_base_fee', label: 'Raise base fee' },
+  { id: 'adjust_rate', label: 'Adjust rate' },
+  { id: 'increase_minimum', label: 'Increase minimum charge' },
+  { id: 'add_difficulty', label: 'Add difficulty multiplier' },
+  { id: 'add_trip_fee', label: 'Add trip/service fee' },
+];
+
+const Q3_OPTIONS = [
+  { id: 'conservative', label: 'Conservative', desc: 'Higher margin' },
+  { id: 'balanced', label: 'Balanced', desc: 'Middle ground' },
+  { id: 'competitive', label: 'Competitive', desc: 'Lower margin' },
+];
+
+const STYLE_PCTS: Record<string, number> = {
+  conservative: 0.08,
+  balanced: 0.04,
+  competitive: 0.02,
+};
+
+function applyTune(config: any, q2: string, q3: string): any {
+  const pct = STYLE_PCTS[q3] || 0.04;
+  const tuned = { ...config };
+  const bump = (val: number | undefined) => val !== undefined ? Math.round((val * (1 + pct)) * 100) / 100 : undefined;
+
+  switch (q2) {
+    case 'raise_base_fee':
+      if (tuned.baseFee !== undefined) tuned.baseFee = bump(tuned.baseFee)!;
+      break;
+    case 'adjust_rate':
+      if (tuned.rate !== undefined) tuned.rate = bump(tuned.rate)!;
+      if (tuned.hourlyRate !== undefined) tuned.hourlyRate = bump(tuned.hourlyRate)!;
+      break;
+    case 'increase_minimum':
+      if (tuned.minCharge !== undefined) tuned.minCharge = bump(tuned.minCharge)!;
+      if (tuned.minimumCharge !== undefined) tuned.minimumCharge = bump(tuned.minimumCharge)!;
+      break;
+    case 'add_difficulty':
+      if (!tuned.difficultyTiers || tuned.difficultyTiers.length === 0) {
+        tuned.difficultyTiers = [
+          { label: 'Standard', multiplier: 1.0 },
+          { label: 'Moderate', multiplier: 1.15 },
+          { label: 'Heavy', multiplier: 1.3 },
+        ];
+      }
+      break;
+    case 'add_trip_fee':
+      if (tuned.travelFee !== undefined) {
+        tuned.travelFee = bump(tuned.travelFee)!;
+      } else {
+        const avgDev = 15;
+        tuned.travelFee = Math.round(avgDev * (1 + pct) * 100) / 100;
+      }
+      break;
+  }
+
+  return tuned;
 }
 
 export default function TestGateStep({
@@ -129,6 +231,14 @@ export default function TestGateStep({
   const [adjustments, setAdjustments] = useState<Record<string, number>>(initialTestHistory?.advancedAdjustments ?? {});
   const [expandedCard, setExpandedCard] = useState<number | null>(0);
 
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [q1Answers, setQ1Answers] = useState<string[]>(initialTestHistory?.refinement?.last_answers?.q1 || []);
+  const [q2Answer, setQ2Answer] = useState(initialTestHistory?.refinement?.last_answers?.q2 || '');
+  const [q3Answer, setQ3Answer] = useState(initialTestHistory?.refinement?.last_answers?.q3 || 'balanced');
+  const [tuneCount, setTuneCount] = useState(initialTestHistory?.refinement?.tune_count || 0);
+  const [lastTunedAt, setLastTunedAt] = useState<number | null>(initialTestHistory?.refinement?.last_tuned_at || null);
+  const [tuneBanner, setTuneBanner] = useState<string | null>(null);
+
   const effectiveConfig = useMemo(() => {
     if (!advancedMode || Object.keys(adjustments).length === 0) return pricingConfig;
     const cfg = { ...pricingConfig };
@@ -163,7 +273,14 @@ export default function TestGateStep({
 
   const validDeviations = deviations.filter(d => d !== null);
   const accuracyScore = calculateAccuracyScore(validDeviations.map(d => d!.pct));
-  const accuracyMeta = getAccuracyMeta(accuracyScore);
+
+  const avgAbsDeviation = validDeviations.length > 0
+    ? validDeviations.reduce((sum, d) => sum + Math.abs(d!.pct), 0) / validDeviations.length
+    : 0;
+
+  const tier: ConfidenceTier = validDeviations.length > 0 ? getConfidenceTier(avgAbsDeviation, accuracyScore) : 'strong';
+  const tierMeta = TIER_META[tier];
+  const TierIcon = tierMeta.icon;
 
   const filledCount = scenarios.filter((s, i) => {
     const charge = parseFloat(s.yourCharge);
@@ -193,6 +310,23 @@ export default function TestGateStep({
   const isCallForQuote = pType === 'call_for_quote_only' || pType === 'price_range_only';
   const canPublishOverride = isCallForQuote ? userConfirmed : canPublish;
 
+  const hardBlocked = !isCallForQuote && accuracyScore < 55 && validDeviations.length >= 3;
+  const softBlocked = !isCallForQuote && tier === 'needs_adjustment' && accuracyScore >= 55;
+
+  useEffect(() => {
+    if (tier === 'needs_adjustment' && validDeviations.length >= 3) {
+      setRefineOpen(true);
+    }
+  }, [tier, validDeviations.length]);
+
+  const currentRefinement: RefinementData = {
+    version: 1,
+    last_tier: tier,
+    last_answers: { q1: q1Answers, q2: q2Answer, q3: q3Answer },
+    tune_count: tuneCount,
+    last_tuned_at: lastTunedAt,
+  };
+
   useEffect(() => {
     onTestHistoryChange({
       scenarios,
@@ -200,16 +334,17 @@ export default function TestGateStep({
       confirmed: userConfirmed,
       advancedAdjustments: advancedMode && Object.keys(adjustments).length > 0 ? adjustments : null,
       timestamp: Date.now(),
+      refinement: currentRefinement,
     });
-  }, [scenarios, userConfirmed, advancedMode, adjustments]);
+  }, [scenarios, userConfirmed, advancedMode, adjustments, q1Answers, q2Answer, q3Answer, tuneCount, lastTunedAt]);
 
   const publishGateReasons: string[] = [];
   if (!isCallForQuote) {
     if (filledCount < 3) publishGateReasons.push(`Complete all 3 scenarios (${filledCount}/3 done)`);
     if (withinRange < 2 && validDeviations.length > 0) publishGateReasons.push(`At least 2 scenarios must be within ±20% (${withinRange}/2)`);
-    if (accuracyScore < 60 && validDeviations.length > 0) publishGateReasons.push(`Accuracy score must be 60+ (currently ${accuracyScore})`);
+    if (accuracyScore < 60 && validDeviations.length > 0) publishGateReasons.push(`Quote confidence score must be 60+ (currently ${accuracyScore})`);
   }
-  if (!userConfirmed) publishGateReasons.push('Confirm pricing accuracy checkbox');
+  if (!userConfirmed) publishGateReasons.push('Confirm pricing checkbox');
 
   const handlePublish = () => {
     if (!canPublishOverride && !publishPending) return;
@@ -219,6 +354,7 @@ export default function TestGateStep({
       confirmed: userConfirmed,
       advancedAdjustments: advancedMode && Object.keys(adjustments).length > 0 ? adjustments : null,
       timestamp: Date.now(),
+      refinement: currentRefinement,
     });
     if (advancedMode && Object.keys(adjustments).length > 0) {
       onPricingConfigChange(effectiveConfig);
@@ -226,12 +362,30 @@ export default function TestGateStep({
     onPublish();
   };
 
-  const suggestEdit = validDeviations.some(d => Math.abs(d!.pct) > 20);
-  const allFail = validDeviations.length >= 3 && validDeviations.every(d => Math.abs(d!.pct) > 20);
+  const handleApplyTune = useCallback(() => {
+    if (!q2Answer || !q3Answer) return;
+    const tuned = applyTune(effectiveConfig, q2Answer, q3Answer);
+    onPricingConfigChange(tuned);
+    setTuneCount(prev => prev + 1);
+    setLastTunedAt(Date.now());
+    setTuneBanner('Updated. Re-check your scenarios.');
+    setTimeout(() => setTuneBanner(null), 4000);
+  }, [q2Answer, q3Answer, effectiveConfig, onPricingConfigChange]);
+
+  const handleResetTune = () => {
+    setQ1Answers([]);
+    setQ2Answer('');
+    setQ3Answer('balanced');
+  };
+
+  const toggleQ1 = (id: string) => {
+    setQ1Answers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const tierImproved = tuneBanner && (tier === 'strong' || tier === 'close');
 
   return (
     <div className="animate-fade-in-up">
-      {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
           <div style={{
@@ -261,33 +415,32 @@ export default function TestGateStep({
         </div>
       )}
 
-      {/* Accuracy Meter */}
       {validDeviations.length > 0 && (
-        <div data-testid="accuracy-meter" style={{
+        <div data-testid="confidence-meter" style={{
           padding: '16px', borderRadius: p.radius.md,
           background: p.colors.surfaceRaised, border: `1px solid ${p.colors.border}`,
           marginBottom: '20px',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <BarChart3 style={{ width: '15px', height: '15px', color: accuracyMeta.color }} />
-              <span style={{ ...p.typography.label }}>Accuracy Score</span>
+              <TierIcon style={{ width: '15px', height: '15px', color: tierMeta.color }} />
+              <span style={{ ...p.typography.label }}>Quote Confidence</span>
             </div>
-            <div style={{
+            <div data-testid="tier-badge" style={{
               padding: '3px 10px', borderRadius: p.radius.pill,
-              background: accuracyMeta.bg, fontSize: '12px', fontWeight: 600,
-              color: accuracyMeta.color,
+              background: tierMeta.bg, fontSize: '12px', fontWeight: 600,
+              color: tierMeta.color,
             }}>
-              {accuracyMeta.label}
+              {tierMeta.label}
             </div>
           </div>
           <div style={{
             height: '8px', borderRadius: '4px', background: p.colors.borderLight, overflow: 'hidden',
           }}>
-            <div style={{
+            <div data-testid="confidence-bar" style={{
               height: '100%', borderRadius: '4px',
               width: `${accuracyScore}%`,
-              background: accuracyMeta.color,
+              background: tierMeta.color,
               transition: p.transitions.normal,
             }} />
           </div>
@@ -297,11 +450,33 @@ export default function TestGateStep({
               {filledCount}/3 scenarios · {withinRange} within ±20%
             </span>
           </div>
+          <p data-testid="tier-microcopy" style={{
+            fontSize: '12px', color: tierMeta.color, marginTop: '8px', marginBottom: 0,
+            fontWeight: 500, lineHeight: 1.4,
+          }}>
+            {tierMeta.micro}
+          </p>
         </div>
       )}
 
-      {/* Smart Suggestions */}
-      {suggestEdit && !allFail && (
+      {tuneBanner && (
+        <div data-testid="tune-banner" className="animate-fade-in-up" style={{
+          padding: '12px 16px', borderRadius: p.radius.md,
+          background: tierImproved ? '#ECFDF5' : '#FFFBEB',
+          border: `1px solid ${tierImproved ? '#A7F3D0' : '#FDE68A'}`,
+          marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px',
+        }}>
+          {tierImproved
+            ? <CheckCircle2 style={{ width: '15px', height: '15px', color: '#059669', flexShrink: 0 }} />
+            : <Zap style={{ width: '15px', height: '15px', color: '#D97706', flexShrink: 0 }} />
+          }
+          <span style={{ fontSize: '13px', color: tierImproved ? '#065F46' : '#92400E', fontWeight: 500 }}>
+            {tierImproved ? "Nice — your quotes now match real jobs better." : tuneBanner}
+          </span>
+        </div>
+      )}
+
+      {!isCallForQuote && validDeviations.length > 0 && validDeviations.some(d => Math.abs(d!.pct) > 20) && !refineOpen && (
         <div data-testid="smart-suggestion" style={{
           padding: '12px 16px', borderRadius: p.radius.md,
           background: '#FFFBEB', border: '1px solid #FDE68A', marginBottom: '16px',
@@ -310,46 +485,21 @@ export default function TestGateStep({
           <AlertCircle style={{ width: '15px', height: '15px', color: '#D97706', flexShrink: 0, marginTop: '1px' }} />
           <div>
             <p style={{ fontSize: '13px', color: '#92400E', lineHeight: 1.5, margin: 0 }}>
-              Some estimates differ significantly from your actual charges. Consider adjusting your base fee or rate.
+              Some estimates differ from your charges. Fine-tune to reduce price objections.
             </p>
-            {!advancedMode && (
-              <button data-testid="button-enable-advanced" onClick={() => setAdvancedMode(true)} style={{
-                marginTop: '8px', padding: '6px 12px', borderRadius: p.radius.sm,
-                border: `1px solid ${p.colors.border}`, background: 'white',
-                fontSize: '12px', fontWeight: 600, color: p.colors.accent,
-                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px',
-              }}>
-                <Settings2 style={{ width: '12px', height: '12px' }} /> Enable Adjustment Mode
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {allFail && (
-        <div data-testid="smart-suggestion-critical" style={{
-          padding: '12px 16px', borderRadius: p.radius.md,
-          background: '#FEF2F2', border: '1px solid #FECACA', marginBottom: '16px',
-          display: 'flex', alignItems: 'flex-start', gap: '10px',
-        }}>
-          <AlertCircle style={{ width: '15px', height: '15px', color: '#DC2626', flexShrink: 0, marginTop: '1px' }} />
-          <div>
-            <p style={{ fontSize: '13px', color: '#991B1B', lineHeight: 1.5, margin: 0 }}>
-              Your formula may need revision — all test scenarios show large deviations.
-            </p>
-            <button data-testid="button-edit-pricing" onClick={onBack} style={{
+            <button data-testid="button-open-refine" onClick={() => setRefineOpen(true)} style={{
               marginTop: '8px', padding: '6px 12px', borderRadius: p.radius.sm,
-              border: `1px solid #FECACA`, background: 'white',
-              fontSize: '12px', fontWeight: 600, color: '#DC2626',
+              border: `1px solid ${p.colors.border}`, background: 'white',
+              fontSize: '12px', fontWeight: 600, color: p.colors.accent,
               cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px',
             }}>
-              <Pencil style={{ width: '12px', height: '12px' }} /> Edit Pricing Logic
+              <Sliders style={{ width: '12px', height: '12px' }} /> Fine-Tune Pricing
             </button>
           </div>
         </div>
       )}
 
-      {/* Advanced Adjustment Mode */}
+      {/* Advanced Adjustment Mode (legacy) */}
       {advancedMode && (
         <div data-testid="advanced-adjustments" style={{
           padding: '16px', borderRadius: p.radius.md,
@@ -431,7 +581,6 @@ export default function TestGateStep({
             boxShadow: isExpanded ? p.shadows.card : p.shadows.xs,
             transition: p.transitions.normal,
           }}>
-            {/* Card Header */}
             <button data-testid={`button-expand-scenario-${idx}`}
               onClick={() => setExpandedCard(isExpanded ? null : idx)}
               style={{
@@ -484,14 +633,12 @@ export default function TestGateStep({
               </div>
             </button>
 
-            {/* Card Body */}
             {isExpanded && (
               <div style={{ padding: '0 16px 16px', borderTop: `1px solid ${p.colors.borderLight}` }}>
                 <p style={{ ...p.typography.captionSm, marginTop: '12px', marginBottom: '12px', fontStyle: 'italic' }}>
                   {SCENARIO_HINTS[idx]}
                 </p>
 
-                {/* Dynamic Inputs */}
                 {hasQty && (
                   <div style={{ marginBottom: '12px' }}>
                     <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: '4px' }}>
@@ -518,7 +665,6 @@ export default function TestGateStep({
                   </div>
                 )}
 
-                {/* Estimated Price Output */}
                 <div style={{
                   padding: '12px', borderRadius: p.radius.sm,
                   background: p.colors.surfaceRaised, marginBottom: '12px',
@@ -549,7 +695,6 @@ export default function TestGateStep({
                   )}
                 </div>
 
-                {/* Your Charge */}
                 <div style={{ marginBottom: '12px' }}>
                   <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: '4px' }}>
                     What would YOU normally charge? ($)
@@ -571,7 +716,6 @@ export default function TestGateStep({
                   )}
                 </div>
 
-                {/* Deviation Display */}
                 {dev && (
                   <div data-testid={`deviation-display-${idx}`} style={{
                     padding: '10px 12px', borderRadius: p.radius.sm,
@@ -604,12 +748,159 @@ export default function TestGateStep({
         );
       })}
 
+      {/* Inline Refinement Panel */}
+      {!isCallForQuote && (
+        <div data-testid="refine-panel-wrapper" style={{ marginTop: '16px', marginBottom: '16px' }}>
+          <button data-testid="button-toggle-refine" onClick={() => setRefineOpen(!refineOpen)} style={{
+            width: '100%', padding: '12px 16px',
+            borderRadius: refineOpen ? `${p.radius.md} ${p.radius.md} 0 0` : p.radius.md,
+            border: `1px solid ${refineOpen ? p.colors.borderSelected : p.colors.border}`,
+            borderBottom: refineOpen ? 'none' : undefined,
+            background: refineOpen ? p.colors.surfaceRaised : 'white',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            transition: p.transitions.fast,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sliders style={{ width: '14px', height: '14px', color: p.colors.accent }} />
+              <span style={{ fontSize: '13px', fontWeight: 600, color: p.colors.heading }}>Refine Pricing</span>
+              {tuneCount > 0 && (
+                <span style={{
+                  fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '10px',
+                  background: p.colors.accentLighter, color: p.colors.accent,
+                }}>{tuneCount} tune{tuneCount > 1 ? 's' : ''}</span>
+              )}
+            </div>
+            {refineOpen
+              ? <ChevronUp style={{ width: '14px', height: '14px', color: p.colors.muted }} />
+              : <ChevronDown style={{ width: '14px', height: '14px', color: p.colors.muted }} />
+            }
+          </button>
+
+          {refineOpen && (
+            <div data-testid="refine-panel" className="animate-fade-in-up" style={{
+              padding: '16px', border: `1px solid ${p.colors.borderSelected}`,
+              borderTop: 'none', borderRadius: `0 0 ${p.radius.md} ${p.radius.md}`,
+              background: 'white',
+            }}>
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ ...p.typography.label, marginBottom: '8px' }}>
+                  Where is the mismatch usually coming from?
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {Q1_OPTIONS.map(opt => {
+                    const sel = q1Answers.includes(opt.id);
+                    return (
+                      <button key={opt.id} data-testid={`q1-${opt.id}`} onClick={() => toggleQ1(opt.id)} style={{
+                        padding: '7px 12px', borderRadius: p.radius.pill,
+                        border: `1px solid ${sel ? p.colors.accent : p.colors.border}`,
+                        background: sel ? p.colors.accentLighter : 'white',
+                        color: sel ? p.colors.accent : p.colors.body,
+                        fontSize: '12px', fontWeight: sel ? 600 : 500, cursor: 'pointer',
+                        transition: p.transitions.fast,
+                      }}>
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ ...p.typography.label, marginBottom: '8px' }}>
+                  What do you want to change?
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {Q2_OPTIONS.map(opt => {
+                    const sel = q2Answer === opt.id;
+                    return (
+                      <button key={opt.id} data-testid={`q2-${opt.id}`} onClick={() => setQ2Answer(opt.id)} style={{
+                        padding: '10px 14px', borderRadius: p.radius.sm,
+                        border: `1px solid ${sel ? p.colors.accent : p.colors.border}`,
+                        background: sel ? p.colors.accentLighter : 'white',
+                        color: sel ? p.colors.accent : p.colors.body,
+                        fontSize: '13px', fontWeight: sel ? 600 : 500, cursor: 'pointer',
+                        textAlign: 'left', transition: p.transitions.fast,
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                      }}>
+                        <div style={{
+                          width: '16px', height: '16px', borderRadius: '50%',
+                          border: `2px solid ${sel ? p.colors.accent : p.colors.borderHover}`,
+                          background: sel ? p.colors.accent : 'white',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        }}>
+                          {sel && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'white' }} />}
+                        </div>
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ ...p.typography.label, marginBottom: '8px' }}>
+                  Pricing style
+                </p>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {Q3_OPTIONS.map(opt => {
+                    const sel = q3Answer === opt.id;
+                    return (
+                      <button key={opt.id} data-testid={`q3-${opt.id}`} onClick={() => setQ3Answer(opt.id)} style={{
+                        flex: 1, padding: '10px 8px', borderRadius: p.radius.sm,
+                        border: `1px solid ${sel ? p.colors.accent : p.colors.border}`,
+                        background: sel ? p.colors.accentLighter : 'white',
+                        cursor: 'pointer', textAlign: 'center', transition: p.transitions.fast,
+                      }}>
+                        <span style={{ display: 'block', fontSize: '13px', fontWeight: sel ? 700 : 600, color: sel ? p.colors.accent : p.colors.heading }}>
+                          {opt.label}
+                        </span>
+                        <span style={{ display: 'block', fontSize: '10px', color: p.colors.muted, marginTop: '2px' }}>
+                          {opt.desc}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button data-testid="button-apply-tune" onClick={handleApplyTune}
+                  disabled={!q2Answer}
+                  style={{
+                    flex: 1, padding: '12px', borderRadius: p.radius.md, border: 'none',
+                    background: q2Answer
+                      ? `linear-gradient(135deg, ${p.colors.accent}, ${p.colors.accentDark})`
+                      : p.colors.borderLight,
+                    color: q2Answer ? 'white' : p.colors.muted,
+                    fontSize: '13px', fontWeight: 600,
+                    cursor: q2Answer ? 'pointer' : 'not-allowed',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                    boxShadow: q2Answer ? p.shadows.button : 'none',
+                  }}>
+                  <Zap style={{ width: '14px', height: '14px' }} />
+                  Apply Tune
+                </button>
+                <button data-testid="button-reset-tune" onClick={handleResetTune} style={{
+                  padding: '12px 16px', borderRadius: p.radius.md,
+                  border: `1px solid ${p.colors.border}`, background: 'white',
+                  fontSize: '13px', fontWeight: 600, color: p.colors.muted,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
+                }}>
+                  <RotateCcw style={{ width: '12px', height: '12px' }} />
+                  Reset
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Confirmation Checkbox */}
       <div style={{
         padding: '14px 16px', borderRadius: p.radius.md,
         background: userConfirmed ? '#F0FDF4' : p.colors.surfaceRaised,
         border: `1px solid ${userConfirmed ? '#A7F3D0' : p.colors.border}`,
-        marginTop: '20px', marginBottom: '16px',
+        marginTop: '4px', marginBottom: '16px',
         display: 'flex', alignItems: 'flex-start', gap: '12px',
         cursor: 'pointer', transition: p.transitions.normal,
       }} onClick={() => setUserConfirmed(!userConfirmed)}>
@@ -632,8 +923,22 @@ export default function TestGateStep({
         </div>
       </div>
 
+      {/* Hard Block */}
+      {hardBlocked && (
+        <div data-testid="hard-block" style={{
+          padding: '14px 16px', borderRadius: p.radius.md,
+          background: '#FEF2F2', border: '1px solid #FECACA',
+          marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px',
+        }}>
+          <AlertCircle style={{ width: '16px', height: '16px', color: '#DC2626', flexShrink: 0 }} />
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#991B1B' }}>
+            Refine pricing to proceed.
+          </span>
+        </div>
+      )}
+
       {/* Publish Gate Reasons */}
-      {publishGateReasons.length > 0 && filledCount > 0 && (
+      {publishGateReasons.length > 0 && filledCount > 0 && !hardBlocked && (
         <div data-testid="publish-gate-reasons" style={{
           padding: '12px 16px', borderRadius: p.radius.md,
           background: p.colors.surfaceRaised, border: `1px solid ${p.colors.border}`,
@@ -663,7 +968,7 @@ export default function TestGateStep({
         </div>
       )}
 
-      {/* Footer */}
+      {/* Footer Buttons */}
       <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
         <button data-testid="button-back" onClick={onBack} style={{
           flex: '0 0 auto', padding: '12px 20px', borderRadius: p.radius.md,
@@ -672,45 +977,96 @@ export default function TestGateStep({
         }}>
           Back
         </button>
-        <div style={{ position: 'relative', flex: 1 }}>
-          <button data-testid="button-generate" onClick={handlePublish}
-            disabled={!canPublishOverride || publishPending}
-            style={{
-              width: '100%', padding: '12px 20px', borderRadius: p.radius.md,
-              border: 'none',
-              background: canPublishOverride && !publishPending
-                ? `linear-gradient(135deg, ${p.colors.accent}, ${p.colors.accentDark})`
-                : p.colors.borderLight,
-              color: canPublishOverride && !publishPending ? 'white' : p.colors.muted,
-              fontSize: '14px', fontWeight: 600, cursor: canPublishOverride && !publishPending ? 'pointer' : 'not-allowed',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-              boxShadow: canPublishOverride ? p.shadows.button : 'none',
-              transition: p.transitions.normal,
-              opacity: publishPending ? 0.7 : 1,
-            }}>
-            {publishPending ? (
-              <div style={{
-                width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)',
-                borderTopColor: 'white', borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-              }} />
-            ) : (
-              <CheckCircle2 style={{ width: '16px', height: '16px' }} />
-            )}
-            {publishPending ? 'Generating...' : 'Generate & Publish'}
+
+        {/* Dynamic CTA based on tier */}
+        {hardBlocked ? (
+          <button data-testid="button-refine-primary" onClick={() => setRefineOpen(true)} style={{
+            flex: 1, padding: '12px 20px', borderRadius: p.radius.md, border: 'none',
+            background: `linear-gradient(135deg, ${p.colors.accent}, ${p.colors.accentDark})`,
+            color: 'white', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            boxShadow: p.shadows.button,
+          }}>
+            <Sliders style={{ width: '16px', height: '16px' }} />
+            Refine Pricing
           </button>
-          {!canPublishOverride && !publishPending && publishGateReasons.length > 0 && (
-            <div style={{
-              position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-              marginBottom: '6px', padding: '6px 10px', borderRadius: p.radius.sm,
-              background: p.colors.heading, color: 'white', fontSize: '11px',
-              whiteSpace: 'nowrap', pointerEvents: 'none', opacity: 0,
-              transition: p.transitions.fast,
-            }} className="publish-tooltip">
-              Complete pricing validation to publish.
-            </div>
-          )}
-        </div>
+        ) : tier === 'needs_adjustment' && canPublishOverride && !publishPending ? (
+          <div style={{ flex: 1, display: 'flex', gap: '8px' }}>
+            <button data-testid="button-refine-primary" onClick={() => setRefineOpen(true)} style={{
+              flex: 1, padding: '12px 16px', borderRadius: p.radius.md, border: 'none',
+              background: `linear-gradient(135deg, ${p.colors.accent}, ${p.colors.accentDark})`,
+              color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              boxShadow: p.shadows.button,
+            }}>
+              <Sliders style={{ width: '14px', height: '14px' }} />
+              Refine Pricing
+            </button>
+            {accuracyScore >= 55 && (
+              <button data-testid="button-continue-anyway" onClick={handlePublish} style={{
+                padding: '12px 16px', borderRadius: p.radius.md,
+                border: `1px solid ${p.colors.border}`, background: 'white',
+                fontSize: '13px', fontWeight: 600, color: p.colors.body, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                whiteSpace: 'nowrap',
+              }}>
+                Continue Anyway
+              </button>
+            )}
+          </div>
+        ) : tier === 'close' && canPublishOverride && !publishPending ? (
+          <div style={{ flex: 1, display: 'flex', gap: '8px' }}>
+            <button data-testid="button-generate" onClick={handlePublish} style={{
+              flex: 1, padding: '12px 20px', borderRadius: p.radius.md, border: 'none',
+              background: `linear-gradient(135deg, ${p.colors.accent}, ${p.colors.accentDark})`,
+              color: 'white', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              boxShadow: p.shadows.button,
+            }}>
+              <CheckCircle2 style={{ width: '16px', height: '16px' }} />
+              Continue
+            </button>
+            <button data-testid="button-fine-tune" onClick={() => setRefineOpen(true)} style={{
+              padding: '12px 16px', borderRadius: p.radius.md,
+              border: `1px solid ${p.colors.border}`, background: 'white',
+              fontSize: '13px', fontWeight: 600, color: p.colors.accent, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              whiteSpace: 'nowrap',
+            }}>
+              <Sliders style={{ width: '14px', height: '14px' }} />
+              Fine-Tune
+            </button>
+          </div>
+        ) : (
+          <div style={{ position: 'relative', flex: 1 }}>
+            <button data-testid="button-generate" onClick={handlePublish}
+              disabled={!canPublishOverride || publishPending}
+              style={{
+                width: '100%', padding: '12px 20px', borderRadius: p.radius.md,
+                border: 'none',
+                background: canPublishOverride && !publishPending
+                  ? `linear-gradient(135deg, ${p.colors.accent}, ${p.colors.accentDark})`
+                  : p.colors.borderLight,
+                color: canPublishOverride && !publishPending ? 'white' : p.colors.muted,
+                fontSize: '14px', fontWeight: 600, cursor: canPublishOverride && !publishPending ? 'pointer' : 'not-allowed',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                boxShadow: canPublishOverride ? p.shadows.button : 'none',
+                transition: p.transitions.normal,
+                opacity: publishPending ? 0.7 : 1,
+              }}>
+              {publishPending ? (
+                <div style={{
+                  width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)',
+                  borderTopColor: 'white', borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                }} />
+              ) : (
+                <CheckCircle2 style={{ width: '16px', height: '16px' }} />
+              )}
+              {publishPending ? 'Generating...' : 'Generate & Publish'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
