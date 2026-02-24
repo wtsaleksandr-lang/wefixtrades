@@ -136,8 +136,29 @@ export const pricingAuditLogSchema = z.object({
 
 export type PricingAuditLog = z.infer<typeof pricingAuditLogSchema>;
 
+export const bookingSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  require_deposit: z.boolean().default(false),
+  deposit_type: z.enum(['fixed', 'percentage']).default('fixed'),
+  deposit_value: z.number().default(0),
+  slot_duration_minutes: z.number().default(60),
+  stripe_account_id: z.string().default(''),
+  availability: z.object({
+    timezone: z.string().default('America/New_York'),
+    working_days: z.array(z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])).default(['mon', 'tue', 'wed', 'thu', 'fri']),
+    start_time: z.string().default('09:00'),
+    end_time: z.string().default('17:00'),
+    buffer_minutes: z.number().default(0),
+  }).default({}),
+}).default({});
+
+export type BookingSettings = z.infer<typeof bookingSettingsSchema>;
+
 export const calculatorSettingsSchema = z.object({
   settings_version: z.number().default(1),
+
+  calculator_type: z.enum(['estimate_only', 'estimate_plus_booking', 'booking_only']).default('estimate_only'),
+  booking_settings: bookingSettingsSchema,
 
   pricing_draft: pricingDraftSchema,
   pricing_intake: pricingIntakeSchema.optional(),
@@ -475,6 +496,31 @@ export const insertJobLogSchema = createInsertSchema(jobLogs).omit({
   id: true,
 });
 
+export const bookings = pgTable("bookings", {
+  id: serial("id").primaryKey(),
+  calculator_id: integer("calculator_id").notNull().references(() => calculators.id),
+  lead_id: integer("lead_id").references(() => leads.id),
+  customer_name: text("customer_name").notNull(),
+  customer_email: text("customer_email"),
+  customer_phone: text("customer_phone"),
+  date: varchar("date", { length: 10 }).notNull(),
+  time: varchar("time", { length: 5 }).notNull(),
+  duration_minutes: integer("duration_minutes").notNull().default(60),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  deposit_amount: integer("deposit_amount").default(0),
+  deposit_paid: boolean("deposit_paid").default(false),
+  stripe_payment_intent_id: text("stripe_payment_intent_id"),
+  stripe_checkout_session_id: text("stripe_checkout_session_id"),
+  quote_amount: integer("quote_amount"),
+  notes: text("notes"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertBookingSchema = createInsertSchema(bookings).omit({
+  id: true,
+  created_at: true,
+});
+
 export type InsertCalculator = z.infer<typeof insertCalculatorSchema>;
 export type Calculator = typeof calculators.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
@@ -491,3 +537,5 @@ export type InsertNotificationQueue = z.infer<typeof insertNotificationQueueSche
 export type NotificationQueue = typeof notificationQueue.$inferSelect;
 export type InsertFollowupJob = z.infer<typeof insertFollowupJobSchema>;
 export type FollowupJob = typeof followupJobs.$inferSelect;
+export type InsertBooking = z.infer<typeof insertBookingSchema>;
+export type Booking = typeof bookings.$inferSelect;

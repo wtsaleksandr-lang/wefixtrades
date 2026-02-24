@@ -1,0 +1,168 @@
+
+PHASE 1 — Implement Estimate + Booking Hybrid Engine
+
+Do NOT change existing estimate logic.
+Extend architecture cleanly.
+No UI redesign.
+No scope expansion beyond booking core.
+
+====================================================
+1) CORE ARCHITECTURE
+====================================================
+
+Add calculator_type to calculator_settings:
+
+calculator_settings.type = 
+  "estimate_only" |
+  "estimate_plus_booking" |
+  "booking_only"
+
+Default = "estimate_only"
+
+====================================================
+2) WIZARD UPDATE
+====================================================
+
+In Step 2 (Pricing Questions), add toggle:
+
+"Allow customers to book instantly after seeing estimate?"
+
+Options:
+- No (Estimate only)
+- Yes (Estimate + Booking)
+
+If Yes:
+  calculator_type = "estimate_plus_booking"
+
+If booking_only:
+  Skip price panel (optional future support)
+
+====================================================
+3) BOOKING SETTINGS (Wizard Step 5 or new Booking tab in wizard)
+====================================================
+
+Add booking_settings:
+
+booking_settings = {
+  enabled: true,
+  require_deposit: boolean,
+  deposit_type: "fixed" | "percentage",
+  deposit_value: number,
+  slot_duration_minutes: 30 | 60 | custom,
+  availability: {
+    timezone: string,
+    working_days: [mon,tue,wed,thu,fri,sat,sun],
+    start_time: "09:00",
+    end_time: "17:00",
+    buffer_minutes: number
+  }
+}
+
+UI:
+- Toggle: Require deposit?
+- If yes → choose fixed or %
+- Set slot duration
+- Choose working days
+- Choose working hours
+- Timezone dropdown
+
+====================================================
+4) STRIPE CONNECT INTEGRATION
+====================================================
+
+Use Stripe Connect Express.
+
+Flow:
+- Button: "Connect Stripe"
+- OAuth flow
+- Store stripe_account_id in account record
+
+Payments:
+- Deposit charged to connected account
+- Optional platform_fee_percent configurable later
+
+Never process payments through platform account.
+
+====================================================
+5) BOOKING FLOW (FRONTEND WIDGET)
+====================================================
+
+If calculator_type == estimate_plus_booking:
+
+After showing estimate:
+Show:
+- Available dates (calendar picker)
+- Available time slots (based on availability + existing bookings)
+- Select date/time
+
+If require_deposit:
+- Show deposit amount
+- On confirm → redirect to Stripe Checkout
+
+If no deposit:
+- Direct confirm booking
+
+====================================================
+6) BOOKING STORAGE
+====================================================
+
+Create bookings table:
+
+bookings {
+  id,
+  calculator_id,
+  lead_id,
+  date,
+  time,
+  duration_minutes,
+  status: "pending"|"confirmed"|"cancelled",
+  deposit_paid: boolean,
+  stripe_payment_intent_id,
+  created_at
+}
+
+Prevent double booking:
+- Block slot if existing confirmed booking overlaps
+
+====================================================
+7) DASHBOARD UPDATE
+====================================================
+
+Add "Bookings" tab:
+
+Columns:
+Name | Date | Time | Status | Deposit Paid | Contact | Quote Value
+
+Actions:
+- Mark confirmed
+- Cancel
+- Refund (future)
+
+====================================================
+8) CONFIRMATION FLOW
+====================================================
+
+On successful booking:
+- Send confirmation email to customer
+- Send booking notification to business
+- Include date/time + quote + deposit info
+
+====================================================
+9) ACCEPTANCE TESTS
+====================================================
+
+1) Estimate only calculators unaffected (PASS/FAIL)
+2) Booking toggle correctly switches mode (PASS/FAIL)
+3) Stripe Connect stores stripe_account_id (PASS/FAIL)
+4) Deposit charges go to connected account (PASS/FAIL)
+5) Time slots respect availability (PASS/FAIL)
+6) Double booking prevented (PASS/FAIL)
+7) Booking shows in dashboard (PASS/FAIL)
+8) Confirmation emails send (PASS/FAIL)
+
+Return:
+- Files created
+- DB changes
+- Stripe integration location
+- Booking slot calculation logic
+- OVERALL PASS/FAIL
