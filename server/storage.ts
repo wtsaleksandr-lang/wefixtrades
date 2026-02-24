@@ -3,7 +3,7 @@ import {
   calculators, leads, analyticsEvents, deploymentStatus,
   calculatorAnalyticsSummary, jobLogs,
   notificationQueue, followupJobs, bookings,
-  aiConversations, supportTickets,
+  aiConversations, supportTickets, smsMessages,
   type Calculator, type InsertCalculator,
   type Lead, type InsertLead,
   type AnalyticsEvent, type InsertAnalyticsEvent,
@@ -15,6 +15,7 @@ import {
   type Booking, type InsertBooking,
   type AiConversation, type InsertAiConversation,
   type SupportTicket, type InsertSupportTicket,
+  type SmsMessage,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull } from "drizzle-orm";
 
@@ -82,6 +83,9 @@ export interface IStorage {
 
   createSupportTicket(data: Partial<InsertSupportTicket> & { description: string }): Promise<SupportTicket>;
   updateSupportTicket(id: number, updates: Record<string, any>): Promise<void>;
+
+  getSmsThreads(calculatorId: number): Promise<{ lead: Lead; messages: SmsMessage[] }[]>;
+  updateLeadAiPaused(leadId: number, calculatorId: number, paused: boolean): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -487,6 +491,36 @@ export class DatabaseStorage implements IStorage {
 
   async updateSupportTicket(id: number, updates: Record<string, any>): Promise<void> {
     await db.update(supportTickets).set(updates).where(eq(supportTickets.id, id));
+  }
+
+  async getSmsThreads(calculatorId: number): Promise<{ lead: Lead; messages: SmsMessage[] }[]> {
+    const threadLeads = await db
+      .selectDistinct({ leadId: smsMessages.lead_id })
+      .from(smsMessages)
+      .where(eq(smsMessages.calculator_id, calculatorId));
+
+    const threads: { lead: Lead; messages: SmsMessage[] }[] = [];
+
+    for (const { leadId } of threadLeads) {
+      if (!leadId) continue;
+      const [lead] = await db.select().from(leads).where(eq(leads.id, leadId));
+      if (!lead) continue;
+      const messages = await db
+        .select()
+        .from(smsMessages)
+        .where(and(eq(smsMessages.lead_id, leadId), eq(smsMessages.calculator_id, calculatorId)))
+        .orderBy(smsMessages.created_at);
+      threads.push({ lead, messages });
+    }
+
+    return threads;
+  }
+
+  async updateLeadAiPaused(leadId: number, calculatorId: number, paused: boolean): Promise<void> {
+    await db
+      .update(leads)
+      .set({ ai_paused: paused })
+      .where(and(eq(leads.id, leadId), eq(leads.calculator_id, calculatorId)));
   }
 
   async incrementCouponUsage(calculatorId: number, couponCode: string): Promise<void> {

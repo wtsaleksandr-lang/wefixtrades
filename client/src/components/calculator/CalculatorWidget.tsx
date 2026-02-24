@@ -47,6 +47,7 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [leadSubmitted, setLeadSubmitted] = useState(false);
   const [leadData, setLeadData] = useState({ name: '', email: '', phone: '', company: '' });
+  const [smsConsent, setSmsConsent] = useState(false);
   const [multiStepIndex, setMultiStepIndex] = useState(0);
 
   const [showBookingPanel, setShowBookingPanel] = useState(false);
@@ -97,6 +98,13 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
   const imgConfig = convBlocks.images || {};
   const testConfig = convBlocks.testimonials || {};
   const trustConfig = convBlocks.trust || {};
+
+  const aiEmployee = calcSettings.ai_employee || {};
+  const aiEmployeeEnabled = aiEmployee.enabled === true;
+  const aiChannels = aiEmployee.channels || {};
+  const aiConsent = aiEmployee.consent || {};
+  const showSmsConsent = aiEmployeeEnabled && aiChannels.sms === true && aiConsent.sms_required === true;
+  const smsConsentText = aiConsent.consent_text || 'I agree to receive text messages about my quote and booking from this business.';
 
   useEffect(() => {
     if (!selectedDate || !calculator.id) return;
@@ -246,6 +254,11 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
         quote_amount: appliedCoupon && discountAmount > 0 ? discountedTotal : estimate.total,
         answers: { pricingType: config.pricingType, quantity, selectedTierIndex, selectedAddOnIds, selectedDifficultyId, isAfterHours },
         ...(appliedCoupon ? { coupon_code: appliedCoupon.code } : {}),
+        sms_consent: smsConsent,
+        ...(smsConsent ? {
+          consent_timestamp: new Date().toISOString(),
+          consent_text_version: smsConsentText.substring(0, 50),
+        } : {}),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Failed to submit.');
@@ -414,6 +427,10 @@ export default function CalculatorWidget({ calculator, isEmbed = false }: Calcul
         submitting={submitting}
         submitError={submitError}
         onBack={() => setShowLeadForm(false)}
+        showSmsConsent={showSmsConsent}
+        smsConsentText={smsConsentText}
+        smsConsent={smsConsent}
+        setSmsConsent={setSmsConsent}
       />
     );
   }
@@ -1755,7 +1772,7 @@ function ResultPanel({ containerStyle, cardStyle, btnPrimary, theme, accentColor
   );
 }
 
-function LeadFormPanel({ containerStyle, cardStyle, btnPrimary, labelStyle, theme, accentColor, estimate, calculator, leadData, setLeadData, leadMutation, submitting, submitError, onBack }: {
+function LeadFormPanel({ containerStyle, cardStyle, btnPrimary, labelStyle, theme, accentColor, estimate, calculator, leadData, setLeadData, leadMutation, submitting, submitError, onBack, showSmsConsent, smsConsentText, smsConsent, setSmsConsent }: {
   containerStyle: React.CSSProperties;
   cardStyle: React.CSSProperties;
   btnPrimary: React.CSSProperties;
@@ -1770,7 +1787,12 @@ function LeadFormPanel({ containerStyle, cardStyle, btnPrimary, labelStyle, them
   submitting: boolean;
   submitError: string | null;
   onBack: () => void;
+  showSmsConsent?: boolean;
+  smsConsentText?: string;
+  smsConsent?: boolean;
+  setSmsConsent?: (v: boolean) => void;
 }) {
+  const isSubmitDisabled = submitting || !leadData.email || (showSmsConsent && !smsConsent);
   return (
     <div style={containerStyle}>
       <div className="animate-fade-in" style={cardStyle}>
@@ -1811,17 +1833,34 @@ function LeadFormPanel({ containerStyle, cardStyle, btnPrimary, labelStyle, them
               </div>
             ))}
           </div>
+          {showSmsConsent && smsConsentText && setSmsConsent && (
+            <label
+              data-testid="label-sms-consent"
+              style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '16px', cursor: 'pointer' }}
+            >
+              <input
+                data-testid="input-sms-consent"
+                type="checkbox"
+                checked={smsConsent || false}
+                onChange={e => setSmsConsent(e.target.checked)}
+                style={{ width: '18px', height: '18px', flexShrink: 0, marginTop: '2px', accentColor }}
+              />
+              <span style={{ fontSize: '12px', color: theme.colors.muted, lineHeight: 1.5 }}>
+                {smsConsentText}
+              </span>
+            </label>
+          )}
           <button
             data-testid="button-submit-lead"
             onClick={() => leadMutation.mutate()}
-            disabled={submitting || !leadData.email}
+            disabled={isSubmitDisabled}
             style={{
               ...btnPrimary,
               marginTop: '24px',
-              background: submitting || !leadData.email ? '#CBD5E1' : btnPrimary.background,
-              color: submitting || !leadData.email ? '#94A3B8' : 'white',
-              cursor: submitting ? 'wait' : !leadData.email ? 'not-allowed' : 'pointer',
-              boxShadow: submitting || !leadData.email ? 'none' : btnPrimary.boxShadow,
+              background: isSubmitDisabled ? '#CBD5E1' : btnPrimary.background,
+              color: isSubmitDisabled ? '#94A3B8' : 'white',
+              cursor: submitting ? 'wait' : isSubmitDisabled ? 'not-allowed' : 'pointer',
+              boxShadow: isSubmitDisabled ? 'none' : btnPrimary.boxShadow,
             }}
           >
             {submitting ? (

@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { storage } from "../storage";
+import { isTwilioConfigured, checkRateLimit, sendSMS, storeSmsMessage } from "../twilioClient";
 
 function getTransporter() {
   const host = process.env.SMTP_HOST;
@@ -148,23 +149,72 @@ export async function processFollowupJobs(): Promise<{ processed: number; skippe
           attempts: (job.attempts || 0) + 1,
         });
         processed++;
-      } else if (job.channel === 'sms') {
+      } else if (job.channel === 'sms' || job.channel === 'whatsapp') {
+        const smsChannel = job.channel === 'whatsapp' ? 'whatsapp' : 'sms';
+
+        if (!isTwilioConfigured()) {
+          await storage.updateFollowupJob(job.id, {
+            status: 'failed',
+            last_error: 'Twilio not configured',
+            attempts: (job.attempts || 0) + 1,
+          });
+          errors.push(`Followup ${job.id}: Twilio not configured`);
+          continue;
+        }
+
         if (!lead.sms_consent) {
           await storage.updateFollowupJob(job.id, {
             status: 'cancelled',
-            last_error: 'Lead did not consent to SMS',
+            last_error: 'No SMS consent',
             processed_at: new Date(),
           });
           skipped++;
           continue;
         }
 
+        const rateCheck = await checkRateLimit(lead.id, job.calculator_id, smsChannel);
+        if (!rateCheck.allowed) {
+          await storage.updateFollowupJob(job.id, {
+            status: 'cancelled',
+            last_error: `Rate limit exceeded: ${rateCheck.reason}`,
+            processed_at: new Date(),
+          });
+          skipped++;
+          continue;
+        }
+
+        if (!lead.phone) {
+          await storage.updateFollowupJob(job.id, {
+            status: 'cancelled',
+            last_error: 'No phone number',
+            processed_at: new Date(),
+          });
+          skipped++;
+          continue;
+        }
+
+        const smsTemplate = payload.template || {};
+        const smsBody = replaceVariables(smsTemplate.sms || smsTemplate.body || '', templateVars);
+
+        const twilioSid = await sendSMS(lead.phone, smsBody, smsChannel);
+
+        await storeSmsMessage({
+          lead_id: lead.id,
+          calculator_id: job.calculator_id,
+          direction: 'outbound',
+          channel: smsChannel,
+          body: smsBody,
+          to_number: lead.phone,
+          twilio_sid: twilioSid,
+          is_ai: false,
+        });
+
         await storage.updateFollowupJob(job.id, {
-          status: 'skipped',
-          last_error: 'SMS is a Pro feature — not configured',
+          status: 'sent',
+          processed_at: new Date(),
           attempts: (job.attempts || 0) + 1,
         });
-        skipped++;
+        processed++;
       }
     } catch (err: any) {
       const attempts = (job.attempts || 0) + 1;
