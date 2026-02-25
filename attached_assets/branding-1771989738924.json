@@ -1,0 +1,127 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "Saans 1",
+      "role": "unknown"
+    }
+  ],
+  "colors": {
+    "primary": "#008BBE",
+    "accent": "#FFEEAA",
+    "background": "#FFFFFF",
+    "textPrimary": "#0D0D0D",
+    "link": "#FFEEAA"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Saans 1",
+      "heading": "Saans 1"
+    },
+    "fontStacks": {
+      "heading": [
+        "Saans 1",
+        "sans-serif"
+      ],
+      "body": [
+        "Saans 1",
+        "sans-serif"
+      ],
+      "paragraph": [
+        "Saans 1",
+        "sans-serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "100px",
+      "h2": "72px",
+      "body": "18px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "16px"
+  },
+  "components": {
+    "buttonPrimary": {
+      "background": "#FFEEAA",
+      "textColor": "#0D0D0D",
+      "borderColor": "#F5F5F5",
+      "borderRadius": "32px",
+      "borderRadiusCorners": {
+        "topLeft": "32px",
+        "topRight": "32px",
+        "bottomRight": "32px",
+        "bottomLeft": "32px"
+      },
+      "shadow": "none"
+    },
+    "buttonSecondary": {
+      "background": "#F8F8F8",
+      "textColor": "#0D0D0D",
+      "borderRadius": "999px",
+      "borderRadiusCorners": {
+        "topLeft": "999px",
+        "topRight": "999px",
+        "bottomRight": "999px",
+        "bottomLeft": "999px"
+      },
+      "shadow": "none"
+    }
+  },
+  "images": {
+    "logo": "File saved at: attached_assets/logo.svg",
+    "favicon": "File saved at: attached_assets/favicon.svg",
+    "ogImage": "File saved at: attached_assets/ogImage.png",
+    "logoHref": "File saved at: attached_assets/logoHref.html"
+  },
+  "__llm_logo_reasoning": {
+    "selectedIndex": 0,
+    "reasoning": "Selected #0 because it is visible, located in the header, links to the homepage, and matches the brand inferred from the URL and page title.",
+    "confidence": 0.9,
+    "source": "llm"
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": 0,
+      "text": "Discover Users NeedsLearn more",
+      "reasoning": "Button #0 uses the vibrant brand color #FFEEAA, which is consistent with the site's accent color, making it the most prominent CTA."
+    },
+    "secondary": {
+      "index": 1,
+      "text": "Login",
+      "reasoning": "Button #1 has a different background color (#F8F8F8) and serves a common secondary action ('Login'), making it a suitable secondary CTA."
+    },
+    "confidence": 0.95
+  },
+  "personality": {
+    "tone": "professional",
+    "energy": "medium",
+    "targetAudience": "UX researchers and designers"
+  },
+  "designSystem": {
+    "framework": "custom",
+    "componentLibrary": ""
+  },
+  "confidence": {
+    "buttons": 0.95,
+    "colors": 0.9,
+    "overall": 0.925
+  },
+  "__llm_metadata": {
+    "logoSelection": {
+      "llmCalled": true,
+      "llmSucceeded": true,
+      "finalSource": "llm",
+      "rawLogoSelection": {
+        "selectedLogoIndex": 0,
+        "selectedLogoReasoning": "Selected #0 because it is visible, located in the header, links to the homepage, and matches the brand inferred from the URL and page title.",
+        "confidence": 0.9
+      }
+    },
+    "buttonClassification": {
+      "llmCalled": true,
+      "llmSucceeded": true
+    }
+  }
+}

@@ -1,0 +1,241 @@
+BUILD PREMIUM SAAS MARKETING SITE — REPlicate OptimalWorkshop.com
+
+Goal:
+Recreate the homepage layout, animations, transitions, nav behavior, typography hierarchy, spacing, and section structure from optimalworkshop.com 0
+Replace all content with QuickQuotePro / WeFixTrades branding, copy, and product offerings.
+
+Design system:
+- Smooth scroll transitions
+- Sticky navbar with shrink effect
+- Subtle fade-in and slide-in animations on scroll
+- Consistent spacing scale (64px / 48px / 32px / 24px)
+- Neutral color palette (dark navy, white, soft gray)
+- Sharp but minimal visuals (no heavy stock photos)
+- Button styles with soft hover gradients
+- Microanimations on interactive elements (cards, buttons)
+
+====================================================
+1) NAVBAR (top)
+====================================================
+
+Position: fixed top  
+Background: white with shadow on scroll  
+Logo left: “QuickQuotePro BY WEFIXTRADES”  
+Nav links horizontally centered:
+Product | Pricing | Templates | Services | Demo | Docs
+CTA Button right: “Start Free” (primary green)  
+On scroll down: navbar shrinks and darkens shadow
+
+====================================================
+2) HERO SECTION
+====================================================
+
+Layout: full viewport height
+
+Left block:
+Headline:  
+**“Software That Turns Visitors Into Booked Jobs Automatically”**
+
+Subtext:  
+Instant quotes, smart booking, and AI employees — built for trades.
+
+Primary CTA button:  
+**Start Free — No Credit Card**
+
+Secondary CTA button:  
+**View Live Demo**
+
+Animated scroll cue down arrow
+
+Right block:
+Large animated interface mockup
+Shows 3 step process:
+• instant estimate preview  
+• booking calendar booking  
+• AI employee chat bubble response
+
+====================================================
+3) INTERACTIVE FEATURES GRID
+====================================================
+
+4 columns grid with subtle fade-up animations:
+
+Card 1:
+**Instant Quote Engine**  
+Customers get accurate trade-specific estimates in seconds.
+
+Card 2:
+**Booking + Deposit System**  
+Convert estimates into confirmed jobs with deposits.
+
+Card 3:
+**AI Chat & Voice Employees**  
+24/7 customer engagement, lead capture, and estimates.
+
+Card 4:
+**SMS & WhatsApp Follow-Ups**  
+Automated sequences that convert cold leads.
+
+Icons: clean minimal icons matching Optimal shape style
+
+====================================================
+4) HOW IT WORKS SECTION
+====================================================
+
+3 horizontally aligned steps
+Large numbers + subtle line icons
+
+1) Pick Template  
+Choose from high-converting trade calculator templates
+
+2) Define Pricing Logic  
+Set your rates, AI validates accuracy
+
+3) Publish & Embed  
+Instant hosted page or embed snippet
+
+Transitions: fade left → center → fade right
+
+====================================================
+5) TRUST & SOCIAL PROOF
+====================================================
+
+Headline: “Loved by Trades & Growing Businesses Worldwide”
+
+Carousel slider with logos:
+(no fake logos — use real sectors, e.g. plumbing, roofing, cleaning)
+
+Optional testimonial cards below:
+Customer headshot + quote + name/title
+
+====================================================
+6) DETAILED FEATURE BREAKDOWN
+====================================================
+
+Two column alternating layout:
+Text left, image right (mockups)
+Then image left, text right
+
+Section blocks:
+• AI employee explained (chat + voice)
+• Booking flow
+• Templates showcase
+• SMS automation
+• Dashboard analytics
+
+Use lazy-loaded UI images
+
+====================================================
+7) PRICING TEASER (Preview)
+====================================================
+
+Insert a short pricing preview at bottom:
+Free / Starter / Pro / Elite
+Highlight most popular
+
+CTA: View Full Pricing
+
+====================================================
+8) SERVICES TEASE
+====================================================
+
+Small grid (3 columns):
+• Google Maps Optimization  
+• Website SEO + Speed  
+• Reputation + Social  
+Each card with clean icons, soft hover animation
+
+CTA: Explore Services
+
+====================================================
+9) BIG CALL TO ACTION
+====================================================
+
+Centered:
+**“Ready to Get More Booked Jobs?”**
+
+Two buttons:
+Start Free  
+Talk to Sales
+
+====================================================
+10) FOOTER
+====================================================
+
+Minimal multi-column footer
+Links:
+Product | Templates | Pricing | Services | Docs | Privacy | Terms  
+Tiny text: © QuickQuotePro by WeFixTrades
+
+====================================================
+ANIMATIONS & INTERACTIONS
+====================================================
+
+- Navbar shrink on scroll
+- Scroll-triggered fade and slide animations
+- Smooth scroll to sections
+- Subtle micro hover on buttons
+- Lazy load images
+- Interactive carousel for logos/testimonials
+
+====================================================
+COPY SWAPS (from Optimal -> Yours)
+====================================================
+
+Replace Optimal’s wording with:
+
+Replace “User research platform” with:
+**Quote + Booking engine for Trades**
+
+Replace “Start your free trial” with:
+**Start Free — No Credit Card**
+
+Replace “Tools that power insight” with:
+**Capabilities that book jobs**
+
+Replace audience tags (Product/Design/Content/Marketing) with:
+Trades categories:
+• Plumbers  
+• Roofers  
+• Cleaners  
+• Electricians  
+• Home Services
+
+====================================================
+IMAGES & MOCKUPS
+====================================================
+
+Do NOT use generic stock. Generate or use stylized
+UI mockups of:
+• Calculator estimate UI
+• Booking calendar UI
+• AI chat interface UI
+• Dashboard chart
+• SMS conversation
+
+If placeholder needed:
+Use soft gradient backgrounds with device frame mockups
+
+====================================================
+DELIVERABLES
+====================================================
+
+1) Fully responsive homepage matching animation & layout style  
+2) Clean replacement copy + visuals  
+3) Navbar & footer updated  
+4) CTA routing to existing product pages  
+5) Performance optimized (lazy loading, minimal JS)
+
+====================================================
+ACCEPTANCE TESTS
+====================================================
+
+1) Homepage matches Optimal layout (PASS/FAIL)  
+2) Animations smoothly triggered (PASS/FAIL)  
+3) CTA buttons route correctly (PASS/FAIL)  
+4) Responsive on mobile/tablet/desktop (PASS/FAIL)
+
+Return:
+- Files changed
+- Components created
+- PASS/FAIL results
