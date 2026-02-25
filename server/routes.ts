@@ -108,6 +108,8 @@ export async function registerRoutes(
     "/templates", "/demo", "/docs", "/contact", "/privacy", "/terms",
     "/features/instant-quotes", "/features/booking", "/features/ai-employee",
     "/features/sms", "/features/calculator-engine",
+    "/docs/embed", "/docs/domain", "/docs/booking", "/docs/ai",
+    "/docs/webhooks", "/docs/troubleshooting",
   ];
 
   app.get("/robots.txt", (_req, res) => {

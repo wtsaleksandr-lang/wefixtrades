@@ -25,6 +25,12 @@ import FeatureBooking from "@/pages/marketing/features/booking";
 import FeatureAiEmployee from "@/pages/marketing/features/ai-employee";
 import FeatureSms from "@/pages/marketing/features/sms";
 import FeatureCalculatorEngine from "@/pages/marketing/features/calculator-engine";
+import DocsEmbed from "@/pages/marketing/docs/embed";
+import DocsDomain from "@/pages/marketing/docs/domain";
+import DocsBooking from "@/pages/marketing/docs/booking";
+import DocsAi from "@/pages/marketing/docs/ai";
+import DocsWebhooks from "@/pages/marketing/docs/webhooks";
+import DocsTroubleshooting from "@/pages/marketing/docs/troubleshooting";
 
 function Router() {
   return (
@@ -45,6 +51,12 @@ function Router() {
       <Route path="/features/ai-employee" component={FeatureAiEmployee} />
       <Route path="/features/sms" component={FeatureSms} />
       <Route path="/features/calculator-engine" component={FeatureCalculatorEngine} />
+      <Route path="/docs/embed" component={DocsEmbed} />
+      <Route path="/docs/domain" component={DocsDomain} />
+      <Route path="/docs/booking" component={DocsBooking} />
+      <Route path="/docs/ai" component={DocsAi} />
+      <Route path="/docs/webhooks" component={DocsWebhooks} />
+      <Route path="/docs/troubleshooting" component={DocsTroubleshooting} />
       <Route path="/Wizard" component={Wizard} />
       <Route path="/Calculator" component={Calculator} />
       <Route path="/EditCalculator" component={EditCalculator} />
