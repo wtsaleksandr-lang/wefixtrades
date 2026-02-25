@@ -1,14 +1,12 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "wouter";
 
-/* Three capsules — equal height, staggered y offsets for misaligned start */
 const CAPSULES = [
-  { background: "#2D6A4F", startY: -4 },
-  { background: "#40916C", startY: 6  },
-  { background: "#1B4332", startY: -3 },
+  { background: "#4A7C6F", startY: -4 },
+  { background: "#5E9485", startY: 6  },
+  { background: "#3B6358", startY: -3 },
 ];
 
-/* Shared capsule dimensions */
 const CAP_W  = 7;
 const CAP_H  = 26;
 const CAP_R  = 9999;
@@ -17,12 +15,6 @@ const CAP_GAP = 3;
 export default function AnimatedLogo() {
   const prefersReduced = useReducedMotion();
 
-  /* ── Capsule animation ─────────────────────────────────────────────────
-     Phase 1  0ms       : misaligned (y offset), opacity 0.8, blur 1px
-     Phase 2  0–600ms   : align to y:0, opacity 1, blur 0, ease-out cubic
-     Phase 3  600–800ms : subtle scale settle 1 → 1.03 → 1
-     All in one keyframe sequence per capsule, stagger 80ms between bars.
-  ──────────────────────────────────────────────────────────────────────── */
   const capsuleAnimate = (startY: number) =>
     prefersReduced
       ? { y: 0, opacity: 1, filter: "blur(0px)", scale: 1 }
@@ -43,9 +35,6 @@ export default function AnimatedLogo() {
           ease:     [0.25, 0.1, 0.25, 1] as [number, number, number, number],
         };
 
-  /* ── Glow animation ────────────────────────────────────────────────────
-     Phase 4  700–1000ms : opacity 0 → 0.25, then static forever
-  ──────────────────────────────────────────────────────────────────────── */
   const glowAnimate = prefersReduced
     ? { opacity: 0.2 }
     : { opacity: [0, 0, 0.22] };
@@ -54,9 +43,6 @@ export default function AnimatedLogo() {
     ? { duration: 0 }
     : { duration: 1.0, times: [0, 0.7, 1], ease: "easeOut" as const };
 
-  /* ── Brand text animation ──────────────────────────────────────────────
-     Simple fade-in after capsules settle (~400ms delay)
-  ──────────────────────────────────────────────────────────────────────── */
   const textAnimate = prefersReduced ? { opacity: 1, x: 0 } : { opacity: 1, x: 0 };
   const textInitial = prefersReduced ? { opacity: 1, x: 0 } : { opacity: 0, x: -6 };
   const textTransition = prefersReduced
@@ -71,26 +57,23 @@ export default function AnimatedLogo() {
         alignItems: "center",
         gap: 8,
         textDecoration: "none",
-        /* Fixed dimensions — prevents any layout shift */
         width: 148,
         height: 44,
         flexShrink: 0,
         overflow: "visible",
       }}
     >
-      {/* Capsule mark — fixed-size container keeps layout stable */}
       <div
         style={{
           position: "relative",
           width: CAP_W * 3 + CAP_GAP * 2,
-          height: CAP_H + 10, /* +10 for y-offset travel room */
+          height: CAP_H + 10,
           flexShrink: 0,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        {/* Glow — sits behind capsules */}
         <motion.div
           aria-hidden="true"
           initial={{ opacity: 0 }}
@@ -101,14 +84,13 @@ export default function AnimatedLogo() {
             inset: "-6px -8px",
             borderRadius: 12,
             background:
-              "radial-gradient(ellipse at center, #40916C 0%, transparent 72%)",
+              "radial-gradient(ellipse at center, #5E9485 0%, transparent 72%)",
             filter: "blur(6px)",
             pointerEvents: "none",
             zIndex: 0,
           }}
         />
 
-        {/* Three capsules */}
         <div
           style={{
             display: "flex",
@@ -140,7 +122,6 @@ export default function AnimatedLogo() {
         </div>
       </div>
 
-      {/* Brand text — WeFixTrades only */}
       <motion.div
         initial={textInitial}
         animate={textAnimate}
@@ -151,7 +132,7 @@ export default function AnimatedLogo() {
           style={{
             fontSize: 16,
             fontWeight: 800,
-            color: "#0F172A",
+            color: "#111111",
             letterSpacing: "-0.02em",
             whiteSpace: "nowrap",
           }}
@@ -162,7 +143,7 @@ export default function AnimatedLogo() {
           style={{
             fontSize: 9,
             fontWeight: 700,
-            color: "#94A3B8",
+            color: "#6B6B6B",
             letterSpacing: "0.1em",
             textTransform: "uppercase",
             marginTop: 1,
