@@ -1,453 +1,585 @@
 import { useEffect, useState } from "react";
+import { Link } from "wouter";
+import { Check, Minus, ChevronDown, ArrowRight, Play } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { Check, Minus } from "lucide-react";
+import { useScrollReveal } from "@/hooks/useScrollReveal";
+import { PLANS, COMPARISON_ROWS, FAQS } from "@/config/pricingPlans";
 
+/* ─── Design tokens ─────────────────────────────── */
+const C = {
+  navy: "#0B1F3A",
+  sage: "#2D6A4F",
+  sageDark: "#1B4332",
+  sageLight: "#40916C",
+  sageTint: "#F0F7F4",
+  sageAccent: "#D1FAE5",
+  blue: "#2563EB",
+  gold: "#F59E0B",
+  bg: "#FFFFFF",
+  bgGray: "#F8FAFC",
+  heading: "#0F172A",
+  body: "#334155",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  borderLight: "#F1F5F9",
+};
+
+const SHADOW = {
+  card: "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06)",
+  featured: "0 8px 40px rgba(45,106,79,0.18)",
+  gold: "0 8px 40px rgba(245,158,11,0.15)",
+};
+
+/* ─── FAQ Accordion item ─────────────────────────── */
+function FAQItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "18px 22px",
+          background: open ? C.bgGray : C.bg,
+          border: "none",
+          cursor: "pointer",
+          gap: 16,
+          textAlign: "left" as const,
+        }}
+      >
+        <span style={{ fontSize: 15, fontWeight: 600, color: C.heading, lineHeight: 1.4 }}>{q}</span>
+        <ChevronDown size={17} color={C.muted} style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.22s ease" }} />
+      </button>
+      {open && (
+        <div style={{ padding: "0 22px 18px", background: C.bgGray }}>
+          <p style={{ fontSize: 15, color: C.body, lineHeight: 1.7, margin: 0 }}>{a}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Cell renderer for comparison table ────────── */
+function Cell({ val }: { val: boolean | string }) {
+  if (val === true) return (
+    <div style={{ display: "flex", justifyContent: "center" }}>
+      <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.sageTint, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Check size={13} color={C.sage} strokeWidth={2.5} />
+      </div>
+    </div>
+  );
+  if (val === false) return (
+    <div style={{ display: "flex", justifyContent: "center" }}>
+      <Minus size={16} color="#CBD5E1" />
+    </div>
+  );
+  return <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: C.blue, whiteSpace: "nowrap" as const }}>{val}</div>;
+}
+
+/* ─── Main component ────────────────────────────── */
 export default function PricingPage() {
-  useEffect(() => {
-    document.title = "Pricing — QuickQuotePro";
-  }, []);
-
+  useScrollReveal();
   const [annual, setAnnual] = useState(false);
-  const [showComparison, setShowComparison] = useState(false);
 
-  const s = {
-    pageHeader: {
-      background: "linear-gradient(135deg, #0B1F3A, #1A3A5C)",
-      padding: "80px 24px 60px",
-      textAlign: "center" as const,
-    },
-    pageHeaderBadge: {
-      display: "inline-block",
-      background: "rgba(45,106,79,0.25)",
-      color: "#6EE7B7",
-      fontSize: 12,
-      fontWeight: 700,
-      letterSpacing: "0.08em",
-      textTransform: "uppercase" as const,
-      padding: "4px 14px",
-      borderRadius: 999,
-      marginBottom: 20,
-    },
-    pageHeaderH1: {
-      fontSize: "clamp(32px, 5vw, 48px)",
-      fontWeight: 800,
-      color: "#FFFFFF",
-      margin: "0 0 16px",
-      letterSpacing: "-0.02em",
-    },
-    pageHeaderSub: {
-      fontSize: 18,
-      color: "rgba(255,255,255,0.7)",
-      margin: 0,
-    },
-    toggleRow: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 12,
-      marginTop: 32,
-    },
-    toggleLabel: {
-      fontSize: 15,
-      fontWeight: 500,
-      color: "rgba(255,255,255,0.8)",
-    },
-    toggleSwitch: {
-      position: "relative" as const,
-      width: 52,
-      height: 28,
-      borderRadius: 999,
-      background: annual ? "#2D6A4F" : "rgba(255,255,255,0.2)",
-      cursor: "pointer",
-      border: "none",
-      transition: "background 0.2s ease",
-      flexShrink: 0,
-    },
-    toggleKnob: {
-      position: "absolute" as const,
-      top: 3,
-      left: annual ? 27 : 3,
-      width: 22,
-      height: 22,
-      borderRadius: "50%",
-      background: "#FFFFFF",
-      transition: "left 0.2s ease",
-      boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
-    },
-    saveBadge: {
-      background: "#2D6A4F",
-      color: "#FFFFFF",
-      fontSize: 11,
-      fontWeight: 700,
-      padding: "2px 8px",
-      borderRadius: 999,
-      letterSpacing: "0.04em",
-    },
-    tiersSection: {
-      background: "#F7F8FA",
-      padding: "60px 24px",
-    },
-    tiersGrid: {
-      maxWidth: 1120,
-      margin: "0 auto",
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-      gap: 24,
-      alignItems: "start",
-    },
-    tierCard: {
-      background: "#FFFFFF",
-      borderRadius: 12,
-      padding: "32px 28px",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.05), 0 1px 8px rgba(0,0,0,0.04)",
-      border: "1px solid #E5E7EB",
-      position: "relative" as const,
-    },
-    tierCardHighlighted: {
-      border: "2px solid #2D6A4F",
-      boxShadow: "0 4px 20px rgba(45,106,79,0.15)",
-    },
-    tierBadge: {
-      display: "inline-block",
-      fontSize: 11,
-      fontWeight: 700,
-      letterSpacing: "0.06em",
-      textTransform: "uppercase" as const,
-      padding: "3px 10px",
-      borderRadius: 999,
-      marginBottom: 16,
-    },
-    tierName: {
-      fontSize: 13,
-      fontWeight: 800,
-      color: "#9CA3AF",
-      letterSpacing: "0.1em",
-      textTransform: "uppercase" as const,
-      margin: "0 0 4px",
-    },
-    tierPrice: {
-      fontSize: 40,
-      fontWeight: 800,
-      color: "#111827",
-      letterSpacing: "-0.02em",
-      margin: "4px 0 2px",
-      lineHeight: 1,
-    },
-    tierPricePeriod: {
-      fontSize: 14,
-      color: "#6B7280",
-      margin: "0 0 8px",
-    },
-    tierTagline: {
-      fontSize: 14,
-      color: "#6B7280",
-      margin: "0 0 24px",
-      lineHeight: 1.5,
-    },
-    tierDivider: {
-      height: 1,
-      background: "#F3F4F6",
-      margin: "0 0 20px",
-    },
-    featureList: {
-      listStyle: "none",
-      padding: 0,
-      margin: "0 0 28px",
-    },
-    featureItem: {
-      display: "flex",
-      alignItems: "flex-start",
-      gap: 10,
-      fontSize: 14,
-      color: "#374151",
-      lineHeight: 1.5,
-      marginBottom: 10,
-    },
-    ctaBtn: {
-      display: "block",
-      width: "100%",
-      padding: "11px 0",
-      borderRadius: 8,
-      fontSize: 15,
-      fontWeight: 600,
-      textAlign: "center" as const,
-      textDecoration: "none",
-      cursor: "pointer",
-      border: "none",
-      transition: "background 0.15s ease",
-    },
-    ctaBtnPrimary: {
-      background: "#2D6A4F",
-      color: "#FFFFFF",
-    },
-    ctaBtnOutline: {
-      background: "transparent",
-      color: "#2D6A4F",
-      border: "1.5px solid #2D6A4F",
-    },
-    comparisonSection: {
-      background: "#FFFFFF",
-      padding: "40px 24px 60px",
-    },
-    comparisonTable: {
-      maxWidth: 900,
-      margin: "0 auto",
-      borderCollapse: "collapse" as const,
-      width: "100%",
-    },
-    tableHeader: {
-      background: "#F7F8FA",
-      fontSize: 13,
-      fontWeight: 700,
-      color: "#374151",
-      padding: "12px 16px",
-      textAlign: "left" as const,
-      borderBottom: "2px solid #E5E7EB",
-    },
-    tableCell: {
-      padding: "12px 16px",
-      fontSize: 14,
-      color: "#374151",
-      borderBottom: "1px solid #F3F4F6",
-    },
-    tableCellCenter: {
-      textAlign: "center" as const,
-      padding: "12px 16px",
-      fontSize: 14,
-      color: "#374151",
-      borderBottom: "1px solid #F3F4F6",
-    },
-    noteText: {
-      textAlign: "center" as const,
-      fontSize: 14,
-      color: "#6B7280",
-      marginTop: 32,
-    },
-    toggleCompareBtn: {
-      display: "block",
-      margin: "24px auto 0",
-      background: "none",
-      border: "none",
-      color: "#2D6A4F",
-      fontSize: 14,
-      fontWeight: 600,
-      cursor: "pointer",
-      textDecoration: "underline",
-    },
-  };
-
-  const tiers = [
-    {
-      id: "free",
-      name: "Free",
-      price: { monthly: 0, annual: 0 },
-      badge: "Get Started",
-      badgeStyle: { background: "#F3F4F6", color: "#374151" },
-      tagline: "Try it out",
-      features: [
-        "1 calculator",
-        "Hosted page",
-        "Basic lead capture",
-        "50 leads/mo",
-        "QuickQuote branding",
-      ],
-      cta: "Start Free",
-      ctaStyle: "outline",
-      highlighted: false,
-    },
-    {
-      id: "starter",
-      name: "Starter",
-      price: { monthly: 99, annual: 79 },
-      badge: "Most Popular",
-      badgeStyle: { background: "#EFF6FF", color: "#2563EB" },
-      tagline: "For busy sole traders",
-      features: [
-        "1 calculator",
-        "Custom branding",
-        "Email follow-ups",
-        "500 leads/mo",
-        "CSV export",
-        "Embed snippet",
-      ],
-      cta: "Start Free Trial",
-      ctaStyle: "primary",
-      highlighted: false,
-    },
-    {
-      id: "pro",
-      name: "Pro",
-      price: { monthly: 199, annual: 159 },
-      badge: "Best Value",
-      badgeStyle: { background: "#F0F7F4", color: "#2D6A4F" },
-      tagline: "For growing businesses",
-      features: [
-        "3 calculators",
-        "AI Employee (chat + SMS)",
-        "Booking + deposits",
-        "WhatsApp integration",
-        "Remove branding",
-        "Custom domain",
-        "2,000 leads/mo",
-      ],
-      cta: "Start Free Trial",
-      ctaStyle: "primary",
-      highlighted: true,
-    },
-    {
-      id: "elite",
-      name: "Elite",
-      price: { monthly: 299, annual: 239 },
-      badge: "Enterprise",
-      badgeStyle: { background: "#0B1F3A", color: "#FFFFFF" },
-      tagline: "For agencies & multi-location",
-      features: [
-        "Unlimited calculators",
-        "White-label",
-        "Priority support",
-        "API access",
-        "Done-For-You onboarding",
-        "Unlimited leads",
-      ],
-      cta: "Contact Sales",
-      ctaStyle: "outline",
-      highlighted: false,
-    },
-  ];
-
-  const comparisonRows = [
-    { feature: "Quote Calculator", free: true, starter: true, pro: true, elite: true },
-    { feature: "Lead Capture", free: true, starter: true, pro: true, elite: true },
-    { feature: "Email Follow-up", free: false, starter: true, pro: true, elite: true },
-    { feature: "Booking + Deposits", free: false, starter: false, pro: true, elite: true },
-    { feature: "AI Employee", free: false, starter: false, pro: true, elite: true },
-    { feature: "SMS / WhatsApp", free: false, starter: false, pro: "Pro+", elite: true },
-    { feature: "Custom Domain", free: false, starter: false, pro: true, elite: true },
-    { feature: "White-Label", free: false, starter: false, pro: false, elite: true },
-    { feature: "API Access", free: false, starter: false, pro: false, elite: true },
-  ];
-
-  const renderCell = (val: boolean | string) => {
-    if (val === true) return <Check size={16} color="#2D6A4F" />;
-    if (val === false) return <Minus size={16} color="#D1D5DB" />;
-    return <span style={{ fontSize: 12, fontWeight: 700, color: "#2563EB" }}>{val}</span>;
-  };
+  useEffect(() => {
+    document.title = "Pricing — QuickQuotePro | Plans For Every Trades Business";
+  }, []);
 
   return (
     <MarketingLayout>
-      <div data-testid="pricing-page">
-        <div style={s.pageHeader}>
-          <h1 style={s.pageHeaderH1}>Simple, transparent pricing</h1>
-          <p style={s.pageHeaderSub}>Start free. No credit card required.</p>
-          <div style={s.toggleRow}>
-            <span style={s.toggleLabel}>Monthly</span>
-            <button
-              style={s.toggleSwitch}
-              onClick={() => setAnnual(a => !a)}
-              aria-label="Toggle annual pricing"
-              data-testid="toggle-annual"
+      <div data-testid="pricing-page" style={{ overflowX: "hidden" }}>
+
+        {/* ══════════════════════════════════════════
+            A. HERO
+        ══════════════════════════════════════════ */}
+        <section
+          style={{
+            background: `linear-gradient(160deg, ${C.navy} 0%, #0F2744 55%, #1a3550 100%)`,
+            padding: "80px 28px 96px",
+            textAlign: "center",
+            position: "relative",
+            overflow: "hidden",
+          }}
+          data-testid="pricing-hero"
+        >
+          <div style={{ position: "absolute", top: -80, right: -80, width: 420, height: 420, borderRadius: "50%", background: "rgba(45,106,79,0.1)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", bottom: -60, left: -60, width: 320, height: 320, borderRadius: "50%", background: "rgba(37,99,235,0.07)", pointerEvents: "none" }} />
+
+          <div style={{ maxWidth: 720, margin: "0 auto", position: "relative" }}>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              background: "rgba(45,106,79,0.25)", border: "1px solid rgba(45,106,79,0.4)",
+              borderRadius: 20, padding: "5px 16px", marginBottom: 28,
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#6EE7B7", letterSpacing: "0.04em" }}>
+                ✦ Simple, Transparent Pricing
+              </span>
+            </div>
+
+            <h1
+              data-testid="pricing-headline"
+              style={{
+                fontSize: "clamp(32px, 4vw, 52px)",
+                fontWeight: 800, color: "#FFFFFF",
+                lineHeight: 1.1, letterSpacing: "-0.03em",
+                marginBottom: 20,
+              }}
             >
-              <div style={s.toggleKnob} />
-            </button>
-            <span style={s.toggleLabel}>Annual</span>
-            <span style={s.saveBadge}>Save 20%</span>
-          </div>
-        </div>
+              Pricing That Scales From{" "}
+              <span style={{ color: "#6EE7B7" }}>One Tool</span>{" "}
+              To Full Automation
+            </h1>
 
-        <div style={s.tiersSection}>
-          <div style={s.tiersGrid}>
-            {tiers.map(tier => (
-              <div
-                key={tier.id}
-                style={{ ...s.tierCard, ...(tier.highlighted ? s.tierCardHighlighted : {}) }}
-                data-testid={`tier-${tier.id}`}
+            <p style={{ fontSize: "clamp(16px, 1.8vw, 19px)", color: "rgba(255,255,255,0.6)", lineHeight: 1.65, marginBottom: 40, maxWidth: 560, margin: "0 auto 40px" }}>
+              Start simple. Upgrade when you want booking, SMS, AI employee, and custom domain.
+            </p>
+
+            <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", marginBottom: 44 }}>
+              <Link
+                href="/Wizard"
+                data-testid="pricing-cta-start"
+                className="mkt-btn-primary"
+                style={{ padding: "13px 30px", borderRadius: 10, background: C.sage, color: "#FFFFFF", fontSize: 15, fontWeight: 700, textDecoration: "none", display: "inline-block" }}
               >
-                <span style={{ ...s.tierBadge, ...tier.badgeStyle }}>{tier.badge}</span>
-                <p style={s.tierName}>{tier.name}</p>
-                <div style={s.tierPrice}>
-                  ${annual ? tier.price.annual : tier.price.monthly}
-                  <span style={{ fontSize: 16, fontWeight: 500, color: "#6B7280" }}>/mo</span>
-                </div>
-                {annual && tier.price.annual !== tier.price.monthly && (
-                  <p style={{ fontSize: 12, color: "#2D6A4F", fontWeight: 600, margin: "2px 0 8px" }}>
-                    billed annually
-                  </p>
-                )}
-                <p style={s.tierTagline}>{tier.tagline}</p>
-                <div style={s.tierDivider} />
-                <ul style={s.featureList}>
-                  {tier.features.map(f => (
-                    <li key={f} style={s.featureItem}>
-                      <Check size={15} color="#2D6A4F" style={{ flexShrink: 0, marginTop: 2 }} />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  style={{
-                    ...s.ctaBtn,
-                    ...(tier.ctaStyle === "primary" ? s.ctaBtnPrimary : s.ctaBtnOutline),
-                  }}
-                  data-testid={`button-cta-${tier.id}`}
-                >
-                  {tier.cta}
-                </button>
-              </div>
-            ))}
-          </div>
+                Start Free
+              </Link>
+              <Link
+                href="/demo"
+                data-testid="pricing-cta-demo"
+                className="mkt-btn-ghost"
+                style={{ padding: "13px 24px", borderRadius: 10, background: "transparent", color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, border: "1.5px solid rgba(255,255,255,0.28)" }}
+              >
+                <Play size={13} fill="currentColor" /> View Demo
+              </Link>
+            </div>
 
-          <button
-            style={s.toggleCompareBtn}
-            onClick={() => setShowComparison(v => !v)}
-          >
-            {showComparison ? "Hide comparison" : "View full comparison ▾"}
-          </button>
-        </div>
-
-        {showComparison && (
-          <div style={s.comparisonSection}>
-            <div style={{ maxWidth: 900, margin: "0 auto" }}>
-              <h2 style={{ fontSize: 22, fontWeight: 700, color: "#111827", marginBottom: 24, textAlign: "center" }}>
-                Feature comparison
-              </h2>
-              <div style={{ overflowX: "auto" }}>
-                <table style={s.comparisonTable} data-testid="comparison-table">
-                  <thead>
-                    <tr>
-                      <th style={s.tableHeader}>Feature</th>
-                      <th style={{ ...s.tableHeader, textAlign: "center" }}>Free</th>
-                      <th style={{ ...s.tableHeader, textAlign: "center" }}>Starter</th>
-                      <th style={{ ...s.tableHeader, textAlign: "center" }}>Pro</th>
-                      <th style={{ ...s.tableHeader, textAlign: "center" }}>Elite</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {comparisonRows.map(row => (
-                      <tr key={row.feature}>
-                        <td style={s.tableCell}>{row.feature}</td>
-                        <td style={s.tableCellCenter}>{renderCell(row.free)}</td>
-                        <td style={s.tableCellCenter}>{renderCell(row.starter)}</td>
-                        <td style={s.tableCellCenter}>{renderCell(row.pro)}</td>
-                        <td style={s.tableCellCenter}>{renderCell(row.elite)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* Monthly / Annual toggle */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
+              <span style={{ fontSize: 14, fontWeight: annual ? 400 : 600, color: annual ? "rgba(255,255,255,0.5)" : "#FFFFFF", transition: "color 0.2s" }}>Monthly</span>
+              <button
+                data-testid="toggle-annual"
+                onClick={() => setAnnual((a) => !a)}
+                aria-label="Toggle annual pricing"
+                style={{
+                  position: "relative", width: 52, height: 28, borderRadius: 999,
+                  background: annual ? C.sage : "rgba(255,255,255,0.18)",
+                  border: "none", cursor: "pointer",
+                  transition: "background 0.25s ease", flexShrink: 0,
+                }}
+              >
+                <div style={{
+                  position: "absolute", top: 3,
+                  left: annual ? 27 : 3,
+                  width: 22, height: 22, borderRadius: "50%",
+                  background: "#FFFFFF",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+                  transition: "left 0.25s ease",
+                }} />
+              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: annual ? 600 : 400, color: annual ? "#FFFFFF" : "rgba(255,255,255,0.5)", transition: "color 0.2s" }}>Annual</span>
+                <span style={{ background: C.sage, color: "#FFFFFF", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, letterSpacing: "0.04em" }}>
+                  Save 20%
+                </span>
               </div>
             </div>
-            <p style={s.noteText}>
-              All plans include a 14-day free trial of AI Employee features.
-            </p>
           </div>
-        )}
+        </section>
 
-        {!showComparison && (
-          <div style={{ background: "#FFFFFF", padding: "20px 24px 40px", textAlign: "center" }}>
-            <p style={{ fontSize: 14, color: "#6B7280" }}>
-              All plans include a 14-day free trial of AI Employee features.
+        {/* ══════════════════════════════════════════
+            B. PLAN CARDS
+        ══════════════════════════════════════════ */}
+        <section style={{ background: C.bgGray, padding: "72px 28px 80px" }}>
+          <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+            <div
+              className="plans-grid"
+              style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20, alignItems: "start" }}
+            >
+              {PLANS.map((plan) => {
+                const price = annual ? plan.price.annual : plan.price.monthly;
+                const isPro = plan.id === "pro";
+                const isElite = plan.id === "elite";
+
+                return (
+                  <div
+                    key={plan.id}
+                    data-testid={`tier-${plan.id}`}
+                    data-reveal="fade-up"
+                    data-delay={plan.id === "free" ? "100" : plan.id === "starter" ? "200" : plan.id === "pro" ? "300" : "400"}
+                    style={{
+                      background: C.bg,
+                      border: `${isPro ? 2 : 1}px solid ${plan.accentBorder}`,
+                      borderRadius: 20,
+                      padding: "28px 24px",
+                      position: "relative",
+                      boxShadow: isPro ? SHADOW.featured : isElite ? SHADOW.gold : SHADOW.card,
+                      ...(isPro ? { marginTop: -12 } : {}),
+                    }}
+                  >
+                    {/* Badge */}
+                    {plan.badge && (
+                      <div style={{
+                        position: "absolute", top: -13, left: "50%", transform: "translateX(-50%)",
+                        background: plan.badgeBg, color: plan.badgeColor,
+                        fontSize: 11, fontWeight: 700, padding: "4px 14px",
+                        borderRadius: 20, whiteSpace: "nowrap" as const, letterSpacing: "0.04em",
+                      }}>
+                        {plan.badge}
+                      </div>
+                    )}
+
+                    {/* Plan name */}
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase" as const, letterSpacing: "0.1em", marginBottom: 10 }}>
+                      {plan.name}
+                    </div>
+
+                    {/* Price */}
+                    <div style={{ display: "flex", alignItems: "flex-end", gap: 2, marginBottom: 6 }}>
+                      <span style={{ fontSize: 42, fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", lineHeight: 1 }}>
+                        ${price}
+                      </span>
+                      <span style={{ fontSize: 14, color: C.muted, marginBottom: 6 }}>/mo</span>
+                    </div>
+
+                    {annual && price !== plan.price.monthly && (
+                      <div style={{ fontSize: 12, color: C.sage, fontWeight: 600, marginBottom: 8 }}>
+                        ${plan.price.monthly * 12 - plan.price.annual * 12} saved this year
+                      </div>
+                    )}
+
+                    {/* Tagline */}
+                    <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5, marginBottom: 22, minHeight: 40 }}>
+                      {plan.tagline}
+                    </div>
+
+                    {/* CTA */}
+                    <Link
+                      href={plan.id === "free" ? "/Wizard" : "/Wizard"}
+                      data-testid={`button-cta-${plan.id}`}
+                      className="mkt-btn-primary"
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "11px 0",
+                        borderRadius: 10,
+                        fontSize: 14,
+                        fontWeight: 700,
+                        textAlign: "center" as const,
+                        textDecoration: "none",
+                        marginBottom: 22,
+                        ...(plan.ctaStyle === "primary"
+                          ? { background: C.sage, color: "#FFFFFF" }
+                          : { background: "transparent", color: isPro ? C.sage : C.body, border: `1.5px solid ${isPro ? C.sage : C.border}` }),
+                      }}
+                    >
+                      {plan.cta}
+                    </Link>
+
+                    {/* Divider */}
+                    <div style={{ borderTop: `1px solid ${C.borderLight}`, marginBottom: 18 }} />
+
+                    {/* Feature list */}
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+                      {plan.features.map(({ label, included }) => (
+                        <li key={label} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 13, color: included === false ? C.muted : C.body, lineHeight: 1.4 }}>
+                          {included === false ? (
+                            <Minus size={14} color="#CBD5E1" style={{ flexShrink: 0, marginTop: 1 }} />
+                          ) : (
+                            <Check size={14} color={C.sage} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 1 }} />
+                          )}
+                          <span>
+                            {label}
+                            {typeof included === "string" && included !== "true" && (
+                              <span style={{ fontSize: 11, fontWeight: 600, color: C.blue, marginLeft: 6 }}>
+                                {included}
+                              </span>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p style={{ textAlign: "center", fontSize: 13, color: C.muted, marginTop: 32 }}>
+              All plans include a 14-day free trial of AI Employee. No credit card required to start.
             </p>
           </div>
-        )}
+
+          <style>{`
+            @media (max-width: 900px) { .plans-grid { grid-template-columns: 1fr 1fr !important; } }
+            @media (max-width: 560px) { .plans-grid { grid-template-columns: 1fr !important; } }
+          `}</style>
+        </section>
+
+        {/* ══════════════════════════════════════════
+            C. FEATURE COMPARISON TABLE
+        ══════════════════════════════════════════ */}
+        <section style={{ background: C.bg, padding: "96px 28px" }} data-testid="comparison-section">
+          <div style={{ maxWidth: 1040, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 52 }} data-reveal="fade-up">
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
+                Full Comparison
+              </div>
+              <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 12 }}>
+                Everything side by side
+              </h2>
+              <p style={{ fontSize: 16, color: C.muted, maxWidth: 440, margin: "0 auto" }}>
+                Compare every feature across all plans before you decide.
+              </p>
+            </div>
+
+            {/* Sticky header */}
+            <div style={{ overflowX: "auto", borderRadius: 16, border: `1px solid ${C.border}`, boxShadow: SHADOW.card }} data-reveal="fade-up">
+              <table data-testid="comparison-table" style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: "16px 20px", fontSize: 13, fontWeight: 700, color: C.muted, textAlign: "left", background: C.bgGray, borderBottom: `2px solid ${C.border}`, width: "36%" }}>
+                      Feature
+                    </th>
+                    {PLANS.map((plan) => (
+                      <th
+                        key={plan.id}
+                        style={{
+                          padding: "16px 12px", textAlign: "center", background: plan.highlighted ? `${C.sage}08` : C.bgGray,
+                          borderBottom: `2px solid ${plan.highlighted ? C.sage : C.border}`,
+                          borderLeft: `1px solid ${C.borderLight}`,
+                        }}
+                      >
+                        <div style={{ fontSize: 12, fontWeight: 800, color: plan.highlighted ? C.sage : C.heading, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          {plan.name}
+                        </div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: plan.highlighted ? C.sage : C.heading, marginTop: 4 }}>
+                          ${annual ? plan.price.annual : plan.price.monthly}
+                          <span style={{ fontSize: 11, fontWeight: 400, color: C.muted }}>/mo</span>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {COMPARISON_ROWS.map((row, i) => {
+                    if (row.category) {
+                      return (
+                        <tr key={`cat-${row.category}`}>
+                          <td
+                            colSpan={5}
+                            style={{
+                              padding: "12px 20px 8px",
+                              fontSize: 11,
+                              fontWeight: 800,
+                              color: C.sage,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.1em",
+                              background: `${C.sage}06`,
+                              borderTop: i > 0 ? `1px solid ${C.border}` : "none",
+                              borderBottom: `1px solid ${C.borderLight}`,
+                            }}
+                          >
+                            {row.category}
+                          </td>
+                        </tr>
+                      );
+                    }
+                    return (
+                      <tr key={row.feature} style={{ background: i % 2 === 0 ? C.bg : C.bgGray }}>
+                        <td style={{ padding: "13px 20px", fontSize: 14, color: C.body, borderBottom: `1px solid ${C.borderLight}`, fontWeight: 500 }}>
+                          {row.feature}
+                        </td>
+                        {(["free", "starter", "pro", "elite"] as const).map((planId) => {
+                          const plan = PLANS.find((p) => p.id === planId)!;
+                          return (
+                            <td
+                              key={planId}
+                              style={{
+                                padding: "13px 12px",
+                                borderBottom: `1px solid ${C.borderLight}`,
+                                borderLeft: `1px solid ${C.borderLight}`,
+                                background: plan.highlighted ? `${C.sage}04` : "transparent",
+                              }}
+                            >
+                              <Cell val={row[planId]} />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════
+            D. DECISION HELPER
+        ══════════════════════════════════════════ */}
+        <section style={{ background: C.bgGray, padding: "80px 28px" }} data-testid="decision-helper">
+          <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 48 }} data-reveal="fade-up">
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
+                Not Sure?
+              </div>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em" }}>
+                Which plan is right for you?
+              </h2>
+            </div>
+
+            <div
+              className="decision-grid"
+              style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}
+            >
+              {[
+                {
+                  emoji: "💡",
+                  title: "I just need estimates",
+                  body: "You want a professional quote calculator on your website that captures leads and removes phone tag.",
+                  plan: "Starter",
+                  planColor: C.blue,
+                  planId: "starter",
+                  bullets: ["1 calculator", "Custom branding", "500 leads/mo", "Email follow-ups"],
+                  delay: "100",
+                },
+                {
+                  emoji: "📅",
+                  title: "I want booking + follow-ups",
+                  body: "You want customers to book and pay a deposit, with SMS and WhatsApp follow-ups for cold leads.",
+                  plan: "Pro",
+                  planColor: C.sage,
+                  planId: "pro",
+                  bullets: ["3 calculators", "Booking + Stripe deposits", "SMS & WhatsApp AI", "Custom domain"],
+                  delay: "200",
+                },
+                {
+                  emoji: "🤖",
+                  title: "I want full autopilot + AI",
+                  body: "You want everything automated — AI employee, unlimited calculators, white-label, agency-ready.",
+                  plan: "Elite",
+                  planColor: C.gold,
+                  planId: "elite",
+                  bullets: ["Unlimited calculators", "White-label", "AI across all channels", "Priority support"],
+                  delay: "300",
+                },
+              ].map(({ emoji, title, body, plan, planColor, planId, bullets, delay }) => (
+                <div
+                  key={title}
+                  data-reveal="fade-up"
+                  data-delay={delay}
+                  className="mkt-feature-card"
+                  style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 18, padding: "28px 24px", boxShadow: SHADOW.card }}
+                >
+                  <div style={{ fontSize: 32, marginBottom: 16 }}>{emoji}</div>
+                  <h3 style={{ fontSize: 17, fontWeight: 700, color: C.heading, marginBottom: 10, lineHeight: 1.3 }}>{title}</h3>
+                  <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.65, marginBottom: 20 }}>{body}</p>
+                  <ul style={{ listStyle: "none", padding: 0, margin: "0 0 22px", display: "flex", flexDirection: "column", gap: 8 }}>
+                    {bullets.map((b) => (
+                      <li key={b} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.body }}>
+                        <Check size={13} color={planColor} strokeWidth={2.5} style={{ flexShrink: 0 }} />
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
+                  <div style={{ borderTop: `1px solid ${C.borderLight}`, paddingTop: 18 }}>
+                    <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>Recommended plan</div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 16, fontWeight: 800, color: planColor }}>{plan}</span>
+                      <Link
+                        href="/Wizard"
+                        data-testid={`decision-cta-${planId}`}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: planColor, textDecoration: "none" }}
+                      >
+                        Get started <ArrowRight size={13} />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <style>{`
+              @media (max-width: 820px) { .decision-grid { grid-template-columns: 1fr !important; } }
+            `}</style>
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════
+            E. FAQ
+        ══════════════════════════════════════════ */}
+        <section style={{ background: C.bg, padding: "96px 28px" }} data-testid="pricing-faq">
+          <div style={{ maxWidth: 780, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 52 }} data-reveal="fade-up">
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
+                FAQ
+              </div>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 12 }}>
+                Everything you need to know
+              </h2>
+              <p style={{ fontSize: 16, color: C.muted }}>
+                Still have questions? <Link href="/contact" style={{ color: C.sage, fontWeight: 600, textDecoration: "none" }}>Chat with us →</Link>
+              </p>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }} data-reveal="fade-up">
+              {FAQS.map((faq) => (
+                <FAQItem key={faq.q} {...faq} />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════
+            F. FINAL CTA
+        ══════════════════════════════════════════ */}
+        <section
+          style={{
+            background: `linear-gradient(135deg, ${C.sage} 0%, ${C.sageDark} 100%)`,
+            padding: "112px 28px",
+            textAlign: "center",
+          }}
+          data-testid="pricing-cta-band"
+        >
+          <div style={{ maxWidth: 640, margin: "0 auto" }} data-reveal="scale">
+            {/* Mini trust badges */}
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 36 }}>
+              {["No credit card required", "14-day AI trial on all plans", "Cancel anytime"].map((b) => (
+                <span key={b} style={{ fontSize: 12, fontWeight: 600, background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.85)", padding: "5px 14px", borderRadius: 20 }}>
+                  ✓ {b}
+                </span>
+              ))}
+            </div>
+
+            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 46px)", fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em", marginBottom: 16, lineHeight: 1.1 }}>
+              Start Free And Publish Your First Quote Tool Today
+            </h2>
+            <p style={{ fontSize: 17, color: "rgba(255,255,255,0.65)", lineHeight: 1.65, marginBottom: 44, maxWidth: 480, margin: "0 auto 44px" }}>
+              Turn quotes into booked jobs. Match your real pricing style. Reduce price objections. Join thousands of trades businesses already on QuickQuotePro.
+            </p>
+            <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
+              <Link
+                href="/Wizard"
+                data-testid="pricing-final-cta-start"
+                className="mkt-btn-primary"
+                style={{ display: "inline-block", padding: "15px 36px", borderRadius: 10, background: "#FFFFFF", color: C.sage, fontSize: 16, fontWeight: 800, textDecoration: "none" }}
+              >
+                Start Free
+              </Link>
+              <Link
+                href="/demo"
+                data-testid="pricing-final-cta-demo"
+                className="mkt-btn-ghost"
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", borderRadius: 10, background: "transparent", color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.38)" }}
+              >
+                <Play size={13} fill="currentColor" /> View Demo
+              </Link>
+            </div>
+          </div>
+        </section>
+
       </div>
     </MarketingLayout>
   );
