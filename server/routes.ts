@@ -106,6 +106,8 @@ export async function registerRoutes(
   const MARKETING_ROUTES = [
     "/", "/product", "/pricing", "/services", "/bundles",
     "/templates", "/demo", "/docs", "/contact", "/privacy", "/terms",
+    "/features/instant-quotes", "/features/booking", "/features/ai-employee",
+    "/features/sms", "/features/calculator-engine",
   ];
 
   app.get("/robots.txt", (_req, res) => {
