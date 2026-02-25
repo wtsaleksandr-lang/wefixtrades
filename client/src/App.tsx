@@ -25,6 +25,7 @@ import FeatureBooking from "@/pages/marketing/features/booking";
 import FeatureAiEmployee from "@/pages/marketing/features/ai-employee";
 import FeatureSms from "@/pages/marketing/features/sms";
 import FeatureCalculatorEngine from "@/pages/marketing/features/calculator-engine";
+import DemoTemplate from "@/pages/marketing/demo-template";
 import DocsEmbed from "@/pages/marketing/docs/embed";
 import DocsDomain from "@/pages/marketing/docs/domain";
 import DocsBooking from "@/pages/marketing/docs/booking";
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/services" component={MarketingServices} />
       <Route path="/bundles" component={MarketingBundles} />
       <Route path="/templates" component={MarketingTemplates} />
+      <Route path="/demo/:templateId" component={DemoTemplate} />
       <Route path="/demo" component={MarketingDemo} />
       <Route path="/docs" component={MarketingDocs} />
       <Route path="/contact" component={MarketingContact} />
