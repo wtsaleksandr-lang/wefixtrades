@@ -1,168 +1,132 @@
 import { useState, useEffect } from "react";
+import { Link } from "wouter";
+import { Search, Zap, Globe, Calendar, Bot, Code, AlertCircle, Webhook, ArrowRight, BookOpen, MessageSquare } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { Search, BookOpen, Zap, Settings, Bot, MessageSquare, Calendar, Globe, Code, ArrowRight, ChevronRight } from "lucide-react";
+import { useScrollReveal } from "@/hooks/useScrollReveal";
 
-const p = {
-  colors: {
-    accent: "#2D6A4F",
-    accentDark: "#1B4332",
-    navyBg: "#0B1F3A",
-    lightBg: "#F7F8FA",
-    surface: "#FFFFFF",
-    heading: "#111827",
-    body: "#374151",
-    muted: "#6B7280",
-    border: "#E5E7EB",
-    blue: "#2563EB",
-  },
-  shadows: {
-    card: "0 1px 3px rgba(0,0,0,0.05), 0 1px 8px rgba(0,0,0,0.04)",
-  },
-  radius: { sm: "8px", md: "12px", pill: "999px" },
+const C = {
+  navy: "#0B1F3A",
+  sage: "#2D6A4F",
+  sageTint: "#F0F7F4",
+  bg: "#FFFFFF",
+  bgGray: "#F8FAFC",
+  heading: "#0F172A",
+  body: "#334155",
+  muted: "#64748B",
+  border: "#E2E8F0",
 };
 
-const DOC_CATEGORIES = [
-  { label: "Getting Started", icon: Zap, id: "getting-started" },
-  { label: "Calculator Setup", icon: Settings, id: "calculator-setup" },
-  { label: "Pricing Logic", icon: BookOpen, id: "pricing-logic" },
-  { label: "AI Employee", icon: Bot, id: "ai-employee" },
-  { label: "SMS & WhatsApp", icon: MessageSquare, id: "sms-whatsapp" },
-  { label: "Booking Engine", icon: Calendar, id: "booking-engine" },
-  { label: "Embeds & Domains", icon: Globe, id: "embeds-domains" },
-  { label: "API Reference", icon: Code, id: "api-reference" },
+const GUIDES = [
+  {
+    slug: "embed",
+    icon: Code,
+    title: "Embed Guide",
+    description: "Add your calculator to any website in 5 minutes. WordPress, Wix, Squarespace, Shopify — covered.",
+    badge: "Popular",
+    badgeColor: "#2563EB",
+    badgeBg: "#EFF6FF",
+    time: "5 min read",
+  },
+  {
+    slug: "domain",
+    icon: Globe,
+    title: "Custom Domain",
+    description: "Point your own subdomain (e.g. quotes.yoursite.com) to your calculator. SSL automated.",
+    badge: null,
+    time: "3 min read",
+  },
+  {
+    slug: "booking",
+    icon: Calendar,
+    title: "Booking + Deposits",
+    description: "Let customers book a time and pay a deposit right after getting their estimate.",
+    badge: "Pro",
+    badgeColor: C.sage,
+    badgeBg: C.sageTint,
+    time: "4 min read",
+  },
+  {
+    slug: "ai",
+    icon: Bot,
+    title: "AI Employee",
+    description: "Configure your AI to answer questions, generate estimates, and book jobs — 24/7.",
+    badge: "Pro",
+    badgeColor: C.sage,
+    badgeBg: C.sageTint,
+    time: "5 min read",
+  },
+  {
+    slug: "webhooks",
+    icon: Webhook,
+    title: "Webhooks",
+    description: "Push real-time events to Zapier, Make, or your own system on every lead and booking.",
+    badge: "Elite",
+    badgeColor: "#F59E0B",
+    badgeBg: "#FFFBEB",
+    time: "4 min read",
+  },
+  {
+    slug: "troubleshooting",
+    icon: AlertCircle,
+    title: "Troubleshooting",
+    description: "Fast fixes for common issues — widget not loading, missing leads, Stripe not charging.",
+    badge: null,
+    time: "Quick ref",
+  },
 ];
 
-const DOC_CONTENT: Record<string, { title: string; description: string; articles: { title: string; status: string }[] }> = {
-  "getting-started": {
-    title: "Getting Started",
-    description: "Everything you need to launch your first quote calculator and go live in under 10 minutes.",
-    articles: [
-      { title: "Create your first calculator", status: "Read More →" },
-      { title: "Publishing your calculator page", status: "Read More →" },
-      { title: "Embedding on your website", status: "Read More →" },
-      { title: "Connecting your first lead notification", status: "Read More →" },
-    ],
-  },
-  "calculator-setup": {
-    title: "Calculator Setup",
-    description: "Configure sliders, fields, and display options for your quote calculator.",
-    articles: [
-      { title: "Adding slider fields", status: "Read More →" },
-      { title: "Configuring input types", status: "Read More →" },
-      { title: "Setting up trade categories", status: "Read More →" },
-      { title: "Template customisation guide", status: "Coming Soon" },
-    ],
-  },
-  "pricing-logic": {
-    title: "Pricing Logic",
-    description: "Define your pricing formulas, rate sheets, and dynamic adjustments.",
-    articles: [
-      { title: "Formula families overview", status: "Read More →" },
-      { title: "Setting base rates and multipliers", status: "Read More →" },
-      { title: "Area-based pricing", status: "Read More →" },
-      { title: "Package pricing tiers", status: "Coming Soon" },
-    ],
-  },
-  "ai-employee": {
-    title: "AI Employee",
-    description: "Configure your AI agent's persona, knowledge base, and escalation rules.",
-    articles: [
-      { title: "AI Employee overview", status: "Read More →" },
-      { title: "Training your AI with FAQs", status: "Read More →" },
-      { title: "Setting up escalation rules", status: "Coming Soon" },
-      { title: "Function calling and integrations", status: "Coming Soon" },
-    ],
-  },
-  "sms-whatsapp": {
-    title: "SMS & WhatsApp",
-    description: "Set up two-way SMS/WhatsApp conversations powered by your AI employee.",
-    articles: [
-      { title: "Connecting your Twilio number", status: "Read More →" },
-      { title: "Enabling WhatsApp", status: "Read More →" },
-      { title: "Take Over mode", status: "Read More →" },
-      { title: "Rate limiting and compliance", status: "Coming Soon" },
-    ],
-  },
-  "booking-engine": {
-    title: "Booking Engine",
-    description: "Accept bookings and deposits directly from your calculator widget.",
-    articles: [
-      { title: "Setting up availability slots", status: "Read More →" },
-      { title: "Connecting Stripe for deposits", status: "Read More →" },
-      { title: "Booking confirmation emails", status: "Coming Soon" },
-      { title: "Calendar integrations", status: "Coming Soon" },
-    ],
-  },
-  "embeds-domains": {
-    title: "Embeds & Domains",
-    description: "Embed your calculator anywhere or use a custom domain for your hosted page.",
-    articles: [
-      { title: "Embed snippet guide", status: "Read More →" },
-      { title: "Setting up a custom domain", status: "Read More →" },
-      { title: "iframe vs JavaScript embed", status: "Read More →" },
-      { title: "CNAME configuration", status: "Coming Soon" },
-    ],
-  },
-  "api-reference": {
-    title: "API Reference",
-    description: "Integrate QuickQuotePro with your existing systems via our REST API.",
-    articles: [
-      { title: "Authentication & API keys", status: "Coming Soon" },
-      { title: "Leads API", status: "Coming Soon" },
-      { title: "Calculator API", status: "Coming Soon" },
-      { title: "Webhooks", status: "Coming Soon" },
-    ],
-  },
-};
-
-const QUICKSTART_CARDS = [
-  { title: "5-Minute Quickstart", description: "Launch a live calculator page for your trade business in 5 minutes flat.", icon: Zap },
-  { title: "Embed on Any Website", description: "Add your calculator to WordPress, Wix, Webflow, or any custom site.", icon: Globe },
-  { title: "AI Employee Setup", description: "Configure your AI chat agent to handle inquiries and estimate requests 24/7.", icon: Bot },
-  { title: "Booking + Payments", description: "Accept deposits and bookings directly through your calculator widget.", icon: Calendar },
+const QUICKSTARTS = [
+  { icon: Zap, label: "Create your first calculator", href: "/Wizard", sub: "Launch a live quote page in under 10 minutes" },
+  { icon: Globe, label: "Embed on your website", href: "/docs/embed", sub: "Script, popup, or iframe — your choice" },
+  { icon: Bot, label: "Set up AI Employee", href: "/docs/ai", sub: "Activate your 14-day trial and configure your AI" },
+  { icon: Calendar, label: "Enable booking + deposits", href: "/docs/booking", sub: "Turn estimates into paid bookings" },
 ];
 
 export default function DocsPage() {
-  const [activeCategory, setActiveCategory] = useState("getting-started");
-  const [searchValue, setSearchValue] = useState("");
+  useScrollReveal();
+  const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    document.title = "Docs — QuickQuotePro";
-  }, []);
+  useEffect(() => { document.title = "Docs — QuickQuotePro"; }, []);
 
-  const activeDoc = DOC_CONTENT[activeCategory];
+  const filtered = GUIDES.filter((g) =>
+    search === "" ||
+    g.title.toLowerCase().includes(search.toLowerCase()) ||
+    g.description.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <MarketingLayout>
-      <div data-testid="docs-page" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-        {/* Page Header */}
-        <div style={{ background: p.colors.navyBg, padding: "64px 24px 48px" }}>
-          <div style={{ maxWidth: 1120, margin: "0 auto" }}>
-            <h1 style={{ fontSize: 42, fontWeight: 800, color: "#FFFFFF", margin: "0 0 12px", letterSpacing: "-0.02em" }}>
-              Documentation
+      <div data-testid="docs-hub" style={{ overflowX: "hidden" }}>
+
+        {/* Hero */}
+        <div style={{ background: `linear-gradient(160deg, ${C.navy} 0%, #0F2744 100%)`, padding: "72px 28px 64px" }}>
+          <div style={{ maxWidth: 780, margin: "0 auto", textAlign: "center" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(45,106,79,0.22)", border: "1px solid rgba(45,106,79,0.35)", borderRadius: 20, padding: "5px 16px", marginBottom: 24 }}>
+              <BookOpen size={13} color="#6EE7B7" />
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#6EE7B7", letterSpacing: "0.05em" }}>Documentation</span>
+            </div>
+            <h1 style={{ fontSize: "clamp(30px, 4vw, 48px)", fontWeight: 800, color: "#FFFFFF", margin: "0 0 14px", letterSpacing: "-0.02em" }}>
+              How can we help?
             </h1>
-            <p style={{ fontSize: 18, color: "rgba(255,255,255,0.7)", margin: "0 0 32px" }}>
-              Everything you need to get up and running.
+            <p style={{ fontSize: 17, color: "rgba(255,255,255,0.6)", margin: "0 0 36px", lineHeight: 1.6 }}>
+              Guides, embed instructions, and troubleshooting — all written for non-technical trades people.
             </p>
-            {/* Search Bar */}
-            <div style={{ position: "relative" as const, maxWidth: 540 }}>
-              <Search
-                size={18}
-                color="#9CA3AF"
-                style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}
-              />
+
+            {/* Search */}
+            <div style={{ position: "relative" as const, maxWidth: 520, margin: "0 auto" }}>
+              <Search size={17} color="#94A3B8" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
               <input
                 data-testid="docs-search"
                 type="text"
-                value={searchValue}
-                onChange={e => setSearchValue(e.target.value)}
-                placeholder="Search docs..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search guides... (e.g. embed, domain, booking)"
                 style={{
                   width: "100%",
-                  padding: "12px 16px 12px 44px",
-                  borderRadius: p.radius.sm,
+                  padding: "14px 16px 14px 48px",
+                  borderRadius: 12,
                   border: "1.5px solid rgba(255,255,255,0.15)",
-                  background: "rgba(255,255,255,0.08)",
+                  background: "rgba(255,255,255,0.09)",
                   color: "#FFFFFF",
                   fontSize: 15,
                   outline: "none",
@@ -174,234 +138,129 @@ export default function DocsPage() {
           </div>
         </div>
 
-        {/* Quickstart Cards */}
-        <div style={{ background: p.colors.lightBg, padding: "40px 24px", borderBottom: `1px solid ${p.colors.border}` }}>
-          <div style={{ maxWidth: 1120, margin: "0 auto" }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: p.colors.muted, letterSpacing: "0.08em", textTransform: "uppercase" as const, margin: "0 0 16px" }}>
-              QUICKSTART GUIDES
-            </p>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-              gap: 16,
-            }}>
-              {QUICKSTART_CARDS.map(({ title, description, icon: Icon }) => (
-                <div
-                  key={title}
-                  style={{
-                    background: p.colors.surface,
-                    borderRadius: p.radius.md,
-                    padding: "20px",
-                    boxShadow: p.shadows.card,
-                    border: `1px solid ${p.colors.border}`,
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column" as const,
-                    gap: 10,
-                  }}
-                >
-                  <div style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: p.radius.sm,
-                    background: "rgba(45,106,79,0.1)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}>
-                    <Icon size={18} color={p.colors.accent} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: p.colors.heading, marginBottom: 4 }}>{title}</div>
-                    <div style={{ fontSize: 13, color: p.colors.muted, lineHeight: 1.55 }}>{description}</div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, color: p.colors.accent, fontSize: 13, fontWeight: 600 }}>
-                    Read More <ArrowRight size={12} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Two-Column Layout: Sidebar + Content */}
-        <div style={{ background: p.colors.surface }}>
-          <div style={{
-            maxWidth: 1120,
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "240px 1fr",
-            minHeight: 500,
-          }}>
-            {/* Sidebar */}
-            <div
-              data-testid="docs-sidebar"
-              style={{
-                borderRight: `1px solid ${p.colors.border}`,
-                padding: "32px 0",
-                position: "sticky" as const,
-                top: 60,
-                height: "calc(100vh - 60px)",
-                overflowY: "auto",
-              }}
-            >
-              <p style={{ fontSize: 11, fontWeight: 700, color: p.colors.muted, letterSpacing: "0.08em", textTransform: "uppercase" as const, margin: "0 0 12px 20px" }}>
-                CATEGORIES
-              </p>
-              {DOC_CATEGORIES.map(({ label, icon: Icon, id }) => (
-                <button
-                  key={id}
-                  onClick={() => setActiveCategory(id)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    width: "100%",
-                    padding: "9px 20px",
-                    background: activeCategory === id ? "rgba(45,106,79,0.08)" : "transparent",
-                    border: "none",
-                    borderLeft: `3px solid ${activeCategory === id ? p.colors.accent : "transparent"}`,
-                    cursor: "pointer",
-                    textAlign: "left" as const,
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  <Icon size={15} color={activeCategory === id ? p.colors.accent : p.colors.muted} />
-                  <span style={{
-                    fontSize: 14,
-                    fontWeight: activeCategory === id ? 600 : 400,
-                    color: activeCategory === id ? p.colors.accent : p.colors.body,
-                  }}>
-                    {label}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Content Area */}
-            <div data-testid="docs-content" style={{ padding: "40px 40px 60px" }}>
-              {activeDoc && (
-                <>
-                  <h2 style={{ fontSize: 28, fontWeight: 800, color: p.colors.heading, margin: "0 0 10px", letterSpacing: "-0.02em" }}>
-                    {activeDoc.title}
-                  </h2>
-                  <p style={{ fontSize: 16, color: p.colors.muted, lineHeight: 1.65, margin: "0 0 36px" }}>
-                    {activeDoc.description}
-                  </p>
-
-                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 12 }}>
-                    {activeDoc.articles.map(({ title, status }, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          background: p.colors.lightBg,
-                          borderRadius: p.radius.sm,
-                          padding: "18px 20px",
-                          border: `1px solid ${p.colors.border}`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          cursor: "pointer",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <BookOpen size={15} color={p.colors.muted} />
-                          <span style={{ fontSize: 15, fontWeight: 500, color: p.colors.body }}>{title}</span>
-                        </div>
-                        <div style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                          fontSize: 13,
-                          fontWeight: 600,
-                          color: status === "Coming Soon" ? p.colors.muted : p.colors.accent,
-                          flexShrink: 0,
-                        }}>
-                          {status === "Coming Soon" ? (
-                            <span style={{
-                              padding: "2px 8px",
-                              borderRadius: p.radius.pill,
-                              background: "#F3F4F6",
-                              color: p.colors.muted,
-                              fontSize: 11,
-                              fontWeight: 600,
-                            }}>
-                              Coming Soon
-                            </span>
-                          ) : (
-                            <>
-                              Read More <ChevronRight size={13} />
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {activeCategory === "api-reference" && (
-                    <div style={{
-                      marginTop: 32,
-                      padding: "24px",
-                      borderRadius: p.radius.md,
-                      background: p.colors.navyBg,
-                      color: "#FFFFFF",
-                    }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: "#6EE7B7", marginBottom: 10 }}>API REFERENCE</div>
-                      <p style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.65, margin: "0 0 16px" }}>
-                        The QuickQuotePro API is currently in private beta. Contact us to get early access.
-                      </p>
-                      <a
-                        href="/contact"
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "8px 16px",
-                          borderRadius: p.radius.sm,
-                          background: p.colors.accent,
-                          color: "#FFFFFF",
-                          fontSize: 13,
-                          fontWeight: 600,
-                          textDecoration: "none",
-                        }}
-                      >
-                        Request API Access <ArrowRight size={12} />
-                      </a>
+        {/* Quick start strip */}
+        {search === "" && (
+          <div style={{ background: C.bgGray, borderBottom: `1px solid ${C.border}`, padding: "28px 28px" }}>
+            <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 16 }}>
+                Quickstart
+              </div>
+              <div className="qs-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                {QUICKSTARTS.map(({ icon: Icon, label, href, sub }) => (
+                  <Link
+                    key={label}
+                    href={href}
+                    data-testid={`quickstart-${label.toLowerCase().replace(/\s+/g, "-")}`}
+                    style={{
+                      display: "flex", gap: 12, padding: "14px 16px",
+                      background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12,
+                      textDecoration: "none", alignItems: "flex-start",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+                      transition: "box-shadow 0.18s ease, border-color 0.18s ease",
+                    }}
+                    className="mkt-feature-card"
+                  >
+                    <div style={{ width: 34, height: 34, borderRadius: 8, background: C.sageTint, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Icon size={16} color={C.sage} />
                     </div>
-                  )}
-                </>
-              )}
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: C.heading, marginBottom: 2 }}>{label}</div>
+                      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.45 }}>{sub}</div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
+            <style>{`@media(max-width:820px){.qs-grid{grid-template-columns:1fr 1fr!important;}} @media(max-width:480px){.qs-grid{grid-template-columns:1fr!important;}}`}</style>
           </div>
+        )}
+
+        {/* Guide cards grid */}
+        <div style={{ background: C.bg, padding: "64px 28px 96px" }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            {search !== "" && (
+              <p style={{ fontSize: 14, color: C.muted, marginBottom: 24 }}>
+                {filtered.length} result{filtered.length !== 1 ? "s" : ""} for "<strong>{search}</strong>"
+              </p>
+            )}
+            {search === "" && (
+              <div style={{ marginBottom: 36 }} data-reveal="fade-up">
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 12 }}>
+                  All Guides
+                </div>
+                <h2 style={{ fontSize: "clamp(22px, 2.5vw, 32px)", fontWeight: 800, color: C.heading, margin: 0, letterSpacing: "-0.02em" }}>
+                  Everything you need to get results
+                </h2>
+              </div>
+            )}
+
+            {filtered.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 0", color: C.muted }}>
+                <MessageSquare size={32} color={C.border} style={{ marginBottom: 12 }} />
+                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>No guides match "{search}"</div>
+                <div style={{ fontSize: 14 }}>Try a different keyword or <Link href="/contact" style={{ color: C.sage, fontWeight: 600, textDecoration: "none" }}>contact support</Link>.</div>
+              </div>
+            ) : (
+              <div className="guides-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+                {filtered.map(({ slug, icon: Icon, title, description, badge, badgeColor, badgeBg, time }) => (
+                  <Link
+                    key={slug}
+                    href={`/docs/${slug}`}
+                    data-testid={`docs-card-${slug}`}
+                    data-reveal="fade-up"
+                    className="mkt-feature-card"
+                    style={{
+                      display: "flex", flexDirection: "column", gap: 0,
+                      background: C.bg, border: `1px solid ${C.border}`, borderRadius: 16,
+                      padding: "28px 24px", textDecoration: "none",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.05)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
+                      <div style={{ width: 48, height: 48, borderRadius: 12, background: C.sageTint, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Icon size={22} color={C.sage} />
+                      </div>
+                      {badge && (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: badgeColor, background: badgeBg, padding: "3px 10px", borderRadius: 20, letterSpacing: "0.05em" }}>
+                          {badge}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: C.heading, marginBottom: 8 }}>{title}</div>
+                    <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.65, flex: 1, marginBottom: 20 }}>{description}</div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 12, color: C.muted }}>{time}</span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: C.sage }}>
+                        Read guide <ArrowRight size={13} />
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+          <style>{`@media(max-width:820px){.guides-grid{grid-template-columns:1fr 1fr!important;}} @media(max-width:560px){.guides-grid{grid-template-columns:1fr!important;}}`}</style>
         </div>
 
-        {/* Footer CTA */}
-        <div style={{ background: p.colors.lightBg, padding: "60px 24px", borderTop: `1px solid ${p.colors.border}`, textAlign: "center" }}>
-          <div style={{ maxWidth: 560, margin: "0 auto" }}>
-            <h3 style={{ fontSize: 24, fontWeight: 800, color: p.colors.heading, margin: "0 0 10px" }}>
+        {/* Footer help band */}
+        <div style={{ background: C.bgGray, borderTop: `1px solid ${C.border}`, padding: "56px 28px", textAlign: "center" }}>
+          <div style={{ maxWidth: 520, margin: "0 auto" }}>
+            <h3 style={{ fontSize: 22, fontWeight: 800, color: C.heading, margin: "0 0 10px" }}>
               Can't find what you're looking for?
             </h3>
-            <p style={{ fontSize: 16, color: p.colors.muted, margin: "0 0 24px" }}>
-              Our support team is here to help. Usually responds within 2 hours.
+            <p style={{ fontSize: 15, color: C.muted, margin: "0 0 24px", lineHeight: 1.65 }}>
+              Our support team usually responds within 2 hours. We're real people — not a bot.
             </p>
-            <a
+            <Link
               href="/contact"
-              style={{
-                display: "inline-block",
-                padding: "12px 28px",
-                borderRadius: p.radius.sm,
-                background: p.colors.accent,
-                color: "#FFFFFF",
-                fontSize: 15,
-                fontWeight: 700,
-                textDecoration: "none",
-              }}
+              data-testid="docs-contact-cta"
+              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "12px 28px", borderRadius: 10, background: C.sage, color: "#FFFFFF", fontSize: 15, fontWeight: 700, textDecoration: "none" }}
             >
-              Contact Support
-            </a>
+              Contact Support <ArrowRight size={14} />
+            </Link>
           </div>
         </div>
+
       </div>
     </MarketingLayout>
   );
