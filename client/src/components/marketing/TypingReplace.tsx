@@ -8,7 +8,7 @@ interface TypingReplaceProps {
 
 export default function TypingReplace({
   words,
-  color = "#16A34A",
+  color = "#4A7C6F",
   fontSize = "clamp(22px, 2.6vw, 36px)",
 }: TypingReplaceProps) {
   const [displayedText, setDisplayedText] = useState("");
@@ -121,7 +121,7 @@ export default function TypingReplace({
     >
       <span
         style={{
-          color: "#5F6368",
+          color: "#6B6B6B",
           fontSize,
           fontWeight: 600,
           whiteSpace: "nowrap",
@@ -140,7 +140,7 @@ export default function TypingReplace({
             bottom: "0.05em",
             width: highlightWidth ? highlightWidth + 4 : 0,
             opacity: highlightOpacity,
-            background: "rgba(22,163,74,0.10)",
+            background: "rgba(74,124,111,0.18)",
             borderRadius: 4,
             transition: "width 130ms ease, opacity 150ms ease",
             pointerEvents: "none",
