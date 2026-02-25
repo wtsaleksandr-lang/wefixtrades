@@ -20,6 +20,11 @@ import MarketingDocs from "@/pages/marketing/docs";
 import MarketingContact from "@/pages/marketing/contact";
 import MarketingPrivacy from "@/pages/marketing/privacy";
 import MarketingTerms from "@/pages/marketing/terms";
+import FeatureInstantQuotes from "@/pages/marketing/features/instant-quotes";
+import FeatureBooking from "@/pages/marketing/features/booking";
+import FeatureAiEmployee from "@/pages/marketing/features/ai-employee";
+import FeatureSms from "@/pages/marketing/features/sms";
+import FeatureCalculatorEngine from "@/pages/marketing/features/calculator-engine";
 
 function Router() {
   return (
@@ -35,6 +40,11 @@ function Router() {
       <Route path="/contact" component={MarketingContact} />
       <Route path="/privacy" component={MarketingPrivacy} />
       <Route path="/terms" component={MarketingTerms} />
+      <Route path="/features/instant-quotes" component={FeatureInstantQuotes} />
+      <Route path="/features/booking" component={FeatureBooking} />
+      <Route path="/features/ai-employee" component={FeatureAiEmployee} />
+      <Route path="/features/sms" component={FeatureSms} />
+      <Route path="/features/calculator-engine" component={FeatureCalculatorEngine} />
       <Route path="/Wizard" component={Wizard} />
       <Route path="/Calculator" component={Calculator} />
       <Route path="/EditCalculator" component={EditCalculator} />
