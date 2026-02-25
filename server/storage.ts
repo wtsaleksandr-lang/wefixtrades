@@ -4,6 +4,7 @@ import {
   calculatorAnalyticsSummary, jobLogs,
   notificationQueue, followupJobs, bookings,
   aiConversations, supportTickets, smsMessages,
+  users,
   type Calculator, type InsertCalculator,
   type Lead, type InsertLead,
   type AnalyticsEvent, type InsertAnalyticsEvent,
@@ -16,8 +17,9 @@ import {
   type AiConversation, type InsertAiConversation,
   type SupportTicket, type InsertSupportTicket,
   type SmsMessage,
+  type User, type InsertUser,
 } from "@shared/schema";
-import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
 export interface IStorage {
   createCalculator(data: InsertCalculator): Promise<Calculator>;
@@ -86,6 +88,14 @@ export interface IStorage {
 
   getSmsThreads(calculatorId: number): Promise<{ lead: Lead; messages: SmsMessage[] }[]>;
   updateLeadAiPaused(leadId: number, calculatorId: number, paused: boolean): Promise<void>;
+
+  createUser(data: InsertUser): Promise<User>;
+  getUserById(id: number): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  updateUser(id: number, updates: Partial<Pick<InsertUser, 'name' | 'role'>>): Promise<User | undefined>;
+  listUsers(limit?: number, offset?: number): Promise<User[]>;
+  getUserCount(): Promise<number>;
+  getCalculatorsByUserId(userId: number): Promise<Calculator[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -548,6 +558,40 @@ export class DatabaseStorage implements IStorage {
         },
       },
     });
+  }
+
+  /* ─── User methods ─── */
+  async createUser(data: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(data).returning();
+    return user;
+  }
+
+  async getUserById(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return user;
+  }
+
+  async updateUser(id: number, updates: Partial<Pick<InsertUser, 'name' | 'role'>>): Promise<User | undefined> {
+    const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    return user;
+  }
+
+  async listUsers(limit = 50, offset = 0): Promise<User[]> {
+    return db.select().from(users).orderBy(desc(users.created_at)).limit(limit).offset(offset);
+  }
+
+  async getUserCount(): Promise<number> {
+    const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(users);
+    return row?.total ?? 0;
+  }
+
+  async getCalculatorsByUserId(userId: number): Promise<Calculator[]> {
+    return db.select().from(calculators).where(eq(calculators.user_id, userId)).orderBy(desc(calculators.id));
   }
 }
 
