@@ -75,8 +75,8 @@ function NavItem({ label, href, children, isActive }: {
             borderRadius: 9999,
             fontSize: 14,
             fontWeight: 600,
-            color: isHighlighted ? "#111827" : "#374151",
-            background: isHighlighted ? "#e5e7eb" : "transparent",
+            color: isHighlighted ? "#111111" : "#6B6B6B",
+            background: isHighlighted ? "#EDEDED" : "transparent",
             border: "none",
             cursor: "pointer",
             transition: "background 0.15s ease, color 0.15s ease",
@@ -84,14 +84,14 @@ function NavItem({ label, href, children, isActive }: {
           }}
           onMouseEnter={(e) => {
             if (!isHighlighted) {
-              (e.currentTarget as HTMLElement).style.background = "#e5e7eb";
-              (e.currentTarget as HTMLElement).style.color = "#111827";
+              (e.currentTarget as HTMLElement).style.background = "#EDEDED";
+              (e.currentTarget as HTMLElement).style.color = "#111111";
             }
           }}
           onMouseLeave={(e) => {
             if (!isHighlighted) {
               (e.currentTarget as HTMLElement).style.background = "transparent";
-              (e.currentTarget as HTMLElement).style.color = "#374151";
+              (e.currentTarget as HTMLElement).style.color = "#6B6B6B";
             }
           }}
         >
@@ -112,22 +112,22 @@ function NavItem({ label, href, children, isActive }: {
             borderRadius: 9999,
             fontSize: 14,
             fontWeight: 600,
-            color: isActive ? "#111827" : "#374151",
-            background: isActive ? "#e5e7eb" : "transparent",
+            color: isActive ? "#111111" : "#6B6B6B",
+            background: isActive ? "#EDEDED" : "transparent",
             textDecoration: "none",
             transition: "background 0.15s ease, color 0.15s ease",
             whiteSpace: "nowrap",
           }}
           onMouseEnter={(e) => {
             if (!isActive) {
-              (e.currentTarget as HTMLElement).style.background = "#e5e7eb";
-              (e.currentTarget as HTMLElement).style.color = "#111827";
+              (e.currentTarget as HTMLElement).style.background = "#EDEDED";
+              (e.currentTarget as HTMLElement).style.color = "#111111";
             }
           }}
           onMouseLeave={(e) => {
             if (!isActive) {
               (e.currentTarget as HTMLElement).style.background = "transparent";
-              (e.currentTarget as HTMLElement).style.color = "#374151";
+              (e.currentTarget as HTMLElement).style.color = "#6B6B6B";
             }
           }}
         >
@@ -164,17 +164,17 @@ function NavItem({ label, href, children, isActive }: {
                 borderRadius: 10,
                 fontSize: 14,
                 fontWeight: 500,
-                color: "#374151",
+                color: "#6B6B6B",
                 textDecoration: "none",
                 transition: "background 0.12s ease, color 0.12s ease",
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.background = "#f3f4f6";
-                (e.currentTarget as HTMLElement).style.color = "#111827";
+                (e.currentTarget as HTMLElement).style.background = "#F3F3F2";
+                (e.currentTarget as HTMLElement).style.color = "#111111";
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLElement).style.background = "transparent";
-                (e.currentTarget as HTMLElement).style.color = "#374151";
+                (e.currentTarget as HTMLElement).style.color = "#6B6B6B";
               }}
             >
               {cl}
@@ -241,7 +241,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
                     fontWeight: 500,
                     color: "#475569",
                     textDecoration: "none",
-                    background: "#f3f4f6",
+                    background: "#F3F3F2",
                   }}
                 >
                   {cl}
@@ -301,7 +301,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           right: 0,
           zIndex: 200,
           background: "#FFFFFF",
-          borderBottom: scrolled ? "1px solid #E2E8F0" : "1px solid transparent",
+          borderBottom: scrolled ? "1px solid #E5E5E3" : "1px solid transparent",
           height: navHeight,
           display: "flex",
           alignItems: "center",
@@ -330,7 +330,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 display: "flex",
                 alignItems: "center",
                 gap: 2,
-                background: "#f3f4f6",
+                background: "#F3F3F2",
                 borderRadius: 9999,
                 padding: "5px 6px",
                 flex: "0 1 auto",
@@ -358,14 +358,14 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   style={{
                     fontSize: 14,
                     fontWeight: 500,
-                    color: "#374151",
+                    color: "#6B6B6B",
                     textDecoration: "none",
                     padding: "7px 12px",
                     borderRadius: 9999,
                     transition: "color 0.15s ease",
                   }}
-                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#111827")}
-                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#374151")}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#111111")}
+                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#6B6B6B")}
                 >
                   Log in
                 </Link>

@@ -309,7 +309,7 @@ const FLOW_ITEMS = [
   { icon: MapPin, label: "Google Maps" },
   { icon: Zap, label: "WeFixTrades" },
   { icon: Calendar, label: "Booking" },
-  { icon: Bot, label: "AI Agent" },
+  { icon: Bot, label: "24/7 Assistant" },
   { icon: Globe, label: "Website" },
 ];
 
@@ -377,13 +377,12 @@ export default function HomePage() {
               data-testid="hero-headline"
               style={{ fontSize: "clamp(40px, 5vw, 68px)", fontWeight: 800, color: C.heading, lineHeight: 1.06, letterSpacing: "-0.035em", marginBottom: 28 }}
             >
-              Software That Turns{" "}
-              <span style={{ color: C.sage }}>Visitors</span>{" "}
-              Into Booked Jobs{" "}
-              <span style={{ color: C.sage }}>Automatically</span>
+              One System.{" "}
+              <span style={{ color: C.sage }}>More Jobs.</span>{" "}
+              Zero Extra Work.
             </h1>
 
-            <div style={{ marginTop: 10, marginBottom: 24, minHeight: 54 }}>
+            <div style={{ marginTop: 10, marginBottom: 28, minHeight: 54 }}>
               <TypingReplace
                 words={TYPING_WORDS}
                 color={C.sage}
@@ -391,12 +390,22 @@ export default function HomePage() {
               />
             </div>
 
-            <p style={{ fontSize: "clamp(16px, 1.8vw, 20px)", color: C.muted, lineHeight: 1.7, marginBottom: 48, maxWidth: 520 }}>
-              Instant quotes, smart booking, and AI employees — built for trades businesses that want more jobs without more admin.
+            <p style={{ fontSize: "clamp(16px, 1.8vw, 20px)", color: C.muted, lineHeight: 1.7, marginBottom: 32, maxWidth: 540 }}>
+              We've already connected everything for you — quotes, bookings, Google visibility, 24/7 assistant, website and follow-ups. You just run your business.
             </p>
 
+            {/* Benefit badges */}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 40 }}>
+              {["More Booked Jobs", "Less Admin Stress", "Everything Connected", "Works 24/7"].map((b) => (
+                <div key={b} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.bgGrayAlt, border: `1px solid ${C.border}`, borderRadius: 9999, padding: "7px 16px" }}>
+                  <CheckCircle2 size={14} color={C.sage} strokeWidth={2.5} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.body }}>{b}</span>
+                </div>
+              ))}
+            </div>
+
             {/* CTA buttons */}
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 40 }}>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
               <Link
                 href="/Wizard"
                 data-testid="button-start-free-hero"
@@ -413,15 +422,6 @@ export default function HomePage() {
               >
                 <Play size={14} fill="currentColor" /> View Live Demo
               </Link>
-            </div>
-
-            {/* Trade category pills */}
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {["Plumbers", "Roofers", "Electricians", "Cleaners", "Home Services"].map((t) => (
-                <span key={t} style={{ fontSize: 12, fontWeight: 500, color: C.muted, background: C.bgGrayAlt, border: `1px solid ${C.border}`, borderRadius: 9999, padding: "5px 14px" }}>
-                  {t}
-                </span>
-              ))}
             </div>
           </div>
 
