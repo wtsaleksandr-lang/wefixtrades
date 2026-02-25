@@ -9,11 +9,32 @@ import Calculator from "@/pages/calculator";
 import EditCalculator from "@/pages/edit-calculator";
 import LeadsPage from "@/pages/leads";
 import Dashboard from "@/pages/dashboard";
+import MarketingHome from "@/pages/marketing/home";
+import MarketingProduct from "@/pages/marketing/product";
+import MarketingPricing from "@/pages/marketing/pricing";
+import MarketingServices from "@/pages/marketing/services";
+import MarketingBundles from "@/pages/marketing/bundles";
+import MarketingTemplates from "@/pages/marketing/templates";
+import MarketingDemo from "@/pages/marketing/demo";
+import MarketingDocs from "@/pages/marketing/docs";
+import MarketingContact from "@/pages/marketing/contact";
+import MarketingPrivacy from "@/pages/marketing/privacy";
+import MarketingTerms from "@/pages/marketing/terms";
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Wizard} />
+      <Route path="/" component={MarketingHome} />
+      <Route path="/product" component={MarketingProduct} />
+      <Route path="/pricing" component={MarketingPricing} />
+      <Route path="/services" component={MarketingServices} />
+      <Route path="/bundles" component={MarketingBundles} />
+      <Route path="/templates" component={MarketingTemplates} />
+      <Route path="/demo" component={MarketingDemo} />
+      <Route path="/docs" component={MarketingDocs} />
+      <Route path="/contact" component={MarketingContact} />
+      <Route path="/privacy" component={MarketingPrivacy} />
+      <Route path="/terms" component={MarketingTerms} />
       <Route path="/Wizard" component={Wizard} />
       <Route path="/Calculator" component={Calculator} />
       <Route path="/EditCalculator" component={EditCalculator} />
