@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
+import TypingReplace from "@/components/marketing/TypingReplace";
 import {
   Zap, Calendar, Bot, MessageSquare, ChevronDown, CheckCircle2,
   MapPin, TrendingUp, Star, ArrowRight, Play,
@@ -35,6 +36,8 @@ const SHADOW = {
 };
 
 /* ─── Static data ─── */
+const TYPING_WORDS = ["Plumbers", "Roofers", "Electricians", "Cleaners", "HVAC Pros"];
+
 const TICKER_ITEMS = [
   "⚡ Electricians", "🔧 Plumbers", "🏠 Roofers", "🧹 Cleaners",
   "❄️ HVAC", "🌿 Landscapers", "🎨 Painters", "🪵 Flooring",
@@ -370,6 +373,14 @@ export default function HomePage() {
               Into Booked Jobs{" "}
               <span style={{ color: "#6EE7B7" }}>Automatically</span>
             </h1>
+
+            <div style={{ marginTop: 6, marginBottom: 14, minHeight: 54 }}>
+              <TypingReplace
+                words={TYPING_WORDS}
+                color="#6EE7B7"
+                fontSize="clamp(22px, 2.6vw, 38px)"
+              />
+            </div>
 
             <p style={{ fontSize: "clamp(16px, 1.8vw, 20px)", color: "rgba(255,255,255,0.65)", lineHeight: 1.65, marginBottom: 40, maxWidth: 520 }}>
               Instant quotes, smart booking, and AI employees — built for trades businesses that want more jobs without more admin.

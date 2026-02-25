@@ -476,3 +476,19 @@
   transform: translateY(-4px);
   background: rgba(255,255,255,0.1) !important;
 }
+
+/* Blinking caret for TypingReplace */
+@keyframes mktCaretBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.mkt-cursor {
+  animation: mktCaretBlink 620ms step-end infinite;
+}
+
+/* Reduced motion overrides */
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .mkt-float, .mkt-ticker-track { animation: none !important; }
+  .mkt-cursor { animation: none !important; opacity: 1; }
+}
