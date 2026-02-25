@@ -10,8 +10,9 @@ import {
   Check, Circle, AlertCircle, Shield, ChevronRight, Globe,
   Loader2, ArrowLeft, Zap, Send, Clock, ChevronDown, ChevronUp,
   Mail, MessageSquare, Play, Pause, Eye, CalendarDays, Phone,
-  HelpCircle, X, TicketCheck,
+  HelpCircle, X, TicketCheck, Sparkles,
 } from 'lucide-react';
+import UpgradeGate, { PlanBadge } from '@/components/dashboard/UpgradeGate';
 
 const p = platformTheme;
 
@@ -181,14 +182,27 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
   if (isLoading) return <LoadingSkeleton />;
   if (!data) return <ErrorState message="Failed to load overview" />;
 
-  const { calculator, status, hosted_url, subdomain, custom_domain, custom_domain_status, stats } = data;
+  const { calculator, status, hosted_url, subdomain, custom_domain, custom_domain_status, stats, plan_tier } = data;
+  const currentPlan = plan_tier || calculator?.plan_tier || "free";
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ ...p.typography.h1 }}>{calculator.business_name}</h1>
-          <p style={{ ...p.typography.body, color: p.colors.muted, marginTop: 4 }}>{calculator.trade_type}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            <h1 style={{ ...p.typography.h1, margin: 0 }}>{calculator.business_name}</h1>
+            <PlanBadge plan={currentPlan} />
+          </div>
+          <p style={{ ...p.typography.body, color: p.colors.muted }}>{calculator.trade_type}</p>
+          {currentPlan === 'free' && (
+            <a href="/pricing" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6,
+              fontSize: 11, fontWeight: 700, color: '#2D6A4F', textDecoration: 'none',
+              background: '#F0F7F4', border: '1px solid #A7F3D0', padding: '3px 10px', borderRadius: 20,
+            }}>
+              <Sparkles size={9} /> Upgrade to unlock all features
+            </a>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <StatusBadge status={status} />
@@ -1060,26 +1074,56 @@ function SettingsSection({ token }: { token: string }) {
         </SettingsCard>
 
         <SettingsCard title="SMS notifications" badge="Pro">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ ...p.typography.bodySm, color: p.colors.muted }}>Get SMS alerts for new leads</span>
-            <div style={{
-              width: 40, height: 22, borderRadius: 11, background: p.colors.borderLight,
-              position: 'relative', opacity: 0.5, cursor: 'not-allowed',
-            }}>
+          <UpgradeGate
+            currentPlan={data?.plan_tier || data?.calculator?.plan_tier || 'free'}
+            feature="sms_whatsapp"
+            featureLabel="SMS lead notifications"
+            compact
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ ...p.typography.bodySm, color: p.colors.muted }}>Get SMS alerts for new leads</span>
               <div style={{
-                width: 18, height: 18, borderRadius: '50%', background: '#fff',
-                position: 'absolute', top: 2, left: 2, boxShadow: p.shadows.xs,
-              }} />
+                width: 40, height: 22, borderRadius: 11, background: p.colors.borderLight,
+                position: 'relative', opacity: 0.5, cursor: 'not-allowed',
+              }}>
+                <div style={{
+                  width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                  position: 'absolute', top: 2, left: 2, boxShadow: p.shadows.xs,
+                }} />
+              </div>
             </div>
-          </div>
+          </UpgradeGate>
         </SettingsCard>
 
-        <SettingsCard title="Custom domain">
-          <p style={{ ...p.typography.bodySm, color: p.colors.muted }}>
-            {data?.custom_domain && data.custom_domain_status !== 'none'
-              ? `${data.custom_domain} — ${data.custom_domain_status}`
-              : 'No custom domain configured. Set up via the Publish step.'}
-          </p>
+        <SettingsCard title="Custom domain" badge="Pro">
+          <UpgradeGate
+            currentPlan={data?.plan_tier || data?.calculator?.plan_tier || 'free'}
+            feature="custom_domain"
+            featureLabel="Custom domain (e.g. quotes.yoursite.com)"
+            compact
+          >
+            <p style={{ ...p.typography.bodySm, color: p.colors.muted }}>
+              {data?.custom_domain && data.custom_domain_status !== 'none'
+                ? `${data.custom_domain} — ${data.custom_domain_status}`
+                : 'No custom domain configured. Set up via the Publish step.'}
+            </p>
+          </UpgradeGate>
+        </SettingsCard>
+
+        <SettingsCard title="Remove branding" badge="Starter">
+          <UpgradeGate
+            currentPlan={data?.plan_tier || data?.calculator?.plan_tier || 'free'}
+            feature="remove_branding"
+            featureLabel="Remove QuickQuotePro badge from your calculator"
+            compact
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ ...p.typography.bodySm, color: p.colors.muted }}>
+                Hide the QuickQuotePro powered-by badge
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: p.colors.success }}>Enabled on your plan</span>
+            </div>
+          </UpgradeGate>
         </SettingsCard>
 
         <SettingsCard title="Republish">
@@ -1564,6 +1608,8 @@ function AiEmployeeSettingsCard({ token, data, smsStatus }: { token: string; dat
       }} />
     </button>
   );
+
+  const planTier = data?.plan_tier || data?.calculator?.plan_tier || 'free';
 
   return (
     <SettingsCard title="AI Employee" badge="Beta">

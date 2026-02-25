@@ -131,13 +131,22 @@ const STEP_TITLES = [
   'Publish & Share',
 ];
 const STEP_SUBTITLES = [
-  'Tell us about your business and trade.',
-  'Customize appearance, layout, and branding.',
-  'Review and confirm your pricing configuration.',
-  'Configure how you collect customer information.',
-  'Test real scenarios before publishing.',
-  'Share your links and start collecting leads.',
+  'Name your business and choose your trade. Takes about 1 minute.',
+  'Set your colour, logo, and layout style. Takes about 30 seconds.',
+  'Enter your rates — AI builds the pricing logic for you. Takes about 1 minute.',
+  'Choose what info to collect from customers. Quick.',
+  'Run two test scenarios to confirm your pricing is right.',
+  'Copy your link and start capturing leads today.',
 ];
+const STEP_HINTS = [
+  'Next: customise your calculator appearance',
+  'Next: set up your pricing logic',
+  'Next: configure your lead capture form',
+  'Next: validate pricing with real scenarios',
+  'Next: publish and share your calculator',
+  '',
+];
+const STEP_TIME = ['~1 min', '~30 sec', '~1 min', '~30 sec', '~1 min', '~10 sec'];
 
 export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const savedResult = loadResult();
@@ -153,9 +162,14 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [pricingDraftLoading, setPricingDraftLoading] = useState(false);
   const [showCustomInHelp, setShowCustomInHelp] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const saveFlashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     localStorage.setItem('qq_wizard', JSON.stringify(ws));
+    setJustSaved(true);
+    if (saveFlashRef.current) clearTimeout(saveFlashRef.current);
+    saveFlashRef.current = setTimeout(() => setJustSaved(false), 2200);
   }, [ws]);
 
   useEffect(() => {
@@ -704,6 +718,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       <Shell step={step} total={TOTAL_STEPS} onHelp={() => setShowHelp(true)}
         title={STEP_TITLES[step]} subtitle={STEP_SUBTITLES[step]}
         generating={generateMutation.isPending} genProgress={genProgress}
+        justSaved={justSaved} stepTime={STEP_TIME[step]}
       >
 
         {/* Step 0: Business & Trade Setup */}
@@ -824,7 +839,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             </div>
 
             <Footer onBack={undefined} onNext={tryStep0Continue}
-              nextDisabled={false} backDisabled />
+              nextDisabled={false} backDisabled hint={STEP_HINTS[0]} />
           </div>
         )}
 
@@ -912,7 +927,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               settings={ws.calculatorSettings}
               onChange={(newSettings) => set('calculatorSettings', newSettings)}
             />
-            <Footer onBack={() => setStep(0)} onNext={() => setStep(2)} />
+            <Footer onBack={() => setStep(0)} onNext={() => setStep(2)} hint={STEP_HINTS[1]} />
           </div>
         )}
 
@@ -1125,7 +1140,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 ))}
               </div>
             )}
-            <Footer onBack={() => setStep(1)} onNext={tryStep2Continue} />
+            <Footer onBack={() => setStep(1)} onNext={tryStep2Continue} hint={STEP_HINTS[2]} />
           </div>
         )}
 
@@ -1387,9 +1402,10 @@ function GeneratingAnimation({ progress, businessName }: { progress: number; bus
 
 
 
-function Shell({ children, step, total, onHelp, title, subtitle, generating, genProgress }: {
+function Shell({ children, step, total, onHelp, title, subtitle, generating, genProgress, justSaved, stepTime }: {
   children: any; step: number; total: number; onHelp: () => void;
   title?: string; subtitle?: string; generating?: boolean; genProgress?: number;
+  justSaved?: boolean; stepTime?: string;
 }) {
   const progress = generating
     ? ((step / total) * 100 + (genProgress || 0) / total)
@@ -1406,20 +1422,50 @@ function Shell({ children, step, total, onHelp, title, subtitle, generating, gen
         borderRadius: '20px 20px 0 0', borderBottom: `1px solid ${p.colors.borderLight}`,
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.04em', color: p.colors.muted }}>
-            Step {step + 1} of {total}
-          </span>
-          <button data-testid="button-help" onClick={onHelp}
-            style={{
-              width: '28px', height: '28px', borderRadius: '50%',
-              border: '1px solid #BFDBFE', background: '#EFF6FF',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-            aria-label="Help"
-          >
-            <HelpCircle style={{ width: '15px', height: '15px', color: '#3B82F6' }} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.04em', color: p.colors.muted }}>
+              Step {step + 1} of {total}
+            </span>
+            {stepTime && (
+              <span style={{
+                fontSize: '11px', fontWeight: 600, color: '#64748B',
+                background: '#F8FAFC', border: '1px solid #E2E8F0',
+                padding: '2px 8px', borderRadius: 20,
+              }}>
+                ⏱ {stepTime}
+              </span>
+            )}
+            <span style={{
+              fontSize: '11px', fontWeight: 600, color: '#64748B',
+              background: '#F8FAFC', border: '1px solid #E2E8F0',
+              padding: '2px 8px', borderRadius: 20,
+            }}>
+              Total: ~3 min
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{
+              fontSize: '11px', fontWeight: 600,
+              color: justSaved ? '#2D6A4F' : 'transparent',
+              background: justSaved ? '#F0F7F4' : 'transparent',
+              border: `1px solid ${justSaved ? '#A7F3D0' : 'transparent'}`,
+              padding: '2px 8px', borderRadius: 20,
+              transition: 'all 0.3s ease',
+            }}>
+              ✓ Saved
+            </span>
+            <button data-testid="button-help" onClick={onHelp}
+              style={{
+                width: '28px', height: '28px', borderRadius: '50%',
+                border: '1px solid #BFDBFE', background: '#EFF6FF',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+              aria-label="Help"
+            >
+              <HelpCircle style={{ width: '15px', height: '15px', color: '#3B82F6' }} />
+            </button>
+          </div>
         </div>
 
         {title && (
@@ -1609,35 +1655,38 @@ function MiniField({ label, required, optional, error, children }: {
 }
 
 
-function Footer({ onBack, onNext, nextDisabled, backDisabled, children }: {
+function Footer({ onBack, onNext, nextDisabled, backDisabled, children, hint }: {
   onBack?: () => void; onNext?: () => void; nextDisabled?: boolean; backDisabled?: boolean;
-  children?: any;
+  children?: any; hint?: string;
 }) {
   return (
-    <div style={{
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      marginTop: '28px', paddingTop: '20px',
-      borderTop: `1px solid ${p.colors.borderLight}`,
-    }}>
-      <button data-testid="button-back"
-        onClick={backDisabled ? undefined : onBack} disabled={backDisabled}
-        style={{
-          display: 'flex', alignItems: 'center', gap: '6px',
-          padding: '10px 16px', borderRadius: p.radius.md,
-          border: '1px solid #F5D76E', background: '#FEF9E7',
-          cursor: backDisabled ? 'default' : 'pointer',
-          fontSize: '14px', fontWeight: 600, color: backDisabled ? p.colors.subtle : '#000000',
-          transition: p.transitions.fast, opacity: backDisabled ? 0.5 : 1,
-          WebkitTapHighlightColor: 'transparent', minHeight: '44px',
-        }}
-      >
-        <ArrowLeft style={{ width: '16px', height: '16px' }} /> Back
-      </button>
-      {children || (
-        <PrimaryBtn testId="button-continue" onClick={onNext} disabled={nextDisabled}>
-          Continue <ArrowRight style={{ width: '16px', height: '16px' }} />
-        </PrimaryBtn>
+    <div style={{ marginTop: '28px', paddingTop: '20px', borderTop: `1px solid ${p.colors.borderLight}` }}>
+      {hint && (
+        <p style={{ fontSize: '12px', color: p.colors.muted, marginBottom: '12px', textAlign: 'center', lineHeight: 1.4 }}>
+          {hint}
+        </p>
       )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <button data-testid="button-back"
+          onClick={backDisabled ? undefined : onBack} disabled={backDisabled}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '10px 16px', borderRadius: p.radius.md,
+            border: '1px solid #F5D76E', background: '#FEF9E7',
+            cursor: backDisabled ? 'default' : 'pointer',
+            fontSize: '14px', fontWeight: 600, color: backDisabled ? p.colors.subtle : '#000000',
+            transition: p.transitions.fast, opacity: backDisabled ? 0.5 : 1,
+            WebkitTapHighlightColor: 'transparent', minHeight: '44px',
+          }}
+        >
+          <ArrowLeft style={{ width: '16px', height: '16px' }} /> Back
+        </button>
+        {children || (
+          <PrimaryBtn testId="button-continue" onClick={onNext} disabled={nextDisabled}>
+            Continue <ArrowRight style={{ width: '16px', height: '16px' }} />
+          </PrimaryBtn>
+        )}
+      </div>
     </div>
   );
 }

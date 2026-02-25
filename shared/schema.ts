@@ -509,6 +509,7 @@ export const calculators = pgTable("calculators", {
   is_duplicated: boolean("is_duplicated").default(false),
   total_views: integer("total_views").default(0),
   show_powered_by_badge: boolean("show_powered_by_badge").default(true),
+  plan_tier: text("plan_tier").default("free"),
   created_at: timestamp("created_at").defaultNow(),
 });
 
