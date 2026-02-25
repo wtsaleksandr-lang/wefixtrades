@@ -11,7 +11,7 @@ The application features a decoupled architecture with a React + TypeScript fron
 
 **UI/UX and Design Decisions:**
 - **Design Philosophy:** Mobile-first, fully responsive design with card-based layouts, soft shadows, and elevated elements.
-- **Theming:** `PlatformTheme` for the builder UI (sage accent, neutral grays) and a customizable `WidgetTheme` for customer-facing calculators (default sky blue, isolated to `.widget-scope`).
+- **Theming:** Marketing site uses an Optimal-inspired design system with strict tokens: `--bg: #FFFFFF`, `--surface: #F6F7F8`, `--text: #0B0D0E`, `--accent: #16A34A` (button green, used sparingly), `--border: #E6E8EB`. Headlines are near-black (not green). Header uses a pill container (borderRadius 28px, surface bg, soft shadow). Builder UI uses platform theme, customer-facing calculators use `WidgetTheme` (default sky blue, isolated to `.widget-scope`).
 - **Typography & Interactivity:** Uses Inter font stack, minimum 44px touch targets, full-width inputs, CSS keyframe animations, and `Lucide-react` icons. Custom `.premium-input` class with sage focus states.
 - **Calculator Creation Wizard:** A 6-step wizard guides users through calculator setup, with state persisted in `localStorage`.
 - **Lead Management:** Features a premium lead capture builder with configurable fields, consent sections, CTA customization, delivery settings, and anti-spam measures. Leads are managed through a dedicated dashboard.

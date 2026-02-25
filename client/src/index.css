@@ -399,11 +399,7 @@
 /* Marketing navbar transitions */
 .mkt-nav {
   transition: height 0.3s cubic-bezier(0.4,0,0.2,1),
-              box-shadow 0.3s ease,
-              background 0.3s ease;
-}
-.mkt-nav.scrolled {
-  box-shadow: 0 2px 16px rgba(0,0,0,0.06) !important;
+              box-shadow 0.3s ease;
 }
 
 /* CTA button hover lift */
@@ -412,8 +408,8 @@
   cursor: pointer;
 }
 .mkt-btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(74,124,111,0.18) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(22,163,74,0.18) !important;
 }
 .mkt-btn-primary:active { transform: translateY(0); }
 
@@ -421,7 +417,7 @@
   transition: all 0.22s ease;
   cursor: pointer;
 }
-.mkt-btn-ghost:hover { background: rgba(0,0,0,0.04) !important; }
+.mkt-btn-ghost:hover { background: #F6F7F8 !important; }
 
 /* Feature card micro-elevation */
 .mkt-feature-card {
@@ -430,21 +426,21 @@
   cursor: default;
 }
 .mkt-feature-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.06) !important;
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.06) !important;
 }
 
 /* Hero mockup float */
 @keyframes mktFloat {
   0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-14px); }
+  50% { transform: translateY(-10px); }
 }
 .mkt-float { animation: mktFloat 5.5s ease-in-out infinite; }
 
 /* Scroll cue bounce */
 @keyframes mktBounce {
-  0%, 100% { transform: translateY(0); opacity: 0.7; }
-  50% { transform: translateY(8px); opacity: 1; }
+  0%, 100% { transform: translateY(0); opacity: 0.5; }
+  50% { transform: translateY(6px); opacity: 0.8; }
 }
 .mkt-scroll-cue { animation: mktBounce 1.8s ease-in-out infinite; }
 
@@ -462,7 +458,7 @@
 
 /* Subtle gradient text */
 .mkt-gradient-text {
-  background: linear-gradient(135deg, #4A7C6F 0%, #5E9485 100%);
+  background: linear-gradient(135deg, #16A34A 0%, #22C55E 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -473,14 +469,14 @@
   transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
 }
 .mkt-tier-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   background: rgba(255,255,255,0.06) !important;
 }
 
 /* Flow diagram line pulse */
 @keyframes mktFlowPulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.85; }
 }
 .mkt-flow-line {
   animation: mktFlowPulse 7s ease-in-out infinite;
