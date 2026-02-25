@@ -488,8 +488,24 @@ export const calculatorSettingsSchema = z.object({
 
 export type CalculatorSettings = z.infer<typeof calculatorSettingsSchema>;
 
+/* ─── Users ─── */
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  password_hash: text("password_hash").notNull(),
+  name: text("name"),
+  role: text("role").notNull().default("client"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, created_at: true });
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
+
+/* ─── Calculators ─── */
 export const calculators = pgTable("calculators", {
   id: serial("id").primaryKey(),
+  user_id: integer("user_id").references(() => users.id),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   business_name: text("business_name").notNull(),
   trade_type: text("trade_type").notNull(),
