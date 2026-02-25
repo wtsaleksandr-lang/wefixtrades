@@ -1,0 +1,120 @@
+PHASE 2 — BUILD PRODUCT OVERVIEW PAGE
+
+Create route: /product
+
+Goal:
+Deep product breakdown page inspired by OptimalWorkshop product pages.
+Keep same design system, spacing, typography, animations from homepage.
+
+====================================================
+PAGE STRUCTURE
+====================================================
+
+1) HERO
+
+Headline:
+"Everything You Need To Turn Visitors Into Booked Jobs"
+
+Subtext:
+QuickQuotePro combines instant estimates, booking, AI employees, and automation into one conversion engine.
+
+CTA buttons:
+Start Free
+View Demo
+
+Right side:
+Large UI mockup showing:
+- Estimate screen
+- Booking calendar
+- AI chat bubble
+
+----------------------------------------------------
+
+2) CORE CAPABILITIES GRID (4 blocks)
+
+Block 1:
+Instant Quote Engine
+Trade-specific pricing logic, multi-step calculators.
+
+Block 2:
+Booking + Deposits
+Convert estimates to confirmed jobs automatically.
+
+Block 3:
+AI Employee (Chat + Voice)
+Answers questions, sends estimates, captures leads.
+
+Block 4:
+SMS & WhatsApp Automation
+Follow-ups, reminders, abandoned estimate recovery.
+
+Fade-up animations on scroll.
+
+----------------------------------------------------
+
+3) HOW IT CONNECTS (FLOW DIAGRAM STYLE)
+
+Visual flow:
+Visitor → Estimate → Booking → AI follow-up → Confirmed Job
+
+Explain automation logic in short bullets.
+
+----------------------------------------------------
+
+4) DEEP FEATURE SECTIONS (Alternating layout)
+
+Section A:
+Instant Quote Engine
+Explain pricing logic, templates, validation, embed options.
+
+Section B:
+AI Employee
+Explain structured training profile, 14-day trial, escalation.
+
+Section C:
+Booking System
+Explain deposit collection and calendar sync.
+
+Section D:
+Analytics Dashboard
+Explain tracking leads, bookings, conversions.
+
+Each section:
+Left text / Right image (alternate on next block)
+
+----------------------------------------------------
+
+5) FINAL CTA
+
+Headline:
+"Ready To Automate Your Sales Process?"
+
+Buttons:
+Start Free
+Talk To Sales
+
+----------------------------------------------------
+
+TECH REQUIREMENTS
+----------------------------------------------------
+
+- Use same navbar + footer
+- Smooth scroll animations
+- Responsive layout
+- Lazy-load UI images
+- Reuse components from homepage where possible
+
+----------------------------------------------------
+
+ACCEPTANCE TESTS
+----------------------------------------------------
+
+1) Route loads correctly (PASS/FAIL)
+2) Animations match homepage style (PASS/FAIL)
+3) CTA buttons link correctly (PASS/FAIL)
+4) Fully responsive (PASS/FAIL)
+
+Return:
+- Files changed
+- Components created
+- PASS/FAIL

@@ -372,3 +372,107 @@
     inset: -1px;
   }
 }
+
+/* ==========================================
+   MARKETING SCROLL REVEAL & ANIMATIONS
+   ========================================== */
+
+[data-reveal] {
+  opacity: 0;
+  transition: opacity 0.65s cubic-bezier(0.4,0,0.2,1), transform 0.65s cubic-bezier(0.4,0,0.2,1);
+}
+[data-reveal="fade-up"] { transform: translateY(36px); }
+[data-reveal="fade-left"] { transform: translateX(-44px); }
+[data-reveal="fade-right"] { transform: translateX(44px); }
+[data-reveal="scale"] { transform: scale(0.93); }
+[data-reveal].is-visible { opacity: 1 !important; transform: none !important; }
+
+[data-delay="100"] { transition-delay: 0.1s; }
+[data-delay="150"] { transition-delay: 0.15s; }
+[data-delay="200"] { transition-delay: 0.2s; }
+[data-delay="250"] { transition-delay: 0.25s; }
+[data-delay="300"] { transition-delay: 0.3s; }
+[data-delay="400"] { transition-delay: 0.4s; }
+[data-delay="500"] { transition-delay: 0.5s; }
+[data-delay="600"] { transition-delay: 0.6s; }
+
+/* Marketing navbar transitions */
+.mkt-nav {
+  transition: height 0.3s cubic-bezier(0.4,0,0.2,1),
+              box-shadow 0.3s ease,
+              background 0.3s ease;
+}
+.mkt-nav.scrolled {
+  box-shadow: 0 2px 24px rgba(0,0,0,0.09) !important;
+}
+
+/* CTA button hover lift */
+.mkt-btn-primary {
+  transition: all 0.22s cubic-bezier(0.4,0,0.2,1);
+  cursor: pointer;
+}
+.mkt-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(45,106,79,0.32) !important;
+}
+.mkt-btn-primary:active { transform: translateY(0); }
+
+.mkt-btn-ghost {
+  transition: all 0.22s ease;
+  cursor: pointer;
+}
+.mkt-btn-ghost:hover { background: rgba(255,255,255,0.14) !important; }
+
+/* Feature card micro-elevation */
+.mkt-feature-card {
+  transition: transform 0.28s cubic-bezier(0.4,0,0.2,1),
+              box-shadow 0.28s cubic-bezier(0.4,0,0.2,1);
+  cursor: default;
+}
+.mkt-feature-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.10) !important;
+}
+
+/* Hero mockup float */
+@keyframes mktFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-14px); }
+}
+.mkt-float { animation: mktFloat 5.5s ease-in-out infinite; }
+
+/* Scroll cue bounce */
+@keyframes mktBounce {
+  0%, 100% { transform: translateY(0); opacity: 0.7; }
+  50% { transform: translateY(8px); opacity: 1; }
+}
+.mkt-scroll-cue { animation: mktBounce 1.8s ease-in-out infinite; }
+
+/* Trade ticker */
+@keyframes mktTicker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.mkt-ticker-track {
+  display: flex;
+  animation: mktTicker 28s linear infinite;
+  will-change: transform;
+}
+.mkt-ticker-track:hover { animation-play-state: paused; }
+
+/* Subtle gradient text */
+.mkt-gradient-text {
+  background: linear-gradient(135deg, #2D6A4F 0%, #40916C 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Pricing tier card hover */
+.mkt-tier-card {
+  transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-tier-card:hover {
+  transform: translateY(-4px);
+  background: rgba(255,255,255,0.1) !important;
+}
