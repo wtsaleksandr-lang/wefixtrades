@@ -1,0 +1,44 @@
+UPDATE TO REQUIREMENTS (IMPORTANT):
+- Visually copy EVERYTHING from the screenshots (layout, spacing, typography scale, header structure, nav behavior, button styling, whitespace, responsiveness, animations).
+- BUT DO NOT change ANY existing copy/text from my current website version.
+- This means: keep my current H1, subheadline, button labels, nav labels, and any microcopy exactly as-is.
+- Only change structure/styles/components to match the screenshot design.
+
+IMPLEMENTATION APPROACH:
+1) Create the same component structure as before:
+   - /components/Header.tsx
+   - /components/Hero.tsx
+   - /components/ui/Button.tsx
+   - /components/ui/Dropdown.tsx
+2) Wire the components to a centralized “copy source” so the UI never overwrites text:
+   - Create /content/siteCopy.ts exporting:
+     - brandName
+     - navItems (labels + optional dropdown items)
+     - hero: headlineLines OR headlineText, subheadline, primaryCtaLabel, secondaryCtaLabel
+3) When building the UI, render the text ONLY from /content/siteCopy.ts.
+   - If the app already has copy stored somewhere else, import it instead and do not replace it.
+
+DESIGN TARGET (COPY SCREENSHOT STYLE, KEEP MY COPY):
+HEADER (sticky):
+- Left: brand mark + brand name (use existing brandName from current site)
+- Middle: nav items from current site (do not rename). If current site has different items than screenshot, keep them but style them exactly like screenshot (same spacing + dropdown chevrons only for items that have children).
+- Right: Login link (if exists on my site) + primary pill CTA (use my existing CTA label)
+
+HERO:
+- Keep my existing headline text exactly.
+  - If my headline is one string, split into 2 lines visually using responsive max-width and <br className="hidden md:block" /> (but do not change words).
+- Keep my existing subheadline exactly.
+- Keep my existing CTA button labels exactly.
+- Everything else (sizes, spacing, alignment, button styles, whitespace) must match the screenshot.
+
+ANIMATIONS / INTERACTIONS:
+- Same as previous prompt: subtle hover lift on buttons, header shadow/border on scroll, dropdown panel on hover/focus.
+- Do NOT animate text changes; only animate UI.
+
+RESPONSIVE:
+- Desktop: centered nav, wide whitespace hero.
+- Mobile: hamburger menu; hero remains centered; keep copy unchanged.
+
+DELIVERABLE:
+- A working Next.js + TS + Tailwind + Framer Motion implementation that visually matches the screenshot.
+- Copy/text must be sourced from the existing website copy module (or the new /content/siteCopy.ts if needed), and must remain unchanged.

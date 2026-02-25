@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
 
-const NAV_LINKS = [
+const NAV_LINKS: { label: string; href: string; children?: { label: string; href: string }[] }[] = [
   { label: "Product", href: "/product" },
   { label: "Pricing", href: "/pricing" },
   { label: "Templates", href: "/templates" },
@@ -35,6 +35,241 @@ function useIsMobile(breakpoint = 900) {
   return isMobile;
 }
 
+/* ─── Desktop nav item with optional dropdown ─── */
+function NavItem({ label, href, children, isActive }: {
+  label: string;
+  href: string;
+  children?: { label: string; href: string }[];
+  isActive: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const hasDropdown = children && children.length > 0;
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const keyHandler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("keydown", keyHandler);
+    return () => { document.removeEventListener("mousedown", handler); document.removeEventListener("keydown", keyHandler); };
+  }, [open]);
+
+  const isHighlighted = isActive || open;
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      {hasDropdown ? (
+        <button
+          aria-expanded={open}
+          aria-haspopup="true"
+          onClick={() => setOpen((o) => !o)}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "7px 14px",
+            borderRadius: 9999,
+            fontSize: 14,
+            fontWeight: 600,
+            color: isHighlighted ? "#111827" : "#374151",
+            background: isHighlighted ? "#e5e7eb" : "transparent",
+            border: "none",
+            cursor: "pointer",
+            transition: "background 0.15s ease, color 0.15s ease",
+            whiteSpace: "nowrap",
+          }}
+          onMouseEnter={(e) => {
+            if (!isHighlighted) {
+              (e.currentTarget as HTMLElement).style.background = "#e5e7eb";
+              (e.currentTarget as HTMLElement).style.color = "#111827";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isHighlighted) {
+              (e.currentTarget as HTMLElement).style.background = "transparent";
+              (e.currentTarget as HTMLElement).style.color = "#374151";
+            }
+          }}
+        >
+          {label}
+          <ChevronDown
+            size={14}
+            style={{ transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+          />
+        </button>
+      ) : (
+        <Link
+          href={href}
+          data-testid={`nav-link-${label.toLowerCase()}`}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "7px 14px",
+            borderRadius: 9999,
+            fontSize: 14,
+            fontWeight: 600,
+            color: isActive ? "#111827" : "#374151",
+            background: isActive ? "#e5e7eb" : "transparent",
+            textDecoration: "none",
+            transition: "background 0.15s ease, color 0.15s ease",
+            whiteSpace: "nowrap",
+          }}
+          onMouseEnter={(e) => {
+            if (!isActive) {
+              (e.currentTarget as HTMLElement).style.background = "#e5e7eb";
+              (e.currentTarget as HTMLElement).style.color = "#111827";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isActive) {
+              (e.currentTarget as HTMLElement).style.background = "transparent";
+              (e.currentTarget as HTMLElement).style.color = "#374151";
+            }
+          }}
+        >
+          {label}
+        </Link>
+      )}
+
+      {/* Dropdown panel */}
+      {hasDropdown && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 10px)",
+            left: "50%",
+            transform: open ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(-6px)",
+            opacity: open ? 1 : 0,
+            pointerEvents: open ? "auto" : "none",
+            background: "#FFFFFF",
+            borderRadius: 16,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)",
+            padding: "8px",
+            minWidth: 200,
+            transition: "opacity 0.15s ease, transform 0.15s ease",
+            zIndex: 300,
+          }}
+        >
+          {children!.map(({ label: cl, href: ch }) => (
+            <Link
+              key={ch}
+              href={ch}
+              style={{
+                display: "block",
+                padding: "10px 16px",
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: 500,
+                color: "#374151",
+                textDecoration: "none",
+                transition: "background 0.12s ease, color 0.12s ease",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.background = "#f3f4f6";
+                (e.currentTarget as HTMLElement).style.color = "#111827";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background = "transparent";
+                (e.currentTarget as HTMLElement).style.color = "#374151";
+              }}
+            >
+              {cl}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Mobile accordion item ─── */
+function MobileNavItem({ label, href, children, isActive, onClose }: {
+  label: string;
+  href: string;
+  children?: { label: string; href: string }[];
+  isActive: boolean;
+  onClose: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasDropdown = children && children.length > 0;
+
+  return (
+    <div style={{ borderBottom: "1px solid #F1F5F9" }}>
+      {hasDropdown ? (
+        <>
+          <button
+            aria-expanded={expanded}
+            onClick={() => setExpanded((o) => !o)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+              padding: "16px 0",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 18,
+              fontWeight: 600,
+              color: isActive || expanded ? "#2D6A4F" : "#0F172A",
+              textAlign: "left",
+            }}
+          >
+            {label}
+            <ChevronDown
+              size={18}
+              style={{ transition: "transform 0.2s ease", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", color: "#94A3B8" }}
+            />
+          </button>
+          {expanded && (
+            <div style={{ paddingBottom: 12 }}>
+              {children!.map(({ label: cl, href: ch }) => (
+                <Link
+                  key={ch}
+                  href={ch}
+                  onClick={onClose}
+                  style={{
+                    display: "block",
+                    padding: "10px 16px",
+                    marginBottom: 4,
+                    borderRadius: 9999,
+                    fontSize: 15,
+                    fontWeight: 500,
+                    color: "#475569",
+                    textDecoration: "none",
+                    background: "#f3f4f6",
+                  }}
+                >
+                  {cl}
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <Link
+          href={href}
+          onClick={onClose}
+          data-testid={`nav-link-${label.toLowerCase()}-mobile`}
+          style={{
+            display: "block",
+            padding: "16px 0",
+            fontSize: 18,
+            fontWeight: 600,
+            color: isActive ? "#2D6A4F" : "#0F172A",
+            textDecoration: "none",
+          }}
+        >
+          {label}
+        </Link>
+      )}
+    </div>
+  );
+}
+
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [location] = useLocation();
@@ -54,7 +289,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
       }}
     >
-      {/* Fixed Navbar */}
+      {/* ─── Fixed Navbar ─── */}
       <nav
         className={`mkt-nav${scrolled ? " scrolled" : ""}`}
         data-testid="nav-marketing"
@@ -112,65 +347,50 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             </div>
           </Link>
 
-          {/* Center Nav Links */}
+          {/* Center: pill capsule containing nav links */}
           {!isMobile && (
             <nav
+              aria-label="Main navigation"
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 2,
-                flex: 1,
-                justifyContent: "center",
+                background: "#f3f4f6",
+                borderRadius: 9999,
+                padding: "5px 6px",
+                flex: "0 1 auto",
               }}
             >
-              {NAV_LINKS.map(({ label, href }) => (
-                <Link
+              {NAV_LINKS.map(({ label, href, children }) => (
+                <NavItem
                   key={href}
+                  label={label}
                   href={href}
-                  data-testid={`nav-link-${label.toLowerCase()}`}
-                  style={{
-                    padding: "7px 13px",
-                    borderRadius: 8,
-                    fontSize: 14,
-                    fontWeight: isActive(href) ? 600 : 500,
-                    color: isActive(href) ? "#2D6A4F" : "#475569",
-                    background: isActive(href) ? "#F0F7F4" : "transparent",
-                    textDecoration: "none",
-                    transition: "background 0.15s ease, color 0.15s ease",
-                    whiteSpace: "nowrap" as const,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive(href)) {
-                      (e.target as HTMLElement).style.background = "#F8FAFC";
-                      (e.target as HTMLElement).style.color = "#0F172A";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive(href)) {
-                      (e.target as HTMLElement).style.background = "transparent";
-                      (e.target as HTMLElement).style.color = "#475569";
-                    }
-                  }}
-                >
-                  {label}
-                </Link>
+                  children={children}
+                  isActive={isActive(href)}
+                />
               ))}
             </nav>
           )}
 
-          {/* Right CTA */}
+          {/* Right: Login + CTA */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
             {!isMobile && (
               <>
                 <Link
                   href="/Dashboard"
+                  data-testid="nav-login"
                   style={{
                     fontSize: 14,
                     fontWeight: 500,
-                    color: "#475569",
+                    color: "#374151",
                     textDecoration: "none",
                     padding: "7px 12px",
+                    borderRadius: 9999,
+                    transition: "color 0.15s ease",
                   }}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#111827")}
+                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#374151")}
                 >
                   Log in
                 </Link>
@@ -180,13 +400,14 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   data-testid="nav-cta-start-free"
                   style={{
                     padding: "9px 20px",
-                    borderRadius: 9,
+                    borderRadius: 9999,
                     background: "#2D6A4F",
                     color: "#FFFFFF",
                     fontSize: 14,
                     fontWeight: 700,
                     textDecoration: "none",
                     display: "inline-block",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   Start Free
@@ -197,6 +418,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               <button
                 onClick={() => setMenuOpen((o) => !o)}
                 aria-label="Toggle menu"
+                aria-expanded={menuOpen}
                 data-testid="nav-hamburger"
                 style={{
                   background: "none",
@@ -216,8 +438,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         </div>
       </nav>
 
-      {/* Mobile full-screen menu */}
-      {isMobile && menuOpen && (
+      {/* ─── Mobile slide-down menu panel ─── */}
+      {isMobile && (
         <div
           data-testid="nav-mobile-menu"
           style={{
@@ -225,53 +447,47 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             top: navHeight,
             left: 0,
             right: 0,
-            bottom: 0,
             background: "#FFFFFF",
             zIndex: 199,
-            padding: "24px 28px 40px",
+            borderBottom: menuOpen ? "1px solid #E2E8F0" : "none",
+            boxShadow: menuOpen ? "0 8px 32px rgba(0,0,0,0.08)" : "none",
+            overflow: "hidden",
+            maxHeight: menuOpen ? "80vh" : 0,
+            transition: "max-height 0.3s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s ease",
             overflowY: "auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: 0,
           }}
         >
-          {NAV_LINKS.map(({ label, href }) => (
+          <div style={{ padding: "8px 28px 32px" }}>
+            {NAV_LINKS.map(({ label, href, children }) => (
+              <MobileNavItem
+                key={href}
+                label={label}
+                href={href}
+                children={children}
+                isActive={isActive(href)}
+                onClose={() => setMenuOpen(false)}
+              />
+            ))}
             <Link
-              key={href}
-              href={href}
+              href="/Wizard"
               onClick={() => setMenuOpen(false)}
+              data-testid="nav-cta-start-free-mobile"
               style={{
                 display: "block",
-                padding: "16px 0",
-                fontSize: 18,
-                fontWeight: 600,
-                color: isActive(href) ? "#2D6A4F" : "#0F172A",
+                marginTop: 24,
+                padding: "15px",
+                borderRadius: 9999,
+                background: "#2D6A4F",
+                color: "#FFFFFF",
+                fontSize: 16,
+                fontWeight: 700,
+                textAlign: "center",
                 textDecoration: "none",
-                borderBottom: "1px solid #F1F5F9",
               }}
             >
-              {label}
+              Start Free
             </Link>
-          ))}
-          <Link
-            href="/Wizard"
-            onClick={() => setMenuOpen(false)}
-            data-testid="nav-cta-start-free"
-            style={{
-              display: "block",
-              marginTop: 28,
-              padding: "15px",
-              borderRadius: 10,
-              background: "#2D6A4F",
-              color: "#FFFFFF",
-              fontSize: 16,
-              fontWeight: 700,
-              textAlign: "center",
-              textDecoration: "none",
-            }}
-          >
-            Start Free
-          </Link>
+          </div>
         </div>
       )}
 
@@ -280,7 +496,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
       <main style={{ flex: 1 }}>{children}</main>
 
-      {/* Footer */}
+      {/* ─── Footer (unchanged) ─── */}
       <footer data-testid="footer-marketing" style={{ background: "#0B1F3A", color: "#FFFFFF" }}>
         <div
           style={{
@@ -321,13 +537,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               >
                 Instant estimates. Smart booking. AI employees — built for trades businesses.
               </p>
-              <div
-                style={{
-                  marginTop: 20,
-                  display: "flex",
-                  gap: 12,
-                }}
-              >
+              <div style={{ marginTop: 20, display: "flex", gap: 12 }}>
                 {["Plumbing", "Roofing", "Cleaning", "Electrical"].map((t) => (
                   <span
                     key={t}
