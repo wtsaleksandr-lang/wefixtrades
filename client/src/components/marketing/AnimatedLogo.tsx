@@ -1,14 +1,67 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "wouter";
 
-const SHAPES = [
-  { restHeight: 20, peakHeight: 28, background: "#2D6A4F" },
-  { restHeight: 26, peakHeight: 32, background: "#40916C" },
-  { restHeight: 22, peakHeight: 18, background: "#1B4332" },
+/* Three capsules — equal height, staggered y offsets for misaligned start */
+const CAPSULES = [
+  { background: "#2D6A4F", startY: -4 },
+  { background: "#40916C", startY: 6  },
+  { background: "#1B4332", startY: -3 },
 ];
+
+/* Shared capsule dimensions */
+const CAP_W  = 7;
+const CAP_H  = 26;
+const CAP_R  = 9999;
+const CAP_GAP = 3;
 
 export default function AnimatedLogo() {
   const prefersReduced = useReducedMotion();
+
+  /* ── Capsule animation ─────────────────────────────────────────────────
+     Phase 1  0ms       : misaligned (y offset), opacity 0.8, blur 1px
+     Phase 2  0–600ms   : align to y:0, opacity 1, blur 0, ease-out cubic
+     Phase 3  600–800ms : subtle scale settle 1 → 1.03 → 1
+     All in one keyframe sequence per capsule, stagger 80ms between bars.
+  ──────────────────────────────────────────────────────────────────────── */
+  const capsuleAnimate = (startY: number) =>
+    prefersReduced
+      ? { y: 0, opacity: 1, filter: "blur(0px)", scale: 1 }
+      : {
+          y:      [startY, 0,          0,    0   ],
+          opacity:[0.8,    1,          1,    1   ],
+          filter: ["blur(1px)", "blur(0px)", "blur(0px)", "blur(0px)"],
+          scale:  [1,      1,          1.03, 1   ],
+        };
+
+  const capsuleTransition = (i: number) =>
+    prefersReduced
+      ? { duration: 0 }
+      : {
+          duration: 0.8,
+          delay:    i * 0.08,
+          times:    [0, 0.75, 0.875, 1],
+          ease:     [0.25, 0.1, 0.25, 1] as [number, number, number, number],
+        };
+
+  /* ── Glow animation ────────────────────────────────────────────────────
+     Phase 4  700–1000ms : opacity 0 → 0.25, then static forever
+  ──────────────────────────────────────────────────────────────────────── */
+  const glowAnimate = prefersReduced
+    ? { opacity: 0.2 }
+    : { opacity: [0, 0, 0.22] };
+
+  const glowTransition = prefersReduced
+    ? { duration: 0 }
+    : { duration: 1.0, times: [0, 0.7, 1], ease: "easeOut" as const };
+
+  /* ── Brand text animation ──────────────────────────────────────────────
+     Simple fade-in after capsules settle (~400ms delay)
+  ──────────────────────────────────────────────────────────────────────── */
+  const textAnimate = prefersReduced ? { opacity: 1, x: 0 } : { opacity: 1, x: 0 };
+  const textInitial = prefersReduced ? { opacity: 1, x: 0 } : { opacity: 0, x: -6 };
+  const textTransition = prefersReduced
+    ? { duration: 0 }
+    : { duration: 0.28, delay: 0.42, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] };
 
   return (
     <Link
@@ -18,84 +71,92 @@ export default function AnimatedLogo() {
         alignItems: "center",
         gap: 8,
         textDecoration: "none",
-        width: 168,
+        /* Fixed dimensions — prevents any layout shift */
+        width: 148,
         height: 44,
         flexShrink: 0,
+        overflow: "visible",
       }}
     >
-      {/* Mark — 3 vertical capsule shapes, equaliser loop */}
+      {/* Capsule mark — fixed-size container keeps layout stable */}
       <div
         style={{
-          display: "flex",
-          alignItems: "flex-end",
-          gap: 3,
+          position: "relative",
+          width: CAP_W * 3 + CAP_GAP * 2,
+          height: CAP_H + 10, /* +10 for y-offset travel room */
           flexShrink: 0,
-          height: 34,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        {SHAPES.map((shape, i) => (
-          <motion.div
-            key={i}
-            initial={
-              prefersReduced
-                ? { opacity: 1, x: 0, filter: "blur(0px)", height: shape.restHeight }
-                : { opacity: 0, x: 8, filter: "blur(3px)", height: shape.restHeight }
-            }
-            animate={{
-              opacity: 1,
-              x: 0,
-              filter: "blur(0px)",
-              height: prefersReduced
-                ? shape.restHeight
-                : [shape.restHeight, shape.peakHeight, shape.restHeight],
-            }}
-            transition={
-              prefersReduced
-                ? { duration: 0 }
-                : {
-                    opacity: { duration: 0.3, delay: i * 0.07, ease: [0.22, 1, 0.36, 1] },
-                    x: { duration: 0.3, delay: i * 0.07, ease: [0.22, 1, 0.36, 1] },
-                    filter: { duration: 0.3, delay: i * 0.07, ease: [0.22, 1, 0.36, 1] },
-                    height: {
-                      duration: 1.6,
-                      delay: i * 0.28,
-                      repeat: Infinity,
-                      repeatType: "mirror",
-                      ease: "easeInOut",
-                    },
-                  }
-            }
-            style={{
-              width: 7,
-              borderRadius: 9999,
-              background: shape.background,
-              transformOrigin: "bottom",
-            }}
-          />
-        ))}
+        {/* Glow — sits behind capsules */}
+        <motion.div
+          aria-hidden="true"
+          initial={{ opacity: 0 }}
+          animate={glowAnimate}
+          transition={glowTransition}
+          style={{
+            position: "absolute",
+            inset: "-6px -8px",
+            borderRadius: 12,
+            background:
+              "radial-gradient(ellipse at center, #40916C 0%, transparent 72%)",
+            filter: "blur(6px)",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+
+        {/* Three capsules */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-end",
+            gap: CAP_GAP,
+            position: "relative",
+            zIndex: 1,
+          }}
+        >
+          {CAPSULES.map((cap, i) => (
+            <motion.div
+              key={i}
+              initial={
+                prefersReduced
+                  ? { y: 0, opacity: 1, filter: "blur(0px)", scale: 1 }
+                  : { y: cap.startY, opacity: 0.8, filter: "blur(1px)", scale: 1 }
+              }
+              animate={capsuleAnimate(cap.startY)}
+              transition={capsuleTransition(i)}
+              style={{
+                width: CAP_W,
+                height: CAP_H,
+                borderRadius: CAP_R,
+                background: cap.background,
+                flexShrink: 0,
+              }}
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Brand text — one-shot slide-in only */}
+      {/* Brand text — WeFixTrades only */}
       <motion.div
-        initial={prefersReduced ? { opacity: 1, x: 0 } : { opacity: 0, x: -8 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={
-          prefersReduced
-            ? { duration: 0 }
-            : { delay: 0.36, duration: 0.28, ease: [0.22, 1, 0.36, 1] }
-        }
+        initial={textInitial}
+        animate={textAnimate}
+        transition={textTransition}
         style={{ display: "flex", flexDirection: "column", gap: 0, lineHeight: 1 }}
       >
         <span
           style={{
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: 800,
             color: "#0F172A",
             letterSpacing: "-0.02em",
+            whiteSpace: "nowrap",
           }}
         >
-          QuickQuote
-          <span style={{ color: "#2D6A4F" }}>Pro</span>
+          WeFixTrades
         </span>
         <span
           style={{
@@ -105,9 +166,10 @@ export default function AnimatedLogo() {
             letterSpacing: "0.1em",
             textTransform: "uppercase",
             marginTop: 1,
+            whiteSpace: "nowrap",
           }}
         >
-          by WeFixTrades
+          Pro Platform
         </span>
       </motion.div>
     </Link>
