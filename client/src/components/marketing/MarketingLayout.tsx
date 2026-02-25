@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
+import AnimatedLogo from "./AnimatedLogo";
 
 const NAV_LINKS: { label: string; href: string; children?: { label: string; href: string }[] }[] = [
   { label: "Product", href: "/product" },
@@ -319,33 +320,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           }}
         >
           {/* Logo */}
-          <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 0, lineHeight: 1 }}>
-              <span
-                style={{
-                  fontSize: 17,
-                  fontWeight: 800,
-                  color: "#0F172A",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                QuickQuote
-                <span style={{ color: "#2D6A4F" }}>Pro</span>
-              </span>
-              <span
-                style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  color: "#94A3B8",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  marginTop: 1,
-                }}
-              >
-                by WeFixTrades
-              </span>
-            </div>
-          </Link>
+          <AnimatedLogo />
 
           {/* Center: pill capsule containing nav links */}
           {!isMobile && (
