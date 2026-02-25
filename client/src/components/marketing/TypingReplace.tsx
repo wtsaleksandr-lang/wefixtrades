@@ -8,7 +8,7 @@ interface TypingReplaceProps {
 
 export default function TypingReplace({
   words,
-  color = "#6EE7B7",
+  color = "#4A7C6F",
   fontSize = "clamp(22px, 2.6vw, 38px)",
 }: TypingReplaceProps) {
   const [displayedText, setDisplayedText] = useState("");
@@ -54,7 +54,6 @@ export default function TypingReplace({
     function startLoop() {
       const word = words[wordIndexRef.current];
 
-      /* ── 1. TYPE ── */
       let charIndex = 0;
       const typeInterval = setInterval(() => {
         charIndex++;
@@ -64,16 +63,12 @@ export default function TypingReplace({
         if (charIndex >= word.length) {
           clearInterval(typeInterval);
 
-          /* ── 2. PAUSE ── */
           schedule(() => {
-            /* ── 3. HIGHLIGHT IN ── */
             const w = measureRef.current?.offsetWidth ?? 0;
             setHighlightWidth(w);
             setHighlightOpacity(1);
 
-            /* ── 4. HOLD ── */
             schedule(() => {
-              /* ── 5. DELETE ── */
               let remaining = word.length;
               const half = Math.ceil(remaining / 2);
               let fadeStarted = false;
@@ -93,7 +88,6 @@ export default function TypingReplace({
                   clearInterval(deleteInterval);
                   setHighlightWidth(0);
 
-                  /* ── 6. GAP → NEXT WORD ── */
                   schedule(() => {
                     wordIndexRef.current =
                       (wordIndexRef.current + 1) % words.length;
@@ -127,7 +121,7 @@ export default function TypingReplace({
     >
       <span
         style={{
-          color: "rgba(255,255,255,0.45)",
+          color: "rgba(0,0,0,0.35)",
           fontSize,
           fontWeight: 700,
           whiteSpace: "nowrap",
@@ -138,7 +132,6 @@ export default function TypingReplace({
       </span>
 
       <span style={{ position: "relative", display: "inline-block" }}>
-        {/* Selection highlight */}
         <span
           style={{
             position: "absolute",
@@ -147,14 +140,13 @@ export default function TypingReplace({
             bottom: "0.05em",
             width: highlightWidth,
             opacity: highlightOpacity,
-            background: "rgba(37,99,235,0.38)",
+            background: "rgba(74,124,111,0.18)",
             borderRadius: 4,
             transition: "width 130ms ease, opacity 150ms ease",
             pointerEvents: "none",
           }}
         />
 
-        {/* Visible typed text */}
         <span
           style={{
             color,
@@ -169,7 +161,6 @@ export default function TypingReplace({
           {displayedText}
         </span>
 
-        {/* Blinking caret */}
         <span
           className="mkt-cursor"
           style={{
@@ -185,7 +176,6 @@ export default function TypingReplace({
           }}
         />
 
-        {/* Hidden measuring span — always full current word */}
         <span
           ref={measureRef}
           aria-hidden="true"

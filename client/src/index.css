@@ -403,7 +403,7 @@
               background 0.3s ease;
 }
 .mkt-nav.scrolled {
-  box-shadow: 0 2px 24px rgba(0,0,0,0.09) !important;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.06) !important;
 }
 
 /* CTA button hover lift */
@@ -413,7 +413,7 @@
 }
 .mkt-btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(45,106,79,0.32) !important;
+  box-shadow: 0 6px 20px rgba(74,124,111,0.18) !important;
 }
 .mkt-btn-primary:active { transform: translateY(0); }
 
@@ -421,7 +421,7 @@
   transition: all 0.22s ease;
   cursor: pointer;
 }
-.mkt-btn-ghost:hover { background: rgba(255,255,255,0.14) !important; }
+.mkt-btn-ghost:hover { background: rgba(0,0,0,0.04) !important; }
 
 /* Feature card micro-elevation */
 .mkt-feature-card {
@@ -430,8 +430,8 @@
   cursor: default;
 }
 .mkt-feature-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.10) !important;
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.06) !important;
 }
 
 /* Hero mockup float */
@@ -462,7 +462,7 @@
 
 /* Subtle gradient text */
 .mkt-gradient-text {
-  background: linear-gradient(135deg, #2D6A4F 0%, #40916C 100%);
+  background: linear-gradient(135deg, #4A7C6F 0%, #5E9485 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -473,8 +473,17 @@
   transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
 }
 .mkt-tier-card:hover {
-  transform: translateY(-4px);
-  background: rgba(255,255,255,0.1) !important;
+  transform: translateY(-3px);
+  background: rgba(255,255,255,0.06) !important;
+}
+
+/* Flow diagram line pulse */
+@keyframes mktFlowPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+.mkt-flow-line {
+  animation: mktFlowPulse 7s ease-in-out infinite;
 }
 
 /* Blinking caret for TypingReplace */

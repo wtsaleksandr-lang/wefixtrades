@@ -5,34 +5,34 @@ import { useScrollReveal } from "@/hooks/useScrollReveal";
 import TypingReplace from "@/components/marketing/TypingReplace";
 import {
   Zap, Calendar, Bot, MessageSquare, ChevronDown, CheckCircle2,
-  MapPin, TrendingUp, Star, ArrowRight, Play,
+  MapPin, TrendingUp, Star, ArrowRight, Play, Globe, Share2,
 } from "lucide-react";
 
 /* ─── Design tokens ─── */
 const C = {
-  navy:       "#0B1F3A",
-  navyLight:  "#132D4F",
-  sage:       "#2D6A4F",
-  sageDark:   "#1B4332",
-  sageLight:  "#40916C",
-  sageTint:   "#F0F7F4",
-  sageAccent: "#D1FAE5",
-  blue:       "#2563EB",
-  gold:       "#F59E0B",
+  navy:       "#2B2B2B",
+  navyLight:  "#333333",
+  sage:       "#4A7C6F",
+  sageDark:   "#3B6358",
+  sageLight:  "#5E9485",
+  sageTint:   "#EFF5F2",
+  sageAccent: "#D1E8DF",
+  blue:       "#5A7C91",
+  gold:       "#C9A760",
   bg:         "#FFFFFF",
-  bgGray:     "#F7F8FA",
-  bgGrayAlt:  "#F8FAFC",
-  heading:    "#0F172A",
-  body:       "#334155",
-  muted:      "#64748B",
-  border:     "#E2E8F0",
-  borderLight:"#F1F5F9",
+  bgGray:     "#F7F7F6",
+  bgGrayAlt:  "#F3F3F2",
+  heading:    "#111111",
+  body:       "#444444",
+  muted:      "#6B6B6B",
+  border:     "#E5E5E3",
+  borderLight:"#F0F0EE",
 };
 
 const SHADOW = {
-  card:  "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06)",
-  hero:  "0 24px 80px rgba(0,0,0,0.28)",
-  float: "0 8px 40px rgba(0,0,0,0.16)",
+  card:  "0 1px 3px rgba(0,0,0,0.03), 0 4px 12px rgba(0,0,0,0.04)",
+  hero:  "0 16px 48px rgba(0,0,0,0.08)",
+  float: "0 8px 32px rgba(0,0,0,0.06)",
 };
 
 /* ─── Static data ─── */
@@ -51,28 +51,28 @@ const FEATURES = [
     title: "Instant Quote Engine",
     body: "Customers get accurate trade-specific estimates in seconds — no phone tag, no waiting.",
     testId: "feature-card-quotes", delay: "100",
-    iconBg: "linear-gradient(135deg, #2D6A4F 0%, #1B4332 100%)",
+    iconBg: "linear-gradient(135deg, #4A7C6F 0%, #3B6358 100%)",
   },
   {
     id: "booking", icon: Calendar,
     title: "Booking + Deposit System",
     body: "Convert estimates into confirmed jobs with calendar booking and Stripe deposit collection.",
     testId: "feature-card-booking", delay: "200",
-    iconBg: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)",
+    iconBg: "linear-gradient(135deg, #5A7C91 0%, #4A6B7E 100%)",
   },
   {
     id: "ai", icon: Bot,
     title: "AI Chat Employees",
     body: "24/7 customer engagement, lead capture, and live estimates — even while you sleep.",
     testId: "feature-card-ai", delay: "300",
-    iconBg: "linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)",
+    iconBg: "linear-gradient(135deg, #8B7CB5 0%, #6E5F9E 100%)",
   },
   {
     id: "sms", icon: MessageSquare,
     title: "SMS & WhatsApp Follow-Ups",
     body: "Automated sequences that re-engage cold leads and recover jobs you'd otherwise lose.",
     testId: "feature-card-sms", delay: "400",
-    iconBg: "linear-gradient(135deg, #DB2777 0%, #9D174D 100%)",
+    iconBg: "linear-gradient(135deg, #B5707F 0%, #9E5F6E 100%)",
   },
 ];
 
@@ -105,9 +105,9 @@ const PRICING_TIERS = [
 ];
 
 const SERVICES_TEASE = [
-  { icon: MapPin,     title: "Google Maps Optimization", desc: "Get found by local customers searching for your trade. GMB, citations, reviews.", price: "From $299/mo", iconBg: "linear-gradient(135deg, #2D6A4F, #40916C)" },
-  { icon: TrendingUp, title: "Website SEO + Speed",      desc: "Rank higher. Convert better. Fast-loading pages that turn visitors into leads.",  price: "From $199/mo", iconBg: "linear-gradient(135deg, #2563EB, #1D4ED8)" },
-  { icon: Star,       title: "Reputation + Social",      desc: "Reviews, automated responses, and social posts — all handled for you.",           price: "From $349/mo", iconBg: "linear-gradient(135deg, #7C3AED, #5B21B6)" },
+  { icon: MapPin,     title: "Google Maps Optimization", desc: "Get found by local customers searching for your trade. GMB, citations, reviews.", price: "From $299/mo", iconBg: "linear-gradient(135deg, #4A7C6F, #5E9485)" },
+  { icon: TrendingUp, title: "Website SEO + Speed",      desc: "Rank higher. Convert better. Fast-loading pages that turn visitors into leads.",  price: "From $199/mo", iconBg: "linear-gradient(135deg, #5A7C91, #4A6B7E)" },
+  { icon: Star,       title: "Reputation + Social",      desc: "Reviews, automated responses, and social posts — all handled for you.",           price: "From $349/mo", iconBg: "linear-gradient(135deg, #8B7CB5, #6E5F9E)" },
 ];
 
 /* ─── Sub-components ─── */
@@ -139,20 +139,20 @@ function HeroMockup() {
       className="mkt-float"
       data-testid="hero-mockup"
       style={{
-        background: C.navyLight,
-        border: "1px solid rgba(255,255,255,0.08)",
+        background: C.bg,
+        border: `1px solid ${C.border}`,
         borderRadius: 20, padding: 24, width: "100%", maxWidth: 420, boxShadow: SHADOW.hero,
       }}
     >
       {/* Panel 1 — Estimate */}
-      <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "16px 20px", marginBottom: 12 }}>
+      <div style={{ background: C.bgGray, border: `1px solid ${C.borderLight}`, borderRadius: 14, padding: "16px 20px", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: C.sageAccent, color: "#065F46", borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: C.sageAccent, color: C.sageDark, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>
             ✓ Estimate Ready
           </span>
         </div>
-        <div style={{ fontSize: 28, fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em" }}>$1,240 – $1,680</div>
-        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginTop: 4 }}>Bathroom Renovation · 2 hours</div>
+        <div style={{ fontSize: 28, fontWeight: 800, color: C.heading, letterSpacing: "-0.02em" }}>$1,240 – $1,680</div>
+        <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Bathroom Renovation · 2 hours</div>
       </div>
 
       {/* Connector */}
@@ -161,18 +161,18 @@ function HeroMockup() {
       </div>
 
       {/* Panel 2 — Booking */}
-      <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "14px 20px", marginBottom: 12 }}>
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 10 }}>Book a Time</div>
+      <div style={{ background: C.bgGray, border: `1px solid ${C.borderLight}`, borderRadius: 14, padding: "14px 20px", marginBottom: 12 }}>
+        <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>Book a Time</div>
         <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
           {["Mon", "Tue", "Wed", "Thu", "Fri"].map((d, i) => (
             <div key={d} style={{
               flex: 1, textAlign: "center", padding: "6px 0", borderRadius: 8, fontSize: 11, fontWeight: i === 1 ? 700 : 400,
-              background: i === 1 ? C.sage : "rgba(255,255,255,0.06)",
-              color: i === 1 ? "#FFFFFF" : "rgba(255,255,255,0.4)",
+              background: i === 1 ? C.sage : C.bgGrayAlt,
+              color: i === 1 ? "#FFFFFF" : C.muted,
             }}>{d}</div>
           ))}
         </div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: "#6EE7B7" }}>9:00 AM — Confirmed ✓</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: C.sage }}>9:00 AM — Confirmed ✓</div>
       </div>
 
       {/* Connector */}
@@ -181,12 +181,12 @@ function HeroMockup() {
       </div>
 
       {/* Panel 3 — AI */}
-      <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "14px 20px" }}>
+      <div style={{ background: C.bgGray, border: `1px solid ${C.borderLight}`, borderRadius: 14, padding: "14px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 28, height: 28, borderRadius: "50%", background: `linear-gradient(135deg, ${C.sage}, ${C.sageLight})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <Bot size={13} color="#FFFFFF" />
           </div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.75)", lineHeight: 1.45 }}>
+          <div style={{ fontSize: 12, color: C.body, lineHeight: 1.45 }}>
             Hi! I can help you schedule or get an exact quote 👋
           </div>
         </div>
@@ -203,14 +203,14 @@ function AiChatMockup() {
     { text: "Based on 30m², I estimate $680 – $920. Want to lock in a time?", user: false },
   ];
   return (
-    <div style={{ background: C.navy, borderRadius: 20, padding: 24, width: "100%", maxWidth: 380, boxShadow: SHADOW.hero }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 20, padding: 24, width: "100%", maxWidth: 380, boxShadow: SHADOW.hero }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.borderLight}` }}>
         <div style={{ width: 36, height: 36, borderRadius: "50%", background: `linear-gradient(135deg, ${C.sage}, ${C.sageLight})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Bot size={16} color="#FFFFFF" />
         </div>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>AI Employee</div>
-          <div style={{ fontSize: 11, color: "#22C55E" }}>● Online</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.heading }}>AI Employee</div>
+          <div style={{ fontSize: 11, color: C.sage }}>● Online</div>
         </div>
       </div>
       {messages.map((m, i) => (
@@ -218,13 +218,13 @@ function AiChatMockup() {
           <div style={{
             maxWidth: "82%", padding: "10px 14px",
             borderRadius: m.user ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-            background: m.user ? C.sage : "rgba(255,255,255,0.08)",
-            fontSize: 13, color: "#FFFFFF", lineHeight: 1.5,
+            background: m.user ? C.sage : C.bgGray,
+            fontSize: 13, color: m.user ? "#FFFFFF" : C.body, lineHeight: 1.5,
           }}>{m.text}</div>
         </div>
       ))}
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-        <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
+        <div style={{ flex: 1, background: C.bgGray, border: `1px solid ${C.borderLight}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: C.muted }}>
           Type a message…
         </div>
         <div style={{ width: 36, height: 36, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -283,12 +283,12 @@ function BookingMockup() {
 
 function TemplateMockup() {
   const templates = [
-    { name: "Classic Single", color: "#EFF6FF", accent: "#2563EB" },
+    { name: "Classic Single", color: "#F0F4F3", accent: "#5A7C91" },
     { name: "Two Column",     color: C.sageTint, accent: C.sage },
-    { name: "Multi-Step",     color: "#F5F3FF", accent: "#7C3AED" },
-    { name: "Package Cards",  color: "#FDF2F8", accent: "#DB2777" },
-    { name: "Range + Gate",   color: "#FFFBEB", accent: "#D97706" },
-    { name: "Book First",     color: "#F0FDF4", accent: "#16A34A" },
+    { name: "Multi-Step",     color: "#F3F1F7", accent: "#8B7CB5" },
+    { name: "Package Cards",  color: "#F5F0F2", accent: "#B5707F" },
+    { name: "Range + Gate",   color: "#F5F3EE", accent: "#C9A760" },
+    { name: "Book First",     color: "#F0F5F2", accent: "#5E9485" },
   ];
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, maxWidth: 380 }}>
@@ -305,6 +305,14 @@ function TemplateMockup() {
 }
 
 /* ─── Shared inline responsive CSS ─── */
+const FLOW_ITEMS = [
+  { icon: MapPin, label: "Google Maps" },
+  { icon: Zap, label: "WeFixTrades" },
+  { icon: Calendar, label: "Booking" },
+  { icon: Bot, label: "AI Agent" },
+  { icon: Globe, label: "Website" },
+];
+
 const RESPONSIVE_CSS = `
   @media (max-width: 820px) {
     .hero-grid { grid-template-columns: 1fr !important; gap: 48px !important; text-align: center; }
@@ -316,10 +324,15 @@ const RESPONSIVE_CSS = `
       position: absolute; top: 32px;
       left: calc(16.66% + 20px); right: calc(16.66% + 20px);
       height: 2px;
-      background: linear-gradient(90deg, transparent, #E2E8F0, transparent);
+      background: linear-gradient(90deg, transparent, ${C.border}, transparent);
     }
   }
-  @media (max-width: 699px) { .step-line { display: none; } }
+  @media (max-width: 699px) {
+    .step-line { display: none; }
+    .flow-row { flex-direction: column !important; gap: 0 !important; }
+    .flow-connector-h { display: none !important; }
+    .flow-connector-v { display: block !important; }
+  }
 `;
 
 /* ─── Page ─── */
@@ -327,7 +340,7 @@ export default function HomePage() {
   useScrollReveal();
 
   useEffect(() => {
-    document.title = "QuickQuotePro — Estimates, Booking & AI for Trades";
+    document.title = "WeFixTrades — Estimates, Booking & AI for Trades";
   }, []);
 
   return (
@@ -340,59 +353,55 @@ export default function HomePage() {
       <section
         data-testid="hero-section"
         style={{
-          background: `linear-gradient(160deg, ${C.navy} 0%, #0F2744 55%, #1a3550 100%)`,
+          background: "linear-gradient(180deg, #F7F7F6 0%, #FFFFFF 100%)",
           minHeight: "calc(100vh - 72px)",
-          padding: "80px 28px 96px",
+          padding: "100px 28px 120px",
           position: "relative",
           overflow: "hidden",
           display: "flex",
           alignItems: "center",
         }}
       >
-        {/* Background orbs */}
-        <div style={{ position: "absolute", top: -80, right: -80, width: 500, height: 500, borderRadius: "50%", background: "rgba(45,106,79,0.12)", pointerEvents: "none" }} />
-        <div style={{ position: "absolute", bottom: -100, left: -60, width: 360, height: 360, borderRadius: "50%", background: "rgba(37,99,235,0.08)", pointerEvents: "none" }} />
-
         <div
           className="hero-grid"
-          style={{ maxWidth: 1200, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 64, alignItems: "center" }}
+          style={{ maxWidth: 1200, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 80, alignItems: "center" }}
         >
           {/* Left — text */}
           <div>
             {/* Trust badge */}
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(45,106,79,0.25)", border: "1px solid rgba(45,106,79,0.4)", borderRadius: 20, padding: "5px 14px", marginBottom: 28 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#6EE7B7", letterSpacing: "0.02em" }}>✦ Trusted by Trades Worldwide</span>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.sageTint, border: `1px solid ${C.sageAccent}`, borderRadius: 9999, padding: "6px 16px", marginBottom: 36 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.sage, letterSpacing: "0.02em" }}>✦ Trusted by Trades Worldwide</span>
             </div>
 
             <h1
               data-testid="hero-headline"
-              style={{ fontSize: "clamp(36px, 4.5vw, 60px)", fontWeight: 800, color: "#FFFFFF", lineHeight: 1.08, letterSpacing: "-0.03em", marginBottom: 24 }}
+              style={{ fontSize: "clamp(40px, 5vw, 68px)", fontWeight: 800, color: C.heading, lineHeight: 1.06, letterSpacing: "-0.035em", marginBottom: 28 }}
             >
               Software That Turns{" "}
-              <span style={{ color: "#6EE7B7" }}>Visitors</span>{" "}
+              <span style={{ color: C.sage }}>Visitors</span>{" "}
               Into Booked Jobs{" "}
-              <span style={{ color: "#6EE7B7" }}>Automatically</span>
+              <span style={{ color: C.sage }}>Automatically</span>
             </h1>
 
-            <div style={{ marginTop: 6, marginBottom: 14, minHeight: 54 }}>
+            <div style={{ marginTop: 10, marginBottom: 24, minHeight: 54 }}>
               <TypingReplace
                 words={TYPING_WORDS}
-                color="#6EE7B7"
+                color={C.sage}
                 fontSize="clamp(22px, 2.6vw, 38px)"
               />
             </div>
 
-            <p style={{ fontSize: "clamp(16px, 1.8vw, 20px)", color: "rgba(255,255,255,0.65)", lineHeight: 1.65, marginBottom: 40, maxWidth: 520 }}>
+            <p style={{ fontSize: "clamp(16px, 1.8vw, 20px)", color: C.muted, lineHeight: 1.7, marginBottom: 48, maxWidth: 520 }}>
               Instant quotes, smart booking, and AI employees — built for trades businesses that want more jobs without more admin.
             </p>
 
             {/* CTA buttons */}
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 36 }}>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 40 }}>
               <Link
                 href="/Wizard"
                 data-testid="button-start-free-hero"
                 className="mkt-btn-primary"
-                style={{ padding: "14px 30px", borderRadius: 10, background: C.sage, color: "#FFFFFF", fontSize: 15, fontWeight: 700, textDecoration: "none", display: "inline-block" }}
+                style={{ padding: "16px 36px", borderRadius: 9999, background: C.sage, color: "#FFFFFF", fontSize: 16, fontWeight: 700, textDecoration: "none", display: "inline-block" }}
               >
                 Start Free — No Credit Card
               </Link>
@@ -400,7 +409,7 @@ export default function HomePage() {
                 href="/demo"
                 data-testid="button-view-demo-hero"
                 className="mkt-btn-ghost"
-                style={{ padding: "14px 28px", borderRadius: 10, background: "transparent", color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, border: "1.5px solid rgba(255,255,255,0.3)" }}
+                style={{ padding: "16px 32px", borderRadius: 9999, background: "transparent", color: C.heading, fontSize: 16, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, border: `1.5px solid ${C.border}` }}
               >
                 <Play size={14} fill="currentColor" /> View Live Demo
               </Link>
@@ -409,7 +418,7 @@ export default function HomePage() {
             {/* Trade category pills */}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {["Plumbers", "Roofers", "Electricians", "Cleaners", "Home Services"].map((t) => (
-                <span key={t} style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.45)", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: "4px 12px" }}>
+                <span key={t} style={{ fontSize: 12, fontWeight: 500, color: C.muted, background: C.bgGrayAlt, border: `1px solid ${C.border}`, borderRadius: 9999, padding: "5px 14px" }}>
                   {t}
                 </span>
               ))}
@@ -424,8 +433,53 @@ export default function HomePage() {
 
         {/* Scroll cue */}
         <div style={{ position: "absolute", bottom: 32, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Scroll</span>
-          <ChevronDown size={18} color="rgba(255,255,255,0.3)" className="mkt-scroll-cue" />
+          <span style={{ fontSize: 11, color: C.muted, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.5 }}>Scroll</span>
+          <ChevronDown size={18} color={C.muted} className="mkt-scroll-cue" style={{ opacity: 0.5 }} />
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════
+          SECTION 1.5 — VISUAL FLOW DIAGRAM
+      ═══════════════════════════════════════ */}
+      <section style={{ background: C.bg, padding: "80px 28px 64px", borderTop: `1px solid ${C.borderLight}` }}>
+        <div style={{ maxWidth: 800, margin: "0 auto", textAlign: "center" }}>
+          <div
+            className="flow-row"
+            data-reveal="fade-up"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, flexWrap: "nowrap" }}
+          >
+            {FLOW_ITEMS.map(({ icon: Icon, label }, i) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                {/* Icon + Label */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, minWidth: 80 }}>
+                  <div style={{
+                    width: 52, height: 52, borderRadius: "50%", background: C.bg,
+                    border: `1px solid ${C.border}`, display: "flex", alignItems: "center",
+                    justifyContent: "center", boxShadow: SHADOW.card,
+                  }}>
+                    <Icon size={22} color={C.muted} strokeWidth={1.5} />
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.muted, whiteSpace: "nowrap" }}>{label}</span>
+                </div>
+                {/* Horizontal connector (hidden on mobile) */}
+                {i < FLOW_ITEMS.length - 1 && (
+                  <>
+                    <div
+                      className="flow-connector-h mkt-flow-line"
+                      style={{ width: 40, height: 1, background: C.border, flexShrink: 0, marginBottom: 28 }}
+                    />
+                    <div
+                      className="flow-connector-v"
+                      style={{ display: "none", width: 1, height: 28, background: C.border, margin: "0 auto" }}
+                    />
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+          <div data-reveal="fade-up" data-delay="200" style={{ marginTop: 36 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.heading }}>Your Trade Business</span>
+          </div>
         </div>
       </section>
 
@@ -445,7 +499,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════
           SECTION 3 — FEATURE CARDS GRID
       ═══════════════════════════════════════ */}
-      <section data-testid="features-section" style={{ background: C.bg, padding: "96px 28px" }}>
+      <section data-testid="features-section" style={{ background: C.bg, padding: "112px 28px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
             <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
@@ -467,7 +521,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════
           SECTION 4 — HOW IT WORKS
       ═══════════════════════════════════════ */}
-      <section data-testid="how-it-works-section" style={{ background: C.bgGray, padding: "96px 28px" }}>
+      <section data-testid="how-it-works-section" style={{ background: C.bgGray, padding: "112px 28px" }}>
         <div style={{ maxWidth: 960, margin: "0 auto", textAlign: "center" }}>
           <div data-reveal="fade-up">
             <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
@@ -501,7 +555,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════
           SECTION 5 — SOCIAL PROOF
       ═══════════════════════════════════════ */}
-      <section style={{ background: C.bg, padding: "96px 28px" }}>
+      <section style={{ background: C.bg, padding: "112px 28px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
             <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 12 }}>
@@ -537,7 +591,7 @@ export default function HomePage() {
       ═══════════════════════════════════════ */}
 
       {/* Block A — AI Employee */}
-      <section data-testid="feature-section-ai" style={{ background: C.bgGray, padding: "96px 28px" }}>
+      <section data-testid="feature-section-ai" style={{ background: C.bgGray, padding: "112px 28px" }}>
         <div className="alt-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
           {/* Text LEFT */}
           <div data-reveal="fade-left">
@@ -566,7 +620,7 @@ export default function HomePage() {
       </section>
 
       {/* Block B — Booking */}
-      <section data-testid="feature-section-booking" style={{ background: C.bg, padding: "96px 28px" }}>
+      <section data-testid="feature-section-booking" style={{ background: C.bg, padding: "112px 28px" }}>
         <div className="alt-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
           {/* Mockup LEFT */}
           <div data-reveal="fade-right" style={{ display: "flex", justifyContent: "center" }}>
@@ -574,7 +628,7 @@ export default function HomePage() {
           </div>
           {/* Text RIGHT */}
           <div data-reveal="fade-left">
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.blue, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Booking Engine</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.blue, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Booking engine</div>
             <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 18, lineHeight: 1.15 }}>
               Turn estimates into paid bookings
             </h2>
@@ -595,11 +649,11 @@ export default function HomePage() {
       </section>
 
       {/* Block C — Templates */}
-      <section data-testid="feature-section-templates" style={{ background: C.bgGray, padding: "96px 28px" }}>
+      <section data-testid="feature-section-templates" style={{ background: C.bgGray, padding: "112px 28px" }}>
         <div className="alt-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
           {/* Text LEFT */}
           <div data-reveal="fade-left">
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#7C3AED", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Templates</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#8B7CB5", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Templates</div>
             <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 18, lineHeight: 1.15 }}>
               Pick a template, go live today
             </h2>
@@ -608,11 +662,11 @@ export default function HomePage() {
             </p>
             {["6 high-converting templates", "Mobile-first, fully responsive", "Trade-specific recommendations"].map((b) => (
               <div key={b} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <CheckCircle2 size={18} color="#7C3AED" />
+                <CheckCircle2 size={18} color="#8B7CB5" />
                 <span style={{ fontSize: 15, color: C.body, fontWeight: 500 }}>{b}</span>
               </div>
             ))}
-            <Link href="/templates" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 700, color: "#7C3AED", textDecoration: "none" }}>
+            <Link href="/templates" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 700, color: "#8B7CB5", textDecoration: "none" }}>
               Browse Templates <ArrowRight size={16} />
             </Link>
           </div>
@@ -626,7 +680,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════
           SECTION 7 — PRICING TEASER
       ═══════════════════════════════════════ */}
-      <section data-testid="pricing-teaser-section" style={{ background: `linear-gradient(160deg, ${C.navy} 0%, #0F2744 100%)`, padding: "96px 28px" }}>
+      <section data-testid="pricing-teaser-section" style={{ background: "linear-gradient(160deg, #2B2B2B 0%, #1A1A1A 100%)", padding: "112px 28px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
             <h2 style={{ fontSize: "clamp(26px, 3vw, 40px)", fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em", marginBottom: 12 }}>
@@ -655,7 +709,7 @@ export default function HomePage() {
                 <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", marginBottom: 20 }}>{label}</div>
                 {features.map((f) => (
                   <div key={f} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ color: "#6EE7B7", fontSize: 12 }}>✓</span>
+                    <span style={{ color: C.sageLight, fontSize: 12 }}>✓</span>
                     <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>{f}</span>
                   </div>
                 ))}
@@ -678,7 +732,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════
           SECTION 8 — SERVICES TEASE
       ═══════════════════════════════════════ */}
-      <section data-testid="services-tease-section" style={{ background: C.bgGray, padding: "80px 28px" }}>
+      <section data-testid="services-tease-section" style={{ background: C.bgGray, padding: "112px 28px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
             <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Growth Services</div>
@@ -723,7 +777,7 @@ export default function HomePage() {
       ═══════════════════════════════════════ */}
       <section
         data-testid="cta-band"
-        style={{ background: `linear-gradient(135deg, ${C.sage} 0%, ${C.sageDark} 100%)`, padding: "120px 28px", textAlign: "center" }}
+        style={{ background: `linear-gradient(135deg, ${C.sage} 0%, ${C.sageDark} 100%)`, padding: "136px 28px", textAlign: "center" }}
       >
         <div style={{ maxWidth: 680, margin: "0 auto" }} data-reveal="scale">
           <h2 style={{ fontSize: "clamp(32px, 4vw, 52px)", fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em", marginBottom: 18, lineHeight: 1.1 }}>

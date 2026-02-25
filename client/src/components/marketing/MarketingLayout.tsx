@@ -215,7 +215,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
               cursor: "pointer",
               fontSize: 18,
               fontWeight: 600,
-              color: isActive || expanded ? "#2D6A4F" : "#0F172A",
+              color: isActive || expanded ? "#4A7C6F" : "#0F172A",
               textAlign: "left",
             }}
           >
@@ -260,7 +260,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
             padding: "16px 0",
             fontSize: 18,
             fontWeight: 600,
-            color: isActive ? "#2D6A4F" : "#0F172A",
+            color: isActive ? "#4A7C6F" : "#0F172A",
             textDecoration: "none",
           }}
         >
@@ -376,7 +376,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   style={{
                     padding: "9px 20px",
                     borderRadius: 9999,
-                    background: "#2D6A4F",
+                    background: "#4A7C6F",
                     color: "#FFFFFF",
                     fontSize: 14,
                     fontWeight: 700,
@@ -452,7 +452,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 marginTop: 24,
                 padding: "15px",
                 borderRadius: 9999,
-                background: "#2D6A4F",
+                background: "#4A7C6F",
                 color: "#FFFFFF",
                 fontSize: 16,
                 fontWeight: 700,
