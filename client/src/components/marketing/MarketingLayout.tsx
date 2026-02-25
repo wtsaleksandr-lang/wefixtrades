@@ -4,6 +4,23 @@ import { Menu, X, ChevronDown } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
 import AnimatedLogo from "./AnimatedLogo";
 
+const T = {
+  bg: "#FFFFFF",
+  surface: "#F6F7F8",
+  surface2: "#F1F3F4",
+  text: "#0B0D0E",
+  textMuted: "#5F6368",
+  textFaint: "#8A9096",
+  border: "#E6E8EB",
+  accent: "#16A34A",
+  accentHover: "#15803D",
+  shadowSoft: "0 10px 30px rgba(0,0,0,0.06)",
+  shadowPill: "0 6px 20px rgba(0,0,0,0.08)",
+  rXl: 28,
+  rLg: 18,
+  rMd: 14,
+};
+
 const NAV_LINKS: { label: string; href: string; children?: { label: string; href: string }[] }[] = [
   { label: "Product", href: "/product" },
   { label: "Pricing", href: "/pricing" },
@@ -36,7 +53,6 @@ function useIsMobile(breakpoint = 900) {
   return isMobile;
 }
 
-/* ─── Desktop nav item with optional dropdown ─── */
 function NavItem({ label, href, children, isActive }: {
   label: string;
   href: string;
@@ -74,25 +90,20 @@ function NavItem({ label, href, children, isActive }: {
             padding: "7px 14px",
             borderRadius: 9999,
             fontSize: 14,
-            fontWeight: 600,
-            color: isHighlighted ? "#111111" : "#6B6B6B",
-            background: isHighlighted ? "#EDEDED" : "transparent",
+            fontWeight: 500,
+            color: T.text,
+            background: isHighlighted ? T.surface2 : "transparent",
             border: "none",
             cursor: "pointer",
-            transition: "background 0.15s ease, color 0.15s ease",
+            transition: "background 0.15s ease, opacity 0.15s ease",
             whiteSpace: "nowrap",
+            opacity: isHighlighted ? 1 : 0.85,
           }}
           onMouseEnter={(e) => {
-            if (!isHighlighted) {
-              (e.currentTarget as HTMLElement).style.background = "#EDEDED";
-              (e.currentTarget as HTMLElement).style.color = "#111111";
-            }
+            (e.currentTarget as HTMLElement).style.opacity = "1";
           }}
           onMouseLeave={(e) => {
-            if (!isHighlighted) {
-              (e.currentTarget as HTMLElement).style.background = "transparent";
-              (e.currentTarget as HTMLElement).style.color = "#6B6B6B";
-            }
+            if (!isHighlighted) (e.currentTarget as HTMLElement).style.opacity = "0.85";
           }}
         >
           {label}
@@ -111,31 +122,25 @@ function NavItem({ label, href, children, isActive }: {
             padding: "7px 14px",
             borderRadius: 9999,
             fontSize: 14,
-            fontWeight: 600,
-            color: isActive ? "#111111" : "#6B6B6B",
-            background: isActive ? "#EDEDED" : "transparent",
+            fontWeight: 500,
+            color: T.text,
+            background: isActive ? T.surface2 : "transparent",
             textDecoration: "none",
-            transition: "background 0.15s ease, color 0.15s ease",
+            transition: "background 0.15s ease, opacity 0.15s ease",
             whiteSpace: "nowrap",
+            opacity: isActive ? 1 : 0.85,
           }}
           onMouseEnter={(e) => {
-            if (!isActive) {
-              (e.currentTarget as HTMLElement).style.background = "#EDEDED";
-              (e.currentTarget as HTMLElement).style.color = "#111111";
-            }
+            (e.currentTarget as HTMLElement).style.opacity = "1";
           }}
           onMouseLeave={(e) => {
-            if (!isActive) {
-              (e.currentTarget as HTMLElement).style.background = "transparent";
-              (e.currentTarget as HTMLElement).style.color = "#6B6B6B";
-            }
+            if (!isActive) (e.currentTarget as HTMLElement).style.opacity = "0.85";
           }}
         >
           {label}
         </Link>
       )}
 
-      {/* Dropdown panel */}
       {hasDropdown && (
         <div
           style={{
@@ -145,9 +150,10 @@ function NavItem({ label, href, children, isActive }: {
             transform: open ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(-6px)",
             opacity: open ? 1 : 0,
             pointerEvents: open ? "auto" : "none",
-            background: "#FFFFFF",
-            borderRadius: 16,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)",
+            background: T.bg,
+            borderRadius: T.rLg,
+            border: `1px solid ${T.border}`,
+            boxShadow: T.shadowSoft,
             padding: "8px",
             minWidth: 200,
             transition: "opacity 0.15s ease, transform 0.15s ease",
@@ -164,17 +170,17 @@ function NavItem({ label, href, children, isActive }: {
                 borderRadius: 10,
                 fontSize: 14,
                 fontWeight: 500,
-                color: "#6B6B6B",
+                color: T.textMuted,
                 textDecoration: "none",
                 transition: "background 0.12s ease, color 0.12s ease",
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.background = "#F3F3F2";
-                (e.currentTarget as HTMLElement).style.color = "#111111";
+                (e.currentTarget as HTMLElement).style.background = T.surface;
+                (e.currentTarget as HTMLElement).style.color = T.text;
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLElement).style.background = "transparent";
-                (e.currentTarget as HTMLElement).style.color = "#6B6B6B";
+                (e.currentTarget as HTMLElement).style.color = T.textMuted;
               }}
             >
               {cl}
@@ -186,7 +192,6 @@ function NavItem({ label, href, children, isActive }: {
   );
 }
 
-/* ─── Mobile accordion item ─── */
 function MobileNavItem({ label, href, children, isActive, onClose }: {
   label: string;
   href: string;
@@ -198,7 +203,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
   const hasDropdown = children && children.length > 0;
 
   return (
-    <div style={{ borderBottom: "1px solid #F1F5F9" }}>
+    <div style={{ borderBottom: `1px solid ${T.border}` }}>
       {hasDropdown ? (
         <>
           <button
@@ -215,14 +220,14 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
               cursor: "pointer",
               fontSize: 18,
               fontWeight: 600,
-              color: isActive || expanded ? "#4A7C6F" : "#0F172A",
+              color: isActive || expanded ? T.text : T.textMuted,
               textAlign: "left",
             }}
           >
             {label}
             <ChevronDown
               size={18}
-              style={{ transition: "transform 0.2s ease", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", color: "#94A3B8" }}
+              style={{ transition: "transform 0.2s ease", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", color: T.textFaint }}
             />
           </button>
           {expanded && (
@@ -239,9 +244,9 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
                     borderRadius: 9999,
                     fontSize: 15,
                     fontWeight: 500,
-                    color: "#475569",
+                    color: T.textMuted,
                     textDecoration: "none",
-                    background: "#F3F3F2",
+                    background: T.surface,
                   }}
                 >
                   {cl}
@@ -260,7 +265,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
             padding: "16px 0",
             fontSize: 18,
             fontWeight: 600,
-            color: isActive ? "#4A7C6F" : "#0F172A",
+            color: isActive ? T.text : T.textMuted,
             textDecoration: "none",
           }}
         >
@@ -290,7 +295,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
       }}
     >
-      {/* ─── Fixed Navbar ─── */}
       <nav
         className={`mkt-nav${scrolled ? " scrolled" : ""}`}
         data-testid="nav-marketing"
@@ -300,29 +304,31 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           left: 0,
           right: 0,
           zIndex: 200,
-          background: "#FFFFFF",
-          borderBottom: scrolled ? "1px solid #E5E5E3" : "1px solid transparent",
           height: navHeight,
           display: "flex",
           alignItems: "center",
+          justifyContent: "center",
+          background: "transparent",
+          padding: isMobile ? "0 12px" : "0 24px",
         }}
       >
         <div
           style={{
-            maxWidth: 1200,
-            margin: "0 auto",
-            padding: "0 28px",
+            maxWidth: 1160,
             width: "100%",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             gap: 16,
+            background: T.surface,
+            borderRadius: T.rXl,
+            padding: isMobile ? "8px 16px" : "8px 10px 8px 20px",
+            boxShadow: scrolled ? T.shadowPill : "0 4px 16px rgba(0,0,0,0.04)",
+            transition: "box-shadow 0.3s ease",
           }}
         >
-          {/* Logo */}
           <AnimatedLogo />
 
-          {/* Center: pill capsule containing nav links */}
           {!isMobile && (
             <nav
               aria-label="Main navigation"
@@ -330,9 +336,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 display: "flex",
                 alignItems: "center",
                 gap: 2,
-                background: "#F3F3F2",
-                borderRadius: 9999,
-                padding: "5px 6px",
                 flex: "0 1 auto",
               }}
             >
@@ -348,7 +351,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             </nav>
           )}
 
-          {/* Right: Login + CTA */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
             {!isMobile && (
               <>
@@ -358,14 +360,15 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   style={{
                     fontSize: 14,
                     fontWeight: 500,
-                    color: "#6B6B6B",
+                    color: T.text,
                     textDecoration: "none",
                     padding: "7px 12px",
                     borderRadius: 9999,
-                    transition: "color 0.15s ease",
+                    transition: "opacity 0.15s ease",
+                    opacity: 0.75,
                   }}
-                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#111111")}
-                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#6B6B6B")}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = "1")}
+                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = "0.75")}
                 >
                   Log in
                 </Link>
@@ -375,17 +378,17 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   data-testid="nav-cta-start-free"
                   style={{
                     padding: "9px 20px",
-                    borderRadius: 9999,
-                    background: "#4A7C6F",
+                    borderRadius: T.rMd,
+                    background: T.accent,
                     color: "#FFFFFF",
                     fontSize: 14,
-                    fontWeight: 700,
+                    fontWeight: 600,
                     textDecoration: "none",
                     display: "inline-block",
                     whiteSpace: "nowrap",
                   }}
                 >
-                  Start Free
+                  Try for Free
                 </Link>
               </>
             )}
@@ -401,7 +404,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   cursor: "pointer",
                   padding: 8,
                   borderRadius: 8,
-                  color: "#0F172A",
+                  color: T.text,
                   display: "flex",
                   alignItems: "center",
                 }}
@@ -413,7 +416,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         </div>
       </nav>
 
-      {/* ─── Mobile slide-down menu panel ─── */}
       {isMobile && (
         <div
           data-testid="nav-mobile-menu"
@@ -422,10 +424,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             top: navHeight,
             left: 0,
             right: 0,
-            background: "#FFFFFF",
+            background: T.bg,
             zIndex: 199,
-            borderBottom: menuOpen ? "1px solid #E2E8F0" : "none",
-            boxShadow: menuOpen ? "0 8px 32px rgba(0,0,0,0.08)" : "none",
+            borderBottom: menuOpen ? `1px solid ${T.border}` : "none",
+            boxShadow: menuOpen ? T.shadowSoft : "none",
             overflow: "hidden",
             maxHeight: menuOpen ? "80vh" : 0,
             transition: "max-height 0.3s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s ease",
@@ -451,27 +453,25 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 display: "block",
                 marginTop: 24,
                 padding: "15px",
-                borderRadius: 9999,
-                background: "#4A7C6F",
+                borderRadius: T.rMd,
+                background: T.accent,
                 color: "#FFFFFF",
                 fontSize: 16,
-                fontWeight: 700,
+                fontWeight: 600,
                 textAlign: "center",
                 textDecoration: "none",
               }}
             >
-              Start Free
+              Try for Free
             </Link>
           </div>
         </div>
       )}
 
-      {/* Spacer for fixed nav */}
       <div style={{ height: navHeight, flexShrink: 0, transition: "height 0.3s ease" }} />
 
       <main style={{ flex: 1 }}>{children}</main>
 
-      {/* ─── Footer (unchanged) ─── */}
       <footer data-testid="footer-marketing" style={{ background: "#0B1F3A", color: "#FFFFFF" }}>
         <div
           style={{
@@ -488,7 +488,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               marginBottom: 56,
             }}
           >
-            {/* Brand */}
             <div style={{ gridColumn: isMobile ? "1 / -1" : "auto" }}>
               <div
                 style={{
@@ -529,7 +528,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               </div>
             </div>
 
-            {/* Product */}
             <div>
               <div
                 style={{
@@ -567,7 +565,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               ))}
             </div>
 
-            {/* Company */}
             <div>
               <div
                 style={{
@@ -602,7 +599,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               ))}
             </div>
 
-            {/* Legal */}
             <div>
               <div
                 style={{
@@ -637,7 +633,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             </div>
           </div>
 
-          {/* Divider + copyright */}
           <div
             style={{
               borderTop: "1px solid rgba(255,255,255,0.08)",

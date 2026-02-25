@@ -1,15 +1,10 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "wouter";
 
-const CAPSULES = [
-  { background: "#4A7C6F" },
-  { background: "#5E9485" },
-  { background: "#3B6358" },
-];
-
-const CAP_W = 7;
-const CAP_H = 26;
-const CAP_GAP = 3;
+const CAP_W = 8;
+const CAP_H = 22;
+const CAP_GAP = 5;
+const CAP_COLOR = "#1F3B2E";
 
 export default function AnimatedLogo() {
   const prefersReduced = useReducedMotion();
@@ -20,73 +15,101 @@ export default function AnimatedLogo() {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 8,
+        gap: 10,
         textDecoration: "none",
-        width: 148,
         height: 44,
         flexShrink: 0,
       }}
     >
       <div
         style={{
+          position: "relative",
           display: "flex",
-          alignItems: "flex-end",
+          alignItems: "center",
           gap: CAP_GAP,
           flexShrink: 0,
-          height: CAP_H,
+          height: CAP_H + 6,
         }}
       >
-        {CAPSULES.map((cap, i) => (
+        <motion.div
+          aria-hidden="true"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.22 }}
+          transition={
+            prefersReduced
+              ? { duration: 0 }
+              : { duration: 0.3, delay: 0.6, ease: "easeOut" }
+          }
+          style={{
+            position: "absolute",
+            inset: "-4px -6px",
+            borderRadius: 8,
+            background:
+              "radial-gradient(ellipse at center, rgba(31,59,46,0.35) 0%, transparent 70%)",
+            filter: "blur(4px)",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+
+        {[0, 1, 2].map((i) => (
           <motion.div
             key={i}
             initial={
               prefersReduced
-                ? { opacity: 1, y: 0 }
-                : { opacity: 0, y: 6 }
+                ? { x: 0, opacity: 1, filter: "blur(0px)" }
+                : { x: 8, opacity: 0, filter: "blur(1px)" }
             }
-            animate={{ opacity: 1, y: 0 }}
+            animate={
+              prefersReduced
+                ? { x: 0, opacity: 1, filter: "blur(0px)" }
+                : {
+                    x: [8, -6, 0],
+                    opacity: [0, 1, 1],
+                    filter: ["blur(1px)", "blur(0px)", "blur(0px)"],
+                  }
+            }
             transition={
               prefersReduced
                 ? { duration: 0 }
                 : {
-                    duration: 0.35,
-                    delay: i * 0.2,
+                    duration: 0.5,
+                    delay: i * 0.08,
+                    times: [0, 0.6, 1],
                     ease: [0.25, 0.1, 0.25, 1],
                   }
             }
             style={{
               width: CAP_W,
               height: CAP_H,
-              borderRadius: 9999,
-              background: cap.background,
+              borderRadius: 999,
+              background: CAP_COLOR,
               flexShrink: 0,
+              position: "relative",
+              zIndex: 1,
             }}
           />
         ))}
       </div>
 
-      <motion.div
-        initial={prefersReduced ? { opacity: 1 } : { opacity: 0 }}
-        animate={{ opacity: 1 }}
+      <motion.span
+        initial={prefersReduced ? { opacity: 1, x: 0 } : { opacity: 0, x: -8 }}
+        animate={{ opacity: 1, x: 0 }}
         transition={
           prefersReduced
             ? { duration: 0 }
-            : { duration: 0.3, delay: 0.5, ease: "easeOut" }
+            : { duration: 0.3, delay: 0.35, ease: [0.22, 1, 0.36, 1] }
         }
-        style={{ display: "flex", flexDirection: "column", gap: 0, lineHeight: 1 }}
+        style={{
+          fontSize: 17,
+          fontWeight: 800,
+          color: "#0B0D0E",
+          letterSpacing: "-0.025em",
+          whiteSpace: "nowrap",
+        }}
       >
-        <span
-          style={{
-            fontSize: 16,
-            fontWeight: 800,
-            color: "#111111",
-            letterSpacing: "-0.02em",
-            whiteSpace: "nowrap",
-          }}
-        >
-          WeFixTrades
-        </span>
-      </motion.div>
+        WeFixTrades
+      </motion.span>
     </Link>
   );
 }

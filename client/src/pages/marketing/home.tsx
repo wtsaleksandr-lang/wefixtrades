@@ -8,30 +8,39 @@ import {
   MapPin, TrendingUp, Star, ArrowRight, Play, Globe, Share2,
 } from "lucide-react";
 
-/* ─── Design tokens ─── */
+/* ─── Design tokens (Optimal-inspired) ─── */
 const C = {
-  navy:       "#2B2B2B",
-  navyLight:  "#333333",
-  sage:       "#4A7C6F",
-  sageDark:   "#3B6358",
-  sageLight:  "#5E9485",
-  sageTint:   "#EFF5F2",
-  sageAccent: "#D1E8DF",
+  bg:         "#FFFFFF",
+  surface:    "#F6F7F8",
+  surface2:   "#F1F3F4",
+  text:       "#0B0D0E",
+  textMuted:  "#5F6368",
+  textFaint:  "#8A9096",
+  border:     "#E6E8EB",
+  borderLight:"#F0F1F3",
+  accent:     "#16A34A",
+  accentHover:"#15803D",
+  accentSoft: "rgba(22,163,74,0.12)",
+  accentLine: "rgba(22,163,74,0.25)",
+  navy:       "#0F172A",
   blue:       "#5A7C91",
   gold:       "#C9A760",
-  bg:         "#FFFFFF",
-  bgGray:     "#F7F7F6",
-  bgGrayAlt:  "#F3F3F2",
-  heading:    "#111111",
-  body:       "#444444",
-  muted:      "#6B6B6B",
-  border:     "#E5E5E3",
-  borderLight:"#F0F0EE",
+  purple:     "#8B7CB5",
+  heading:    "#0B0D0E",
+  body:       "#3C4043",
+  muted:      "#5F6368",
+  sage:       "#16A34A",
+  sageDark:   "#15803D",
+  sageLight:  "#22C55E",
+  sageTint:   "rgba(22,163,74,0.08)",
+  sageAccent: "rgba(22,163,74,0.15)",
+  bgGray:     "#F6F7F8",
+  bgGrayAlt:  "#F1F3F4",
 };
 
 const SHADOW = {
   card:  "0 1px 3px rgba(0,0,0,0.03), 0 4px 12px rgba(0,0,0,0.04)",
-  hero:  "0 16px 48px rgba(0,0,0,0.08)",
+  hero:  "0 10px 30px rgba(0,0,0,0.06)",
   float: "0 8px 32px rgba(0,0,0,0.06)",
 };
 
@@ -51,7 +60,7 @@ const FEATURES = [
     title: "Instant Quote Engine",
     body: "Customers get accurate trade-specific estimates in seconds — no phone tag, no waiting.",
     testId: "feature-card-quotes", delay: "100",
-    iconBg: "linear-gradient(135deg, #4A7C6F 0%, #3B6358 100%)",
+    iconBg: "linear-gradient(135deg, #16A34A 0%, #15803D 100%)",
   },
   {
     id: "booking", icon: Calendar,
@@ -105,7 +114,7 @@ const PRICING_TIERS = [
 ];
 
 const SERVICES_TEASE = [
-  { icon: MapPin,     title: "Google Maps Optimization", desc: "Get found by local customers searching for your trade. GMB, citations, reviews.", price: "From $299/mo", iconBg: "linear-gradient(135deg, #4A7C6F, #5E9485)" },
+  { icon: MapPin,     title: "Google Maps Optimization", desc: "Get found by local customers searching for your trade. GMB, citations, reviews.", price: "From $299/mo", iconBg: "linear-gradient(135deg, #16A34A, #22C55E)" },
   { icon: TrendingUp, title: "Website SEO + Speed",      desc: "Rank higher. Convert better. Fast-loading pages that turn visitors into leads.",  price: "From $199/mo", iconBg: "linear-gradient(135deg, #5A7C91, #4A6B7E)" },
   { icon: Star,       title: "Reputation + Social",      desc: "Reviews, automated responses, and social posts — all handled for you.",           price: "From $349/mo", iconBg: "linear-gradient(135deg, #8B7CB5, #6E5F9E)" },
 ];
@@ -272,9 +281,9 @@ function BookingMockup() {
             {i === 0 && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.8)" }}>Selected ✓</span>}
           </div>
         ))}
-        <div style={{ background: C.sageAccent, borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#065F46" }}>Deposit collected</span>
-          <span style={{ fontSize: 14, fontWeight: 800, color: "#065F46" }}>$200 ✓</span>
+        <div style={{ background: C.accentSoft, borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: C.accentHover }}>Deposit collected</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: C.accentHover }}>$200 ✓</span>
         </div>
       </div>
     </div>
@@ -288,7 +297,7 @@ function TemplateMockup() {
     { name: "Multi-Step",     color: "#F3F1F7", accent: "#8B7CB5" },
     { name: "Package Cards",  color: "#F5F0F2", accent: "#B5707F" },
     { name: "Range + Gate",   color: "#F5F3EE", accent: "#C9A760" },
-    { name: "Book First",     color: "#F0F5F2", accent: "#5E9485" },
+    { name: "Book First",     color: "#F0F5F2", accent: "#22C55E" },
   ];
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, maxWidth: 380 }}>
@@ -353,9 +362,9 @@ export default function HomePage() {
       <section
         data-testid="hero-section"
         style={{
-          background: "linear-gradient(180deg, #F7F7F6 0%, #FFFFFF 100%)",
+          background: C.bg,
           minHeight: "calc(100vh - 72px)",
-          padding: "100px 28px 120px",
+          padding: "120px 28px 140px",
           position: "relative",
           overflow: "hidden",
           display: "flex",
@@ -369,37 +378,38 @@ export default function HomePage() {
           {/* Left — text */}
           <div>
             {/* Trust badge */}
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.sageTint, border: `1px solid ${C.sageAccent}`, borderRadius: 9999, padding: "6px 16px", marginBottom: 36 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.sage, letterSpacing: "0.02em" }}>✦ Trusted by Trades Worldwide</span>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.accentSoft, border: `1px solid ${C.accentLine}`, borderRadius: 9999, padding: "6px 16px", marginBottom: 40 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.accent, letterSpacing: "0.02em" }}>✦ Trusted by Trades Worldwide</span>
             </div>
 
             <h1
               data-testid="hero-headline"
-              style={{ fontSize: "clamp(40px, 5vw, 68px)", fontWeight: 800, color: C.heading, lineHeight: 1.06, letterSpacing: "-0.035em", marginBottom: 28 }}
+              style={{ fontSize: "clamp(40px, 5vw, 68px)", fontWeight: 900, color: C.text, lineHeight: 1.04, letterSpacing: "-0.03em", marginBottom: 32 }}
             >
               One System.{" "}
-              <span style={{ color: C.sage }}>More Jobs.</span>{" "}
+              More{" "}
+              <span style={{ color: C.accent }}>Jobs</span>.{" "}
               Zero Extra Work.
             </h1>
 
-            <div style={{ marginTop: 10, marginBottom: 28, minHeight: 54 }}>
+            <div style={{ marginTop: 12, marginBottom: 32, minHeight: 54 }}>
               <TypingReplace
                 words={TYPING_WORDS}
-                color={C.sage}
-                fontSize="clamp(22px, 2.6vw, 38px)"
+                color={C.accent}
+                fontSize="clamp(22px, 2.6vw, 36px)"
               />
             </div>
 
-            <p style={{ fontSize: "clamp(16px, 1.8vw, 20px)", color: C.muted, lineHeight: 1.7, marginBottom: 32, maxWidth: 540 }}>
+            <p style={{ fontSize: "clamp(16px, 1.8vw, 19px)", color: C.textMuted, lineHeight: 1.65, marginBottom: 36, maxWidth: 520 }}>
               We've already connected everything for you — quotes, bookings, Google visibility, 24/7 assistant, website and follow-ups. You just run your business.
             </p>
 
             {/* Benefit badges */}
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 40 }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 44 }}>
               {["More Booked Jobs", "Less Admin Stress", "Everything Connected", "Works 24/7"].map((b) => (
-                <div key={b} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.bgGrayAlt, border: `1px solid ${C.border}`, borderRadius: 9999, padding: "7px 16px" }}>
-                  <CheckCircle2 size={14} color={C.sage} strokeWidth={2.5} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: C.body }}>{b}</span>
+                <div key={b} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.accentSoft, border: `1px solid ${C.border}`, borderRadius: 9999, padding: "7px 16px" }}>
+                  <CheckCircle2 size={14} color={C.accent} strokeWidth={2.5} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{b}</span>
                 </div>
               ))}
             </div>
@@ -410,17 +420,17 @@ export default function HomePage() {
                 href="/Wizard"
                 data-testid="button-start-free-hero"
                 className="mkt-btn-primary"
-                style={{ padding: "16px 36px", borderRadius: 9999, background: C.sage, color: "#FFFFFF", fontSize: 16, fontWeight: 700, textDecoration: "none", display: "inline-block" }}
+                style={{ padding: "16px 36px", borderRadius: 14, background: C.accent, color: "#FFFFFF", fontSize: 16, fontWeight: 600, textDecoration: "none", display: "inline-block" }}
               >
-                Start Free — No Credit Card
+                Try for Free
               </Link>
               <Link
                 href="/demo"
                 data-testid="button-view-demo-hero"
                 className="mkt-btn-ghost"
-                style={{ padding: "16px 32px", borderRadius: 9999, background: "transparent", color: C.heading, fontSize: 16, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, border: `1.5px solid ${C.border}` }}
+                style={{ padding: "16px 32px", borderRadius: 14, background: C.bg, color: C.text, fontSize: 16, fontWeight: 500, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, border: `1.5px solid ${C.border}` }}
               >
-                <Play size={14} fill="currentColor" /> View Live Demo
+                Book a Demo
               </Link>
             </div>
           </div>
@@ -433,8 +443,8 @@ export default function HomePage() {
 
         {/* Scroll cue */}
         <div style={{ position: "absolute", bottom: 32, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 11, color: C.muted, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.5 }}>Scroll</span>
-          <ChevronDown size={18} color={C.muted} className="mkt-scroll-cue" style={{ opacity: 0.5 }} />
+          <span style={{ fontSize: 11, color: C.textFaint, letterSpacing: "0.08em", textTransform: "uppercase" }}>Scroll</span>
+          <ChevronDown size={18} color={C.textFaint} className="mkt-scroll-cue" />
         </div>
       </section>
 
