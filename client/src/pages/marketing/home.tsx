@@ -8,39 +8,38 @@ import {
   MapPin, TrendingUp, Star, ArrowRight, Play, Globe, Share2,
 } from "lucide-react";
 
-/* ─── Design tokens (Optimal-inspired) ─── */
+/* ─── Design tokens (muted, warm, Optimal-inspired) ─── */
 const C = {
   bg:         "#FFFFFF",
-  surface:    "#F6F7F8",
-  surface2:   "#F1F3F4",
-  text:       "#0B0D0E",
-  textMuted:  "#5F6368",
-  textFaint:  "#8A9096",
-  border:     "#E6E8EB",
-  borderLight:"#F0F1F3",
-  accent:     "#16A34A",
-  accentHover:"#15803D",
-  accentSoft: "rgba(22,163,74,0.12)",
-  accentLine: "rgba(22,163,74,0.25)",
-  navy:       "#0F172A",
+  surface:    "#F7F7F6",
+  surface2:   "#F3F3F2",
+  text:       "#111111",
+  textMuted:  "#6B6B6B",
+  textFaint:  "#999999",
+  border:     "#E5E5E3",
+  borderLight:"#F0F0EE",
+  accent:     "#4A7C6F",
+  accentHover:"#3B6358",
+  accentSoft: "rgba(74,124,111,0.12)",
+  accentLine: "rgba(74,124,111,0.25)",
   blue:       "#5A7C91",
   gold:       "#C9A760",
   purple:     "#8B7CB5",
-  heading:    "#0B0D0E",
-  body:       "#3C4043",
-  muted:      "#5F6368",
-  sage:       "#16A34A",
-  sageDark:   "#15803D",
-  sageLight:  "#22C55E",
-  sageTint:   "rgba(22,163,74,0.08)",
-  sageAccent: "rgba(22,163,74,0.15)",
-  bgGray:     "#F6F7F8",
-  bgGrayAlt:  "#F1F3F4",
+  heading:    "#111111",
+  body:       "#444444",
+  muted:      "#6B6B6B",
+  sage:       "#4A7C6F",
+  sageDark:   "#3B6358",
+  sageLight:  "#5E9485",
+  sageTint:   "#EFF5F2",
+  sageAccent: "#D1E8DF",
+  bgGray:     "#F7F7F6",
+  bgGrayAlt:  "#F3F3F2",
 };
 
 const SHADOW = {
   card:  "0 1px 3px rgba(0,0,0,0.03), 0 4px 12px rgba(0,0,0,0.04)",
-  hero:  "0 10px 30px rgba(0,0,0,0.06)",
+  hero:  "0 16px 48px rgba(0,0,0,0.08)",
   float: "0 8px 32px rgba(0,0,0,0.06)",
 };
 
@@ -60,28 +59,28 @@ const FEATURES = [
     title: "Instant Quote Engine",
     body: "Customers get accurate trade-specific estimates in seconds — no phone tag, no waiting.",
     testId: "feature-card-quotes", delay: "100",
-    iconBg: "linear-gradient(135deg, #16A34A 0%, #15803D 100%)",
+    iconBg: "linear-gradient(135deg, #4A7C6F 0%, #3B6358 100%)",
   },
   {
     id: "booking", icon: Calendar,
     title: "Booking + Deposit System",
     body: "Convert estimates into confirmed jobs with calendar booking and Stripe deposit collection.",
     testId: "feature-card-booking", delay: "200",
-    iconBg: "linear-gradient(135deg, #5A7C91 0%, #4A6B7E 100%)",
+    iconBg: "linear-gradient(135deg, #5A7C91 0%, #496A7D 100%)",
   },
   {
     id: "ai", icon: Bot,
     title: "AI Chat Employees",
     body: "24/7 customer engagement, lead capture, and live estimates — even while you sleep.",
     testId: "feature-card-ai", delay: "300",
-    iconBg: "linear-gradient(135deg, #8B7CB5 0%, #6E5F9E 100%)",
+    iconBg: "linear-gradient(135deg, #8B7CB5 0%, #7668A0 100%)",
   },
   {
     id: "sms", icon: MessageSquare,
     title: "SMS & WhatsApp Follow-Ups",
     body: "Automated sequences that re-engage cold leads and recover jobs you'd otherwise lose.",
     testId: "feature-card-sms", delay: "400",
-    iconBg: "linear-gradient(135deg, #B5707F 0%, #9E5F6E 100%)",
+    iconBg: "linear-gradient(135deg, #9E8080 0%, #887070 100%)",
   },
 ];
 
@@ -114,9 +113,9 @@ const PRICING_TIERS = [
 ];
 
 const SERVICES_TEASE = [
-  { icon: MapPin,     title: "Google Maps Optimization", desc: "Get found by local customers searching for your trade. GMB, citations, reviews.", price: "From $299/mo", iconBg: "linear-gradient(135deg, #16A34A, #22C55E)" },
-  { icon: TrendingUp, title: "Website SEO + Speed",      desc: "Rank higher. Convert better. Fast-loading pages that turn visitors into leads.",  price: "From $199/mo", iconBg: "linear-gradient(135deg, #5A7C91, #4A6B7E)" },
-  { icon: Star,       title: "Reputation + Social",      desc: "Reviews, automated responses, and social posts — all handled for you.",           price: "From $349/mo", iconBg: "linear-gradient(135deg, #8B7CB5, #6E5F9E)" },
+  { icon: MapPin,     title: "Google Maps Optimization", desc: "Get found by local customers searching for your trade. GMB, citations, reviews.", price: "From $299/mo", iconBg: "linear-gradient(135deg, #4A7C6F, #3B6358)" },
+  { icon: TrendingUp, title: "Website SEO + Speed",      desc: "Rank higher. Convert better. Fast-loading pages that turn visitors into leads.",  price: "From $199/mo", iconBg: "linear-gradient(135deg, #5A7C91, #496A7D)" },
+  { icon: Star,       title: "Reputation + Social",      desc: "Reviews, automated responses, and social posts — all handled for you.",           price: "From $349/mo", iconBg: "linear-gradient(135deg, #8B7CB5, #7668A0)" },
 ];
 
 /* ─── Sub-components ─── */
@@ -281,9 +280,9 @@ function BookingMockup() {
             {i === 0 && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.8)" }}>Selected ✓</span>}
           </div>
         ))}
-        <div style={{ background: C.accentSoft, borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: C.accentHover }}>Deposit collected</span>
-          <span style={{ fontSize: 14, fontWeight: 800, color: C.accentHover }}>$200 ✓</span>
+        <div style={{ background: C.sageTint, borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: C.sageDark }}>Deposit collected</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: C.sageDark }}>$200 ✓</span>
         </div>
       </div>
     </div>
@@ -295,9 +294,9 @@ function TemplateMockup() {
     { name: "Classic Single", color: "#F0F4F3", accent: "#5A7C91" },
     { name: "Two Column",     color: C.sageTint, accent: C.sage },
     { name: "Multi-Step",     color: "#F3F1F7", accent: "#8B7CB5" },
-    { name: "Package Cards",  color: "#F5F0F2", accent: "#B5707F" },
+    { name: "Package Cards",  color: "#F5F0F2", accent: "#9E8080" },
     { name: "Range + Gate",   color: "#F5F3EE", accent: "#C9A760" },
-    { name: "Book First",     color: "#F0F5F2", accent: "#22C55E" },
+    { name: "Book First",     color: "#F0F5F2", accent: "#5E9485" },
   ];
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, maxWidth: 380 }}>
@@ -324,8 +323,7 @@ const FLOW_ITEMS = [
 
 const RESPONSIVE_CSS = `
   @media (max-width: 820px) {
-    .hero-grid { grid-template-columns: 1fr !important; gap: 48px !important; text-align: center; }
-    .hero-grid > div:last-child { justify-content: center !important; }
+    .hero-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
     .alt-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
   }
   @media (min-width: 700px) {
@@ -362,86 +360,73 @@ export default function HomePage() {
       <section
         data-testid="hero-section"
         style={{
-          background: C.bg,
-          minHeight: "calc(100vh - 72px)",
-          padding: "120px 28px 140px",
+          background: "linear-gradient(180deg, #F7F7F6 0%, #FFFFFF 100%)",
+          padding: "100px 28px 120px",
           position: "relative",
           overflow: "hidden",
-          display: "flex",
-          alignItems: "center",
         }}
       >
-        <div
-          className="hero-grid"
-          style={{ maxWidth: 1200, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 80, alignItems: "center" }}
-        >
-          {/* Left — text */}
-          <div>
-            {/* Trust badge */}
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.accentSoft, border: `1px solid ${C.accentLine}`, borderRadius: 9999, padding: "6px 16px", marginBottom: 40 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: C.accent, letterSpacing: "0.02em" }}>✦ Trusted by Trades Worldwide</span>
-            </div>
-
-            <h1
-              data-testid="hero-headline"
-              style={{ fontSize: "clamp(40px, 5vw, 68px)", fontWeight: 900, color: C.text, lineHeight: 1.04, letterSpacing: "-0.03em", marginBottom: 32 }}
-            >
-              One System.{" "}
-              More{" "}
-              <span style={{ color: C.accent }}>Jobs</span>.{" "}
-              Zero Extra Work.
-            </h1>
-
-            <div style={{ marginTop: 12, marginBottom: 32, minHeight: 54 }}>
-              <TypingReplace
-                words={TYPING_WORDS}
-                color={C.accent}
-                fontSize="clamp(22px, 2.6vw, 36px)"
-              />
-            </div>
-
-            <p style={{ fontSize: "clamp(16px, 1.8vw, 19px)", color: C.textMuted, lineHeight: 1.65, marginBottom: 36, maxWidth: 520 }}>
-              We've already connected everything for you — quotes, bookings, Google visibility, 24/7 assistant, website and follow-ups. You just run your business.
-            </p>
-
-            {/* Benefit badges */}
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 44 }}>
-              {["More Booked Jobs", "Less Admin Stress", "Everything Connected", "Works 24/7"].map((b) => (
-                <div key={b} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.accentSoft, border: `1px solid ${C.border}`, borderRadius: 9999, padding: "7px 16px" }}>
-                  <CheckCircle2 size={14} color={C.accent} strokeWidth={2.5} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{b}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* CTA buttons */}
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-              <Link
-                href="/Wizard"
-                data-testid="button-start-free-hero"
-                className="mkt-btn-primary"
-                style={{ padding: "16px 36px", borderRadius: 14, background: C.accent, color: "#FFFFFF", fontSize: 16, fontWeight: 600, textDecoration: "none", display: "inline-block" }}
-              >
-                Try for Free
-              </Link>
-              <Link
-                href="/demo"
-                data-testid="button-view-demo-hero"
-                className="mkt-btn-ghost"
-                style={{ padding: "16px 32px", borderRadius: 14, background: C.bg, color: C.text, fontSize: 16, fontWeight: 500, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, border: `1.5px solid ${C.border}` }}
-              >
-                Book a Demo
-              </Link>
-            </div>
+        <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.sageTint, border: `1px solid ${C.sageAccent}`, borderRadius: 9999, padding: "6px 16px", marginBottom: 40 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: C.sage, letterSpacing: "0.02em" }}>✦ Trusted by Trades Worldwide</span>
           </div>
 
-          {/* Right — floating mockup */}
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <HeroMockup />
+          <h1
+            data-testid="hero-headline"
+            style={{ fontSize: "clamp(40px, 5vw, 68px)", fontWeight: 900, color: C.heading, lineHeight: 1.04, letterSpacing: "-0.03em", marginBottom: 28 }}
+          >
+            One System.{" "}
+            More{" "}
+            <span style={{ color: C.sage }}>Jobs</span>.{" "}
+            Zero Extra Work.
+          </h1>
+
+          <p style={{ fontSize: 17, color: C.muted, lineHeight: 1.65, marginBottom: 40, maxWidth: 540, margin: "0 auto 40px" }}>
+            We've already connected everything for you — quotes, bookings, Google visibility, 24/7 assistant, website and follow-ups. You just run your business.
+          </p>
+
+          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", marginBottom: 48 }}>
+            <Link
+              href="/Wizard"
+              data-testid="button-start-free-hero"
+              className="mkt-btn-primary"
+              style={{ padding: "14px 32px", borderRadius: 9999, background: C.sage, color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-block" }}
+            >
+              Try for Free
+            </Link>
+            <Link
+              href="/demo"
+              data-testid="button-view-demo-hero"
+              className="mkt-btn-ghost"
+              style={{ padding: "14px 28px", borderRadius: 9999, background: C.bg, color: C.heading, fontSize: 15, fontWeight: 500, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, border: `1.5px solid ${C.border}` }}
+            >
+              Book a Demo
+            </Link>
+          </div>
+
+          <div style={{ marginBottom: 56, display: "flex", justifyContent: "center", minHeight: 44 }}>
+            <TypingReplace
+              words={TYPING_WORDS}
+              color={C.sage}
+              fontSize="clamp(22px, 2.6vw, 32px)"
+            />
           </div>
         </div>
 
-        {/* Scroll cue */}
+        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+          <div
+            className="hero-grid"
+            style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 40, alignItems: "start" }}
+          >
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <HeroMockup />
+            </div>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <AiChatMockup />
+            </div>
+          </div>
+        </div>
+
         <div style={{ position: "absolute", bottom: 32, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
           <span style={{ fontSize: 11, color: C.textFaint, letterSpacing: "0.08em", textTransform: "uppercase" }}>Scroll</span>
           <ChevronDown size={18} color={C.textFaint} className="mkt-scroll-cue" />
@@ -663,7 +648,7 @@ export default function HomePage() {
         <div className="alt-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
           {/* Text LEFT */}
           <div data-reveal="fade-left">
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#8B7CB5", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Templates</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.purple, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Templates</div>
             <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 18, lineHeight: 1.15 }}>
               Pick a template, go live today
             </h2>
@@ -672,11 +657,11 @@ export default function HomePage() {
             </p>
             {["6 high-converting templates", "Mobile-first, fully responsive", "Trade-specific recommendations"].map((b) => (
               <div key={b} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <CheckCircle2 size={18} color="#8B7CB5" />
+                <CheckCircle2 size={18} color={C.purple} />
                 <span style={{ fontSize: 15, color: C.body, fontWeight: 500 }}>{b}</span>
               </div>
             ))}
-            <Link href="/templates" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 700, color: "#8B7CB5", textDecoration: "none" }}>
+            <Link href="/templates" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 700, color: C.purple, textDecoration: "none" }}>
               Browse Templates <ArrowRight size={16} />
             </Link>
           </div>

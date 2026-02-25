@@ -6,19 +6,16 @@ import AnimatedLogo from "./AnimatedLogo";
 
 const T = {
   bg: "#FFFFFF",
-  surface: "#F6F7F8",
-  surface2: "#F1F3F4",
-  text: "#0B0D0E",
-  textMuted: "#5F6368",
-  textFaint: "#8A9096",
-  border: "#E6E8EB",
-  accent: "#16A34A",
-  accentHover: "#15803D",
+  surface: "#F7F7F6",
+  surface2: "#F3F3F2",
+  text: "#111111",
+  textMuted: "#6B6B6B",
+  textFaint: "#999999",
+  border: "#E5E5E3",
+  accent: "#4A7C6F",
+  accentHover: "#3B6358",
   shadowSoft: "0 10px 30px rgba(0,0,0,0.06)",
-  shadowPill: "0 6px 20px rgba(0,0,0,0.08)",
-  rXl: 28,
-  rLg: 18,
-  rMd: 14,
+  shadowPill: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.06)",
 };
 
 const NAV_LINKS: { label: string; href: string; children?: { label: string; href: string }[] }[] = [
@@ -74,8 +71,6 @@ function NavItem({ label, href, children, isActive }: {
     return () => { document.removeEventListener("mousedown", handler); document.removeEventListener("keydown", keyHandler); };
   }, [open]);
 
-  const isHighlighted = isActive || open;
-
   return (
     <div ref={ref} style={{ position: "relative" }}>
       {hasDropdown ? (
@@ -87,29 +82,28 @@ function NavItem({ label, href, children, isActive }: {
             display: "inline-flex",
             alignItems: "center",
             gap: 4,
-            padding: "7px 14px",
-            borderRadius: 9999,
+            padding: "6px 12px",
+            borderRadius: 6,
             fontSize: 14,
             fontWeight: 500,
             color: T.text,
-            background: isHighlighted ? T.surface2 : "transparent",
+            background: "transparent",
             border: "none",
             cursor: "pointer",
-            transition: "background 0.15s ease, opacity 0.15s ease",
+            transition: "color 0.15s ease",
             whiteSpace: "nowrap",
-            opacity: isHighlighted ? 1 : 0.85,
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.opacity = "1";
+            (e.currentTarget as HTMLElement).style.color = T.textMuted;
           }}
           onMouseLeave={(e) => {
-            if (!isHighlighted) (e.currentTarget as HTMLElement).style.opacity = "0.85";
+            (e.currentTarget as HTMLElement).style.color = T.text;
           }}
         >
           {label}
           <ChevronDown
-            size={14}
-            style={{ transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+            size={13}
+            style={{ transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "rotate(0deg)", opacity: 0.5 }}
           />
         </button>
       ) : (
@@ -119,22 +113,21 @@ function NavItem({ label, href, children, isActive }: {
           style={{
             display: "inline-flex",
             alignItems: "center",
-            padding: "7px 14px",
-            borderRadius: 9999,
+            padding: "6px 12px",
+            borderRadius: 6,
             fontSize: 14,
             fontWeight: 500,
             color: T.text,
-            background: isActive ? T.surface2 : "transparent",
+            background: "transparent",
             textDecoration: "none",
-            transition: "background 0.15s ease, opacity 0.15s ease",
+            transition: "color 0.15s ease",
             whiteSpace: "nowrap",
-            opacity: isActive ? 1 : 0.85,
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.opacity = "1";
+            (e.currentTarget as HTMLElement).style.color = T.textMuted;
           }}
           onMouseLeave={(e) => {
-            if (!isActive) (e.currentTarget as HTMLElement).style.opacity = "0.85";
+            (e.currentTarget as HTMLElement).style.color = T.text;
           }}
         >
           {label}
@@ -145,17 +138,17 @@ function NavItem({ label, href, children, isActive }: {
         <div
           style={{
             position: "absolute",
-            top: "calc(100% + 10px)",
+            top: "calc(100% + 8px)",
             left: "50%",
-            transform: open ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(-6px)",
+            transform: open ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(-4px)",
             opacity: open ? 1 : 0,
             pointerEvents: open ? "auto" : "none",
             background: T.bg,
-            borderRadius: T.rLg,
+            borderRadius: 12,
             border: `1px solid ${T.border}`,
             boxShadow: T.shadowSoft,
-            padding: "8px",
-            minWidth: 200,
+            padding: "6px",
+            minWidth: 180,
             transition: "opacity 0.15s ease, transform 0.15s ease",
             zIndex: 300,
           }}
@@ -166,8 +159,8 @@ function NavItem({ label, href, children, isActive }: {
               href={ch}
               style={{
                 display: "block",
-                padding: "10px 16px",
-                borderRadius: 10,
+                padding: "9px 14px",
+                borderRadius: 8,
                 fontSize: 14,
                 fontWeight: 500,
                 color: T.textMuted,
@@ -218,15 +211,15 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
               background: "none",
               border: "none",
               cursor: "pointer",
-              fontSize: 18,
-              fontWeight: 600,
-              color: isActive || expanded ? T.text : T.textMuted,
+              fontSize: 16,
+              fontWeight: 500,
+              color: T.text,
               textAlign: "left",
             }}
           >
             {label}
             <ChevronDown
-              size={18}
+              size={16}
               style={{ transition: "transform 0.2s ease", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", color: T.textFaint }}
             />
           </button>
@@ -241,7 +234,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
                     display: "block",
                     padding: "10px 16px",
                     marginBottom: 4,
-                    borderRadius: 9999,
+                    borderRadius: 8,
                     fontSize: 15,
                     fontWeight: 500,
                     color: T.textMuted,
@@ -263,9 +256,9 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
           style={{
             display: "block",
             padding: "16px 0",
-            fontSize: 18,
-            fontWeight: 600,
-            color: isActive ? T.text : T.textMuted,
+            fontSize: 16,
+            fontWeight: 500,
+            color: T.text,
             textDecoration: "none",
           }}
         >
@@ -283,7 +276,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   const scrolled = useScrolled();
   usePageView(location);
 
-  const navHeight = scrolled ? 56 : 72;
   const isActive = (href: string) => location === href;
 
   return (
@@ -304,27 +296,24 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           left: 0,
           right: 0,
           zIndex: 200,
-          height: navHeight,
+          height: 56,
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
-          background: "transparent",
-          padding: isMobile ? "0 12px" : "0 24px",
+          background: T.bg,
+          borderBottom: `1px solid ${scrolled ? T.border : "transparent"}`,
+          transition: "border-color 0.2s ease",
         }}
       >
         <div
           style={{
-            maxWidth: 1160,
+            maxWidth: 1200,
+            margin: "0 auto",
+            padding: "0 24px",
             width: "100%",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: 16,
-            background: T.surface,
-            borderRadius: T.rXl,
-            padding: isMobile ? "8px 16px" : "8px 10px 8px 20px",
-            boxShadow: scrolled ? T.shadowPill : "0 4px 16px rgba(0,0,0,0.04)",
-            transition: "box-shadow 0.3s ease",
+            gap: 24,
           }}
         >
           <AnimatedLogo />
@@ -335,7 +324,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 2,
+                gap: 4,
                 flex: "0 1 auto",
               }}
             >
@@ -351,7 +340,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             </nav>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
             {!isMobile && (
               <>
                 <Link
@@ -362,26 +351,23 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                     fontWeight: 500,
                     color: T.text,
                     textDecoration: "none",
-                    padding: "7px 12px",
-                    borderRadius: 9999,
-                    transition: "opacity 0.15s ease",
-                    opacity: 0.75,
+                    transition: "color 0.15s ease",
                   }}
-                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = "1")}
-                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = "0.75")}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = T.textMuted)}
+                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = T.text)}
                 >
-                  Log in
+                  Login
                 </Link>
                 <Link
                   href="/Wizard"
                   className="mkt-btn-primary"
                   data-testid="nav-cta-start-free"
                   style={{
-                    padding: "9px 20px",
-                    borderRadius: T.rMd,
+                    padding: "8px 16px",
+                    borderRadius: 8,
                     background: T.accent,
                     color: "#FFFFFF",
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: 600,
                     textDecoration: "none",
                     display: "inline-block",
@@ -421,7 +407,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           data-testid="nav-mobile-menu"
           style={{
             position: "fixed",
-            top: navHeight,
+            top: 56,
             left: 0,
             right: 0,
             background: T.bg,
@@ -434,7 +420,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             overflowY: "auto",
           }}
         >
-          <div style={{ padding: "8px 28px 32px" }}>
+          <div style={{ padding: "8px 24px 28px" }}>
             {NAV_LINKS.map(({ label, href, children }) => (
               <MobileNavItem
                 key={href}
@@ -451,12 +437,12 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               data-testid="nav-cta-start-free-mobile"
               style={{
                 display: "block",
-                marginTop: 24,
-                padding: "15px",
-                borderRadius: T.rMd,
+                marginTop: 20,
+                padding: "12px",
+                borderRadius: 8,
                 background: T.accent,
                 color: "#FFFFFF",
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: 600,
                 textAlign: "center",
                 textDecoration: "none",
@@ -468,11 +454,11 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         </div>
       )}
 
-      <div style={{ height: navHeight, flexShrink: 0, transition: "height 0.3s ease" }} />
+      <div style={{ height: 56, flexShrink: 0 }} />
 
       <main style={{ flex: 1 }}>{children}</main>
 
-      <footer data-testid="footer-marketing" style={{ background: "#0B1F3A", color: "#FFFFFF" }}>
+      <footer data-testid="footer-marketing" style={{ background: "#1A1A1A", color: "#FFFFFF" }}>
         <div
           style={{
             maxWidth: 1200,
@@ -498,7 +484,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   marginBottom: 10,
                 }}
               >
-                QuickQuote<span style={{ color: "#40916C" }}>Pro</span>
+                QuickQuote<span style={{ color: "#5E9485" }}>Pro</span>
               </div>
               <p
                 style={{

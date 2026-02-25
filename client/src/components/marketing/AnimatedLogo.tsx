@@ -4,7 +4,7 @@ import { Link } from "wouter";
 const CAP_W = 8;
 const CAP_H = 22;
 const CAP_GAP = 5;
-const CAP_COLOR = "#1F3B2E";
+const CAP_COLOR = "#4A7C6F";
 
 export default function AnimatedLogo() {
   const prefersReduced = useReducedMotion();
@@ -45,7 +45,7 @@ export default function AnimatedLogo() {
             inset: "-4px -6px",
             borderRadius: 8,
             background:
-              "radial-gradient(ellipse at center, rgba(31,59,46,0.35) 0%, transparent 70%)",
+              "radial-gradient(ellipse at center, rgba(74,124,111,0.25) 0%, transparent 70%)",
             filter: "blur(4px)",
             pointerEvents: "none",
             zIndex: 0,
@@ -103,7 +103,7 @@ export default function AnimatedLogo() {
         style={{
           fontSize: 17,
           fontWeight: 800,
-          color: "#0B0D0E",
+          color: "#111111",
           letterSpacing: "-0.025em",
           whiteSpace: "nowrap",
         }}

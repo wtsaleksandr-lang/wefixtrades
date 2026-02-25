@@ -398,8 +398,7 @@
 
 /* Marketing navbar transitions */
 .mkt-nav {
-  transition: height 0.3s cubic-bezier(0.4,0,0.2,1),
-              box-shadow 0.3s ease;
+  transition: border-color 0.2s ease;
 }
 
 /* CTA button hover lift */
@@ -409,7 +408,7 @@
 }
 .mkt-btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(22,163,74,0.18) !important;
+  box-shadow: 0 6px 20px rgba(74,124,111,0.18) !important;
 }
 .mkt-btn-primary:active { transform: translateY(0); }
 
@@ -417,7 +416,7 @@
   transition: all 0.22s ease;
   cursor: pointer;
 }
-.mkt-btn-ghost:hover { background: #F6F7F8 !important; }
+.mkt-btn-ghost:hover { background: #F7F7F6 !important; }
 
 /* Feature card micro-elevation */
 .mkt-feature-card {
@@ -458,7 +457,7 @@
 
 /* Subtle gradient text */
 .mkt-gradient-text {
-  background: linear-gradient(135deg, #16A34A 0%, #22C55E 100%);
+  background: linear-gradient(135deg, #4A7C6F 0%, #5E9485 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
