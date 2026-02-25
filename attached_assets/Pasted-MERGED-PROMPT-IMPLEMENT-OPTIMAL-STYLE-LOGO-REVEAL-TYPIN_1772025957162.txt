@@ -1,0 +1,110 @@
+MERGED PROMPT — IMPLEMENT OPTIMAL-STYLE LOGO REVEAL + TYPING/SELECTION REPLACE (DESKTOP + MOBILE)
+Do NOT change any existing site copy/text. Only add these animations/effects and wiring.
+
+TECH STACK (use exactly):
+- Next.js (App Router) + TypeScript
+- Tailwind CSS
+- Framer Motion
+
+SCOPE:
+- Implement 2 effects: (1) Animated logo reveal in header, (2) Typing + double-click select + delete + replace word in hero.
+- Must work on BOTH desktop + mobile (responsive). Mobile has hamburger header; desktop has full pill nav.
+- No layout shift, no horizontal scroll, perfect at 360px width.
+
+========================
+FEATURE 1 — AnimatedLogo (Header Left)
+Goal:
+Replicate the “logo reveal/morph” effect: brand text reveals while a 3-shape mark shuffles left/right and settles.
+
+Rules:
+- Do NOT copy Optimal’s logo. Create a generic mark made of 3 vertical rounded half-pill/capsule shapes (CSS divs).
+- Brand text must come from existing copy (brandName / short label / version label if we already have it).
+- Reserve fixed space so the header does NOT jump.
+
+Behavior (runs once on first load, 900–1200ms total):
+1) Mark starts slightly offset (x:+8), with low opacity and slight blur.
+2) The 3 half-pill shapes do a subtle shuffle: x:+8 → -6 → 0, stagger 60–90ms each.
+3) While the mark settles, the brand text fades/slides in from left: x:-8 → 0, opacity 0 → 1.
+4) End state: text + mark aligned, crisp, no blur.
+
+Responsive:
+- Apply this effect on BOTH desktop and mobile.
+- On mobile, use it inside the mobile header left area.
+- On desktop, same component can run (scaled appropriately), but it must NOT disturb the pill-nav layout.
+
+Deliverable:
+- Create /components/AnimatedLogo.tsx
+- Use it in Header left slot (desktop + mobile).
+- No layout shift: set fixed width/height for the logo container.
+
+========================
+FEATURE 2 — TypingReplace (Hero)
+Goal:
+Replicate the effect: a word/phrase types in, then appears “double-click selected” (blue highlight), then deletes, then next word types. Loop.
+
+Strict rules:
+- Do NOT permanently change my headline copy.
+- Only animate ONE replaceable slot/segment within the existing hero headline area.
+- Prefer: insert a dedicated animated line/slot between headline lines (like screenshot).
+- If my existing headline already has a variable segment, target that segment ONLY.
+- If not, wrap an existing substring in <span data-animated-word> WITHOUT changing its characters, and overlay the animated text on top.
+
+Animation cycle:
+1) Type characters left-to-right (35–55ms/char, default 40–55ms/char acceptable).
+2) Pause 500–800ms.
+3) Simulate double-click selection:
+   - Show a rectangular blue highlight behind the typed word/phrase.
+   - Highlight appears quickly (100–150ms).
+4) Delete characters quickly (18–28ms/char).
+   - Keep highlight visible for first half of deletion, then fade it out.
+5) Type next phrase and repeat.
+
+Cursor:
+- Thin vertical caret at the end of the typed text.
+- Blinks every 500–700ms.
+- Caret continues blinking during pauses and selection.
+
+Words list:
+- Cycle through 4–6 short words/phrases.
+- Source them from existing site copy if available.
+- If not available, use neutral placeholders, BUT do not modify permanent headline outside the animated slot.
+- Keep phrases short to avoid overflow on mobile.
+
+Highlight sizing:
+- Highlight width must match typed text width.
+- Measure typed text using a hidden span ref (offsetWidth) and animate highlight width accordingly.
+
+UI placement + responsiveness:
+- The animated word/phrase sits in its own line/slot in the hero (between headline lines), matching screenshot.
+- Must be perfectly responsive:
+  - No overflow/horizontal scroll at 360px.
+  - Scale text down if needed.
+  - Wrapping is allowed only as last resort; prefer short phrases.
+  - Use max-w constraints and overflow protections as needed.
+
+Deliverable:
+- Create /components/TypingReplace.tsx
+  - Props: words: string[]
+  - Renders: typedText + caret + animated selection highlight sized to measured width.
+- Integrate into Hero so permanent hero text is unchanged.
+
+========================
+CONSTRAINTS / QUALITY BAR
+- Must be perfect on mobile (360px, 375px, 390px, 414px) and desktop.
+- No horizontal scroll anywhere.
+- No layout shift when animations run.
+- Animations smooth and do not block interaction.
+- Accessibility:
+  - If any part is interactive (e.g., menu), keep aria attributes (aria-expanded).
+  - Prefer reduced motion support: if prefers-reduced-motion, use minimal fade without shuffle/typing.
+
+FILES / INTEGRATION
+- /components/AnimatedLogo.tsx
+- /components/TypingReplace.tsx
+- Integrate into existing Header and Hero without changing copy.
+- Ensure global wrapper uses overflow-x-hidden to prevent accidental scroll.
+
+DONE WHEN
+- Logo reveal runs once on load and looks premium.
+- TypingReplace loops smoothly with selection highlight and delete behavior.
+- Works identically in concept on desktop + mobile, responsive scaling only.
