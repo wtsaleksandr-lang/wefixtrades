@@ -2,25 +2,13 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "wouter";
 
 const SHAPES = [
-  { height: 20, background: "#2D6A4F" },
-  { height: 26, background: "#40916C" },
-  { height: 22, background: "#1B4332" },
+  { restHeight: 20, peakHeight: 28, background: "#2D6A4F" },
+  { restHeight: 26, peakHeight: 32, background: "#40916C" },
+  { restHeight: 22, peakHeight: 18, background: "#1B4332" },
 ];
 
 export default function AnimatedLogo() {
   const prefersReduced = useReducedMotion();
-
-  const shapeVariants = {
-    hidden: prefersReduced
-      ? { opacity: 1, x: 0, filter: "blur(0px)", scaleY: 1 }
-      : { opacity: 0, x: 8, filter: "blur(3px)", scaleY: 0.88 },
-    visible: { opacity: 1, x: 0, filter: "blur(0px)", scaleY: 1 },
-  };
-
-  const textVariants = {
-    hidden: prefersReduced ? { opacity: 1, x: 0 } : { opacity: 0, x: -8 },
-    visible: { opacity: 1, x: 0 },
-  };
 
   return (
     <Link
@@ -35,46 +23,67 @@ export default function AnimatedLogo() {
         flexShrink: 0,
       }}
     >
-      {/* Mark — 3 vertical capsule shapes */}
+      {/* Mark — 3 vertical capsule shapes, equaliser loop */}
       <div
         style={{
           display: "flex",
           alignItems: "flex-end",
           gap: 3,
           flexShrink: 0,
+          height: 34,
         }}
       >
         {SHAPES.map((shape, i) => (
           <motion.div
             key={i}
-            variants={shapeVariants}
-            initial="hidden"
-            animate="visible"
-            transition={{
-              delay: prefersReduced ? 0 : i * 0.07,
-              duration: 0.3,
-              ease: [0.22, 1, 0.36, 1],
+            initial={
+              prefersReduced
+                ? { opacity: 1, x: 0, filter: "blur(0px)", height: shape.restHeight }
+                : { opacity: 0, x: 8, filter: "blur(3px)", height: shape.restHeight }
+            }
+            animate={{
+              opacity: 1,
+              x: 0,
+              filter: "blur(0px)",
+              height: prefersReduced
+                ? shape.restHeight
+                : [shape.restHeight, shape.peakHeight, shape.restHeight],
             }}
+            transition={
+              prefersReduced
+                ? { duration: 0 }
+                : {
+                    opacity: { duration: 0.3, delay: i * 0.07, ease: [0.22, 1, 0.36, 1] },
+                    x: { duration: 0.3, delay: i * 0.07, ease: [0.22, 1, 0.36, 1] },
+                    filter: { duration: 0.3, delay: i * 0.07, ease: [0.22, 1, 0.36, 1] },
+                    height: {
+                      duration: 1.6,
+                      delay: i * 0.28,
+                      repeat: Infinity,
+                      repeatType: "mirror",
+                      ease: "easeInOut",
+                    },
+                  }
+            }
             style={{
               width: 7,
-              height: shape.height,
               borderRadius: 9999,
               background: shape.background,
+              transformOrigin: "bottom",
             }}
           />
         ))}
       </div>
 
-      {/* Brand text */}
+      {/* Brand text — one-shot slide-in only */}
       <motion.div
-        variants={textVariants}
-        initial="hidden"
-        animate="visible"
-        transition={{
-          delay: prefersReduced ? 0 : 0.36,
-          duration: 0.28,
-          ease: [0.22, 1, 0.36, 1],
-        }}
+        initial={prefersReduced ? { opacity: 1, x: 0 } : { opacity: 0, x: -8 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={
+          prefersReduced
+            ? { duration: 0 }
+            : { delay: 0.36, duration: 0.28, ease: [0.22, 1, 0.36, 1] }
+        }
         style={{ display: "flex", flexDirection: "column", gap: 0, lineHeight: 1 }}
       >
         <span
