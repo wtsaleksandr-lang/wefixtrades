@@ -103,6 +103,7 @@ function NavItem({ label, href, children, isActive }: {
           {label}
           <ChevronDown
             size={13}
+            strokeWidth={1.5}
             style={{ transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "rotate(0deg)", opacity: 0.5 }}
           />
         </button>
@@ -220,6 +221,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
             {label}
             <ChevronDown
               size={16}
+              strokeWidth={1.5}
               style={{ transition: "transform 0.2s ease", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", color: T.textFaint }}
             />
           </button>
@@ -395,7 +397,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   alignItems: "center",
                 }}
               >
-                {menuOpen ? <X size={22} /> : <Menu size={22} />}
+                {menuOpen ? <X size={22} strokeWidth={1.5} /> : <Menu size={22} strokeWidth={1.5} />}
               </button>
             )}
           </div>

@@ -4,8 +4,8 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import TypingReplace from "@/components/marketing/TypingReplace";
 import {
-  Zap, Calendar, Bot, MessageSquare, ChevronDown, CheckCircle2,
-  MapPin, TrendingUp, Star, ArrowRight, Play, Globe, Share2,
+  Zap, Calendar, Cpu, MessageCircle, ChevronDown, Check,
+  MapPin, TrendingUp, Star, ArrowRight, Play, Globe, Share2, Workflow,
 } from "lucide-react";
 
 /* ─── Design tokens (muted, warm, Optimal-inspired) ─── */
@@ -59,28 +59,28 @@ const FEATURES = [
     title: "Instant Quote Engine",
     body: "Customers get accurate trade-specific estimates in seconds — no phone tag, no waiting.",
     testId: "feature-card-quotes", delay: "100",
-    iconBg: "linear-gradient(135deg, #4A7C6F 0%, #3B6358 100%)",
+    iconBg: "#EFF5F2", iconColor: "#4A7C6F",
   },
   {
     id: "booking", icon: Calendar,
     title: "Booking + Deposit System",
     body: "Convert estimates into confirmed jobs with calendar booking and Stripe deposit collection.",
     testId: "feature-card-booking", delay: "200",
-    iconBg: "linear-gradient(135deg, #5A7C91 0%, #496A7D 100%)",
+    iconBg: "#EDF2F5", iconColor: "#5A7C91",
   },
   {
-    id: "ai", icon: Bot,
+    id: "ai", icon: Cpu,
     title: "AI Chat Employees",
     body: "24/7 customer engagement, lead capture, and live estimates — even while you sleep.",
     testId: "feature-card-ai", delay: "300",
-    iconBg: "linear-gradient(135deg, #8B7CB5 0%, #7668A0 100%)",
+    iconBg: "#F0EDF5", iconColor: "#8B7CB5",
   },
   {
-    id: "sms", icon: MessageSquare,
+    id: "sms", icon: MessageCircle,
     title: "SMS & WhatsApp Follow-Ups",
     body: "Automated sequences that re-engage cold leads and recover jobs you'd otherwise lose.",
     testId: "feature-card-sms", delay: "400",
-    iconBg: "linear-gradient(135deg, #9E8080 0%, #887070 100%)",
+    iconBg: "#F3EDED", iconColor: "#9E8080",
   },
 ];
 
@@ -113,14 +113,14 @@ const PRICING_TIERS = [
 ];
 
 const SERVICES_TEASE = [
-  { icon: MapPin,     title: "Google Maps Optimization", desc: "Get found by local customers searching for your trade. GMB, citations, reviews.", price: "From $299/mo", iconBg: "linear-gradient(135deg, #4A7C6F, #3B6358)" },
-  { icon: TrendingUp, title: "Website SEO + Speed",      desc: "Rank higher. Convert better. Fast-loading pages that turn visitors into leads.",  price: "From $199/mo", iconBg: "linear-gradient(135deg, #5A7C91, #496A7D)" },
-  { icon: Star,       title: "Reputation + Social",      desc: "Reviews, automated responses, and social posts — all handled for you.",           price: "From $349/mo", iconBg: "linear-gradient(135deg, #8B7CB5, #7668A0)" },
+  { icon: MapPin,     title: "Google Maps Optimization", desc: "Get found by local customers searching for your trade. GMB, citations, reviews.", price: "From $299/mo", iconBg: "#EFF5F2", iconColor: "#4A7C6F" },
+  { icon: TrendingUp, title: "Website SEO + Speed",      desc: "Rank higher. Convert better. Fast-loading pages that turn visitors into leads.",  price: "From $199/mo", iconBg: "#EDF2F5", iconColor: "#5A7C91" },
+  { icon: Star,       title: "Reputation + Social",      desc: "Reviews, automated responses, and social posts — all handled for you.",           price: "From $349/mo", iconBg: "#F0EDF5", iconColor: "#8B7CB5" },
 ];
 
 /* ─── Sub-components ─── */
 
-function FeatureCard({ icon: Icon, title, body, testId, delay, iconBg }: typeof FEATURES[0]) {
+function FeatureCard({ icon: Icon, title, body, testId, delay, iconBg, iconColor }: typeof FEATURES[0]) {
   return (
     <div
       data-testid={testId}
@@ -130,10 +130,10 @@ function FeatureCard({ icon: Icon, title, body, testId, delay, iconBg }: typeof 
       style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 16, padding: "32px 28px", boxShadow: SHADOW.card }}
     >
       <div style={{
-        width: 52, height: 52, borderRadius: "50%", background: iconBg,
+        width: 52, height: 52, borderRadius: 14, background: iconBg,
         display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20,
       }}>
-        <Icon size={24} color="#FFFFFF" />
+        <Icon size={24} color={iconColor} strokeWidth={1.5} />
       </div>
       <h3 style={{ fontSize: 18, fontWeight: 700, color: C.heading, marginBottom: 10, letterSpacing: "-0.01em" }}>{title}</h3>
       <p style={{ fontSize: 15, color: C.muted, lineHeight: 1.65, margin: 0 }}>{body}</p>
@@ -165,7 +165,7 @@ function HeroMockup() {
 
       {/* Connector */}
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-        <div style={{ width: 2, height: 20, background: `linear-gradient(to bottom, ${C.sage}, ${C.sageLight})`, borderRadius: 2 }} />
+        <div style={{ width: 2, height: 20, background: C.sage, borderRadius: 2 }} />
       </div>
 
       {/* Panel 2 — Booking */}
@@ -185,14 +185,14 @@ function HeroMockup() {
 
       {/* Connector */}
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-        <div style={{ width: 2, height: 20, background: `linear-gradient(to bottom, ${C.sage}, ${C.sageLight})`, borderRadius: 2 }} />
+        <div style={{ width: 2, height: 20, background: C.sage, borderRadius: 2 }} />
       </div>
 
       {/* Panel 3 — AI */}
       <div style={{ background: C.bgGray, border: `1px solid ${C.borderLight}`, borderRadius: 14, padding: "14px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: "50%", background: `linear-gradient(135deg, ${C.sage}, ${C.sageLight})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Bot size={13} color="#FFFFFF" />
+          <div style={{ width: 28, height: 28, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Cpu size={13} color="#FFFFFF" strokeWidth={1.5} />
           </div>
           <div style={{ fontSize: 12, color: C.body, lineHeight: 1.45 }}>
             Hi! I can help you schedule or get an exact quote 👋
@@ -213,8 +213,8 @@ function AiChatMockup() {
   return (
     <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 20, padding: 24, width: "100%", maxWidth: 380, boxShadow: SHADOW.hero }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.borderLight}` }}>
-        <div style={{ width: 36, height: 36, borderRadius: "50%", background: `linear-gradient(135deg, ${C.sage}, ${C.sageLight})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Bot size={16} color="#FFFFFF" />
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Cpu size={16} color="#FFFFFF" strokeWidth={1.5} />
         </div>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.heading }}>AI Employee</div>
@@ -236,7 +236,7 @@ function AiChatMockup() {
           Type a message…
         </div>
         <div style={{ width: 36, height: 36, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <ArrowRight size={16} color="#FFFFFF" />
+          <ArrowRight size={16} color="#FFFFFF" strokeWidth={1.5} />
         </div>
       </div>
     </div>
@@ -315,9 +315,9 @@ function TemplateMockup() {
 /* ─── Shared inline responsive CSS ─── */
 const FLOW_ITEMS = [
   { icon: MapPin, label: "Google Maps" },
-  { icon: Zap, label: "WeFixTrades" },
+  { icon: Workflow, label: "WeFixTrades" },
   { icon: Calendar, label: "Booking" },
-  { icon: Bot, label: "24/7 Assistant" },
+  { icon: Cpu, label: "24/7 Assistant" },
   { icon: Globe, label: "Website" },
 ];
 
@@ -429,7 +429,7 @@ export default function HomePage() {
 
         <div style={{ position: "absolute", bottom: 32, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
           <span style={{ fontSize: 11, color: C.textFaint, letterSpacing: "0.08em", textTransform: "uppercase" }}>Scroll</span>
-          <ChevronDown size={18} color={C.textFaint} className="mkt-scroll-cue" />
+          <ChevronDown size={18} color={C.textFaint} strokeWidth={1.5} className="mkt-scroll-cue" />
         </div>
       </section>
 
@@ -448,7 +448,7 @@ export default function HomePage() {
                 {/* Icon + Label */}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, minWidth: 80 }}>
                   <div style={{
-                    width: 52, height: 52, borderRadius: "50%", background: C.bg,
+                    width: 52, height: 52, borderRadius: 14, background: C.bg,
                     border: `1px solid ${C.border}`, display: "flex", alignItems: "center",
                     justifyContent: "center", boxShadow: SHADOW.card,
                   }}>
@@ -599,12 +599,12 @@ export default function HomePage() {
             </p>
             {["Web Chat & Voice", "SMS & WhatsApp messaging", "Escalate to you when needed"].map((b) => (
               <div key={b} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <CheckCircle2 size={18} color={C.sage} />
+                <Check size={16} strokeWidth={1.75} color={C.sage} />
                 <span style={{ fontSize: 15, color: C.body, fontWeight: 500 }}>{b}</span>
               </div>
             ))}
             <Link href="/product" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 700, color: C.sage, textDecoration: "none" }}>
-              See AI Employee <ArrowRight size={16} />
+              See AI Employee <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
           </div>
           {/* Mockup RIGHT */}
@@ -632,12 +632,12 @@ export default function HomePage() {
             </p>
             {["Calendar-based slot selection", "Stripe deposit collection", "Automated confirmation emails"].map((b) => (
               <div key={b} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <CheckCircle2 size={18} color={C.blue} />
+                <Check size={16} strokeWidth={1.75} color={C.blue} />
                 <span style={{ fontSize: 15, color: C.body, fontWeight: 500 }}>{b}</span>
               </div>
             ))}
             <Link href="/product" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 700, color: C.blue, textDecoration: "none" }}>
-              See Booking Engine <ArrowRight size={16} />
+              See Booking Engine <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
           </div>
         </div>
@@ -657,12 +657,12 @@ export default function HomePage() {
             </p>
             {["6 high-converting templates", "Mobile-first, fully responsive", "Trade-specific recommendations"].map((b) => (
               <div key={b} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <CheckCircle2 size={18} color={C.purple} />
+                <Check size={16} strokeWidth={1.75} color={C.purple} />
                 <span style={{ fontSize: 15, color: C.body, fontWeight: 500 }}>{b}</span>
               </div>
             ))}
             <Link href="/templates" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 700, color: C.purple, textDecoration: "none" }}>
-              Browse Templates <ArrowRight size={16} />
+              Browse Templates <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
           </div>
           {/* Mockup RIGHT */}
@@ -718,7 +718,7 @@ export default function HomePage() {
               onMouseEnter={(e) => ((e.target as HTMLElement).style.background = "rgba(255,255,255,0.08)")}
               onMouseLeave={(e) => ((e.target as HTMLElement).style.background = "transparent")}
             >
-              View Full Pricing <ArrowRight size={16} />
+              View Full Pricing <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
           </div>
         </div>
@@ -739,7 +739,7 @@ export default function HomePage() {
             </p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24, marginBottom: 48 }}>
-            {SERVICES_TEASE.map(({ icon: Icon, title, desc, price, iconBg }, i) => (
+            {SERVICES_TEASE.map(({ icon: Icon, title, desc, price, iconBg, iconColor }, i) => (
               <div
                 key={title}
                 data-reveal="fade-up"
@@ -747,8 +747,8 @@ export default function HomePage() {
                 className="mkt-feature-card"
                 style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 16, padding: "28px 24px", boxShadow: SHADOW.card }}
               >
-                <div style={{ width: 48, height: 48, borderRadius: "50%", background: iconBg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18 }}>
-                  <Icon size={22} color="#FFFFFF" />
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18 }}>
+                  <Icon size={22} color={iconColor} strokeWidth={1.5} />
                 </div>
                 <h3 style={{ fontSize: 17, fontWeight: 700, color: C.heading, marginBottom: 8 }}>{title}</h3>
                 <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.65, marginBottom: 16 }}>{desc}</p>
@@ -761,7 +761,7 @@ export default function HomePage() {
               href="/services"
               style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 10, background: C.sageTint, color: C.sage, fontSize: 15, fontWeight: 700, textDecoration: "none", border: `1.5px solid ${C.sage}33` }}
             >
-              Explore All Services <ArrowRight size={16} />
+              Explore All Services <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
           </div>
         </div>

@@ -72,12 +72,12 @@ function EngineMockup() {
       </div>
 
       {/* Preview */}
-      <div style={{ background: `linear-gradient(135deg, ${C.purple}, #6D28D9)`, borderRadius: 12, padding: "14px 18px" }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.6)", marginBottom: 6 }}>Formula Preview — 12m²</div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#FFFFFF", fontFamily: "monospace" }}>
-          $200 + (12 × $45) = <span style={{ color: "#C4B5FD" }}>$740</span>
+      <div style={{ background: C.purpleTint, borderRadius: 12, padding: "14px 18px" }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 6 }}>Formula Preview — 12m²</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.purple, fontFamily: "monospace" }}>
+          $200 + (12 × $45) = <span style={{ color: "#6D28D9" }}>$740</span>
         </div>
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>Output range: $666 – $814 (±10%)</div>
+        <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Output range: $666 – $814 (±10%)</div>
       </div>
     </div>
   );

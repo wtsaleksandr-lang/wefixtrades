@@ -55,20 +55,20 @@ function QuoteMockup() {
       ))}
 
       {/* Result */}
-      <div style={{ background: `linear-gradient(135deg, ${C.sage}, ${C.sageLight})`, borderRadius: 14, padding: "20px 22px", marginTop: 8 }}>
+      <div style={{ background: C.sageTint, borderRadius: 14, padding: "20px 22px", marginTop: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-          <span style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, fontSize: 11, fontWeight: 700, color: "#FFFFFF", padding: "2px 10px" }}>
+          <span style={{ background: C.sageAccent, borderRadius: 20, fontSize: 11, fontWeight: 700, color: C.sage, padding: "2px 10px" }}>
             ✓ Estimate Ready
           </span>
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", marginLeft: "auto" }}>Calculated in 0.2s</span>
+          <span style={{ fontSize: 11, color: C.muted, marginLeft: "auto" }}>Calculated in 0.2s</span>
         </div>
-        <div style={{ fontSize: 34, fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em" }}>$1,240 – $1,680</div>
-        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 4 }}>Valid for 7 days · Includes GST</div>
+        <div style={{ fontSize: 34, fontWeight: 800, color: C.sage, letterSpacing: "-0.02em" }}>$1,240 – $1,680</div>
+        <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Valid for 7 days · Includes GST</div>
         <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-          <div style={{ flex: 1, background: "rgba(255,255,255,0.15)", borderRadius: 9, padding: "10px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>
+          <div style={{ flex: 1, background: C.sage, borderRadius: 9, padding: "10px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>
             Book Now
           </div>
-          <div style={{ flex: 1, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 9, padding: "10px", textAlign: "center", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.8)" }}>
+          <div style={{ flex: 1, background: C.sageAccent, border: `1px solid ${C.sage}30`, borderRadius: 9, padding: "10px", textAlign: "center", fontSize: 12, fontWeight: 600, color: C.sage }}>
             Get Quote PDF
           </div>
         </div>

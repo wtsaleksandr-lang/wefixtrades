@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { type LucideIcon, ChevronDown, ArrowRight, CheckCircle2 } from "lucide-react";
+import { type LucideIcon, ChevronDown, ArrowRight, Check } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 
@@ -114,6 +114,7 @@ function FAQItem({ q, a }: FAQ) {
         <ChevronDown
           size={18}
           color={C.muted}
+          strokeWidth={1.5}
           style={{
             flexShrink: 0,
             transform: open ? "rotate(180deg)" : "rotate(0)",
@@ -310,7 +311,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {demo.bullets.map((b) => (
                     <div key={b} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                      <CheckCircle2 size={17} color={demo.bulletColor} style={{ flexShrink: 0, marginTop: 2 }} />
+                      <Check size={16} color={demo.bulletColor} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 2 }} />
                       <span style={{ fontSize: 14.5, color: C.body, lineHeight: 1.5 }}>{b}</span>
                     </div>
                   ))}
@@ -363,7 +364,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
                   }}
                 >
                   <div style={{ width: 52, height: 52, borderRadius: 14, background: bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
-                    <Icon size={24} color={color} />
+                    <Icon size={24} color={color} strokeWidth={1.5} />
                   </div>
                   <h3 style={{ fontSize: 17, fontWeight: 700, color: C.heading, marginBottom: 10 }}>{title}</h3>
                   <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.65, margin: 0 }}>{body}</p>
