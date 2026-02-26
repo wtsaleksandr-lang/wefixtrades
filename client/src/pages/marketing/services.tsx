@@ -204,7 +204,7 @@ export default function ServicesPage() {
   const services = [
     {
       id: "gmb",
-      icon: <MapPin size={24} color="#2D6A4F" />,
+      icon: <MapPin size={24} color="#4A7C6F" strokeWidth={1.5} />,
       title: "Google Maps Optimization",
       desc: "Get found by local customers searching for your trade. GMB optimisation, citations, review strategy.",
       from: "From $299/mo",
@@ -213,7 +213,7 @@ export default function ServicesPage() {
     },
     {
       id: "seo",
-      icon: <TrendingUp size={24} color="#2D6A4F" />,
+      icon: <TrendingUp size={24} color="#4A7C6F" strokeWidth={1.5} />,
       title: "Website SEO + Speed",
       desc: "Rank higher on Google. Fast-loading, optimised pages that convert visitors.",
       from: "From $199/mo",
@@ -222,7 +222,7 @@ export default function ServicesPage() {
     },
     {
       id: "website",
-      icon: <Globe size={24} color="#2D6A4F" />,
+      icon: <Globe size={24} color="#4A7C6F" strokeWidth={1.5} />,
       title: "Website Build",
       desc: "Professional trade website with your QuickQuote calculator built in. Done in 5 days.",
       from: "From $1,499 one-time",
@@ -231,7 +231,7 @@ export default function ServicesPage() {
     },
     {
       id: "reputation",
-      icon: <Star size={24} color="#2D6A4F" />,
+      icon: <Star size={24} color="#4A7C6F" strokeWidth={1.5} />,
       title: "Reputation Management",
       desc: "Automated review requests, response templates, reputation monitoring.",
       from: "From $149/mo",
@@ -240,7 +240,7 @@ export default function ServicesPage() {
     },
     {
       id: "social",
-      icon: <Share2 size={24} color="#2D6A4F" />,
+      icon: <Share2 size={24} color="#4A7C6F" strokeWidth={1.5} />,
       title: "Social Media Automation",
       desc: "Consistent posting, branded content, lead-gen campaigns on Facebook/Instagram.",
       from: "From $249/mo",

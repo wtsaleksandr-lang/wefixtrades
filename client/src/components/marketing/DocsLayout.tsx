@@ -6,7 +6,7 @@ import MarketingLayout from "./MarketingLayout";
 /* ─── Design tokens ─────────────────────────────── */
 const C = {
   navy: "#0B1F3A",
-  sage: "#2D6A4F",
+  sage: "#4A7C6F",
   sageTint: "#F0F7F4",
   bg: "#FFFFFF",
   bgGray: "#F8FAFC",
@@ -53,7 +53,7 @@ export function CodeBlock({ code, lang = "html" }: { code: string; lang?: string
           onClick={copy}
           style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", color: copied ? "#6EE7B7" : "#94A3B8", fontSize: 12, fontWeight: 600, padding: "2px 6px", borderRadius: 4, transition: "color 0.2s" }}
         >
-          {copied ? <Check size={12} /> : <Copy size={12} />}
+          {copied ? <Check size={12} strokeWidth={1.5} /> : <Copy size={12} strokeWidth={1.5} />}
           {copied ? "Copied!" : "Copy"}
         </button>
       </div>
@@ -91,7 +91,7 @@ export function Accordion({ title, icon, children }: { title: string; icon?: str
         <span style={{ fontSize: 15, fontWeight: 600, color: C.heading, display: "flex", alignItems: "center", gap: 8 }}>
           {icon && <span>{icon}</span>}{title}
         </span>
-        <ChevronDown size={16} color={C.muted} style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.22s ease" }} />
+        <ChevronDown size={16} color={C.muted} strokeWidth={1.5} style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.22s ease" }} />
       </button>
       {open && (
         <div style={{ padding: "16px 20px 20px", background: C.bgGray, borderTop: `1px solid ${C.border}` }}>
@@ -133,7 +133,7 @@ export function Checklist({ items }: { items: string[] }) {
     <ul style={{ listStyle: "none", padding: 0, margin: "12px 0", display: "flex", flexDirection: "column", gap: 8 }}>
       {items.map((item) => (
         <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: C.body, lineHeight: 1.55 }}>
-          <Check size={15} color={C.sage} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 1 }} />
+          <Check size={15} color={C.sage} strokeWidth={1.5} style={{ flexShrink: 0, marginTop: 1 }} />
           {item}
         </li>
       ))}
@@ -162,14 +162,14 @@ export default function DocsLayout({ activeSlug, title, description, children }:
         {/* Mobile top bar */}
         <div className="docs-mobile-bar" style={{ display: "none", padding: "12px 20px", borderBottom: `1px solid ${C.border}`, background: C.bg, alignItems: "center", justifyContent: "space-between" }}>
           <Link href="/docs" style={{ display: "flex", alignItems: "center", gap: 6, color: C.sage, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
-            <ArrowLeft size={14} /> Docs
+            <ArrowLeft size={14} strokeWidth={1.5} /> Docs
           </Link>
           <button
             onClick={() => setSidebarOpen((o) => !o)}
             data-testid="docs-mobile-menu"
             style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 13, fontWeight: 600, color: C.body }}
           >
-            {sidebarOpen ? <X size={14} /> : <Menu size={14} />} Menu
+            {sidebarOpen ? <X size={14} strokeWidth={1.5} /> : <Menu size={14} strokeWidth={1.5} />} Menu
           </button>
         </div>
 
@@ -189,7 +189,7 @@ export default function DocsLayout({ activeSlug, title, description, children }:
           >
             <div style={{ padding: "0 20px 16px", borderBottom: `1px solid ${C.borderLight}`, marginBottom: 16 }}>
               <Link href="/docs" style={{ display: "flex", alignItems: "center", gap: 7, color: C.muted, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
-                <ArrowLeft size={13} /> Back to Docs
+                <ArrowLeft size={13} strokeWidth={1.5} /> Back to Docs
               </Link>
             </div>
             <DocsSidebar activeSlug={activeSlug} onNavigate={() => {}} />
@@ -200,9 +200,9 @@ export default function DocsLayout({ activeSlug, title, description, children }:
             {/* Page header */}
             <div style={{ marginBottom: 40 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, fontSize: 12, color: C.muted, fontWeight: 500 }}>
-                <BookOpen size={13} color={C.muted} />
+                <BookOpen size={13} color={C.muted} strokeWidth={1.5} />
                 <span>QuickQuotePro Docs</span>
-                <ChevronRight size={12} color={C.muted} />
+                <ChevronRight size={12} color={C.muted} strokeWidth={1.5} />
                 <span style={{ color: C.sage, fontWeight: 600 }}>{title}</span>
               </div>
               <h1 style={{ fontSize: "clamp(24px, 3vw, 34px)", fontWeight: 800, color: C.heading, margin: "0 0 12px", letterSpacing: "-0.02em", lineHeight: 1.15 }}>
@@ -217,7 +217,7 @@ export default function DocsLayout({ activeSlug, title, description, children }:
             {/* Footer nav */}
             <div style={{ marginTop: 64, paddingTop: 28, borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
               <Link href="/docs" style={{ display: "flex", alignItems: "center", gap: 6, color: C.sage, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
-                <ArrowLeft size={14} /> Back to Docs Hub
+                <ArrowLeft size={14} strokeWidth={1.5} /> Back to Docs Hub
               </Link>
               <Link href="/contact" style={{ display: "flex", alignItems: "center", gap: 6, color: C.muted, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
                 Something unclear? Contact support →
@@ -262,7 +262,7 @@ function DocsSidebar({ activeSlug, onNavigate }: { activeSlug: string; onNavigat
               transition: "all 0.15s ease",
             }}
           >
-            <Icon size={15} color={active ? C.sage : C.muted} />
+            <Icon size={15} color={active ? C.sage : C.muted} strokeWidth={1.5} />
             <span style={{ fontSize: 14, fontWeight: active ? 600 : 400, color: active ? C.sage : C.body }}>
               {label}
             </span>

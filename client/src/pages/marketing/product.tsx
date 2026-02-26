@@ -4,7 +4,7 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import {
   Zap, Calendar, Bot, MessageSquare, LayoutDashboard, Palette,
-  CheckCircle2, ArrowRight, Play, Users, TrendingUp, ChevronRight,
+  Check, ArrowRight, Play, Users, TrendingUp, ChevronRight,
 } from "lucide-react";
 
 const C = {
@@ -107,7 +107,7 @@ function EstimateMockup() {
         </div>
       ))}
       <div style={{ borderTop: `1px solid ${C.border}`, margin: "20px 0" }} />
-      <div style={{ background: `linear-gradient(135deg, ${C.sage}, ${C.sageLight})`, borderRadius: 14, padding: "20px 24px" }}>
+      <div style={{ background: C.sage, borderRadius: 14, padding: "20px 24px" }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 6 }}>Your Estimate</div>
         <div style={{ fontSize: 36, fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em" }}>$1,240 – $1,680</div>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 4 }}>Calculated in 0.2s · Valid for 7 days</div>
@@ -134,13 +134,13 @@ function AiMockup() {
   return (
     <div style={{ background: C.navy, borderRadius: 20, padding: 24, maxWidth: 380, boxShadow: SHADOW.hero }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <div style={{ width: 36, height: 36, borderRadius: "50%", background: `linear-gradient(135deg, ${C.sage}, ${C.sageLight})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Bot size={17} color="#FFFFFF" />
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Bot size={17} color="#FFFFFF" strokeWidth={1.5} />
         </div>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>AI Employee</div>
-          <div style={{ fontSize: 11, color: "#22C55E", display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22C55E", display: "inline-block" }} />
+          <div style={{ fontSize: 11, color: "#4A7C6F", display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4A7C6F", display: "inline-block" }} />
             Online 24/7
           </div>
         </div>
@@ -170,7 +170,7 @@ function AiMockup() {
           Type a message…
         </div>
         <div style={{ width: 34, height: 34, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <ArrowRight size={15} color="#FFFFFF" />
+          <ArrowRight size={15} color="#FFFFFF" strokeWidth={1.5} />
         </div>
       </div>
     </div>
@@ -534,10 +534,10 @@ export default function ProductPage() {
                 {/* AI bubble */}
                 <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 14, padding: "14px 18px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                    <div style={{ width: 26, height: 26, borderRadius: "50%", background: `linear-gradient(135deg, ${C.sage}, ${C.sageLight})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <Bot size={13} color="#FFF" />
+                    <div style={{ width: 26, height: 26, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Bot size={13} color="#FFF" strokeWidth={1.5} />
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#FFF" }}>AI Employee <span style={{ color: "#22C55E" }}>●</span></div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#FFF" }}>AI Employee <span style={{ color: "#4A7C6F" }}>●</span></div>
                   </div>
                   <div style={{ background: "rgba(45,106,79,0.25)", borderRadius: "10px 10px 10px 3px", padding: "9px 12px", fontSize: 12.5, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
                     Great! Your booking is confirmed. See you Tuesday at 9am 👋
@@ -586,7 +586,7 @@ export default function ProductPage() {
                   }}
                 >
                   <div style={{ width: 52, height: 52, borderRadius: 14, background: bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
-                    <Icon size={24} color={color} />
+                    <Icon size={24} color={color} strokeWidth={1.5} />
                   </div>
                   <h3 style={{ fontSize: 18, fontWeight: 700, color: C.heading, marginBottom: 10, letterSpacing: "-0.01em" }}>{title}</h3>
                   <p style={{ fontSize: 15, color: C.muted, lineHeight: 1.65, margin: 0 }}>{body}</p>
@@ -646,15 +646,15 @@ export default function ProductPage() {
                       }} />
                     )}
 
-                    {/* Icon circle */}
+                    {/* Icon container */}
                     <div style={{
-                      width: 60, height: 60, borderRadius: "50%",
+                      width: 60, height: 60, borderRadius: 14,
                       background: `${color}18`, border: `2px solid ${color}`,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       marginBottom: 14, position: "relative", zIndex: 1,
                       boxShadow: `0 0 0 8px ${color}0A`,
                     }}>
-                      <Icon size={24} color={color} />
+                      <Icon size={24} color={color} strokeWidth={1.5} />
                     </div>
 
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.heading, textAlign: "center", marginBottom: 4 }}>{label}</div>
@@ -739,7 +739,7 @@ export default function ProductPage() {
                   </p>
                   {bullets.map((b) => (
                     <div key={b} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 12 }}>
-                      <CheckCircle2 size={17} color={bulletColor} style={{ flexShrink: 0, marginTop: 2 }} />
+                      <Check size={16} color={bulletColor} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 2 }} />
                       <span style={{ fontSize: 14.5, color: C.body, lineHeight: 1.5 }}>{b}</span>
                     </div>
                   ))}
@@ -747,7 +747,7 @@ export default function ProductPage() {
                     href={ctaHref}
                     style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 700, color: ctaColor, textDecoration: "none" }}
                   >
-                    {cta} <ArrowRight size={15} />
+                    {cta} <ArrowRight size={15} strokeWidth={1.5} />
                   </Link>
                 </div>
 

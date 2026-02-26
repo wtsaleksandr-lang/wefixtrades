@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, ChevronDown, ChevronUp } from "lucide-react";
 
 export default function BundlesPage() {
   useEffect(() => {
@@ -237,7 +237,7 @@ export default function BundlesPage() {
               <ul style={s.featureList}>
                 {growthIncludes.map(f => (
                   <li key={f} style={s.featureItem}>
-                    <CheckCircle2 size={16} color="#2D6A4F" style={{ flexShrink: 0, marginTop: 2 }} />
+                    <Check size={16} color="#4A7C6F" strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 2 }} />
                     {f}
                   </li>
                 ))}
@@ -263,7 +263,7 @@ export default function BundlesPage() {
               <ul style={s.featureList}>
                 {autopilotIncludes.map(f => (
                   <li key={f} style={s.featureItem}>
-                    <CheckCircle2 size={16} color="#2D6A4F" style={{ flexShrink: 0, marginTop: 2 }} />
+                    <Check size={16} color="#4A7C6F" strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 2 }} />
                     {f}
                   </li>
                 ))}
@@ -287,9 +287,9 @@ export default function BundlesPage() {
                 >
                   <span style={s.faqQuestionText}>{faq.q}</span>
                   {openFaq === i ? (
-                    <ChevronUp size={18} color="#6B7280" />
+                    <ChevronUp size={18} color="#6B7280" strokeWidth={1.5} />
                   ) : (
-                    <ChevronDown size={18} color="#6B7280" />
+                    <ChevronDown size={18} color="#6B7280" strokeWidth={1.5} />
                   )}
                 </button>
                 {openFaq === i && (

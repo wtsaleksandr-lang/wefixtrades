@@ -23,13 +23,13 @@ function AiMockup() {
     >
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <div style={{ width: 38, height: 38, borderRadius: "50%", background: `linear-gradient(135deg, ${C.sage}, ${C.sageLight})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Bot size={18} color="#FFFFFF" />
+        <div style={{ width: 38, height: 38, borderRadius: 10, background: C.sageTint, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Bot size={18} color={C.sage} strokeWidth={1.5} />
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>AI Employee</div>
-          <div style={{ fontSize: 11, color: "#22C55E", display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22C55E", display: "inline-block" }} />
+          <div style={{ fontSize: 11, color: "#4A7C6F", display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4A7C6F", display: "inline-block" }} />
             Online 24/7
           </div>
         </div>
@@ -44,8 +44,8 @@ function AiMockup() {
       {messages.map((m, i) => (
         <div key={i} style={{ display: "flex", justifyContent: m.user ? "flex-end" : "flex-start", marginBottom: 10 }}>
           {!m.user && (
-            <div style={{ width: 22, height: 22, borderRadius: "50%", background: `linear-gradient(135deg, ${C.sage}, ${C.sageLight})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 6, marginTop: 2 }}>
-              <Bot size={11} color="#FFFFFF" />
+            <div style={{ width: 22, height: 22, borderRadius: 6, background: C.sageTint, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 6, marginTop: 2 }}>
+              <Bot size={11} color={C.sage} strokeWidth={1.5} />
             </div>
           )}
           <div style={{
@@ -64,7 +64,7 @@ function AiMockup() {
 
       {/* Escalation hint */}
       <div style={{ marginTop: 14, background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 10, padding: "9px 12px", display: "flex", alignItems: "center", gap: 8 }}>
-        <PhoneCall size={13} color="#F59E0B" style={{ flexShrink: 0 }} />
+        <PhoneCall size={13} color="#F59E0B" strokeWidth={1.5} style={{ flexShrink: 0 }} />
         <span style={{ fontSize: 11.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>
           AI will escalate to <strong style={{ color: "rgba(255,255,255,0.8)" }}>you</strong> if the customer requests a human
         </span>
@@ -76,7 +76,7 @@ function AiMockup() {
           Type a message…
         </div>
         <div style={{ width: 34, height: 34, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
-          <Bot size={15} color="#FFFFFF" />
+          <Bot size={15} color="#FFFFFF" strokeWidth={1.5} />
         </div>
       </div>
     </div>
