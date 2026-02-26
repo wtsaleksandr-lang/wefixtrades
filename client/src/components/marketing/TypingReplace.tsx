@@ -130,7 +130,6 @@ export default function TypingReplace({
       >
         Built for
       </span>
-
       <span style={{ position: "relative", display: "inline-block" }}>
         <span
           style={{
@@ -157,7 +156,7 @@ export default function TypingReplace({
             whiteSpace: "nowrap",
             letterSpacing: "-0.01em",
           }}
-        >
+          className="text-[#33956a]">
           {displayedText}
         </span>
 
