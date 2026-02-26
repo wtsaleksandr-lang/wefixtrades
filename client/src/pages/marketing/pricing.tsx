@@ -8,7 +8,7 @@ import { PLANS, COMPARISON_ROWS, FAQS } from "@/config/pricingPlans";
 /* ─── Design tokens ─────────────────────────────── */
 const C = {
   navy: "#0B1F3A",
-  sage: "#2D6A4F",
+  sage: "#4A7C6F",
   sageDark: "#1B4332",
   sageLight: "#40916C",
   sageTint: "#F0F7F4",

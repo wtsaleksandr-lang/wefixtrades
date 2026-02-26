@@ -84,20 +84,20 @@ function NavItem({ label, href, children, isActive }: {
             gap: 4,
             padding: "6px 12px",
             borderRadius: 6,
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: 500,
             color: T.text,
             background: "transparent",
             border: "none",
             cursor: "pointer",
-            transition: "color 0.15s ease",
+            transition: "opacity 0.2s ease",
             whiteSpace: "nowrap",
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.color = T.textMuted;
+            (e.currentTarget as HTMLElement).style.opacity = "0.6";
           }}
           onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.color = T.text;
+            (e.currentTarget as HTMLElement).style.opacity = "1";
           }}
         >
           {label}
@@ -116,19 +116,19 @@ function NavItem({ label, href, children, isActive }: {
             alignItems: "center",
             padding: "6px 12px",
             borderRadius: 6,
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: 500,
             color: T.text,
             background: "transparent",
             textDecoration: "none",
-            transition: "color 0.15s ease",
+            transition: "opacity 0.2s ease",
             whiteSpace: "nowrap",
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.color = T.textMuted;
+            (e.currentTarget as HTMLElement).style.opacity = "0.6";
           }}
           onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.color = T.text;
+            (e.currentTarget as HTMLElement).style.opacity = "1";
           }}
         >
           {label}
@@ -282,11 +282,15 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
   return (
     <div
+      className="mkt-layout"
       style={{
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
-        fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+        fontFamily: "'Instrument Sans', system-ui, -apple-system, sans-serif",
+        WebkitFontSmoothing: "antialiased",
+        MozOsxFontSmoothing: "grayscale",
+        textRendering: "optimizeLegibility",
       }}
     >
       <nav
@@ -298,24 +302,29 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           left: 0,
           right: 0,
           zIndex: 200,
-          height: 56,
+          height: 60,
           display: "flex",
           alignItems: "center",
-          background: T.bg,
-          borderBottom: `1px solid ${scrolled ? T.border : "transparent"}`,
-          transition: "border-color 0.2s ease",
+          justifyContent: "center",
+          padding: "8px 16px 0",
         }}
       >
         <div
           style={{
             maxWidth: 1200,
-            margin: "0 auto",
-            padding: "0 24px",
             width: "100%",
+            height: 52,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             gap: 24,
+            background: "rgba(242,242,242,0.93)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            borderRadius: "2.2rem",
+            padding: "0 24px",
+            boxShadow: scrolled ? "0 2px 12px rgba(0,0,0,0.06)" : "0 1px 4px rgba(0,0,0,0.03)",
+            transition: "box-shadow 0.25s ease, border-radius 0.15s ease-out",
           }}
         >
           <AnimatedLogo />
@@ -365,8 +374,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   className="mkt-btn-primary"
                   data-testid="nav-cta-start-free"
                   style={{
-                    padding: "8px 16px",
-                    borderRadius: 8,
+                    padding: "9px 20px",
+                    borderRadius: 9999,
                     background: T.accent,
                     color: "#FFFFFF",
                     fontSize: 13,
@@ -409,13 +418,15 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           data-testid="nav-mobile-menu"
           style={{
             position: "fixed",
-            top: 56,
-            left: 0,
-            right: 0,
-            background: T.bg,
+            top: 60,
+            left: 16,
+            right: 16,
+            background: "rgba(242,242,242,0.97)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
             zIndex: 199,
-            borderBottom: menuOpen ? `1px solid ${T.border}` : "none",
-            boxShadow: menuOpen ? T.shadowSoft : "none",
+            borderRadius: menuOpen ? "0 0 1.5rem 1.5rem" : "0 0 2.2rem 2.2rem",
+            boxShadow: menuOpen ? "0 8px 32px rgba(0,0,0,0.08)" : "none",
             overflow: "hidden",
             maxHeight: menuOpen ? "80vh" : 0,
             transition: "max-height 0.3s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s ease",
@@ -441,7 +452,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 display: "block",
                 marginTop: 20,
                 padding: "12px",
-                borderRadius: 8,
+                borderRadius: 9999,
                 background: T.accent,
                 color: "#FFFFFF",
                 fontSize: 15,
@@ -456,7 +467,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         </div>
       )}
 
-      <div style={{ height: 56, flexShrink: 0 }} />
+      <div style={{ height: 68, flexShrink: 0 }} />
 
       <main style={{ flex: 1 }}>{children}</main>
 
@@ -480,7 +491,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               <div
                 style={{
                   fontSize: 20,
-                  fontWeight: 800,
+                  fontWeight: 700,
                   color: "#FFFFFF",
                   letterSpacing: "-0.02em",
                   marginBottom: 10,
@@ -519,11 +530,11 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <div>
               <div
                 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "rgba(255,255,255,0.35)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.4)",
                   textTransform: "uppercase",
-                  letterSpacing: "0.1em",
+                  letterSpacing: "0.06em",
                   marginBottom: 18,
                 }}
               >
@@ -542,11 +553,14 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   style={{
                     display: "block",
                     fontSize: 14,
-                    color: "rgba(255,255,255,0.65)",
+                    fontWeight: 500,
+                    color: "rgba(255,255,255,0.6)",
                     textDecoration: "none",
                     marginBottom: 11,
                     transition: "color 0.15s ease",
                   }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
                 >
                   {l}
                 </Link>
@@ -556,11 +570,11 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <div>
               <div
                 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "rgba(255,255,255,0.35)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.4)",
                   textTransform: "uppercase",
-                  letterSpacing: "0.1em",
+                  letterSpacing: "0.06em",
                   marginBottom: 18,
                 }}
               >
@@ -577,10 +591,14 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   style={{
                     display: "block",
                     fontSize: 14,
-                    color: "rgba(255,255,255,0.65)",
+                    fontWeight: 500,
+                    color: "rgba(255,255,255,0.6)",
                     textDecoration: "none",
                     marginBottom: 11,
+                    transition: "color 0.15s ease",
                   }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
                 >
                   {l}
                 </Link>
@@ -590,11 +608,11 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <div>
               <div
                 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "rgba(255,255,255,0.35)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.4)",
                   textTransform: "uppercase",
-                  letterSpacing: "0.1em",
+                  letterSpacing: "0.06em",
                   marginBottom: 18,
                 }}
               >
@@ -610,10 +628,14 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   style={{
                     display: "block",
                     fontSize: 14,
-                    color: "rgba(255,255,255,0.65)",
+                    fontWeight: 500,
+                    color: "rgba(255,255,255,0.6)",
                     textDecoration: "none",
                     marginBottom: 11,
+                    transition: "color 0.15s ease",
                   }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
                 >
                   {l}
                 </Link>

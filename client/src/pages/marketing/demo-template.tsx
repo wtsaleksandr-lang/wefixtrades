@@ -10,7 +10,7 @@ import type { TemplateConfig } from "@/config/templateConfig";
 /* ─── Design tokens ─────────────────────────────── */
 const C = {
   navy: "#0B1F3A",
-  sage: "#2D6A4F",
+  sage: "#4A7C6F",
   sageTint: "#F0F7F4",
   bg: "#FFFFFF",
   bgGray: "#F8FAFC",

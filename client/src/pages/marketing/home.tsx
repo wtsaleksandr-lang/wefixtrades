@@ -373,7 +373,7 @@ export default function HomePage() {
 
           <h1
             data-testid="hero-headline"
-            style={{ fontSize: "clamp(40px, 5vw, 68px)", fontWeight: 900, color: C.heading, lineHeight: 1.04, letterSpacing: "-0.03em", marginBottom: 28 }}
+            style={{ fontSize: "clamp(40px, 5vw, 68px)", fontWeight: 700, color: C.heading, lineHeight: 1.04, letterSpacing: "-0.035em", marginBottom: 28 }}
           >
             One System.{" "}
             More{" "}
@@ -381,7 +381,7 @@ export default function HomePage() {
             Zero Extra Work.
           </h1>
 
-          <p style={{ fontSize: 17, color: C.muted, lineHeight: 1.65, marginBottom: 40, maxWidth: 540, margin: "0 auto 40px" }}>
+          <p style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", lineHeight: 1.65, marginBottom: 40, maxWidth: 540, margin: "0 auto 40px" }}>
             We've already connected everything for you — quotes, bookings, Google visibility, 24/7 assistant, website and follow-ups. You just run your business.
           </p>
 
@@ -500,10 +500,10 @@ export default function HomePage() {
             <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
               Capabilities
             </div>
-            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 40px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 16 }}>
+            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 40px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 16 }}>
               Capabilities that book jobs
             </h2>
-            <p style={{ fontSize: 17, color: C.muted, maxWidth: 520, margin: "0 auto" }}>
+            <p style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", maxWidth: 520, margin: "0 auto" }}>
               Everything a trades business needs to convert website visitors into confirmed revenue.
             </p>
           </div>
@@ -522,7 +522,7 @@ export default function HomePage() {
             <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
               How It Works
             </div>
-            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 40px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 64 }}>
+            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 40px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 64 }}>
               Live in under 10 minutes
             </h2>
           </div>
@@ -553,7 +553,7 @@ export default function HomePage() {
       <section style={{ background: C.bg, padding: "112px 28px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
-            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 12 }}>
+            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 12 }}>
               Loved by Trades &amp; Growing Businesses Worldwide
             </h2>
             <p style={{ fontSize: 16, color: C.muted }}>Real results from real trades businesses.</p>
@@ -591,7 +591,7 @@ export default function HomePage() {
           {/* Text LEFT */}
           <div data-reveal="fade-left">
             <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>AI Employee</div>
-            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 18, lineHeight: 1.15 }}>
+            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 18, lineHeight: 1.15 }}>
               Never miss a lead — even at 2am
             </h2>
             <p style={{ fontSize: 16, color: C.body, lineHeight: 1.7, marginBottom: 28 }}>
@@ -603,7 +603,7 @@ export default function HomePage() {
                 <span style={{ fontSize: 15, color: C.body, fontWeight: 500 }}>{b}</span>
               </div>
             ))}
-            <Link href="/product" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 700, color: C.sage, textDecoration: "none" }}>
+            <Link href="/product" className="mkt-arrow-link" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 600, color: C.sage, textDecoration: "none" }}>
               See AI Employee <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
           </div>
@@ -624,7 +624,7 @@ export default function HomePage() {
           {/* Text RIGHT */}
           <div data-reveal="fade-left">
             <div style={{ fontSize: 11, fontWeight: 700, color: C.blue, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Booking engine</div>
-            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 18, lineHeight: 1.15 }}>
+            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 18, lineHeight: 1.15 }}>
               Turn estimates into paid bookings
             </h2>
             <p style={{ fontSize: 16, color: C.body, lineHeight: 1.7, marginBottom: 28 }}>
@@ -636,7 +636,7 @@ export default function HomePage() {
                 <span style={{ fontSize: 15, color: C.body, fontWeight: 500 }}>{b}</span>
               </div>
             ))}
-            <Link href="/product" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 700, color: C.blue, textDecoration: "none" }}>
+            <Link href="/product" className="mkt-arrow-link" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 600, color: C.blue, textDecoration: "none" }}>
               See Booking Engine <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
           </div>
@@ -649,7 +649,7 @@ export default function HomePage() {
           {/* Text LEFT */}
           <div data-reveal="fade-left">
             <div style={{ fontSize: 11, fontWeight: 700, color: C.purple, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Templates</div>
-            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 18, lineHeight: 1.15 }}>
+            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 18, lineHeight: 1.15 }}>
               Pick a template, go live today
             </h2>
             <p style={{ fontSize: 16, color: C.body, lineHeight: 1.7, marginBottom: 28 }}>
@@ -661,7 +661,7 @@ export default function HomePage() {
                 <span style={{ fontSize: 15, color: C.body, fontWeight: 500 }}>{b}</span>
               </div>
             ))}
-            <Link href="/templates" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 700, color: C.purple, textDecoration: "none" }}>
+            <Link href="/templates" className="mkt-arrow-link" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 600, color: C.purple, textDecoration: "none" }}>
               Browse Templates <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
           </div>
@@ -678,7 +678,7 @@ export default function HomePage() {
       <section data-testid="pricing-teaser-section" style={{ background: "linear-gradient(160deg, #2B2B2B 0%, #1A1A1A 100%)", padding: "112px 28px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
-            <h2 style={{ fontSize: "clamp(26px, 3vw, 40px)", fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em", marginBottom: 12 }}>
+            <h2 style={{ fontSize: "clamp(26px, 3vw, 40px)", fontWeight: 600, color: "#FFFFFF", letterSpacing: "-0.025em", marginBottom: 12 }}>
               Simple pricing that scales with you
             </h2>
             <p style={{ fontSize: 17, color: "rgba(255,255,255,0.55)" }}>Start for free. Upgrade when you're ready.</p>
@@ -714,7 +714,7 @@ export default function HomePage() {
           <div style={{ textAlign: "center" }}>
             <Link
               href="/pricing"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 10, border: "1.5px solid rgba(255,255,255,0.25)", color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", transition: "all 0.2s ease" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 9999, border: "1.5px solid rgba(255,255,255,0.25)", color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", transition: "all 0.2s ease" }}
               onMouseEnter={(e) => ((e.target as HTMLElement).style.background = "rgba(255,255,255,0.08)")}
               onMouseLeave={(e) => ((e.target as HTMLElement).style.background = "transparent")}
             >
@@ -731,7 +731,7 @@ export default function HomePage() {
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
             <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Growth Services</div>
-            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 14 }}>
+            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 14 }}>
               We handle the marketing. You handle the jobs.
             </h2>
             <p style={{ fontSize: 16, color: C.muted, maxWidth: 520, margin: "0 auto" }}>
@@ -759,7 +759,7 @@ export default function HomePage() {
           <div style={{ textAlign: "center" }}>
             <Link
               href="/services"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 10, background: C.sageTint, color: C.sage, fontSize: 15, fontWeight: 700, textDecoration: "none", border: `1.5px solid ${C.sage}33` }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 9999, background: C.sageTint, color: C.sage, fontSize: 15, fontWeight: 600, textDecoration: "none", border: `1.5px solid ${C.sage}33` }}
             >
               Explore All Services <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
@@ -775,7 +775,7 @@ export default function HomePage() {
         style={{ background: `linear-gradient(135deg, ${C.sage} 0%, ${C.sageDark} 100%)`, padding: "136px 28px", textAlign: "center" }}
       >
         <div style={{ maxWidth: 680, margin: "0 auto" }} data-reveal="scale">
-          <h2 style={{ fontSize: "clamp(32px, 4vw, 52px)", fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em", marginBottom: 18, lineHeight: 1.1 }}>
+          <h2 style={{ fontSize: "clamp(32px, 4vw, 52px)", fontWeight: 700, color: "#FFFFFF", letterSpacing: "-0.025em", marginBottom: 18, lineHeight: 1.1 }}>
             Ready to Get More Booked Jobs?
           </h2>
           <p style={{ fontSize: 18, color: "rgba(255,255,255,0.72)", lineHeight: 1.65, marginBottom: 44, maxWidth: 520, margin: "0 auto 44px" }}>
@@ -786,14 +786,14 @@ export default function HomePage() {
               href="/Wizard"
               data-testid="button-start-free-cta"
               className="mkt-btn-primary"
-              style={{ display: "inline-block", padding: "15px 36px", borderRadius: 10, background: "#FFFFFF", color: C.sage, fontSize: 16, fontWeight: 800, textDecoration: "none" }}
+              style={{ display: "inline-block", padding: "15px 36px", borderRadius: 9999, background: "#FFFFFF", color: C.sage, fontSize: 16, fontWeight: 700, textDecoration: "none" }}
             >
               Start Free
             </Link>
             <Link
               href="/contact"
               className="mkt-btn-ghost"
-              style={{ display: "inline-block", padding: "15px 32px", borderRadius: 10, background: "transparent", color: "#FFFFFF", fontSize: 16, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.4)" }}
+              style={{ display: "inline-block", padding: "15px 32px", borderRadius: 9999, background: "transparent", color: "#FFFFFF", fontSize: 16, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.4)" }}
             >
               Talk to Sales
             </Link>

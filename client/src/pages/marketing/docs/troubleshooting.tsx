@@ -12,7 +12,7 @@ export default function DocsTroubleshooting() {
     >
 
       <InfoBox type="info">
-        Can't find a fix here? <a href="/contact" style={{ color: "#2D6A4F", fontWeight: 600 }}>Contact support</a> — we typically respond within 2 hours.
+        Can't find a fix here? <a href="/contact" style={{ color: "#4A7C6F", fontWeight: 600 }}>Contact support</a> — we typically respond within 2 hours.
       </InfoBox>
 
       <DocH2>Calculator & Widget</DocH2>
