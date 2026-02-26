@@ -19,19 +19,19 @@ const C = {
   textFaint:  "#999999",
   border:     "#E5E5E3",
   borderLight:"#F0F0EE",
-  accent:     "#4A7C6F",
-  accentHover:"#3B6358",
-  accentSoft: "rgba(74,124,111,0.12)",
-  accentLine: "rgba(74,124,111,0.25)",
+  accent:     "#33956A",
+  accentHover:"#2B7D58",
+  accentSoft: "rgba(51,149,106,0.12)",
+  accentLine: "rgba(51,149,106,0.25)",
   blue:       "#5A7C91",
   gold:       "#C9A760",
   purple:     "#8B7CB5",
   heading:    "#111111",
   body:       "#444444",
   muted:      "#6B6B6B",
-  sage:       "#4A7C6F",
-  sageDark:   "#3B6358",
-  sageLight:  "#5E9485",
+  sage:       "#33956A",
+  sageDark:   "#2B7D58",
+  sageLight:  "#4DAD7E",
   sageTint:   "#EFF5F2",
   sageAccent: "#D1E8DF",
   bgGray:     "#F7F7F6",
@@ -64,7 +64,7 @@ const FEATURES = [
     title: "Instant Quote Engine",
     body: "Customers get accurate trade-specific estimates in seconds — no phone tag, no waiting.",
     testId: "feature-card-quotes", delay: "100",
-    iconBg: "#EFF5F2", iconColor: "#4A7C6F",
+    iconBg: "#EFF5F2", iconColor: "#33956A",
   },
   {
     id: "booking", icon: Calendar,
@@ -118,7 +118,7 @@ const PRICING_TIERS = [
 ];
 
 const SERVICES_TEASE = [
-  { icon: MapPin,     title: "Google Maps Optimization", desc: "Get found by local customers searching for your trade. GMB, citations, reviews.", price: "From $299/mo", iconBg: "#EFF5F2", iconColor: "#4A7C6F" },
+  { icon: MapPin,     title: "Google Maps Optimization", desc: "Get found by local customers searching for your trade. GMB, citations, reviews.", price: "From $299/mo", iconBg: "#EFF5F2", iconColor: "#33956A" },
   { icon: TrendingUp, title: "Website SEO + Speed",      desc: "Rank higher. Convert better. Fast-loading pages that turn visitors into leads.",  price: "From $199/mo", iconBg: "#EDF2F5", iconColor: "#5A7C91" },
   { icon: Star,       title: "Reputation + Social",      desc: "Reviews, automated responses, and social posts — all handled for you.",           price: "From $349/mo", iconBg: "#F0EDF5", iconColor: "#8B7CB5" },
 ];
@@ -381,7 +381,7 @@ export default function HomePage() {
           >
             One System.{" "}
             More{" "}
-            <span style={{ color: C.sage }} className="text-[#33956a]">Jobs</span>.{" "}
+            <span style={{ color: C.green }}>Jobs</span>.{" "}
             Zero Extra Work.
           </h1>
 
