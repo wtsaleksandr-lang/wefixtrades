@@ -6,6 +6,7 @@ import TypingReplace from "@/components/marketing/TypingReplace";
 import {
   Zap, Calendar, Cpu, MessageCircle, ChevronDown, Check,
   MapPin, TrendingUp, Star, ArrowRight, Play, Globe, Share2, Workflow,
+  Plus, Shield,
 } from "lucide-react";
 
 /* ─── Design tokens (muted, warm, Optimal-inspired) ─── */
@@ -35,6 +36,10 @@ const C = {
   sageAccent: "#D1E8DF",
   bgGray:     "#F7F7F6",
   bgGrayAlt:  "#F3F3F2",
+  green:      "#33956A",
+  greenDark:  "#2B7D58",
+  warmGray:   "#F2F2F0",
+  warmGrayAlt:"#EAEAE8",
 };
 
 const SHADOW = {
@@ -360,7 +365,7 @@ export default function HomePage() {
       <section
         data-testid="hero-section"
         style={{
-          background: "linear-gradient(180deg, #F7F7F6 0%, #FFFFFF 100%)",
+          background: C.warmGray,
           padding: "100px 28px 120px",
           position: "relative",
           overflow: "hidden",
@@ -373,7 +378,7 @@ export default function HomePage() {
 
           <h1
             data-testid="hero-headline"
-            style={{ fontSize: "clamp(40px, 5vw, 68px)", fontWeight: 700, color: C.heading, lineHeight: 1.04, letterSpacing: "-0.035em", marginBottom: 28 }}
+            style={{ fontSize: "clamp(42px, 5.5vw, 72px)", fontWeight: 700, color: C.heading, lineHeight: 1.04, letterSpacing: "-0.035em", marginBottom: 28 }}
           >
             One System.{" "}
             More{" "}
@@ -390,7 +395,7 @@ export default function HomePage() {
               href="/Wizard"
               data-testid="button-start-free-hero"
               className="mkt-btn-primary"
-              style={{ padding: "14px 32px", borderRadius: 9999, background: C.sage, color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-block" }}
+              style={{ padding: "14px 32px", borderRadius: 9999, background: C.green, color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-block" }}
             >
               Try for Free
             </Link>
@@ -398,7 +403,7 @@ export default function HomePage() {
               href="/demo"
               data-testid="button-view-demo-hero"
               className="mkt-btn-ghost"
-              style={{ padding: "14px 28px", borderRadius: 9999, background: C.bg, color: C.heading, fontSize: 15, fontWeight: 500, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, border: `1.5px solid ${C.border}` }}
+              style={{ padding: "14px 28px", borderRadius: 9999, background: "transparent", color: C.green, fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, border: `1.5px solid ${C.green}` }}
             >
               Book a Demo
             </Link>
@@ -434,9 +439,409 @@ export default function HomePage() {
       </section>
 
       {/* ═══════════════════════════════════════
+          SECTION — FROM QUOTE TO COMPLETION (OW-style)
+      ═══════════════════════════════════════ */}
+      <section data-testid="quote-to-completion-section" style={{ background: C.warmGray, padding: "112px 28px" }}>
+        <div style={{ maxWidth: 800, margin: "0 auto" }}>
+          <div data-reveal="fade-up" style={{ marginBottom: 48 }}>
+            <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 700, color: C.heading, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 20 }}>
+              From Quote to Completion
+            </h2>
+            <p style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", lineHeight: 1.65, maxWidth: 600 }}>
+              Our all-in-one platform supports your entire customer journey. Quote fast, capture leads, book jobs, and grow — backed by automation at every stage.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div
+              data-reveal="fade-up"
+              data-testid="card-generate-estimates"
+              style={{
+                background: "#D4EDDA",
+                borderRadius: 20,
+                padding: "36px 32px",
+                minHeight: 320,
+                position: "relative",
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+              }}
+            >
+              <div>
+                <h3 style={{ fontSize: "clamp(24px, 3vw, 32px)", fontWeight: 700, color: C.heading, marginBottom: 24 }}>
+                  Generate Instant Estimates
+                </h3>
+                <div style={{
+                  background: C.bg,
+                  borderRadius: 14,
+                  padding: "20px 24px",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+                  maxWidth: 320,
+                  marginLeft: "auto",
+                }}>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 12 }}>Quote Calculator</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.heading, marginBottom: 8 }}>What service do you need?</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                    <div style={{ padding: "8px 12px", borderRadius: 8, background: "#D4EDDA", border: "2px solid #33956A", fontSize: 13, fontWeight: 600, color: C.heading, display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ width: 18, height: 18, borderRadius: 4, background: C.green, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>✓</span>
+                      Bathroom Renovation
+                    </div>
+                    <div style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, color: C.body }}>Kitchen Remodel</div>
+                    <div style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, color: C.body }}>Plumbing Repair</div>
+                  </div>
+                  <div style={{ borderTop: `1px solid ${C.borderLight}`, paddingTop: 12 }}>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Estimated Cost</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: C.heading }}>$1,240 – $1,680</div>
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
+                <Link
+                  href="/product/quickquotepro"
+                  data-testid="link-learn-more-estimates"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    padding: "10px 20px", borderRadius: 9999,
+                    background: "rgba(0,0,0,0.06)", color: C.heading,
+                    fontSize: 14, fontWeight: 600, textDecoration: "none",
+                  }}
+                >
+                  Learn more
+                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                    <Plus size={14} strokeWidth={2} />
+                  </span>
+                </Link>
+              </div>
+            </div>
+
+            <div
+              data-reveal="fade-up"
+              data-delay="100"
+              data-testid="card-capture-leads"
+              style={{
+                background: "#E0EAF0",
+                borderRadius: 20,
+                padding: "36px 32px",
+                minHeight: 200,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+              }}
+            >
+              <div>
+                <div style={{ marginBottom: 16 }}>
+                  <svg width="64" height="48" viewBox="0 0 64 48" fill="none">
+                    <polygon points="8,24 16,12 24,24" fill="#5A7C91" opacity="0.7" />
+                    <polygon points="20,24 28,12 36,24" fill="#5A7C91" opacity="0.8" />
+                    <polygon points="32,24 40,12 48,24" fill="#5A7C91" opacity="0.9" />
+                    <polygon points="8,36 16,24 24,36" fill="#5A7C91" opacity="0.5" />
+                    <polygon points="20,36 28,24 36,36" fill="#5A7C91" opacity="0.6" />
+                    <polygon points="32,36 40,24 48,36" fill="#5A7C91" opacity="0.7" />
+                  </svg>
+                </div>
+                <h3 style={{ fontSize: "clamp(22px, 3vw, 28px)", fontWeight: 700, color: C.heading }}>
+                  Capture Every Lead
+                </h3>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+                <Link
+                  href="/features/lead-capture"
+                  data-testid="link-learn-more-leads"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    padding: "10px 20px", borderRadius: 9999,
+                    background: "rgba(0,0,0,0.06)", color: C.heading,
+                    fontSize: 14, fontWeight: 600, textDecoration: "none",
+                  }}
+                >
+                  Learn more
+                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                    <Plus size={14} strokeWidth={2} />
+                  </span>
+                </Link>
+              </div>
+            </div>
+
+            <div
+              data-reveal="fade-up"
+              data-delay="200"
+              data-testid="card-book-jobs"
+              style={{
+                background: "#FDE8D0",
+                borderRadius: 20,
+                padding: "36px 32px",
+                minHeight: 200,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+              }}
+            >
+              <div>
+                <div style={{ marginBottom: 16 }}>
+                  <svg width="64" height="56" viewBox="0 0 64 56" fill="none">
+                    <circle cx="20" cy="20" r="8" fill="#D4890A" opacity="0.3" />
+                    <circle cx="36" cy="20" r="8" fill="#D4890A" opacity="0.5" />
+                    <circle cx="28" cy="12" r="8" fill="#D4890A" opacity="0.4" />
+                    <circle cx="28" cy="28" r="8" fill="#D4890A" opacity="0.6" />
+                    <circle cx="12" cy="28" r="6" fill="#D4890A" opacity="0.2" />
+                    <circle cx="44" cy="28" r="6" fill="#D4890A" opacity="0.3" />
+                  </svg>
+                </div>
+                <h3 style={{ fontSize: "clamp(22px, 3vw, 28px)", fontWeight: 700, color: C.heading }}>
+                  Book Jobs Automatically
+                </h3>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+                <Link
+                  href="/features/booking"
+                  data-testid="link-learn-more-booking"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    padding: "10px 20px", borderRadius: 9999,
+                    background: "rgba(0,0,0,0.06)", color: C.heading,
+                    fontSize: 14, fontWeight: 600, textDecoration: "none",
+                  }}
+                >
+                  Learn more
+                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                    <Plus size={14} strokeWidth={2} />
+                  </span>
+                </Link>
+              </div>
+            </div>
+
+            <div
+              data-reveal="fade-up"
+              data-delay="300"
+              data-testid="card-grow-revenue"
+              style={{
+                background: "#F5ECD7",
+                borderRadius: 20,
+                padding: "36px 32px",
+                minHeight: 200,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+              }}
+            >
+              <div>
+                <div style={{ marginBottom: 16 }}>
+                  <svg width="64" height="48" viewBox="0 0 64 48" fill="none">
+                    <circle cx="16" cy="12" r="6" fill="#C9A760" opacity="0.6" />
+                    <circle cx="32" cy="12" r="6" fill="#C9A760" opacity="0.7" />
+                    <circle cx="48" cy="12" r="6" fill="#C9A760" opacity="0.8" />
+                    <circle cx="16" cy="28" r="6" fill="#C9A760" opacity="0.5" />
+                    <circle cx="32" cy="28" r="6" fill="#C9A760" opacity="0.6" />
+                    <circle cx="48" cy="28" r="6" fill="#C9A760" opacity="0.7" />
+                    <circle cx="16" cy="44" r="6" fill="#C9A760" opacity="0.4" />
+                    <circle cx="32" cy="44" r="6" fill="#C9A760" opacity="0.5" />
+                    <circle cx="48" cy="44" r="6" fill="#C9A760" opacity="0.6" />
+                  </svg>
+                </div>
+                <h3 style={{ fontSize: "clamp(22px, 3vw, 28px)", fontWeight: 700, color: C.heading }}>
+                  Grow Your Revenue
+                </h3>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+                <Link
+                  href="/features/analytics"
+                  data-testid="link-learn-more-revenue"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    padding: "10px 20px", borderRadius: 9999,
+                    background: "rgba(0,0,0,0.06)", color: C.heading,
+                    fontSize: 14, fontWeight: 600, textDecoration: "none",
+                  }}
+                >
+                  Learn more
+                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                    <Plus size={14} strokeWidth={2} />
+                  </span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════
+          SECTION — TOOLS THAT POWER GROWTH (OW-style)
+      ═══════════════════════════════════════ */}
+      <section data-testid="tools-power-growth-section" style={{ background: C.warmGrayAlt, padding: "112px 28px" }}>
+        <div style={{ maxWidth: 800, margin: "0 auto" }}>
+          <div data-reveal="fade-up" style={{ marginBottom: 48 }}>
+            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: C.heading, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 20 }}>
+              Tools that Power Growth
+            </h2>
+            <p style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", lineHeight: 1.65, maxWidth: 600 }}>
+              From instant quoting to AI-powered follow-ups, QuickQuotePro has everything trades businesses need to win more jobs in one powerful platform.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div
+              data-reveal="fade-up"
+              data-testid="tool-card-calculator"
+              style={{
+                background: "#EFF5F2",
+                borderRadius: 20,
+                padding: "36px 32px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+              }}
+            >
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(51,149,106,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Zap size={26} color={C.green} strokeWidth={1.5} />
+              </div>
+              <h3 style={{ fontSize: 22, fontWeight: 700, color: C.heading }}>Quote Calculator</h3>
+              <p style={{ fontSize: 15, color: C.body, lineHeight: 1.65, margin: 0 }}>
+                Build custom quote calculators for any trade. Embed on your site and start converting visitors into leads instantly.
+              </p>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                <Link
+                  href="/product/quickquotepro"
+                  data-testid="link-explore-calculator"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    padding: "10px 20px", borderRadius: 9999,
+                    background: "rgba(0,0,0,0.06)", color: C.heading,
+                    fontSize: 14, fontWeight: 600, textDecoration: "none",
+                  }}
+                >
+                  Explore
+                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                    <ArrowRight size={14} strokeWidth={2} />
+                  </span>
+                </Link>
+              </div>
+            </div>
+
+            <div
+              data-reveal="fade-up"
+              data-delay="100"
+              data-testid="tool-card-ai"
+              style={{
+                background: "#F0EDF5",
+                borderRadius: 20,
+                padding: "36px 32px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+              }}
+            >
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(139,124,181,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Cpu size={26} color={C.purple} strokeWidth={1.5} />
+              </div>
+              <h3 style={{ fontSize: 22, fontWeight: 700, color: C.heading }}>AI Employee</h3>
+              <p style={{ fontSize: 15, color: C.body, lineHeight: 1.65, margin: 0 }}>
+                Your 24/7 AI assistant that chats with visitors, answers questions, generates estimates, and books jobs — even at 2am.
+              </p>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                <Link
+                  href="/product/ai-chat"
+                  data-testid="link-explore-ai"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    padding: "10px 20px", borderRadius: 9999,
+                    background: "rgba(0,0,0,0.06)", color: C.heading,
+                    fontSize: 14, fontWeight: 600, textDecoration: "none",
+                  }}
+                >
+                  Explore
+                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                    <ArrowRight size={14} strokeWidth={2} />
+                  </span>
+                </Link>
+              </div>
+            </div>
+
+            <div
+              data-reveal="fade-up"
+              data-delay="200"
+              data-testid="tool-card-booking"
+              style={{
+                background: "#E8EFF5",
+                borderRadius: 20,
+                padding: "36px 32px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+              }}
+            >
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(90,124,145,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Calendar size={26} color={C.blue} strokeWidth={1.5} />
+              </div>
+              <h3 style={{ fontSize: 22, fontWeight: 700, color: C.heading }}>Online Booking</h3>
+              <p style={{ fontSize: 15, color: C.body, lineHeight: 1.65, margin: 0 }}>
+                Let customers pick a time, pay a deposit, and confirm — all without a phone call.
+              </p>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                <Link
+                  href="/product/booking-addon"
+                  data-testid="link-explore-booking"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    padding: "10px 20px", borderRadius: 9999,
+                    background: "rgba(0,0,0,0.06)", color: C.heading,
+                    fontSize: 14, fontWeight: 600, textDecoration: "none",
+                  }}
+                >
+                  Explore
+                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                    <ArrowRight size={14} strokeWidth={2} />
+                  </span>
+                </Link>
+              </div>
+            </div>
+
+            <div
+              data-reveal="fade-up"
+              data-delay="300"
+              data-testid="tool-card-reputation"
+              style={{
+                background: "#FDF0E8",
+                borderRadius: 20,
+                padding: "36px 32px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+              }}
+            >
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(201,167,96,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Shield size={26} color="#C9A760" strokeWidth={1.5} />
+              </div>
+              <h3 style={{ fontSize: 22, fontWeight: 700, color: C.heading }}>Reputation Shield</h3>
+              <p style={{ fontSize: 15, color: C.body, lineHeight: 1.65, margin: 0 }}>
+                Automatically collect reviews, monitor your online presence, and build trust with new customers.
+              </p>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                <Link
+                  href="/product/reputationshield"
+                  data-testid="link-explore-reputation"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    padding: "10px 20px", borderRadius: 9999,
+                    background: "rgba(0,0,0,0.06)", color: C.heading,
+                    fontSize: 14, fontWeight: 600, textDecoration: "none",
+                  }}
+                >
+                  Explore
+                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                    <ArrowRight size={14} strokeWidth={2} />
+                  </span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════
           SECTION 1.5 — VISUAL FLOW DIAGRAM
       ═══════════════════════════════════════ */}
-      <section style={{ background: C.bg, padding: "80px 28px 64px", borderTop: `1px solid ${C.borderLight}` }}>
+      <section style={{ background: C.warmGray, padding: "80px 28px 64px", borderTop: `1px solid ${C.borderLight}` }}>
         <div style={{ maxWidth: 800, margin: "0 auto", textAlign: "center" }}>
           <div
             className="flow-row"
@@ -481,7 +886,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════
           SECTION 2 — TICKER
       ═══════════════════════════════════════ */}
-      <div style={{ background: C.bgGrayAlt, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "20px 0", overflow: "hidden" }}>
+      <div style={{ background: C.warmGrayAlt, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "20px 0", overflow: "hidden" }}>
         <div className="mkt-ticker-track">
           {TICKER_ITEMS.map((item, i) => (
             <span key={i} style={{ fontSize: 13, fontWeight: 600, color: C.muted, padding: "0 36px", whiteSpace: "nowrap", flexShrink: 0 }}>
@@ -494,7 +899,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════
           SECTION 3 — FEATURE CARDS GRID
       ═══════════════════════════════════════ */}
-      <section data-testid="features-section" style={{ background: C.bg, padding: "112px 28px" }}>
+      <section data-testid="features-section" style={{ background: C.warmGray, padding: "112px 28px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
             <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
@@ -516,7 +921,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════
           SECTION 4 — HOW IT WORKS
       ═══════════════════════════════════════ */}
-      <section data-testid="how-it-works-section" style={{ background: C.bgGray, padding: "112px 28px" }}>
+      <section data-testid="how-it-works-section" style={{ background: C.warmGrayAlt, padding: "112px 28px" }}>
         <div style={{ maxWidth: 960, margin: "0 auto", textAlign: "center" }}>
           <div data-reveal="fade-up">
             <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
@@ -550,7 +955,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════
           SECTION 5 — SOCIAL PROOF
       ═══════════════════════════════════════ */}
-      <section style={{ background: C.bg, padding: "112px 28px" }}>
+      <section style={{ background: C.warmGray, padding: "112px 28px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
             <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 12 }}>
@@ -586,7 +991,7 @@ export default function HomePage() {
       ═══════════════════════════════════════ */}
 
       {/* Block A — AI Employee */}
-      <section data-testid="feature-section-ai" style={{ background: C.bgGray, padding: "112px 28px" }}>
+      <section data-testid="feature-section-ai" style={{ background: C.warmGrayAlt, padding: "112px 28px" }}>
         <div className="alt-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
           {/* Text LEFT */}
           <div data-reveal="fade-left">
@@ -603,7 +1008,7 @@ export default function HomePage() {
                 <span style={{ fontSize: 15, color: C.body, fontWeight: 500 }}>{b}</span>
               </div>
             ))}
-            <Link href="/product" className="mkt-arrow-link" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 600, color: C.sage, textDecoration: "none" }}>
+            <Link href="/product" className="mkt-arrow-link" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 600, color: C.green, textDecoration: "none" }}>
               See AI Employee <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
           </div>
@@ -615,7 +1020,7 @@ export default function HomePage() {
       </section>
 
       {/* Block B — Booking */}
-      <section data-testid="feature-section-booking" style={{ background: C.bg, padding: "112px 28px" }}>
+      <section data-testid="feature-section-booking" style={{ background: C.warmGray, padding: "112px 28px" }}>
         <div className="alt-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
           {/* Mockup LEFT */}
           <div data-reveal="fade-right" style={{ display: "flex", justifyContent: "center" }}>
@@ -644,7 +1049,7 @@ export default function HomePage() {
       </section>
 
       {/* Block C — Templates */}
-      <section data-testid="feature-section-templates" style={{ background: C.bgGray, padding: "112px 28px" }}>
+      <section data-testid="feature-section-templates" style={{ background: C.warmGrayAlt, padding: "112px 28px" }}>
         <div className="alt-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
           {/* Text LEFT */}
           <div data-reveal="fade-left">
@@ -727,7 +1132,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════
           SECTION 8 — SERVICES TEASE
       ═══════════════════════════════════════ */}
-      <section data-testid="services-tease-section" style={{ background: C.bgGray, padding: "112px 28px" }}>
+      <section data-testid="services-tease-section" style={{ background: C.warmGrayAlt, padding: "112px 28px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
             <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Growth Services</div>
@@ -759,7 +1164,7 @@ export default function HomePage() {
           <div style={{ textAlign: "center" }}>
             <Link
               href="/services"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 9999, background: C.sageTint, color: C.sage, fontSize: 15, fontWeight: 600, textDecoration: "none", border: `1.5px solid ${C.sage}33` }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 9999, background: "rgba(51,149,106,0.08)", color: C.green, fontSize: 15, fontWeight: 600, textDecoration: "none", border: `1.5px solid ${C.green}33` }}
             >
               Explore All Services <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
@@ -772,7 +1177,7 @@ export default function HomePage() {
       ═══════════════════════════════════════ */}
       <section
         data-testid="cta-band"
-        style={{ background: `linear-gradient(135deg, ${C.sage} 0%, ${C.sageDark} 100%)`, padding: "136px 28px", textAlign: "center" }}
+        style={{ background: `linear-gradient(135deg, ${C.green} 0%, ${C.greenDark} 100%)`, padding: "136px 28px", textAlign: "center" }}
       >
         <div style={{ maxWidth: 680, margin: "0 auto" }} data-reveal="scale">
           <h2 style={{ fontSize: "clamp(32px, 4vw, 52px)", fontWeight: 700, color: "#FFFFFF", letterSpacing: "-0.025em", marginBottom: 18, lineHeight: 1.1 }}>
@@ -786,7 +1191,7 @@ export default function HomePage() {
               href="/Wizard"
               data-testid="button-start-free-cta"
               className="mkt-btn-primary"
-              style={{ display: "inline-block", padding: "15px 36px", borderRadius: 9999, background: "#FFFFFF", color: C.sage, fontSize: 16, fontWeight: 700, textDecoration: "none" }}
+              style={{ display: "inline-block", padding: "15px 36px", borderRadius: 9999, background: "#FFFFFF", color: C.green, fontSize: 16, fontWeight: 700, textDecoration: "none" }}
             >
               Start Free
             </Link>
