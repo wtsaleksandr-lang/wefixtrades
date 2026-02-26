@@ -323,7 +323,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             padding: "0 24px",
             transition: "box-shadow 0.25s ease",
           }}
-        >
+          className="bg-[#ebebeb]">
           <AnimatedLogo />
 
           {!isMobile && (
@@ -409,7 +409,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </nav>
-
       {isMobile && (
         <div
           data-testid="nav-mobile-menu"
@@ -461,11 +460,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       )}
-
       <div style={{ height: 68, flexShrink: 0 }} />
-
       <main style={{ flex: 1 }}>{children}</main>
-
       <footer data-testid="footer-marketing" style={{ background: "#1A1A1A", color: "#FFFFFF" }}>
         <div
           style={{
