@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { MapPin, TrendingUp, Globe, Star, Share2 } from "lucide-react";
+import voiceAssistantIcon from "@assets/voice-assistant-icon_1772080241394.png";
+import chatAssistantIcon from "@assets/chat-assistant-icon_1772080241379.png";
+import webboostIcon from "@assets/webboost-icon_1772080241365.png";
+import webcareIcon from "@assets/webcare-icon_1772080241410.png";
+import mapguardIcon from "@assets/mapguard-icon_1772080241423.png";
+import calendarIcon from "@assets/calendar-icon_1772080241291.png";
+import sitelaunchIcon from "@assets/sitelaunch-icon_1772080241325.png";
+import quickquoteIcon from "@assets/quickquote-icon_1772080241349.png";
+import socialsyncIcon from "@assets/socialsync-icon_1772080241338.png";
+import reputationshieldIcon from "@assets/reputationshield-icon_1772080241309.png";
 
 export default function ServicesPage() {
   useEffect(() => {
@@ -22,7 +31,6 @@ export default function ServicesPage() {
       });
       setSubmitted(true);
     } catch {
-      // ignore
     } finally {
       setSubmitting(false);
     }
@@ -68,13 +76,19 @@ export default function ServicesPage() {
       gap: 16,
     },
     iconWrap: {
-      width: 48,
-      height: 48,
-      borderRadius: 12,
+      width: 64,
+      height: 64,
+      borderRadius: 14,
       background: "#F0F7F4",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
+      overflow: "hidden" as const,
+    },
+    serviceIcon: {
+      width: 48,
+      height: 48,
+      objectFit: "contain" as const,
     },
     serviceTitle: {
       fontSize: 18,
@@ -203,49 +217,94 @@ export default function ServicesPage() {
 
   const services = [
     {
-      id: "gmb",
-      icon: <MapPin size={24} color="#4A7C6F" strokeWidth={1.5} />,
-      title: "Google Maps Optimization",
-      desc: "Get found by local customers searching for your trade. GMB optimisation, citations, review strategy.",
-      from: "From $299/mo",
-      testid: "service-gmb",
-      btnTestid: "button-request-info-gmb",
+      id: "voice-assistant",
+      img: voiceAssistantIcon,
+      title: "24/7 Lead Assistant Voice",
+      desc: "AI-powered voice assistant that answers calls, qualifies leads, and books jobs around the clock.",
+      from: "From $199/mo",
+      testid: "service-voice-assistant",
+      btnTestid: "button-request-info-voice-assistant",
+    },
+    {
+      id: "chat-assistant",
+      img: chatAssistantIcon,
+      title: "24/7 Lead Assistant Chat",
+      desc: "AI chat employee on your website that engages visitors, answers questions, and captures leads 24/7.",
+      from: "From $149/mo",
+      testid: "service-chat-assistant",
+      btnTestid: "button-request-info-chat-assistant",
     },
     {
       id: "seo",
-      icon: <TrendingUp size={24} color="#4A7C6F" strokeWidth={1.5} />,
-      title: "Website SEO + Speed",
-      desc: "Rank higher on Google. Fast-loading, optimised pages that convert visitors.",
+      img: webboostIcon,
+      title: "WebBoost",
+      desc: "Website SEO and speed optimization. Rank higher on Google with fast-loading, optimised pages that convert visitors.",
       from: "From $199/mo",
       testid: "service-seo",
       btnTestid: "button-request-info-seo",
     },
     {
+      id: "webcare",
+      img: webcareIcon,
+      title: "WebCare",
+      desc: "Website and Google Maps account maintenance. Keep your online presence updated, secure, and performing.",
+      from: "From $99/mo",
+      testid: "service-webcare",
+      btnTestid: "button-request-info-webcare",
+    },
+    {
+      id: "gmb",
+      img: mapguardIcon,
+      title: "MapGuard",
+      desc: "Google Maps GBP optimization. Get found by local customers searching for your trade with citations and review strategy.",
+      from: "From $299/mo",
+      testid: "service-gmb",
+      btnTestid: "button-request-info-gmb",
+    },
+    {
+      id: "booking",
+      img: calendarIcon,
+      title: "Booking & Calendar Integration",
+      desc: "Seamless booking and calendar add-on. Let customers schedule jobs directly from your website or calculator.",
+      from: "Add-on",
+      testid: "service-booking",
+      btnTestid: "button-request-info-booking",
+    },
+    {
       id: "website",
-      icon: <Globe size={24} color="#4A7C6F" strokeWidth={1.5} />,
-      title: "Website Build",
-      desc: "Professional trade website with your QuickQuote calculator built in. Done in 5 days.",
+      img: sitelaunchIcon,
+      title: "SiteLaunch",
+      desc: "Professional trade website built from scratch with your QuickQuote calculator built in. Done in 5 days.",
       from: "From $1,499 one-time",
       testid: "service-website",
       btnTestid: "button-request-info-website",
     },
     {
-      id: "reputation",
-      icon: <Star size={24} color="#4A7C6F" strokeWidth={1.5} />,
-      title: "Reputation Management",
-      desc: "Automated review requests, response templates, reputation monitoring.",
-      from: "From $149/mo",
-      testid: "service-reputation",
-      btnTestid: "button-request-info-reputation",
+      id: "quickquote",
+      img: quickquoteIcon,
+      title: "QuickQuotePro",
+      desc: "Instant quote calculator for your website. Give visitors real-time estimates and capture more leads.",
+      from: "Free plan available",
+      testid: "service-quickquote",
+      btnTestid: "button-request-info-quickquote",
     },
     {
       id: "social",
-      icon: <Share2 size={24} color="#4A7C6F" strokeWidth={1.5} />,
-      title: "Social Media Automation",
-      desc: "Consistent posting, branded content, lead-gen campaigns on Facebook/Instagram.",
+      img: socialsyncIcon,
+      title: "SocialSync",
+      desc: "Social media management and automation. Consistent posting, branded content, lead-gen campaigns on Facebook/Instagram.",
       from: "From $249/mo",
       testid: "service-social",
       btnTestid: "button-request-info-social",
+    },
+    {
+      id: "reputation",
+      img: reputationshieldIcon,
+      title: "ReputationShield",
+      desc: "Review and reputation management. Automated review requests, response templates, and reputation monitoring.",
+      from: "From $149/mo",
+      testid: "service-reputation",
+      btnTestid: "button-request-info-reputation",
     },
   ];
 
@@ -261,7 +320,9 @@ export default function ServicesPage() {
           <div style={s.servicesGrid}>
             {services.map(svc => (
               <div key={svc.id} style={s.serviceCard} data-testid={svc.testid}>
-                <div style={s.iconWrap}>{svc.icon}</div>
+                <div style={s.iconWrap}>
+                  <img src={svc.img} alt={svc.title} style={s.serviceIcon} />
+                </div>
                 <h3 style={s.serviceTitle}>{svc.title}</h3>
                 <p style={s.serviceDesc}>{svc.desc}</p>
                 <span style={s.serviceFrom}>{svc.from}</span>
@@ -321,11 +382,16 @@ export default function ServicesPage() {
                     data-testid="select-services-interest"
                   >
                     <option value="">Select a service...</option>
-                    <option value="gmb">Google Maps Optimization</option>
-                    <option value="seo">Website SEO + Speed</option>
-                    <option value="website">Website Build</option>
-                    <option value="reputation">Reputation Management</option>
-                    <option value="social">Social Media Automation</option>
+                    <option value="voice-assistant">24/7 Lead Assistant Voice</option>
+                    <option value="chat-assistant">24/7 Lead Assistant Chat</option>
+                    <option value="seo">WebBoost (SEO + Speed)</option>
+                    <option value="webcare">WebCare (Maintenance)</option>
+                    <option value="gmb">MapGuard (Google Maps)</option>
+                    <option value="booking">Booking & Calendar Integration</option>
+                    <option value="website">SiteLaunch (Website Build)</option>
+                    <option value="quickquote">QuickQuotePro (Calculator)</option>
+                    <option value="social">SocialSync (Social Media)</option>
+                    <option value="reputation">ReputationShield (Reviews)</option>
                     <option value="bundle">Growth Bundle / Autopilot</option>
                   </select>
                 </div>
