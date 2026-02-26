@@ -7,7 +7,7 @@ import { useScrollReveal } from "@/hooks/useScrollReveal";
 /* ─── Design tokens ─────────────────────────────── */
 export const C = {
   navy: "#0B1F3A",
-  sage: "#2D6A4F",
+  sage: "#4A7C6F",
   sageDark: "#1B4332",
   sageLight: "#40916C",
   sageTint: "#F0F7F4",
@@ -213,8 +213,8 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
                 data-testid="feature-headline"
                 style={{
                   fontSize: "clamp(32px, 3.8vw, 54px)",
-                  fontWeight: 800, color: "#FFFFFF",
-                  lineHeight: 1.1, letterSpacing: "-0.03em", marginBottom: 22,
+                  fontWeight: 700, color: "#FFFFFF",
+                  lineHeight: 1.1, letterSpacing: "-0.035em", marginBottom: 22,
                 }}
               >
                 {renderHeadline()}
@@ -302,7 +302,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
                 <div style={{ fontSize: 11, fontWeight: 700, color: demo.bulletColor, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                   {demo.label}
                 </div>
-                <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 16, lineHeight: 1.15 }}>
+                <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 16, lineHeight: 1.15 }}>
                   {demo.title}
                 </h2>
                 <p style={{ fontSize: 16, color: C.body, lineHeight: 1.7, marginBottom: 28 }}>
@@ -339,7 +339,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
               <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 Key Benefits
               </div>
-              <h2 style={{ fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em" }}>
+              <h2 style={{ fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em" }}>
                 Why it makes a difference
               </h2>
             </div>
@@ -387,7 +387,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
               <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 How It Works
               </div>
-              <h2 style={{ fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em" }}>
+              <h2 style={{ fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em" }}>
                 Simple from day one
               </h2>
             </div>
@@ -452,7 +452,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
               <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 FAQ
               </div>
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em" }}>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em" }}>
                 Common questions
               </h2>
             </div>
@@ -474,7 +474,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
           }}
         >
           <div style={{ maxWidth: 600, margin: "0 auto" }} data-reveal="scale">
-            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 46px)", fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em", marginBottom: 16, lineHeight: 1.1 }}>
+            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 46px)", fontWeight: 700, color: "#FFFFFF", letterSpacing: "-0.025em", marginBottom: 16, lineHeight: 1.1 }}>
               {cta.headline}
             </h2>
             <p style={{ fontSize: 17, color: "rgba(255,255,255,0.68)", lineHeight: 1.65, marginBottom: 40, maxWidth: 460, margin: "0 auto 40px" }}>
@@ -486,8 +486,8 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
                 data-testid="feature-cta-bottom"
                 className="mkt-btn-primary"
                 style={{
-                  display: "inline-block", padding: "14px 34px", borderRadius: 10,
-                  background: "#FFFFFF", color: C.sage, fontSize: 16, fontWeight: 800, textDecoration: "none",
+                  display: "inline-block", padding: "14px 34px", borderRadius: 9999,
+                  background: "#FFFFFF", color: C.sage, fontSize: 16, fontWeight: 700, textDecoration: "none",
                 }}
               >
                 Start Free
@@ -496,7 +496,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
                 href="/contact"
                 className="mkt-btn-ghost"
                 style={{
-                  display: "inline-block", padding: "14px 28px", borderRadius: 10,
+                  display: "inline-block", padding: "14px 28px", borderRadius: 9999,
                   background: "transparent", color: "#FFFFFF", fontSize: 15, fontWeight: 600,
                   textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.38)",
                 }}

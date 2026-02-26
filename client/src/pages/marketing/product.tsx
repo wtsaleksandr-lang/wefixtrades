@@ -10,7 +10,7 @@ import {
 const C = {
   navy: "#0B1F3A",
   navyLight: "#132D4F",
-  sage: "#2D6A4F",
+  sage: "#4A7C6F",
   sageDark: "#1B4332",
   sageLight: "#40916C",
   sageTint: "#F0F7F4",
@@ -438,10 +438,10 @@ export default function ProductPage() {
                 data-testid="product-headline"
                 style={{
                   fontSize: "clamp(34px, 4vw, 56px)",
-                  fontWeight: 800,
+                  fontWeight: 700,
                   color: "#FFFFFF",
                   lineHeight: 1.1,
-                  letterSpacing: "-0.03em",
+                  letterSpacing: "-0.035em",
                   marginBottom: 22,
                 }}
               >
@@ -564,7 +564,7 @@ export default function ProductPage() {
               <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 Core Platform
               </div>
-              <h2 style={{ fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 14 }}>
+              <h2 style={{ fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 14 }}>
                 Four engines. One platform. Zero friction.
               </h2>
               <p style={{ fontSize: 17, color: C.muted, maxWidth: 520, margin: "0 auto" }}>
@@ -605,7 +605,7 @@ export default function ProductPage() {
               <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 The Automation Flow
               </div>
-              <h2 style={{ fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 14 }}>
+              <h2 style={{ fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 14 }}>
                 How every visitor becomes a confirmed job
               </h2>
               <p style={{ fontSize: 16, color: C.muted, maxWidth: 480, margin: "0 auto" }}>
@@ -640,7 +640,7 @@ export default function ProductPage() {
                         left: "calc(50% + 32px)",
                         right: "calc(-50% + 32px)",
                         height: 2,
-                        background: `linear-gradient(90deg, ${color}, ${FLOW_STEPS[i + 1].color})`,
+                        background: C.border,
                         opacity: 0.25,
                         zIndex: 0,
                       }} />
@@ -731,7 +731,7 @@ export default function ProductPage() {
                   <div style={{ fontSize: 11, fontWeight: 700, color: labelColor, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                     {label}
                   </div>
-                  <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 800, color: C.heading, letterSpacing: "-0.02em", marginBottom: 16, lineHeight: 1.15 }}>
+                  <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 16, lineHeight: 1.15 }}>
                     {title}
                   </h2>
                   <p style={{ fontSize: 16, color: C.body, lineHeight: 1.7, marginBottom: 28 }}>
@@ -782,7 +782,7 @@ export default function ProductPage() {
           }}
         >
           <div style={{ maxWidth: 640, margin: "0 auto" }} data-reveal="scale">
-            <h2 style={{ fontSize: "clamp(30px, 4vw, 48px)", fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em", marginBottom: 16, lineHeight: 1.1 }}>
+            <h2 style={{ fontSize: "clamp(30px, 4vw, 48px)", fontWeight: 700, color: "#FFFFFF", letterSpacing: "-0.025em", marginBottom: 16, lineHeight: 1.1 }}>
               Ready To Automate Your Sales Process?
             </h2>
             <p style={{ fontSize: 18, color: "rgba(255,255,255,0.7)", lineHeight: 1.65, marginBottom: 44, maxWidth: 480, margin: "0 auto 44px" }}>
@@ -794,8 +794,8 @@ export default function ProductPage() {
                 data-testid="product-cta-start-bottom"
                 className="mkt-btn-primary"
                 style={{
-                  display: "inline-block", padding: "15px 36px", borderRadius: 10,
-                  background: "#FFFFFF", color: C.sage, fontSize: 16, fontWeight: 800, textDecoration: "none",
+                  display: "inline-block", padding: "15px 36px", borderRadius: 9999,
+                  background: "#FFFFFF", color: C.sage, fontSize: 16, fontWeight: 700, textDecoration: "none",
                 }}
               >
                 Start Free
@@ -804,7 +804,7 @@ export default function ProductPage() {
                 href="/contact"
                 className="mkt-btn-ghost"
                 style={{
-                  display: "inline-block", padding: "15px 32px", borderRadius: 10,
+                  display: "inline-block", padding: "15px 32px", borderRadius: 9999,
                   background: "transparent", color: "#FFFFFF", fontSize: 16, fontWeight: 600,
                   textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.38)",
                 }}

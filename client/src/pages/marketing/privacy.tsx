@@ -7,7 +7,7 @@ const p = {
     heading: "#111827",
     body: "#374151",
     muted: "#6B7280",
-    accent: "#2D6A4F",
+    accent: "#4A7C6F",
     pageBg: "#F7F8FA",
     surface: "#FFFFFF",
     border: "#E5E7EB",

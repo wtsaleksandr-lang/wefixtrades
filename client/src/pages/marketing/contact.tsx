@@ -6,7 +6,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 const p = {
   colors: {
-    accent: "#2D6A4F",
+    accent: "#4A7C6F",
     accentDark: "#1B4332",
     navy: "#0B1F3A",
     pageBg: "#F7F8FA",

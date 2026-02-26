@@ -44,7 +44,7 @@
   --chart-4: 210 40% 50%;
   --chart-5: 340 75% 55%;
 
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Instrument Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: .625rem;
@@ -379,15 +379,16 @@
 
 [data-reveal] {
   opacity: 0;
-  transition: opacity 0.65s cubic-bezier(0.4,0,0.2,1), transform 0.65s cubic-bezier(0.4,0,0.2,1);
+  transition: opacity 0.6s cubic-bezier(0.4,0,0.2,1), transform 0.6s cubic-bezier(0.4,0,0.2,1);
 }
-[data-reveal="fade-up"] { transform: translateY(36px); }
-[data-reveal="fade-left"] { transform: translateX(-44px); }
-[data-reveal="fade-right"] { transform: translateX(44px); }
-[data-reveal="scale"] { transform: scale(0.93); }
+[data-reveal="fade-up"] { transform: translateY(10px); }
+[data-reveal="fade-left"] { transform: translateX(-10px); }
+[data-reveal="fade-right"] { transform: translateX(10px); }
+[data-reveal="scale"] { transform: scale(0.98); }
 [data-reveal].is-visible { opacity: 1 !important; transform: none !important; }
 
 [data-delay="100"] { transition-delay: 0.1s; }
+[data-delay="120"] { transition-delay: 0.12s; }
 [data-delay="150"] { transition-delay: 0.15s; }
 [data-delay="200"] { transition-delay: 0.2s; }
 [data-delay="250"] { transition-delay: 0.25s; }
@@ -398,36 +399,97 @@
 
 /* Marketing navbar transitions */
 .mkt-nav {
-  transition: border-color 0.2s ease;
+  transition: border-radius 0.15s ease-out, box-shadow 0.25s ease, border-color 0.2s ease;
 }
 
-/* CTA button hover lift */
+/* Global marketing interactive baseline */
+.mkt-layout a,
+.mkt-layout button {
+  transition: color 0.2s ease, background 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* CTA button hover lift — pill shape */
 .mkt-btn-primary {
-  transition: all 0.22s cubic-bezier(0.4,0,0.2,1);
+  border-radius: 9999px !important;
+  transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
   cursor: pointer;
 }
 .mkt-btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(74,124,111,0.18) !important;
+  transform: scale(1.02);
+  box-shadow: 0 6px 20px rgba(74,124,111,0.22) !important;
 }
-.mkt-btn-primary:active { transform: translateY(0); }
+.mkt-btn-primary:active { transform: scale(0.98); }
+
+/* Secondary outline button — OW style */
+.mkt-btn-secondary {
+  border-radius: 9999px !important;
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.08);
+  transition: all 0.22s ease;
+  cursor: pointer;
+}
+.mkt-btn-secondary:hover {
+  background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.14);
+}
 
 .mkt-btn-ghost {
+  border-radius: 9999px !important;
   transition: all 0.22s ease;
   cursor: pointer;
 }
 .mkt-btn-ghost:hover { background: #F7F7F6 !important; }
 
-/* Feature card micro-elevation */
+/* Feature card micro-elevation with glow */
 .mkt-feature-card {
-  transition: transform 0.28s cubic-bezier(0.4,0,0.2,1),
-              box-shadow 0.28s cubic-bezier(0.4,0,0.2,1);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.35s cubic-bezier(0.4,0,0.2,1),
+              box-shadow 0.35s cubic-bezier(0.4,0,0.2,1),
+              border-color 0.35s ease;
   cursor: default;
+}
+.mkt-feature-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 0%, var(--card-glow, rgba(74,124,111,0.08)), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+  z-index: 0;
 }
 .mkt-feature-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 10px 30px rgba(0,0,0,0.06) !important;
+  border-color: rgba(0,0,0,0.1) !important;
 }
+.mkt-feature-card:hover::before { opacity: 1; }
+.mkt-feature-card > * { position: relative; z-index: 1; }
+
+/* Tile cards — OW elevated tile pattern */
+.mkt-tile {
+  position: relative;
+  border-radius: 16px;
+  border: 1px solid rgba(0,0,0,0.06);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  overflow: hidden;
+}
+.mkt-tile:hover {
+  border-color: rgba(0,0,0,0.12);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  transform: translateY(-2px);
+}
+
+/* Arrow link hover slide */
+.mkt-arrow-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: gap 0.2s ease;
+}
+.mkt-arrow-link:hover { gap: 10px; }
 
 /* Hero mockup float */
 @keyframes mktFloat {
@@ -465,11 +527,12 @@
 
 /* Pricing tier card hover */
 .mkt-tier-card {
-  transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
 }
 .mkt-tier-card:hover {
   transform: translateY(-2px);
   background: rgba(255,255,255,0.06) !important;
+  border-color: rgba(255,255,255,0.2) !important;
 }
 
 /* Flow diagram line pulse */
