@@ -358,7 +358,6 @@ export default function HomePage() {
   return (
     <MarketingLayout>
       <style>{RESPONSIVE_CSS}</style>
-
       {/* ═══════════════════════════════════════
           SECTION 1 — HERO (full viewport)
       ═══════════════════════════════════════ */}
@@ -382,7 +381,7 @@ export default function HomePage() {
           >
             One System.{" "}
             More{" "}
-            <span style={{ color: C.sage }}>Jobs</span>.{" "}
+            <span style={{ color: C.sage }} className="text-[#33956a]">Jobs</span>.{" "}
             Zero Extra Work.
           </h1>
 
@@ -437,7 +436,6 @@ export default function HomePage() {
           <ChevronDown size={18} color={C.textFaint} strokeWidth={1.5} className="mkt-scroll-cue" />
         </div>
       </section>
-
       {/* ═══════════════════════════════════════
           SECTION — FROM QUOTE TO COMPLETION (OW-style)
       ═══════════════════════════════════════ */}
@@ -664,7 +662,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       {/* ═══════════════════════════════════════
           SECTION — TOOLS THAT POWER GROWTH (OW-style)
       ═══════════════════════════════════════ */}
@@ -837,7 +834,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       {/* ═══════════════════════════════════════
           SECTION 1.5 — VISUAL FLOW DIAGRAM
       ═══════════════════════════════════════ */}
@@ -882,7 +878,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       {/* ═══════════════════════════════════════
           SECTION 2 — TICKER
       ═══════════════════════════════════════ */}
@@ -895,7 +890,6 @@ export default function HomePage() {
           ))}
         </div>
       </div>
-
       {/* ═══════════════════════════════════════
           SECTION 3 — FEATURE CARDS GRID
       ═══════════════════════════════════════ */}
@@ -917,7 +911,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       {/* ═══════════════════════════════════════
           SECTION 4 — HOW IT WORKS
       ═══════════════════════════════════════ */}
@@ -951,7 +944,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       {/* ═══════════════════════════════════════
           SECTION 5 — SOCIAL PROOF
       ═══════════════════════════════════════ */}
@@ -985,11 +977,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       {/* ═══════════════════════════════════════
           SECTION 6 — FEATURE BREAKDOWN (Alternating)
       ═══════════════════════════════════════ */}
-
       {/* Block A — AI Employee */}
       <section data-testid="feature-section-ai" style={{ background: C.warmGrayAlt, padding: "112px 28px" }}>
         <div className="alt-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
@@ -1018,7 +1008,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       {/* Block B — Booking */}
       <section data-testid="feature-section-booking" style={{ background: C.warmGray, padding: "112px 28px" }}>
         <div className="alt-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
@@ -1047,7 +1036,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       {/* Block C — Templates */}
       <section data-testid="feature-section-templates" style={{ background: C.warmGrayAlt, padding: "112px 28px" }}>
         <div className="alt-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
@@ -1076,7 +1064,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       {/* ═══════════════════════════════════════
           SECTION 7 — PRICING TEASER
       ═══════════════════════════════════════ */}
@@ -1128,7 +1115,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       {/* ═══════════════════════════════════════
           SECTION 8 — SERVICES TEASE
       ═══════════════════════════════════════ */}
@@ -1171,7 +1157,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       {/* ═══════════════════════════════════════
           SECTION 9 — BIG CTA
       ═══════════════════════════════════════ */}
