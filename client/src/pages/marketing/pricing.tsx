@@ -7,6 +7,19 @@ import { PRODUCTS, YEARLY_DISCOUNT_PCT, getYearlyPrice, getYearlyMonthlyEquivale
 import { fetchFxRate, getFallbackRate, convert, formatMoney } from "@/lib/fx";
 import { FAQS } from "@/config/pricingPlans";
 
+const PRICING_TO_PRODUCT_SLUG: Record<string, string> = {
+  "quickquotepro": "quickquotepro",
+  "booking": "booking-addon",
+  "ai-chat": "ai-chat",
+  "ai-voice": "ai-voice",
+  "webboost": "webboost",
+  "webcare": "webcare",
+  "mapguard": "mapguard",
+  "socialsync": "socialsync",
+  "reputationshield": "reputationshield",
+  "sitelaunch": "sitelaunch",
+};
+
 const C = {
   navy: "#0B1F3A",
   sage: "#4A7C6F",
@@ -409,6 +422,14 @@ export default function PricingPage() {
                             </li>
                           ))}
                         </ul>
+
+                        <Link
+                          href={`/product/${PRICING_TO_PRODUCT_SLUG[product.id] || product.id}`}
+                          data-testid={`pricing-learn-more-${product.id}`}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: C.sage, textDecoration: "none", marginTop: 16 }}
+                        >
+                          Learn more <ArrowRight size={13} />
+                        </Link>
                       </div>
                     );
                   })}

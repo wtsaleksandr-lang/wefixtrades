@@ -57,7 +57,7 @@ export default function BundlesPage() {
       letterSpacing: "0.08em",
       textTransform: "uppercase" as const,
       padding: "4px 12px",
-      borderRadius: 999,
+      borderRadius: 9999,
       marginBottom: 20,
     },
     bundleName: {
@@ -87,7 +87,7 @@ export default function BundlesPage() {
       fontSize: 13,
       fontWeight: 700,
       padding: "4px 12px",
-      borderRadius: 999,
+      borderRadius: 9999,
       marginBottom: 24,
     },
     divider: {

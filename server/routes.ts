@@ -110,6 +110,10 @@ export async function registerRoutes(
     "/features/sms", "/features/calculator-engine",
     "/docs/embed", "/docs/domain", "/docs/booking", "/docs/ai",
     "/docs/webhooks", "/docs/troubleshooting",
+    "/product/quickquotepro", "/product/booking-addon", "/product/ai-chat",
+    "/product/ai-voice", "/product/mapguard", "/product/webboost",
+    "/product/webcare", "/product/sitelaunch", "/product/socialsync",
+    "/product/reputationshield",
   ];
 
   app.get("/robots.txt", (_req, res) => {

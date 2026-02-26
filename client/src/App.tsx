@@ -12,6 +12,8 @@ import Dashboard from "@/pages/dashboard";
 import MarketingHome from "@/pages/marketing/home";
 import MarketingProduct from "@/pages/marketing/product";
 import MarketingPricing from "@/pages/marketing/pricing";
+import ProductIndex from "@/pages/product/ProductIndex";
+import ProductPage from "@/pages/product/ProductPage";
 import MarketingServices from "@/pages/marketing/services";
 import MarketingBundles from "@/pages/marketing/bundles";
 import MarketingTemplates from "@/pages/marketing/templates";
@@ -37,7 +39,9 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={MarketingHome} />
-      <Route path="/product" component={MarketingProduct} />
+      <Route path="/product/:slug" component={ProductPage} />
+      <Route path="/product" component={ProductIndex} />
+      <Route path="/platform" component={MarketingProduct} />
       <Route path="/pricing" component={MarketingPricing} />
       <Route path="/services" component={MarketingServices} />
       <Route path="/bundles" component={MarketingBundles} />
