@@ -1,14 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
-import TypingReplace from "@/components/marketing/TypingReplace";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
 import {
-  Zap, Calendar, Cpu, MessageCircle, Check,
+  Zap, Cpu, MessageCircle, Check,
   ArrowRight, Shield, Star, Clock, Sparkles,
-  Phone, MapPin, ThumbsUp, Globe, Mail, Wrench, Briefcase,
-  Target, PhoneOff, Timer, Award, Hammer,
+  Phone, ThumbsUp, Mail, Target,
 } from "lucide-react";
 
 const C = {
@@ -47,8 +45,6 @@ const SHADOW = {
   card:  "0 1px 3px rgba(0,0,0,0.03), 0 4px 12px rgba(0,0,0,0.04)",
   hero:  "0 16px 48px rgba(0,0,0,0.08)",
 };
-
-const TYPING_WORDS = ["Plumbers", "Roofers", "Electricians", "Cleaners", "HVAC Pros"];
 
 const TOOLS = [
   {
@@ -120,208 +116,32 @@ const PRICING_TIERS = [
   { name: "PRO",     price: "$199", label: "Most popular",           features: ["3 calculators", "24/7 Assistant", "SMS & WhatsApp"],   border: C.sage,                   badge: "Most Popular", badgeBg: C.sage },
 ];
 
-const FLOW_SERVICES = [
-  { label: "Instant Quotes", icon: Zap, color: "#33956A", tip: "Visitors get a price in seconds" },
-  { label: "24/7 Answering", icon: Phone, color: "#5A7C91", tip: "Never miss a call or message" },
-  { label: "Google Maps", icon: MapPin, color: "#C9A760", tip: "Show up when locals search" },
-  { label: "Review Boost", icon: ThumbsUp, color: "#8B7CB5", tip: "Collect 5-star reviews on autopilot" },
-  { label: "Follow-ups", icon: Mail, color: "#5A7C91", tip: "Auto reminders that convert quotes to jobs" },
-  { label: "WebCare", icon: Globe, color: "#C9A760", tip: "Keep your site fast and secure" },
+const HERO_PILLS = [
+  { icon: Zap, label: "Instant Estimates" },
+  { icon: Phone, label: "24/7 Call & Chat Answering" },
+  { icon: Mail, label: "Automatic Follow-ups" },
+  { icon: ThumbsUp, label: "Review Boost" },
 ];
-
-const FLOW_OUTCOMES = [
-  { label: "More booked jobs", icon: Target, color: "#33956A", tip: "Turn more quotes into paying work" },
-  { label: "Missed calls recovered", icon: PhoneOff, color: "#5A7C91", tip: "Capture every enquiry automatically" },
-  { label: "Faster estimates", icon: Timer, color: "#C9A760", tip: "Quotes delivered in seconds, not hours" },
-  { label: "More 5-star reviews", icon: Award, color: "#8B7CB5", tip: "Build trust with happy customer reviews" },
-  { label: "You focus on the work", icon: Hammer, color: "#33956A", tip: "Less admin, more time on the tools" },
-];
-
-const FLOW = { cardW: 220, cardH: 48, gap: 12, connW: 56, centerR: 60 };
-
-function FlowNode({ label, tip, icon: Icon, color }: { label: string; tip: string; icon: typeof Zap; color: string }) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <div
-      className="flow-node"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: "flex", alignItems: "center", gap: 10,
-        background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12,
-        padding: "0 16px",
-        width: FLOW.cardW, height: FLOW.cardH,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-        position: "relative", cursor: "default", boxSizing: "border-box",
-      }}
-    >
-      <div style={{ width: 30, height: 30, borderRadius: 8, background: `${color}14`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <Icon size={15} color={color} strokeWidth={1.5} />
-      </div>
-      <span style={{ fontSize: 13, fontWeight: 600, color: C.heading, whiteSpace: "nowrap" }}>{label}</span>
-      {hovered && (
-        <div style={{
-          position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
-          background: "#1A1A1A", color: "#FFFFFF", fontSize: 12, fontWeight: 500,
-          padding: "6px 12px", borderRadius: 8, whiteSpace: "nowrap",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)", pointerEvents: "none", zIndex: 10,
-        }}>
-          {tip}
-          <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "5px solid #1A1A1A" }} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function FlowConnectorSvg({ count, direction }: { count: number; direction: "left" | "right" }) {
-  const totalH = count * FLOW.cardH + (count - 1) * FLOW.gap;
-  const centerY = totalH / 2;
-  const w = FLOW.connW;
-  const cpOff = w * 0.45;
-
-  return (
-    <svg width={w} height={totalH} style={{ overflow: "visible", flexShrink: 0, display: "block" }} aria-hidden="true">
-      {Array.from({ length: count }).map((_, i) => {
-        const anchorY = i * (FLOW.cardH + FLOW.gap) + FLOW.cardH / 2;
-        const pathId = `fpath-${direction}-${i}`;
-        const pathD = direction === "left"
-          ? `M 0 ${anchorY} C ${cpOff} ${anchorY}, ${w - cpOff} ${centerY}, ${w} ${centerY}`
-          : `M 0 ${centerY} C ${cpOff} ${centerY}, ${w - cpOff} ${anchorY}, ${w} ${anchorY}`;
-        return (
-          <g key={i}>
-            <path d={pathD} stroke="rgba(51,149,106,0.15)" strokeWidth="1.5" fill="none" id={pathId} />
-            <circle r="3" fill="rgba(51,149,106,0.5)">
-              <animateMotion dur={`${2.8 + i * 0.35}s`} repeatCount="indefinite" begin={`${i * 0.45}s`}>
-                <mpath href={`#${pathId}`} />
-              </animateMotion>
-            </circle>
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
-
-function FlowMapHero() {
-  const svcStackH = FLOW_SERVICES.length * FLOW.cardH + (FLOW_SERVICES.length - 1) * FLOW.gap;
-  const outStackH = FLOW_OUTCOMES.length * FLOW.cardH + (FLOW_OUTCOMES.length - 1) * FLOW.gap;
-  const maxStackH = Math.max(svcStackH, outStackH);
-
-  return (
-    <div data-testid="flow-map-hero" className="flow-map-container" style={{ position: "relative", maxWidth: 960, margin: "0 auto" }}>
-      <div className="flow-map-desktop" style={{
-        display: "flex", alignItems: "center", justifyContent: "center", gap: 0,
-        minHeight: maxStackH,
-      }}>
-        <div style={{
-          display: "grid",
-          gridAutoRows: FLOW.cardH,
-          rowGap: FLOW.gap,
-          alignItems: "center",
-          justifyItems: "end",
-        }}>
-          {FLOW_SERVICES.map((s) => (
-            <FlowNode key={s.label} {...s} />
-          ))}
-        </div>
-
-        <FlowConnectorSvg count={FLOW_SERVICES.length} direction="left" />
-
-        <div className="flow-center-node" style={{
-          width: FLOW.centerR * 2, height: FLOW.centerR * 2, borderRadius: "50%",
-          background: `linear-gradient(135deg, ${C.green} 0%, ${C.greenDark} 100%)`,
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 8px 32px rgba(51,149,106,0.25)",
-          position: "relative", zIndex: 2, flexShrink: 0,
-        }}>
-          <Briefcase size={26} color="#FFFFFF" strokeWidth={1.5} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#FFFFFF", marginTop: 5, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
-        </div>
-
-        <FlowConnectorSvg count={FLOW_OUTCOMES.length} direction="right" />
-
-        <div style={{
-          display: "grid",
-          gridAutoRows: FLOW.cardH,
-          rowGap: FLOW.gap,
-          alignItems: "center",
-          justifyItems: "start",
-        }}>
-          {FLOW_OUTCOMES.map((o) => (
-            <FlowNode key={o.label} {...o} />
-          ))}
-        </div>
-      </div>
-
-      <div className="flow-map-mobile" style={{ display: "none", flexDirection: "column", alignItems: "center", gap: 16 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-          {FLOW_SERVICES.map((s) => {
-            const Icon = s.icon;
-            return (
-              <div key={s.label} title={s.tip} style={{
-                display: "flex", alignItems: "center", gap: 6,
-                background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10,
-                padding: "8px 12px", fontSize: 12, fontWeight: 600, color: C.heading,
-              }}>
-                <Icon size={14} color={s.color} strokeWidth={1.5} />
-                {s.label}
-              </div>
-            );
-          })}
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-          <div style={{ width: 1.5, height: 20, background: "rgba(51,149,106,0.2)" }} />
-          <ArrowRight size={16} color={C.sage} strokeWidth={1.5} style={{ transform: "rotate(90deg)" }} />
-        </div>
-        <div className="flow-center-node" style={{
-          width: 96, height: 96, borderRadius: "50%",
-          background: `linear-gradient(135deg, ${C.green} 0%, ${C.greenDark} 100%)`,
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 8px 32px rgba(51,149,106,0.25)",
-        }}>
-          <Briefcase size={22} color="#FFFFFF" strokeWidth={1.5} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: "#FFFFFF", marginTop: 4, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-          <div style={{ width: 1.5, height: 20, background: "rgba(51,149,106,0.2)" }} />
-          <ArrowRight size={16} color={C.sage} strokeWidth={1.5} style={{ transform: "rotate(90deg)" }} />
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-          {FLOW_OUTCOMES.map((o) => {
-            const Icon = o.icon;
-            return (
-              <div key={o.label} title={o.tip} style={{
-                display: "flex", alignItems: "center", gap: 6,
-                background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10,
-                padding: "8px 12px", fontSize: 12, fontWeight: 600, color: C.heading,
-              }}>
-                <Icon size={14} color={o.color} strokeWidth={1.5} />
-                {o.label}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const RESPONSIVE_CSS = `
-  @media (max-width: 820px) {
-    .flow-map-desktop { display: none !important; }
-    .flow-map-mobile { display: flex !important; }
-  }
-  @keyframes flowPulse {
-    0%, 100% { box-shadow: 0 8px 32px rgba(51,149,106,0.25); }
-    50% { box-shadow: 0 8px 40px rgba(51,149,106,0.4); }
-  }
-  .flow-center-node { animation: flowPulse 3s ease-in-out infinite; }
-  .flow-node { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-  .flow-node:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important; }
   .mkt-btn-primary:focus-visible, .mkt-btn-ghost:focus-visible {
     outline: 2px solid #2B7D58;
     outline-offset: 2px;
+  }
+  @keyframes heroPillIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .hero-pill {
+    opacity: 0;
+    animation: heroPillIn 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+  }
+  .hero-pill:nth-child(1) { animation-delay: 0.15s; }
+  .hero-pill:nth-child(2) { animation-delay: 0.3s; }
+  .hero-pill:nth-child(3) { animation-delay: 0.45s; }
+  .hero-pill:nth-child(4) { animation-delay: 0.6s; }
+  @media (max-width: 640px) {
+    .hero-pills-row { flex-wrap: wrap !important; }
   }
 `;
 
@@ -329,7 +149,7 @@ export default function HomePage() {
   useScrollReveal();
 
   useEffect(() => {
-    document.title = "WeFixTrades — Instant Quotes, 24/7 Answering & Automations for Trades";
+    document.title = "WeFixTrades — More Booked Jobs, Automatically";
   }, []);
 
   return (
@@ -341,61 +161,152 @@ export default function HomePage() {
         data-testid="hero-section"
         style={{
           background: C.warmGray,
-          padding: "80px 28px 72px",
+          padding: "88px 28px 80px",
           position: "relative",
           overflow: "hidden",
         }}
       >
-        <div style={{ maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.sageTint, border: `1px solid ${C.sageAccent}`, borderRadius: 9999, padding: "6px 16px", marginBottom: 24 }}>
-            <span data-testid="badge-hero" style={{ fontSize: 12, fontWeight: 600, color: C.sage, letterSpacing: "0.02em" }}>No contracts · Cancel anytime</span>
-          </div>
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: "38%", left: "50%", transform: "translate(-50%, -50%)",
+            width: 600, height: 400,
+            background: "radial-gradient(ellipse at center, rgba(51,149,106,0.06) 0%, transparent 70%)",
+            pointerEvents: "none",
+          }}
+        />
 
+        <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative" }}>
           <h1
             data-testid="hero-headline"
-            className="hero-headline"
-            style={{ fontSize: "clamp(38px, 5vw, 64px)", fontWeight: 700, color: C.heading, lineHeight: 1.08, letterSpacing: "-0.035em", marginBottom: 20, maxWidth: 620, margin: "0 auto 20px" }}
+            style={{
+              fontSize: "clamp(44px, 6vw, 76px)",
+              fontWeight: 800,
+              color: C.heading,
+              lineHeight: 1.04,
+              letterSpacing: "-0.04em",
+              marginBottom: 32,
+            }}
           >
-            Instant Quotes. 24/7{"\u00A0"}Answering.{" "}
-            More <span style={{ color: C.green }}>booked jobs</span> —{" "}
-            without extra work.
+            More <span style={{ color: C.green }}>booked jobs</span>.<br />
+            Automatically.
           </h1>
 
-          <p data-testid="hero-subtext" style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", lineHeight: 1.65, maxWidth: 520, margin: "0 auto 28px" }}>
-            Get instant quotes, 24/7 answers, and automatic follow-ups — so you book more jobs without chasing leads.
+          <div
+            data-testid="hero-pills"
+            className="hero-pills-row"
+            style={{
+              display: "flex",
+              gap: 10,
+              justifyContent: "center",
+              flexWrap: "nowrap",
+              marginBottom: 28,
+            }}
+          >
+            {HERO_PILLS.map(({ icon: PillIcon, label }) => (
+              <div
+                key={label}
+                className="hero-pill"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 7,
+                  padding: "8px 16px",
+                  height: 38,
+                  borderRadius: 9999,
+                  background: "rgba(255,255,255,0.65)",
+                  border: "1px solid rgba(0,0,0,0.06)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: C.heading,
+                  whiteSpace: "nowrap",
+                  boxSizing: "border-box",
+                }}
+              >
+                <PillIcon size={15} color={C.sage} strokeWidth={1.5} />
+                {label}
+              </div>
+            ))}
+          </div>
+
+          <p
+            data-testid="hero-subtext"
+            style={{
+              fontSize: 18,
+              color: "rgba(17,17,17,0.62)",
+              lineHeight: 1.65,
+              maxWidth: 480,
+              margin: "0 auto 36px",
+              fontWeight: 400,
+            }}
+          >
+            Customers get answers. You get booked.{" "}
+            Everything runs in the background.
           </p>
 
-          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", marginBottom: 28 }}>
+          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
             <Link
               href="/Wizard"
               data-testid="button-try-free-hero"
               className="mkt-btn-primary"
-              style={{ padding: "14px 32px", borderRadius: 9999, background: C.greenDark, color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-block", transition: "background 0.2s ease" }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "#256E4C")}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = C.greenDark)}
+              style={{
+                padding: "14px 34px",
+                borderRadius: 9999,
+                background: "#256E4C",
+                color: "#FFFFFF",
+                fontSize: 15,
+                fontWeight: 600,
+                textDecoration: "none",
+                display: "inline-block",
+                transition: "background 0.2s ease, box-shadow 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = "#1F5F40";
+                el.style.boxShadow = "0 4px 16px rgba(37,110,76,0.25)";
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = "#256E4C";
+                el.style.boxShadow = "none";
+              }}
             >
-              Try Free
+              Try It Free
             </Link>
             <Link
-              href="/demo"
-              data-testid="button-try-demo-hero"
+              href="/product"
+              data-testid="button-see-pricing-hero"
               className="mkt-btn-ghost"
-              style={{ padding: "14px 28px", borderRadius: 9999, background: "transparent", color: C.greenDark, fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, border: `1.5px solid ${C.greenDark}` }}
+              style={{
+                padding: "14px 28px",
+                borderRadius: 9999,
+                background: "transparent",
+                color: C.heading,
+                fontSize: 15,
+                fontWeight: 600,
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                border: `1.5px solid ${C.border}`,
+                transition: "border-color 0.2s ease, background 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.borderColor = "rgba(0,0,0,0.15)";
+                el.style.background = "rgba(0,0,0,0.02)";
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.borderColor = C.border;
+                el.style.background = "transparent";
+              }}
             >
-              Try Demo
+              See Pricing
             </Link>
           </div>
-
-          <div style={{ marginBottom: 40, display: "flex", justifyContent: "center", minHeight: 44 }}>
-            <TypingReplace
-              words={TYPING_WORDS}
-              color={C.sage}
-              fontSize="clamp(20px, 2.4vw, 28px)"
-            />
-          </div>
         </div>
-
-        <FlowMapHero />
       </section>
 
       {/* ═══ SECTION 1 — WORKFLOW ═══ */}
