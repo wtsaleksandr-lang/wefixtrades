@@ -20,10 +20,8 @@ const T = {
 
 const NAV_LINKS: { label: string; href: string; children?: { label: string; href: string }[] }[] = [
   { label: "Product", href: "/product" },
-  { label: "Pricing", href: "/pricing" },
   { label: "Templates", href: "/templates" },
-  { label: "Services", href: "/services" },
-  { label: "Demo", href: "/demo" },
+  { label: "Solutions", href: "/solutions/visibility" },
   { label: "Docs", href: "/docs" },
 ];
 
@@ -382,7 +380,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                     whiteSpace: "nowrap",
                   }}
                 >
-                  Try for Free
+                  Try Free
                 </Link>
               </>
             )}
@@ -455,7 +453,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 textDecoration: "none",
               }}
             >
-              Try for Free
+              Try Free
             </Link>
           </div>
         </div>
@@ -572,8 +570,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 Company
               </div>
               {[
-                { l: "Services", h: "/services" },
-                { l: "Bundles", h: "/bundles" },
+                { l: "Solutions", h: "/solutions/visibility" },
                 { l: "Contact", h: "/contact" },
               ].map(({ l, h }) => (
                 <Link

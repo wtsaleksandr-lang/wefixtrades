@@ -15,10 +15,109 @@ export interface ProductPage {
   bestFor: string[];
   visuals: { title: string; desc: string; image?: string }[];
   faq: { q: string; a: string }[];
+  pricingSection?: { plans: { name: string; price: string; period: string; features: string[]; badge?: string; highlighted?: boolean }[]; note?: string };
   related: string[];
 }
 
 export const PRODUCT_PAGES: ProductPage[] = [
+  {
+    slug: "quickquote",
+    name: "QuickQuotePro",
+    shortTagline: "Instant quotes on your website",
+    seoTitle: "QuickQuotePro — Instant Quote Calculator for Trades | WeFixTrades",
+    seoDescription: "Embed an instant quote calculator on your website. Capture more leads, support 10 pricing formulas, custom branding, and go live in under 10 minutes.",
+    category: "core",
+    primaryCTA: { label: "Try Free", href: "/Wizard" },
+    secondaryCTA: { label: "Try Demo", href: "/demo" },
+    highlights: [
+      "Give visitors instant estimates — no forms, no waiting",
+      "Built-in lead capture on every quote",
+      "10 pricing formulas — flat rate, per-unit, tiered, and more",
+      "Custom branding, colors, and logo",
+      "Embed anywhere — website, hosted page, or pop-up",
+    ],
+    outcomes: [
+      { title: "More Leads", desc: "Capture 3x more leads by giving visitors instant estimates instead of generic contact forms." },
+      { title: "Fewer Phone Calls", desc: "Reduce tire-kicker calls by letting your calculator pre-qualify leads with real pricing." },
+      { title: "Faster Quoting", desc: "Eliminate manual quote spreadsheets. Your calculator handles pricing logic 24/7." },
+    ],
+    howItWorks: [
+      { title: "Build Your Calculator", desc: "Use the step-by-step wizard to configure your trade, pricing formulas, and lead capture fields." },
+      { title: "Embed or Share", desc: "Get a hosted link, embed script, iframe code, or pop-up button for your website." },
+      { title: "Capture Leads", desc: "Visitors get instant estimates. You get their contact info, quote details, and follow-up automation." },
+    ],
+    bestFor: ["Plumbers", "Electricians", "Contractors", "Cleaning Services", "Landscapers"],
+    visuals: [
+      { title: "Calculator Widget", desc: "Clean, mobile-responsive calculator that matches your brand colors." },
+      { title: "Lead Dashboard", desc: "See every estimate, lead, and conversion in one place." },
+      { title: "Embed Options", desc: "Script, iframe, button, or hosted page — deploy however you want." },
+    ],
+    faq: [
+      { q: "How long does setup take?", a: "Most users build and publish their first calculator in under 10 minutes using the step-by-step wizard." },
+      { q: "Can I customize the look and feel?", a: "Yes. Match your brand colors, add your logo, choose from 6 templates, and use custom CSS on Pro plans." },
+      { q: "What pricing formulas are supported?", a: "10 formula types including flat rate, per-unit, area-based, tiered, time-based, package, and more." },
+      { q: "Is there a free plan?", a: "Yes. The free plan includes 1 calculator, 50 leads/month, and a hosted quote page." },
+      { q: "Can I connect booking and deposits?", a: "Yes. Enable the Booking add-on to let customers book and pay a deposit directly after receiving their estimate." },
+    ],
+    pricingSection: {
+      plans: [
+        { name: "Free", price: "$0", period: "/mo", features: ["1 calculator", "50 leads/month", "Hosted quote page", "Basic analytics"] },
+        { name: "Starter", price: "$99", period: "/mo", features: ["1 calculator", "Unlimited leads", "Custom branding", "Email follow-ups", "Embed on your site"] },
+        { name: "Pro", price: "$199", period: "/mo", features: ["3 calculators", "Unlimited leads", "24/7 assistant included", "SMS + WhatsApp follow-ups", "Custom CSS", "Priority support"], highlighted: true, badge: "Most Popular" },
+      ],
+      note: "Calls/SMS usage billed at cost (you control limits).",
+    },
+    related: ["booking-addon", "ai-chat"],
+  },
+  {
+    slug: "assistants",
+    name: "24/7 Assistants",
+    shortTagline: "24/7 Answering System",
+    seoTitle: "24/7 Assistants — Automated Answering for Trades | WeFixTrades",
+    seoDescription: "Never miss a lead again. Our 24/7 assistants answer calls and chats, provide instant estimates, book jobs, send follow-ups, and request reviews — automatically.",
+    category: "ai",
+    primaryCTA: { label: "Try Free", href: "/Wizard" },
+    secondaryCTA: { label: "Try Demo", href: "/demo" },
+    highlights: [
+      "24/7 call and chat answering — never miss a lead",
+      "Instant estimates using your pricing formulas",
+      "After-hours intake captures every enquiry",
+      "Auto follow-ups and booking confirmations",
+      "Automated review requests after completed jobs",
+    ],
+    outcomes: [
+      { title: "Never Miss a Lead", desc: "Every call and chat is answered instantly — even at 2 AM, weekends, or when you're on the job." },
+      { title: "Auto Follow-ups Convert More Jobs", desc: "Automated SMS, email, and WhatsApp follow-ups keep leads warm and book more jobs without extra effort." },
+      { title: "Build Your Reputation", desc: "Automated review requests go out after every completed job, steadily growing your online reputation." },
+    ],
+    howItWorks: [
+      { title: "Set Up Your Assistant", desc: "Configure your services, pricing, service area, and business hours. Your assistant learns your business in minutes." },
+      { title: "Deploy on Site & Phone", desc: "Add the chat widget to your website and forward calls to your assistant number." },
+      { title: "Review Leads & Jobs", desc: "See every lead, conversation transcript, and booked job in your dashboard." },
+    ],
+    bestFor: ["Solo Tradespeople", "After-hours Coverage", "Multi-service Businesses", "High Call Volume Trades"],
+    visuals: [
+      { title: "Chat Widget", desc: "Branded chat bubble on your website, ready to engage visitors 24/7." },
+      { title: "Call Dashboard", desc: "Every call transcript, lead detail, and booked appointment in one place." },
+      { title: "Follow-up Automation", desc: "Configure automatic SMS, email, and review request sequences." },
+    ],
+    faq: [
+      { q: "How does after-hours intake work?", a: "When you're unavailable, the assistant answers calls and chats, collects job details, provides an estimate, and sends you a summary to review in the morning." },
+      { q: "Can the assistant give accurate estimates?", a: "Yes. It uses the same pricing formulas from your QuickQuotePro calculator to generate real estimates in real time." },
+      { q: "What if someone wants to speak to a real person?", a: "The assistant can transfer urgent calls to your mobile immediately, with full conversation context included." },
+      { q: "How does the technology work?", a: "Our assistants use AI technology to understand natural language, answer questions about your services, and handle conversations just like a trained receptionist would." },
+      { q: "Can I control follow-up messages?", a: "Yes. You set the timing, channel (SMS, email, WhatsApp), and content of every automated follow-up and review request." },
+    ],
+    pricingSection: {
+      plans: [
+        { name: "Starter", price: "$99", period: "/mo", features: ["Chat widget on your site", "Email lead alerts", "Basic follow-ups", "50 conversations/month"] },
+        { name: "Pro", price: "$199", period: "/mo", features: ["Chat + voice answering", "SMS + WhatsApp follow-ups", "Unlimited conversations", "Booking confirmations", "Review requests"], highlighted: true, badge: "Most Popular" },
+        { name: "Elite", price: "$299", period: "/mo", features: ["Unlimited everything", "White-label branding", "Priority support", "Custom integrations", "Dedicated account manager"] },
+      ],
+      note: "Calls/SMS usage billed at cost (you control limits).",
+    },
+    related: ["quickquotepro", "reputationshield"],
+  },
   {
     slug: "quickquotepro",
     name: "QuickQuotePro",

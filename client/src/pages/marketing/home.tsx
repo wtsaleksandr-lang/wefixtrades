@@ -1,15 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import TypingReplace from "@/components/marketing/TypingReplace";
+import WorkflowDemo from "@/components/marketing/WorkflowDemo";
 import {
-  Zap, Calendar, Cpu, MessageCircle, ChevronDown, Check,
-  MapPin, TrendingUp, Star, ArrowRight, Play, Globe, Share2, Workflow,
-  Plus, Shield,
+  Zap, Calendar, Cpu, MessageCircle, Check,
+  ArrowRight, Shield, Star, Clock, Sparkles,
 } from "lucide-react";
 
-/* ─── Design tokens (muted, warm, Optimal-inspired) ─── */
 const C = {
   bg:         "#FFFFFF",
   surface:    "#F7F7F6",
@@ -45,106 +44,79 @@ const C = {
 const SHADOW = {
   card:  "0 1px 3px rgba(0,0,0,0.03), 0 4px 12px rgba(0,0,0,0.04)",
   hero:  "0 16px 48px rgba(0,0,0,0.08)",
-  float: "0 8px 32px rgba(0,0,0,0.06)",
 };
 
-/* ─── Static data ─── */
 const TYPING_WORDS = ["Plumbers", "Roofers", "Electricians", "Cleaners", "HVAC Pros"];
 
-const TICKER_ITEMS = [
-  "⚡ Electricians", "🔧 Plumbers", "🏠 Roofers", "🧹 Cleaners",
-  "❄️ HVAC", "🌿 Landscapers", "🎨 Painters", "🪵 Flooring",
-  "⚡ Electricians", "🔧 Plumbers", "🏠 Roofers", "🧹 Cleaners",
-  "❄️ HVAC", "🌿 Landscapers", "🎨 Painters", "🪵 Flooring",
+const TOOLS = [
+  {
+    id: "quickquote",
+    icon: Zap,
+    title: "QuickQuotePro",
+    body: "Embed instant quotes on your website. Visitors get a price in seconds — you get their details automatically.",
+    href: "/product/quickquote",
+    iconBg: "#EFF5F2",
+    iconColor: "#33956A",
+    cardBg: "#EFF5F2",
+  },
+  {
+    id: "assistants",
+    icon: Cpu,
+    title: "24/7 Assistants",
+    body: "Never miss a call or chat. Your assistant handles enquiries, provides quotes, and captures leads — even at 2am.",
+    href: "/product/assistants",
+    iconBg: "#F0EDF5",
+    iconColor: "#8B7CB5",
+    cardBg: "#F0EDF5",
+  },
+  {
+    id: "followups",
+    icon: MessageCircle,
+    title: "Follow-ups + Reviews",
+    body: "Auto reminders, quote follow-ups, and review requests that run in the background — converting more quotes into jobs.",
+    href: "/product/assistants",
+    iconBg: "#E8EFF5",
+    iconColor: "#5A7C91",
+    cardBg: "#E8EFF5",
+  },
+  {
+    id: "visibility",
+    icon: Shield,
+    title: "Visibility",
+    body: "Google Maps, website speed, reputation monitoring, and social posts — all handled so customers find you first.",
+    href: "/solutions/visibility",
+    iconBg: "#FDF0E8",
+    iconColor: "#C9A760",
+    cardBg: "#FDF0E8",
+  },
 ];
 
-const FEATURES = [
-  {
-    id: "quotes", icon: Zap,
-    title: "Instant Quote Engine",
-    body: "Customers get accurate trade-specific estimates in seconds — no phone tag, no waiting.",
-    testId: "feature-card-quotes", delay: "100",
-    iconBg: "#EFF5F2", iconColor: "#33956A",
-  },
-  {
-    id: "booking", icon: Calendar,
-    title: "Booking + Deposit System",
-    body: "Convert estimates into confirmed jobs with calendar booking and Stripe deposit collection.",
-    testId: "feature-card-booking", delay: "200",
-    iconBg: "#EDF2F5", iconColor: "#5A7C91",
-  },
-  {
-    id: "ai", icon: Cpu,
-    title: "AI Chat Employees",
-    body: "24/7 customer engagement, lead capture, and live estimates — even while you sleep.",
-    testId: "feature-card-ai", delay: "300",
-    iconBg: "#F0EDF5", iconColor: "#8B7CB5",
-  },
-  {
-    id: "sms", icon: MessageCircle,
-    title: "SMS & WhatsApp Follow-Ups",
-    body: "Automated sequences that re-engage cold leads and recover jobs you'd otherwise lose.",
-    testId: "feature-card-sms", delay: "400",
-    iconBg: "#F3EDED", iconColor: "#9E8080",
-  },
-];
-
-const STEPS = [
-  { num: "01", title: "Pick a Template", body: "Choose from 6 high-converting calculator templates designed for your trade.", testId: "step-1" },
-  { num: "02", title: "Define Pricing Logic", body: "Set your rates and formulas. Our AI validates accuracy and suggests improvements.", testId: "step-2" },
-  { num: "03", title: "Publish & Embed", body: "Get an instant hosted page or copy an embed snippet for your existing website.", testId: "step-3" },
+const TRUST_BADGES = [
+  { icon: Clock, text: "No contracts", sub: "Cancel anytime, no questions asked" },
+  { icon: Sparkles, text: "Live in under 10 minutes", sub: "From sign-up to embedded on your site" },
+  { icon: Star, text: "Built for busy trades", sub: "Plumbers, roofers, cleaners & more" },
 ];
 
 const TESTIMONIALS = [
   {
     quote: "Went from zero online bookings to 23 confirmed jobs in our first month. The deposit feature alone changed our cash flow.",
-    name: "Jake M.", role: "Owner, Metro Plumbing Co.", delay: "100",
+    name: "Jake M.", role: "Owner, Metro Plumbing Co.",
   },
   {
-    quote: "The AI employee answers leads at 2am while I sleep. We've captured 40 more leads per month than before.",
-    name: "Sarah T.", role: "Director, Sparkle Cleaning Services", delay: "250",
+    quote: "The 24/7 assistant answers leads at 2am while I sleep. We've captured 40 more leads per month than before.",
+    name: "Sarah T.", role: "Director, Sparkle Cleaning Services",
   },
   {
     quote: "Setup took 15 minutes. We've collected over $14,000 in deposits since going live. This tool pays for itself.",
-    name: "Mike R.", role: "Founder, Ridge Roofing", delay: "400",
+    name: "Mike R.", role: "Founder, Ridge Roofing",
   },
 ];
 
 const PRICING_TIERS = [
   { name: "FREE",    price: "$0",   label: "Get started today",      features: ["1 calculator", "Hosted page", "50 leads/mo"],         border: "rgba(255,255,255,0.1)",  badge: null,           badgeBg: null },
   { name: "STARTER", price: "$99",  label: "For growing businesses", features: ["1 calculator", "Custom branding", "Email follow-ups"], border: "rgba(255,255,255,0.1)",  badge: null,           badgeBg: null },
-  { name: "PRO",     price: "$199", label: "Most popular",           features: ["3 calculators", "AI Employee", "SMS & WhatsApp"],      border: C.sage,                   badge: "Most Popular", badgeBg: C.sage },
-  { name: "ELITE",   price: "$299", label: "For agencies",           features: ["Unlimited", "White-label", "Priority support"],        border: C.gold,                   badge: "Agency",       badgeBg: C.gold },
+  { name: "PRO",     price: "$199", label: "Most popular",           features: ["3 calculators", "24/7 Assistant", "SMS & WhatsApp"],   border: C.sage,                   badge: "Most Popular", badgeBg: C.sage },
 ];
-
-const SERVICES_TEASE = [
-  { icon: MapPin,     title: "Google Maps Optimization", desc: "Get found by local customers searching for your trade. GMB, citations, reviews.", price: "From $299/mo", iconBg: "#EFF5F2", iconColor: "#33956A" },
-  { icon: TrendingUp, title: "Website SEO + Speed",      desc: "Rank higher. Convert better. Fast-loading pages that turn visitors into leads.",  price: "From $199/mo", iconBg: "#EDF2F5", iconColor: "#5A7C91" },
-  { icon: Star,       title: "Reputation + Social",      desc: "Reviews, automated responses, and social posts — all handled for you.",           price: "From $349/mo", iconBg: "#F0EDF5", iconColor: "#8B7CB5" },
-];
-
-/* ─── Sub-components ─── */
-
-function FeatureCard({ icon: Icon, title, body, testId, delay, iconBg, iconColor }: typeof FEATURES[0]) {
-  return (
-    <div
-      data-testid={testId}
-      data-reveal="fade-up"
-      data-delay={delay}
-      className="mkt-feature-card"
-      style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 16, padding: "32px 28px", boxShadow: SHADOW.card }}
-    >
-      <div style={{
-        width: 52, height: 52, borderRadius: 14, background: iconBg,
-        display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20,
-      }}>
-        <Icon size={24} color={iconColor} strokeWidth={1.5} />
-      </div>
-      <h3 style={{ fontSize: 18, fontWeight: 700, color: C.heading, marginBottom: 10, letterSpacing: "-0.01em" }}>{title}</h3>
-      <p style={{ fontSize: 15, color: C.muted, lineHeight: 1.65, margin: 0 }}>{body}</p>
-    </div>
-  );
-}
 
 function HeroMockup() {
   return (
@@ -157,7 +129,6 @@ function HeroMockup() {
         borderRadius: 20, padding: 24, width: "100%", maxWidth: 420, boxShadow: SHADOW.hero,
       }}
     >
-      {/* Panel 1 — Estimate */}
       <div style={{ background: C.bgGray, border: `1px solid ${C.borderLight}`, borderRadius: 14, padding: "16px 20px", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: C.sageAccent, color: C.sageDark, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>
@@ -167,13 +138,9 @@ function HeroMockup() {
         <div style={{ fontSize: 28, fontWeight: 800, color: C.heading, letterSpacing: "-0.02em" }}>$1,240 – $1,680</div>
         <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Bathroom Renovation · 2 hours</div>
       </div>
-
-      {/* Connector */}
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
         <div style={{ width: 2, height: 20, background: C.sage, borderRadius: 2 }} />
       </div>
-
-      {/* Panel 2 — Booking */}
       <div style={{ background: C.bgGray, border: `1px solid ${C.borderLight}`, borderRadius: 14, padding: "14px 20px", marginBottom: 12 }}>
         <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>Book a Time</div>
         <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
@@ -187,13 +154,9 @@ function HeroMockup() {
         </div>
         <div style={{ fontSize: 12, fontWeight: 600, color: C.sage }}>9:00 AM — Confirmed ✓</div>
       </div>
-
-      {/* Connector */}
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
         <div style={{ width: 2, height: 20, background: C.sage, borderRadius: 2 }} />
       </div>
-
-      {/* Panel 3 — AI */}
       <div style={{ background: C.bgGray, border: `1px solid ${C.borderLight}`, borderRadius: 14, padding: "14px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 28, height: 28, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -222,7 +185,7 @@ function AiChatMockup() {
           <Cpu size={16} color="#FFFFFF" strokeWidth={1.5} />
         </div>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: C.heading }}>AI Employee</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.heading }}>24/7 Assistant</div>
           <div style={{ fontSize: 11, color: C.sage }}>● Online</div>
         </div>
       </div>
@@ -248,119 +211,24 @@ function AiChatMockup() {
   );
 }
 
-function BookingMockup() {
-  const days = [
-    { d: 15, avail: true }, { d: 16, avail: false }, { d: 17, avail: true },
-    { d: 18, avail: true, sel: true }, { d: 19, avail: false }, { d: 20, avail: true }, { d: 21, avail: true },
-  ];
-  return (
-    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 20, padding: 28, boxShadow: SHADOW.card, maxWidth: 380 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div>
-          <div style={{ fontSize: 13, color: C.muted, marginBottom: 2 }}>Book a slot</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: C.heading }}>March 2026</div>
-        </div>
-        <div style={{ fontSize: 11, fontWeight: 600, background: C.sageTint, color: C.sage, padding: "4px 12px", borderRadius: 20 }}>7 slots left</div>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 20 }}>
-        {days.map(({ d, avail, sel }: any, i) => (
-          <div key={i} style={{
-            textAlign: "center", padding: "8px 0", borderRadius: 10,
-            fontSize: 13, fontWeight: sel ? 700 : 500,
-            background: sel ? C.sage : avail ? C.bgGrayAlt : "transparent",
-            color: sel ? "#FFFFFF" : avail ? C.heading : C.border,
-            border: sel ? "none" : avail ? `1px solid ${C.border}` : "none",
-          }}>{d}</div>
-        ))}
-      </div>
-      <div style={{ borderTop: `1px solid ${C.borderLight}`, paddingTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-        {["9:00 AM", "11:00 AM"].map((t, i) => (
-          <div key={t} style={{
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-            padding: "10px 14px", borderRadius: 10,
-            background: i === 0 ? C.sage : C.bgGrayAlt,
-            border: i === 0 ? "none" : `1px solid ${C.border}`,
-          }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: i === 0 ? "#FFFFFF" : C.heading }}>{t}</span>
-            {i === 0 && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.8)" }}>Selected ✓</span>}
-          </div>
-        ))}
-        <div style={{ background: C.sageTint, borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: C.sageDark }}>Deposit collected</span>
-          <span style={{ fontSize: 14, fontWeight: 800, color: C.sageDark }}>$200 ✓</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TemplateMockup() {
-  const templates = [
-    { name: "Classic Single", color: "#F0F4F3", accent: "#5A7C91" },
-    { name: "Two Column",     color: C.sageTint, accent: C.sage },
-    { name: "Multi-Step",     color: "#F3F1F7", accent: "#8B7CB5" },
-    { name: "Package Cards",  color: "#F5F0F2", accent: "#9E8080" },
-    { name: "Range + Gate",   color: "#F5F3EE", accent: "#C9A760" },
-    { name: "Book First",     color: "#F0F5F2", accent: "#5E9485" },
-  ];
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, maxWidth: 380 }}>
-      {templates.map(({ name, color, accent }) => (
-        <div key={name} className="mkt-feature-card" style={{ background: color, borderRadius: 12, padding: "16px 14px", border: `1px solid ${accent}22`, boxShadow: SHADOW.card }}>
-          <div style={{ width: 28, height: 4, background: accent, borderRadius: 2, marginBottom: 10, opacity: 0.85 }} />
-          <div style={{ width: "80%", height: 3, background: accent, borderRadius: 2, marginBottom: 6, opacity: 0.3 }} />
-          <div style={{ width: "60%", height: 3, background: accent, borderRadius: 2, marginBottom: 14, opacity: 0.2 }} />
-          <div style={{ fontSize: 11, fontWeight: 600, color: accent }}>{name}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ─── Shared inline responsive CSS ─── */
-const FLOW_ITEMS = [
-  { icon: MapPin, label: "Google Maps" },
-  { icon: Workflow, label: "WeFixTrades" },
-  { icon: Calendar, label: "Booking" },
-  { icon: Cpu, label: "24/7 Assistant" },
-  { icon: Globe, label: "Website" },
-];
-
 const RESPONSIVE_CSS = `
   @media (max-width: 820px) {
     .hero-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
-    .alt-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
-  }
-  @media (min-width: 700px) {
-    .step-line {
-      position: absolute; top: 32px;
-      left: calc(16.66% + 20px); right: calc(16.66% + 20px);
-      height: 2px;
-      background: linear-gradient(90deg, transparent, ${C.border}, transparent);
-    }
-  }
-  @media (max-width: 699px) {
-    .step-line { display: none; }
-    .flow-row { flex-direction: column !important; gap: 0 !important; }
-    .flow-connector-h { display: none !important; }
-    .flow-connector-v { display: block !important; }
   }
 `;
 
-/* ─── Page ─── */
 export default function HomePage() {
   useScrollReveal();
 
   useEffect(() => {
-    document.title = "WeFixTrades — Estimates, Booking & AI for Trades";
+    document.title = "WeFixTrades — Instant Quotes, 24/7 Answering & Automations for Trades";
   }, []);
 
   return (
     <MarketingLayout>
       <style>{RESPONSIVE_CSS}</style>
-      {/* ═══════════════════════════════════════
-          SECTION 1 — HERO (full viewport)
-      ═══════════════════════════════════════ */}
+
+      {/* ═══ HERO ═══ */}
       <section
         data-testid="hero-section"
         style={{
@@ -372,39 +240,37 @@ export default function HomePage() {
       >
         <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.sageTint, border: `1px solid ${C.sageAccent}`, borderRadius: 9999, padding: "6px 16px", marginBottom: 40 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: C.sage, letterSpacing: "0.02em" }}>✦ Trusted by Trades Worldwide</span>
+            <span data-testid="badge-hero" style={{ fontSize: 12, fontWeight: 600, color: C.sage, letterSpacing: "0.02em" }}>No contracts · Cancel anytime</span>
           </div>
 
           <h1
             data-testid="hero-headline"
             style={{ fontSize: "clamp(42px, 5.5vw, 72px)", fontWeight: 700, color: C.heading, lineHeight: 1.04, letterSpacing: "-0.035em", marginBottom: 28 }}
           >
-            One System.{" "}
-            More{" "}
-            <span style={{ color: C.green }}>Jobs</span>.{" "}
-            Zero Extra Work.
+            Instant Quotes. 24/7 Answering.{" "}
+            More <span style={{ color: C.green }}>booked jobs</span> — without extra work.
           </h1>
 
-          <p style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", lineHeight: 1.65, marginBottom: 40, maxWidth: 540, margin: "0 auto 40px" }}>
-            We've already connected everything for you — quotes, bookings, Google visibility, 24/7 assistant, website and follow-ups. You just run your business.
+          <p data-testid="hero-subtext" style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", lineHeight: 1.65, marginBottom: 40, maxWidth: 560, margin: "0 auto 40px" }}>
+            Embed QuickQuotePro on your site. Our 24/7 assistant handles calls & chat. Follow-ups, booking, and review requests run automatically — all inside one dashboard.
           </p>
 
           <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", marginBottom: 48 }}>
             <Link
               href="/Wizard"
-              data-testid="button-start-free-hero"
+              data-testid="button-try-free-hero"
               className="mkt-btn-primary"
               style={{ padding: "14px 32px", borderRadius: 9999, background: C.green, color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-block" }}
             >
-              Try for Free
+              Try Free
             </Link>
             <Link
               href="/demo"
-              data-testid="button-view-demo-hero"
+              data-testid="button-try-demo-hero"
               className="mkt-btn-ghost"
               style={{ padding: "14px 28px", borderRadius: 9999, background: "transparent", color: C.green, fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, border: `1.5px solid ${C.green}` }}
             >
-              Book a Demo
+              Try Demo
             </Link>
           </div>
 
@@ -430,652 +296,162 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-
-        <div style={{ position: "absolute", bottom: 32, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 11, color: C.textFaint, letterSpacing: "0.08em", textTransform: "uppercase" }}>Scroll</span>
-          <ChevronDown size={18} color={C.textFaint} strokeWidth={1.5} className="mkt-scroll-cue" />
-        </div>
       </section>
-      {/* ═══════════════════════════════════════
-          SECTION — FROM QUOTE TO COMPLETION (OW-style)
-      ═══════════════════════════════════════ */}
-      <section data-testid="quote-to-completion-section" style={{ background: C.warmGray, padding: "112px 28px" }}>
-        <div style={{ maxWidth: 800, margin: "0 auto" }}>
+
+      {/* ═══ SECTION 1 — WORKFLOW ═══ */}
+      <section data-testid="workflow-section" style={{ background: C.warmGrayAlt, padding: "112px 28px" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <div data-reveal="fade-up" style={{ marginBottom: 48 }}>
-            <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 700, color: C.heading, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 20 }}>
-              From Quote to Completion
+            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: C.heading, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 16 }}>
+              From lead → quote → booking → review <span style={{ color: C.green }}>(automatic)</span>
             </h2>
             <p style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", lineHeight: 1.65, maxWidth: 600 }}>
-              Our all-in-one platform supports your entire customer journey. Quote fast, capture leads, book jobs, and grow — backed by automation at every stage.
+              Four steps that run on autopilot. Click each to see how it works.
+            </p>
+          </div>
+          <div data-reveal="fade-up" data-delay="100">
+            <WorkflowDemo />
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ SECTION 2 — TOOLS THAT POWER GROWTH ═══ */}
+      <section data-testid="tools-section" style={{ background: C.warmGray, padding: "112px 28px" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+          <div data-reveal="fade-up" style={{ marginBottom: 48, textAlign: "center" }}>
+            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: C.heading, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 16 }}>
+              Tools that power growth
+            </h2>
+            <p style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
+              Everything a trades business needs to win more jobs — in one platform.
             </p>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div
-              data-reveal="fade-up"
-              data-testid="card-generate-estimates"
-              style={{
-                background: "#D4EDDA",
-                borderRadius: 20,
-                padding: "36px 32px",
-                minHeight: 320,
-                position: "relative",
-                overflow: "hidden",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-              }}
-            >
-              <div>
-                <h3 style={{ fontSize: "clamp(24px, 3vw, 32px)", fontWeight: 700, color: C.heading, marginBottom: 24 }}>
-                  Generate Instant Estimates
-                </h3>
-                <div style={{
-                  background: C.bg,
-                  borderRadius: 14,
-                  padding: "20px 24px",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-                  maxWidth: 320,
-                  marginLeft: "auto",
-                }}>
-                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 12 }}>Quote Calculator</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: C.heading, marginBottom: 8 }}>What service do you need?</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-                    <div style={{ padding: "8px 12px", borderRadius: 8, background: "#D4EDDA", border: "2px solid #33956A", fontSize: 13, fontWeight: 600, color: C.heading, display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ width: 18, height: 18, borderRadius: 4, background: C.green, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>✓</span>
-                      Bathroom Renovation
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }} className="tools-grid">
+            {TOOLS.map((tool, i) => {
+              const Icon = tool.icon;
+              return (
+                <Link
+                  key={tool.id}
+                  href={tool.href}
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
+                  <div
+                    data-testid={`tool-card-${tool.id}`}
+                    data-reveal="fade-up"
+                    data-delay={String(i * 100)}
+                    className="mkt-feature-card"
+                    style={{
+                      background: tool.cardBg,
+                      borderRadius: 20,
+                      padding: "32px 28px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 16,
+                      height: "100%",
+                      cursor: "pointer",
+                      transition: "box-shadow 0.3s ease",
+                    }}
+                  >
+                    <div style={{ width: 52, height: 52, borderRadius: 14, background: `${tool.iconColor}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Icon size={24} color={tool.iconColor} strokeWidth={1.5} />
                     </div>
-                    <div style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, color: C.body }}>Kitchen Remodel</div>
-                    <div style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, color: C.body }}>Plumbing Repair</div>
+                    <h3 style={{ fontSize: 20, fontWeight: 700, color: C.heading, letterSpacing: "-0.01em" }}>{tool.title}</h3>
+                    <p style={{ fontSize: 15, color: C.body, lineHeight: 1.65, margin: 0, flex: 1 }}>{tool.body}</p>
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                      <span
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 8,
+                          padding: "10px 20px", borderRadius: 9999,
+                          background: "rgba(0,0,0,0.06)", color: C.heading,
+                          fontSize: 14, fontWeight: 600,
+                        }}
+                      >
+                        Explore
+                        <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                          <ArrowRight size={14} strokeWidth={2} />
+                        </span>
+                      </span>
+                    </div>
                   </div>
-                  <div style={{ borderTop: `1px solid ${C.borderLight}`, paddingTop: 12 }}>
-                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Estimated Cost</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: C.heading }}>$1,240 – $1,680</div>
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
-                <Link
-                  href="/product/quickquotepro"
-                  data-testid="link-learn-more-estimates"
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 8,
-                    padding: "10px 20px", borderRadius: 9999,
-                    background: "rgba(0,0,0,0.06)", color: C.heading,
-                    fontSize: 14, fontWeight: 600, textDecoration: "none",
-                  }}
-                >
-                  Learn more
-                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                    <Plus size={14} strokeWidth={2} />
-                  </span>
                 </Link>
-              </div>
-            </div>
-
-            <div
-              data-reveal="fade-up"
-              data-delay="100"
-              data-testid="card-capture-leads"
-              style={{
-                background: "#E0EAF0",
-                borderRadius: 20,
-                padding: "36px 32px",
-                minHeight: 200,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-              }}
-            >
-              <div>
-                <div style={{ marginBottom: 16 }}>
-                  <svg width="64" height="48" viewBox="0 0 64 48" fill="none">
-                    <polygon points="8,24 16,12 24,24" fill="#5A7C91" opacity="0.7" />
-                    <polygon points="20,24 28,12 36,24" fill="#5A7C91" opacity="0.8" />
-                    <polygon points="32,24 40,12 48,24" fill="#5A7C91" opacity="0.9" />
-                    <polygon points="8,36 16,24 24,36" fill="#5A7C91" opacity="0.5" />
-                    <polygon points="20,36 28,24 36,36" fill="#5A7C91" opacity="0.6" />
-                    <polygon points="32,36 40,24 48,36" fill="#5A7C91" opacity="0.7" />
-                  </svg>
-                </div>
-                <h3 style={{ fontSize: "clamp(22px, 3vw, 28px)", fontWeight: 700, color: C.heading }}>
-                  Capture Every Lead
-                </h3>
-              </div>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
-                <Link
-                  href="/features/lead-capture"
-                  data-testid="link-learn-more-leads"
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 8,
-                    padding: "10px 20px", borderRadius: 9999,
-                    background: "rgba(0,0,0,0.06)", color: C.heading,
-                    fontSize: 14, fontWeight: 600, textDecoration: "none",
-                  }}
-                >
-                  Learn more
-                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                    <Plus size={14} strokeWidth={2} />
-                  </span>
-                </Link>
-              </div>
-            </div>
-
-            <div
-              data-reveal="fade-up"
-              data-delay="200"
-              data-testid="card-book-jobs"
-              style={{
-                background: "#FDE8D0",
-                borderRadius: 20,
-                padding: "36px 32px",
-                minHeight: 200,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-              }}
-            >
-              <div>
-                <div style={{ marginBottom: 16 }}>
-                  <svg width="64" height="56" viewBox="0 0 64 56" fill="none">
-                    <circle cx="20" cy="20" r="8" fill="#D4890A" opacity="0.3" />
-                    <circle cx="36" cy="20" r="8" fill="#D4890A" opacity="0.5" />
-                    <circle cx="28" cy="12" r="8" fill="#D4890A" opacity="0.4" />
-                    <circle cx="28" cy="28" r="8" fill="#D4890A" opacity="0.6" />
-                    <circle cx="12" cy="28" r="6" fill="#D4890A" opacity="0.2" />
-                    <circle cx="44" cy="28" r="6" fill="#D4890A" opacity="0.3" />
-                  </svg>
-                </div>
-                <h3 style={{ fontSize: "clamp(22px, 3vw, 28px)", fontWeight: 700, color: C.heading }}>
-                  Book Jobs Automatically
-                </h3>
-              </div>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
-                <Link
-                  href="/features/booking"
-                  data-testid="link-learn-more-booking"
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 8,
-                    padding: "10px 20px", borderRadius: 9999,
-                    background: "rgba(0,0,0,0.06)", color: C.heading,
-                    fontSize: 14, fontWeight: 600, textDecoration: "none",
-                  }}
-                >
-                  Learn more
-                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                    <Plus size={14} strokeWidth={2} />
-                  </span>
-                </Link>
-              </div>
-            </div>
-
-            <div
-              data-reveal="fade-up"
-              data-delay="300"
-              data-testid="card-grow-revenue"
-              style={{
-                background: "#F5ECD7",
-                borderRadius: 20,
-                padding: "36px 32px",
-                minHeight: 200,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-              }}
-            >
-              <div>
-                <div style={{ marginBottom: 16 }}>
-                  <svg width="64" height="48" viewBox="0 0 64 48" fill="none">
-                    <circle cx="16" cy="12" r="6" fill="#C9A760" opacity="0.6" />
-                    <circle cx="32" cy="12" r="6" fill="#C9A760" opacity="0.7" />
-                    <circle cx="48" cy="12" r="6" fill="#C9A760" opacity="0.8" />
-                    <circle cx="16" cy="28" r="6" fill="#C9A760" opacity="0.5" />
-                    <circle cx="32" cy="28" r="6" fill="#C9A760" opacity="0.6" />
-                    <circle cx="48" cy="28" r="6" fill="#C9A760" opacity="0.7" />
-                    <circle cx="16" cy="44" r="6" fill="#C9A760" opacity="0.4" />
-                    <circle cx="32" cy="44" r="6" fill="#C9A760" opacity="0.5" />
-                    <circle cx="48" cy="44" r="6" fill="#C9A760" opacity="0.6" />
-                  </svg>
-                </div>
-                <h3 style={{ fontSize: "clamp(22px, 3vw, 28px)", fontWeight: 700, color: C.heading }}>
-                  Grow Your Revenue
-                </h3>
-              </div>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
-                <Link
-                  href="/features/analytics"
-                  data-testid="link-learn-more-revenue"
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 8,
-                    padding: "10px 20px", borderRadius: 9999,
-                    background: "rgba(0,0,0,0.06)", color: C.heading,
-                    fontSize: 14, fontWeight: 600, textDecoration: "none",
-                  }}
-                >
-                  Learn more
-                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                    <Plus size={14} strokeWidth={2} />
-                  </span>
-                </Link>
-              </div>
-            </div>
+              );
+            })}
           </div>
+          <style>{`@media (max-width: 620px) { .tools-grid { grid-template-columns: 1fr !important; } }`}</style>
         </div>
       </section>
-      {/* ═══════════════════════════════════════
-          SECTION — TOOLS THAT POWER GROWTH (OW-style)
-      ═══════════════════════════════════════ */}
-      <section data-testid="tools-power-growth-section" style={{ background: C.warmGrayAlt, padding: "112px 28px" }}>
-        <div style={{ maxWidth: 800, margin: "0 auto" }}>
-          <div data-reveal="fade-up" style={{ marginBottom: 48 }}>
-            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: C.heading, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 20 }}>
-              Tools that Power Growth
-            </h2>
-            <p style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", lineHeight: 1.65, maxWidth: 600 }}>
-              From instant quoting to AI-powered follow-ups, QuickQuotePro has everything trades businesses need to win more jobs in one powerful platform.
-            </p>
-          </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div
-              data-reveal="fade-up"
-              data-testid="tool-card-calculator"
-              style={{
-                background: "#EFF5F2",
-                borderRadius: 20,
-                padding: "36px 32px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 16,
-              }}
-            >
-              <div style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(51,149,106,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Zap size={26} color={C.green} strokeWidth={1.5} />
-              </div>
-              <h3 style={{ fontSize: 22, fontWeight: 700, color: C.heading }}>Quote Calculator</h3>
-              <p style={{ fontSize: 15, color: C.body, lineHeight: 1.65, margin: 0 }}>
-                Build custom quote calculators for any trade. Embed on your site and start converting visitors into leads instantly.
-              </p>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-                <Link
-                  href="/product/quickquotepro"
-                  data-testid="link-explore-calculator"
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 8,
-                    padding: "10px 20px", borderRadius: 9999,
-                    background: "rgba(0,0,0,0.06)", color: C.heading,
-                    fontSize: 14, fontWeight: 600, textDecoration: "none",
-                  }}
-                >
-                  Explore
-                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                    <ArrowRight size={14} strokeWidth={2} />
-                  </span>
-                </Link>
-              </div>
-            </div>
-
-            <div
-              data-reveal="fade-up"
-              data-delay="100"
-              data-testid="tool-card-ai"
-              style={{
-                background: "#F0EDF5",
-                borderRadius: 20,
-                padding: "36px 32px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 16,
-              }}
-            >
-              <div style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(139,124,181,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Cpu size={26} color={C.purple} strokeWidth={1.5} />
-              </div>
-              <h3 style={{ fontSize: 22, fontWeight: 700, color: C.heading }}>AI Employee</h3>
-              <p style={{ fontSize: 15, color: C.body, lineHeight: 1.65, margin: 0 }}>
-                Your 24/7 AI assistant that chats with visitors, answers questions, generates estimates, and books jobs — even at 2am.
-              </p>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-                <Link
-                  href="/product/ai-chat"
-                  data-testid="link-explore-ai"
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 8,
-                    padding: "10px 20px", borderRadius: 9999,
-                    background: "rgba(0,0,0,0.06)", color: C.heading,
-                    fontSize: 14, fontWeight: 600, textDecoration: "none",
-                  }}
-                >
-                  Explore
-                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                    <ArrowRight size={14} strokeWidth={2} />
-                  </span>
-                </Link>
-              </div>
-            </div>
-
-            <div
-              data-reveal="fade-up"
-              data-delay="200"
-              data-testid="tool-card-booking"
-              style={{
-                background: "#E8EFF5",
-                borderRadius: 20,
-                padding: "36px 32px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 16,
-              }}
-            >
-              <div style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(90,124,145,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Calendar size={26} color={C.blue} strokeWidth={1.5} />
-              </div>
-              <h3 style={{ fontSize: 22, fontWeight: 700, color: C.heading }}>Online Booking</h3>
-              <p style={{ fontSize: 15, color: C.body, lineHeight: 1.65, margin: 0 }}>
-                Let customers pick a time, pay a deposit, and confirm — all without a phone call.
-              </p>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-                <Link
-                  href="/product/booking-addon"
-                  data-testid="link-explore-booking"
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 8,
-                    padding: "10px 20px", borderRadius: 9999,
-                    background: "rgba(0,0,0,0.06)", color: C.heading,
-                    fontSize: 14, fontWeight: 600, textDecoration: "none",
-                  }}
-                >
-                  Explore
-                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                    <ArrowRight size={14} strokeWidth={2} />
-                  </span>
-                </Link>
-              </div>
-            </div>
-
-            <div
-              data-reveal="fade-up"
-              data-delay="300"
-              data-testid="tool-card-reputation"
-              style={{
-                background: "#FDF0E8",
-                borderRadius: 20,
-                padding: "36px 32px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 16,
-              }}
-            >
-              <div style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(201,167,96,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Shield size={26} color="#C9A760" strokeWidth={1.5} />
-              </div>
-              <h3 style={{ fontSize: 22, fontWeight: 700, color: C.heading }}>Reputation Shield</h3>
-              <p style={{ fontSize: 15, color: C.body, lineHeight: 1.65, margin: 0 }}>
-                Automatically collect reviews, monitor your online presence, and build trust with new customers.
-              </p>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-                <Link
-                  href="/product/reputationshield"
-                  data-testid="link-explore-reputation"
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 8,
-                    padding: "10px 20px", borderRadius: 9999,
-                    background: "rgba(0,0,0,0.06)", color: C.heading,
-                    fontSize: 14, fontWeight: 600, textDecoration: "none",
-                  }}
-                >
-                  Explore
-                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                    <ArrowRight size={14} strokeWidth={2} />
-                  </span>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-      {/* ═══════════════════════════════════════
-          SECTION 1.5 — VISUAL FLOW DIAGRAM
-      ═══════════════════════════════════════ */}
-      <section style={{ background: C.warmGray, padding: "80px 28px 64px", borderTop: `1px solid ${C.borderLight}` }}>
-        <div style={{ maxWidth: 800, margin: "0 auto", textAlign: "center" }}>
-          <div
-            className="flow-row"
-            data-reveal="fade-up"
-            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, flexWrap: "nowrap" }}
-          >
-            {FLOW_ITEMS.map(({ icon: Icon, label }, i) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 0 }}>
-                {/* Icon + Label */}
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, minWidth: 80 }}>
-                  <div style={{
-                    width: 52, height: 52, borderRadius: 14, background: C.bg,
-                    border: `1px solid ${C.border}`, display: "flex", alignItems: "center",
-                    justifyContent: "center", boxShadow: SHADOW.card,
-                  }}>
-                    <Icon size={22} color={C.muted} strokeWidth={1.5} />
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: C.muted, whiteSpace: "nowrap" }}>{label}</span>
-                </div>
-                {/* Horizontal connector (hidden on mobile) */}
-                {i < FLOW_ITEMS.length - 1 && (
-                  <>
-                    <div
-                      className="flow-connector-h mkt-flow-line"
-                      style={{ width: 40, height: 1, background: C.border, flexShrink: 0, marginBottom: 28 }}
-                    />
-                    <div
-                      className="flow-connector-v"
-                      style={{ display: "none", width: 1, height: 28, background: C.border, margin: "0 auto" }}
-                    />
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-          <div data-reveal="fade-up" data-delay="200" style={{ marginTop: 36 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: C.heading }}>Your Trade Business</span>
-          </div>
-        </div>
-      </section>
-      {/* ═══════════════════════════════════════
-          SECTION 2 — TICKER
-      ═══════════════════════════════════════ */}
-      <div style={{ background: C.warmGrayAlt, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "20px 0", overflow: "hidden" }}>
-        <div className="mkt-ticker-track">
-          {TICKER_ITEMS.map((item, i) => (
-            <span key={i} style={{ fontSize: 13, fontWeight: 600, color: C.muted, padding: "0 36px", whiteSpace: "nowrap", flexShrink: 0 }}>
-              {item}
-            </span>
-          ))}
-        </div>
-      </div>
-      {/* ═══════════════════════════════════════
-          SECTION 3 — FEATURE CARDS GRID
-      ═══════════════════════════════════════ */}
-      <section data-testid="features-section" style={{ background: C.warmGray, padding: "112px 28px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
-              Capabilities
-            </div>
-            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 40px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 16 }}>
-              Capabilities that book jobs
-            </h2>
-            <p style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", maxWidth: 520, margin: "0 auto" }}>
-              Everything a trades business needs to convert website visitors into confirmed revenue.
-            </p>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 24 }}>
-            {FEATURES.map((f) => <FeatureCard key={f.id} {...f} />)}
-          </div>
-        </div>
-      </section>
-      {/* ═══════════════════════════════════════
-          SECTION 4 — HOW IT WORKS
-      ═══════════════════════════════════════ */}
-      <section data-testid="how-it-works-section" style={{ background: C.warmGrayAlt, padding: "112px 28px" }}>
-        <div style={{ maxWidth: 960, margin: "0 auto", textAlign: "center" }}>
-          <div data-reveal="fade-up">
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
-              How It Works
-            </div>
-            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 40px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 64 }}>
-              Live in under 10 minutes
-            </h2>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8, position: "relative" }}>
-            <div className="step-line" />
-            {STEPS.map(({ num, title, body, testId }, i) => (
-              <div key={testId} data-testid={testId} data-reveal="scale" data-delay={String(i * 150)} style={{ padding: "0 16px", textAlign: "center", position: "relative" }}>
-                <div style={{
-                  width: 64, height: 64, borderRadius: "50%", background: C.bg,
-                  border: `2px solid ${C.border}`,
-                  boxShadow: `0 0 0 10px ${C.sageTint}, ${SHADOW.card}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  margin: "0 auto 24px", fontSize: 20, fontWeight: 800, color: C.sage, position: "relative", zIndex: 1,
-                }}>
-                  {num}
-                </div>
-                <h3 style={{ fontSize: 19, fontWeight: 700, color: C.heading, marginBottom: 10, letterSpacing: "-0.01em" }}>{title}</h3>
-                <p style={{ fontSize: 15, color: C.muted, lineHeight: 1.65, margin: 0 }}>{body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-      {/* ═══════════════════════════════════════
-          SECTION 5 — SOCIAL PROOF
-      ═══════════════════════════════════════ */}
-      <section style={{ background: C.warmGray, padding: "112px 28px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
-            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 12 }}>
-              Loved by Trades &amp; Growing Businesses Worldwide
-            </h2>
-            <p style={{ fontSize: 16, color: C.muted }}>Real results from real trades businesses.</p>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
-            {TESTIMONIALS.map(({ quote, name, role, delay }) => (
+      {/* ═══ SECTION 3 — TRUST BLOCK ═══ */}
+      <section data-testid="trust-section" style={{ background: C.warmGrayAlt, padding: "112px 28px" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 24, marginBottom: 72 }}>
+            {TRUST_BADGES.map(({ icon: Icon, text, sub }, i) => (
               <div
-                key={name}
+                key={text}
+                data-testid={`trust-badge-${i}`}
                 data-reveal="fade-up"
-                data-delay={delay}
-                className="mkt-feature-card"
-                style={{ background: C.bgGrayAlt, border: `1px solid ${C.border}`, borderRadius: 16, padding: "28px 24px", boxShadow: SHADOW.card }}
+                data-delay={String(i * 100)}
+                style={{
+                  background: C.bg,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 16,
+                  padding: "28px 24px",
+                  textAlign: "center",
+                  boxShadow: SHADOW.card,
+                }}
               >
-                <div style={{ display: "flex", gap: 2, marginBottom: 16 }}>
-                  {Array.from({ length: 5 }).map((_, i) => <span key={i} style={{ fontSize: 16, color: C.gold }}>★</span>)}
+                <div style={{ width: 52, height: 52, borderRadius: 14, background: C.sageTint, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                  <Icon size={24} color={C.green} strokeWidth={1.5} />
                 </div>
-                <p style={{ fontSize: 15, color: C.body, lineHeight: 1.65, fontStyle: "italic", marginBottom: 20 }}>"{quote}"</p>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.heading }}>{name}</div>
-                  <div style={{ fontSize: 13, color: C.muted }}>{role}</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: C.heading, marginBottom: 6 }}>{text}</div>
+                <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.5 }}>{sub}</div>
+              </div>
+            ))}
+          </div>
+
+          <div data-reveal="fade-up">
+            <div style={{ textAlign: "center", marginBottom: 32 }}>
+              <h3 style={{ fontSize: "clamp(22px, 2.5vw, 30px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.02em", marginBottom: 8 }}>
+                What trades businesses are saying
+              </h3>
+              <p style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>Example reviews (replace with real reviews)</p>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
+              {TESTIMONIALS.map(({ quote, name, role }, i) => (
+                <div
+                  key={name}
+                  data-testid={`testimonial-${i}`}
+                  data-reveal="fade-up"
+                  data-delay={String(i * 100)}
+                  className="mkt-feature-card"
+                  style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 16, padding: "28px 24px", boxShadow: SHADOW.card }}
+                >
+                  <div style={{ display: "flex", gap: 2, marginBottom: 16 }}>
+                    {Array.from({ length: 5 }).map((_, j) => <span key={j} style={{ fontSize: 16, color: C.gold }}>★</span>)}
+                  </div>
+                  <p style={{ fontSize: 15, color: C.body, lineHeight: 1.65, fontStyle: "italic", marginBottom: 20 }}>"{quote}"</p>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.heading }}>{name}</div>
+                    <div style={{ fontSize: 13, color: C.muted }}>{role}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </section>
-      {/* ═══════════════════════════════════════
-          SECTION 6 — FEATURE BREAKDOWN (Alternating)
-      ═══════════════════════════════════════ */}
-      {/* Block A — AI Employee */}
-      <section data-testid="feature-section-ai" style={{ background: C.warmGrayAlt, padding: "112px 28px" }}>
-        <div className="alt-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
-          {/* Text LEFT */}
-          <div data-reveal="fade-left">
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>AI Employee</div>
-            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 18, lineHeight: 1.15 }}>
-              Never miss a lead — even at 2am
-            </h2>
-            <p style={{ fontSize: 16, color: C.body, lineHeight: 1.7, marginBottom: 28 }}>
-              Your AI employee chats with website visitors, answers questions, generates instant estimates, and books appointments — automatically, around the clock.
-            </p>
-            {["Web Chat & Voice", "SMS & WhatsApp messaging", "Escalate to you when needed"].map((b) => (
-              <div key={b} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <Check size={16} strokeWidth={1.75} color={C.sage} />
-                <span style={{ fontSize: 15, color: C.body, fontWeight: 500 }}>{b}</span>
-              </div>
-            ))}
-            <Link href="/product" className="mkt-arrow-link" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 600, color: C.green, textDecoration: "none" }}>
-              See AI Employee <ArrowRight size={16} strokeWidth={1.5} />
-            </Link>
-          </div>
-          {/* Mockup RIGHT */}
-          <div data-reveal="fade-right" style={{ display: "flex", justifyContent: "center" }}>
-            <AiChatMockup />
-          </div>
-        </div>
-      </section>
-      {/* Block B — Booking */}
-      <section data-testid="feature-section-booking" style={{ background: C.warmGray, padding: "112px 28px" }}>
-        <div className="alt-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
-          {/* Mockup LEFT */}
-          <div data-reveal="fade-right" style={{ display: "flex", justifyContent: "center" }}>
-            <BookingMockup />
-          </div>
-          {/* Text RIGHT */}
-          <div data-reveal="fade-left">
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.blue, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Booking engine</div>
-            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 18, lineHeight: 1.15 }}>
-              Turn estimates into paid bookings
-            </h2>
-            <p style={{ fontSize: 16, color: C.body, lineHeight: 1.7, marginBottom: 28 }}>
-              Embed a booking calendar directly into your estimate flow. Customers pick a time, pay a deposit via Stripe, and you're notified instantly — no phone calls needed.
-            </p>
-            {["Calendar-based slot selection", "Stripe deposit collection", "Automated confirmation emails"].map((b) => (
-              <div key={b} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <Check size={16} strokeWidth={1.75} color={C.blue} />
-                <span style={{ fontSize: 15, color: C.body, fontWeight: 500 }}>{b}</span>
-              </div>
-            ))}
-            <Link href="/product" className="mkt-arrow-link" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 600, color: C.blue, textDecoration: "none" }}>
-              See Booking Engine <ArrowRight size={16} strokeWidth={1.5} />
-            </Link>
-          </div>
-        </div>
-      </section>
-      {/* Block C — Templates */}
-      <section data-testid="feature-section-templates" style={{ background: C.warmGrayAlt, padding: "112px 28px" }}>
-        <div className="alt-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
-          {/* Text LEFT */}
-          <div data-reveal="fade-left">
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.purple, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Templates</div>
-            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 18, lineHeight: 1.15 }}>
-              Pick a template, go live today
-            </h2>
-            <p style={{ fontSize: 16, color: C.body, lineHeight: 1.7, marginBottom: 28 }}>
-              Choose from 6 professionally designed calculator templates built specifically for trades. Single-page, multi-step, package selector — all mobile-optimised and conversion-tested.
-            </p>
-            {["6 high-converting templates", "Mobile-first, fully responsive", "Trade-specific recommendations"].map((b) => (
-              <div key={b} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <Check size={16} strokeWidth={1.75} color={C.purple} />
-                <span style={{ fontSize: 15, color: C.body, fontWeight: 500 }}>{b}</span>
-              </div>
-            ))}
-            <Link href="/templates" className="mkt-arrow-link" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 600, color: C.purple, textDecoration: "none" }}>
-              Browse Templates <ArrowRight size={16} strokeWidth={1.5} />
-            </Link>
-          </div>
-          {/* Mockup RIGHT */}
-          <div data-reveal="fade-right" style={{ display: "flex", justifyContent: "center" }}>
-            <TemplateMockup />
-          </div>
-        </div>
-      </section>
-      {/* ═══════════════════════════════════════
-          SECTION 7 — PRICING TEASER
-      ═══════════════════════════════════════ */}
+
+      {/* ═══ SECTION 4 — PRICING TEASER ═══ */}
       <section data-testid="pricing-teaser-section" style={{ background: "linear-gradient(160deg, #2B2B2B 0%, #1A1A1A 100%)", padding: "112px 28px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <div style={{ maxWidth: 960, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
             <h2 style={{ fontSize: "clamp(26px, 3vw, 40px)", fontWeight: 600, color: "#FFFFFF", letterSpacing: "-0.025em", marginBottom: 12 }}>
               Simple pricing that scales with you
             </h2>
             <p style={{ fontSize: 17, color: "rgba(255,255,255,0.55)" }}>Start for free. Upgrade when you're ready.</p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20, marginBottom: 40 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20, marginBottom: 32 }}>
             {PRICING_TIERS.map(({ name, price, label, features, border, badge, badgeBg }, i) => (
               <div
                 key={name}
@@ -1104,88 +480,50 @@ export default function HomePage() {
             ))}
           </div>
           <div style={{ textAlign: "center" }}>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", marginBottom: 28 }}>
+              Calls/SMS usage billed at cost (you control limits).
+            </p>
             <Link
-              href="/pricing"
+              href="/product"
+              data-testid="button-see-plans"
               style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 9999, border: "1.5px solid rgba(255,255,255,0.25)", color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", transition: "all 0.2s ease" }}
               onMouseEnter={(e) => ((e.target as HTMLElement).style.background = "rgba(255,255,255,0.08)")}
               onMouseLeave={(e) => ((e.target as HTMLElement).style.background = "transparent")}
             >
-              View Full Pricing <ArrowRight size={16} strokeWidth={1.5} />
+              See plans <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
           </div>
         </div>
       </section>
-      {/* ═══════════════════════════════════════
-          SECTION 8 — SERVICES TEASE
-      ═══════════════════════════════════════ */}
-      <section data-testid="services-tease-section" style={{ background: C.warmGrayAlt, padding: "112px 28px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Growth Services</div>
-            <h2 style={{ fontSize: "clamp(26px, 3vw, 38px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 14 }}>
-              We handle the marketing. You handle the jobs.
-            </h2>
-            <p style={{ fontSize: 16, color: C.muted, maxWidth: 520, margin: "0 auto" }}>
-              Optional done-for-you growth services to drive more traffic into your new quote calculator.
-            </p>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24, marginBottom: 48 }}>
-            {SERVICES_TEASE.map(({ icon: Icon, title, desc, price, iconBg, iconColor }, i) => (
-              <div
-                key={title}
-                data-reveal="fade-up"
-                data-delay={String(i * 150)}
-                className="mkt-feature-card"
-                style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 16, padding: "28px 24px", boxShadow: SHADOW.card }}
-              >
-                <div style={{ width: 48, height: 48, borderRadius: 14, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18 }}>
-                  <Icon size={22} color={iconColor} strokeWidth={1.5} />
-                </div>
-                <h3 style={{ fontSize: 17, fontWeight: 700, color: C.heading, marginBottom: 8 }}>{title}</h3>
-                <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.65, marginBottom: 16 }}>{desc}</p>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.sage }}>{price}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <Link
-              href="/services"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 9999, background: "rgba(51,149,106,0.08)", color: C.green, fontSize: 15, fontWeight: 600, textDecoration: "none", border: `1.5px solid ${C.green}33` }}
-            >
-              Explore All Services <ArrowRight size={16} strokeWidth={1.5} />
-            </Link>
-          </div>
-        </div>
-      </section>
-      {/* ═══════════════════════════════════════
-          SECTION 9 — BIG CTA
-      ═══════════════════════════════════════ */}
+
+      {/* ═══ SECTION 5 — FINAL CTA ═══ */}
       <section
         data-testid="cta-band"
         style={{ background: `linear-gradient(135deg, ${C.green} 0%, ${C.greenDark} 100%)`, padding: "136px 28px", textAlign: "center" }}
       >
         <div style={{ maxWidth: 680, margin: "0 auto" }} data-reveal="scale">
           <h2 style={{ fontSize: "clamp(32px, 4vw, 52px)", fontWeight: 700, color: "#FFFFFF", letterSpacing: "-0.025em", marginBottom: 18, lineHeight: 1.1 }}>
-            Ready to Get More Booked Jobs?
+            Ready to get more booked jobs?
           </h2>
           <p style={{ fontSize: 18, color: "rgba(255,255,255,0.72)", lineHeight: 1.65, marginBottom: 44, maxWidth: 520, margin: "0 auto 44px" }}>
-            Join thousands of trades businesses using QuickQuotePro to automate leads, bookings, and follow-ups.
+            Join thousands of trades businesses using QuickQuotePro to automate quotes, bookings, and follow-ups.
           </p>
           <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
             <Link
               href="/Wizard"
-              data-testid="button-start-free-cta"
+              data-testid="button-try-free-cta"
               className="mkt-btn-primary"
               style={{ display: "inline-block", padding: "15px 36px", borderRadius: 9999, background: "#FFFFFF", color: C.green, fontSize: 16, fontWeight: 700, textDecoration: "none" }}
             >
-              Start Free
+              Try Free
             </Link>
             <Link
-              href="/contact"
+              href="/demo"
+              data-testid="button-try-demo-cta"
               className="mkt-btn-ghost"
               style={{ display: "inline-block", padding: "15px 32px", borderRadius: 9999, background: "transparent", color: "#FFFFFF", fontSize: 16, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.4)" }}
             >
-              Talk to Sales
+              Try Demo
             </Link>
           </div>
           <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", marginTop: 24 }}>
