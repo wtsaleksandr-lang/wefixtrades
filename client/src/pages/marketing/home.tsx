@@ -137,6 +137,8 @@ const FLOW_OUTCOMES = [
   { label: "You focus on the work", icon: Hammer, color: "#33956A", tip: "Less admin, more time on the tools" },
 ];
 
+const FLOW = { cardW: 220, cardH: 48, gap: 12, connW: 56, centerR: 60 };
+
 function FlowNode({ label, tip, icon: Icon, color }: { label: string; tip: string; icon: typeof Zap; color: string }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -147,13 +149,14 @@ function FlowNode({ label, tip, icon: Icon, color }: { label: string; tip: strin
       style={{
         display: "flex", alignItems: "center", gap: 10,
         background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12,
-        padding: "10px 16px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-        width: "fit-content", maxWidth: 220, position: "relative",
-        cursor: "default",
+        padding: "0 16px",
+        width: FLOW.cardW, height: FLOW.cardH,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+        position: "relative", cursor: "default", boxSizing: "border-box",
       }}
     >
-      <div style={{ width: 32, height: 32, borderRadius: 8, background: `${color}14`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <Icon size={16} color={color} strokeWidth={1.5} />
+      <div style={{ width: 30, height: 30, borderRadius: 8, background: `${color}14`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <Icon size={15} color={color} strokeWidth={1.5} />
       </div>
       <span style={{ fontSize: 13, fontWeight: 600, color: C.heading, whiteSpace: "nowrap" }}>{label}</span>
       {hovered && (
@@ -172,33 +175,27 @@ function FlowNode({ label, tip, icon: Icon, color }: { label: string; tip: strin
 }
 
 function FlowConnectorSvg({ count, direction }: { count: number; direction: "left" | "right" }) {
-  const nodeH = 52;
-  const gap = 10;
-  const totalH = count * nodeH + (count - 1) * gap;
+  const totalH = count * FLOW.cardH + (count - 1) * FLOW.gap;
   const centerY = totalH / 2;
-  const w = 48;
+  const w = FLOW.connW;
+  const cpOff = w * 0.45;
 
   return (
-    <svg width={w} height={totalH} style={{ overflow: "visible", flexShrink: 0 }} aria-hidden="true">
-      <defs>
-        <circle id={`dot-${direction}`} r="3" fill="rgba(51,149,106,0.5)" />
-      </defs>
+    <svg width={w} height={totalH} style={{ overflow: "visible", flexShrink: 0, display: "block" }} aria-hidden="true">
       {Array.from({ length: count }).map((_, i) => {
-        const nodeY = i * (nodeH + gap) + nodeH / 2;
-        const x1 = direction === "left" ? 0 : w;
-        const x2 = direction === "left" ? w : 0;
-        const pathId = `path-${direction}-${i}`;
+        const anchorY = i * (FLOW.cardH + FLOW.gap) + FLOW.cardH / 2;
+        const pathId = `fpath-${direction}-${i}`;
         const pathD = direction === "left"
-          ? `M ${x1} ${nodeY} C ${w * 0.6} ${nodeY}, ${w * 0.4} ${centerY}, ${x2} ${centerY}`
-          : `M ${x1} ${centerY} C ${w * 0.6} ${centerY}, ${w * 0.4} ${nodeY}, ${x2} ${nodeY}`;
+          ? `M 0 ${anchorY} C ${cpOff} ${anchorY}, ${w - cpOff} ${centerY}, ${w} ${centerY}`
+          : `M 0 ${centerY} C ${cpOff} ${centerY}, ${w - cpOff} ${anchorY}, ${w} ${anchorY}`;
         return (
           <g key={i}>
-            <path d={pathD} stroke="rgba(51,149,106,0.12)" strokeWidth="1.5" fill="none" id={pathId} />
-            <use href={`#dot-${direction}`}>
-              <animateMotion dur={`${2.5 + i * 0.3}s`} repeatCount="indefinite" begin={`${i * 0.4}s`}>
+            <path d={pathD} stroke="rgba(51,149,106,0.15)" strokeWidth="1.5" fill="none" id={pathId} />
+            <circle r="3" fill="rgba(51,149,106,0.5)">
+              <animateMotion dur={`${2.8 + i * 0.35}s`} repeatCount="indefinite" begin={`${i * 0.45}s`}>
                 <mpath href={`#${pathId}`} />
               </animateMotion>
-            </use>
+            </circle>
           </g>
         );
       })}
@@ -207,10 +204,23 @@ function FlowConnectorSvg({ count, direction }: { count: number; direction: "lef
 }
 
 function FlowMapHero() {
+  const svcStackH = FLOW_SERVICES.length * FLOW.cardH + (FLOW_SERVICES.length - 1) * FLOW.gap;
+  const outStackH = FLOW_OUTCOMES.length * FLOW.cardH + (FLOW_OUTCOMES.length - 1) * FLOW.gap;
+  const maxStackH = Math.max(svcStackH, outStackH);
+
   return (
     <div data-testid="flow-map-hero" className="flow-map-container" style={{ position: "relative", maxWidth: 960, margin: "0 auto" }}>
-      <div className="flow-map-desktop" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end" }}>
+      <div className="flow-map-desktop" style={{
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 0,
+        minHeight: maxStackH,
+      }}>
+        <div style={{
+          display: "grid",
+          gridAutoRows: FLOW.cardH,
+          rowGap: FLOW.gap,
+          alignItems: "center",
+          justifyItems: "end",
+        }}>
           {FLOW_SERVICES.map((s) => (
             <FlowNode key={s.label} {...s} />
           ))}
@@ -219,19 +229,25 @@ function FlowMapHero() {
         <FlowConnectorSvg count={FLOW_SERVICES.length} direction="left" />
 
         <div className="flow-center-node" style={{
-          width: 120, height: 120, borderRadius: "50%",
+          width: FLOW.centerR * 2, height: FLOW.centerR * 2, borderRadius: "50%",
           background: `linear-gradient(135deg, ${C.green} 0%, ${C.greenDark} 100%)`,
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           boxShadow: "0 8px 32px rgba(51,149,106,0.25)",
           position: "relative", zIndex: 2, flexShrink: 0,
         }}>
-          <Briefcase size={28} color="#FFFFFF" strokeWidth={1.5} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#FFFFFF", marginTop: 6, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
+          <Briefcase size={26} color="#FFFFFF" strokeWidth={1.5} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#FFFFFF", marginTop: 5, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
         </div>
 
         <FlowConnectorSvg count={FLOW_OUTCOMES.length} direction="right" />
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start" }}>
+        <div style={{
+          display: "grid",
+          gridAutoRows: FLOW.cardH,
+          rowGap: FLOW.gap,
+          alignItems: "center",
+          justifyItems: "start",
+        }}>
           {FLOW_OUTCOMES.map((o) => (
             <FlowNode key={o.label} {...o} />
           ))}
@@ -254,9 +270,9 @@ function FlowMapHero() {
             );
           })}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 1.5, height: 24, background: "rgba(51,149,106,0.2)" }} />
-          <ArrowRight size={16} color={C.sage} strokeWidth={1.5} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <div style={{ width: 1.5, height: 20, background: "rgba(51,149,106,0.2)" }} />
+          <ArrowRight size={16} color={C.sage} strokeWidth={1.5} style={{ transform: "rotate(90deg)" }} />
         </div>
         <div className="flow-center-node" style={{
           width: 96, height: 96, borderRadius: "50%",
@@ -267,9 +283,9 @@ function FlowMapHero() {
           <Briefcase size={22} color="#FFFFFF" strokeWidth={1.5} />
           <span style={{ fontSize: 10, fontWeight: 700, color: "#FFFFFF", marginTop: 4, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 1.5, height: 24, background: "rgba(51,149,106,0.2)" }} />
-          <ArrowRight size={16} color={C.sage} strokeWidth={1.5} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <div style={{ width: 1.5, height: 20, background: "rgba(51,149,106,0.2)" }} />
+          <ArrowRight size={16} color={C.sage} strokeWidth={1.5} style={{ transform: "rotate(90deg)" }} />
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
           {FLOW_OUTCOMES.map((o) => {

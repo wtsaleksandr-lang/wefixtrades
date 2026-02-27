@@ -1,0 +1,69 @@
+HOTFIX: FlowMapHero polish (direction + alignment). Keep everything else unchanged.
+
+GOALS:
+1) Flow direction must visually be:
+   - Left side: service nodes → center
+   - Right side: center → outcome nodes
+   Currently the right side dots flow into the center; reverse that so dots originate from the center and travel outward to the outcome cards.
+
+2) Cards must be consistent and perfectly aligned:
+   - All left service cards identical width/height and aligned to a clean vertical grid.
+   - All right outcome cards identical width/height and aligned to a clean vertical grid.
+   - Vertical spacing must be consistent.
+   - The center circle must be perfectly centered between columns (no optical drift).
+   - Connector lines must land cleanly at consistent anchor points (not random).
+
+IMPLEMENTATION DETAILS:
+
+A) REVERSE RIGHT-SIDE DOT FLOW
+- If you animate dots along SVG paths using stroke-dashoffset or along a path length:
+  - Keep left-side direction as-is (toward center).
+  - Reverse only the right-side animation so it moves from center to the right.
+- Approach options (choose the simplest given current implementation):
+  Option 1: Use separate CSS keyframes for right-side dots with inverted dashoffset values.
+  Option 2: If using CSS motion path / offset-distance, set right dots to animate 0% → 100% instead of 100% → 0%.
+  Option 3: If using an SVG <animate> along path, reverse begin/end values for right side only.
+
+B) CONSISTENT CARD SIZING + GRID
+- Define constants:
+  CARD_W = fixed width (e.g., 220–240px)
+  CARD_H = fixed height (e.g., 44–52px)
+  GAP_Y = consistent vertical gap (e.g., 12–14px)
+- Use a strict layout:
+  - Wrap left cards in a container with:
+    display: grid;
+    grid-auto-rows: CARD_H;
+    row-gap: GAP_Y;
+    align-items: center;
+  - Same for right cards.
+- Ensure each card uses:
+  - same padding
+  - same icon size
+  - same font size/weight
+  - same border radius/shadow
+- Visually center the stacks relative to the center node:
+  - Make left and right grid containers vertically centered to the center circle.
+  - Avoid manual top offsets. Use flex container with justify-center and equal stack heights.
+
+C) CONNECTOR ANCHORS (make them “engineered”)
+- Compute anchor Y positions based on card index:
+  anchorY(i) = topOffset + i*(CARD_H + GAP_Y) + CARD_H/2
+- Use those anchorY values both for:
+  - where the line starts/ends
+  - where the moving dots travel
+- On left:
+  line from (leftColumnRightEdge, anchorY) → (centerLeftEdge, centerY)
+- On right:
+  line from (centerRightEdge, centerY) → (rightColumnLeftEdge, anchorY)
+- Use consistent curve strength for all lines (same Bezier control offsets).
+
+D) FINAL CHECKLIST (must pass)
+- Right dots clearly originate from the center and move outward to each outcome card.
+- All cards on both sides are exactly the same size and aligned to a perfect vertical grid.
+- No card looks “higher” or “lower” randomly; spacing is uniform.
+- Center node is perfectly centered between the two stacks.
+
+DELIVERABLE:
+- Update only FlowMapHero (and helper if any).
+- Confirm which method you used to reverse right-side dot direction.
+Proceed now.
