@@ -7,6 +7,8 @@ import WorkflowDemo from "@/components/marketing/WorkflowDemo";
 import {
   Zap, Calendar, Cpu, MessageCircle, Check,
   ArrowRight, Shield, Star, Clock, Sparkles,
+  Phone, MapPin, ThumbsUp, Globe, Mail, Wrench, Briefcase,
+  Target, PhoneOff, Timer, Award, Hammer,
 } from "lucide-react";
 
 const C = {
@@ -118,93 +120,171 @@ const PRICING_TIERS = [
   { name: "PRO",     price: "$199", label: "Most popular",           features: ["3 calculators", "24/7 Assistant", "SMS & WhatsApp"],   border: C.sage,                   badge: "Most Popular", badgeBg: C.sage },
 ];
 
-function HeroMockup() {
+const FLOW_SERVICES = [
+  { label: "Instant Quotes", icon: Zap, color: "#33956A", tip: "Visitors get a price in seconds" },
+  { label: "24/7 Answering", icon: Phone, color: "#5A7C91", tip: "Never miss a call or message" },
+  { label: "Google Maps", icon: MapPin, color: "#C9A760", tip: "Show up when locals search" },
+  { label: "Review Boost", icon: ThumbsUp, color: "#8B7CB5", tip: "Collect 5-star reviews on autopilot" },
+  { label: "Follow-ups", icon: Mail, color: "#5A7C91", tip: "Auto reminders that convert quotes to jobs" },
+  { label: "WebCare", icon: Globe, color: "#C9A760", tip: "Keep your site fast and secure" },
+];
+
+const FLOW_OUTCOMES = [
+  { label: "More booked jobs", icon: Target, color: "#33956A", tip: "Turn more quotes into paying work" },
+  { label: "Missed calls recovered", icon: PhoneOff, color: "#5A7C91", tip: "Capture every enquiry automatically" },
+  { label: "Faster estimates", icon: Timer, color: "#C9A760", tip: "Quotes delivered in seconds, not hours" },
+  { label: "More 5-star reviews", icon: Award, color: "#8B7CB5", tip: "Build trust with happy customer reviews" },
+  { label: "You focus on the work", icon: Hammer, color: "#33956A", tip: "Less admin, more time on the tools" },
+];
+
+function FlowNode({ label, tip, icon: Icon, color }: { label: string; tip: string; icon: typeof Zap; color: string }) {
+  const [hovered, setHovered] = useState(false);
   return (
     <div
-      className="mkt-float"
-      data-testid="hero-mockup"
+      className="flow-node"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
-        background: C.bg,
-        border: `1px solid ${C.border}`,
-        borderRadius: 20, padding: 24, width: "100%", maxWidth: 420, boxShadow: SHADOW.hero,
+        display: "flex", alignItems: "center", gap: 10,
+        background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12,
+        padding: "10px 16px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+        width: "fit-content", maxWidth: 220, position: "relative",
+        cursor: "default",
       }}
     >
-      <div style={{ background: C.bgGray, border: `1px solid ${C.borderLight}`, borderRadius: 14, padding: "16px 20px", marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: C.sageAccent, color: C.sageDark, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>
-            ✓ Estimate Ready
-          </span>
+      <div style={{ width: 32, height: 32, borderRadius: 8, background: `${color}14`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <Icon size={16} color={color} strokeWidth={1.5} />
+      </div>
+      <span style={{ fontSize: 13, fontWeight: 600, color: C.heading, whiteSpace: "nowrap" }}>{label}</span>
+      {hovered && (
+        <div style={{
+          position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
+          background: "#1A1A1A", color: "#FFFFFF", fontSize: 12, fontWeight: 500,
+          padding: "6px 12px", borderRadius: 8, whiteSpace: "nowrap",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)", pointerEvents: "none", zIndex: 10,
+        }}>
+          {tip}
+          <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "5px solid #1A1A1A" }} />
         </div>
-        <div style={{ fontSize: 28, fontWeight: 800, color: C.heading, letterSpacing: "-0.02em" }}>$1,240 – $1,680</div>
-        <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Bathroom Renovation · 2 hours</div>
-      </div>
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-        <div style={{ width: 2, height: 20, background: C.sage, borderRadius: 2 }} />
-      </div>
-      <div style={{ background: C.bgGray, border: `1px solid ${C.borderLight}`, borderRadius: 14, padding: "14px 20px", marginBottom: 12 }}>
-        <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>Book a Time</div>
-        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-          {["Mon", "Tue", "Wed", "Thu", "Fri"].map((d, i) => (
-            <div key={d} style={{
-              flex: 1, textAlign: "center", padding: "6px 0", borderRadius: 8, fontSize: 11, fontWeight: i === 1 ? 700 : 400,
-              background: i === 1 ? C.sage : C.bgGrayAlt,
-              color: i === 1 ? "#FFFFFF" : C.muted,
-            }}>{d}</div>
-          ))}
-        </div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: C.sage }}>9:00 AM — Confirmed ✓</div>
-      </div>
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-        <div style={{ width: 2, height: 20, background: C.sage, borderRadius: 2 }} />
-      </div>
-      <div style={{ background: C.bgGray, border: `1px solid ${C.borderLight}`, borderRadius: 14, padding: "14px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Cpu size={13} color="#FFFFFF" strokeWidth={1.5} />
-          </div>
-          <div style={{ fontSize: 12, color: C.body, lineHeight: 1.45 }}>
-            Hi! I can help you schedule or get an exact quote 👋
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
-function AiChatMockup() {
-  const messages = [
-    { text: "Hi! Can I get a quote for repainting my lounge?", user: true },
-    { text: "Of course! How large is the room (m²)?", user: false },
-    { text: "About 30m², walls only.", user: true },
-    { text: "Based on 30m², I estimate $680 – $920. Want to lock in a time?", user: false },
-  ];
+function FlowConnectorSvg({ count, direction }: { count: number; direction: "left" | "right" }) {
+  const nodeH = 52;
+  const gap = 10;
+  const totalH = count * nodeH + (count - 1) * gap;
+  const centerY = totalH / 2;
+  const w = 48;
+
   return (
-    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 20, padding: 24, width: "100%", maxWidth: 380, boxShadow: SHADOW.hero }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.borderLight}` }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Cpu size={16} color="#FFFFFF" strokeWidth={1.5} />
+    <svg width={w} height={totalH} style={{ overflow: "visible", flexShrink: 0 }} aria-hidden="true">
+      <defs>
+        <circle id={`dot-${direction}`} r="3" fill="rgba(51,149,106,0.5)" />
+      </defs>
+      {Array.from({ length: count }).map((_, i) => {
+        const nodeY = i * (nodeH + gap) + nodeH / 2;
+        const x1 = direction === "left" ? 0 : w;
+        const x2 = direction === "left" ? w : 0;
+        const pathId = `path-${direction}-${i}`;
+        const pathD = direction === "left"
+          ? `M ${x1} ${nodeY} C ${w * 0.6} ${nodeY}, ${w * 0.4} ${centerY}, ${x2} ${centerY}`
+          : `M ${x1} ${centerY} C ${w * 0.6} ${centerY}, ${w * 0.4} ${nodeY}, ${x2} ${nodeY}`;
+        return (
+          <g key={i}>
+            <path d={pathD} stroke="rgba(51,149,106,0.12)" strokeWidth="1.5" fill="none" id={pathId} />
+            <use href={`#dot-${direction}`}>
+              <animateMotion dur={`${2.5 + i * 0.3}s`} repeatCount="indefinite" begin={`${i * 0.4}s`}>
+                <mpath href={`#${pathId}`} />
+              </animateMotion>
+            </use>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function FlowMapHero() {
+  return (
+    <div data-testid="flow-map-hero" className="flow-map-container" style={{ position: "relative", maxWidth: 960, margin: "0 auto" }}>
+      <div className="flow-map-desktop" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end" }}>
+          {FLOW_SERVICES.map((s) => (
+            <FlowNode key={s.label} {...s} />
+          ))}
         </div>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: C.heading }}>24/7 Assistant</div>
-          <div style={{ fontSize: 11, color: C.sage }}>● Online</div>
+
+        <FlowConnectorSvg count={FLOW_SERVICES.length} direction="left" />
+
+        <div className="flow-center-node" style={{
+          width: 120, height: 120, borderRadius: "50%",
+          background: `linear-gradient(135deg, ${C.green} 0%, ${C.greenDark} 100%)`,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 8px 32px rgba(51,149,106,0.25)",
+          position: "relative", zIndex: 2, flexShrink: 0,
+        }}>
+          <Briefcase size={28} color="#FFFFFF" strokeWidth={1.5} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#FFFFFF", marginTop: 6, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
+        </div>
+
+        <FlowConnectorSvg count={FLOW_OUTCOMES.length} direction="right" />
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start" }}>
+          {FLOW_OUTCOMES.map((o) => (
+            <FlowNode key={o.label} {...o} />
+          ))}
         </div>
       </div>
-      {messages.map((m, i) => (
-        <div key={i} style={{ display: "flex", justifyContent: m.user ? "flex-end" : "flex-start", marginBottom: 10 }}>
-          <div style={{
-            maxWidth: "82%", padding: "10px 14px",
-            borderRadius: m.user ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-            background: m.user ? C.sage : C.bgGray,
-            fontSize: 13, color: m.user ? "#FFFFFF" : C.body, lineHeight: 1.5,
-          }}>{m.text}</div>
+
+      <div className="flow-map-mobile" style={{ display: "none", flexDirection: "column", alignItems: "center", gap: 16 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+          {FLOW_SERVICES.map((s) => {
+            const Icon = s.icon;
+            return (
+              <div key={s.label} title={s.tip} style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10,
+                padding: "8px 12px", fontSize: 12, fontWeight: 600, color: C.heading,
+              }}>
+                <Icon size={14} color={s.color} strokeWidth={1.5} />
+                {s.label}
+              </div>
+            );
+          })}
         </div>
-      ))}
-      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-        <div style={{ flex: 1, background: C.bgGray, border: `1px solid ${C.borderLight}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: C.muted }}>
-          Type a message…
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 1.5, height: 24, background: "rgba(51,149,106,0.2)" }} />
+          <ArrowRight size={16} color={C.sage} strokeWidth={1.5} />
         </div>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <ArrowRight size={16} color="#FFFFFF" strokeWidth={1.5} />
+        <div className="flow-center-node" style={{
+          width: 96, height: 96, borderRadius: "50%",
+          background: `linear-gradient(135deg, ${C.green} 0%, ${C.greenDark} 100%)`,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 8px 32px rgba(51,149,106,0.25)",
+        }}>
+          <Briefcase size={22} color="#FFFFFF" strokeWidth={1.5} />
+          <span style={{ fontSize: 10, fontWeight: 700, color: "#FFFFFF", marginTop: 4, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 1.5, height: 24, background: "rgba(51,149,106,0.2)" }} />
+          <ArrowRight size={16} color={C.sage} strokeWidth={1.5} />
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+          {FLOW_OUTCOMES.map((o) => {
+            const Icon = o.icon;
+            return (
+              <div key={o.label} title={o.tip} style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10,
+                padding: "8px 12px", fontSize: 12, fontWeight: 600, color: C.heading,
+              }}>
+                <Icon size={14} color={o.color} strokeWidth={1.5} />
+                {o.label}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -213,7 +293,19 @@ function AiChatMockup() {
 
 const RESPONSIVE_CSS = `
   @media (max-width: 820px) {
-    .hero-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
+    .flow-map-desktop { display: none !important; }
+    .flow-map-mobile { display: flex !important; }
+  }
+  @keyframes flowPulse {
+    0%, 100% { box-shadow: 0 8px 32px rgba(51,149,106,0.25); }
+    50% { box-shadow: 0 8px 40px rgba(51,149,106,0.4); }
+  }
+  .flow-center-node { animation: flowPulse 3s ease-in-out infinite; }
+  .flow-node { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .flow-node:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important; }
+  .mkt-btn-primary:focus-visible, .mkt-btn-ghost:focus-visible {
+    outline: 2px solid #2B7D58;
+    outline-offset: 2px;
   }
 `;
 
@@ -233,34 +325,38 @@ export default function HomePage() {
         data-testid="hero-section"
         style={{
           background: C.warmGray,
-          padding: "100px 28px 120px",
+          padding: "80px 28px 72px",
           position: "relative",
           overflow: "hidden",
         }}
       >
-        <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.sageTint, border: `1px solid ${C.sageAccent}`, borderRadius: 9999, padding: "6px 16px", marginBottom: 40 }}>
+        <div style={{ maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.sageTint, border: `1px solid ${C.sageAccent}`, borderRadius: 9999, padding: "6px 16px", marginBottom: 24 }}>
             <span data-testid="badge-hero" style={{ fontSize: 12, fontWeight: 600, color: C.sage, letterSpacing: "0.02em" }}>No contracts · Cancel anytime</span>
           </div>
 
           <h1
             data-testid="hero-headline"
-            style={{ fontSize: "clamp(42px, 5.5vw, 72px)", fontWeight: 700, color: C.heading, lineHeight: 1.04, letterSpacing: "-0.035em", marginBottom: 28 }}
+            className="hero-headline"
+            style={{ fontSize: "clamp(38px, 5vw, 64px)", fontWeight: 700, color: C.heading, lineHeight: 1.08, letterSpacing: "-0.035em", marginBottom: 20, maxWidth: 620, margin: "0 auto 20px" }}
           >
-            Instant Quotes. 24/7 Answering.{" "}
-            More <span style={{ color: C.green }}>booked jobs</span> — without extra work.
+            Instant Quotes. 24/7{"\u00A0"}Answering.{" "}
+            More <span style={{ color: C.green }}>booked jobs</span> —{" "}
+            without extra work.
           </h1>
 
-          <p data-testid="hero-subtext" style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", lineHeight: 1.65, marginBottom: 40, maxWidth: 560, margin: "0 auto 40px" }}>
-            Embed QuickQuotePro on your site. Our 24/7 assistant handles calls & chat. Follow-ups, booking, and review requests run automatically — all inside one dashboard.
+          <p data-testid="hero-subtext" style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", lineHeight: 1.65, maxWidth: 520, margin: "0 auto 28px" }}>
+            Get instant quotes, 24/7 answers, and automatic follow-ups — so you book more jobs without chasing leads.
           </p>
 
-          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", marginBottom: 48 }}>
+          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", marginBottom: 28 }}>
             <Link
               href="/Wizard"
               data-testid="button-try-free-hero"
               className="mkt-btn-primary"
-              style={{ padding: "14px 32px", borderRadius: 9999, background: C.green, color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-block" }}
+              style={{ padding: "14px 32px", borderRadius: 9999, background: C.greenDark, color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-block", transition: "background 0.2s ease" }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "#256E4C")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = C.greenDark)}
             >
               Try Free
             </Link>
@@ -268,34 +364,22 @@ export default function HomePage() {
               href="/demo"
               data-testid="button-try-demo-hero"
               className="mkt-btn-ghost"
-              style={{ padding: "14px 28px", borderRadius: 9999, background: "transparent", color: C.green, fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, border: `1.5px solid ${C.green}` }}
+              style={{ padding: "14px 28px", borderRadius: 9999, background: "transparent", color: C.greenDark, fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, border: `1.5px solid ${C.greenDark}` }}
             >
               Try Demo
             </Link>
           </div>
 
-          <div style={{ marginBottom: 56, display: "flex", justifyContent: "center", minHeight: 44 }}>
+          <div style={{ marginBottom: 40, display: "flex", justifyContent: "center", minHeight: 44 }}>
             <TypingReplace
               words={TYPING_WORDS}
               color={C.sage}
-              fontSize="clamp(22px, 2.6vw, 32px)"
+              fontSize="clamp(20px, 2.4vw, 28px)"
             />
           </div>
         </div>
 
-        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-          <div
-            className="hero-grid"
-            style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 40, alignItems: "start" }}
-          >
-            <div style={{ display: "flex", justifyContent: "center" }}>
-              <HeroMockup />
-            </div>
-            <div style={{ display: "flex", justifyContent: "center" }}>
-              <AiChatMockup />
-            </div>
-          </div>
-        </div>
+        <FlowMapHero />
       </section>
 
       {/* ═══ SECTION 1 — WORKFLOW ═══ */}
