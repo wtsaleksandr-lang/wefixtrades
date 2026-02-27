@@ -16,6 +16,7 @@ export default function TypingReplace({
   const [highlightOpacity, setHighlightOpacity] = useState(0);
 
   const measureRef = useRef<HTMLSpanElement>(null);
+  const cursorMeasureRef = useRef<HTMLSpanElement>(null);
   const wordIndexRef = useRef(0);
   const displayedRef = useRef("");
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -107,16 +108,22 @@ export default function TypingReplace({
     return () => clearAll();
   }, []);
 
+  const longestWord = words.reduce((a, b) => (a.length > b.length ? a : b), "");
+
   return (
     <div
       style={{
-        display: "flex",
-        alignItems: "baseline",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
         gap: 10,
-        overflow: "hidden",
-        maxWidth: "100%",
+        background: "rgba(255,255,255,0.55)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        border: "1px solid rgba(0,0,0,0.06)",
+        borderRadius: 9999,
+        padding: "10px 24px",
         minHeight: "1.5em",
-        flexWrap: "nowrap",
       }}
     >
       <span
@@ -131,6 +138,21 @@ export default function TypingReplace({
         Built for
       </span>
       <span style={{ position: "relative", display: "inline-block" }}>
+        <span
+          aria-hidden="true"
+          style={{
+            visibility: "hidden",
+            whiteSpace: "pre",
+            fontWeight: 800,
+            fontSize,
+            letterSpacing: "-0.01em",
+            pointerEvents: "none",
+            display: "inline-block",
+          }}
+        >
+          {longestWord}
+        </span>
+
         <span
           style={{
             position: "absolute",
@@ -148,32 +170,39 @@ export default function TypingReplace({
 
         <span
           style={{
-            color,
-            fontWeight: 800,
-            fontSize,
-            position: "relative",
+            position: "absolute",
+            left: 0,
+            top: 0,
+            display: "inline-flex",
+            alignItems: "baseline",
             zIndex: 1,
             whiteSpace: "nowrap",
-            letterSpacing: "-0.01em",
           }}
-          className="text-[#33956a]">
-          {displayedText}
+        >
+          <span
+            style={{
+              color,
+              fontWeight: 800,
+              fontSize,
+              letterSpacing: "-0.01em",
+            }}
+            className="text-[#33956a]"
+          >
+            {displayedText}
+          </span>
+          <span
+            className="mkt-cursor"
+            style={{
+              display: "inline-block",
+              width: 2,
+              height: "0.85em",
+              background: color,
+              marginLeft: 1,
+              verticalAlign: "text-bottom",
+              borderRadius: 1,
+            }}
+          />
         </span>
-
-        <span
-          className="mkt-cursor"
-          style={{
-            display: "inline-block",
-            width: 2,
-            height: "0.85em",
-            background: color,
-            marginLeft: 1,
-            verticalAlign: "text-bottom",
-            position: "relative",
-            zIndex: 1,
-            borderRadius: 1,
-          }}
-        />
 
         <span
           ref={measureRef}

@@ -1,0 +1,93 @@
+PHASE 1.1 HOTFIX (UI polish + hero visualization). Apply to existing homepage only. Keep current design system and colors.
+
+GOALS:
+1) Reduce vertical whitespace/gaps in hero area.
+2) Fix headline wrapping/alignment so it looks professionally balanced.
+3) Replace techy subtitle copy with trade-friendly language (no “embed”, no “dashboard”).
+4) Fix “Built for ___” so the line NEVER shifts left/right when trade changes. Keep “Built for” static. Only the trade word animates (fade/flip) inside a fixed-width container.
+5) Add a subtle premium container behind “Built for ___” (frosted pill).
+6) Update header CTA button: rounded-full pill, slightly darker green, better contrast with background.
+7) Replace the 2 hero cards with a new animated “Flow Map” visualization: Service nodes → center “Your Business” → Outcome nodes. Use CSS + SVG (no Lottie assets) for low cost.
+
+DETAILED INSTRUCTIONS:
+
+A) HERO SPACING + TYPOGRAPHY
+- Reduce top padding and spacing between: badge → headline → subtitle → CTA → “Built for”
+- Target: hero content should fit “above the fold” with less empty space.
+- Ensure headline is centered and wrapped intentionally (manual line breaks if needed):
+  Suggested wrapping:
+  Line 1: “Instant Quotes. 24/7”
+  Line 2: “Answering. More”
+  Line 3: “booked jobs —”
+  Line 4: “without extra work.”
+- Adjust line-height and max-width so it feels balanced (no awkward ragging).
+
+B) SUBTITLE COPY (replace current)
+Use this exact subtitle:
+“Get instant quotes, 24/7 answers, and automatic follow-ups — so you book more jobs without chasing leads.”
+
+C) “BUILT FOR ___” STABILITY + FROSTED PILL
+- Keep “Built for” text static.
+- Wrap the changing trade word in a fixed-width container sized for the longest trade label used.
+- Animation: crossfade (opacity) or vertical flip INSIDE that fixed container.
+- Add a frosted pill container around the whole “Built for ___” row:
+  - light translucent background
+  - subtle border
+  - slight blur
+  - rounded-full
+  - padding small (looks premium, not bulky)
+IMPORTANT: The entire row must not move horizontally when the trade changes.
+
+D) HEADER CTA BUTTON
+- “Try Free” button should be rounded-full.
+- Darken the green slightly vs current. Use a shade that still matches the palette and contrasts with background.
+- Add hover state + focus ring.
+
+E) HERO VISUAL REPLACEMENT: FLOW MAP (replace the two cards under hero)
+Remove the existing 2 demo cards below “Built for”.
+Insert a new component <FlowMapHero /> with:
+Layout (desktop):
+- Left column: 6–7 service nodes (cards/badges)
+- Center: “Your Business” circle/card (slightly larger)
+- Right column: 5 outcome nodes (cards/badges)
+Connectors:
+- Draw SVG lines from each left node to center, and from center to each right node.
+Animation (CSS/SVG only, no lottie):
+- Add small “flow dots” moving along the connector lines continuously (subtle).
+- Pulse animation on center node (very subtle).
+- On hover of a node: show tooltip text (1 short sentence).
+Content:
+Left service nodes (label + tiny icon if available):
+1) Instant Quotes
+2) 24/7 Answering
+3) Google Maps + Website
+4) Review Boost
+5) Follow-ups
+6) WebCare
+7) New Website (optional; include if it fits)
+Center:
+- “Your Business”
+Right outcome nodes:
+1) More booked jobs
+2) Missed calls recovered
+3) Faster estimates
+4) More 5-star reviews
+5) You focus on the work
+
+Responsive:
+- On mobile, simplify:
+  - Stack services list → center → outcomes list
+  - Hide most connector lines OR show only a few (keep it clean)
+  - Keep the pulse and light motion.
+
+IMPLEMENTATION CONSTRAINTS:
+- Do not introduce heavy new dependencies.
+- Use existing Tailwind utilities.
+- Keep FlowMapHero self-contained (one component + small helper for SVG).
+- No backend changes.
+
+DELIVERABLE:
+- Show files changed and where FlowMapHero is mounted.
+- Confirm “Built for” no longer shifts.
+- Confirm hero fits better above the fold on 1440px and mobile.
+Proceed now.

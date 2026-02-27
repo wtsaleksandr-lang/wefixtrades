@@ -371,14 +371,17 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   style={{
                     padding: "9px 20px",
                     borderRadius: 9999,
-                    background: T.accent,
+                    background: T.accentHover,
                     color: "#FFFFFF",
                     fontSize: 13,
                     fontWeight: 600,
                     textDecoration: "none",
                     display: "inline-block",
                     whiteSpace: "nowrap",
+                    transition: "background 0.2s ease, box-shadow 0.2s ease",
                   }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#256E4C"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = T.accentHover; }}
                 >
                   Try Free
                 </Link>
@@ -445,7 +448,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 marginTop: 20,
                 padding: "12px",
                 borderRadius: 9999,
-                background: T.accent,
+                background: T.accentHover,
                 color: "#FFFFFF",
                 fontSize: 15,
                 fontWeight: 600,
