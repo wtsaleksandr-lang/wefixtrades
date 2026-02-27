@@ -10,6 +10,7 @@ const C = {
   navy: "#0B1F3A",
   sage: "#4A7C6F",
   sageDark: "#3B6358",
+  green: "#33956A",
   heading: "#111111",
   body: "#444444",
   muted: "#6B6B6B",
@@ -293,6 +294,87 @@ export default function ProductPageRoute() {
                   <FAQAccordion key={f.q} {...f} />
                 ))}
               </div>
+            </div>
+          </section>
+        )}
+
+        {product.pricingSection && (
+          <section
+            style={{
+              background: "linear-gradient(180deg, #2B2B2B 0%, #1A1A1A 100%)",
+              padding: "80px 28px",
+            }}
+            data-testid="product-pricing"
+          >
+            <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+              <div style={{ textAlign: "center", marginBottom: 48 }} data-reveal="fade-up">
+                <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: "#FFFFFF", letterSpacing: "-0.025em", marginBottom: 12 }}>
+                  Simple, transparent pricing
+                </h2>
+              </div>
+              <div
+                className="pricing-plans-grid"
+                style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20 }}
+                data-reveal="fade-up"
+              >
+                {product.pricingSection.plans.map((plan) => (
+                  <div
+                    key={plan.name}
+                    data-testid={`pricing-plan-${plan.name.toLowerCase()}`}
+                    style={{
+                      background: plan.highlighted ? "rgba(51,149,106,0.12)" : "rgba(255,255,255,0.06)",
+                      border: plan.highlighted ? `2px solid ${C.green}` : "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: 16,
+                      padding: "32px 24px",
+                      position: "relative",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    {plan.badge && (
+                      <div style={{
+                        position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)",
+                        background: C.green, color: "#FFFFFF", fontSize: 11, fontWeight: 700,
+                        padding: "4px 14px", borderRadius: 9999, letterSpacing: "0.04em", whiteSpace: "nowrap",
+                      }}>
+                        {plan.badge}
+                      </div>
+                    )}
+                    <h3 style={{ fontSize: 18, fontWeight: 700, color: "#FFFFFF", marginBottom: 8 }}>{plan.name}</h3>
+                    <div style={{ marginBottom: 20 }}>
+                      <span style={{ fontSize: 36, fontWeight: 700, color: "#FFFFFF" }}>{plan.price}</span>
+                      <span style={{ fontSize: 14, color: "rgba(255,255,255,0.5)" }}>{plan.period}</span>
+                    </div>
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0, flex: 1 }}>
+                      {plan.features.map((f) => (
+                        <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "rgba(255,255,255,0.75)", lineHeight: 1.5, marginBottom: 10 }}>
+                          <Check size={15} color={C.green} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 3 }} />
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Link
+                      href="/Wizard"
+                      data-testid={`pricing-cta-${plan.name.toLowerCase()}`}
+                      style={{
+                        display: "block", textAlign: "center",
+                        marginTop: 20, padding: "12px 20px", borderRadius: 9999,
+                        background: plan.highlighted ? C.green : "rgba(255,255,255,0.1)",
+                        color: "#FFFFFF", fontSize: 14, fontWeight: 700,
+                        textDecoration: "none",
+                        border: plan.highlighted ? "none" : "1px solid rgba(255,255,255,0.2)",
+                      }}
+                    >
+                      Get Started
+                    </Link>
+                  </div>
+                ))}
+              </div>
+              {product.pricingSection.note && (
+                <p style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.45)", marginTop: 24 }}>
+                  {product.pricingSection.note}
+                </p>
+              )}
             </div>
           </section>
         )}

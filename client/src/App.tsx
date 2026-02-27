@@ -34,6 +34,7 @@ import DocsBooking from "@/pages/marketing/docs/booking";
 import DocsAi from "@/pages/marketing/docs/ai";
 import DocsWebhooks from "@/pages/marketing/docs/webhooks";
 import DocsTroubleshooting from "@/pages/marketing/docs/troubleshooting";
+import SolutionsVisibility from "@/pages/marketing/solutions-visibility";
 
 function Router() {
   return (
@@ -63,6 +64,7 @@ function Router() {
       <Route path="/docs/ai" component={DocsAi} />
       <Route path="/docs/webhooks" component={DocsWebhooks} />
       <Route path="/docs/troubleshooting" component={DocsTroubleshooting} />
+      <Route path="/solutions/visibility" component={SolutionsVisibility} />
       <Route path="/Wizard" component={Wizard} />
       <Route path="/Calculator" component={Calculator} />
       <Route path="/EditCalculator" component={EditCalculator} />

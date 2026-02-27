@@ -1,0 +1,169 @@
+You are working inside an existing Replit full-stack web app for the WeFixTrades marketing site + app. Goal: minimal, cost-efficient changes (no heavy refactors, no new design system). Focus only on wiring, page structure, copy updates, and small UI adjustments. Do NOT generate images. Do NOT invent complex animations. Add placeholders where needed.
+
+PHASE 1 GOAL (LOCKED SKELETON):
+- Lock information architecture + navigation.
+- Update positioning + homepage copy to: “Instant Quotes + 24/7 Answering + Follow-ups — in one simple dashboard.”
+- Avoid heavy use of the word “AI” (use “24/7 answering”, “assistant”, “automations”, “auto-follow-ups”).
+- Product hub where each product leads to its own page WITH pricing section (Product and Pricing effectively merged).
+- Keep a separate /pricing page OPTIONAL but recommended as a simple plan comparison + FAQ (lightweight).
+
+CONSTRAINTS:
+- Keep existing green/white/black vibe, spacing, typography.
+- Keep current animated “Built for [Trades]” rotating line (it’s good, keep it).
+- Remove “Book a Demo” CTA everywhere. Replace with “Try Demo” / “See Pricing” / “Try Free”.
+- Avoid major CSS rewrites. Reuse existing components.
+- Keep changes cheap: implement with small reusable components and local JSON content only.
+
+TASKS:
+
+A) NAVIGATION (simplify + match trade intent)
+- Top nav links (center): Product, Templates, Solutions, Docs
+- Right side: Login, primary CTA “Try Free”
+- Remove separate “Pricing” item from nav OR keep it as secondary (your choice):
+  Option 1 (preferred): Remove “Pricing” from nav and place “Pricing” link inside Product hub + footer.
+  Option 2: Keep “Pricing” but route to /pricing (simple plan comparison).
+- Product should route to /product (a hub page), not a dropdown.
+
+B) HOMEPAGE (copy + CTA + keep rotating trades line)
+Hero:
+- Badge: “No contracts • Cancel anytime”
+- H1: “Instant Quotes. 24/7 Answering. More booked jobs — without extra work.”
+- Subtext: “Embed QuickQuotePro on your site. Our 24/7 assistant handles calls & chat. Follow-ups, booking, and review requests run automatically — all inside one dashboard.”
+- CTAs:
+  Primary: “Try Free”
+  Secondary: “Try Demo” (routes to /demo)
+- Keep the animated “Built for [Trade]” rotating trades line (do not remove). Ensure it looks premium and smooth.
+
+C) HOMEPAGE SECTIONS (short, outcome driven, visual-first)
+Keep/adjust to these sections in this order:
+
+1) Workflow Section (interactive, cheap state switching)
+Title: “From lead → quote → booking → review (automatic)”
+- 4 step tabs/cards:
+  - Instant Estimate
+  - 24/7 Answering (Call/Chat)
+  - Auto Follow-ups + Booking
+  - Review Requests + Reputation
+- Right side demo panel switches content when steps are clicked (simple state).
+- Add placeholders for Lottie/JSON animation layers (no assets now):
+  e.g., <div data-lottie="wf-estimate" />, etc.
+
+2) “Tools that power growth” (4 cards)
+- QuickQuotePro
+- 24/7 Assistants
+- Follow-ups + Reviews
+- Visibility (Maps + Website)
+Each has 1 sentence + link:
+- QuickQuotePro → /product/quickquote
+- 24/7 Assistants → /product/assistants
+- Visibility → /solutions/visibility
+- Follow-ups + Reviews → either /product/assistants section anchor OR /solutions/visibility subsection (your choice)
+
+3) Proof / Trust Block (do NOT claim specific logos/brands)
+- Use trust badges that are generic and safe:
+  “No contracts”, “Live in under 10 minutes”, “Built for busy trades”
+- Testimonials can remain visually, but label them clearly as “Examples (replace with real reviews)” to avoid hard claims.
+
+4) Pricing teaser (simple)
+- Show 3 plan cards teaser only, with button “See plans” → /product (or /pricing if kept).
+- Add a single line under plans:
+  “Calls/SMS usage billed at cost (you control limits).”
+
+5) Final CTA
+- Title: “Ready to get more booked jobs?”
+- Buttons: “Try Free” and “Try Demo”
+
+D) PRODUCT HUB + PRODUCT PAGES (Product + Pricing merged)
+Create:
+1) /product  (hub)
+- Title: “Pick what you need”
+- 2 primary product cards:
+  - QuickQuotePro (instant quote + booking)
+  - 24/7 Assistants (call + chat + follow-ups)
+- Each card has:
+  - 3 bullets outcomes (not features)
+  - CTA “See details & pricing” → respective product page
+- Optional add-ons list (small): Visibility Bundle, Reputation, SocialSync
+
+2) /product/quickquote
+Structure:
+- Hero (Instant quotes on your website)
+- “Live in under 10 minutes” (3 steps)
+- Templates preview grid (small)
+- Booking/deposit section (explain “turn estimates into paid bookings”)
+- Dashboard preview section
+- PRICING SECTION (plans specific to QuickQuotePro)
+- FAQ
+- CTA
+
+3) /product/assistants
+Structure:
+- Hero (24/7 Answering System)
+- Voice vs Chat comparison (simple table/cards)
+- After-hours emergency intake explanation (call it “After-hours intake” not “AI emergency”)
+- Follow-ups: quote reminders + job follow-ups + review requests
+- Dashboard preview section
+- PRICING SECTION (plans specific to Assistants)
+- FAQ
+- CTA
+IMPORTANT: use “assistant/automation” language; only mention “AI” once in FAQ as a technical note.
+
+E) SOLUTIONS PAGE
+Create:
+- /solutions/visibility
+Sections:
+- MapGuard (Google Maps optimization + posts + categories + service areas)
+- WebBoost (speed + on-page fixes)
+- ReputationShield (review monitoring + response help + review requests)
+- SocialSync (basic posting automation)
+- Include “what’s included” bullets
+- CTA
+
+F) TEMPLATES PAGE
+Create:
+- /templates
+- Gallery grid with filters (trade categories)
+- Content from local JSON array (no backend)
+- Each template card: trade, short name, “Preview”, “Use template”
+(Preview can open a modal with placeholder screenshot block.)
+
+G) DEMO PAGE
+Create:
+- /demo
+- Reuse the Workflow Section component in a bigger demo mode.
+- Add a toggle to switch demo between:
+  - “Quote Widget”
+  - “Assistant Chat”
+  - “Booking”
+  - “Review Request”
+This is just UI state switching with fake data.
+
+H) DOCS PAGE
+Create:
+- /docs
+- Install widget (embed script placeholder)
+- FAQ
+- Support contact / tickets link (if exists)
+
+I) CTA FIXES
+- Replace any “Book a Demo” button sitewide with:
+  - “Try Demo” (routes to /demo)
+  - “See plans” (routes to /product or /pricing)
+
+J) IMPLEMENTATION NOTES (cost efficient)
+- Create a shared MarketingLayout component:
+  - Nav
+  - Footer
+  - Container widths
+- Create reusable components:
+  - WorkflowDemo (used in Home + Demo)
+  - PricingTeaser
+  - ProductPricingSection (used inside each product page)
+  - VideoModal is NOT needed in Phase 1 (skip video modal; use /demo instead)
+
+DELIVERABLES
+After implementing Phase 1, output:
+1) List of files added/changed.
+2) A quick manual test checklist (routes, nav, buttons, demo switching).
+3) TODO list for Phase 2 (real animations assets, real testimonials, real demo content).
+Proceed with Phase 1 only.

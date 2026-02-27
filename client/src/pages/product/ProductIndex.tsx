@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, Phone, MessageSquare, Clock, Star, Globe, Shield, Share2 } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
-import { PRODUCT_PAGES, CATEGORY_LABELS, type ProductCategory } from "@/config/products";
 
 const C = {
   navy: "#0B1F3A",
@@ -16,26 +15,69 @@ const C = {
   surface: "#F7F7F6",
 };
 
-const CATEGORIES: { key: ProductCategory | "all"; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "core", label: "Core Tools" },
-  { key: "ai", label: "AI Employees" },
-  { key: "growth", label: "Growth Services" },
+const PRIMARY_PRODUCTS = [
+  {
+    slug: "quickquote",
+    name: "QuickQuotePro",
+    tagline: "Instant quotes + booking on your website",
+    outcomes: [
+      "Visitors get real estimates in seconds — no phone tag",
+      "Built-in booking & deposits turn quotes into jobs",
+      "Lead capture runs 24/7 on autopilot",
+    ],
+    cta: "See details & pricing",
+    href: "/product/quickquote",
+    icon: Clock,
+  },
+  {
+    slug: "assistants",
+    name: "24/7 Assistants",
+    tagline: "Call + chat answering, follow-ups & review requests",
+    outcomes: [
+      "Every call and chat answered — even at 2 AM",
+      "Automatic follow-ups keep leads warm",
+      "Review requests sent after every completed job",
+    ],
+    cta: "See details & pricing",
+    href: "/product/assistants",
+    icon: Phone,
+  },
+];
+
+const ADDONS = [
+  {
+    slug: "visibility",
+    name: "Visibility Bundle",
+    desc: "Maps, website SEO, and local ranking — handled for you.",
+    href: "/solutions/visibility",
+    icon: Globe,
+  },
+  {
+    slug: "reputationshield",
+    name: "ReputationShield",
+    desc: "Automated review requests, monitoring, and alerts.",
+    href: "/product/reputationshield",
+    icon: Shield,
+  },
+  {
+    slug: "socialsync",
+    name: "SocialSync",
+    desc: "Consistent posting and lead-gen on Facebook & Instagram.",
+    href: "/product/socialsync",
+    icon: Share2,
+  },
 ];
 
 export default function ProductIndex() {
   useScrollReveal();
-  const [filter, setFilter] = useState<ProductCategory | "all">("all");
 
   useEffect(() => {
     document.title = "Products & Services — WeFixTrades | Tools for Trades Businesses";
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
-      metaDesc.setAttribute("content", "Explore WeFixTrades products and services: instant quote calculators, AI employees, booking, SEO, social media, reputation management, and more.");
+      metaDesc.setAttribute("content", "Explore WeFixTrades products: instant quote calculators, 24/7 answering assistants, booking, follow-ups, visibility, and reputation management.");
     }
   }, []);
-
-  const filtered = filter === "all" ? PRODUCT_PAGES : PRODUCT_PAGES.filter((p) => p.category === filter);
 
   return (
     <MarketingLayout>
@@ -62,98 +104,148 @@ export default function ProductIndex() {
                 marginBottom: 20,
               }}
             >
-              Products & Services
+              Pick what you need
             </h1>
             <p style={{ fontSize: "clamp(16px, 1.8vw, 19px)", color: "rgba(255,255,255,0.6)", lineHeight: 1.65, maxWidth: 540, margin: "0 auto" }}>
-              Everything you need to generate leads, automate follow-ups, and grow your trades business.
+              Two core products. Optional add-ons. No contracts.
             </p>
           </div>
         </section>
 
         <section style={{ background: C.bg, padding: "48px 28px 72px" }}>
-          <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+          <div style={{ maxWidth: 900, margin: "0 auto" }}>
 
-            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginBottom: 48 }} data-testid="category-filters">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.key}
-                  data-testid={`filter-${cat.key}`}
-                  onClick={() => setFilter(cat.key)}
-                  style={{
-                    padding: "8px 20px",
-                    borderRadius: 9999,
-                    border: `1.5px solid ${filter === cat.key ? C.sage : C.border}`,
-                    background: filter === cat.key ? "#EFF5F2" : "transparent",
-                    color: filter === cat.key ? C.sage : C.muted,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  {cat.label}
-                </button>
-              ))}
+            <div
+              className="primary-products-grid"
+              style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 24, marginBottom: 56 }}
+            >
+              {PRIMARY_PRODUCTS.map((product, idx) => {
+                const Icon = product.icon;
+                return (
+                  <Link
+                    key={product.slug}
+                    href={product.href}
+                    style={{ textDecoration: "none", color: "inherit" }}
+                  >
+                    <div
+                      data-testid={`product-primary-card-${product.slug}`}
+                      data-reveal="fade-up"
+                      data-delay={String((idx + 1) * 100)}
+                      className="mkt-feature-card"
+                      style={{
+                        background: C.bg,
+                        border: `1.5px solid ${C.border}`,
+                        borderRadius: 18,
+                        padding: "32px 28px",
+                        cursor: "pointer",
+                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        transition: "border-color 0.3s ease, box-shadow 0.3s ease",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 12, background: "#EFF5F2", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Icon size={22} color={C.sage} strokeWidth={2} />
+                        </div>
+                        <div>
+                          <h2 style={{ fontSize: 22, fontWeight: 700, color: C.heading, letterSpacing: "-0.01em", margin: 0 }}>
+                            {product.name}
+                          </h2>
+                        </div>
+                      </div>
+
+                      <p style={{ fontSize: 15, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
+                        {product.tagline}
+                      </p>
+
+                      <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+                        {product.outcomes.map((outcome) => (
+                          <li key={outcome} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: C.body, lineHeight: 1.45 }}>
+                            <Check size={15} color={C.sage} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 2 }} />
+                            <span>{outcome}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span data-testid={`link-product-${product.slug}`} style={{ fontSize: 15, fontWeight: 700, color: C.sage, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          {product.cta} <ArrowRight size={15} />
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div style={{ marginBottom: 28 }}>
+              <h3
+                data-testid="addons-heading"
+                style={{ fontSize: 18, fontWeight: 700, color: C.heading, letterSpacing: "-0.01em", marginBottom: 4 }}
+              >
+                Optional add-ons
+              </h3>
+              <p style={{ fontSize: 14, color: C.muted, margin: 0 }}>
+                Layer on visibility and reputation services when you're ready.
+              </p>
             </div>
 
             <div
-              className="products-grid"
-              style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20 }}
+              className="addons-grid"
+              style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}
             >
-              {filtered.map((product, idx) => (
-                <Link
-                  key={product.slug}
-                  href={`/product/${product.slug}`}
-                  style={{ textDecoration: "none", color: "inherit" }}
-                >
-                  <div
-                    data-testid={`product-index-card-${product.slug}`}
-                    data-reveal="fade-up"
-                    data-delay={String(Math.min((idx + 1) * 80, 400))}
-                    className="mkt-feature-card"
-                    style={{
-                      background: C.bg,
-                      border: `1px solid ${C.border}`,
-                      borderRadius: 18,
-                      padding: "28px 24px",
-                      cursor: "pointer",
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                      transition: "border-color 0.3s ease, box-shadow 0.3s ease",
-                    }}
+              {ADDONS.map((addon, idx) => {
+                const Icon = addon.icon;
+                return (
+                  <Link
+                    key={addon.slug}
+                    href={addon.href}
+                    style={{ textDecoration: "none", color: "inherit" }}
                   >
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
-                      {CATEGORY_LABELS[product.category]}
-                    </div>
+                    <div
+                      data-testid={`product-addon-card-${addon.slug}`}
+                      data-reveal="fade-up"
+                      data-delay={String(Math.min((idx + 1) * 80, 300))}
+                      className="mkt-feature-card"
+                      style={{
+                        background: C.surface,
+                        border: `1px solid ${C.border}`,
+                        borderRadius: 14,
+                        padding: "22px 20px",
+                        cursor: "pointer",
+                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        transition: "border-color 0.3s ease, box-shadow 0.3s ease",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                        <Icon size={18} color={C.sage} strokeWidth={2} />
+                        <h4 style={{ fontSize: 16, fontWeight: 700, color: C.heading, margin: 0 }}>
+                          {addon.name}
+                        </h4>
+                      </div>
 
-                    <h3 style={{ fontSize: 20, fontWeight: 700, color: C.heading, marginBottom: 6, letterSpacing: "-0.01em" }}>
-                      {product.name}
-                    </h3>
-                    <p style={{ fontSize: 14, color: C.muted, marginBottom: 16, lineHeight: 1.5 }}>
-                      {product.shortTagline}
-                    </p>
+                      <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.5, marginBottom: 14, flex: 1 }}>
+                        {addon.desc}
+                      </p>
 
-                    <ul style={{ listStyle: "none", padding: 0, margin: "0 0 20px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
-                      {product.highlights.slice(0, 3).map((h) => (
-                        <li key={h} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: C.body, lineHeight: 1.4 }}>
-                          <Check size={14} color={C.sage} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 2 }} />
-                          <span>{h}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: C.sage, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        Learn more <ArrowRight size={14} />
+                      <span data-testid={`link-addon-${addon.slug}`} style={{ fontSize: 13, fontWeight: 700, color: C.sage, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        Learn more <ArrowRight size={13} />
                       </span>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
 
-            <style>{`@media (max-width: 700px) { .products-grid { grid-template-columns: 1fr !important; } }`}</style>
+            <style>{`
+              @media (max-width: 700px) {
+                .primary-products-grid { grid-template-columns: 1fr !important; }
+                .addons-grid { grid-template-columns: 1fr !important; }
+              }
+            `}</style>
           </div>
         </section>
 
