@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
@@ -7,6 +7,8 @@ import {
   Zap, Cpu, MessageCircle, Check,
   ArrowRight, Shield, Star, Clock, Sparkles,
   Phone, ThumbsUp, Mail, Target,
+  MapPin, Briefcase, Award, Hammer,
+  Calculator, PhoneCall, RefreshCw, Wrench,
 } from "lucide-react";
 
 const C = {
@@ -117,11 +119,218 @@ const PRICING_TIERS = [
 ];
 
 const HERO_PILLS = [
-  { icon: Zap, label: "Instant Estimates" },
-  { icon: Phone, label: "24/7 Call & Chat Answering" },
-  { icon: Mail, label: "Automatic Follow-ups" },
-  { icon: ThumbsUp, label: "Review Boost" },
+  { icon: Zap, label: "Instant Estimates", mobileLabel: "Instant Estimates" },
+  { icon: Phone, label: "24/7 Call & Chat Answering", mobileLabel: "24/7 Call & Chat" },
+  { icon: Mail, label: "Automatic Follow-ups", mobileLabel: "Auto Follow-ups" },
+  { icon: ThumbsUp, label: "Review Boost", mobileLabel: "Review Boost" },
 ];
+
+const TRADES = ["Plumbers", "Electricians", "HVAC Pros", "Roofers", "Cleaners", "Painters", "Landscapers", "Handymen"];
+
+function BuiltForRotator() {
+  const [idx, setIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIdx((i) => (i + 1) % TRADES.length);
+        setVisible(true);
+      }, 250);
+    }, 2200);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div
+      data-testid="built-for-rotator"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "7px 18px",
+        borderRadius: 9999,
+        background: "rgba(255,255,255,0.55)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        border: "1px solid rgba(0,0,0,0.05)",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.03)",
+      }}
+    >
+      <span style={{ fontSize: 13, fontWeight: 500, color: C.muted, whiteSpace: "nowrap" }}>
+        Built for
+      </span>
+      <span
+        style={{
+          display: "inline-block",
+          width: 100,
+          textAlign: "left",
+          fontSize: 13,
+          fontWeight: 600,
+          color: C.sageDark,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          opacity: visible ? 1 : 0,
+          transform: visible ? "translateY(0)" : "translateY(-4px)",
+          transition: "opacity 0.25s ease, transform 0.25s ease",
+        }}
+      >
+        {TRADES[idx]}
+      </span>
+    </div>
+  );
+}
+
+const FLOW_SERVICES = [
+  { label: "Instant Estimates on Your Site", sub: "Give prices in seconds", icon: Calculator, color: "#33956A" },
+  { label: "Calls & Messages Answered 24/7", sub: "No missed jobs", icon: PhoneCall, color: "#5A7C91" },
+  { label: "Rank Higher on Google Maps", sub: "Show up when customers search", icon: MapPin, color: "#C9A760" },
+  { label: "Automatic Review Requests", sub: "Turn jobs into 5-star reviews", icon: Star, color: "#8B7CB5" },
+  { label: "Quote Follow-ups Sent Automatically", sub: "No chasing leads", icon: RefreshCw, color: "#5A7C91" },
+  { label: "Website Speed & Fixes Handled", sub: "We keep it running fast", icon: Wrench, color: "#C9A760" },
+];
+
+const FLOW_OUTCOMES = [
+  { label: "More booked jobs", sub: "Turn more quotes into paying work", icon: Target, color: "#33956A" },
+  { label: "Missed calls recovered", sub: "Capture every enquiry", icon: Phone, color: "#5A7C91" },
+  { label: "Faster estimates", sub: "Quotes delivered in seconds", icon: Zap, color: "#C9A760" },
+  { label: "More 5-star reviews", sub: "Build trust automatically", icon: Award, color: "#8B7CB5" },
+  { label: "You focus on the work", sub: "Less admin, more tools", icon: Hammer, color: "#33956A" },
+];
+
+const FL = { cardW: 240, cardH: 56, gap: 10, connW: 52, centerR: 58, iconBox: 36 };
+
+function FlowCard({ label, sub, icon: Icon, color }: { label: string; sub: string; icon: typeof Zap; color: string }) {
+  return (
+    <div
+      className="flow-node"
+      style={{
+        display: "flex", alignItems: "center", gap: 10,
+        background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12,
+        padding: "0 14px",
+        width: FL.cardW, height: FL.cardH,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+        boxSizing: "border-box",
+      }}
+    >
+      <div style={{
+        width: FL.iconBox, height: FL.iconBox, borderRadius: 10,
+        background: `${color}14`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+      }}>
+        <Icon size={16} color={color} strokeWidth={1.5} />
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: C.heading, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
+        <div style={{ fontSize: 10.5, fontWeight: 500, color: C.muted, lineHeight: 1.3, whiteSpace: "nowrap" }}>{sub}</div>
+      </div>
+    </div>
+  );
+}
+
+function FlowConnectorSvg({ count, direction }: { count: number; direction: "left" | "right" }) {
+  const totalH = count * FL.cardH + (count - 1) * FL.gap;
+  const centerY = totalH / 2;
+  const w = FL.connW;
+  const cpOff = w * 0.45;
+
+  return (
+    <svg width={w} height={totalH} style={{ overflow: "visible", flexShrink: 0, display: "block" }} aria-hidden="true">
+      {Array.from({ length: count }).map((_, i) => {
+        const anchorY = i * (FL.cardH + FL.gap) + FL.cardH / 2;
+        const pathId = `fpath-${direction}-${i}`;
+        const pathD = direction === "left"
+          ? `M 0 ${anchorY} C ${cpOff} ${anchorY}, ${w - cpOff} ${centerY}, ${w} ${centerY}`
+          : `M 0 ${centerY} C ${cpOff} ${centerY}, ${w - cpOff} ${anchorY}, ${w} ${anchorY}`;
+        return (
+          <g key={i}>
+            <path d={pathD} stroke="rgba(51,149,106,0.15)" strokeWidth="1.5" fill="none" id={pathId} />
+            <circle r="3" fill="rgba(51,149,106,0.45)">
+              <animateMotion dur={`${2.8 + i * 0.35}s`} repeatCount="indefinite" begin={`${i * 0.4}s`}>
+                <mpath href={`#${pathId}`} />
+              </animateMotion>
+            </circle>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function FlowMapHero() {
+  const svcH = FLOW_SERVICES.length * FL.cardH + (FLOW_SERVICES.length - 1) * FL.gap;
+  const outH = FLOW_OUTCOMES.length * FL.cardH + (FLOW_OUTCOMES.length - 1) * FL.gap;
+  const maxH = Math.max(svcH, outH);
+
+  return (
+    <div data-testid="flow-map-hero" style={{ position: "relative", maxWidth: 1000, margin: "0 auto" }}>
+      <div className="flow-map-desktop" style={{
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 0, minHeight: maxH,
+      }}>
+        <div style={{ display: "grid", gridAutoRows: FL.cardH, rowGap: FL.gap, alignItems: "center", justifyItems: "end" }}>
+          {FLOW_SERVICES.map((s) => <FlowCard key={s.label} {...s} />)}
+        </div>
+        <FlowConnectorSvg count={FLOW_SERVICES.length} direction="left" />
+        <div className="flow-center-node" style={{
+          width: FL.centerR * 2, height: FL.centerR * 2, borderRadius: "50%",
+          background: `linear-gradient(135deg, ${C.green} 0%, ${C.greenDark} 100%)`,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 8px 32px rgba(51,149,106,0.25)",
+          position: "relative", zIndex: 2, flexShrink: 0,
+        }}>
+          <Briefcase size={24} color="#FFFFFF" strokeWidth={1.5} />
+          <span style={{ fontSize: 10, fontWeight: 700, color: "#FFFFFF", marginTop: 4, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
+        </div>
+        <FlowConnectorSvg count={FLOW_OUTCOMES.length} direction="right" />
+        <div style={{ display: "grid", gridAutoRows: FL.cardH, rowGap: FL.gap, alignItems: "center", justifyItems: "start" }}>
+          {FLOW_OUTCOMES.map((o) => <FlowCard key={o.label} {...o} />)}
+        </div>
+      </div>
+
+      <div className="flow-map-mobile" style={{ display: "none", flexDirection: "column", alignItems: "center", gap: 14 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+          {FLOW_SERVICES.map(({ label, icon: SIcon, color }) => (
+            <div key={label} style={{
+              display: "flex", alignItems: "center", gap: 6,
+              background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10,
+              padding: "8px 12px", fontSize: 12, fontWeight: 600, color: C.heading,
+            }}>
+              <SIcon size={14} color={color} strokeWidth={1.5} /> {label}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <div style={{ width: 1.5, height: 18, background: "rgba(51,149,106,0.2)" }} />
+          <ArrowRight size={14} color={C.sage} strokeWidth={1.5} style={{ transform: "rotate(90deg)" }} />
+        </div>
+        <div className="flow-center-node" style={{
+          width: 88, height: 88, borderRadius: "50%",
+          background: `linear-gradient(135deg, ${C.green} 0%, ${C.greenDark} 100%)`,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 8px 32px rgba(51,149,106,0.25)",
+        }}>
+          <Briefcase size={20} color="#FFFFFF" strokeWidth={1.5} />
+          <span style={{ fontSize: 9, fontWeight: 700, color: "#FFFFFF", marginTop: 3, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <div style={{ width: 1.5, height: 18, background: "rgba(51,149,106,0.2)" }} />
+          <ArrowRight size={14} color={C.sage} strokeWidth={1.5} style={{ transform: "rotate(90deg)" }} />
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+          {FLOW_OUTCOMES.map(({ label, icon: OIcon, color }) => (
+            <div key={label} style={{
+              display: "flex", alignItems: "center", gap: 6,
+              background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10,
+              padding: "8px 12px", fontSize: 12, fontWeight: 600, color: C.heading,
+            }}>
+              <OIcon size={14} color={color} strokeWidth={1.5} /> {label}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const RESPONSIVE_CSS = `
   .mkt-btn-primary:focus-visible, .mkt-btn-ghost:focus-visible {
@@ -140,8 +349,25 @@ const RESPONSIVE_CSS = `
   .hero-pill:nth-child(2) { animation-delay: 0.3s; }
   .hero-pill:nth-child(3) { animation-delay: 0.45s; }
   .hero-pill:nth-child(4) { animation-delay: 0.6s; }
+  @media (max-width: 820px) {
+    .flow-map-desktop { display: none !important; }
+    .flow-map-mobile { display: flex !important; }
+  }
+  @keyframes flowPulse {
+    0%, 100% { box-shadow: 0 8px 32px rgba(51,149,106,0.25); }
+    50% { box-shadow: 0 8px 40px rgba(51,149,106,0.4); }
+  }
+  .flow-center-node { animation: flowPulse 3s ease-in-out infinite; }
+  .flow-node { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .flow-node:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important; }
   @media (max-width: 640px) {
-    .hero-pills-row { flex-wrap: wrap !important; }
+    .hero-pills-grid { grid-template-columns: 1fr 1fr !important; }
+    .hero-pill-label-full { display: none !important; }
+    .hero-pill-label-short { display: inline !important; }
+  }
+  @media (min-width: 641px) {
+    .hero-pill-label-full { display: inline !important; }
+    .hero-pill-label-short { display: none !important; }
   }
 `;
 
@@ -195,37 +421,39 @@ export default function HomePage() {
 
           <div
             data-testid="hero-pills"
-            className="hero-pills-row"
+            className="hero-pills-grid"
             style={{
-              display: "flex",
+              display: "grid",
+              gridTemplateColumns: "repeat(4, auto)",
               gap: 10,
               justifyContent: "center",
-              flexWrap: "nowrap",
               marginBottom: 28,
             }}
           >
-            {HERO_PILLS.map(({ icon: PillIcon, label }) => (
+            {HERO_PILLS.map(({ icon: PillIcon, label, mobileLabel }) => (
               <div
                 key={label}
                 className="hero-pill"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
+                  justifyContent: "center",
                   gap: 7,
-                  padding: "8px 16px",
-                  height: 38,
+                  padding: "10px 16px",
+                  height: 44,
                   borderRadius: 9999,
                   background: "rgba(255,255,255,0.65)",
                   border: "1px solid rgba(0,0,0,0.06)",
                   fontSize: 13,
                   fontWeight: 600,
                   color: C.heading,
-                  whiteSpace: "nowrap",
                   boxSizing: "border-box",
+                  whiteSpace: "nowrap",
                 }}
               >
-                <PillIcon size={15} color={C.sage} strokeWidth={1.5} />
-                {label}
+                <PillIcon size={15} color={C.sage} strokeWidth={1.5} style={{ flexShrink: 0 }} />
+                <span className="hero-pill-label-full">{label}</span>
+                <span className="hero-pill-label-short" style={{ display: "none" }}>{mobileLabel}</span>
               </div>
             ))}
           </div>
@@ -306,6 +534,14 @@ export default function HomePage() {
               See Pricing
             </Link>
           </div>
+
+          <div style={{ marginTop: 28, display: "flex", justifyContent: "center" }}>
+            <BuiltForRotator />
+          </div>
+        </div>
+
+        <div style={{ marginTop: 56 }}>
+          <FlowMapHero />
         </div>
       </section>
 
