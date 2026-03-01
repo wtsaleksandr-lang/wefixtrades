@@ -1,19 +1,20 @@
 import { useEffect } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { mkt, shadows, radius } from "@/theme/tokens";
 
 const p = {
   colors: {
-    navy: "#0B1F3A",
-    heading: "#111827",
-    body: "#374151",
-    muted: "#6B7280",
-    accent: "#4A7C6F",
-    pageBg: "#F7F8FA",
-    surface: "#FFFFFF",
-    border: "#E5E7EB",
+    navy: mkt.dark,
+    heading: mkt.text,
+    body: mkt.textMuted,
+    muted: mkt.textMuted,
+    accent: mkt.accent,
+    pageBg: mkt.surface,
+    surface: mkt.bg,
+    border: mkt.border,
   },
-  radius: { md: "12px" },
-  shadows: { card: "0 1px 3px rgba(0,0,0,0.05), 0 1px 8px rgba(0,0,0,0.04)" },
+  radius: { md: radius.md },
+  shadows: { card: shadows.card },
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

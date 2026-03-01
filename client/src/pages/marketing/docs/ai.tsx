@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import DocsLayout, { Step, InfoBox, DocH2, DocH3, Checklist, Accordion } from "@/components/marketing/DocsLayout";
+import { mkt } from "@/theme/tokens";
 
 export default function DocsAi() {
   useEffect(() => { document.title = "AI Employee — QuickQuotePro Docs"; }, []);
@@ -16,7 +17,7 @@ export default function DocsAi() {
       </InfoBox>
 
       <DocH2>What the AI Employee Does</DocH2>
-      <p style={{ fontSize: 15, color: "#334155", lineHeight: 1.7, marginBottom: 12 }}>
+      <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
         A chat widget appears on your hosted quote page (and optionally on your own website). When a visitor asks a question, the AI responds in seconds — at any time of day or night.
       </p>
       <Checklist items={[
@@ -42,7 +43,7 @@ export default function DocsAi() {
       </Step>
 
       <DocH2>Training Profile</DocH2>
-      <p style={{ fontSize: 15, color: "#334155", lineHeight: 1.7, marginBottom: 12 }}>
+      <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
         The AI learns from structured fields — not a wall of text. Complete each section:
       </p>
       <Checklist items={[
@@ -82,31 +83,31 @@ export default function DocsAi() {
       <DocH2>Channels</DocH2>
 
       <Accordion title="Website chat widget (available now)" icon="💬">
-        <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>
           The AI chat widget appears on your hosted quote page by default. You can also embed it on any website using a 2-line script (same as the calculator embed). Find the script under AI Employee → Deploy Widget.
         </p>
       </Accordion>
 
       <Accordion title="SMS conversations (Pro plan)" icon="📱">
-        <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>
           Requires Twilio setup (takes about 10 minutes). Once connected, the AI handles inbound SMS replies from your follow-up sequences. You can "Take Over" any SMS thread from the Dashboard → Messages tab at any time.
         </p>
       </Accordion>
 
       <Accordion title="WhatsApp (Pro plan)" icon="💚">
-        <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>
           Requires a Twilio WhatsApp sender and a Meta-approved business account. Once connected, follow-ups and inbound messages flow through the same Messages tab as SMS. Full conversation history is stored.
         </p>
       </Accordion>
 
       <Accordion title="Voice (Roadmap)" icon="🔊">
-        <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>
           AI voice calling is on our product roadmap. When available, it will allow the AI to handle inbound calls, gather job details, and quote callers — all logged to the Dashboard. Subscribe to product updates to be notified when it launches.
         </p>
       </Accordion>
 
       <DocH2>Take Over Mode</DocH2>
-      <p style={{ fontSize: 15, color: "#334155", lineHeight: 1.7, marginBottom: 12 }}>
+      <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
         If you want to jump into any conversation personally:
       </p>
       <Checklist items={[

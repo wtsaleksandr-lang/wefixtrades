@@ -4,35 +4,36 @@ import { type LucideIcon, ChevronDown, ArrowRight, Check } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 
-/* ─── Design tokens ─────────────────────────────── */
+import { mkt, colors, shadows } from "@/theme/tokens";
+
 export const C = {
-  navy: "#0B1F3A",
-  sage: "#4A7C6F",
-  sageDark: "#1B4332",
-  sageLight: "#40916C",
-  sageTint: "#F0F7F4",
-  sageAccent: "#D1FAE5",
-  blue: "#2563EB",
-  blueTint: "#EFF6FF",
+  navy: colors.brand.dark,
+  sage: colors.accent.blue,
+  sageDark: colors.accent.blueHover,
+  sageLight: colors.accent.cyan,
+  sageTint: colors.accent.blueTint,
+  sageAccent: colors.accent.blueTint,
+  blue: colors.accent.blue,
+  blueTint: colors.accent.blueTint,
   purple: "#7C3AED",
   purpleTint: "#F5F3FF",
   pink: "#DB2777",
   pinkTint: "#FDF2F8",
-  orange: "#D97706",
-  orangeTint: "#FFFBEB",
-  bg: "#FFFFFF",
-  bgGray: "#F8FAFC",
-  heading: "#0F172A",
-  body: "#334155",
-  muted: "#64748B",
-  border: "#E2E8F0",
-  borderLight: "#F1F5F9",
+  orange: colors.accent.orange,
+  orangeTint: colors.accent.orangeTint,
+  bg: mkt.bg,
+  bgGray: colors.surface.muted,
+  heading: colors.text.primary,
+  body: colors.text.secondary,
+  muted: colors.text.secondary,
+  border: mkt.border,
+  borderLight: mkt.borderLight,
 };
 
 export const SHADOW = {
-  card: "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06)",
-  hero: "0 24px 80px rgba(0,0,0,0.22)",
-  md: "0 4px 24px rgba(0,0,0,0.08)",
+  card: shadows.card,
+  hero: shadows.xl,
+  md: shadows.md,
 };
 
 /* ─── Types ─────────────────────────────────────── */

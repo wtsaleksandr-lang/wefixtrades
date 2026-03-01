@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
+import { mkt, colors, shadows } from "@/theme/tokens";
 
 export default function BundlesPage() {
   useEffect(() => {
@@ -11,24 +12,24 @@ export default function BundlesPage() {
 
   const s = {
     pageHeader: {
-      background: "linear-gradient(135deg, #0B1F3A, #1A3A5C)",
+      background: `linear-gradient(135deg, ${mkt.dark}, ${mkt.darkHover})`,
       padding: "80px 24px 60px",
       textAlign: "center" as const,
     },
     pageHeaderH1: {
       fontSize: "clamp(32px, 5vw, 48px)",
       fontWeight: 700,
-      color: "#FFFFFF",
+      color: mkt.onDark,
       margin: "0 0 16px",
       letterSpacing: "-0.025em",
     },
     pageHeaderSub: {
       fontSize: 18,
-      color: "rgba(255,255,255,0.7)",
+      color: mkt.onDarkMuted,
       margin: 0,
     },
     bundlesSection: {
-      background: "#F7F8FA",
+      background: mkt.surface,
       padding: "60px 24px",
     },
     bundlesGrid: {
@@ -40,15 +41,15 @@ export default function BundlesPage() {
       alignItems: "start",
     },
     bundleCard: {
-      background: "#FFFFFF",
+      background: mkt.bg,
       borderRadius: 16,
       padding: "36px 32px",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.05), 0 1px 8px rgba(0,0,0,0.04)",
-      border: "1px solid #E5E7EB",
+      boxShadow: shadows.card,
+      border: `1px solid ${mkt.border}`,
     },
     bundleCardHighlighted: {
-      border: "2px solid #4A7C6F",
-      boxShadow: "0 4px 24px rgba(74,124,111,0.15)",
+      border: `2px solid ${mkt.accent}`,
+      boxShadow: shadows.cardHover,
     },
     badge: {
       display: "inline-block",
@@ -63,27 +64,27 @@ export default function BundlesPage() {
     bundleName: {
       fontSize: 24,
       fontWeight: 700,
-      color: "#111827",
+      color: mkt.text,
       margin: "0 0 4px",
       letterSpacing: "-0.01em",
     },
     bundlePrice: {
       fontSize: 36,
       fontWeight: 700,
-      color: "#111827",
+      color: mkt.text,
       letterSpacing: "-0.02em",
       lineHeight: 1,
       margin: "8px 0 4px",
     },
     bundlePricePeriod: {
       fontSize: 14,
-      color: "#6B7280",
+      color: mkt.textMuted,
       margin: "0 0 24px",
     },
     savingBadge: {
       display: "inline-block",
-      background: "#F0F7F4",
-      color: "#4A7C6F",
+      background: mkt.accentTint,
+      color: mkt.accent,
       fontSize: 13,
       fontWeight: 700,
       padding: "4px 12px",
@@ -92,13 +93,13 @@ export default function BundlesPage() {
     },
     divider: {
       height: 1,
-      background: "#F3F4F6",
+      background: mkt.borderLight,
       margin: "0 0 20px",
     },
     includesLabel: {
       fontSize: 12,
       fontWeight: 700,
-      color: "#9CA3AF",
+      color: mkt.textMuted,
       textTransform: "uppercase" as const,
       letterSpacing: "0.08em",
       marginBottom: 16,
@@ -113,7 +114,7 @@ export default function BundlesPage() {
       alignItems: "flex-start",
       gap: 10,
       fontSize: 14,
-      color: "#374151",
+      color: mkt.textMuted,
       lineHeight: 1.5,
       marginBottom: 12,
     },
@@ -122,8 +123,8 @@ export default function BundlesPage() {
       width: "100%",
       padding: "13px 0",
       borderRadius: 9999,
-      background: "#4A7C6F",
-      color: "#FFFFFF",
+      background: mkt.accent,
+      color: mkt.onDark,
       fontSize: 15,
       fontWeight: 600,
       textAlign: "center" as const,
@@ -132,7 +133,7 @@ export default function BundlesPage() {
       transition: "all 0.22s ease",
     },
     faqSection: {
-      background: "#FFFFFF",
+      background: mkt.bg,
       padding: "60px 24px",
     },
     faqWrap: {
@@ -142,12 +143,12 @@ export default function BundlesPage() {
     faqTitle: {
       fontSize: 28,
       fontWeight: 700,
-      color: "#111827",
+      color: mkt.text,
       margin: "0 0 32px",
       textAlign: "center" as const,
     },
     faqItem: {
-      borderBottom: "1px solid #F3F4F6",
+      borderBottom: `1px solid ${mkt.borderLight}`,
     },
     faqQuestion: {
       display: "flex",
@@ -164,12 +165,12 @@ export default function BundlesPage() {
     faqQuestionText: {
       fontSize: 16,
       fontWeight: 600,
-      color: "#111827",
+      color: mkt.text,
       flex: 1,
     },
     faqAnswer: {
       fontSize: 14,
-      color: "#6B7280",
+      color: mkt.textMuted,
       lineHeight: 1.7,
       paddingBottom: 20,
     },

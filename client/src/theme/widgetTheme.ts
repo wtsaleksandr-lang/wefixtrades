@@ -1,3 +1,5 @@
+import { colors, radius } from './tokens';
+
 function hexToRgb(hex: string): string {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   if (!result) return '100,100,100';
@@ -13,10 +15,10 @@ export interface WidgetThemeConfig {
   logoUrl?: string;
 }
 
-const DEFAULT_WIDGET_ACCENT = '#0284C7';
+const wc = colors.widget;
 
 export function getWidgetTheme(overrides?: WidgetThemeConfig, primaryColor?: string) {
-  const accent = primaryColor || overrides?.accent || DEFAULT_WIDGET_ACCENT;
+  const accent = primaryColor || overrides?.accent || wc.defaultAccent;
   const rgb = hexToRgb(accent);
 
   return {
@@ -29,21 +31,21 @@ export function getWidgetTheme(overrides?: WidgetThemeConfig, primaryColor?: str
       primaryGlow: `rgba(${rgb},0.25)`,
       gradientButton: `linear-gradient(135deg, ${accent} 0%, ${accent}dd 100%)`,
 
-      surface: '#FFFFFF',
-      surfaceRaised: '#FAFBFC',
-      background: '#F8FAFC',
+      surface: wc.surface,
+      surfaceRaised: wc.surfaceRaised,
+      background: wc.background,
 
-      heading: '#0F172A',
-      body: '#334155',
-      muted: '#64748B',
-      subtle: '#94A3B8',
+      heading: wc.heading,
+      body: wc.body,
+      muted: wc.muted,
+      subtle: wc.subtle,
 
-      border: '#E2E8F0',
-      borderLight: '#F1F5F9',
-      borderHover: '#CBD5E1',
+      border: wc.border,
+      borderLight: wc.borderLight,
+      borderHover: wc.borderHover,
 
-      success: '#059669',
-      danger: '#DC2626',
+      success: colors.status.success,
+      danger: colors.status.danger,
     },
     shadows: {
       card: '0 4px 20px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04)',
@@ -53,10 +55,10 @@ export function getWidgetTheme(overrides?: WidgetThemeConfig, primaryColor?: str
       selected: `0 0 0 3px rgba(${rgb},0.15)`,
     },
     radius: {
-      sm: '8px',
-      md: '12px',
-      lg: '16px',
-      xl: '20px',
+      sm: radius.sm,
+      md: radius.md,
+      lg: radius.lg,
+      xl: radius.xl,
     },
     typography: {
       fontFamily: overrides?.font || 'Inter, system-ui, sans-serif',

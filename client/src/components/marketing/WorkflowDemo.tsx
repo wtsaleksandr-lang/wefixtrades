@@ -2,24 +2,26 @@ import { useState } from "react";
 import { Check, ArrowRight, Zap, Phone, RefreshCw, Star } from "lucide-react";
 import { Link } from "wouter";
 
+import { mkt, colors, shadows } from "@/theme/tokens";
+
 const C = {
-  heading: "#111111",
-  body: "#444444",
-  muted: "#6B6B6B",
-  border: "#E5E5E3",
-  borderLight: "#F0F0EE",
-  green: "#33956A",
-  greenDark: "#2B7D58",
-  bg: "#FFFFFF",
-  bgGray: "#F7F7F6",
-  bgGrayAlt: "#F3F3F2",
-  sageTint: "#EFF5F2",
-  sageAccent: "#D1E8DF",
-  warmGray: "#F2F2F0",
+  heading: colors.text.primary,
+  body: colors.text.secondary,
+  muted: colors.text.secondary,
+  border: mkt.border,
+  borderLight: mkt.borderLight,
+  green: mkt.accent,
+  greenDark: mkt.accentHover,
+  bg: mkt.bg,
+  bgGray: colors.surface.muted,
+  bgGrayAlt: colors.surface.muted,
+  sageTint: mkt.accentTint,
+  sageAccent: mkt.accentTint,
+  warmGray: colors.surface.muted,
 };
 
 const SHADOW = {
-  card: "0 1px 3px rgba(0,0,0,0.03), 0 4px 12px rgba(0,0,0,0.04)",
+  card: shadows.card,
 };
 
 interface WorkflowStep {

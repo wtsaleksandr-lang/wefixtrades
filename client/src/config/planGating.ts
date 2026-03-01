@@ -1,4 +1,5 @@
 /* ─── Plan gating — single source of truth ─── */
+import { colors, mkt } from '@/theme/tokens';
 
 export const PLAN_ORDER = { free: 0, starter: 1, pro: 2, elite: 3 } as const;
 export type PlanTier = keyof typeof PLAN_ORDER;
@@ -18,10 +19,10 @@ export const PLAN_MONTHLY_PRICES: Record<PlanTier, string> = {
 };
 
 export const PLAN_BADGE_STYLES: Record<PlanTier, { bg: string; color: string; border: string }> = {
-  free:    { bg: "#F8FAFC", color: "#64748B", border: "#E2E8F0" },
+  free:    { bg: colors.platform.surfaceRaised, color: colors.widget.muted, border: colors.widget.border },
   starter: { bg: "#EFF6FF", color: "#2563EB", border: "#BFDBFE" },
-  pro:     { bg: "#F0F7F4", color: "#2D6A4F", border: "#A7F3D0" },
-  elite:   { bg: "#FFFBEB", color: "#D97706", border: "#FDE68A" },
+  pro:     { bg: colors.platform.accentLighter, color: colors.platform.accent, border: "#A7F3D0" },
+  elite:   { bg: colors.status.warningLight, color: mkt.warning, border: "#FDE68A" },
 };
 
 export type Feature =

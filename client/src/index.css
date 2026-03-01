@@ -9,42 +9,42 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 220 14% 96%;
-  --foreground: 222 84% 5%;
-  --border: 220 13% 91%;
+  --background: 0 0% 100%;
+  --foreground: 0 0% 8%;
+  --border: 216 10% 91%;
   --card: 0 0% 100%;
-  --card-foreground: 222 84% 5%;
-  --card-border: 220 13% 91%;
-  --sidebar: 220 14% 96%;
-  --sidebar-foreground: 215 20% 25%;
-  --sidebar-border: 220 13% 91%;
+  --card-foreground: 0 0% 8%;
+  --card-border: 216 10% 91%;
+  --sidebar: 210 14% 93%;
+  --sidebar-foreground: 200 20% 25%;
+  --sidebar-border: 216 10% 91%;
   --sidebar-primary: 153 38% 34%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 214 32% 93%;
-  --sidebar-accent-foreground: 222 84% 5%;
+  --sidebar-accent: 210 14% 93%;
+  --sidebar-accent-foreground: 0 0% 8%;
   --sidebar-ring: 153 38% 34%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 84% 5%;
-  --popover-border: 220 13% 91%;
-  --primary: 153 38% 34%;
+  --popover-foreground: 0 0% 8%;
+  --popover-border: 216 10% 91%;
+  --primary: 220 93% 53%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 214 32% 96%;
-  --secondary-foreground: 222 47% 11%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 226 40% 96%;
-  --accent-foreground: 222 47% 11%;
+  --secondary: 210 14% 96%;
+  --secondary-foreground: 210 11% 15%;
+  --muted: 210 14% 96%;
+  --muted-foreground: 0 0% 44%;
+  --accent: 210 14% 96%;
+  --accent-foreground: 210 11% 15%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --input: 214 32% 91%;
-  --ring: 153 38% 34%;
-  --chart-1: 153 38% 34%;
-  --chart-2: 160 45% 40%;
-  --chart-3: 30 80% 55%;
-  --chart-4: 210 40% 50%;
-  --chart-5: 340 75% 55%;
+  --input: 216 10% 91%;
+  --ring: 220 93% 53%;
+  --chart-1: 220 93% 53%;
+  --chart-2: 196 100% 37%;
+  --chart-3: 13 96% 53%;
+  --chart-4: 36 93% 44%;
+  --chart-5: 0 73% 51%;
 
-  --font-sans: 'Instrument Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Saan', 'Saan Fallback', system-ui, -apple-system, 'Segoe UI', Inter, Arial, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: .625rem;
@@ -240,8 +240,8 @@
 }
 
 .premium-input:focus {
-  border-color: #2D6A4F;
-  box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.1);
+  border-color: #0C67FF;
+  box-shadow: 0 0 0 3px rgba(12, 103, 255, 0.12);
   outline: none;
   background: #FFFFFF;
 }
