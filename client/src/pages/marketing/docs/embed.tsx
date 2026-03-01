@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import DocsLayout, { Step, CodeBlock, Accordion, InfoBox, DocH2, DocH3, Checklist } from "@/components/marketing/DocsLayout";
+import { mkt } from "@/theme/tokens";
 
 export default function DocsEmbed() {
   useEffect(() => { document.title = "Embed Guide — QuickQuotePro Docs"; }, []);
@@ -31,7 +32,7 @@ export default function DocsEmbed() {
       <DocH2>Three Embed Options</DocH2>
 
       <DocH3>Option 1 — Hosted Link (Fastest)</DocH3>
-      <p style={{ fontSize: 15, color: "#334155", lineHeight: 1.7, marginBottom: 12 }}>
+      <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
         Every calculator gets a free public URL. No embedding required.
       </p>
       <CodeBlock lang="text" code={`https://quickquotepro.com/your-business-name`} />
@@ -42,7 +43,7 @@ export default function DocsEmbed() {
       ]} />
 
       <DocH3>Option 2 — Inline Script Embed</DocH3>
-      <p style={{ fontSize: 15, color: "#334155", lineHeight: 1.7, marginBottom: 12 }}>
+      <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
         Renders the full calculator directly on your page. Best for service pages.
       </p>
       <CodeBlock lang="html" code={`<!-- Place in your page <body>, where you want it to appear -->
@@ -54,7 +55,7 @@ export default function DocsEmbed() {
 <div id="qqp-widget" style="max-width: 680px; margin: 0 auto;"></div>`} />
 
       <DocH3>Option 3 — Popup Button</DocH3>
-      <p style={{ fontSize: 15, color: "#334155", lineHeight: 1.7, marginBottom: 12 }}>
+      <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
         Adds a "Get a Quote" button. When clicked, the calculator opens as a modal overlay.
       </p>
       <CodeBlock lang="html" code={`<script src="https://cdn.quickquotepro.com/widget.js"
@@ -68,7 +69,7 @@ export default function DocsEmbed() {
       </InfoBox>
 
       <DocH2>Platform-Specific Steps</DocH2>
-      <p style={{ fontSize: 15, color: "#334155", lineHeight: 1.65, marginBottom: 16 }}>
+      <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.65, marginBottom: 16 }}>
         Choose your website platform below for step-by-step instructions.
       </p>
 

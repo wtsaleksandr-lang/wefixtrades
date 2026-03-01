@@ -1,4 +1,5 @@
 /* ─── Shared template config used by /templates + /demo/:templateId ─── */
+import { colors } from '@/theme/tokens';
 
 export type FormulaType = "sqft" | "hourly" | "per_room" | "package" | "fixed_plus";
 
@@ -428,7 +429,7 @@ export function getTemplate(id: string): TemplateConfig | undefined {
 /* Tag styling */
 export const TAG_STYLES: Record<string, { bg: string; color: string }> = {
   "Single Page": { bg: "#EFF6FF", color: "#2563EB" },
-  "Multi-Step": { bg: "#F0FDF4", color: "#2D6A4F" },
+  "Multi-Step": { bg: "#F0FDF4", color: colors.platform.accent },
   "Package Cards": { bg: "#FFF7ED", color: "#EA580C" },
-  "Estimate + Book": { bg: "#F0F7F4", color: "#2D6A4F" },
+  "Estimate + Book": { bg: colors.platform.accentLighter, color: colors.platform.accent },
 };

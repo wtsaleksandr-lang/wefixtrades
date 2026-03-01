@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import DocsLayout, { Step, CodeBlock, InfoBox, DocH2, DocH3, Checklist, Accordion } from "@/components/marketing/DocsLayout";
+import { mkt } from "@/theme/tokens";
 
 export default function DocsWebhooks() {
   useEffect(() => { document.title = "Webhooks — QuickQuotePro Docs"; }, []);
@@ -16,7 +17,7 @@ export default function DocsWebhooks() {
       </InfoBox>
 
       <DocH2>What Are Webhooks?</DocH2>
-      <p style={{ fontSize: 15, color: "#334155", lineHeight: 1.7, marginBottom: 12 }}>
+      <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
         A webhook is an automatic HTTP POST request sent from QuickQuotePro to a URL you specify — every time a specific event happens (e.g. a new lead, a booking confirmed). This lets you connect to any other system: your CRM, a Google Sheet via Zapier, a Slack channel, or your own backend.
       </p>
 
@@ -132,7 +133,7 @@ https://your-crm.com/api/qqp-webhook`} />
       ]} />
 
       <DocH2>Security</DocH2>
-      <p style={{ fontSize: 15, color: "#334155", lineHeight: 1.7, marginBottom: 12 }}>
+      <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
         Each webhook endpoint has a secret signing key. We include an <code>X-QQP-Signature</code> header with each request — you can verify it to confirm the payload came from us:
       </p>
       <CodeBlock lang="javascript" code={`const crypto = require('crypto');

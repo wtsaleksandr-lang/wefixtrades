@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import DocsLayout, { InfoBox, DocH2, DocH3, Checklist, Accordion } from "@/components/marketing/DocsLayout";
+import { mkt } from "@/theme/tokens";
 
 export default function DocsTroubleshooting() {
   useEffect(() => { document.title = "Troubleshooting — QuickQuotePro Docs"; }, []);
@@ -12,7 +13,7 @@ export default function DocsTroubleshooting() {
     >
 
       <InfoBox type="info">
-        Can't find a fix here? <a href="/contact" style={{ color: "#4A7C6F", fontWeight: 600 }}>Contact support</a> — we typically respond within 2 hours.
+        Can't find a fix here? <a href="/contact" style={{ color: mkt.accent, fontWeight: 600 }}>Contact support</a> — we typically respond within 2 hours.
       </InfoBox>
 
       <DocH2>Calculator & Widget</DocH2>
@@ -140,7 +141,7 @@ export default function DocsTroubleshooting() {
       </Accordion>
 
       <Accordion title="I want to cancel or change my plan" icon="💼">
-        <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>
           Go to Dashboard → Settings → Plan → Manage Subscription. You can downgrade, upgrade, or cancel at any time. Cancellations take effect at the end of the current billing period. Your data is retained for 90 days after cancellation in case you return.
         </p>
       </Accordion>

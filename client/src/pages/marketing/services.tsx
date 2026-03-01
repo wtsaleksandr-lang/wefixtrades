@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { mkt, colors, shadows } from "@/theme/tokens";
 import voiceAssistantIcon from "@assets/voice-assistant-icon_1772080241394.png";
 import chatAssistantIcon from "@assets/chat-assistant-icon_1772080241379.png";
 import webboostIcon from "@assets/webboost-icon_1772080241365.png";
@@ -38,24 +39,24 @@ export default function ServicesPage() {
 
   const s = {
     pageHeader: {
-      background: "linear-gradient(135deg, #0B1F3A, #1A3A5C)",
+      background: `linear-gradient(135deg, ${mkt.dark}, ${mkt.darkHover})`,
       padding: "80px 24px 60px",
       textAlign: "center" as const,
     },
     pageHeaderH1: {
       fontSize: "clamp(32px, 5vw, 48px)",
       fontWeight: 700,
-      color: "#FFFFFF",
+      color: mkt.onDark,
       margin: "0 0 16px",
       letterSpacing: "-0.025em",
     },
     pageHeaderSub: {
       fontSize: 18,
-      color: "rgba(255,255,255,0.7)",
+      color: mkt.onDarkMuted,
       margin: 0,
     },
     servicesSection: {
-      background: "#F7F8FA",
+      background: mkt.surface,
       padding: "60px 24px",
     },
     servicesGrid: {
@@ -66,11 +67,11 @@ export default function ServicesPage() {
       gap: 24,
     },
     serviceCard: {
-      background: "#FFFFFF",
+      background: mkt.bg,
       borderRadius: 16,
       padding: "32px 28px",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.05), 0 1px 8px rgba(0,0,0,0.04)",
-      border: "1px solid #E5E7EB",
+      boxShadow: shadows.card,
+      border: `1px solid ${mkt.border}`,
       display: "flex",
       flexDirection: "column" as const,
       gap: 16,
@@ -79,7 +80,7 @@ export default function ServicesPage() {
       width: 64,
       height: 64,
       borderRadius: 14,
-      background: "#F0F7F4",
+      background: mkt.accentTint,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -93,25 +94,25 @@ export default function ServicesPage() {
     serviceTitle: {
       fontSize: 18,
       fontWeight: 700,
-      color: "#111827",
+      color: mkt.text,
       margin: 0,
     },
     serviceDesc: {
       fontSize: 14,
-      color: "#6B7280",
+      color: mkt.textMuted,
       lineHeight: 1.6,
       margin: 0,
     },
     serviceFrom: {
       fontSize: 14,
       fontWeight: 700,
-      color: "#4A7C6F",
+      color: mkt.accent,
     },
     requestBtn: {
       padding: "10px 20px",
       borderRadius: 9999,
-      background: "#4A7C6F",
-      color: "#FFFFFF",
+      background: mkt.accent,
+      color: mkt.onDark,
       fontSize: 14,
       fontWeight: 600,
       border: "none",
@@ -120,7 +121,7 @@ export default function ServicesPage() {
       transition: "background 0.15s ease",
     },
     formSection: {
-      background: "#FFFFFF",
+      background: mkt.bg,
       padding: "60px 24px",
     },
     formWrap: {
@@ -130,13 +131,13 @@ export default function ServicesPage() {
     formTitle: {
       fontSize: 28,
       fontWeight: 700,
-      color: "#111827",
+      color: mkt.text,
       margin: "0 0 8px",
       textAlign: "center" as const,
     },
     formSub: {
       fontSize: 15,
-      color: "#6B7280",
+      color: mkt.textMuted,
       textAlign: "center" as const,
       margin: "0 0 32px",
     },
@@ -147,16 +148,16 @@ export default function ServicesPage() {
       display: "block",
       fontSize: 13,
       fontWeight: 600,
-      color: "#374151",
+      color: mkt.textMuted,
       marginBottom: 6,
     },
     input: {
       width: "100%",
       padding: "10px 14px",
       borderRadius: 8,
-      border: "1px solid #E5E7EB",
+      border: `1px solid ${mkt.border}`,
       fontSize: 14,
-      color: "#111827",
+      color: mkt.text,
       outline: "none",
       boxSizing: "border-box" as const,
       fontFamily: "inherit",
@@ -165,22 +166,22 @@ export default function ServicesPage() {
       width: "100%",
       padding: "10px 14px",
       borderRadius: 8,
-      border: "1px solid #E5E7EB",
+      border: `1px solid ${mkt.border}`,
       fontSize: 14,
-      color: "#111827",
+      color: mkt.text,
       outline: "none",
       boxSizing: "border-box" as const,
       fontFamily: "inherit",
-      background: "#FFFFFF",
+      background: mkt.bg,
       cursor: "pointer",
     },
     textarea: {
       width: "100%",
       padding: "10px 14px",
       borderRadius: 8,
-      border: "1px solid #E5E7EB",
+      border: `1px solid ${mkt.border}`,
       fontSize: 14,
-      color: "#111827",
+      color: mkt.text,
       outline: "none",
       boxSizing: "border-box" as const,
       fontFamily: "inherit",
@@ -191,8 +192,8 @@ export default function ServicesPage() {
       width: "100%",
       padding: "12px",
       borderRadius: 9999,
-      background: "#4A7C6F",
-      color: "#FFFFFF",
+      background: mkt.accent,
+      color: mkt.onDark,
       fontSize: 15,
       fontWeight: 600,
       border: "none",
@@ -206,12 +207,12 @@ export default function ServicesPage() {
     successTitle: {
       fontSize: 22,
       fontWeight: 700,
-      color: "#111827",
+      color: mkt.text,
       margin: "0 0 8px",
     },
     successSub: {
       fontSize: 15,
-      color: "#6B7280",
+      color: mkt.textMuted,
     },
   };
 

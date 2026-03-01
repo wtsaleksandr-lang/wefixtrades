@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { mkt, colors, shadows } from "@/theme/tokens";
 import mapguardIcon from "@assets/mapguard-icon_1772080241423.png";
 import webboostIcon from "@assets/webboost-icon_1772080241365.png";
 import reputationshieldIcon from "@assets/reputationshield-icon_1772080241309.png";
@@ -75,20 +76,20 @@ const services = [
 
 const S = {
   hero: {
-    background: "linear-gradient(135deg, #0B1F3A, #1A3A5C)",
+    background: `linear-gradient(135deg, ${mkt.dark}, ${mkt.darkHover})`,
     padding: "80px 24px 60px",
     textAlign: "center" as const,
   },
   heroH1: {
     fontSize: "clamp(32px, 5vw, 48px)",
     fontWeight: 700,
-    color: "#FFFFFF",
+    color: mkt.onDark,
     margin: "0 0 16px",
     letterSpacing: "-0.025em",
   },
   heroSub: {
     fontSize: 18,
-    color: "rgba(255,255,255,0.7)",
+    color: mkt.onDarkMuted,
     margin: 0,
     maxWidth: 600,
     marginLeft: "auto",
@@ -103,11 +104,11 @@ const S = {
     margin: "0 auto",
   },
   card: {
-    background: "#FFFFFF",
+    background: mkt.bg,
     borderRadius: 16,
     padding: "36px 32px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05), 0 1px 8px rgba(0,0,0,0.04)",
-    border: "1px solid #E5E7EB",
+    boxShadow: shadows.card,
+    border: `1px solid ${mkt.border}`,
     marginBottom: 32,
   },
   cardHeader: {
@@ -121,7 +122,7 @@ const S = {
     width: 64,
     height: 64,
     borderRadius: 14,
-    background: "#F0F7F4",
+    background: mkt.accentTint,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -140,38 +141,38 @@ const S = {
   title: {
     fontSize: 22,
     fontWeight: 700,
-    color: "#111827",
+    color: mkt.text,
     margin: "0 0 4px",
   },
   subtitle: {
     fontSize: 14,
     fontWeight: 500,
-    color: "#6B7280",
+    color: mkt.textMuted,
     margin: 0,
   },
   from: {
     fontSize: 15,
     fontWeight: 700,
-    color: "#4A7C6F",
+    color: mkt.accent,
     flexShrink: 0,
   },
   desc: {
     fontSize: 15,
-    color: "#374151",
+    color: mkt.textMuted,
     lineHeight: 1.7,
     margin: "0 0 20px",
   },
   includedLabel: {
     fontSize: 13,
     fontWeight: 600,
-    color: "#111827",
+    color: mkt.text,
     textTransform: "uppercase" as const,
     letterSpacing: "0.04em",
     marginBottom: 12,
   },
   bullet: {
     fontSize: 14,
-    color: "#374151",
+    color: mkt.textMuted,
     lineHeight: 1.6,
     paddingLeft: 20,
     position: "relative" as const,
@@ -184,23 +185,23 @@ const S = {
     width: 8,
     height: 8,
     borderRadius: "50%",
-    background: "#4A7C6F",
+    background: mkt.accent,
     flexShrink: 0,
   },
   ctaSection: {
-    background: "#F7F8FA",
+    background: mkt.surface,
     padding: "60px 24px",
     textAlign: "center" as const,
   },
   ctaTitle: {
     fontSize: "clamp(24px, 4vw, 36px)",
     fontWeight: 700,
-    color: "#111827",
+    color: mkt.text,
     margin: "0 0 12px",
   },
   ctaSub: {
     fontSize: 16,
-    color: "#6B7280",
+    color: mkt.textMuted,
     margin: "0 0 28px",
     lineHeight: 1.6,
   },
@@ -208,8 +209,8 @@ const S = {
     display: "inline-block",
     padding: "12px 32px",
     borderRadius: 9999,
-    background: "#4A7C6F",
-    color: "#FFFFFF",
+    background: mkt.accent,
+    color: mkt.onDark,
     fontSize: 15,
     fontWeight: 600,
     textDecoration: "none",

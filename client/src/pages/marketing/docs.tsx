@@ -3,17 +3,18 @@ import { Link } from "wouter";
 import { Search, Zap, Globe, Calendar, Bot, Code, AlertCircle, Webhook, ArrowRight, BookOpen, MessageSquare } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
+import { mkt, colors, shadows } from "@/theme/tokens";
 
 const C = {
-  navy: "#0B1F3A",
-  sage: "#4A7C6F",
-  sageTint: "#F0F7F4",
-  bg: "#FFFFFF",
-  bgGray: "#F8FAFC",
-  heading: "#0F172A",
-  body: "#334155",
-  muted: "#64748B",
-  border: "#E2E8F0",
+  navy: mkt.dark,
+  sage: mkt.accent,
+  sageTint: mkt.accentTint,
+  bg: mkt.bg,
+  bgGray: mkt.surface,
+  heading: mkt.text,
+  body: mkt.textMuted,
+  muted: mkt.textMuted,
+  border: mkt.border,
 };
 
 const GUIDES = [

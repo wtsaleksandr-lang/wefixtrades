@@ -1,4 +1,5 @@
 /* ─── Single source of truth for all pricing data ─── */
+import { colors, mkt } from '@/theme/tokens';
 
 export interface PlanFeature {
   label: string;
@@ -30,7 +31,7 @@ export const PLANS: Plan[] = [
     badge: null,
     badgeBg: "#F1F5F9",
     badgeColor: "#475569",
-    accentBorder: "#E2E8F0",
+    accentBorder: colors.widget.border,
     cta: "Start Free",
     ctaStyle: "outline",
     features: [
@@ -54,6 +55,7 @@ export const PLANS: Plan[] = [
     badgeBg: "#EFF6FF",
     badgeColor: "#2563EB",
     accentBorder: "#BFDBFE",
+
     cta: "Start Trial",
     ctaStyle: "outline",
     features: [
@@ -74,9 +76,9 @@ export const PLANS: Plan[] = [
     price: { monthly: 199, annual: 159 },
     highlighted: true,
     badge: "Most Popular",
-    badgeBg: "#2D6A4F",
-    badgeColor: "#FFFFFF",
-    accentBorder: "#2D6A4F",
+    badgeBg: colors.platform.accent,
+    badgeColor: mkt.onDark,
+    accentBorder: colors.platform.accent,
     cta: "Start Trial",
     ctaStyle: "primary",
     features: [
@@ -98,7 +100,7 @@ export const PLANS: Plan[] = [
     highlighted: false,
     badge: "Agency",
     badgeBg: "#F59E0B",
-    badgeColor: "#FFFFFF",
+    badgeColor: mkt.onDark,
     accentBorder: "#F59E0B",
     cta: "Start Trial",
     ctaStyle: "outline",

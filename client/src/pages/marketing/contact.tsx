@@ -3,26 +3,27 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { Mail, Clock, LayoutDashboard } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { mkt, colors, shadows, radius } from "@/theme/tokens";
 
 const p = {
   colors: {
-    accent: "#4A7C6F",
-    accentDark: "#1B4332",
-    navy: "#0B1F3A",
-    pageBg: "#F7F8FA",
-    surface: "#FFFFFF",
-    heading: "#111827",
-    body: "#374151",
-    muted: "#6B7280",
-    border: "#E5E7EB",
-    borderLight: "#F3F4F6",
+    accent: mkt.accent,
+    accentDark: mkt.accentHover,
+    navy: mkt.dark,
+    pageBg: mkt.surface,
+    surface: mkt.bg,
+    heading: mkt.text,
+    body: mkt.textMuted,
+    muted: mkt.textMuted,
+    border: mkt.border,
+    borderLight: mkt.borderLight,
   },
   shadows: {
-    card: "0 1px 3px rgba(0,0,0,0.05), 0 1px 8px rgba(0,0,0,0.04)",
+    card: shadows.card,
   },
   radius: {
-    sm: "8px",
-    md: "12px",
+    sm: radius.sm,
+    md: radius.md,
   },
 };
 

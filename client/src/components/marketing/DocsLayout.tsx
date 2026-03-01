@@ -3,20 +3,21 @@ import { Link, useLocation } from "wouter";
 import { Copy, Check, ChevronDown, ChevronRight, ArrowLeft, Menu, X, Code, Globe, Calendar, Bot, Webhook, AlertCircle, BookOpen } from "lucide-react";
 import MarketingLayout from "./MarketingLayout";
 
-/* ─── Design tokens ─────────────────────────────── */
+import { mkt, colors, shadows } from "@/theme/tokens";
+
 const C = {
-  navy: "#0B1F3A",
-  sage: "#4A7C6F",
-  sageTint: "#F0F7F4",
-  bg: "#FFFFFF",
-  bgGray: "#F8FAFC",
-  heading: "#0F172A",
-  body: "#334155",
-  muted: "#64748B",
-  border: "#E2E8F0",
-  borderLight: "#F1F5F9",
-  codeBase: "#0F172A",
-  codeHeader: "#1E293B",
+  navy: colors.brand.dark,
+  sage: colors.accent.blue,
+  sageTint: colors.accent.blueTint,
+  bg: mkt.bg,
+  bgGray: colors.surface.muted,
+  heading: colors.text.primary,
+  body: colors.text.secondary,
+  muted: colors.text.secondary,
+  border: mkt.border,
+  borderLight: mkt.borderLight,
+  codeBase: colors.brand.dark,
+  codeHeader: colors.brand.darkHover,
 };
 
 /* ─── Sidebar nav ────────────────────────────────── */

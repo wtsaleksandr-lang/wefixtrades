@@ -6,19 +6,19 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { ArrowRight, Bot, User, Send, Calendar, ChevronLeft, Check, Zap, X } from "lucide-react";
 import { TEMPLATES, calculateEstimate, getTemplate } from "@/config/templateConfig";
 import type { TemplateConfig } from "@/config/templateConfig";
+import { mkt, colors, shadows } from "@/theme/tokens";
 
-/* ─── Design tokens ─────────────────────────────── */
 const C = {
-  navy: "#0B1F3A",
-  sage: "#4A7C6F",
-  sageTint: "#F0F7F4",
-  bg: "#FFFFFF",
-  bgGray: "#F8FAFC",
-  heading: "#0F172A",
-  body: "#334155",
-  muted: "#64748B",
-  border: "#E2E8F0",
-  gold: "#F59E0B",
+  navy: mkt.dark,
+  sage: mkt.accent,
+  sageTint: mkt.accentTint,
+  bg: mkt.bg,
+  bgGray: mkt.surface,
+  heading: mkt.text,
+  body: mkt.textMuted,
+  muted: mkt.textMuted,
+  border: mkt.border,
+  gold: mkt.warning,
 };
 
 /* ─── Slider input ────────────────────────────────── */

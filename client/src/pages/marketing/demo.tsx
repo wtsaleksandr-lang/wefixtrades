@@ -5,25 +5,26 @@ import { apiRequest } from "@/lib/queryClient";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
 import { Send, Bot, User, Zap, Phone, Calendar, Star, Check } from "lucide-react";
+import { mkt, colors, shadows } from "@/theme/tokens";
 
 const C = {
-  green: "#33956A",
-  greenDark: "#2B7D58",
-  heading: "#111111",
-  body: "#444444",
-  muted: "#6B6B6B",
-  border: "#E5E5E3",
-  borderLight: "#F0F0EE",
-  bg: "#FFFFFF",
-  surface: "#F7F7F6",
-  warmGray: "#F2F2F0",
-  warmGrayAlt: "#EAEAE8",
-  sageTint: "#EFF5F2",
-  sageAccent: "#D1E8DF",
+  green: mkt.accent,
+  greenDark: mkt.accentHover,
+  heading: mkt.text,
+  body: mkt.textMuted,
+  muted: mkt.textMuted,
+  border: mkt.border,
+  borderLight: mkt.borderLight,
+  bg: mkt.bg,
+  surface: mkt.surface,
+  warmGray: mkt.surface,
+  warmGrayAlt: mkt.surface,
+  sageTint: mkt.accentTint,
+  sageAccent: mkt.accentTint,
 };
 
 const SHADOW = {
-  card: "0 1px 3px rgba(0,0,0,0.03), 0 4px 12px rgba(0,0,0,0.04)",
+  card: shadows.card,
 };
 
 const DEMO_TABS = [

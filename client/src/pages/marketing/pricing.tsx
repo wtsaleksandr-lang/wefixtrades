@@ -6,6 +6,7 @@ import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { PRODUCTS, YEARLY_DISCOUNT_PCT, getYearlyPrice, getYearlyMonthlyEquivalent, type Product } from "@/config/pricing";
 import { fetchFxRate, getFallbackRate, convert, formatMoney } from "@/lib/fx";
 import { FAQS } from "@/config/pricingPlans";
+import { mkt, colors, shadows } from "@/theme/tokens";
 
 const PRICING_TO_PRODUCT_SLUG: Record<string, string> = {
   "quickquotepro": "quickquotepro",
@@ -21,26 +22,26 @@ const PRICING_TO_PRODUCT_SLUG: Record<string, string> = {
 };
 
 const C = {
-  navy: "#0B1F3A",
-  sage: "#4A7C6F",
-  sageDark: "#1B4332",
-  sageLight: "#40916C",
-  sageTint: "#F0F7F4",
-  sageAccent: "#D1FAE5",
-  blue: "#2563EB",
-  gold: "#F59E0B",
-  bg: "#FFFFFF",
-  bgGray: "#F8FAFC",
-  heading: "#0F172A",
-  body: "#334155",
-  muted: "#64748B",
-  border: "#E2E8F0",
-  borderLight: "#F1F5F9",
+  navy: mkt.dark,
+  sage: mkt.accent,
+  sageDark: mkt.accentHover,
+  sageLight: mkt.accent,
+  sageTint: mkt.accentTint,
+  sageAccent: mkt.accentTint,
+  blue: colors.accent.blue,
+  gold: mkt.warning,
+  bg: mkt.bg,
+  bgGray: mkt.surface,
+  heading: mkt.text,
+  body: mkt.textMuted,
+  muted: mkt.textMuted,
+  border: mkt.border,
+  borderLight: mkt.borderLight,
 };
 
 const SHADOW = {
-  card: "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06)",
-  featured: "0 8px 40px rgba(74,124,111,0.18)",
+  card: shadows.card,
+  featured: shadows.cardHover,
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
