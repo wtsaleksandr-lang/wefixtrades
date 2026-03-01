@@ -1,0 +1,147 @@
+1) Master Color Tokens (Single Source of Truth)
+Core neutrals
+
+text / primary: #141414
+
+text / secondary (subtitle): #707070
+
+surface / page: #FFFFFF
+
+surface / muted (light panel): #E3EAED
+
+surface / subtle overlay: rgba(64,64,64,0.06) (from #4040400F)
+
+border / default: #E6E8EB (keep this, it’s clean and consistent)
+
+Dark system (footer + dark CTA)
+
+brand / dark: #102126
+Use for: footer bg, dark buttons, dark sections.
+
+on-dark text: #FFFFFF (and rgba(255,255,255,0.72) for muted)
+
+Accent colors (CTA / highlights only)
+
+accent / blue: #0C67FF
+
+accent / orange: #FA4E1D
+
+accent / cyan: #008BBE
+
+Header frosted menu background
+
+Pick ONE and standardize:
+
+Option A: rgba(237,237,237,0.72) (matches #EDEDEDB8)
+
+Option B: rgba(253,253,253,0.93) (matches #FDFDFDED)
+
+Recommended: Option A (more visible “frost” and closer to your reference feel).
+
+2) Typography Tokens
+Font family
+
+Primary: "Saan", "Saan Fallback", system-ui, -apple-system, "Segoe UI", Inter, Arial, sans-serif
+
+Type scale (keep it simple + premium)
+
+H1: 56px / 1.05 / weight 650–700
+
+H2: 40px / 1.12 / weight 650
+
+H3: 28px / 1.2 / weight 600
+
+Body: 16px / 1.55 / weight 400–450
+
+Small: 14px / 1.45 / weight 400
+
+Button: 14–15px / 1.1 / weight 600
+
+Text colors:
+
+Headings + primary: #141414
+
+Subtitles/muted: #707070
+
+3) Header Menu Spec (must match Optimal Workshop)
+Header container (sticky)
+
+Position: sticky top
+
+Height: ~64–72px
+
+Background: frosted glass:
+
+background: rgba(237,237,237,0.72)
+
+backdrop-filter: blur(10px)
+
+-webkit-backdrop-filter: blur(10px)
+
+Border bottom: 1px solid rgba(20,20,20,0.08)
+
+Shadow on scroll only: 0 6px 24px rgba(0,0,0,0.06) (subtle)
+
+Nav items
+
+Font: 14–15px, weight 550–600
+
+Color: #141414
+
+Hover: subtle background pill behind item:
+
+bg: rgba(20,20,20,0.06)
+
+radius: 999px
+
+Dropdown arrow icon: minimal chevron, 1.75–2px stroke
+
+Mega menu behavior
+
+Trigger on hover (desktop), click (mobile)
+
+Opens with:
+
+fade in + translateY(6px → 0), 160–220ms ease-out
+
+Mega panel:
+
+background: #FFFFFF
+
+radius: 16px
+
+border: 1px solid #E6E8EB
+
+shadow: 0 16px 50px rgba(0,0,0,0.10) (still clean)
+
+Layout inside mega menu (Optimal-like):
+
+Left column: list of products (selectable rows)
+
+Right panel: visual preview card(s) for the currently hovered/selected item
+
+Left row hover/active:
+
+bg: rgba(64,64,64,0.06)
+
+text stays #141414
+
+optional small left indicator bar: #0C67FF (thin 2–3px) for active only
+
+Right preview panel:
+
+uses #E3EAED or subtle overlay bg
+
+images/cards have rounded 14–16px
+
+Primary button (header)
+
+Background: #102126
+
+Text: white
+
+Radius: 999px or 14px (choose one; for Optimal feel use pill)
+
+Hover: slightly lighter (e.g., #17343A) or reduce opacity
+
+Optional secondary CTA uses #0C67FF
