@@ -1,0 +1,225 @@
+FILE: client/src/components/marketing/MarketingLayout.tsx
+
+============================================================
+GOALS (DESKTOP + MOBILE)
+============================================================
+1) Add a “shuffling” trust badge element (rotating text):
+   - Trusted by local trade’s businesses.
+   - Voted as best automation tool in Canada.
+   - 4.7 user satisfaction score.
+
+2) Under “On autopilot” add an animated underline:
+   - subtle line always there
+   - every ~5 seconds a subtle RED light beam sweeps across it
+   - respects prefers-reduced-motion
+
+3) Try new font style for hero:
+   - "Eudoxus Sans", Arial, sans-serif
+
+============================================================
+STEP 1 — ADD TRUST BADGES DATA + ROTATION STATE
+============================================================
+
+ANCHOR (FIND inside MarketingLayout component, near other useState lines):
+const [menuOpen, setMenuOpen] = useState(false);
+
+ACTION:
+PASTE THIS BLOCK DIRECTLY UNDER THAT LINE:
+
+const TRUST_BADGES = [
+  "Trusted by local trade’s businesses.",
+  "Voted as best automation tool in Canada.",
+  "4.7 user satisfaction score.",
+] as const;
+
+const [trustIndex, setTrustIndex] = useState(0);
+
+useEffect(() => {
+  const id = window.setInterval(() => {
+    setTrustIndex((i) => (i + 1) % TRUST_BADGES.length);
+  }, 4200);
+  return () => window.clearInterval(id);
+}, []);
+
+============================================================
+STEP 2 — ADD UNDERLINE CSS (ONE TIME) NEAR HERO JSX
+============================================================
+
+ANCHOR (FIND the HERO section where your headline is rendered)
+You already have something like:
+<h1 ...>More booked jobs</h1>
+<h1 ...>On autopilot ...</h1>
+
+ACTION:
+PASTE THIS <style> BLOCK IMMEDIATELY ABOVE THE HEADLINE CONTAINER
+(so it’s close to the hero and easy to maintain):
+
+<style>{`
+  @keyframes wf_underline_beam {
+    0% { transform: translateX(-30%); opacity: 0; }
+    8% { opacity: 0.95; }
+    70% { opacity: 0.95; }
+    100% { transform: translateX(130%); opacity: 0; }
+  }
+
+  .wf-underline {
+    position: relative;
+    display: inline-block;
+  }
+
+  .wf-underline::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -10px;
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.22); /* subtle base line (brand-ish) */
+  }
+
+  .wf-underline::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -10px;
+    height: 3px;
+    width: 34%;
+    border-radius: 999px;
+    background: linear-gradient(
+      90deg,
+      rgba(255, 70, 70, 0) 0%,
+      rgba(255, 70, 70, 0.85) 45%,
+      rgba(255, 70, 70, 0) 100%
+    );
+    filter: blur(0.2px);
+    opacity: 0;
+    animation: wf_underline_beam 1.25s ease-in-out infinite;
+    animation-delay: 5s; /* sweep timing */
+  }
+
+  /* Make it sweep once per ~5s (1.25s sweep + ~5s pause) */
+  .wf-underline::after {
+    animation-duration: 6.25s;
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .wf-underline::after {
+      animation: none !important;
+      opacity: 0 !important;
+    }
+  }
+`}</style>
+
+============================================================
+STEP 3 — INSERT SHUFFLING TRUST BADGE ELEMENT ABOVE TITLE
+============================================================
+
+ANCHOR (FIND your headline container wrapper, the <div style={{ textAlign:"center"... }}> that contains the 2 h1 lines)
+
+ACTION:
+DIRECTLY INSIDE THAT CONTAINER, ABOVE THE FIRST <h1>, ADD THIS BLOCK:
+
+<div
+  style={{
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    padding: isMobile ? "7px 10px" : "8px 12px",
+    borderRadius: 999,
+    background: "rgba(255,255,255,0.78)",
+    border: "1px solid rgba(0,0,0,0.08)",
+    boxShadow: "0 10px 26px rgba(0,0,0,0.08)",
+    margin: "0 auto",
+    marginBottom: isMobile ? 14 : 16,
+    maxWidth: "min(92vw, 760px)",
+  }}
+>
+  <span
+    style={{
+      width: 8,
+      height: 8,
+      borderRadius: 999,
+      background: "rgba(59,130,246,0.85)",
+      boxShadow: "0 0 0 4px rgba(59,130,246,0.12)",
+      flexShrink: 0,
+    }}
+    aria-hidden
+  />
+
+  <span
+    key={trustIndex}
+    style={{
+      fontSize: isMobile ? 12 : 13,
+      fontWeight: 600,
+      color: "rgba(0,0,0,0.70)",
+      lineHeight: 1.2,
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      transform: "translateY(0px)",
+      opacity: 1,
+      transition: "opacity 180ms ease, transform 180ms ease",
+    }}
+  >
+    {TRUST_BADGES[trustIndex]}
+  </span>
+</div>
+
+============================================================
+STEP 4 — APPLY NEW HERO FONT (BOTH LINES + SUBTITLE)
+============================================================
+
+A) FIRST LINE H1
+ANCHOR (FIND in the “More booked jobs” <h1 style={{ ... }}>):
+color: mkt.text,
+
+ACTION:
+DIRECTLY AFTER THAT LINE, ADD:
+fontFamily: '"Eudoxus Sans", Arial, sans-serif',
+
+------------------------------------------------------------
+
+B) SECOND LINE H1
+ANCHOR (FIND in the “On autopilot” <h1 style={{ ... }}>):
+WebkitTextFillColor: "transparent",
+
+ACTION:
+DIRECTLY AFTER THAT LINE, ADD:
+fontFamily: '"Eudoxus Sans", Arial, sans-serif',
+
+------------------------------------------------------------
+
+C) SUBTITLE <p>
+ANCHOR (FIND your subtitle <p style={{ ... }}>):
+textAlign: "center",
+
+ACTION:
+DIRECTLY AFTER THAT LINE, ADD:
+fontFamily: '"Eudoxus Sans", Arial, sans-serif',
+
+============================================================
+STEP 5 — ADD THE ANIMATED UNDERLINE UNDER “On autopilot”
+============================================================
+
+ANCHOR (FIND inside the second h1 content):
+On autopilot
+
+ACTION:
+REPLACE THAT TEXT NODE WITH THIS:
+
+<span className="wf-underline">On autopilot</span>
+
+(Leave your glow <span .../> underneath unchanged.)
+
+============================================================
+OPTIONAL TUNING (ONLY IF NEEDED)
+============================================================
+- If underline is too low/high:
+  change bottom: -10px to -8px in .wf-underline::before and ::after
+- If beam too strong:
+  reduce rgba(255,70,70,0.85) to 0.55
+- If you want beam less frequent:
+  set animation-duration to 7.5s (instead of 6.25s)
