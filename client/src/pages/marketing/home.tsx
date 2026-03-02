@@ -522,6 +522,8 @@ export default function HomePage() {
               <span
                 className="wf-underline"
                 style={{
+                  position: "relative",
+                  zIndex: 2,
                   background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
                   WebkitBackgroundClip: "text",
                   backgroundClip: "text",
@@ -535,7 +537,7 @@ export default function HomePage() {
                 style={{
                   position: "absolute",
                   inset: 0,
-                  zIndex: -1,
+                  zIndex: 1,
                   background:
                     "radial-gradient(closest-side, rgba(59,130,246,0.18), rgba(59,130,246,0.09) 42%, transparent 78%)",
                   filter: "blur(30px)",
