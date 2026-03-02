@@ -1,0 +1,79 @@
+FILE: client/src/components/marketing/MarketingLayout.tsx
+
+============================================================
+ADD TEXT SHIMMER (SUBTLE TINT SWEEP) TO "On autopilot"
+SYNC WITH UNDERLINE BEAM (~6.25s cycle)
+============================================================
+
+NOTES:
+- Uses background-position shimmer on the text gradient
+- Runs on the same duration as underline beam (6.25s)
+- Respects prefers-reduced-motion
+- Keeps your current glow + underline
+
+============================================================
+STEP 1 — UPDATE/EXTEND YOUR HERO <style> BLOCK
+============================================================
+
+ANCHOR:
+Find your existing hero <style>{` ... `}</style> that contains:
+@keyframes wf_underline_beam
+
+ACTION:
+Inside that same <style> block, ADD THESE KEYFRAMES + CLASS:
+
+@keyframes wf_text_shimmer {
+  0%   { background-position: 0% 50%; }
+  18%  { background-position: 120% 50%; }
+  100% { background-position: 120% 50%; }
+}
+
+.wf-shimmer {
+  background-size: 220% 100%;
+  animation: wf_text_shimmer 6.25s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-shimmer {
+    animation: none !important;
+  }
+}
+
+============================================================
+STEP 2 — APPLY SHIMMER CLASS TO THE "On autopilot" TEXT SPAN
+============================================================
+
+ANCHOR:
+Find your "On autopilot" inner span (the one with className="wf-underline")
+
+It should currently look like:
+<span className="wf-underline" style={{ ...gradient stuff... }}>
+  On autopilot
+</span>
+
+REPLACE className ONLY with:
+className="wf-underline wf-shimmer"
+
+============================================================
+STEP 3 — UPDATE THE GRADIENT TO INCLUDE A “LIGHT BAND”
+============================================================
+
+ANCHOR:
+Inside that same span style, find:
+background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
+
+REPLACE WITH THIS (subtle band like your screenshot):
+background:
+  "linear-gradient(90deg, #1D4ED8 0%, #3B82F6 22%, rgba(255,255,255,0.55) 35%, #3B82F6 48%, #1D4ED8 70%, #1D4ED8 100%)",
+
+(Leave WebkitBackgroundClip / WebkitTextFillColor as-is.)
+
+============================================================
+SYNC CONFIRMATION
+============================================================
+
+- Underline beam uses: animation-duration: 6.25s
+- Shimmer uses: animation: wf_text_shimmer 6.25s ...
+
+They will loop together.
+If you adjust one later, adjust the other to the same duration.
