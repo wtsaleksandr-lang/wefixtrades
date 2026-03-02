@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { motion, AnimatePresence } from "framer-motion";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
@@ -92,12 +91,13 @@ const HERO_PILLS = [
 ];
 
 const HERO_TRADES = [
-  "Cleaners",
   "Plumbers",
-  "Electricians",
   "HVAC Contractors",
+  "Electricians",
   "Roofers",
-];
+  "Garage Door Pros",
+  "Painters",
+] as const;
 
 const quoteFlowSteps = [
   {
@@ -335,7 +335,7 @@ const RESPONSIVE_CSS = `
 export default function HomePage() {
   useScrollReveal();
 
-  const [tradeIndex, setTradeIndex] = useState(0);
+  const [tradeIndex, setTradeIndex] = useState(1);
   const HERO_TRUST_LINES = [
     "Trusted by local trade's businesses.",
     "Voted as best automation tool in Canada.",
@@ -346,7 +346,7 @@ export default function HomePage() {
   useEffect(() => {
     const interval = setInterval(() => {
       setTradeIndex((prev) => (prev + 1) % HERO_TRADES.length);
-    }, 2800);
+    }, 2600);
     return () => clearInterval(interval);
   }, []);
 
@@ -356,6 +356,10 @@ export default function HomePage() {
     }, 4200);
     return () => window.clearInterval(id);
   }, []);
+
+  const prevTrade = HERO_TRADES[(tradeIndex - 1 + HERO_TRADES.length) % HERO_TRADES.length];
+  const currTrade = HERO_TRADES[tradeIndex];
+  const nextTrade = HERO_TRADES[(tradeIndex + 1) % HERO_TRADES.length];
 
   useEffect(() => {
     document.title = "WeFixTrades — More Booked Jobs, Automatically";
@@ -680,31 +684,33 @@ export default function HomePage() {
 
           <div
             style={{
-              marginTop: 14,
               display: "flex",
               justifyContent: "center",
+              marginTop: 12,
             }}
           >
             <div
               data-testid="built-for-rotator"
-              className="built-for-chip"
               style={{
+                position: "relative",
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 8,
-                height: 32,
-                padding: "6px 12px",
+                gap: 10,
+                padding: "8px 14px",
                 borderRadius: 999,
-                background: "rgba(255,255,255,0.55)",
-                border: "1px solid rgba(0,0,0,0.06)",
+                background: "rgba(255,255,255,0.78)",
+                border: "1px solid rgba(0,0,0,0.08)",
+                boxShadow: "0 10px 26px rgba(0,0,0,0.08)",
+                overflow: "hidden",
+                minWidth: 260,
+                justifyContent: "center",
               }}
             >
               <span
-                className="bf-label"
                 style={{
                   fontSize: 12,
                   fontWeight: 600,
-                  color: mkt.textMuted,
+                  color: "rgba(0,0,0,0.55)",
                   lineHeight: 1,
                   whiteSpace: "nowrap",
                 }}
@@ -713,82 +719,73 @@ export default function HomePage() {
               </span>
 
               <div
-                className="bf-window"
                 style={{
                   position: "relative",
-                  height: 20,
-                  width: 150,
-                  overflow: "hidden",
+                  height: 18,
+                  width: 170,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  perspective: "900px",
-                  maskImage:
-                    "linear-gradient(to bottom, transparent 0%, black 30%, black 70%, transparent 100%)",
-                  WebkitMaskImage:
-                    "linear-gradient(to bottom, transparent 0%, black 30%, black 70%, transparent 100%)",
                 }}
               >
                 <div
                   style={{
                     position: "absolute",
-                    top: -16,
+                    top: -14,
                     left: 0,
                     right: 0,
                     textAlign: "center",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: mkt.accent,
-                    opacity: 0.28,
-                    filter: "blur(2px)",
-                    transform: "rotateX(18deg)",
+                    fontSize: 11,
+                    fontWeight: 650,
+                    color: "rgba(29,78,216,0.55)",
+                    opacity: 0.18,
+                    transform: "scale(0.98)",
+                    filter: "blur(0.1px)",
                     whiteSpace: "nowrap",
                     pointerEvents: "none",
                   }}
                 >
-                  {HERO_TRADES[(tradeIndex - 1 + HERO_TRADES.length) % HERO_TRADES.length]}
+                  {prevTrade}
                 </div>
 
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={tradeIndex}
-                    initial={{ y: 14, opacity: 0, rotateX: -25, filter: "blur(6px)" }}
-                    animate={{ y: 0, opacity: 1, rotateX: 0, filter: "blur(0px)" }}
-                    exit={{ y: -14, opacity: 0, rotateX: 25, filter: "blur(4px)" }}
-                    transition={{ type: "spring", stiffness: 180, damping: 20 }}
-                    style={{
-                      position: "absolute",
-                      left: 0,
-                      right: 0,
-                      textAlign: "center",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: mkt.accent,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {HERO_TRADES[tradeIndex]}
-                  </motion.div>
-                </AnimatePresence>
+                <div
+                  key={currTrade}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    textAlign: "center",
+                    fontSize: 12,
+                    fontWeight: 750,
+                    color: "#1D4ED8",
+                    opacity: 1,
+                    transform: "translateY(0px)",
+                    transition: "opacity 220ms ease, transform 220ms ease",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {currTrade}
+                </div>
 
                 <div
                   style={{
                     position: "absolute",
-                    bottom: -16,
+                    bottom: -14,
                     left: 0,
                     right: 0,
                     textAlign: "center",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: mkt.accent,
-                    opacity: 0.28,
-                    filter: "blur(2px)",
-                    transform: "rotateX(-18deg)",
+                    fontSize: 11,
+                    fontWeight: 650,
+                    color: "rgba(29,78,216,0.55)",
+                    opacity: 0.18,
+                    transform: "scale(0.98)",
+                    filter: "blur(0.1px)",
                     whiteSpace: "nowrap",
                     pointerEvents: "none",
                   }}
                 >
-                  {HERO_TRADES[(tradeIndex + 1) % HERO_TRADES.length]}
+                  {nextTrade}
                 </div>
               </div>
             </div>

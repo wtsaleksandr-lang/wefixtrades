@@ -1,0 +1,178 @@
+FILE: client/src/components/marketing/MarketingLayout.tsx
+
+============================================================
+MAKE “BUILT FOR” LOOK PREMIUM (SINGLE PILL) + FADE PREV/NEXT
+============================================================
+
+GOALS:
+- Replace the “Built for” area with ONE capsule (no weird gap)
+- Keep centered “focused trade”
+- Show previous + next trades slightly above/below with fade (subtle)
+- Works on mobile + desktop
+
+============================================================
+STEP 1 — ADD TRADES LIST + INDEX (if you don’t already have it)
+============================================================
+
+ANCHOR (inside MarketingLayout component, near other constants/state):
+const TRUST_BADGES = [
+
+ACTION:
+PASTE THIS BLOCK UNDER THAT TRUST_BADGES section (or near other hero constants):
+
+const TRADES = [
+  "Plumbers",
+  "HVAC Contractors",
+  "Electricians",
+  "Roofers",
+  "Garage Door Pros",
+  "Painters",
+] as const;
+
+const [tradeIndex, setTradeIndex] = useState(1);
+
+useEffect(() => {
+  const id = window.setInterval(() => {
+    setTradeIndex((i) => (i + 1) % TRADES.length);
+  }, 2600);
+  return () => window.clearInterval(id);
+}, []);
+
+const prevTrade = TRADES[(tradeIndex - 1 + TRADES.length) % TRADES.length];
+const currTrade = TRADES[tradeIndex];
+const nextTrade = TRADES[(tradeIndex + 1) % TRADES.length];
+
+============================================================
+STEP 2 — REPLACE YOUR CURRENT “BUILT FOR …” JSX BLOCK
+============================================================
+
+ANCHOR:
+Find the section that renders “Built for” and the trade text (ex: HVAC Contractors).
+DELETE that whole block.
+
+REPLACE WITH THIS:
+
+<div
+  style={{
+    display: "flex",
+    justifyContent: "center",
+    marginTop: isMobile ? 10 : 12,
+  }}
+>
+  <div
+    style={{
+      position: "relative",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 10,
+      padding: isMobile ? "7px 12px" : "8px 14px",
+      borderRadius: 999,
+      background: "rgba(255,255,255,0.78)",
+      border: "1px solid rgba(0,0,0,0.08)",
+      boxShadow: "0 10px 26px rgba(0,0,0,0.08)",
+      overflow: "hidden",
+      minWidth: isMobile ? 220 : 260,
+      justifyContent: "center",
+    }}
+  >
+    <span
+      style={{
+        fontSize: isMobile ? 12 : 12,
+        fontWeight: 600,
+        color: "rgba(0,0,0,0.55)",
+        lineHeight: 1,
+        whiteSpace: "nowrap",
+      }}
+    >
+      Built for
+    </span>
+
+    <div
+      style={{
+        position: "relative",
+        height: isMobile ? 18 : 18,
+        width: isMobile ? 150 : 170,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {/* prev */}
+      <div
+        style={{
+          position: "absolute",
+          top: -14,
+          left: 0,
+          right: 0,
+          textAlign: "center",
+          fontSize: isMobile ? 11 : 11,
+          fontWeight: 650,
+          color: "rgba(29,78,216,0.55)",
+          opacity: 0.18,
+          transform: "scale(0.98)",
+          filter: "blur(0.1px)",
+          whiteSpace: "nowrap",
+          pointerEvents: "none",
+        }}
+      >
+        {prevTrade}
+      </div>
+
+      {/* current */}
+      <div
+        key={currTrade}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          textAlign: "center",
+          fontSize: isMobile ? 12 : 12,
+          fontWeight: 750,
+          color: "#1D4ED8",
+          opacity: 1,
+          transform: "translateY(0px)",
+          transition: "opacity 220ms ease, transform 220ms ease",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {currTrade}
+      </div>
+
+      {/* next */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: -14,
+          left: 0,
+          right: 0,
+          textAlign: "center",
+          fontSize: isMobile ? 11 : 11,
+          fontWeight: 650,
+          color: "rgba(29,78,216,0.55)",
+          opacity: 0.18,
+          transform: "scale(0.98)",
+          filter: "blur(0.1px)",
+          whiteSpace: "nowrap",
+          pointerEvents: "none",
+        }}
+      >
+        {nextTrade}
+      </div>
+    </div>
+  </div>
+</div>
+
+============================================================
+OPTIONAL TUNING (ONLY IF YOU WANT)
+============================================================
+
+- Want more visible prev/next?
+  Change opacity: 0.18 → 0.26
+
+- Want tighter stack?
+  Change top/bottom offsets:
+  -14 → -12
+
+- Want slower rotation?
+  Change interval 2600 → 3200
