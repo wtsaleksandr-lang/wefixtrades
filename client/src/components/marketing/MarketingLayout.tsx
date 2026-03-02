@@ -466,11 +466,11 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   margin: "8px 10px 0",
                   borderRadius: 24,
                   padding: "0 16px",
-                  background: "rgba(253,253,253,0.92)",
-                  border: "1px solid rgba(0,0,0,0.08)",
-                  boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
-                  backdropFilter: "blur(12px)",
-                  WebkitBackdropFilter: "blur(12px)",
+                  background: "rgba(255,255,255,0.58)",
+                  backdropFilter: "blur(18px)",
+                  WebkitBackdropFilter: "blur(18px)",
+                  border: "1px solid rgba(255,255,255,0.35)",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
                 }
               : {
                   width: "100%",
