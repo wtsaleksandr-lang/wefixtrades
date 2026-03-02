@@ -108,8 +108,8 @@ function AiMockup() {
         </div>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>AI Employee</div>
-          <div style={{ fontSize: 11, color: "#4A7C6F", display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4A7C6F", display: "inline-block" }} />
+          <div style={{ fontSize: 11, color: mkt.success, display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: mkt.success, display: "inline-block" }} />
             Online 24/7
           </div>
         </div>
@@ -506,7 +506,7 @@ export default function ProductPage() {
                     <div style={{ width: 26, height: 26, borderRadius: 10, background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <Bot size={13} color="#FFF" strokeWidth={1.5} />
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#FFF" }}>AI Employee <span style={{ color: "#4A7C6F" }}>●</span></div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#FFF" }}>AI Employee <span style={{ color: mkt.success }}>●</span></div>
                   </div>
                   <div style={{ background: "rgba(45,106,79,0.25)", borderRadius: "10px 10px 10px 3px", padding: "9px 12px", fontSize: 12.5, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
                     Great! Your booking is confirmed. See you Tuesday at 9am 👋

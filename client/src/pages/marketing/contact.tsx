@@ -249,7 +249,7 @@ export default function ContactPage() {
                     disabled={mutation.isPending}
                     style={{
                       padding: "12px 24px",
-                      background: mutation.isPending ? "#93C5A1" : mkt.accent,
+                      background: mutation.isPending ? mkt.accentHover : mkt.accent,
                       color: "#FFFFFF",
                       border: "none",
                       borderRadius: radius.sm,

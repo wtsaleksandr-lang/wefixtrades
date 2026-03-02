@@ -69,7 +69,7 @@ export function CodeBlock({ code, lang = "html" }: { code: string; lang?: string
 export function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
     <div style={{ display: "flex", gap: 18, marginBottom: 28 }}>
-      <div style={{ width: 34, height: 34, borderRadius: "50%", background: C.sage, color: "#FFFFFF", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, boxShadow: "0 0 0 6px #E8F5EE" }}>
+      <div style={{ width: 34, height: 34, borderRadius: "50%", background: C.sage, color: "#FFFFFF", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, boxShadow: `0 0 0 6px ${mkt.accentTint}` }}>
         {n}
       </div>
       <div style={{ flex: 1 }}>

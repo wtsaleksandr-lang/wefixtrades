@@ -238,7 +238,7 @@ export default function BundlesPage() {
               <ul style={s.featureList}>
                 {growthIncludes.map(f => (
                   <li key={f} style={s.featureItem}>
-                    <Check size={16} color="#4A7C6F" strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 2 }} />
+                    <Check size={16} color={mkt.accent} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 2 }} />
                     {f}
                   </li>
                 ))}
@@ -264,7 +264,7 @@ export default function BundlesPage() {
               <ul style={s.featureList}>
                 {autopilotIncludes.map(f => (
                   <li key={f} style={s.featureItem}>
-                    <Check size={16} color="#4A7C6F" strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 2 }} />
+                    <Check size={16} color={mkt.accent} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 2 }} />
                     {f}
                   </li>
                 ))}

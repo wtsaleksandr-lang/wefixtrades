@@ -29,8 +29,8 @@ function AiMockup() {
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>AI Employee</div>
-          <div style={{ fontSize: 11, color: "#4A7C6F", display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4A7C6F", display: "inline-block" }} />
+          <div style={{ fontSize: 11, color: mkt.success, display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: mkt.success, display: "inline-block" }} />
             Online 24/7
           </div>
         </div>
