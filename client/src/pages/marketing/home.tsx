@@ -336,12 +336,25 @@ export default function HomePage() {
   useScrollReveal();
 
   const [tradeIndex, setTradeIndex] = useState(0);
+  const HERO_TRUST_LINES = [
+    "Trusted by local trade's businesses.",
+    "Voted as best automation tool in Canada.",
+    "4.7 user satisfaction score.",
+  ] as const;
+  const [trustIndex, setTrustIndex] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setTradeIndex((prev) => (prev + 1) % HERO_TRADES.length);
     }, 2800);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setTrustIndex((i) => (i + 1) % HERO_TRUST_LINES.length);
+    }, 4200);
+    return () => window.clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -374,6 +387,54 @@ export default function HomePage() {
           }}
         />
 
+        <style>{`
+          @keyframes wf_underline_beam {
+            0% { transform: translateX(-30%); opacity: 0; }
+            8% { opacity: 0.95; }
+            70% { opacity: 0.95; }
+            100% { transform: translateX(130%); opacity: 0; }
+          }
+          .wf-underline {
+            position: relative;
+            display: inline-block;
+          }
+          .wf-underline::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -10px;
+            height: 3px;
+            border-radius: 999px;
+            background: rgba(59, 130, 246, 0.22);
+          }
+          .wf-underline::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: -10px;
+            height: 3px;
+            width: 34%;
+            border-radius: 999px;
+            background: linear-gradient(
+              90deg,
+              rgba(255, 70, 70, 0) 0%,
+              rgba(255, 70, 70, 0.85) 45%,
+              rgba(255, 70, 70, 0) 100%
+            );
+            filter: blur(0.2px);
+            opacity: 0;
+            animation: wf_underline_beam 6.25s ease-in-out infinite;
+            animation-delay: 5s;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .wf-underline::after {
+              animation: none !important;
+              opacity: 0 !important;
+            }
+          }
+        `}</style>
+
         <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative" }}>
           <div
             data-testid="hero-headline"
@@ -382,6 +443,51 @@ export default function HomePage() {
               marginBottom: 24,
             }}
           >
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                padding: "8px 12px",
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.78)",
+                border: "1px solid rgba(0,0,0,0.08)",
+                boxShadow: "0 10px 26px rgba(0,0,0,0.08)",
+                margin: "0 auto",
+                marginBottom: 16,
+                maxWidth: "min(92vw, 760px)",
+              }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 999,
+                  background: "rgba(59,130,246,0.85)",
+                  boxShadow: "0 0 0 4px rgba(59,130,246,0.12)",
+                  flexShrink: 0,
+                }}
+                aria-hidden
+              />
+              <span
+                key={trustIndex}
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "rgba(0,0,0,0.70)",
+                  lineHeight: 1.2,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  opacity: 1,
+                  transition: "opacity 180ms ease, transform 180ms ease",
+                }}
+              >
+                {HERO_TRUST_LINES[trustIndex]}
+              </span>
+            </div>
+
             <h1
               style={{
                 fontSize: "clamp(32px, 5.5vw, 56px)",
@@ -390,6 +496,7 @@ export default function HomePage() {
                 letterSpacing: "-0.02em",
                 margin: 0,
                 color: mkt.text,
+                fontFamily: '"Eudoxus Sans", Arial, sans-serif',
               }}
             >
               More booked jobs
@@ -407,10 +514,11 @@ export default function HomePage() {
                 background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
+                fontFamily: '"Eudoxus Sans", Arial, sans-serif',
                 filter: "drop-shadow(0 6px 18px rgba(59,130,246,0.24))",
               }}
             >
-              On autopilot
+              <span className="wf-underline">On autopilot</span>
 
               <span
                 style={{
@@ -494,6 +602,7 @@ export default function HomePage() {
               fontWeight: 450,
               color: mkt.textMuted,
               textAlign: "center",
+              fontFamily: '"Eudoxus Sans", Arial, sans-serif',
             }}
           >
             Customers get answers. You get booked. Everything runs in the background.
