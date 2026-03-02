@@ -13,13 +13,13 @@ type NavChild = {
 };
 
 const DESKTOP_HEADER = {
-  navHeight: 84,
-  cardHeight: 56,
+  navHeight: 72,
+  cardHeight: 52,
   cardRadius: 18,
   cardBg: "rgba(255,255,255,0.78)",
   cardBorder: "1px solid rgba(0,0,0,0.06)",
   cardShadow: "0 14px 38px rgba(0,0,0,0.10)",
-  navPadding: "10px 16px 0",
+  navPadding: "6px 12px 0",
 };
 
 const DESKTOP_DROPDOWN = {
@@ -165,7 +165,7 @@ function NavItemDesktopV2({
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: "8px 12px",
+    padding: "6px 10px",
     borderRadius: 14,
     fontSize: 15,
     fontWeight: 500,
@@ -228,7 +228,7 @@ function NavItemDesktopV2({
         <div
           style={{
             position: "fixed",
-            top: cardRect ? Math.round(cardRect.bottom + 10) : 0,
+            top: cardRect ? Math.round(cardRect.bottom + 6) : 0,
             left: cardRect ? Math.round(cardRect.left) : 0,
             width: cardRect ? Math.round(cardRect.width) : 0,
             transform: open ? "translateY(0)" : "translateY(-6px)",
@@ -240,13 +240,13 @@ function NavItemDesktopV2({
             border: DESKTOP_DROPDOWN.containerBorder,
             boxShadow: DESKTOP_DROPDOWN.containerShadow,
 
-            padding: "10px",
+            padding: "6px",
 
             display: "grid",
             gridAutoFlow: "column",
             gridTemplateRows: "repeat(3, auto)",
             gridAutoColumns: "minmax(280px, 1fr)",
-            gap: DESKTOP_DROPDOWN.itemGap,
+            gap: 6,
 
             transition: "opacity 0.15s ease, transform 0.15s ease",
             zIndex: 300,
@@ -259,15 +259,15 @@ function NavItemDesktopV2({
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
-                padding: "12px 12px",
-                borderRadius: DESKTOP_DROPDOWN.itemRadius,
+                gap: 10,
+                padding: "10px 10px",
+                borderRadius: 16,
                 fontSize: 14,
                 fontWeight: 500,
                 color: mkt.text,
                 textDecoration: "none",
                 background: DESKTOP_DROPDOWN.itemBg,
-                border: DESKTOP_DROPDOWN.itemBorder,
+                border: "1px solid rgba(0,0,0,0.10)",
                 transition:
                   "transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease",
               }}
@@ -311,7 +311,7 @@ function NavItemDesktopV2({
                     fontWeight: 650,
                     color: mkt.text,
                     lineHeight: 1.2,
-                    marginBottom: 2,
+                    marginBottom: 1,
                   }}
                 >
                   {cl}
@@ -592,7 +592,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   boxShadow: "0 12px 32px rgba(0,0,0,0.10)",
                 }
               : {
-                  width: "calc(100% - 32px)",
+                  width: "calc(100% - 16px)",
                   height: DESKTOP_HEADER.cardHeight,
                   borderRadius: DESKTOP_HEADER.cardRadius,
                   background: DESKTOP_HEADER.cardBg,
@@ -600,7 +600,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   WebkitBackdropFilter: "blur(18px) saturate(1.3)",
                   border: DESKTOP_HEADER.cardBorder,
                   boxShadow: DESKTOP_HEADER.cardShadow,
-                  padding: "0 20px",
+                  padding: "0 14px",
                 }),
           }}
         >

@@ -1,0 +1,113 @@
+FILE: MarketingLayout.tsx
+
+============================================================
+1) TIGHTEN HEADER BAR GAPS (OUTER + INNER)
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE in DESKTOP_HEADER):
+navHeight: 84,
+
+REPLACE WITH:
+navHeight: 72,
+
+ANCHOR (FIND THIS EXACT LINE in DESKTOP_HEADER):
+cardHeight: 56,
+
+REPLACE WITH:
+cardHeight: 52,
+
+ANCHOR (FIND THIS EXACT LINE in DESKTOP_HEADER):
+navPadding: "10px 16px 0",
+
+REPLACE WITH:
+navPadding: "6px 12px 0",
+
+------------------------------------------------------------
+
+ANCHOR (FIND THIS EXACT LINE in navCardRef DESKTOP branch):
+padding: "0 20px",
+
+REPLACE WITH:
+padding: "0 14px",
+
+------------------------------------------------------------
+
+ANCHOR (FIND THIS EXACT LINE in navCardRef DESKTOP branch):
+width: "calc(100% - 32px)",
+
+REPLACE WITH:
+width: "calc(100% - 16px)",
+
+============================================================
+2) TIGHTEN MENU ↔ HEADER GAP (DROPDOWN DETACH DISTANCE)
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE inside NavItemDesktopV2 dropdown style):
+top: cardRect ? Math.round(cardRect.bottom + 10) : 0,
+
+REPLACE WITH:
+top: cardRect ? Math.round(cardRect.bottom + 6) : 0,
+
+============================================================
+3) TIGHTEN DROPDOWN CONTAINER PADDING + GRID GAPS
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE inside NavItemDesktopV2 dropdown style):
+padding: "10px",
+
+REPLACE WITH:
+padding: "6px",
+
+ANCHOR (FIND THIS EXACT LINE inside NavItemDesktopV2 dropdown style):
+gap: DESKTOP_DROPDOWN.itemGap,
+
+REPLACE WITH:
+gap: 6,
+
+============================================================
+4) TIGHTEN INDIVIDUAL MENU ITEM CONTAINERS + ADD OUTER BORDER
+============================================================
+
+A) MAKE ITEMS LESS “PILLOWY”
+ANCHOR (FIND THIS EXACT LINE inside dropdown item <Link> style):
+padding: "12px 12px",
+
+REPLACE WITH:
+padding: "10px 10px",
+
+ANCHOR (FIND THIS EXACT LINE inside dropdown item <Link> style):
+borderRadius: DESKTOP_DROPDOWN.itemRadius,
+
+REPLACE WITH:
+borderRadius: 16,
+
+B) OUTER BORDER (CLEARER CARD EDGE)
+ANCHOR (FIND THIS EXACT LINE inside dropdown item <Link> style):
+border: DESKTOP_DROPDOWN.itemBorder,
+
+REPLACE WITH:
+border: "1px solid rgba(0,0,0,0.10)",
+
+C) REDUCE ICON TILE SPACING
+ANCHOR (FIND THIS EXACT LINE inside dropdown item <Link> style):
+gap: 12,
+
+REPLACE WITH:
+gap: 10,
+
+D) REDUCE TEXT BLOCK GAP
+ANCHOR (FIND THIS EXACT LINE inside the title <div> for cl):
+marginBottom: 2,
+
+REPLACE WITH:
+marginBottom: 1,
+
+============================================================
+5) (OPTIONAL) TIGHTEN TOP-LEVEL MENU ITEM PADDING TOO
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE in NavItemDesktopV2 topItemBase):
+padding: "8px 12px",
+
+REPLACE WITH:
+padding: "6px 10px",
