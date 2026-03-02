@@ -3,13 +3,39 @@ import { Link, useLocation } from "wouter";
 import { Menu, X, ChevronDown, LayoutGrid, Route, Frame, FileText, BadgePercent } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
 import AnimatedLogo from "./AnimatedLogo";
-import { mkt, colors, shadows, radius } from "@/theme/tokens";
+import { mkt, colors } from "@/theme/tokens";
 
 type NavChild = {
   label: string;
   href: string;
   description?: string;
   icon?: React.ReactNode;
+};
+
+const DESKTOP_HEADER = {
+  navHeight: 84,
+  cardHeight: 56,
+  cardRadius: 18,
+  cardBg: "rgba(255,255,255,0.78)",
+  cardBorder: "1px solid rgba(0,0,0,0.06)",
+  cardShadow: "0 14px 38px rgba(0,0,0,0.10)",
+  navPadding: "10px 16px 0",
+};
+
+const DESKTOP_DROPDOWN = {
+  containerBg: "rgba(255,255,255,0.52)",
+  containerBorder: "1px solid rgba(255,255,255,0.38)",
+  containerRadius: 22,
+  containerShadow:
+    "0 22px 60px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.35)",
+  itemBg: "rgba(255,255,255,0.72)",
+  itemBorder: "1px solid rgba(255,255,255,0.40)",
+  itemHoverBg: "rgba(255,255,255,0.86)",
+  itemHoverShadow: "0 10px 24px rgba(0,0,0,0.10)",
+  itemRadius: 18,
+  itemGap: 10,
+  iconBg: "rgba(15,59,53,0.10)",
+  iconBorder: "1px solid rgba(15,59,53,0.16)",
 };
 
 const NAV_LINKS: { label: string; href: string; children?: NavChild[] }[] = [
@@ -77,7 +103,12 @@ function useIsMobile(breakpoint = 900) {
   return isMobile;
 }
 
-function NavItem({ label, href, children, isActive }: {
+function NavItemDesktopV2({
+  label,
+  href,
+  children,
+  isActive,
+}: {
   label: string;
   href: string;
   children?: NavChild[];
@@ -85,18 +116,53 @@ function NavItem({ label, href, children, isActive }: {
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const hasDropdown = children && children.length > 0;
+  const hasDropdown = !!(children && children.length > 0);
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
+
+    const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
-    const keyHandler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    document.addEventListener("keydown", keyHandler);
-    return () => { document.removeEventListener("mousedown", handler); document.removeEventListener("keydown", keyHandler); };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
+
+  const topItemBase: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "8px 12px",
+    borderRadius: 14,
+    fontSize: 15,
+    fontWeight: 500,
+    color: mkt.text,
+    background: "transparent",
+    border: "1px solid transparent",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    transition: "background 0.18s ease, border-color 0.18s ease",
+  };
+
+  const topHoverOn = (el: HTMLElement) => {
+    el.style.background = "rgba(15,59,53,0.06)";
+    el.style.borderColor = "rgba(15,59,53,0.16)";
+  };
+
+  const topHoverOff = (el: HTMLElement) => {
+    el.style.background = "transparent";
+    el.style.borderColor = "transparent";
+  };
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -105,33 +171,19 @@ function NavItem({ label, href, children, isActive }: {
           aria-expanded={open}
           aria-haspopup="true"
           onClick={() => setOpen((o) => !o)}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "6px 12px",
-            borderRadius: 6,
-            fontSize: 15,
-            fontWeight: 500,
-            color: mkt.text,
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
-            transition: "opacity 0.2s ease",
-            whiteSpace: "nowrap",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.opacity = "0.6";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.opacity = "1";
-          }}
+          style={topItemBase}
+          onMouseEnter={(e) => topHoverOn(e.currentTarget as HTMLElement)}
+          onMouseLeave={(e) => topHoverOff(e.currentTarget as HTMLElement)}
         >
           {label}
           <ChevronDown
             size={13}
             strokeWidth={1.5}
-            style={{ transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "rotate(0deg)", opacity: 0.5 }}
+            style={{
+              transition: "transform 0.2s ease",
+              transform: open ? "rotate(180deg)" : "rotate(0deg)",
+              opacity: 0.55,
+            }}
           />
         </button>
       ) : (
@@ -139,24 +191,11 @@ function NavItem({ label, href, children, isActive }: {
           href={href}
           data-testid={`nav-link-${label.toLowerCase()}`}
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            padding: "6px 12px",
-            borderRadius: 6,
-            fontSize: 15,
-            fontWeight: 500,
-            color: mkt.text,
-            background: "transparent",
+            ...topItemBase,
             textDecoration: "none",
-            transition: "opacity 0.2s ease",
-            whiteSpace: "nowrap",
           }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.opacity = "0.6";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.opacity = "1";
-          }}
+          onMouseEnter={(e) => topHoverOn(e.currentTarget as HTMLElement)}
+          onMouseLeave={(e) => topHoverOff(e.currentTarget as HTMLElement)}
         >
           {label}
         </Link>
@@ -166,17 +205,28 @@ function NavItem({ label, href, children, isActive }: {
         <div
           style={{
             position: "absolute",
-            top: "calc(100% + 8px)",
+            top: "calc(100% + 10px)",
             left: "50%",
-            transform: open ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(-4px)",
+            transform: open
+              ? "translateX(-50%) translateY(0)"
+              : "translateX(-50%) translateY(-6px)",
             opacity: open ? 1 : 0,
             pointerEvents: open ? "auto" : "none",
-            background: mkt.bg,
-            borderRadius: 16,
-            border: `1px solid ${mkt.border}`,
-            boxShadow: shadows.lg,
-            padding: "8px",
-            minWidth: 300,
+
+            background: DESKTOP_DROPDOWN.containerBg,
+            borderRadius: DESKTOP_DROPDOWN.containerRadius,
+            border: DESKTOP_DROPDOWN.containerBorder,
+            boxShadow: DESKTOP_DROPDOWN.containerShadow,
+
+            padding: "10px",
+            width: "min(980px, calc(100vw - 40px))",
+
+            display: "grid",
+            gridAutoFlow: "column",
+            gridTemplateRows: "repeat(3, auto)",
+            gridAutoColumns: "minmax(280px, 1fr)",
+            gap: DESKTOP_DROPDOWN.itemGap,
+
             transition: "opacity 0.15s ease, transform 0.15s ease",
             zIndex: 300,
           }}
@@ -189,19 +239,28 @@ function NavItem({ label, href, children, isActive }: {
                 display: "flex",
                 alignItems: "center",
                 gap: 12,
-                padding: "10px 12px",
-                borderRadius: 12,
+                padding: "12px 12px",
+                borderRadius: DESKTOP_DROPDOWN.itemRadius,
                 fontSize: 14,
                 fontWeight: 500,
                 color: mkt.text,
                 textDecoration: "none",
-                transition: "background 0.12s ease",
+                background: DESKTOP_DROPDOWN.itemBg,
+                border: DESKTOP_DROPDOWN.itemBorder,
+                transition:
+                  "transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease",
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.background = mkt.surface;
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = DESKTOP_DROPDOWN.itemHoverBg;
+                el.style.boxShadow = DESKTOP_DROPDOWN.itemHoverShadow;
+                el.style.transform = "translateY(-1px)";
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background = "transparent";
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = DESKTOP_DROPDOWN.itemBg;
+                el.style.boxShadow = "none";
+                el.style.transform = "translateY(0px)";
               }}
             >
               {icon && (
@@ -209,12 +268,13 @@ function NavItem({ label, href, children, isActive }: {
                   style={{
                     width: 40,
                     height: 40,
-                    borderRadius: 12,
+                    borderRadius: 14,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     color: mkt.accent,
-                    background: mkt.accentTint,
+                    background: DESKTOP_DROPDOWN.iconBg,
+                    border: DESKTOP_DROPDOWN.iconBorder,
                     flexShrink: 0,
                   }}
                   aria-hidden
@@ -222,12 +282,29 @@ function NavItem({ label, href, children, isActive }: {
                   {icon}
                 </div>
               )}
+
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: mkt.text, lineHeight: 1.2, marginBottom: 2 }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 650,
+                    color: mkt.text,
+                    lineHeight: 1.2,
+                    marginBottom: 2,
+                  }}
+                >
                   {cl}
                 </div>
+
                 {description && (
-                  <div style={{ fontSize: 12, fontWeight: 400, color: mkt.textMuted, lineHeight: 1.35 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 450,
+                      color: mkt.textMuted,
+                      lineHeight: 1.35,
+                    }}
+                  >
                     {description}
                   </div>
                 )}
@@ -457,17 +534,16 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           left: 0,
           right: 0,
           zIndex: 300,
-          height: isMobile ? "auto" : 64,
+          height: isMobile ? "auto" : DESKTOP_HEADER.navHeight,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: isMobile ? "0" : "0 16px",
-          background: isMobile ? "transparent" : mkt.frost,
-          backdropFilter: isMobile ? "none" : "blur(12px)",
-          WebkitBackdropFilter: isMobile ? "none" : "blur(12px)",
-          borderBottom: isMobile ? "none" : `1px solid ${colors.header.borderBottom}`,
-          boxShadow: isMobile ? "none" : (scrolled ? colors.header.scrollShadow : "none"),
-          transition: "box-shadow 0.25s ease",
+          padding: isMobile ? "0" : DESKTOP_HEADER.navPadding,
+          background: "transparent",
+          backdropFilter: "none",
+          WebkitBackdropFilter: "none",
+          borderBottom: "none",
+          boxShadow: "none",
         }}
       >
         <div
@@ -475,7 +551,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           style={{
             maxWidth: 1200,
             margin: "0 auto",
-            height: 64,
+            height: isMobile ? 64 : DESKTOP_HEADER.cardHeight,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -496,7 +572,14 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 }
               : {
                   width: "100%",
-                  padding: "0 24px",
+                  height: DESKTOP_HEADER.cardHeight,
+                  borderRadius: DESKTOP_HEADER.cardRadius,
+                  background: DESKTOP_HEADER.cardBg,
+                  backdropFilter: "blur(18px) saturate(1.3)",
+                  WebkitBackdropFilter: "blur(18px) saturate(1.3)",
+                  border: DESKTOP_HEADER.cardBorder,
+                  boxShadow: DESKTOP_HEADER.cardShadow,
+                  padding: "0 20px",
                 }),
           }}
         >
@@ -513,7 +596,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               }}
             >
               {NAV_LINKS.map(({ label, href, children }) => (
-                <NavItem
+                <NavItemDesktopV2
                   key={href}
                   label={label}
                   href={href}
