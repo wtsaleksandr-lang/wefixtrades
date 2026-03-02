@@ -359,7 +359,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   data-testid="nav-cta-start-free"
                   style={{
                     padding: "9px 20px",
-                    borderRadius: 9999,
+                    borderRadius: 14,
                     background: mkt.dark,
                     color: mkt.onDark,
                     fontSize: 13,
@@ -437,7 +437,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 display: "block",
                 marginTop: 20,
                 padding: "12px",
-                borderRadius: 9999,
+                borderRadius: 14,
                 background: mkt.dark,
                 color: mkt.onDark,
                 fontSize: 15,

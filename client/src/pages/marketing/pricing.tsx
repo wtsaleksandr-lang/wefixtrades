@@ -202,7 +202,7 @@ export default function PricingPage() {
                 href="/Wizard"
                 data-testid="pricing-cta-start"
                 className="mkt-btn-primary"
-                style={{ padding: "13px 30px", borderRadius: 9999, background: mkt.accent, color: "#FFFFFF", fontSize: 15, fontWeight: 700, textDecoration: "none", display: "inline-block" }}
+                style={{ padding: "13px 30px", borderRadius: 14, background: mkt.accent, color: "#FFFFFF", fontSize: 15, fontWeight: 700, textDecoration: "none", display: "inline-block" }}
               >
                 Start Free
               </Link>
@@ -210,7 +210,7 @@ export default function PricingPage() {
                 href="/demo"
                 data-testid="pricing-cta-demo"
                 className="mkt-btn-ghost"
-                style={{ padding: "13px 24px", borderRadius: 9999, background: "transparent", color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, border: "1.5px solid rgba(255,255,255,0.28)" }}
+                style={{ padding: "13px 24px", borderRadius: 14, background: "transparent", color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, border: "1.5px solid rgba(255,255,255,0.28)" }}
               >
                 <Play size={13} fill="currentColor" /> View Demo
               </Link>
@@ -224,7 +224,7 @@ export default function PricingPage() {
                   onClick={() => setAnnual((a) => !a)}
                   aria-label="Toggle annual pricing"
                   style={{
-                    position: "relative", width: 52, height: 28, borderRadius: 999,
+                    position: "relative", width: 52, height: 28, borderRadius: 14,
                     background: annual ? mkt.accent : "rgba(255,255,255,0.18)",
                     border: "none", cursor: "pointer",
                     transition: "background 0.25s ease", flexShrink: 0,
@@ -255,7 +255,7 @@ export default function PricingPage() {
                   onClick={() => setCurrency("CAD")}
                   style={{
                     padding: "6px 16px",
-                    borderRadius: 9999,
+                    borderRadius: 14,
                     border: "1.5px solid",
                     borderColor: currency === "CAD" ? "#FFFFFF" : "rgba(255,255,255,0.25)",
                     background: currency === "CAD" ? "rgba(255,255,255,0.15)" : "transparent",
@@ -273,7 +273,7 @@ export default function PricingPage() {
                   onClick={() => setCurrency("USD")}
                   style={{
                     padding: "6px 16px",
-                    borderRadius: 9999,
+                    borderRadius: 14,
                     border: "1.5px solid",
                     borderColor: currency === "USD" ? "#FFFFFF" : "rgba(255,255,255,0.25)",
                     background: currency === "USD" ? "rgba(255,255,255,0.15)" : "transparent",
@@ -377,7 +377,7 @@ export default function PricingPage() {
                             display: "block",
                             width: "100%",
                             padding: "11px 0",
-                            borderRadius: 9999,
+                            borderRadius: 14,
                             fontSize: 14,
                             fontWeight: 700,
                             textAlign: "center" as const,
@@ -468,7 +468,7 @@ export default function PricingPage() {
                 href="/Wizard"
                 data-testid="pricing-final-cta-start"
                 className="mkt-btn-primary"
-                style={{ display: "inline-block", padding: "15px 36px", borderRadius: 9999, background: "#FFFFFF", color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none" }}
+                style={{ display: "inline-block", padding: "15px 36px", borderRadius: 14, background: "#FFFFFF", color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none" }}
               >
                 Start Free
               </Link>
@@ -476,7 +476,7 @@ export default function PricingPage() {
                 href="/demo"
                 data-testid="pricing-final-cta-demo"
                 className="mkt-btn-ghost"
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", borderRadius: 9999, background: "transparent", color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.38)" }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", borderRadius: 14, background: "transparent", color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.38)" }}
               >
                 <Play size={13} fill="currentColor" /> View Demo
               </Link>

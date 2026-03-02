@@ -114,7 +114,7 @@ function BuiltForRotator() {
         alignItems: "center",
         gap: 6,
         padding: "7px 18px",
-        borderRadius: 9999,
+        borderRadius: 14,
         background: "rgba(255,255,255,0.55)",
         backdropFilter: "blur(8px)",
         WebkitBackdropFilter: "blur(8px)",
@@ -404,7 +404,7 @@ export default function HomePage() {
                   gap: 7,
                   padding: "10px 16px",
                   height: 44,
-                  borderRadius: 9999,
+                  borderRadius: 14,
                   background: "rgba(255,255,255,0.65)",
                   border: "1px solid rgba(0,0,0,0.06)",
                   fontSize: 13,
@@ -443,7 +443,7 @@ export default function HomePage() {
               className="mkt-btn-primary"
               style={{
                 padding: "14px 34px",
-                borderRadius: 9999,
+                borderRadius: 14,
                 background: mkt.dark,
                 color: mkt.onDark,
                 fontSize: 15,
@@ -471,7 +471,7 @@ export default function HomePage() {
               className="mkt-btn-ghost"
               style={{
                 padding: "14px 28px",
-                borderRadius: 9999,
+                borderRadius: 14,
                 background: "transparent",
                 color: mkt.text,
                 fontSize: 15,
@@ -570,7 +570,7 @@ export default function HomePage() {
                       <span
                         style={{
                           display: "inline-flex", alignItems: "center", gap: 8,
-                          padding: "10px 20px", borderRadius: 9999,
+                          padding: "10px 20px", borderRadius: 14,
                           background: mkt.overlay, color: mkt.text,
                           fontSize: 14, fontWeight: 600,
                         }}
@@ -692,7 +692,7 @@ export default function HomePage() {
             <Link
               href="/product"
               data-testid="button-see-plans"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 9999, border: "1.5px solid rgba(255,255,255,0.25)", color: mkt.onDark, fontSize: 15, fontWeight: 600, textDecoration: "none", transition: "all 0.2s ease" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 14, border: "1.5px solid rgba(255,255,255,0.25)", color: mkt.onDark, fontSize: 15, fontWeight: 600, textDecoration: "none", transition: "all 0.2s ease" }}
               onMouseEnter={(e) => ((e.target as HTMLElement).style.background = "rgba(255,255,255,0.08)")}
               onMouseLeave={(e) => ((e.target as HTMLElement).style.background = "transparent")}
             >
@@ -718,7 +718,7 @@ export default function HomePage() {
               href="/Wizard"
               data-testid="button-try-free-cta"
               className="mkt-btn-primary"
-              style={{ display: "inline-block", padding: "15px 36px", borderRadius: 9999, background: mkt.onDark, color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none" }}
+              style={{ display: "inline-block", padding: "15px 36px", borderRadius: 14, background: mkt.onDark, color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none" }}
             >
               Try Free
             </Link>
@@ -726,7 +726,7 @@ export default function HomePage() {
               href="/demo"
               data-testid="button-try-demo-cta"
               className="mkt-btn-ghost"
-              style={{ display: "inline-block", padding: "15px 32px", borderRadius: 9999, background: "transparent", color: mkt.onDark, fontSize: 16, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.4)" }}
+              style={{ display: "inline-block", padding: "15px 32px", borderRadius: 14, background: "transparent", color: mkt.onDark, fontSize: 16, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.4)" }}
             >
               Try Demo
             </Link>

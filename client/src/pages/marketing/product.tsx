@@ -763,7 +763,7 @@ export default function ProductPage() {
                 data-testid="product-cta-start-bottom"
                 className="mkt-btn-primary"
                 style={{
-                  display: "inline-block", padding: "15px 36px", borderRadius: 9999,
+                  display: "inline-block", padding: "15px 36px", borderRadius: 14,
                   background: "#FFFFFF", color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none",
                 }}
               >
@@ -773,7 +773,7 @@ export default function ProductPage() {
                 href="/contact"
                 className="mkt-btn-ghost"
                 style={{
-                  display: "inline-block", padding: "15px 32px", borderRadius: 9999,
+                  display: "inline-block", padding: "15px 32px", borderRadius: 14,
                   background: "transparent", color: "#FFFFFF", fontSize: 16, fontWeight: 600,
                   textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.38)",
                 }}

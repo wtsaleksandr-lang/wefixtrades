@@ -103,11 +103,10 @@ export const typography = {
 
 export const radius = {
   sm: '8px',
-  md: '12px',
+  md: '14px',
   lg: '16px',
   xl: '20px',
   '2xl': '24px',
-  pill: '9999px',
 } as const;
 
 export const shadows = {
