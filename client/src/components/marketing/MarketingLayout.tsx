@@ -15,7 +15,7 @@ type NavChild = {
 const DESKTOP_HEADER = {
   navHeight: 84,
   cardHeight: 56,
-  cardRadius: 18,
+  cardRadius: 22,
   cardBg: "rgba(255,255,255,0.78)",
   cardBorder: "1px solid rgba(0,0,0,0.06)",
   cardShadow: "0 14px 38px rgba(0,0,0,0.10)",
@@ -219,7 +219,8 @@ function NavItemDesktopV2({
             boxShadow: DESKTOP_DROPDOWN.containerShadow,
 
             padding: "10px",
-            width: "min(980px, calc(100vw - 40px))",
+            width: "calc(100vw - 32px)",
+            maxWidth: 1200,
 
             display: "grid",
             gridAutoFlow: "column",
