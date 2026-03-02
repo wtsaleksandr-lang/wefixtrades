@@ -1,0 +1,357 @@
+FILE: MarketingLayout.tsx
+
+============================================================
+PHASE 1A — INSERT CONSTANTS
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE):
+const NAV_LINKS: { label: string; href: string; children?: NavChild[] }[] = [
+
+ACTION:
+PASTE THIS BLOCK DIRECTLY ABOVE THAT LINE:
+
+const DESKTOP_HEADER = {
+  navHeight: 84,
+  cardHeight: 56,
+  cardRadius: 18,
+  cardBg: "rgba(255,255,255,0.78)",
+  cardBorder: "1px solid rgba(0,0,0,0.06)",
+  cardShadow: "0 14px 38px rgba(0,0,0,0.10)",
+  navPadding: "10px 16px 0",
+};
+
+const DESKTOP_DROPDOWN = {
+  containerBg: "rgba(255,255,255,0.52)",
+  containerBorder: "1px solid rgba(255,255,255,0.38)",
+  containerRadius: 22,
+  containerShadow:
+    "0 22px 60px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.35)",
+  itemBg: "rgba(255,255,255,0.72)",
+  itemBorder: "1px solid rgba(255,255,255,0.40)",
+  itemHoverBg: "rgba(255,255,255,0.86)",
+  itemHoverShadow: "0 10px 24px rgba(0,0,0,0.10)",
+  itemRadius: 18,
+  itemGap: 10,
+  iconBg: "rgba(15,59,53,0.10)",
+  iconBorder: "1px solid rgba(15,59,53,0.16)",
+};
+
+============================================================
+PHASE 1B — INSERT NEW DESKTOP NAV COMPONENT (FULL BLOCK)
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE):
+function MobileNavItem({ label, href, children, isActive, onClose }: {
+
+ACTION:
+PASTE THIS ENTIRE FUNCTION BLOCK DIRECTLY ABOVE THAT LINE:
+
+function NavItemDesktopV2({
+  label,
+  href,
+  children,
+  isActive,
+}: {
+  label: string;
+  href: string;
+  children?: NavChild[];
+  isActive: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const hasDropdown = !!(children && children.length > 0);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const topItemBase: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "8px 12px",
+    borderRadius: 14,
+    fontSize: 15,
+    fontWeight: 500,
+    color: mkt.text,
+    background: "transparent",
+    border: "1px solid transparent",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    transition: "background 0.18s ease, border-color 0.18s ease",
+  };
+
+  const topHoverOn = (el: HTMLElement) => {
+    el.style.background = "rgba(15,59,53,0.06)";
+    el.style.borderColor = "rgba(15,59,53,0.16)";
+  };
+
+  const topHoverOff = (el: HTMLElement) => {
+    el.style.background = "transparent";
+    el.style.borderColor = "transparent";
+  };
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      {hasDropdown ? (
+        <button
+          aria-expanded={open}
+          aria-haspopup="true"
+          onClick={() => setOpen((o) => !o)}
+          style={topItemBase}
+          onMouseEnter={(e) => topHoverOn(e.currentTarget as HTMLElement)}
+          onMouseLeave={(e) => topHoverOff(e.currentTarget as HTMLElement)}
+        >
+          {label}
+          <ChevronDown
+            size={13}
+            strokeWidth={1.5}
+            style={{
+              transition: "transform 0.2s ease",
+              transform: open ? "rotate(180deg)" : "rotate(0deg)",
+              opacity: 0.55,
+            }}
+          />
+        </button>
+      ) : (
+        <Link
+          href={href}
+          data-testid={`nav-link-${label.toLowerCase()}`}
+          style={{
+            ...topItemBase,
+            textDecoration: "none",
+          }}
+          onMouseEnter={(e) => topHoverOn(e.currentTarget as HTMLElement)}
+          onMouseLeave={(e) => topHoverOff(e.currentTarget as HTMLElement)}
+        >
+          {label}
+        </Link>
+      )}
+
+      {hasDropdown && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 10px)",
+            left: "50%",
+            transform: open
+              ? "translateX(-50%) translateY(0)"
+              : "translateX(-50%) translateY(-6px)",
+            opacity: open ? 1 : 0,
+            pointerEvents: open ? "auto" : "none",
+
+            background: DESKTOP_DROPDOWN.containerBg,
+            borderRadius: DESKTOP_DROPDOWN.containerRadius,
+            border: DESKTOP_DROPDOWN.containerBorder,
+            boxShadow: DESKTOP_DROPDOWN.containerShadow,
+
+            padding: "10px",
+            width: "min(980px, calc(100vw - 40px))",
+
+            display: "grid",
+            gridAutoFlow: "column",
+            gridTemplateRows: "repeat(3, auto)",
+            gridAutoColumns: "minmax(280px, 1fr)",
+            gap: DESKTOP_DROPDOWN.itemGap,
+
+            transition: "opacity 0.15s ease, transform 0.15s ease",
+            zIndex: 300,
+          }}
+        >
+          {children!.map(({ label: cl, href: ch, description, icon }) => (
+            <Link
+              key={ch + cl}
+              href={ch}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "12px 12px",
+                borderRadius: DESKTOP_DROPDOWN.itemRadius,
+                fontSize: 14,
+                fontWeight: 500,
+                color: mkt.text,
+                textDecoration: "none",
+                background: DESKTOP_DROPDOWN.itemBg,
+                border: DESKTOP_DROPDOWN.itemBorder,
+                transition:
+                  "transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease",
+              }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = DESKTOP_DROPDOWN.itemHoverBg;
+                el.style.boxShadow = DESKTOP_DROPDOWN.itemHoverShadow;
+                el.style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = DESKTOP_DROPDOWN.itemBg;
+                el.style.boxShadow = "none";
+                el.style.transform = "translateY(0px)";
+              }}
+            >
+              {icon && (
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 14,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: mkt.accent,
+                    background: DESKTOP_DROPDOWN.iconBg,
+                    border: DESKTOP_DROPDOWN.iconBorder,
+                    flexShrink: 0,
+                  }}
+                  aria-hidden
+                >
+                  {icon}
+                </div>
+              )}
+
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 650,
+                    color: mkt.text,
+                    lineHeight: 1.2,
+                    marginBottom: 2,
+                  }}
+                >
+                  {cl}
+                </div>
+
+                {description && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 450,
+                      color: mkt.textMuted,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {description}
+                  </div>
+                )}
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+============================================================
+PHASE 2 — SWITCH DESKTOP RENDER TO USE NavItemDesktopV2
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE):
+{NAV_LINKS.map(({ label, href, children }) => (
+
+ACTION:
+IN THE DESKTOP MENU RENDER (NOT MOBILE),
+REPLACE:
+<NavItem
+WITH:
+<NavItemDesktopV2
+
+DO NOT change MobileNavItem usage.
+
+============================================================
+PHASE 3 — DESKTOP HEADER BAR (FLOATING PILL)
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE INSIDE <nav style={{ ... }}>):
+height: isMobile ? "auto" : 64,
+
+REPLACE WITH:
+height: isMobile ? "auto" : DESKTOP_HEADER.navHeight,
+
+ANCHOR (FIND THIS EXACT LINE INSIDE <nav style={{ ... }}>):
+padding: isMobile ? "0" : "0 16px",
+
+REPLACE WITH:
+padding: isMobile ? "0" : DESKTOP_HEADER.navPadding,
+
+ANCHOR (FIND THIS EXACT LINE INSIDE <nav style={{ ... }}>):
+background: isMobile ? "transparent" : mkt.frost,
+
+REPLACE WITH:
+background: "transparent",
+
+ANCHOR (FIND THIS EXACT LINE INSIDE <nav style={{ ... }}>):
+backdropFilter: isMobile ? "none" : "blur(12px)",
+
+REPLACE WITH:
+backdropFilter: "none",
+
+ANCHOR (FIND THIS EXACT LINE INSIDE <nav style={{ ... }}>):
+WebkitBackdropFilter: isMobile ? "none" : "blur(12px)",
+
+REPLACE WITH:
+WebkitBackdropFilter: "none",
+
+ANCHOR (FIND THIS EXACT LINE INSIDE <nav style={{ ... }}>):
+borderBottom: isMobile ? "none" : `1px solid ${colors.header.borderBottom}`,
+
+REPLACE WITH:
+borderBottom: "none",
+
+ANCHOR (FIND THIS EXACT LINE INSIDE <nav style={{ ... }}>):
+boxShadow: isMobile ? "none" : (scrolled ? colors.header.scrollShadow : "none"),
+
+REPLACE WITH:
+boxShadow: "none",
+
+ANCHOR (FIND THIS EXACT LINE INSIDE <nav style={{ ... }}>):
+transition: "box-shadow 0.25s ease",
+
+DELETE THAT LINE COMPLETELY
+
+------------------------------------------------------------
+Desktop inner card (navCardRef)
+------------------------------------------------------------
+
+ANCHOR (FIND THIS EXACT LINE INSIDE navCardRef style):
+height: 64,
+
+REPLACE WITH:
+height: isMobile ? 64 : DESKTOP_HEADER.cardHeight,
+
+ANCHOR (FIND THIS EXACT LINE INSIDE navCardRef desktop branch):
+padding: "0 24px",
+
+REPLACE WITH:
+padding: "0 20px",
+
+ANCHOR (FIND THIS EXACT LINE INSIDE navCardRef desktop branch):
+width: "100%",
+
+ACTION:
+DIRECTLY AFTER THAT LINE, ADD THESE LINES:
+height: DESKTOP_HEADER.cardHeight,
+borderRadius: DESKTOP_HEADER.cardRadius,
+background: DESKTOP_HEADER.cardBg,
+backdropFilter: "blur(18px) saturate(1.3)",
+WebkitBackdropFilter: "blur(18px) saturate(1.3)",
+border: DESKTOP_HEADER.cardBorder,
+boxShadow: DESKTOP_HEADER.cardShadow,
