@@ -409,6 +409,13 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     return () => window.removeEventListener("resize", compute);
   }, [menuOpen, isMobile]);
 
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      if (window.location.hash) return;
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
+  }, [location]);
+
   return (
     <div
       className="mkt-layout"
