@@ -1,0 +1,126 @@
+FILE: client/src/components/marketing/MarketingLayout.tsx
+
+============================================================
+ONE-CLICK PATCH — HERO TYPO REFINEMENT (PREMIUM SaaS)
+============================================================
+
+GOALS:
+- Keep copy: "More booked jobs" / "On autopilot"
+- Make it more premium via weight contrast + size ratio
+- Stronger hierarchy on desktop vs mobile
+- Keep your blue accent + glow
+- No other layout changes
+
+============================================================
+STEP 1 — UPDATE FIRST LINE (WEIGHT + RESPONSIVE SIZE)
+============================================================
+
+ANCHOR (FIND THIS EXACT BLOCK):
+<h1
+  style={{
+    fontSize: isMobile ? 34 : 60,
+    fontWeight: 800,
+    lineHeight: isMobile ? 1.15 : 1.05,
+    letterSpacing: "-0.02em",
+    margin: 0,
+    color: mkt.text,
+  }}
+>
+  More booked jobs
+</h1>
+
+REPLACE WITH:
+
+<h1
+  style={{
+    fontSize: isMobile ? 32 : 56,
+    fontWeight: 700,
+    lineHeight: isMobile ? 1.16 : 1.06,
+    letterSpacing: "-0.02em",
+    margin: 0,
+    color: mkt.text,
+  }}
+>
+  More booked jobs
+</h1>
+
+============================================================
+STEP 2 — UPDATE SECOND LINE (BIGGER ON DESKTOP + KEEP GLOW)
+============================================================
+
+ANCHOR (FIND THIS EXACT BLOCK):
+<h1
+  style={{
+    position: "relative",
+    fontSize: isMobile ? 34 : 60,
+    fontWeight: 800,
+    lineHeight: isMobile ? 1.15 : 1.05,
+    letterSpacing: "-0.02em",
+    margin: 0,
+    marginTop: isMobile ? 4 : 6,
+    background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    filter: "drop-shadow(0 6px 18px rgba(59,130,246,0.28))",
+  }}
+>
+  On autopilot
+
+  {/* Soft Glow Layer */}
+  <span
+    style={{
+      position: "absolute",
+      inset: 0,
+      zIndex: -1,
+      background:
+        "radial-gradient(closest-side, rgba(59,130,246,0.20), rgba(59,130,246,0.10) 40%, transparent 75%)",
+      filter: "blur(28px)",
+      opacity: 0.7,
+      pointerEvents: "none",
+    }}
+  />
+</h1>
+
+REPLACE WITH:
+
+<h1
+  style={{
+    position: "relative",
+    fontSize: isMobile ? 34 : 64,
+    fontWeight: 800,
+    lineHeight: isMobile ? 1.14 : 1.02,
+    letterSpacing: "-0.02em",
+    margin: 0,
+    marginTop: isMobile ? 4 : 4,
+    background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    filter: "drop-shadow(0 6px 18px rgba(59,130,246,0.24))",
+  }}
+>
+  On autopilot
+
+  {/* Soft Glow Layer */}
+  <span
+    style={{
+      position: "absolute",
+      inset: 0,
+      zIndex: -1,
+      background:
+        "radial-gradient(closest-side, rgba(59,130,246,0.18), rgba(59,130,246,0.09) 42%, transparent 78%)",
+      filter: isMobile ? "blur(22px)" : "blur(30px)",
+      opacity: isMobile ? 0.6 : 0.7,
+      pointerEvents: "none",
+    }}
+  />
+</h1>
+
+============================================================
+STEP 3 — SUBTITLE SPACING TWEAK (BETTER RHYTHM)
+============================================================
+
+ANCHOR (FIND THIS EXACT SUBTITLE STYLE LINE):
+marginTop: isMobile ? 14 : 18,
+
+REPLACE WITH:
+marginTop: isMobile ? 12 : 16,
