@@ -306,9 +306,25 @@ const RESPONSIVE_CSS = `
   .flow-node { transition: transform 0.2s ease, box-shadow 0.2s ease; }
   .flow-node:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important; }
   @media (max-width: 640px) {
-    .hero-pills-grid { grid-template-columns: 1fr 1fr !important; }
+    .hero-section-responsive { padding: 56px 18px 48px !important; }
+    .hero-pills-grid { grid-template-columns: 1fr 1fr !important; gap: 6px !important; }
+    .hero-pill {
+      height: 34px !important;
+      padding: 8px 12px !important;
+      font-size: 11px !important;
+      gap: 6px !important;
+      border-radius: 12px !important;
+    }
+    .hero-pill svg { width: 13px !important; height: 13px !important; }
     .hero-pill-label-full { display: none !important; }
     .hero-pill-label-short { display: inline !important; }
+    .hero-subtext { font-size: 15px !important; margin-bottom: 28px !important; }
+    .hero-cta-row { gap: 10px !important; }
+    .hero-cta-row a { padding: 12px 24px !important; font-size: 14px !important; }
+    .built-for-chip { height: 28px !important; padding: 4px 10px !important; gap: 6px !important; }
+    .built-for-chip .bf-label { font-size: 11px !important; }
+    .built-for-chip .bf-window { height: 16px !important; width: 130px !important; }
+    .built-for-chip .bf-window * { font-size: 11px !important; }
   }
   @media (min-width: 641px) {
     .hero-pill-label-full { display: inline !important; }
@@ -338,9 +354,11 @@ export default function HomePage() {
 
       <section
         data-testid="hero-section"
+        className="hero-section-responsive"
         style={{
           background: mkt.surface,
           padding: "88px 28px 80px",
+          marginTop: -8,
           position: "relative",
           overflow: "hidden",
         }}
@@ -365,7 +383,7 @@ export default function HomePage() {
               color: mkt.text,
               lineHeight: 1.04,
               letterSpacing: "-0.04em",
-              marginBottom: 32,
+              marginBottom: 24,
             }}
           >
             More <span style={{ color: mkt.accent }}>booked jobs</span>.<br />
@@ -413,6 +431,7 @@ export default function HomePage() {
 
           <p
             data-testid="hero-subtext"
+            className="hero-subtext"
             style={{
               fontSize: 18,
               color: mkt.textMuted,
@@ -426,7 +445,7 @@ export default function HomePage() {
             Everything runs in the background.
           </p>
 
-          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
+          <div className="hero-cta-row" style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
             <Link
               href="/Wizard"
               data-testid="button-try-free-hero"
@@ -490,13 +509,14 @@ export default function HomePage() {
 
           <div
             style={{
-              marginTop: 18,
+              marginTop: 14,
               display: "flex",
               justifyContent: "center",
             }}
           >
             <div
               data-testid="built-for-rotator"
+              className="built-for-chip"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -509,6 +529,7 @@ export default function HomePage() {
               }}
             >
               <span
+                className="bf-label"
                 style={{
                   fontSize: 12,
                   fontWeight: 600,
@@ -521,6 +542,7 @@ export default function HomePage() {
               </span>
 
               <div
+                className="bf-window"
                 style={{
                   position: "relative",
                   height: 20,
