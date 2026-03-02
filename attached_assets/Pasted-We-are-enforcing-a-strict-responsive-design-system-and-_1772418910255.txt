@@ -1,0 +1,126 @@
+We are enforcing a strict responsive design system and unified shape system across the entire project.
+
+Apply the following rules globally.
+
+RESPONSIVE-FIRST LAYOUT SYSTEM
+
+This is NOT mobile-only and NOT desktop-first.
+
+It must be responsive-first.
+
+Rules:
+
+• Base styles must render perfectly at 375px width.
+• Desktop must progressively enhance layout — not stretch mobile layout.
+• No fixed widths on main sections.
+• Use fluid containers with max-width.
+
+Implement:
+
+All main sections:
+width: 100%
+max-width: 1200px (or existing container token)
+margin: 0 auto
+padding-left/right: responsive (16px mobile → 32px desktop)
+
+Use grid system:
+Mobile: 1 column
+md+: 2 columns where appropriate
+lg+: 3 columns where appropriate
+
+No horizontal overflow.
+
+No content cutoffs.
+
+No layout that depends only on hover.
+
+Interactive elements must work on touch devices.
+
+Buttons:
+
+Minimum height: 44px
+
+Adequate horizontal padding
+
+No tiny tap targets
+
+Typography:
+
+Must scale appropriately.
+
+No oversized desktop text.
+
+No unreadable mobile scaling.
+
+Confirm after refactor:
+
+No section uses fixed width values like 800px, 1000px, etc.
+
+All layouts stack cleanly under 480px.
+
+UNIFIED BUTTON & BADGE SHAPE SYSTEM
+
+Current issue:
+Some buttons are pill-shaped (rounded-full).
+Some are slightly rounded.
+Some are rectangular.
+
+We are standardizing.
+
+New global rule:
+
+All buttons, badges, tags, CTA elements, icon buttons must use a single rounded-rectangle shape.
+
+Implementation:
+
+Remove all rounded-full and rounded-[9999px]
+
+Remove inconsistent radius values.
+
+Use one unified radius value everywhere:
+
+border-radius: 14px
+
+If radius tokens exist:
+radius.md = 14px
+
+Apply this to:
+
+Primary buttons
+
+Secondary buttons
+
+Outline buttons
+
+Badges
+
+Tags
+
+Chips
+
+CTA blocks
+
+Icon buttons
+
+Only exceptions allowed:
+
+Avatars
+
+Explicitly declared circular elements
+
+HARD RULES
+
+• No new hardcoded radiuses.
+• No new fixed widths.
+• No new layout assumptions based only on desktop.
+• All future components must follow these two systems by default.
+
+After applying changes, provide:
+
+List of modified files.
+
+Confirmation that shape system is unified.
+
+Confirmation that layouts are responsive-first.
+
+Do not introduce new color tokens or new theme objects.
