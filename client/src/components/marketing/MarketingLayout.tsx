@@ -251,7 +251,15 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
   const hasDropdown = children && children.length > 0;
 
   return (
-    <div style={{ borderBottom: `1px solid ${mkt.border}` }}>
+    <div
+      style={{
+        marginBottom: 10,
+        padding: "10px 12px",
+        borderRadius: 18,
+        background: "rgba(255,255,255,0.62)",
+        border: "1px solid rgba(255,255,255,0.34)",
+      }}
+    >
       {hasDropdown ? (
         <>
           <button
@@ -262,7 +270,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
               alignItems: "center",
               justifyContent: "space-between",
               width: "100%",
-              padding: "16px 0",
+              padding: "12px 2px",
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -296,19 +304,19 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
                   display: "flex",
                   alignItems: "center",
                   gap: 14,
-                  padding: "14px 14px",
-                  marginBottom: 10,
-                  borderRadius: 18,
+                  padding: "12px 12px",
+                  marginBottom: 8,
+                  borderRadius: 16,
                   textDecoration: "none",
-                  background: "rgba(64,64,64,0.06)",
-                  border: "1px solid rgba(0,0,0,0.06)",
+                  background: "rgba(255,255,255,0.68)",
+                  border: "1px solid rgba(255,255,255,0.34)",
                 }}
               >
                 <div
                   style={{
                     width: 44,
                     height: 44,
-                    borderRadius: 16,
+                    borderRadius: 14,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -364,7 +372,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
           data-testid={`nav-link-${label.toLowerCase()}-mobile`}
           style={{
             display: "block",
-            padding: "16px 0",
+            padding: "12px 2px",
             fontSize: 16,
             fontWeight: 500,
             color: mkt.text,
@@ -476,7 +484,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               ? {
                   width: "calc(100% - 20px)",
                   margin: "8px 10px 0",
-                  borderRadius: 24,
+                  borderRadius: 20,
                   padding: "0 16px",
                   background: "rgba(255,255,255,0.42)",
                   backdropFilter: "blur(20px) saturate(1.6)",
@@ -620,11 +628,11 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             right: 10,
             top: menuTop,
             zIndex: 300,
-            borderRadius: 28,
-            background: "rgba(255,255,255,0.36)",
+            borderRadius: 22,
+            background: "rgba(255,255,255,0.52)",
             backdropFilter: "blur(22px) saturate(1.6)",
             WebkitBackdropFilter: "blur(22px) saturate(1.6)",
-            border: "1px solid rgba(255,255,255,0.28)",
+            border: "1px solid rgba(255,255,255,0.34)",
             boxShadow: menuOpen
               ? "0 22px 60px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.35)"
               : "0 12px 30px rgba(0,0,0,0.08)",
