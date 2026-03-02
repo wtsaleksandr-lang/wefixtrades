@@ -22,21 +22,6 @@ const DESKTOP_HEADER = {
   navPadding: "6px 12px 0",
 };
 
-const DESKTOP_DROPDOWN = {
-  containerBg: "rgba(255,255,255,0.92)",
-  containerBorder: "1px solid rgba(255,255,255,0.38)",
-  containerRadius: 22,
-  containerShadow:
-    "0 22px 60px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.35)",
-  itemBg: "rgba(255,255,255,0.98)",
-  itemBorder: "1px solid rgba(255,255,255,0.40)",
-  itemHoverBg: "rgba(255,255,255,1)",
-  itemHoverShadow: "0 10px 24px rgba(0,0,0,0.10)",
-  itemRadius: 18,
-  itemGap: 10,
-  iconBg: "rgba(15,59,53,0.10)",
-  iconBorder: "1px solid rgba(15,59,53,0.16)",
-};
 
 const NAV_LINKS: { label: string; href: string; children?: NavChild[] }[] = [
   {
@@ -103,16 +88,18 @@ function useIsMobile(breakpoint = 900) {
   return isMobile;
 }
 
-function NavItemDesktopV2({
+function NavItemDesktop({
   label,
   href,
   children,
   isActive,
+  dropdown,
 }: {
   label: string;
   href: string;
   children?: NavChild[];
   isActive: boolean;
+  dropdown: { left: number; width: number; top: number };
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -124,17 +111,19 @@ function NavItemDesktopV2({
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
-
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    const onScroll = () => setOpen(false);
 
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, { passive: true });
 
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll);
     };
   }, [open]);
 
@@ -142,8 +131,8 @@ function NavItemDesktopV2({
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: "6px 10px",
-    borderRadius: 14,
+    padding: "8px 12px",
+    borderRadius: 12,
     fontSize: 15,
     fontWeight: 500,
     color: mkt.text,
@@ -190,10 +179,7 @@ function NavItemDesktopV2({
         <Link
           href={href}
           data-testid={`nav-link-${label.toLowerCase()}`}
-          style={{
-            ...topItemBase,
-            textDecoration: "none",
-          }}
+          style={{ ...topItemBase, textDecoration: "none" }}
           onMouseEnter={(e) => topHoverOn(e.currentTarget as HTMLElement)}
           onMouseLeave={(e) => topHoverOff(e.currentTarget as HTMLElement)}
         >
@@ -204,29 +190,32 @@ function NavItemDesktopV2({
       {hasDropdown && (
         <div
           style={{
-            position: "absolute",
-            top: "calc(100% + 2px)",
-            left: 0,
-            width: "100%",
+            position: "fixed",
+            top: dropdown.top,
+            left: dropdown.left,
+            width: dropdown.width,
+
             transform: open ? "translateY(0)" : "translateY(-6px)",
             opacity: open ? 1 : 0,
             pointerEvents: open ? "auto" : "none",
 
-            background: DESKTOP_DROPDOWN.containerBg,
-            borderRadius: DESKTOP_HEADER.cardRadius,
-            border: DESKTOP_DROPDOWN.containerBorder,
-            boxShadow: DESKTOP_DROPDOWN.containerShadow,
+            background: "rgba(255,255,255,0.72)",
+            backdropFilter: "blur(18px) saturate(1.25)",
+            WebkitBackdropFilter: "blur(18px) saturate(1.25)",
+            borderRadius: 18,
+            border: "1px solid rgba(0,0,0,0.06)",
+            boxShadow: "0 18px 46px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.50)",
 
-            padding: "4px",
+            padding: "8px",
+            zIndex: 400,
 
             display: "grid",
             gridAutoFlow: "column",
             gridTemplateRows: "repeat(3, auto)",
-            gridAutoColumns: "minmax(280px, 1fr)",
-            gap: 6,
+            gridAutoColumns: "minmax(260px, 1fr)",
+            gap: 8,
 
             transition: "opacity 0.15s ease, transform 0.15s ease",
-            zIndex: 300,
           }}
         >
           {children!.map(({ label: cl, href: ch, description, icon }) => (
@@ -236,27 +225,26 @@ function NavItemDesktopV2({
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 10,
+                gap: 12,
                 padding: "10px 10px",
-                borderRadius: 16,
+                borderRadius: 14,
                 fontSize: 14,
                 fontWeight: 500,
                 color: mkt.text,
                 textDecoration: "none",
-                background: DESKTOP_DROPDOWN.itemBg,
-                border: "1px solid rgba(0,0,0,0.10)",
-                transition:
-                  "transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease",
+                background: "rgba(255,255,255,0.95)",
+                border: "1px solid rgba(0,0,0,0.08)",
+                transition: "transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease",
               }}
               onMouseEnter={(e) => {
                 const el = e.currentTarget as HTMLElement;
-                el.style.background = DESKTOP_DROPDOWN.itemHoverBg;
-                el.style.boxShadow = DESKTOP_DROPDOWN.itemHoverShadow;
+                el.style.background = "rgba(255,255,255,0.98)";
+                el.style.boxShadow = "0 10px 24px rgba(0,0,0,0.10)";
                 el.style.transform = "translateY(-1px)";
               }}
               onMouseLeave={(e) => {
                 const el = e.currentTarget as HTMLElement;
-                el.style.background = DESKTOP_DROPDOWN.itemBg;
+                el.style.background = "rgba(255,255,255,0.95)";
                 el.style.boxShadow = "none";
                 el.style.transform = "translateY(0px)";
               }}
@@ -271,8 +259,8 @@ function NavItemDesktopV2({
                     alignItems: "center",
                     justifyContent: "center",
                     color: mkt.accent,
-                    background: DESKTOP_DROPDOWN.iconBg,
-                    border: DESKTOP_DROPDOWN.iconBorder,
+                    background: "rgba(15,59,53,0.10)",
+                    border: "1px solid rgba(15,59,53,0.16)",
                     flexShrink: 0,
                   }}
                   aria-hidden
@@ -282,27 +270,11 @@ function NavItemDesktopV2({
               )}
 
               <div style={{ minWidth: 0 }}>
-                <div
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 650,
-                    color: mkt.text,
-                    lineHeight: 1.2,
-                    marginBottom: 1,
-                  }}
-                >
+                <div style={{ fontSize: 14, fontWeight: 650, color: mkt.text, lineHeight: 1.2, marginBottom: 2 }}>
                   {cl}
                 </div>
-
                 {description && (
-                  <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 450,
-                      color: mkt.textMuted,
-                      lineHeight: 1.35,
-                    }}
-                  >
+                  <div style={{ fontSize: 12, fontWeight: 450, color: mkt.textMuted, lineHeight: 1.35 }}>
                     {description}
                   </div>
                 )}
@@ -465,6 +437,12 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   const [menuOpen, setMenuOpen] = useState(false);
   const navCardRef = useRef<HTMLDivElement>(null);
   const [menuTop, setMenuTop] = useState<number>(92);
+
+  const [desktopDropdown, setDesktopDropdown] = useState<{ left: number; width: number; top: number }>({
+    left: 0,
+    width: 0,
+    top: 0,
+  });
   const [location] = useLocation();
   const isMobile = useIsMobile();
   const scrolled = useScrolled();
@@ -496,6 +474,29 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     window.addEventListener("resize", compute);
     return () => window.removeEventListener("resize", compute);
   }, [menuOpen, isMobile]);
+
+  useEffect(() => {
+    if (isMobile) return;
+
+    const compute = () => {
+      const el = navCardRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setDesktopDropdown({
+        left: Math.round(r.left),
+        width: Math.round(r.width),
+        top: Math.round(r.bottom + 6),
+      });
+    };
+
+    compute();
+    window.addEventListener("resize", compute);
+    window.addEventListener("scroll", compute, { passive: true });
+    return () => {
+      window.removeEventListener("resize", compute);
+      window.removeEventListener("scroll", compute);
+    };
+  }, [isMobile]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -569,15 +570,16 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   boxShadow: "0 12px 32px rgba(0,0,0,0.10)",
                 }
               : {
-                  width: "100%",
-                  height: DESKTOP_HEADER.cardHeight,
-                  borderRadius: DESKTOP_HEADER.cardRadius,
-                  background: DESKTOP_HEADER.cardBg,
+                  width: "calc(100% - 32px)",
+                  maxWidth: 1440,
+                  margin: "10px 16px 0",
+                  borderRadius: 18,
+                  padding: "0 20px",
+                  background: "rgba(255,255,255,0.78)",
                   backdropFilter: "blur(18px) saturate(1.3)",
                   WebkitBackdropFilter: "blur(18px) saturate(1.3)",
-                  border: DESKTOP_HEADER.cardBorder,
-                  boxShadow: DESKTOP_HEADER.cardShadow,
-                  padding: "0 14px",
+                  border: "1px solid rgba(0,0,0,0.06)",
+                  boxShadow: scrolled ? "0 14px 38px rgba(0,0,0,0.12)" : "0 12px 30px rgba(0,0,0,0.10)",
                 }),
           }}
         >
@@ -594,12 +596,13 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               }}
             >
               {NAV_LINKS.map(({ label, href, children }) => (
-                <NavItemDesktopV2
+                <NavItemDesktop
                   key={href}
                   label={label}
                   href={href}
                   children={children}
                   isActive={isActive(href)}
+                  dropdown={desktopDropdown}
                 />
               ))}
             </nav>
