@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
 import { Menu, X, ChevronDown, LayoutGrid, Route, Frame, FileText, BadgePercent } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
 import AnimatedLogo from "./AnimatedLogo";
 import { mkt, colors } from "@/theme/tokens";
+
+const DEBUG_DROPDOWN = false;
 
 type NavChild = {
   label: string;
@@ -88,42 +91,55 @@ function useIsMobile(breakpoint = 900) {
   return isMobile;
 }
 
-function NavItemDesktop({
+function NavItemDesktopV2({
   label,
   href,
   children,
   isActive,
-  dropdown,
+  headerRef,
 }: {
   label: string;
   href: string;
   children?: NavChild[];
   isActive: boolean;
-  dropdown: { left: number; width: number; top: number };
+  headerRef: React.RefObject<HTMLDivElement>;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const hasDropdown = !!(children && children.length > 0);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+
+  const measure = () => {
+    const el = headerRef.current;
+    if (!el) return;
+    setRect(el.getBoundingClientRect());
+  };
 
   useEffect(() => {
     if (!open) return;
+    measure();
 
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+
     const onScroll = () => setOpen(false);
+    const onResize = () => measure();
 
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
 
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
     };
   }, [open]);
 
@@ -131,7 +147,7 @@ function NavItemDesktop({
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: "8px 12px",
+    padding: "6px 10px",
     borderRadius: 12,
     fontSize: 15,
     fontWeight: 500,
@@ -152,6 +168,126 @@ function NavItemDesktop({
     el.style.background = "transparent";
     el.style.borderColor = "transparent";
   };
+
+  const dropdownNode =
+    hasDropdown && open && rect
+      ? createPortal(
+          <div
+            style={{
+              position: "fixed",
+              left: rect.left,
+              top: rect.bottom + 2,
+              width: rect.width,
+
+              opacity: 1,
+              transform: "translateY(0) scale(1)",
+              transformOrigin: "top center",
+              transition: "opacity 160ms ease, transform 160ms ease",
+
+              background: "rgba(255,255,255,0.92)",
+              backdropFilter: "blur(18px) saturate(1.25)",
+              WebkitBackdropFilter: "blur(18px) saturate(1.25)",
+              borderRadius: 16,
+              border: "1px solid rgba(0,0,0,0.10)",
+              boxShadow:
+                "0 18px 46px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.50)",
+
+              padding: "4px",
+              zIndex: 9999,
+
+              display: "grid",
+              gridAutoFlow: "column",
+              gridTemplateRows: "repeat(3, auto)",
+              gridAutoColumns: "minmax(280px, 1fr)",
+              gap: 6,
+
+              outline: DEBUG_DROPDOWN ? "3px solid rgba(0,120,255,0.85)" : "none",
+            }}
+          >
+            {children!.map(({ label: cl, href: ch, description, icon }) => (
+              <Link
+                key={ch + cl}
+                href={ch}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "9px 10px",
+                  borderRadius: 12,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: mkt.text,
+                  textDecoration: "none",
+                  background: "rgba(255,255,255,0.98)",
+                  border: "1px solid rgba(0,0,0,0.10)",
+                  transition:
+                    "transform 140ms ease, box-shadow 140ms ease, background 140ms ease",
+                }}
+                onMouseEnter={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = "rgba(255,255,255,1)";
+                  el.style.boxShadow = "0 10px 24px rgba(0,0,0,0.10)";
+                  el.style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = "rgba(255,255,255,0.98)";
+                  el.style.boxShadow = "none";
+                  el.style.transform = "translateY(0px)";
+                }}
+              >
+                {icon && (
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 12,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: mkt.accent,
+                      background: "rgba(15,59,53,0.10)",
+                      border: "1px solid rgba(15,59,53,0.16)",
+                      flexShrink: 0,
+                    }}
+                    aria-hidden
+                  >
+                    {icon}
+                  </div>
+                )}
+
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 650,
+                      color: mkt.text,
+                      lineHeight: 1.2,
+                      marginBottom: 1,
+                    }}
+                  >
+                    {cl}
+                  </div>
+
+                  {description && (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 450,
+                        color: mkt.textMuted,
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {description}
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>,
+          document.body
+        )
+      : null;
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -187,102 +323,7 @@ function NavItemDesktop({
         </Link>
       )}
 
-      {hasDropdown && (
-        <div
-          style={{
-            position: "fixed",
-            top: dropdown.top,
-            left: dropdown.left,
-            width: dropdown.width,
-
-            transform: open ? "translateY(0)" : "translateY(-6px)",
-            opacity: open ? 1 : 0,
-            pointerEvents: open ? "auto" : "none",
-
-            background: "rgba(255,255,255,0.92)",
-            backdropFilter: "blur(18px) saturate(1.25)",
-            WebkitBackdropFilter: "blur(18px) saturate(1.25)",
-            borderRadius: 16,
-            border: "1px solid rgba(0,0,0,0.10)",
-            boxShadow: "0 18px 46px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.50)",
-
-            padding: "6px",
-            zIndex: 400,
-
-            display: "grid",
-            gridAutoFlow: "column",
-            gridTemplateRows: "repeat(3, auto)",
-            gridAutoColumns: "minmax(280px, 1fr)",
-            gap: 6,
-
-            transition: "opacity 0.15s ease, transform 0.15s ease",
-          }}
-        >
-          {children!.map(({ label: cl, href: ch, description, icon }) => (
-            <Link
-              key={ch + cl}
-              href={ch}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "9px 10px",
-                borderRadius: 12,
-                fontSize: 14,
-                fontWeight: 500,
-                color: mkt.text,
-                textDecoration: "none",
-                background: "rgba(255,255,255,0.98)",
-                border: "1px solid rgba(0,0,0,0.10)",
-                transition: "transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease",
-              }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.background = "rgba(255,255,255,0.98)";
-                el.style.boxShadow = "0 10px 24px rgba(0,0,0,0.10)";
-                el.style.transform = "translateY(-1px)";
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.background = "rgba(255,255,255,0.95)";
-                el.style.boxShadow = "none";
-                el.style.transform = "translateY(0px)";
-              }}
-            >
-              {icon && (
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: mkt.accent,
-                    background: "rgba(15,59,53,0.10)",
-                    border: "1px solid rgba(15,59,53,0.16)",
-                    flexShrink: 0,
-                  }}
-                  aria-hidden
-                >
-                  {icon}
-                </div>
-              )}
-
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 650, color: mkt.text, lineHeight: 1.2, marginBottom: 2 }}>
-                  {cl}
-                </div>
-                {description && (
-                  <div style={{ fontSize: 12, fontWeight: 450, color: mkt.textMuted, lineHeight: 1.35 }}>
-                    {description}
-                  </div>
-                )}
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
+      {dropdownNode}
     </div>
   );
 }
@@ -438,11 +479,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   const navCardRef = useRef<HTMLDivElement>(null);
   const [menuTop, setMenuTop] = useState<number>(92);
 
-  const [desktopDropdown, setDesktopDropdown] = useState<{ left: number; width: number; top: number }>({
-    left: 0,
-    width: 0,
-    top: 0,
-  });
   const [location] = useLocation();
   const isMobile = useIsMobile();
   const scrolled = useScrolled();
@@ -474,29 +510,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     window.addEventListener("resize", compute);
     return () => window.removeEventListener("resize", compute);
   }, [menuOpen, isMobile]);
-
-  useEffect(() => {
-    if (isMobile) return;
-
-    const compute = () => {
-      const el = navCardRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      setDesktopDropdown({
-        left: r.left,
-        width: r.width,
-        top: Math.round(r.bottom + 3),
-      });
-    };
-
-    compute();
-    window.addEventListener("resize", compute);
-    window.addEventListener("scroll", compute, { passive: true });
-    return () => {
-      window.removeEventListener("resize", compute);
-      window.removeEventListener("scroll", compute);
-    };
-  }, [isMobile]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -548,7 +561,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <div
           ref={navCardRef}
           style={{
-            maxWidth: 9999,
+            maxWidth: 1600,
+            outline: DEBUG_DROPDOWN ? "3px solid rgba(255,0,0,0.8)" : "none",
             width: "calc(100% - 24px)",
             margin: "8px 12px 0",
             height: isMobile ? 64 : DESKTOP_HEADER.cardHeight,
@@ -597,13 +611,13 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               }}
             >
               {NAV_LINKS.map(({ label, href, children }) => (
-                <NavItemDesktop
+                <NavItemDesktopV2
                   key={href}
                   label={label}
                   href={href}
                   children={children}
                   isActive={isActive(href)}
-                  dropdown={desktopDropdown}
+                  headerRef={navCardRef}
                 />
               ))}
             </nav>

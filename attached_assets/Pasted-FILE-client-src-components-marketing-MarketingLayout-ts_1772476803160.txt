@@ -1,0 +1,347 @@
+FILE: client/src/components/marketing/MarketingLayout.tsx
+
+============================================================
+STEP 1 — FIX IMPORTS + TYPES (needed for portal + ReactNode)
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE):
+import { useState, useEffect, useRef } from "react";
+
+REPLACE WITH:
+import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+
+------------------------------------------------------------
+
+ANCHOR (FIND THIS EXACT BLOCK):
+type NavChild = {
+  label: string;
+  href: string;
+  description?: string;
+  icon?: React.ReactNode;
+};
+
+REPLACE WITH:
+type NavChild = {
+  label: string;
+  href: string;
+  description?: string;
+  icon?: ReactNode;
+};
+
+============================================================
+STEP 2 — ADD DEBUG TOGGLE (TEMP OUTLINES ON/OFF)
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE):
+import { mkt, colors } from "@/theme/tokens";
+
+ACTION:
+PASTE THIS LINE DIRECTLY UNDER IT:
+
+const DEBUG_DROPDOWN = false;
+
+============================================================
+STEP 3 — OUTLINE THE HEADER PILL (DEBUG ONLY)
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE in the header pill style object):
+ref={navCardRef}
+
+ACTION:
+Inside that SAME style object for the element with ref={navCardRef},
+FIND THIS LINE:
+maxWidth: 1200,
+
+REPLACE WITH:
+maxWidth: 1600,
+
+AND DIRECTLY AFTER maxWidth line ADD:
+outline: DEBUG_DROPDOWN ? "3px solid rgba(255,0,0,0.8)" : "none",
+
+============================================================
+STEP 4 — CLEAN PORTAL DROPDOWN (PERMANENT FIX)
+This avoids “transform ancestor” bugs and guarantees alignment
+============================================================
+
+ANCHOR (FIND THIS EXACT RANGE):
+function NavItemDesktopV2({
+and ends right BEFORE:
+function MobileNavItem({
+
+ACTION:
+REPLACE THE ENTIRE NavItemDesktopV2 BLOCK WITH THIS NEW ONE:
+
+function NavItemDesktopV2({
+  label,
+  href,
+  children,
+  isActive,
+  headerRef,
+}: {
+  label: string;
+  href: string;
+  children?: NavChild[];
+  isActive: boolean;
+  headerRef: React.RefObject<HTMLDivElement>;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const hasDropdown = !!(children && children.length > 0);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+
+  const measure = () => {
+    const el = headerRef.current;
+    if (!el) return;
+    setRect(el.getBoundingClientRect());
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    measure();
+
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+
+    // Close-on-scroll (your requirement)
+    const onScroll = () => setOpen(false);
+
+    const onResize = () => measure();
+
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [open]);
+
+  const topItemBase: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "6px 10px",
+    borderRadius: 12,
+    fontSize: 15,
+    fontWeight: 500,
+    color: mkt.text,
+    background: "transparent",
+    border: "1px solid transparent",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    transition: "background 0.18s ease, border-color 0.18s ease",
+  };
+
+  const topHoverOn = (el: HTMLElement) => {
+    el.style.background = "rgba(15,59,53,0.06)";
+    el.style.borderColor = "rgba(15,59,53,0.16)";
+  };
+
+  const topHoverOff = (el: HTMLElement) => {
+    el.style.background = "transparent";
+    el.style.borderColor = "transparent";
+  };
+
+  const dropdownNode =
+    hasDropdown && open && rect
+      ? createPortal(
+          <div
+            style={{
+              position: "fixed",
+              left: rect.left,
+              top: rect.bottom + 2, // MUCH smaller gap
+              width: rect.width,
+
+              // premium entrance feel
+              opacity: 1,
+              transform: "translateY(0) scale(1)",
+              transformOrigin: "top center",
+              transition: "opacity 160ms ease, transform 160ms ease",
+
+              background: "rgba(255,255,255,0.92)", // less transparent
+              backdropFilter: "blur(18px) saturate(1.25)",
+              WebkitBackdropFilter: "blur(18px) saturate(1.25)",
+              borderRadius: 16,
+              border: "1px solid rgba(0,0,0,0.10)",
+              boxShadow:
+                "0 18px 46px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.50)",
+
+              padding: "4px", // tighter outer padding
+              zIndex: 9999,
+
+              display: "grid",
+              gridAutoFlow: "column",
+              gridTemplateRows: "repeat(3, auto)", // max 3 items per column
+              gridAutoColumns: "minmax(280px, 1fr)",
+              gap: 6, // tighter gaps
+
+              outline: DEBUG_DROPDOWN ? "3px solid rgba(0,120,255,0.85)" : "none",
+            }}
+          >
+            {children!.map(({ label: cl, href: ch, description, icon }) => (
+              <Link
+                key={ch + cl}
+                href={ch}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "9px 10px",
+                  borderRadius: 12,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: mkt.text,
+                  textDecoration: "none",
+
+                  background: "rgba(255,255,255,0.98)", // almost solid
+                  border: "1px solid rgba(0,0,0,0.10)", // thin outer border
+
+                  transition:
+                    "transform 140ms ease, box-shadow 140ms ease, background 140ms ease",
+                }}
+                onMouseEnter={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = "rgba(255,255,255,1)";
+                  el.style.boxShadow = "0 10px 24px rgba(0,0,0,0.10)";
+                  el.style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = "rgba(255,255,255,0.98)";
+                  el.style.boxShadow = "none";
+                  el.style.transform = "translateY(0px)";
+                }}
+              >
+                {icon && (
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 12,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: mkt.accent,
+                      background: "rgba(15,59,53,0.10)",
+                      border: "1px solid rgba(15,59,53,0.16)",
+                      flexShrink: 0,
+                    }}
+                    aria-hidden
+                  >
+                    {icon}
+                  </div>
+                )}
+
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 650,
+                      color: mkt.text,
+                      lineHeight: 1.2,
+                      marginBottom: 1,
+                    }}
+                  >
+                    {cl}
+                  </div>
+
+                  {description && (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 450,
+                        color: mkt.textMuted,
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {description}
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>,
+          document.body
+        )
+      : null;
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      {hasDropdown ? (
+        <button
+          aria-expanded={open}
+          aria-haspopup="true"
+          onClick={() => setOpen((o) => !o)}
+          style={topItemBase}
+          onMouseEnter={(e) => topHoverOn(e.currentTarget as HTMLElement)}
+          onMouseLeave={(e) => topHoverOff(e.currentTarget as HTMLElement)}
+        >
+          {label}
+          <ChevronDown
+            size={13}
+            strokeWidth={1.5}
+            style={{
+              transition: "transform 0.2s ease",
+              transform: open ? "rotate(180deg)" : "rotate(0deg)",
+              opacity: 0.55,
+            }}
+          />
+        </button>
+      ) : (
+        <Link
+          href={href}
+          data-testid={`nav-link-${label.toLowerCase()}`}
+          style={{ ...topItemBase, textDecoration: "none" }}
+          onMouseEnter={(e) => topHoverOn(e.currentTarget as HTMLElement)}
+          onMouseLeave={(e) => topHoverOff(e.currentTarget as HTMLElement)}
+        >
+          {label}
+        </Link>
+      )}
+
+      {dropdownNode}
+    </div>
+  );
+}
+
+============================================================
+STEP 5 — PASS headerRef INTO DESKTOP NAV ITEMS
+============================================================
+
+ANCHOR (FIND THIS EXACT BLOCK in desktop NAV_LINKS.map):
+<NavItemDesktopV2
+  key={href}
+  label={label}
+  href={href}
+  children={children}
+  isActive={isActive(href)}
+/>
+
+REPLACE WITH:
+<NavItemDesktopV2
+  key={href}
+  label={label}
+  href={href}
+  children={children}
+  isActive={isActive(href)}
+  headerRef={navCardRef}
+/>
+
+============================================================
+STEP 6 — (TEMP) DEBUG CHECK
+============================================================
+
+If it still “looks” misaligned:
+- set DEBUG_DROPDOWN = true
+- you should see a RED outline on the header pill and BLUE outline on dropdown
+They MUST match perfectly. If they do, the remaining issue is purely padding/visual spacing.
