@@ -438,11 +438,10 @@ export default function HomePage() {
           }
           @keyframes wf_text_shimmer {
             0%   { background-position: 0% 50%; }
-            18%  { background-position: 120% 50%; }
+            20%  { background-position: 120% 50%; }
             100% { background-position: 120% 50%; }
           }
           .wf-shimmer {
-            background-size: 220% 100%;
             animation: wf_text_shimmer 6.25s ease-in-out infinite;
           }
           @media (prefers-reduced-motion: reduce) {
@@ -537,10 +536,16 @@ export default function HomePage() {
                 style={{
                   position: "relative",
                   zIndex: 2,
-                  background: "linear-gradient(90deg, #1D4ED8 0%, #3B82F6 22%, rgba(255,255,255,0.55) 35%, #3B82F6 48%, #1D4ED8 70%, #1D4ED8 100%)",
+                  display: "inline-block",
+                  backgroundImage:
+                    "linear-gradient(90deg, #1D4ED8 0%, #3B82F6 20%, rgba(255,255,255,0.70) 35%, #3B82F6 50%, #1D4ED8 70%, #1D4ED8 100%)",
+                  backgroundSize: "240% 100%",
+                  backgroundPosition: "0% 50%",
                   WebkitBackgroundClip: "text",
                   backgroundClip: "text",
                   WebkitTextFillColor: "transparent",
+                  color: "transparent",
+                  userSelect: "none",
                 }}
               >
                 On autopilot

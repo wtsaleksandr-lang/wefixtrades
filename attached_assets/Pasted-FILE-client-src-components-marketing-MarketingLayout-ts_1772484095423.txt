@@ -1,0 +1,84 @@
+FILE: client/src/components/marketing/MarketingLayout.tsx
+
+============================================================
+FIX SHIMMER BUG: BLUE RECTANGLE OVER TEXT
+CAUSE: background-clip/text-fill didn’t apply (missing transparent text fill)
+So the span is rendering as a normal block with a background.
+We will FORCE “text-only” rendering and FORCE inline sizing.
+============================================================
+
+STEP 1 — FIX THE "On autopilot" TEXT SPAN STYLE (ONE PLACE)
+------------------------------------------------------------
+
+ANCHOR:
+Find this exact span (your autopilot text):
+<span className="wf-underline wf-shimmer" style={{ ... }}>
+
+REPLACE THE ENTIRE style={{ ... }} OBJECT WITH THIS:
+
+style={{
+  position: "relative",
+  zIndex: 2,
+
+  // IMPORTANT: force it to behave like text, not a block background
+  display: "inline-block",
+
+  // Shimmer gradient (horizontal)
+  backgroundImage:
+    "linear-gradient(90deg, #1D4ED8 0%, #3B82F6 20%, rgba(255,255,255,0.70) 35%, #3B82F6 50%, #1D4ED8 70%, #1D4ED8 100%)",
+  backgroundSize: "240% 100%",
+  backgroundPosition: "0% 50%",
+
+  // CRITICAL: clip background to text only
+  WebkitBackgroundClip: "text",
+  backgroundClip: "text",
+
+  // CRITICAL: make glyphs transparent so gradient shows in letters
+  WebkitTextFillColor: "transparent",
+  color: "transparent",
+
+  // Safety (prevents selection artifacts)
+  userSelect: "none",
+}}
+
+============================================================
+STEP 2 — FIX SHIMMER ANIMATION CSS (IT’S NOT RUNNING)
+------------------------------------------------------------
+
+ANCHOR:
+Find your hero <style>{` ... `}</style> block.
+
+Inside it, REPLACE your shimmer animation with this:
+
+@keyframes wf_text_shimmer {
+  0%   { background-position: 0% 50%; }
+  20%  { background-position: 120% 50%; }
+  100% { background-position: 120% 50%; }
+}
+
+.wf-shimmer {
+  animation: wf_text_shimmer 6.25s ease-in-out infinite;
+}
+
+(Keep your underline beam animation as-is.)
+
+============================================================
+STEP 3 — MAKE SURE UNDERLINE DOESN’T BREAK THE CLIP
+------------------------------------------------------------
+
+In the same <style> block, FIND:
+.wf-underline {
+  position: relative;
+  display: inline-block;
+}
+
+CONFIRM it exists exactly like that.
+If it’s missing, ADD it.
+
+============================================================
+RESULT
+============================================================
+
+- No rectangle (background clipped to glyphs only)
+- Shimmer animates (background-position)
+- Same cycle timing as underline beam (6.25s)
