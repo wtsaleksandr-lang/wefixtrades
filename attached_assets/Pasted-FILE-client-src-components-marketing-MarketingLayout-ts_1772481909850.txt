@@ -1,0 +1,106 @@
+FILE: client/src/components/marketing/MarketingLayout.tsx
+
+============================================================
+FIX: “On autopilot” INVISIBLE (GUARANTEED FALLBACK)
+Root cause: you made the H1 text transparent (for gradient),
+then wrapped the text in a span + pseudo underline + glow.
+If gradient clipping fails for any reason, the text becomes 100% invisible.
+============================================================
+
+✅ Approach:
+- Make the H1 text ALWAYS visible (solid brand blue fallback)
+- Apply gradient ONLY to the inner text span (optional enhancement)
+- Keep underline + glow
+
+============================================================
+STEP 1 — REPLACE YOUR ENTIRE “On autopilot” H1 BLOCK
+============================================================
+
+ANCHOR:
+Find the <h1> that contains:
+On autopilot
+and includes your wf-underline span + glow span.
+
+DELETE that whole <h1> block and REPLACE with THIS:
+
+<h1
+  style={{
+    position: "relative",
+    fontSize: isMobile ? 34 : 64,
+    fontWeight: 800,
+    lineHeight: isMobile ? 1.14 : 1.02,
+    letterSpacing: "-0.02em",
+    margin: 0,
+    marginTop: isMobile ? 4 : 4,
+    fontFamily: '"Eudoxus Sans", Arial, sans-serif',
+
+    // ✅ ALWAYS visible fallback
+    color: "#2563EB",
+  }}
+>
+  <span
+    className="wf-underline"
+    style={{
+      // Gradient only on text span (enhancement)
+      background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
+      WebkitBackgroundClip: "text",
+      backgroundClip: "text",
+
+      // This makes gradient show where supported
+      WebkitTextFillColor: "transparent",
+
+      // If some browser ignores -webkit-text-fill-color, fallback still works
+      // because parent H1 has color set.
+    }}
+  >
+    On autopilot
+  </span>
+
+  {/* Soft Glow */}
+  <span
+    style={{
+      position: "absolute",
+      inset: 0,
+      zIndex: -1,
+      background:
+        "radial-gradient(closest-side, rgba(59,130,246,0.18), rgba(59,130,246,0.09) 42%, transparent 78%)",
+      filter: isMobile ? "blur(22px)" : "blur(30px)",
+      opacity: isMobile ? 0.55 : 0.65,
+      pointerEvents: "none",
+    }}
+  />
+</h1>
+
+============================================================
+STEP 2 — MAKE SURE UNDERLINE DOES NOT COVER TEXT
+============================================================
+
+ANCHOR (in your <style>{` ... `}</style> block):
+.wf-underline::before {
+
+ACTION:
+Inside .wf-underline::before and .wf-underline::after
+ADD THESE 2 LINES (to BOTH pseudo elements):
+
+z-index: -1;
+pointer-events: none;
+
+Example (must exist in both ::before and ::after):
+.wf-underline::before {
+  ...
+  z-index: -1;
+  pointer-events: none;
+}
+
+.wf-underline::after {
+  ...
+  z-index: -1;
+  pointer-events: none;
+}
+
+============================================================
+WHY THIS WORKS
+============================================================
+- Even if gradient clipping fails, H1 color (#2563EB) shows the text.
+- Gradient is only a “nice-to-have” layer on the inner span.
+- Underline beam can’t overlap/hide the text anymore (z-index:-1).

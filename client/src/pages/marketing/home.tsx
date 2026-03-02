@@ -407,6 +407,8 @@ export default function HomePage() {
             height: 3px;
             border-radius: 999px;
             background: rgba(59, 130, 246, 0.22);
+            z-index: -1;
+            pointer-events: none;
           }
           .wf-underline::after {
             content: "";
@@ -426,6 +428,8 @@ export default function HomePage() {
             opacity: 0;
             animation: wf_underline_beam 6.25s ease-in-out infinite;
             animation-delay: 5s;
+            z-index: -1;
+            pointer-events: none;
           }
           @media (prefers-reduced-motion: reduce) {
             .wf-underline::after {
@@ -512,13 +516,20 @@ export default function HomePage() {
                 margin: 0,
                 marginTop: 4,
                 fontFamily: '"Eudoxus Sans", Arial, sans-serif',
-                backgroundImage: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
-                backgroundClip: "text",
-                WebkitBackgroundClip: "text",
-                color: "transparent",
+                color: "#2563EB",
               }}
             >
-              <span className="wf-underline">On autopilot</span>
+              <span
+                className="wf-underline"
+                style={{
+                  background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
+                  WebkitBackgroundClip: "text",
+                  backgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                On autopilot
+              </span>
 
               <span
                 style={{
@@ -528,7 +539,7 @@ export default function HomePage() {
                   background:
                     "radial-gradient(closest-side, rgba(59,130,246,0.18), rgba(59,130,246,0.09) 42%, transparent 78%)",
                   filter: "blur(30px)",
-                  opacity: 0.7,
+                  opacity: 0.65,
                   pointerEvents: "none",
                 }}
               />
