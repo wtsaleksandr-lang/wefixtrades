@@ -1,0 +1,75 @@
+FILE: MarketingLayout.tsx
+
+============================================================
+A) HEADER BAR WIDTH — FOLLOW SCREEN UNTIL A LARGER THRESHOLD
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE inside navCardRef style root):
+maxWidth: 1400,
+
+REPLACE WITH:
+maxWidth: 1680,
+
+------------------------------------------------------------
+
+ANCHOR (FIND THIS EXACT LINE inside navCardRef DESKTOP branch):
+width: "calc(100% - 16px)",
+
+REPLACE WITH:
+width: "100%",
+
+------------------------------------------------------------
+
+ANCHOR (FIND THIS EXACT LINE inside <nav style={{ ... }}>):
+padding: isMobile ? "0" : DESKTOP_HEADER.navPadding,
+
+REPLACE WITH:
+padding: isMobile ? "0" : "6px 12px 0",
+
+============================================================
+B) DROPDOWN WIDTH/ALIGNMENT — MATCH HEADER PILL EXACTLY
+(avoid rounding drift + ensure fixed-position matches)
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE inside NavItemDesktopV2 dropdown style):
+left: cardRect ? Math.round(cardRect.left) : 0,
+
+REPLACE WITH:
+left: cardRect ? cardRect.left : 0,
+
+------------------------------------------------------------
+
+ANCHOR (FIND THIS EXACT LINE inside NavItemDesktopV2 dropdown style):
+width: cardRect ? Math.round(cardRect.width) : 0,
+
+REPLACE WITH:
+width: cardRect ? cardRect.width : 0,
+
+------------------------------------------------------------
+
+ANCHOR (FIND THIS EXACT LINE inside NavItemDesktopV2 dropdown style):
+top: cardRect ? Math.round(cardRect.bottom + 6) : 0,
+
+REPLACE WITH:
+top: cardRect ? cardRect.bottom + 2 : 0,
+
+============================================================
+C) DROPDOWN GAP STILL TOO BIG — REMOVE EXTRA VISUAL “PADDING EDGE”
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE inside NavItemDesktopV2 dropdown style):
+padding: "6px",
+
+REPLACE WITH:
+padding: "4px",
+
+============================================================
+D) OPTIONAL: MAKE DROPDOWN CORNERS MATCH HEADER CORNERS
+(if you want the dropdown to visually “lock” to the pill)
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE inside NavItemDesktopV2 dropdown style):
+borderRadius: DESKTOP_DROPDOWN.containerRadius,
+
+REPLACE WITH:
+borderRadius: DESKTOP_HEADER.cardRadius,

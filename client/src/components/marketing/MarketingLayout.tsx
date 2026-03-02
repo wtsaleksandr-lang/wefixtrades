@@ -228,19 +228,19 @@ function NavItemDesktopV2({
         <div
           style={{
             position: "fixed",
-            top: cardRect ? Math.round(cardRect.bottom + 6) : 0,
-            left: cardRect ? Math.round(cardRect.left) : 0,
-            width: cardRect ? Math.round(cardRect.width) : 0,
+            top: cardRect ? cardRect.bottom + 2 : 0,
+            left: cardRect ? cardRect.left : 0,
+            width: cardRect ? cardRect.width : 0,
             transform: open ? "translateY(0)" : "translateY(-6px)",
             opacity: open ? 1 : 0,
             pointerEvents: open ? "auto" : "none",
 
             background: DESKTOP_DROPDOWN.containerBg,
-            borderRadius: DESKTOP_DROPDOWN.containerRadius,
+            borderRadius: DESKTOP_HEADER.cardRadius,
             border: DESKTOP_DROPDOWN.containerBorder,
             boxShadow: DESKTOP_DROPDOWN.containerShadow,
 
-            padding: "6px",
+            padding: "4px",
 
             display: "grid",
             gridAutoFlow: "column",
@@ -559,7 +559,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: isMobile ? "0" : DESKTOP_HEADER.navPadding,
+          padding: isMobile ? "0" : "6px 12px 0",
           background: "transparent",
           backdropFilter: "none",
           WebkitBackdropFilter: "none",
@@ -570,7 +570,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <div
           ref={navCardRef}
           style={{
-            maxWidth: 1400,
+            maxWidth: 1680,
             margin: "0 auto",
             height: isMobile ? 64 : DESKTOP_HEADER.cardHeight,
             display: "flex",
@@ -592,7 +592,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   boxShadow: "0 12px 32px rgba(0,0,0,0.10)",
                 }
               : {
-                  width: "calc(100% - 16px)",
+                  width: "100%",
                   height: DESKTOP_HEADER.cardHeight,
                   borderRadius: DESKTOP_HEADER.cardRadius,
                   background: DESKTOP_HEADER.cardBg,
