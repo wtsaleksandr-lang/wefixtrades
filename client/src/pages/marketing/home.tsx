@@ -420,9 +420,24 @@ export default function HomePage() {
                   color: mkt.text,
                   boxSizing: "border-box",
                   whiteSpace: "nowrap",
+                  boxShadow: "0 4px 10px rgba(0,0,0,0.06)",
+                  cursor: "default",
+                  transition: "all 140ms ease",
+                }}
+                onMouseEnter={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.transform = "translateY(-2px)";
+                  el.style.boxShadow = "0 10px 24px rgba(0,0,0,0.10)";
+                  el.style.background = "rgba(255,255,255,0.95)";
+                }}
+                onMouseLeave={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.transform = "translateY(0px)";
+                  el.style.boxShadow = "0 4px 10px rgba(0,0,0,0.06)";
+                  el.style.background = "rgba(255,255,255,0.65)";
                 }}
               >
-                <PillIcon size={15} color={mkt.accent} strokeWidth={1.5} style={{ flexShrink: 0 }} />
+                <PillIcon size={15} color={mkt.accent} strokeWidth={1.5} style={{ flexShrink: 0, transition: "transform 140ms ease" }} />
                 <span className="hero-pill-label-full">{label}</span>
                 <span className="hero-pill-label-short" style={{ display: "none" }}>{mobileLabel}</span>
               </div>
