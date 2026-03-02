@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { Menu, X, ChevronDown, LayoutGrid, Route, Frame, FileText, BadgePercent } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
@@ -9,13 +9,13 @@ type NavChild = {
   label: string;
   href: string;
   description?: string;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
 };
 
 const DESKTOP_HEADER = {
   navHeight: 84,
   cardHeight: 56,
-  cardRadius: 22,
+  cardRadius: 18,
   cardBg: "rgba(255,255,255,0.78)",
   cardBorder: "1px solid rgba(0,0,0,0.06)",
   cardShadow: "0 14px 38px rgba(0,0,0,0.10)",
@@ -23,12 +23,12 @@ const DESKTOP_HEADER = {
 };
 
 const DESKTOP_DROPDOWN = {
-  containerBg: "rgba(255,255,255,0.52)",
+  containerBg: "rgba(255,255,255,0.92)",
   containerBorder: "1px solid rgba(255,255,255,0.38)",
   containerRadius: 22,
   containerShadow:
     "0 22px 60px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.35)",
-  itemBg: "rgba(255,255,255,0.95)",
+  itemBg: "rgba(255,255,255,0.98)",
   itemBorder: "1px solid rgba(255,255,255,0.40)",
   itemHoverBg: "rgba(255,255,255,1)",
   itemHoverShadow: "0 10px 24px rgba(0,0,0,0.10)",
@@ -108,15 +108,38 @@ function NavItemDesktopV2({
   href,
   children,
   isActive,
+  headerRef,
 }: {
   label: string;
   href: string;
   children?: NavChild[];
   isActive: boolean;
+  headerRef: React.RefObject<HTMLDivElement>;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const hasDropdown = !!(children && children.length > 0);
+
+  const [cardRect, setCardRect] = useState<DOMRect | null>(null);
+
+  const measureCard = () => {
+    const el = headerRef.current;
+    if (!el) return;
+    setCardRect(el.getBoundingClientRect());
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    measureCard();
+    const onResize = () => measureCard();
+    const onScroll = () => measureCard();
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -138,7 +161,7 @@ function NavItemDesktopV2({
     };
   }, [open]);
 
-  const topItemBase: React.CSSProperties = {
+  const topItemBase: CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
@@ -204,10 +227,10 @@ function NavItemDesktopV2({
       {hasDropdown && (
         <div
           style={{
-            position: "absolute",
-            top: "calc(100% + 10px)",
-            left: 0,
-            right: 0,
+            position: "fixed",
+            top: cardRect ? Math.round(cardRect.bottom + 10) : 0,
+            left: cardRect ? Math.round(cardRect.left) : 0,
+            width: cardRect ? Math.round(cardRect.width) : 0,
             transform: open ? "translateY(0)" : "translateY(-6px)",
             opacity: open ? 1 : 0,
             pointerEvents: open ? "auto" : "none",
@@ -218,7 +241,6 @@ function NavItemDesktopV2({
             boxShadow: DESKTOP_DROPDOWN.containerShadow,
 
             padding: "10px",
-            margin: "0 auto",
 
             display: "grid",
             gridAutoFlow: "column",
@@ -548,7 +570,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <div
           ref={navCardRef}
           style={{
-            maxWidth: 1200,
+            maxWidth: 1400,
             margin: "0 auto",
             height: isMobile ? 64 : DESKTOP_HEADER.cardHeight,
             display: "flex",
@@ -570,7 +592,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   boxShadow: "0 12px 32px rgba(0,0,0,0.10)",
                 }
               : {
-                  width: "100%",
+                  width: "calc(100% - 32px)",
                   height: DESKTOP_HEADER.cardHeight,
                   borderRadius: DESKTOP_HEADER.cardRadius,
                   background: DESKTOP_HEADER.cardBg,
@@ -601,6 +623,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   href={href}
                   children={children}
                   isActive={isActive(href)}
+                  headerRef={navCardRef}
                 />
               ))}
             </nav>
