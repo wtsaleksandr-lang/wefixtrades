@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
@@ -469,14 +469,9 @@ export default function HomePage() {
             <div
               data-testid="built-for-rotator"
               style={{
-                position: "relative",
-                height: 40,
-                overflow: "hidden",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                minWidth: 220,
-                perspective: "1000px",
+                gap: 6,
               }}
             >
               <span
@@ -484,48 +479,61 @@ export default function HomePage() {
                   fontSize: 14,
                   fontWeight: 600,
                   color: mkt.text,
-                  marginRight: 6,
+                  flexShrink: 0,
                 }}
               >
                 Built for
               </span>
 
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={tradeIndex}
-                  initial={{
-                    y: 24,
-                    opacity: 0,
-                    rotateX: -35,
-                    filter: "blur(6px)",
-                  }}
-                  animate={{
-                    y: 0,
-                    opacity: 1,
-                    rotateX: 0,
-                    filter: "blur(0px)",
-                  }}
-                  exit={{
-                    y: -24,
-                    opacity: 0,
-                    rotateX: 35,
-                    filter: "blur(4px)",
-                  }}
+              <div
+                style={{
+                  position: "relative",
+                  height: 36,
+                  overflow: "hidden",
+                  minWidth: 220,
+                  maskImage:
+                    "linear-gradient(to bottom, transparent 0%, black 30%, black 70%, transparent 100%)",
+                  WebkitMaskImage:
+                    "linear-gradient(to bottom, transparent 0%, black 30%, black 70%, transparent 100%)",
+                }}
+              >
+                <motion.div
+                  animate={{ y: -tradeIndex * 36 }}
                   transition={{
                     type: "spring",
-                    stiffness: 180,
+                    stiffness: 120,
                     damping: 20,
                   }}
                   style={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: mkt.accent,
-                    display: "inline-block",
+                    display: "flex",
+                    flexDirection: "column",
                   }}
                 >
-                  {HERO_TRADES[tradeIndex]}
-                </motion.span>
-              </AnimatePresence>
+                  {HERO_TRADES.concat(HERO_TRADES).map((trade, i) => {
+                    const isActive = i % HERO_TRADES.length === tradeIndex;
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          height: 36,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: mkt.accent,
+                          opacity: isActive ? 1 : 0.35,
+                          filter: isActive ? "blur(0px)" : "blur(2px)",
+                          transform: isActive ? "scale(1)" : "scale(0.92)",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {trade}
+                      </div>
+                    );
+                  })}
+                </motion.div>
+              </div>
             </div>
           </div>
         </div>
