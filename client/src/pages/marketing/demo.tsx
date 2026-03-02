@@ -382,7 +382,7 @@ export default function DemoPage() {
           <div style={{ maxWidth: 720, margin: "0 auto" }}>
             <div style={{
               display: "inline-block", background: mkt.accentTint, color: mkt.accent,
-              padding: "4px 14px", borderRadius: 9999, fontSize: 12, fontWeight: 600,
+              padding: "4px 14px", borderRadius: 14, fontSize: 12, fontWeight: 600,
               letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 24,
               border: `1px solid ${mkt.accentTint}`,
             }}>
@@ -410,7 +410,7 @@ export default function DemoPage() {
                     onClick={() => setActiveTab(tab.id)}
                     style={{
                       display: "flex", alignItems: "center", gap: 8,
-                      padding: "10px 20px", borderRadius: 9999, fontSize: 14, fontWeight: 600,
+                      padding: "10px 20px", borderRadius: 14, fontSize: 14, fontWeight: 600,
                       cursor: "pointer", transition: "all 0.2s ease",
                       border: isActive ? `2px solid ${mkt.accent}` : `1px solid ${mkt.border}`,
                       background: isActive ? mkt.accentTint : mkt.bg,
@@ -457,7 +457,7 @@ export default function DemoPage() {
               href="/Wizard"
               data-testid="button-build-yours"
               style={{
-                display: "inline-block", padding: "15px 36px", borderRadius: 9999,
+                display: "inline-block", padding: "15px 36px", borderRadius: 14,
                 background: "#FFFFFF", color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none",
               }}
             >

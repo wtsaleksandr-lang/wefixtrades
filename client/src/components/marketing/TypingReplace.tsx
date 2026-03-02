@@ -122,7 +122,7 @@ export default function TypingReplace({
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         border: "1px solid rgba(0,0,0,0.06)",
-        borderRadius: 9999,
+        borderRadius: 14,
         padding: "10px 24px",
         minHeight: "1.5em",
       }}

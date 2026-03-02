@@ -408,21 +408,21 @@
   transition: color 0.2s ease, background 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 
-/* CTA button hover lift — pill shape */
+/* CTA button hover lift — unified rounded-rectangle */
 .mkt-btn-primary {
-  border-radius: 9999px !important;
+  border-radius: 14px !important;
   transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
   cursor: pointer;
 }
 .mkt-btn-primary:hover {
   transform: scale(1.02);
-  box-shadow: 0 6px 20px rgba(74,124,111,0.22) !important;
+  box-shadow: 0 6px 20px rgba(12,103,255,0.22) !important;
 }
 .mkt-btn-primary:active { transform: scale(0.98); }
 
-/* Secondary outline button — OW style */
+/* Secondary outline button */
 .mkt-btn-secondary {
-  border-radius: 9999px !important;
+  border-radius: 14px !important;
   background: transparent;
   border: 1px solid rgba(0,0,0,0.08);
   transition: all 0.22s ease;
@@ -434,7 +434,7 @@
 }
 
 .mkt-btn-ghost {
-  border-radius: 9999px !important;
+  border-radius: 14px !important;
   transition: all 0.22s ease;
   cursor: pointer;
 }

@@ -487,7 +487,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
                 data-testid="feature-cta-bottom"
                 className="mkt-btn-primary"
                 style={{
-                  display: "inline-block", padding: "14px 34px", borderRadius: 9999,
+                  display: "inline-block", padding: "14px 34px", borderRadius: 14,
                   background: "#FFFFFF", color: C.sage, fontSize: 16, fontWeight: 700, textDecoration: "none",
                 }}
               >
@@ -497,7 +497,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
                 href="/contact"
                 className="mkt-btn-ghost"
                 style={{
-                  display: "inline-block", padding: "14px 28px", borderRadius: 9999,
+                  display: "inline-block", padding: "14px 28px", borderRadius: 14,
                   background: "transparent", color: "#FFFFFF", fontSize: 15, fontWeight: 600,
                   textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.38)",
                 }}

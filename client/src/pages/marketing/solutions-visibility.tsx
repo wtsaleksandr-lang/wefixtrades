@@ -208,7 +208,7 @@ const S = {
   ctaBtn: {
     display: "inline-block",
     padding: "12px 32px",
-    borderRadius: 9999,
+    borderRadius: 14,
     background: mkt.accent,
     color: mkt.onDark,
     fontSize: 15,

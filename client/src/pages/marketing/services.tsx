@@ -110,7 +110,7 @@ export default function ServicesPage() {
     },
     requestBtn: {
       padding: "10px 20px",
-      borderRadius: 9999,
+      borderRadius: 14,
       background: mkt.accent,
       color: mkt.onDark,
       fontSize: 14,
@@ -191,7 +191,7 @@ export default function ServicesPage() {
     submitBtn: {
       width: "100%",
       padding: "12px",
-      borderRadius: 9999,
+      borderRadius: 14,
       background: mkt.accent,
       color: mkt.onDark,
       fontSize: 15,
