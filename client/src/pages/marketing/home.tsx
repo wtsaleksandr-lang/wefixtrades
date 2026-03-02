@@ -384,9 +384,9 @@ export default function HomePage() {
           >
             <h1
               style={{
-                fontSize: "clamp(34px, 6vw, 60px)",
-                fontWeight: 800,
-                lineHeight: 1.05,
+                fontSize: "clamp(32px, 5.5vw, 56px)",
+                fontWeight: 700,
+                lineHeight: 1.06,
                 letterSpacing: "-0.02em",
                 margin: 0,
                 color: mkt.text,
@@ -398,16 +398,16 @@ export default function HomePage() {
             <h1
               style={{
                 position: "relative",
-                fontSize: "clamp(34px, 6vw, 60px)",
+                fontSize: "clamp(34px, 6.2vw, 64px)",
                 fontWeight: 800,
-                lineHeight: 1.05,
+                lineHeight: 1.02,
                 letterSpacing: "-0.02em",
                 margin: 0,
-                marginTop: 6,
+                marginTop: 4,
                 background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
-                filter: "drop-shadow(0 6px 18px rgba(59,130,246,0.28))",
+                filter: "drop-shadow(0 6px 18px rgba(59,130,246,0.24))",
               }}
             >
               On autopilot
@@ -418,8 +418,8 @@ export default function HomePage() {
                   inset: 0,
                   zIndex: -1,
                   background:
-                    "radial-gradient(closest-side, rgba(59,130,246,0.20), rgba(59,130,246,0.10) 40%, transparent 75%)",
-                  filter: "blur(28px)",
+                    "radial-gradient(closest-side, rgba(59,130,246,0.18), rgba(59,130,246,0.09) 42%, transparent 78%)",
+                  filter: "blur(30px)",
                   opacity: 0.7,
                   pointerEvents: "none",
                 }}
@@ -487,7 +487,7 @@ export default function HomePage() {
             style={{
               maxWidth: 640,
               margin: "0 auto",
-              marginTop: 18,
+              marginTop: 16,
               marginBottom: 36,
               fontSize: 16,
               lineHeight: 1.6,
