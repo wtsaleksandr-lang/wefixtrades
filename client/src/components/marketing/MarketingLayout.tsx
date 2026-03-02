@@ -401,7 +401,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       const el = navCardRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      setMenuTop(Math.round(r.bottom + 10));
+      setMenuTop(Math.round(r.bottom + 6));
     };
 
     compute();
@@ -462,8 +462,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             gap: 24,
             ...(isMobile
               ? {
-                  width: "calc(100% - 32px)",
-                  marginTop: 16,
+                  width: "calc(100% - 20px)",
+                  margin: "8px 10px 0",
                   borderRadius: 24,
                   padding: "0 16px",
                   background: "rgba(253,253,253,0.92)",
@@ -583,8 +583,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             onClick={(e) => e.stopPropagation()}
             style={{
               position: "fixed",
-              left: 16,
-              right: 16,
+              left: 10,
+              right: 10,
               top: menuTop,
               zIndex: 290,
               borderRadius: 28,
