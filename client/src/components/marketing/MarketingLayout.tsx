@@ -28,9 +28,9 @@ const DESKTOP_DROPDOWN = {
   containerRadius: 22,
   containerShadow:
     "0 22px 60px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.35)",
-  itemBg: "rgba(255,255,255,0.72)",
+  itemBg: "rgba(255,255,255,0.95)",
   itemBorder: "1px solid rgba(255,255,255,0.40)",
-  itemHoverBg: "rgba(255,255,255,0.86)",
+  itemHoverBg: "rgba(255,255,255,1)",
   itemHoverShadow: "0 10px 24px rgba(0,0,0,0.10)",
   itemRadius: 18,
   itemGap: 10,
@@ -206,10 +206,9 @@ function NavItemDesktopV2({
           style={{
             position: "absolute",
             top: "calc(100% + 10px)",
-            left: "50%",
-            transform: open
-              ? "translateX(-50%) translateY(0)"
-              : "translateX(-50%) translateY(-6px)",
+            left: 0,
+            right: 0,
+            transform: open ? "translateY(0)" : "translateY(-6px)",
             opacity: open ? 1 : 0,
             pointerEvents: open ? "auto" : "none",
 
@@ -219,8 +218,7 @@ function NavItemDesktopV2({
             boxShadow: DESKTOP_DROPDOWN.containerShadow,
 
             padding: "10px",
-            width: "calc(100vw - 32px)",
-            maxWidth: 1200,
+            margin: "0 auto",
 
             display: "grid",
             gridAutoFlow: "column",
