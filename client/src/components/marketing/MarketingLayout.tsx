@@ -279,78 +279,83 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
               style={{ transition: "transform 0.2s ease", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", color: mkt.textMuted }}
             />
           </button>
-          {expanded && (
-            <div style={{ paddingBottom: 14 }}>
-              {children!.map(({ label: cl, href: ch, description, icon }) => (
-                <Link
-                  key={ch + cl}
-                  href={ch}
-                  onClick={onClose}
+          <div
+            style={{
+              paddingBottom: expanded ? 14 : 0,
+              maxHeight: expanded ? 800 : 0,
+              overflow: "hidden",
+              transition: "max-height 0.28s cubic-bezier(0.22,1,0.36,1), padding 0.2s ease",
+            }}
+          >
+            {children!.map(({ label: cl, href: ch, description, icon }) => (
+              <Link
+                key={ch + cl}
+                href={ch}
+                onClick={onClose}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "14px 14px",
+                  marginBottom: 10,
+                  borderRadius: 18,
+                  textDecoration: "none",
+                  background: "rgba(64,64,64,0.06)",
+                  border: "1px solid rgba(0,0,0,0.06)",
+                }}
+              >
+                <div
                   style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 16,
                     display: "flex",
                     alignItems: "center",
-                    gap: 14,
-                    padding: "14px 14px",
-                    marginBottom: 10,
-                    borderRadius: 18,
-                    textDecoration: "none",
-                    background: "rgba(64,64,64,0.06)",
-                    border: "1px solid rgba(0,0,0,0.06)",
+                    justifyContent: "center",
+                    color: "#0C67FF",
+                    background: "rgba(12,103,255,0.10)",
+                    border: "1px solid rgba(12,103,255,0.18)",
+                    flexShrink: 0,
                   }}
+                  aria-hidden
                 >
+                  {icon ?? <span />}
+                </div>
+
+                <div style={{ minWidth: 0 }}>
                   <div
                     style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 16,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#0C67FF",
-                      background: "rgba(12,103,255,0.10)",
-                      border: "1px solid rgba(12,103,255,0.18)",
-                      flexShrink: 0,
+                      fontSize: 16,
+                      fontWeight: 650,
+                      color: mkt.text,
+                      lineHeight: 1.15,
+                      marginBottom: 4,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
                     }}
-                    aria-hidden
                   >
-                    {icon ?? <span />}
+                    {cl}
                   </div>
-
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: 16,
-                        fontWeight: 650,
-                        color: mkt.text,
-                        lineHeight: 1.15,
-                        marginBottom: 4,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {cl}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 450,
-                        color: mkt.textMuted,
-                        lineHeight: 1.35,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical" as const,
-                      }}
-                    >
-                      {description ?? ""}
-                    </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 450,
+                      color: mkt.textMuted,
+                      lineHeight: 1.35,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical" as const,
+                    }}
+                  >
+                    {description ?? ""}
                   </div>
-                </Link>
-              ))}
-            </div>
-          )}
+                </div>
+              </Link>
+            ))}
+          </div>
         </>
       ) : (
         <Link
@@ -408,6 +413,13 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     window.addEventListener("resize", compute);
     return () => window.removeEventListener("resize", compute);
   }, [menuOpen, isMobile]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = () => setMenuOpen(false);
+    window.addEventListener("scroll", handler, { passive: true });
+    return () => window.removeEventListener("scroll", handler);
+  }, [menuOpen]);
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -562,13 +574,25 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   alignItems: "center",
                 }}
               >
-                {menuOpen ? <X size={22} strokeWidth={1.5} /> : <Menu size={22} strokeWidth={1.5} />}
+                <div
+                  style={{
+                    transform: menuOpen ? "rotate(90deg)" : "rotate(0deg)",
+                    transition: "transform 0.25s cubic-bezier(0.22,1,0.36,1)",
+                    display: "flex",
+                  }}
+                >
+                  {menuOpen ? (
+                    <X size={22} strokeWidth={1.5} />
+                  ) : (
+                    <Menu size={22} strokeWidth={1.5} />
+                  )}
+                </div>
               </button>
             )}
           </div>
         </div>
       </nav>
-      {isMobile && menuOpen && (
+      {isMobile && (
         <div
           aria-hidden="true"
           data-testid="nav-mobile-overlay"
@@ -580,10 +604,13 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             background: "rgba(0,0,0,0.20)",
             backdropFilter: "blur(10px)",
             WebkitBackdropFilter: "blur(10px)",
+            opacity: menuOpen ? 1 : 0,
+            pointerEvents: menuOpen ? "auto" : "none",
+            transition: "opacity 0.25s ease",
           }}
         />
       )}
-      {isMobile && menuOpen && (
+      {isMobile && (
         <div
           onClick={(e) => e.stopPropagation()}
           data-testid="nav-mobile-menu"
@@ -598,9 +625,16 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             backdropFilter: "blur(22px) saturate(1.6)",
             WebkitBackdropFilter: "blur(22px) saturate(1.6)",
             border: "1px solid rgba(255,255,255,0.28)",
-            boxShadow: "0 18px 45px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.35)",
+            boxShadow: menuOpen
+              ? "0 22px 60px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.35)"
+              : "0 12px 30px rgba(0,0,0,0.08)",
             overflow: "hidden",
             maxHeight: "72vh",
+            transform: menuOpen ? "translateY(0px) scale(1)" : "translateY(-12px) scale(0.98)",
+            opacity: menuOpen ? 1 : 0,
+            pointerEvents: menuOpen ? "auto" : "none",
+            transition:
+              "transform 0.28s cubic-bezier(0.22,1,0.36,1), opacity 0.2s ease, box-shadow 0.25s ease",
           }}
         >
           <div style={{ padding: "10px 18px 18px", overflowY: "auto", maxHeight: "72vh" }}>
