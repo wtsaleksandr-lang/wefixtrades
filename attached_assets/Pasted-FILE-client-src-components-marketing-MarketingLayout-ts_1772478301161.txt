@@ -1,0 +1,87 @@
+FILE: client/src/components/marketing/MarketingLayout.tsx
+
+============================================================
+ADD SOFT PREMIUM GLOW TO "On autopilot"
+============================================================
+
+OBJECTIVE:
+- Add subtle glow behind accent line
+- Keep it premium (no neon, no blur explosion)
+- Work on desktop + mobile
+- No layout shift
+
+============================================================
+STEP 1 — MODIFY SECOND HEADLINE BLOCK
+============================================================
+
+ANCHOR (FIND THIS EXACT BLOCK):
+
+<h1
+  style={{
+    fontSize: isMobile ? 34 : 60,
+    fontWeight: 800,
+    lineHeight: isMobile ? 1.15 : 1.05,
+    letterSpacing: "-0.02em",
+    margin: 0,
+    marginTop: isMobile ? 4 : 6,
+    background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+  }}
+>
+  On autopilot
+</h1>
+
+------------------------------------------------------------
+
+REPLACE WITH:
+
+<h1
+  style={{
+    position: "relative",
+    fontSize: isMobile ? 34 : 60,
+    fontWeight: 800,
+    lineHeight: isMobile ? 1.15 : 1.05,
+    letterSpacing: "-0.02em",
+    margin: 0,
+    marginTop: isMobile ? 4 : 6,
+    background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    filter: "drop-shadow(0 6px 18px rgba(59,130,246,0.28))",
+  }}
+>
+  On autopilot
+
+  {/* Soft Glow Layer */}
+  <span
+    style={{
+      position: "absolute",
+      inset: 0,
+      zIndex: -1,
+      background:
+        "radial-gradient(closest-side, rgba(59,130,246,0.20), rgba(59,130,246,0.10) 40%, transparent 75%)",
+      filter: "blur(28px)",
+      opacity: 0.7,
+      pointerEvents: "none",
+    }}
+  />
+</h1>
+
+============================================================
+WHAT THIS DOES
+============================================================
+
+• Adds soft radial glow behind text
+• Uses brand blue (not white glow)
+• Keeps text crisp (glow is separate layer)
+• Works on mobile + desktop
+• No cheesy neon effect
+• Subtle depth enhancement
+
+If glow feels too strong:
+- Reduce blur from 28px → 20px
+- Reduce opacity from 0.7 → 0.5
+
+If glow feels too weak:
+- Increase rgba alpha from 0.20 → 0.28

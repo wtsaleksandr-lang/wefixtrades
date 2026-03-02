@@ -375,20 +375,57 @@ export default function HomePage() {
         />
 
         <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative" }}>
-          <h1
+          <div
             data-testid="hero-headline"
             style={{
-              fontSize: "clamp(44px, 6vw, 76px)",
-              fontWeight: 800,
-              color: mkt.text,
-              lineHeight: 1.04,
-              letterSpacing: "-0.04em",
+              textAlign: "center",
               marginBottom: 24,
             }}
           >
-            More <span style={{ color: mkt.accent }}>booked jobs</span>.<br />
-            Automatically.
-          </h1>
+            <h1
+              style={{
+                fontSize: "clamp(34px, 6vw, 60px)",
+                fontWeight: 800,
+                lineHeight: 1.05,
+                letterSpacing: "-0.02em",
+                margin: 0,
+                color: mkt.text,
+              }}
+            >
+              More booked jobs
+            </h1>
+
+            <h1
+              style={{
+                position: "relative",
+                fontSize: "clamp(34px, 6vw, 60px)",
+                fontWeight: 800,
+                lineHeight: 1.05,
+                letterSpacing: "-0.02em",
+                margin: 0,
+                marginTop: 6,
+                background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                filter: "drop-shadow(0 6px 18px rgba(59,130,246,0.28))",
+              }}
+            >
+              On autopilot
+
+              <span
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  zIndex: -1,
+                  background:
+                    "radial-gradient(closest-side, rgba(59,130,246,0.20), rgba(59,130,246,0.10) 40%, transparent 75%)",
+                  filter: "blur(28px)",
+                  opacity: 0.7,
+                  pointerEvents: "none",
+                }}
+              />
+            </h1>
+          </div>
 
           <div
             data-testid="hero-pills"
@@ -448,16 +485,18 @@ export default function HomePage() {
             data-testid="hero-subtext"
             className="hero-subtext"
             style={{
-              fontSize: 18,
+              maxWidth: 640,
+              margin: "0 auto",
+              marginTop: 18,
+              marginBottom: 36,
+              fontSize: 16,
+              lineHeight: 1.6,
+              fontWeight: 450,
               color: mkt.textMuted,
-              lineHeight: 1.65,
-              maxWidth: 480,
-              margin: "0 auto 36px",
-              fontWeight: 400,
+              textAlign: "center",
             }}
           >
-            Customers get answers. You get booked.{" "}
-            Everything runs in the background.
+            Customers get answers. You get booked. Everything runs in the background.
           </p>
 
           <div className="hero-cta-row" style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
