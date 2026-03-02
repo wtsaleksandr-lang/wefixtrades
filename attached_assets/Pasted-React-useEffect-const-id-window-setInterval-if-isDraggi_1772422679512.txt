@@ -1,0 +1,85 @@
+React.useEffect(() => {
+    const id = window.setInterval(() => {
+      if (isDraggingRef.current) return;
+      rotateNext();
+    }, autoRotateMs);
+    return () => window.clearInterval(id);
+  }, [autoRotateMs, rotateNext]);
+
+  // Drag threshold logic (vertical shuffle)
+  const onDragEnd = (_: any, info: { offset: { y: number } }) => {
+    isDraggingRef.current = false;
+
+    const threshold = 55;
+    if (info.offset.y > threshold) {
+      // drag down -> rotate prev (bring last to front)
+      setOrder((prev) => {
+        if (prev.length <= 1) return prev;
+        const last = prev[prev.length - 1];
+        return [last, ...prev.slice(0, -1)];
+      });
+    } else if (info.offset.y < -threshold) {
+      // drag up -> rotate next
+      rotateNext();
+    }
+
+    // snap back
+    animate(dragY, 0, { type: "spring", stiffness: 240, damping: 24 });
+  };
+
+  const visible = order.slice(0, Math.min(maxVisible, order.length));
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        maxWidth: 420,
+        borderRadius: 18,
+        border: `1px solid ${mkt.border}`,
+        background: mkt.surface,
+        boxShadow: "0 18px 50px rgba(0,0,0,0.06)",
+        padding: 18,
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* subtle top label */}
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "6px 10px",
+          borderRadius: 14,
+          border: `1px solid ${mkt.border}`,
+          background: "rgba(255,255,255,0.75)",
+          color: mkt.textMuted,
+          fontSize: 12,
+          fontWeight: 600,
+          marginBottom: 14,
+        }}
+      >
+        <span style={{ color: mkt.text }}>Automated flow</span>
+        <span style={{ opacity: 0.7 }}>•</span>
+        <span>Drag to shuffle</span>
+      </div>
+
+      {/* stack area */}
+      <div style={{ position: "relative", height: 210 }}>
+        {visible
+          .slice()
+          .reverse()
+          .map((stepIndex, layerFromBack) => {
+            const layer = visible.length - 1 - layerFromBack; // 0 = front
+            const depth = layer;
+
+            // depth styling
+            const scale = 1 - depth * 0.045;
+            const y = depth * 12;
+            const opacity = 1 - depth * 0.16;
+            const rotateX = depth * 6; // slight depth tilt
+            const zIndex = 50 - depth;
+
+            const step = steps[stepIndex];
+
+            const isFront = depth === 0;
