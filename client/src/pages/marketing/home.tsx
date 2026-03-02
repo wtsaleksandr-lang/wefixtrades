@@ -407,8 +407,7 @@ export default function HomePage() {
             height: 3px;
             border-radius: 999px;
             background: rgba(59, 130, 246, 0.22);
-            z-index: -1;
-            pointer-events: none;
+            z-index: 0;
           }
           .wf-underline::after {
             content: "";
@@ -424,12 +423,8 @@ export default function HomePage() {
               rgba(255, 70, 70, 0.85) 45%,
               rgba(255, 70, 70, 0) 100%
             );
-            filter: blur(0.2px);
-            opacity: 0;
             animation: wf_underline_beam 6.25s ease-in-out infinite;
-            animation-delay: 5s;
-            z-index: -1;
-            pointer-events: none;
+            z-index: 1;
           }
           @media (prefers-reduced-motion: reduce) {
             .wf-underline::after {
