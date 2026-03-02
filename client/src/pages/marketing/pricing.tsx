@@ -21,28 +21,6 @@ const PRICING_TO_PRODUCT_SLUG: Record<string, string> = {
   "sitelaunch": "sitelaunch",
 };
 
-const C = {
-  navy: mkt.dark,
-  sage: mkt.accent,
-  sageDark: mkt.accentHover,
-  sageLight: mkt.accent,
-  sageTint: mkt.accentTint,
-  sageAccent: mkt.accentTint,
-  blue: colors.accent.blue,
-  gold: mkt.warning,
-  bg: mkt.bg,
-  bgGray: mkt.surface,
-  heading: mkt.text,
-  body: mkt.textMuted,
-  muted: mkt.textMuted,
-  border: mkt.border,
-  borderLight: mkt.borderLight,
-};
-
-const SHADOW = {
-  card: shadows.card,
-  featured: shadows.cardHover,
-};
 
 const CATEGORY_LABELS: Record<string, string> = {
   core: "Core Tools",
@@ -53,7 +31,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+    <div style={{ border: `1px solid ${mkt.border}`, borderRadius: 12, overflow: "hidden" }}>
       <button
         onClick={() => setOpen((o) => !o)}
         style={{
@@ -62,19 +40,19 @@ function FAQItem({ q, a }: { q: string; a: string }) {
           justifyContent: "space-between",
           alignItems: "center",
           padding: "18px 22px",
-          background: open ? C.bgGray : C.bg,
+          background: open ? mkt.surface : mkt.bg,
           border: "none",
           cursor: "pointer",
           gap: 16,
           textAlign: "left" as const,
         }}
       >
-        <span style={{ fontSize: 15, fontWeight: 600, color: C.heading, lineHeight: 1.4 }}>{q}</span>
-        <ChevronDown size={17} color={C.muted} style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.22s ease" }} />
+        <span style={{ fontSize: 15, fontWeight: 600, color: mkt.text, lineHeight: 1.4 }}>{q}</span>
+        <ChevronDown size={17} color={mkt.textMuted} style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.22s ease" }} />
       </button>
       {open && (
-        <div style={{ padding: "0 22px 18px", background: C.bgGray }}>
-          <p style={{ fontSize: 15, color: C.body, lineHeight: 1.7, margin: 0 }}>{a}</p>
+        <div style={{ padding: "0 22px 18px", background: mkt.surface }}>
+          <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>{a}</p>
         </div>
       )}
     </div>
@@ -97,11 +75,11 @@ function PriceDisplay({
     return (
       <div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 6 }}>
-          <span data-testid={`price-${product.id}`} style={{ fontSize: 38, fontWeight: 700, color: C.heading, letterSpacing: "-0.02em", lineHeight: 1 }}>
+          <span data-testid={`price-${product.id}`} style={{ fontSize: 38, fontWeight: 700, color: mkt.text, letterSpacing: "-0.02em", lineHeight: 1 }}>
             {formatMoney(amount, currency)}
           </span>
         </div>
-        <div style={{ fontSize: 13, color: C.muted, fontWeight: 500 }}>one-time</div>
+        <div style={{ fontSize: 13, color: mkt.textMuted, fontWeight: 500 }}>one-time</div>
       </div>
     );
   }
@@ -118,12 +96,12 @@ function PriceDisplay({
     return (
       <div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 4 }}>
-          <span data-testid={`price-${product.id}`} style={{ fontSize: 38, fontWeight: 700, color: C.heading, letterSpacing: "-0.02em", lineHeight: 1 }}>
+          <span data-testid={`price-${product.id}`} style={{ fontSize: 38, fontWeight: 700, color: mkt.text, letterSpacing: "-0.02em", lineHeight: 1 }}>
             {formatMoney(yearlyDisplay, currency)}
           </span>
-          <span style={{ fontSize: 14, color: C.muted, marginBottom: 4 }}>/yr</span>
+          <span style={{ fontSize: 14, color: mkt.textMuted, marginBottom: 4 }}>/yr</span>
         </div>
-        <div style={{ fontSize: 13, color: C.sage, fontWeight: 600 }}>
+        <div style={{ fontSize: 13, color: mkt.accent, fontWeight: 600 }}>
           {formatMoney(monthlyEquivDisplay, currency)}/mo — Save {Math.round(YEARLY_DISCOUNT_PCT * 100)}%
         </div>
       </div>
@@ -134,10 +112,10 @@ function PriceDisplay({
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 6 }}>
-        <span data-testid={`price-${product.id}`} style={{ fontSize: 38, fontWeight: 700, color: C.heading, letterSpacing: "-0.02em", lineHeight: 1 }}>
+        <span data-testid={`price-${product.id}`} style={{ fontSize: 38, fontWeight: 700, color: mkt.text, letterSpacing: "-0.02em", lineHeight: 1 }}>
           {formatMoney(monthlyDisplay, currency)}
         </span>
-        <span style={{ fontSize: 14, color: C.muted, marginBottom: 4 }}>/mo</span>
+        <span style={{ fontSize: 14, color: mkt.textMuted, marginBottom: 4 }}>/mo</span>
       </div>
     </div>
   );
@@ -147,7 +125,7 @@ function SetupFee({ product, currency, fxRate }: { product: Product; currency: "
   if (product.setup === null) return null;
   const amount = currency === "USD" ? convert(product.setup, fxRate) : product.setup;
   return (
-    <div data-testid={`setup-fee-${product.id}`} style={{ fontSize: 12, fontWeight: 600, color: C.gold, background: "#FEF3C7", padding: "4px 12px", borderRadius: 20, display: "inline-block", marginBottom: 8 }}>
+    <div data-testid={`setup-fee-${product.id}`} style={{ fontSize: 12, fontWeight: 600, color: mkt.warning, background: "#FEF3C7", padding: "4px 12px", borderRadius: 20, display: "inline-block", marginBottom: 8 }}>
       Setup: {formatMoney(amount, currency)} one-time
     </div>
   );
@@ -179,7 +157,7 @@ export default function PricingPage() {
 
         <section
           style={{
-            background: `linear-gradient(160deg, ${C.navy} 0%, #0F2744 55%, #1a3550 100%)`,
+            background: `linear-gradient(160deg, ${mkt.dark} 0%, #0F2744 55%, #1a3550 100%)`,
             padding: "80px 28px 96px",
             textAlign: "center",
             position: "relative",
@@ -224,7 +202,7 @@ export default function PricingPage() {
                 href="/Wizard"
                 data-testid="pricing-cta-start"
                 className="mkt-btn-primary"
-                style={{ padding: "13px 30px", borderRadius: 9999, background: C.sage, color: "#FFFFFF", fontSize: 15, fontWeight: 700, textDecoration: "none", display: "inline-block" }}
+                style={{ padding: "13px 30px", borderRadius: 9999, background: mkt.accent, color: "#FFFFFF", fontSize: 15, fontWeight: 700, textDecoration: "none", display: "inline-block" }}
               >
                 Start Free
               </Link>
@@ -247,7 +225,7 @@ export default function PricingPage() {
                   aria-label="Toggle annual pricing"
                   style={{
                     position: "relative", width: 52, height: 28, borderRadius: 999,
-                    background: annual ? C.sage : "rgba(255,255,255,0.18)",
+                    background: annual ? mkt.accent : "rgba(255,255,255,0.18)",
                     border: "none", cursor: "pointer",
                     transition: "background 0.25s ease", flexShrink: 0,
                   }}
@@ -263,7 +241,7 @@ export default function PricingPage() {
                 </button>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 14, fontWeight: annual ? 600 : 400, color: annual ? "#FFFFFF" : "rgba(255,255,255,0.5)", transition: "color 0.2s" }}>Yearly</span>
-                  <span style={{ background: C.sage, color: "#FFFFFF", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, letterSpacing: "0.04em" }}>
+                  <span style={{ background: mkt.accent, color: "#FFFFFF", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, letterSpacing: "0.04em" }}>
                     Save {Math.round(YEARLY_DISCOUNT_PCT * 100)}%
                   </span>
                 </div>
@@ -324,14 +302,14 @@ export default function PricingPage() {
             <section
               key={cat}
               data-testid={`pricing-category-${cat}`}
-              style={{ background: cat === "ai" ? C.bgGray : C.bg, padding: "72px 28px 80px" }}
+              style={{ background: cat === "ai" ? mkt.surface : mkt.bg, padding: "72px 28px 80px" }}
             >
               <div style={{ maxWidth: 1180, margin: "0 auto" }}>
                 <div style={{ textAlign: "center", marginBottom: 48 }} data-reveal="fade-up">
-                  <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                     {CATEGORY_LABELS[cat]}
                   </div>
-                  <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: C.heading, letterSpacing: "-0.025em" }}>
+                  <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em" }}>
                     {cat === "core" && "Essential Tools"}
                     {cat === "ai" && "AI-Powered Employees"}
                     {cat === "growth" && "Growth & Marketing Services"}
@@ -358,20 +336,20 @@ export default function PricingPage() {
                         data-delay={String((idx + 1) * 100)}
                         className="mkt-feature-card"
                         style={{
-                          background: C.bg,
-                          border: `${isHighlighted ? 2 : 1}px solid ${isHighlighted ? C.sage : C.border}`,
+                          background: mkt.bg,
+                          border: `${isHighlighted ? 2 : 1}px solid ${isHighlighted ? mkt.accent : mkt.border}`,
                           borderRadius: 20,
                           padding: "28px 24px",
                           position: "relative",
-                          boxShadow: isHighlighted ? SHADOW.featured : SHADOW.card,
+                          boxShadow: isHighlighted ? shadows.cardHover : shadows.card,
                           transition: "border-color 0.3s ease, box-shadow 0.3s ease",
                         }}
                       >
                         {product.badge && (
                           <div style={{
                             position: "absolute", top: -13, left: "50%", transform: "translateX(-50%)",
-                            background: product.id === "quickquotepro" ? C.sage : product.id === "ai-voice" ? C.gold : C.bgGray,
-                            color: product.id === "quickquotepro" || product.id === "ai-voice" ? "#FFFFFF" : C.muted,
+                            background: product.id === "quickquotepro" ? mkt.accent : product.id === "ai-voice" ? mkt.warning : mkt.surface,
+                            color: product.id === "quickquotepro" || product.id === "ai-voice" ? "#FFFFFF" : mkt.textMuted,
                             fontSize: 11, fontWeight: 700, padding: "4px 14px",
                             borderRadius: 20, whiteSpace: "nowrap" as const, letterSpacing: "0.04em",
                           }}>
@@ -379,7 +357,7 @@ export default function PricingPage() {
                           </div>
                         )}
 
-                        <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
                           {product.name}
                         </div>
 
@@ -387,7 +365,7 @@ export default function PricingPage() {
 
                         <SetupFee product={product} currency={currency} fxRate={fxRate} />
 
-                        <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5, marginBottom: 22, marginTop: 8 }}>
+                        <div style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.5, marginBottom: 22, marginTop: 8 }}>
                           {product.tagline}
                         </div>
 
@@ -405,20 +383,20 @@ export default function PricingPage() {
                             textAlign: "center" as const,
                             textDecoration: "none",
                             marginBottom: 22,
-                            background: isHighlighted ? C.sage : "transparent",
-                            color: isHighlighted ? "#FFFFFF" : C.body,
-                            border: isHighlighted ? "none" : `1.5px solid ${C.border}`,
+                            background: isHighlighted ? mkt.accent : "transparent",
+                            color: isHighlighted ? "#FFFFFF" : mkt.textMuted,
+                            border: isHighlighted ? "none" : `1.5px solid ${mkt.border}`,
                           }}
                         >
                           {product.billingType === "one_time" ? "Get Started" : "Start Free"}
                         </Link>
 
-                        <div style={{ borderTop: `1px solid ${C.borderLight}`, marginBottom: 18 }} />
+                        <div style={{ borderTop: `1px solid ${mkt.borderLight}`, marginBottom: 18 }} />
 
                         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
                           {product.features.map((feat) => (
-                            <li key={feat} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 13, color: C.body, lineHeight: 1.4 }}>
-                              <Check size={14} color={C.sage} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 1 }} />
+                            <li key={feat} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 13, color: mkt.textMuted, lineHeight: 1.4 }}>
+                              <Check size={14} color={mkt.accent} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 1 }} />
                               <span>{feat}</span>
                             </li>
                           ))}
@@ -427,7 +405,7 @@ export default function PricingPage() {
                         <Link
                           href={`/product/${PRICING_TO_PRODUCT_SLUG[product.id] || product.id}`}
                           data-testid={`pricing-learn-more-${product.id}`}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: C.sage, textDecoration: "none", marginTop: 16 }}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: mkt.accent, textDecoration: "none", marginTop: 16 }}
                         >
                           Learn more <ArrowRight size={13} />
                         </Link>
@@ -440,17 +418,17 @@ export default function PricingPage() {
           );
         })}
 
-        <section style={{ background: C.bgGray, padding: "96px 28px" }} data-testid="pricing-faq">
+        <section style={{ background: mkt.surface, padding: "96px 28px" }} data-testid="pricing-faq">
           <div style={{ maxWidth: 780, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 52 }} data-reveal="fade-up">
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 FAQ
               </div>
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: C.heading, letterSpacing: "-0.025em", marginBottom: 12 }}>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 12 }}>
                 Everything you need to know
               </h2>
-              <p style={{ fontSize: 16, color: C.muted }}>
-                Still have questions? <Link href="/contact" style={{ color: C.sage, fontWeight: 600, textDecoration: "none" }}>Chat with us</Link>
+              <p style={{ fontSize: 16, color: mkt.textMuted }}>
+                Still have questions? <Link href="/contact" style={{ color: mkt.accent, fontWeight: 600, textDecoration: "none" }}>Chat with us</Link>
               </p>
             </div>
 
@@ -464,7 +442,7 @@ export default function PricingPage() {
 
         <section
           style={{
-            background: `linear-gradient(135deg, ${C.sage} 0%, ${C.sageDark} 100%)`,
+            background: `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentHover} 100%)`,
             padding: "112px 28px",
             textAlign: "center",
           }}
@@ -490,7 +468,7 @@ export default function PricingPage() {
                 href="/Wizard"
                 data-testid="pricing-final-cta-start"
                 className="mkt-btn-primary"
-                style={{ display: "inline-block", padding: "15px 36px", borderRadius: 9999, background: "#FFFFFF", color: C.sage, fontSize: 16, fontWeight: 700, textDecoration: "none" }}
+                style={{ display: "inline-block", padding: "15px 36px", borderRadius: 9999, background: "#FFFFFF", color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none" }}
               >
                 Start Free
               </Link>

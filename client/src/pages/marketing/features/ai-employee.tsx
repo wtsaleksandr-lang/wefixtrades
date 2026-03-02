@@ -1,5 +1,6 @@
 import { Bot, MessageSquare, Zap, Users, PhoneCall } from "lucide-react";
-import FeaturePage, { C, SHADOW, type FeaturePageConfig } from "@/components/marketing/FeaturePage";
+import FeaturePage, { type FeaturePageConfig } from "@/components/marketing/FeaturePage";
+import { mkt, colors, shadows } from "@/theme/tokens";
 
 /* ── Mockup ──────────────────────────────────── */
 function AiMockup() {
@@ -13,18 +14,18 @@ function AiMockup() {
   return (
     <div
       style={{
-        background: C.navy,
+        background: mkt.dark,
         borderRadius: 20,
         padding: 24,
         width: "100%",
         maxWidth: 400,
-        boxShadow: SHADOW.hero,
+        boxShadow: shadows.xl,
       }}
     >
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <div style={{ width: 38, height: 38, borderRadius: 10, background: C.sageTint, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Bot size={18} color={C.sage} strokeWidth={1.5} />
+        <div style={{ width: 38, height: 38, borderRadius: 10, background: mkt.accentTint, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Bot size={18} color={mkt.accent} strokeWidth={1.5} />
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>AI Employee</div>
@@ -44,15 +45,15 @@ function AiMockup() {
       {messages.map((m, i) => (
         <div key={i} style={{ display: "flex", justifyContent: m.user ? "flex-end" : "flex-start", marginBottom: 10 }}>
           {!m.user && (
-            <div style={{ width: 22, height: 22, borderRadius: 6, background: C.sageTint, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 6, marginTop: 2 }}>
-              <Bot size={11} color={C.sage} strokeWidth={1.5} />
+            <div style={{ width: 22, height: 22, borderRadius: 6, background: mkt.accentTint, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 6, marginTop: 2 }}>
+              <Bot size={11} color={mkt.accent} strokeWidth={1.5} />
             </div>
           )}
           <div style={{
             maxWidth: "78%",
             padding: "9px 13px",
             borderRadius: m.user ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-            background: m.user ? C.sage : "rgba(255,255,255,0.09)",
+            background: m.user ? mkt.accent : "rgba(255,255,255,0.09)",
             fontSize: 12.5,
             color: "#FFFFFF",
             lineHeight: 1.55,
@@ -75,7 +76,7 @@ function AiMockup() {
         <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 13px", fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
           Type a message…
         </div>
-        <div style={{ width: 34, height: 34, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+        <div style={{ width: 34, height: 34, borderRadius: 10, background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
           <Bot size={15} color="#FFFFFF" strokeWidth={1.5} />
         </div>
       </div>
@@ -87,11 +88,11 @@ const config: FeaturePageConfig = {
   meta: { title: "AI Employee — QuickQuotePro | 24/7 Sales & Support Automation" },
   hero: {
     badge: "AI Employee System",
-    badgeColor: C.purple,
+    badgeColor: "#7C3AED",
     headline: "An Employee Who Works 24/7 — Without a Salary",
     highlightedWords: ["24/7", "Without a Salary"],
     sub: "Your AI employee chats with visitors, answers trade questions, generates instant estimates, and books appointments — completely automatically.",
-    accentColor: C.purple,
+    accentColor: "#7C3AED",
   },
   demo: {
     label: "See It Live",
@@ -103,7 +104,7 @@ const config: FeaturePageConfig = {
       "Books appointments and collects deposits automatically",
       "Escalates to you by phone or email when a human is needed",
     ],
-    bulletColor: C.purple,
+    bulletColor: "#7C3AED",
     mockup: AiMockup,
   },
   benefits: [
@@ -111,25 +112,25 @@ const config: FeaturePageConfig = {
       icon: Bot,
       title: "24/7 Coverage",
       body: "Never miss a lead again. Your AI employee responds to enquiries at 2am on a Sunday — when your competitors are unavailable.",
-      color: C.purple, bg: C.purpleTint,
+      color: "#7C3AED", bg: "#F5F3FF",
     },
     {
       icon: MessageSquare,
       title: "All Channels",
       body: "One AI brain available across web chat, SMS, and WhatsApp. Customers reach you however they prefer.",
-      color: C.sage, bg: C.sageTint,
+      color: mkt.accent, bg: mkt.accentTint,
     },
     {
       icon: Zap,
       title: "Live Estimates",
       body: "The AI doesn't just chat — it accesses your pricing engine in real time and gives customers an actual quote range.",
-      color: C.blue, bg: C.blueTint,
+      color: colors.accent.blue, bg: colors.accent.blueTint,
     },
     {
       icon: Users,
       title: "Smart Escalation",
       body: "When a customer requests a human, or when AI isn't certain, it escalates to you immediately via your preferred channel.",
-      color: C.orange, bg: C.orangeTint,
+      color: mkt.orange, bg: mkt.orangeTint,
     },
   ],
   steps: [

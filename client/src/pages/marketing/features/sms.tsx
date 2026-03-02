@@ -1,5 +1,6 @@
 import { MessageSquare, RefreshCcw, UserCheck, Shield, Clock } from "lucide-react";
-import FeaturePage, { C, SHADOW, type FeaturePageConfig } from "@/components/marketing/FeaturePage";
+import FeaturePage, { type FeaturePageConfig } from "@/components/marketing/FeaturePage";
+import { mkt, colors, shadows } from "@/theme/tokens";
 
 /* ── Mockup ──────────────────────────────────── */
 function SmsMockup() {
@@ -19,16 +20,16 @@ function SmsMockup() {
         padding: 20,
         width: "100%",
         maxWidth: 380,
-        boxShadow: SHADOW.hero,
+        boxShadow: shadows.xl,
       }}
     >
       {/* Phone chrome */}
-      <div style={{ background: C.bg, borderRadius: 16, overflow: "hidden", boxShadow: SHADOW.card }}>
+      <div style={{ background: mkt.bg, borderRadius: 16, overflow: "hidden", boxShadow: shadows.card }}>
         {/* Status bar */}
-        <div style={{ background: C.navy, padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ background: mkt.dark, padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: "#FFFFFF" }}>Messages</span>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 10, background: C.sage, color: "#FFF", padding: "2px 8px", borderRadius: 20, fontWeight: 700 }}>AI Active</span>
+            <span style={{ fontSize: 10, background: mkt.accent, color: "#FFF", padding: "2px 8px", borderRadius: 20, fontWeight: 700 }}>AI Active</span>
             <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Ridge Roofing</span>
           </div>
         </div>
@@ -41,23 +42,23 @@ function SmsMockup() {
                 maxWidth: "82%",
                 padding: "9px 12px",
                 borderRadius: m.from === "customer" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                background: m.from === "customer" ? "#DCF8C6" : C.bg,
-                border: m.from !== "customer" ? `1px solid ${C.border}` : "none",
+                background: m.from === "customer" ? "#DCF8C6" : mkt.bg,
+                border: m.from !== "customer" ? `1px solid ${mkt.border}` : "none",
                 fontSize: 12.5,
-                color: C.heading,
+                color: mkt.text,
                 lineHeight: 1.5,
               }}>
                 {m.text}
               </div>
-              <span style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>{m.time}</span>
+              <span style={{ fontSize: 10, color: mkt.textMuted, marginTop: 3 }}>{m.time}</span>
             </div>
           ))}
         </div>
 
         {/* Take over banner */}
-        <div style={{ margin: "0 14px 14px", background: `${C.orange}15`, border: `1px solid ${C.orange}30`, borderRadius: 10, padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 11.5, color: C.orange, fontWeight: 600 }}>🤖 AI is responding</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: C.orange, cursor: "pointer" }}>Take Over →</span>
+        <div style={{ margin: "0 14px 14px", background: `${mkt.orange}15`, border: `1px solid ${mkt.orange}30`, borderRadius: 10, padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 11.5, color: mkt.orange, fontWeight: 600 }}>🤖 AI is responding</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: mkt.orange, cursor: "pointer" }}>Take Over →</span>
         </div>
       </div>
     </div>
@@ -68,11 +69,11 @@ const config: FeaturePageConfig = {
   meta: { title: "SMS & WhatsApp — QuickQuotePro | Automated Lead Follow-Ups That Win Jobs" },
   hero: {
     badge: "SMS & WhatsApp Automation",
-    badgeColor: C.pink,
+    badgeColor: "#DB2777",
     headline: "Follow Up Automatically. Win Back Lost Leads.",
     highlightedWords: ["Automatically", "Win Back Lost Leads"],
     sub: "Leads who didn't book get smart, personalised follow-ups via SMS and WhatsApp — powered by AI and sent at exactly the right time.",
-    accentColor: C.pink,
+    accentColor: "#DB2777",
   },
   demo: {
     label: "Two-Way Conversations",
@@ -84,7 +85,7 @@ const config: FeaturePageConfig = {
       "Take Over mode — jump in as a human anytime",
       "AI-managed rate limiting — never spam classified",
     ],
-    bulletColor: C.pink,
+    bulletColor: "#DB2777",
     mockup: SmsMockup,
   },
   benefits: [
@@ -92,25 +93,25 @@ const config: FeaturePageConfig = {
       icon: RefreshCcw,
       title: "Re-Engage Cold Leads",
       body: "Studies show 60–70% of leads need more than one touch before deciding. Automated follow-ups do this at scale, without effort.",
-      color: C.pink, bg: C.pinkTint,
+      color: "#DB2777", bg: "#FDF2F8",
     },
     {
       icon: MessageSquare,
       title: "Two-Way AI Replies",
       body: "Unlike broadcast SMS tools, QuickQuotePro's AI responds to replies — answering questions, providing estimates, and booking jobs.",
-      color: C.purple, bg: C.purpleTint,
+      color: "#7C3AED", bg: "#F5F3FF",
     },
     {
       icon: UserCheck,
       title: "Seamless Hand-Off",
       body: "Take Over mode lets you jump into any AI conversation instantly. The customer sees a smooth transition from AI to human.",
-      color: C.sage, bg: C.sageTint,
+      color: mkt.accent, bg: mkt.accentTint,
     },
     {
       icon: Shield,
       title: "Compliant & Safe",
       body: "Opt-in consent capture, configurable opt-out, and AI rate limiting protect your reputation and keep you GDPR/TCPA compliant.",
-      color: C.orange, bg: C.orangeTint,
+      color: mkt.orange, bg: mkt.orangeTint,
     },
   ],
   steps: [

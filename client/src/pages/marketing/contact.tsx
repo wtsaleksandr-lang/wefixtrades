@@ -5,28 +5,6 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { mkt, colors, shadows, radius } from "@/theme/tokens";
 
-const p = {
-  colors: {
-    accent: mkt.accent,
-    accentDark: mkt.accentHover,
-    navy: mkt.dark,
-    pageBg: mkt.surface,
-    surface: mkt.bg,
-    heading: mkt.text,
-    body: mkt.textMuted,
-    muted: mkt.textMuted,
-    border: mkt.border,
-    borderLight: mkt.borderLight,
-  },
-  shadows: {
-    card: shadows.card,
-  },
-  radius: {
-    sm: radius.sm,
-    md: radius.md,
-  },
-};
-
 export default function ContactPage() {
   useEffect(() => {
     document.title = "Contact — QuickQuotePro";
@@ -48,11 +26,11 @@ export default function ContactPage() {
   const inputStyle: React.CSSProperties = {
     width: "100%",
     padding: "10px 14px",
-    borderRadius: p.radius.sm,
-    border: `1px solid ${p.colors.border}`,
+    borderRadius: radius.sm,
+    border: `1px solid ${mkt.border}`,
     fontSize: 15,
-    color: p.colors.heading,
-    background: p.colors.surface,
+    color: mkt.text,
+    background: mkt.bg,
     outline: "none",
     boxSizing: "border-box",
     fontFamily: "Inter, system-ui, sans-serif",
@@ -62,7 +40,7 @@ export default function ContactPage() {
     display: "block",
     fontSize: 13,
     fontWeight: 600,
-    color: p.colors.body,
+    color: mkt.textMuted,
     marginBottom: 6,
   };
 
@@ -70,7 +48,7 @@ export default function ContactPage() {
     <MarketingLayout>
       <div data-testid="contact-page" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
         {/* Page Header */}
-        <section style={{ background: p.colors.navy, padding: "72px 24px 64px" }}>
+        <section style={{ background: mkt.dark, padding: "72px 24px 64px" }}>
           <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
             <h1 style={{ fontSize: 40, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2, marginBottom: 16, margin: "0 0 16px" }}>
               Get in Touch
@@ -82,7 +60,7 @@ export default function ContactPage() {
         </section>
 
         {/* Two-column layout */}
-        <section style={{ background: p.colors.pageBg, padding: "64px 24px 80px" }}>
+        <section style={{ background: mkt.surface, padding: "64px 24px 80px" }}>
           <div style={{
             maxWidth: 1000,
             margin: "0 auto",
@@ -92,7 +70,7 @@ export default function ContactPage() {
           }}>
             {/* Left: Contact Info */}
             <div>
-              <h2 style={{ fontSize: 22, fontWeight: 700, color: p.colors.heading, marginBottom: 32, margin: "0 0 32px" }}>
+              <h2 style={{ fontSize: 22, fontWeight: 700, color: mkt.text, marginBottom: 32, margin: "0 0 32px" }}>
                 Contact Information
               </h2>
 
@@ -102,17 +80,17 @@ export default function ContactPage() {
                     width: 40,
                     height: 40,
                     borderRadius: "50%",
-                    background: "#F0F7F4",
+                    background: mkt.accentTint,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
                   }}>
-                    <Mail size={18} color={p.colors.accent} />
+                    <Mail size={18} color={mkt.accent} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: p.colors.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Email</div>
-                    <a href="mailto:contact@wefxtrades.com" style={{ fontSize: 15, color: p.colors.accent, textDecoration: "none", fontWeight: 500 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Email</div>
+                    <a href="mailto:contact@wefxtrades.com" style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}>
                       contact@wefxtrades.com
                     </a>
                   </div>
@@ -123,18 +101,18 @@ export default function ContactPage() {
                     width: 40,
                     height: 40,
                     borderRadius: "50%",
-                    background: "#F0F7F4",
+                    background: mkt.accentTint,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
                   }}>
-                    <Clock size={18} color={p.colors.accent} />
+                    <Clock size={18} color={mkt.accent} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: p.colors.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Response Time</div>
-                    <div style={{ fontSize: 15, color: p.colors.body, fontWeight: 500 }}>Usually within 2 hours</div>
-                    <div style={{ fontSize: 14, color: p.colors.muted, marginTop: 2 }}>During business hours (Mon–Fri)</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Response Time</div>
+                    <div style={{ fontSize: 15, color: mkt.textMuted, fontWeight: 500 }}>Usually within 2 hours</div>
+                    <div style={{ fontSize: 14, color: mkt.textMuted, marginTop: 2 }}>During business hours (Mon–Fri)</div>
                   </div>
                 </div>
 
@@ -143,17 +121,17 @@ export default function ContactPage() {
                     width: 40,
                     height: 40,
                     borderRadius: "50%",
-                    background: "#F0F7F4",
+                    background: mkt.accentTint,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
                   }}>
-                    <LayoutDashboard size={18} color={p.colors.accent} />
+                    <LayoutDashboard size={18} color={mkt.accent} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: p.colors.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Urgent Support</div>
-                    <div style={{ fontSize: 14, color: p.colors.body, lineHeight: 1.6 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Urgent Support</div>
+                    <div style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6 }}>
                       For urgent support, use the Help button inside your dashboard.
                     </div>
                   </div>
@@ -163,12 +141,12 @@ export default function ContactPage() {
               <div style={{
                 marginTop: 40,
                 padding: "20px 24px",
-                background: "#F0F7F4",
-                borderRadius: p.radius.md,
-                border: `1px solid rgba(45,106,79,0.15)`,
+                background: mkt.accentTint,
+                borderRadius: radius.md,
+                border: `1px solid ${mkt.accentGlow}`,
               }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: p.colors.accent, marginBottom: 6 }}>Working Hours</div>
-                <div style={{ fontSize: 14, color: p.colors.body, lineHeight: 1.7 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: mkt.accent, marginBottom: 6 }}>Working Hours</div>
+                <div style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7 }}>
                   Monday – Friday: 9am – 6pm AEST<br />
                   Saturday: 10am – 2pm AEST<br />
                   Sunday: Closed
@@ -178,11 +156,11 @@ export default function ContactPage() {
 
             {/* Right: Form */}
             <div style={{
-              background: p.colors.surface,
-              borderRadius: p.radius.md,
+              background: mkt.bg,
+              borderRadius: radius.md,
               padding: "36px 32px",
-              boxShadow: p.shadows.card,
-              border: `1px solid ${p.colors.borderLight}`,
+              boxShadow: shadows.card,
+              border: `1px solid ${mkt.borderLight}`,
             }}>
               {submitted ? (
                 <div data-testid="contact-success" style={{ textAlign: "center", padding: "40px 20px" }}>
@@ -190,23 +168,23 @@ export default function ContactPage() {
                     width: 56,
                     height: 56,
                     borderRadius: "50%",
-                    background: "#F0F7F4",
+                    background: mkt.accentTint,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     margin: "0 auto 20px",
                   }}>
-                    <Mail size={24} color={p.colors.accent} />
+                    <Mail size={24} color={mkt.accent} />
                   </div>
-                  <h3 style={{ fontSize: 20, fontWeight: 700, color: p.colors.heading, marginBottom: 12, margin: "0 0 12px" }}>Message Sent!</h3>
-                  <p style={{ fontSize: 15, color: p.colors.muted, lineHeight: 1.6, margin: 0 }}>
+                  <h3 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 12, margin: "0 0 12px" }}>Message Sent!</h3>
+                  <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, margin: 0 }}>
                     Thanks for reaching out. We'll get back to you within 2 hours.
                   </p>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                  <h2 style={{ fontSize: 20, fontWeight: 700, color: p.colors.heading, margin: "0 0 4px" }}>Send Us a Message</h2>
-                  <p style={{ fontSize: 14, color: p.colors.muted, margin: 0 }}>Fill in the form and we'll be in touch shortly.</p>
+                  <h2 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, margin: "0 0 4px" }}>Send Us a Message</h2>
+                  <p style={{ fontSize: 14, color: mkt.textMuted, margin: 0 }}>Fill in the form and we'll be in touch shortly.</p>
 
                   <div>
                     <label style={labelStyle} htmlFor="contact-name">Full Name *</label>
@@ -271,10 +249,10 @@ export default function ContactPage() {
                     disabled={mutation.isPending}
                     style={{
                       padding: "12px 24px",
-                      background: mutation.isPending ? "#93C5A1" : p.colors.accent,
+                      background: mutation.isPending ? "#93C5A1" : mkt.accent,
                       color: "#FFFFFF",
                       border: "none",
-                      borderRadius: p.radius.sm,
+                      borderRadius: radius.sm,
                       fontSize: 15,
                       fontWeight: 600,
                       cursor: mutation.isPending ? "not-allowed" : "pointer",

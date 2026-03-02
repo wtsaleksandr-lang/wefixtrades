@@ -5,17 +5,6 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { mkt, colors, shadows } from "@/theme/tokens";
 
-const C = {
-  navy: mkt.dark,
-  sage: mkt.accent,
-  sageTint: mkt.accentTint,
-  bg: mkt.bg,
-  bgGray: mkt.surface,
-  heading: mkt.text,
-  body: mkt.textMuted,
-  muted: mkt.textMuted,
-  border: mkt.border,
-};
 
 const GUIDES = [
   {
@@ -42,8 +31,8 @@ const GUIDES = [
     title: "Booking + Deposits",
     description: "Let customers book a time and pay a deposit right after getting their estimate.",
     badge: "Pro",
-    badgeColor: C.sage,
-    badgeBg: C.sageTint,
+    badgeColor: mkt.accent,
+    badgeBg: mkt.accentTint,
     time: "4 min read",
   },
   {
@@ -52,8 +41,8 @@ const GUIDES = [
     title: "AI Employee",
     description: "Configure your AI to answer questions, generate estimates, and book jobs — 24/7.",
     badge: "Pro",
-    badgeColor: C.sage,
-    badgeBg: C.sageTint,
+    badgeColor: mkt.accent,
+    badgeBg: mkt.accentTint,
     time: "5 min read",
   },
   {
@@ -100,7 +89,7 @@ export default function DocsPage() {
       <div data-testid="docs-hub" style={{ overflowX: "hidden" }}>
 
         {/* Hero */}
-        <div style={{ background: `linear-gradient(160deg, ${C.navy} 0%, #0F2744 100%)`, padding: "72px 28px 64px" }}>
+        <div style={{ background: `linear-gradient(160deg, ${mkt.dark} 0%, #0F2744 100%)`, padding: "72px 28px 64px" }}>
           <div style={{ maxWidth: 780, margin: "0 auto", textAlign: "center" }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(45,106,79,0.22)", border: "1px solid rgba(45,106,79,0.35)", borderRadius: 20, padding: "5px 16px", marginBottom: 24 }}>
               <BookOpen size={13} color="#6EE7B7" />
@@ -141,9 +130,9 @@ export default function DocsPage() {
 
         {/* Quick start strip */}
         {search === "" && (
-          <div style={{ background: C.bgGray, borderBottom: `1px solid ${C.border}`, padding: "28px 28px" }}>
+          <div style={{ background: mkt.surface, borderBottom: `1px solid ${mkt.border}`, padding: "28px 28px" }}>
             <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.textMuted, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 16 }}>
                 Quickstart
               </div>
               <div className="qs-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
@@ -154,19 +143,19 @@ export default function DocsPage() {
                     data-testid={`quickstart-${label.toLowerCase().replace(/\s+/g, "-")}`}
                     style={{
                       display: "flex", gap: 12, padding: "14px 16px",
-                      background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12,
+                      background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 12,
                       textDecoration: "none", alignItems: "flex-start",
                       boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
                       transition: "box-shadow 0.18s ease, border-color 0.18s ease",
                     }}
                     className="mkt-feature-card"
                   >
-                    <div style={{ width: 34, height: 34, borderRadius: 8, background: C.sageTint, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Icon size={16} color={C.sage} />
+                    <div style={{ width: 34, height: 34, borderRadius: 8, background: mkt.accentTint, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Icon size={16} color={mkt.accent} />
                     </div>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: C.heading, marginBottom: 2 }}>{label}</div>
-                      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.45 }}>{sub}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: mkt.text, marginBottom: 2 }}>{label}</div>
+                      <div style={{ fontSize: 12, color: mkt.textMuted, lineHeight: 1.45 }}>{sub}</div>
                     </div>
                   </Link>
                 ))}
@@ -177,29 +166,29 @@ export default function DocsPage() {
         )}
 
         {/* Guide cards grid */}
-        <div style={{ background: C.bg, padding: "64px 28px 96px" }}>
+        <div style={{ background: mkt.bg, padding: "64px 28px 96px" }}>
           <div style={{ maxWidth: 1100, margin: "0 auto" }}>
             {search !== "" && (
-              <p style={{ fontSize: 14, color: C.muted, marginBottom: 24 }}>
+              <p style={{ fontSize: 14, color: mkt.textMuted, marginBottom: 24 }}>
                 {filtered.length} result{filtered.length !== 1 ? "s" : ""} for "<strong>{search}</strong>"
               </p>
             )}
             {search === "" && (
               <div style={{ marginBottom: 36 }} data-reveal="fade-up">
-                <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 12 }}>
                   All Guides
                 </div>
-                <h2 style={{ fontSize: "clamp(22px, 2.5vw, 32px)", fontWeight: 800, color: C.heading, margin: 0, letterSpacing: "-0.02em" }}>
+                <h2 style={{ fontSize: "clamp(22px, 2.5vw, 32px)", fontWeight: 800, color: mkt.text, margin: 0, letterSpacing: "-0.02em" }}>
                   Everything you need to get results
                 </h2>
               </div>
             )}
 
             {filtered.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "60px 0", color: C.muted }}>
-                <MessageSquare size={32} color={C.border} style={{ marginBottom: 12 }} />
+              <div style={{ textAlign: "center", padding: "60px 0", color: mkt.textMuted }}>
+                <MessageSquare size={32} color={mkt.border} style={{ marginBottom: 12 }} />
                 <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>No guides match "{search}"</div>
-                <div style={{ fontSize: 14 }}>Try a different keyword or <Link href="/contact" style={{ color: C.sage, fontWeight: 600, textDecoration: "none" }}>contact support</Link>.</div>
+                <div style={{ fontSize: 14 }}>Try a different keyword or <Link href="/contact" style={{ color: mkt.accent, fontWeight: 600, textDecoration: "none" }}>contact support</Link>.</div>
               </div>
             ) : (
               <div className="guides-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
@@ -212,14 +201,14 @@ export default function DocsPage() {
                     className="mkt-feature-card"
                     style={{
                       display: "flex", flexDirection: "column", gap: 0,
-                      background: C.bg, border: `1px solid ${C.border}`, borderRadius: 16,
+                      background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 16,
                       padding: "28px 24px", textDecoration: "none",
                       boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.05)",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 12, background: C.sageTint, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Icon size={22} color={C.sage} />
+                      <div style={{ width: 48, height: 48, borderRadius: 12, background: mkt.accentTint, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Icon size={22} color={mkt.accent} />
                       </div>
                       {badge && (
                         <span style={{ fontSize: 10, fontWeight: 700, color: badgeColor, background: badgeBg, padding: "3px 10px", borderRadius: 20, letterSpacing: "0.05em" }}>
@@ -227,11 +216,11 @@ export default function DocsPage() {
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: 17, fontWeight: 700, color: C.heading, marginBottom: 8 }}>{title}</div>
-                    <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.65, flex: 1, marginBottom: 20 }}>{description}</div>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: mkt.text, marginBottom: 8 }}>{title}</div>
+                    <div style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.65, flex: 1, marginBottom: 20 }}>{description}</div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 12, color: C.muted }}>{time}</span>
-                      <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: C.sage }}>
+                      <span style={{ fontSize: 12, color: mkt.textMuted }}>{time}</span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: mkt.accent }}>
                         Read guide <ArrowRight size={13} />
                       </span>
                     </div>
@@ -244,18 +233,18 @@ export default function DocsPage() {
         </div>
 
         {/* Footer help band */}
-        <div style={{ background: C.bgGray, borderTop: `1px solid ${C.border}`, padding: "56px 28px", textAlign: "center" }}>
+        <div style={{ background: mkt.surface, borderTop: `1px solid ${mkt.border}`, padding: "56px 28px", textAlign: "center" }}>
           <div style={{ maxWidth: 520, margin: "0 auto" }}>
-            <h3 style={{ fontSize: 22, fontWeight: 800, color: C.heading, margin: "0 0 10px" }}>
+            <h3 style={{ fontSize: 22, fontWeight: 800, color: mkt.text, margin: "0 0 10px" }}>
               Can't find what you're looking for?
             </h3>
-            <p style={{ fontSize: 15, color: C.muted, margin: "0 0 24px", lineHeight: 1.65 }}>
+            <p style={{ fontSize: 15, color: mkt.textMuted, margin: "0 0 24px", lineHeight: 1.65 }}>
               Our support team usually responds within 2 hours. We're real people — not a bot.
             </p>
             <Link
               href="/contact"
               data-testid="docs-contact-cta"
-              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "12px 28px", borderRadius: 10, background: C.sage, color: "#FFFFFF", fontSize: 15, fontWeight: 700, textDecoration: "none" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "12px 28px", borderRadius: 10, background: mkt.accent, color: "#FFFFFF", fontSize: 15, fontWeight: 700, textDecoration: "none" }}
             >
               Contact Support <ArrowRight size={14} />
             </Link>
