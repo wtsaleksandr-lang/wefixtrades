@@ -1,0 +1,108 @@
+FILE: MarketingLayout.tsx
+
+========================
+CHANGE 1 — Less-rounded corners (fill corner gaps)
+========================
+
+1A) FIND:
+borderRadius: 24,
+
+REPLACE WITH:
+borderRadius: 20,
+
+(THIS IS INSIDE the isMobile navCardRef style block.)
+
+1B) FIND:
+borderRadius: 28,
+
+REPLACE WITH:
+borderRadius: 22,
+
+(THIS IS INSIDE the nav-mobile-menu style block.)
+
+========================
+CHANGE 2 — Make mobile menu + main items less transparent / whiter (better text visibility)
+========================
+
+2A) FIND (inside nav-mobile-menu style):
+background: "rgba(255,255,255,0.36)",
+
+REPLACE WITH:
+background: "rgba(255,255,255,0.52)",
+
+2B) FIND (inside nav-mobile-menu style):
+border: "1px solid rgba(255,255,255,0.28)",
+
+REPLACE WITH:
+border: "1px solid rgba(255,255,255,0.34)",
+
+2C) FIND (MobileNavItem root wrapper):
+return (
+  <div style={{ borderBottom: `1px solid ${mkt.border}` }}>
+
+REPLACE WITH:
+return (
+  <div
+    style={{
+      marginBottom: 10,
+      padding: "10px 12px",
+      borderRadius: 18,
+      background: "rgba(255,255,255,0.62)",
+      border: "1px solid rgba(255,255,255,0.34)",
+    }}
+  >
+
+2D) FIND (hasDropdown button styles in MobileNavItem):
+padding: "16px 0",
+
+REPLACE WITH:
+padding: "12px 2px",
+
+2E) FIND (non-dropdown Link styles in MobileNavItem):
+padding: "16px 0",
+
+REPLACE WITH:
+padding: "12px 2px",
+
+========================
+CHANGE 3 — Reduce gaps between sub-menu containers + make them whiter
+========================
+
+3A) FIND (inside MobileNavItem submenu Link style):
+padding: "14px 14px",
+
+REPLACE WITH:
+padding: "12px 12px",
+
+3B) FIND:
+marginBottom: 10,
+
+REPLACE WITH:
+marginBottom: 8,
+
+3C) FIND:
+borderRadius: 18,
+
+REPLACE WITH:
+borderRadius: 16,
+
+3D) FIND:
+background: "rgba(64,64,64,0.06)",
+
+REPLACE WITH:
+background: "rgba(255,255,255,0.68)",
+
+3E) FIND:
+border: "1px solid rgba(0,0,0,0.06)",
+
+REPLACE WITH:
+border: "1px solid rgba(255,255,255,0.34)",
+
+3F) (OPTIONAL: slightly less rounded icon container too)
+FIND:
+borderRadius: 16,
+
+REPLACE WITH:
+borderRadius: 14,
+
+(THIS IS INSIDE the submenu icon square style.)
