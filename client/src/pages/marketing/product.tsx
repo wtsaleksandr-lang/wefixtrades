@@ -8,71 +8,39 @@ import {
 } from "lucide-react";
 import { mkt, colors, shadows } from "@/theme/tokens";
 
-const C = {
-  navy: mkt.dark,
-  navyLight: mkt.darkHover,
-  sage: mkt.accent,
-  sageDark: mkt.accentHover,
-  sageLight: mkt.accent,
-  sageTint: mkt.accentTint,
-  sageAccent: mkt.accentTint,
-  blue: colors.accent.blue,
-  blueTint: colors.accent.blueTint,
-  purple: "#7C3AED",
-  purpleTint: "#F5F3FF",
-  pink: "#DB2777",
-  pinkTint: "#FDF2F8",
-  orange: mkt.orange,
-  orangeTint: mkt.orangeTint,
-  gold: mkt.warning,
-  bg: mkt.bg,
-  bgGray: mkt.surface,
-  bgGrayDark: mkt.surface,
-  heading: mkt.text,
-  body: mkt.textMuted,
-  muted: mkt.textMuted,
-  border: mkt.border,
-  borderLight: mkt.borderLight,
-};
-
-const SHADOW = {
-  card: shadows.card,
-  hero: shadows.xl,
-  md: shadows.md,
-};
 
 const CAPABILITIES = [
   {
     icon: Zap,
     title: "Instant Quote Engine",
     body: "Trade-specific pricing formulas, 10 pricing types, AI-validated accuracy — instant results every time.",
-    color: C.sage, bg: C.sageTint, testId: "cap-quotes", delay: "100",
+    color: mkt.accent, bg: mkt.accentTint, testId: "cap-quotes", delay: "100",
   },
   {
     icon: Calendar,
     title: "Booking + Deposits",
     body: "Turn estimates into confirmed jobs. Customers pick a time, pay a deposit via Stripe — no phone calls.",
-    color: C.blue, bg: C.blueTint, testId: "cap-booking", delay: "200",
+    color: colors.accent.blue, bg: colors.accent.blueTint, testId: "cap-booking", delay: "200",
   },
   {
     icon: Bot,
     title: "AI Employee",
     body: "24/7 chat and voice assistant that answers questions, generates estimates, and books appointments.",
-    color: C.purple, bg: C.purpleTint, testId: "cap-ai", delay: "300",
+    color: "#7C3AED", bg: "#F5F3FF", testId: "cap-ai", delay: "300",
   },
   {
     icon: MessageSquare,
     title: "SMS & WhatsApp",
     body: "Automated follow-ups, lead recovery, and two-way conversations powered by Twilio AI.",
-    color: C.pink, bg: C.pinkTint, testId: "cap-sms", delay: "400",
+    color: "#DB2777", bg: "#FDF2F8", testId: "cap-sms", delay: "400",
   },
 ];
 
 const FLOW_STEPS = [
-  { label: "Visitor", sub: "Lands on your site", icon: Users, color: C.blue },
-  { label: "Estimate", sub: "Gets instant price", icon: Zap, color: C.sage },
-  { label: "Books", sub: "Pays deposit online", icon: Calendar, color: C.purple },
-  { label: "AI follows up", sub: "SMS & chat reminders", icon: Bot, color: C.orange },
+  { label: "Visitor", sub: "Lands on your site", icon: Users, color: colors.accent.blue },
+  { label: "Estimate", sub: "Gets instant price", icon: Zap, color: mkt.accent },
+  { label: "Books", sub: "Pays deposit online", icon: Calendar, color: "#7C3AED" },
+  { label: "AI follows up", sub: "SMS & chat reminders", icon: Bot, color: mkt.orange },
   { label: "Confirmed Job", sub: "Revenue secured", icon: TrendingUp, color: "#059669" },
 ];
 
@@ -93,8 +61,8 @@ interface DeepSection {
 
 function EstimateMockup() {
   return (
-    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 20, padding: 28, boxShadow: SHADOW.md, maxWidth: 380 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 20 }}>
+    <div style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 20, padding: 28, boxShadow: shadows.md, maxWidth: 380 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 20 }}>
         Bathroom Renovation Quote
       </div>
       {[
@@ -103,21 +71,21 @@ function EstimateMockup() {
         { label: "Tiles included", value: "Yes", type: "pill" },
       ].map(({ label, value }) => (
         <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <span style={{ fontSize: 14, color: C.body }}>{label}</span>
-          <span style={{ fontSize: 13, fontWeight: 600, background: C.bgGray, border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 12px", color: C.heading }}>{value}</span>
+          <span style={{ fontSize: 14, color: mkt.textMuted }}>{label}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 8, padding: "4px 12px", color: mkt.text }}>{value}</span>
         </div>
       ))}
-      <div style={{ borderTop: `1px solid ${C.border}`, margin: "20px 0" }} />
-      <div style={{ background: C.sage, borderRadius: 14, padding: "20px 24px" }}>
+      <div style={{ borderTop: `1px solid ${mkt.border}`, margin: "20px 0" }} />
+      <div style={{ background: mkt.accent, borderRadius: 14, padding: "20px 24px" }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 6 }}>Your Estimate</div>
         <div style={{ fontSize: 36, fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em" }}>$1,240 – $1,680</div>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 4 }}>Calculated in 0.2s · Valid for 7 days</div>
       </div>
       <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-        <div style={{ flex: 1, background: C.sage, borderRadius: 10, padding: "11px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>
+        <div style={{ flex: 1, background: mkt.accent, borderRadius: 10, padding: "11px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>
           Book Now
         </div>
-        <div style={{ flex: 1, background: C.bgGray, border: `1px solid ${C.border}`, borderRadius: 10, padding: "11px", textAlign: "center", fontSize: 13, fontWeight: 600, color: C.body }}>
+        <div style={{ flex: 1, background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 10, padding: "11px", textAlign: "center", fontSize: 13, fontWeight: 600, color: mkt.textMuted }}>
           Get Full Quote
         </div>
       </div>
@@ -133,9 +101,9 @@ function AiMockup() {
     { text: "For 3 bedrooms, interior walls + ceiling — I estimate $2,400 – $3,100. Want to lock in a date?", user: false },
   ];
   return (
-    <div style={{ background: C.navy, borderRadius: 20, padding: 24, maxWidth: 380, boxShadow: SHADOW.hero }}>
+    <div style={{ background: mkt.dark, borderRadius: 20, padding: 24, maxWidth: 380, boxShadow: shadows.xl }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Bot size={17} color="#FFFFFF" strokeWidth={1.5} />
         </div>
         <div>
@@ -157,7 +125,7 @@ function AiMockup() {
             maxWidth: "82%",
             padding: "9px 13px",
             borderRadius: m.user ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-            background: m.user ? C.sage : "rgba(255,255,255,0.08)",
+            background: m.user ? mkt.accent : "rgba(255,255,255,0.08)",
             fontSize: 12.5,
             color: "#FFFFFF",
             lineHeight: 1.55,
@@ -170,7 +138,7 @@ function AiMockup() {
         <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 13px", fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
           Type a message…
         </div>
-        <div style={{ width: 34, height: 34, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 10, background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <ArrowRight size={15} color="#FFFFFF" strokeWidth={1.5} />
         </div>
       </div>
@@ -181,22 +149,22 @@ function AiMockup() {
 function BookingMockup() {
   const days = [14,15,16,17,18,19,20].map((d, i) => ({ d, sel: i === 3, avail: i !== 1 && i !== 5 }));
   return (
-    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 20, padding: 28, boxShadow: SHADOW.md, maxWidth: 380 }}>
+    <div style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 20, padding: 28, boxShadow: shadows.md, maxWidth: 380 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>Select a slot</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: C.heading }}>March 2026</div>
+          <div style={{ fontSize: 12, color: mkt.textMuted, marginBottom: 2 }}>Select a slot</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: mkt.text }}>March 2026</div>
         </div>
-        <div style={{ fontSize: 11, fontWeight: 600, background: C.sageTint, color: C.sage, padding: "4px 12px", borderRadius: 20 }}>Stripe deposits on</div>
+        <div style={{ fontSize: 11, fontWeight: 600, background: mkt.accentTint, color: mkt.accent, padding: "4px 12px", borderRadius: 20 }}>Stripe deposits on</div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 18 }}>
         {days.map(({ d, sel, avail }, i) => (
           <div key={i} style={{
             textAlign: "center", padding: "8px 0", borderRadius: 9,
             fontSize: 13, fontWeight: sel ? 700 : 500,
-            background: sel ? C.sage : avail ? C.bgGray : "transparent",
-            color: sel ? "#FFFFFF" : avail ? C.heading : C.border,
-            border: sel ? "none" : avail ? `1px solid ${C.border}` : "none",
+            background: sel ? mkt.accent : avail ? mkt.surface : "transparent",
+            color: sel ? "#FFFFFF" : avail ? mkt.text : mkt.border,
+            border: sel ? "none" : avail ? `1px solid ${mkt.border}` : "none",
           }}>{d}</div>
         ))}
       </div>
@@ -205,15 +173,15 @@ function BookingMockup() {
           <div key={t} style={{
             display: "flex", justifyContent: "space-between", alignItems: "center",
             padding: "10px 14px", borderRadius: 10,
-            background: i === 0 ? C.sage : C.bgGray,
-            border: i === 0 ? "none" : `1px solid ${C.border}`,
+            background: i === 0 ? mkt.accent : mkt.surface,
+            border: i === 0 ? "none" : `1px solid ${mkt.border}`,
           }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: i === 0 ? "#FFFFFF" : C.heading }}>{t}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: i === 0 ? "#FFFFFF" : mkt.text }}>{t}</span>
             {i === 0 && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.75)" }}>Selected ✓</span>}
           </div>
         ))}
       </div>
-      <div style={{ background: C.sageAccent, borderRadius: 12, padding: "12px 16px", display: "flex", justifyContent: "space-between" }}>
+      <div style={{ background: mkt.accentTint, borderRadius: 12, padding: "12px 16px", display: "flex", justifyContent: "space-between" }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: "#065F46" }}>Deposit via Stripe</span>
         <span style={{ fontSize: 15, fontWeight: 800, color: "#065F46" }}>$200 ✓</span>
       </div>
@@ -229,30 +197,30 @@ function AnalyticsMockup() {
     { label: "Revenue", val: "$7,600", delta: "+28%", up: true },
   ];
   const funnelSteps = [
-    { label: "Views", w: "100%", color: C.blue },
-    { label: "Estimates", w: "68%", color: C.sage },
-    { label: "Leads", w: "42%", color: C.purple },
-    { label: "Bookings", w: "24%", color: C.orange },
+    { label: "Views", w: "100%", color: colors.accent.blue },
+    { label: "Estimates", w: "68%", color: mkt.accent },
+    { label: "Leads", w: "42%", color: "#7C3AED" },
+    { label: "Bookings", w: "24%", color: mkt.orange },
     { label: "Paid", w: "18%", color: "#059669" },
   ];
   return (
-    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 20, padding: 24, boxShadow: SHADOW.md, maxWidth: 400 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: C.heading, marginBottom: 16 }}>Dashboard — Last 30 Days</div>
+    <div style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 20, padding: 24, boxShadow: shadows.md, maxWidth: 400 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: mkt.text, marginBottom: 16 }}>Dashboard — Last 30 Days</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
         {stats.map(({ label, val, delta, up }) => (
-          <div key={label} style={{ background: C.bgGray, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px" }}>
-            <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{label}</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: C.heading, letterSpacing: "-0.01em" }}>{val}</div>
+          <div key={label} style={{ background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 12, padding: "12px 14px" }}>
+            <div style={{ fontSize: 11, color: mkt.textMuted, marginBottom: 4 }}>{label}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: mkt.text, letterSpacing: "-0.01em" }}>{val}</div>
             <div style={{ fontSize: 11, fontWeight: 600, color: up ? "#059669" : "#DC2626", marginTop: 2 }}>{delta} vs last month</div>
           </div>
         ))}
       </div>
-      <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>Conversion Funnel</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: mkt.textMuted, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>Conversion Funnel</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {funnelSteps.map(({ label, w, color }) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 60, fontSize: 12, color: C.muted, flexShrink: 0 }}>{label}</div>
-            <div style={{ flex: 1, background: C.bgGray, borderRadius: 4, height: 8, overflow: "hidden" }}>
+            <div style={{ width: 60, fontSize: 12, color: mkt.textMuted, flexShrink: 0 }}>{label}</div>
+            <div style={{ flex: 1, background: mkt.surface, borderRadius: 4, height: 8, overflow: "hidden" }}>
               <div style={{ width: w, height: "100%", background: color, borderRadius: 4, transition: "width 1s ease" }} />
             </div>
             <div style={{ width: 36, fontSize: 11, fontWeight: 600, color, textAlign: "right", flexShrink: 0 }}>{w}</div>
@@ -265,11 +233,11 @@ function AnalyticsMockup() {
 
 function TemplateMockup() {
   const templates = [
-    { name: "Classic Single", color: C.blueTint, accent: C.blue },
-    { name: "Two Column", color: C.sageTint, accent: C.sage },
-    { name: "Multi-Step", color: C.purpleTint, accent: C.purple },
-    { name: "Package Cards", color: C.pinkTint, accent: C.pink },
-    { name: "Range + Lead Gate", color: C.orangeTint, accent: C.orange },
+    { name: "Classic Single", color: colors.accent.blueTint, accent: colors.accent.blue },
+    { name: "Two Column", color: mkt.accentTint, accent: mkt.accent },
+    { name: "Multi-Step", color: "#F5F3FF", accent: "#7C3AED" },
+    { name: "Package Cards", color: "#FDF2F8", accent: "#DB2777" },
+    { name: "Range + Lead Gate", color: mkt.orangeTint, accent: mkt.orange },
     { name: "Estimate + Book", color: "#F0FDF4", accent: "#16A34A" },
   ];
   return (
@@ -277,7 +245,7 @@ function TemplateMockup() {
       {templates.map(({ name, color, accent }) => (
         <div key={name} className="mkt-feature-card" style={{
           background: color, borderRadius: 12, padding: "16px 14px",
-          border: `1px solid ${accent}22`, boxShadow: SHADOW.card,
+          border: `1px solid ${accent}22`, boxShadow: shadows.card,
         }}>
           <div style={{ width: 28, height: 4, background: accent, borderRadius: 2, marginBottom: 10, opacity: 0.8 }} />
           <div style={{ width: "80%", height: 3, background: accent, borderRadius: 2, marginBottom: 6, opacity: 0.3 }} />
@@ -303,9 +271,9 @@ const DEEP_SECTIONS: DeepSection[] = [
     ],
     cta: "Start Building",
     ctaHref: "/Wizard",
-    labelColor: C.sage,
-    bulletColor: C.sage,
-    ctaColor: C.sage,
+    labelColor: mkt.accent,
+    bulletColor: mkt.accent,
+    ctaColor: mkt.accent,
     testId: "deep-section-estimates",
     mockup: EstimateMockup,
   },
@@ -322,9 +290,9 @@ const DEEP_SECTIONS: DeepSection[] = [
     ],
     cta: "See AI Employee",
     ctaHref: "/product",
-    labelColor: C.purple,
-    bulletColor: C.purple,
-    ctaColor: C.purple,
+    labelColor: "#7C3AED",
+    bulletColor: "#7C3AED",
+    ctaColor: "#7C3AED",
     testId: "deep-section-ai",
     mockup: AiMockup,
   },
@@ -341,9 +309,9 @@ const DEEP_SECTIONS: DeepSection[] = [
     ],
     cta: "Explore Booking",
     ctaHref: "/product",
-    labelColor: C.blue,
-    bulletColor: C.blue,
-    ctaColor: C.blue,
+    labelColor: colors.accent.blue,
+    bulletColor: colors.accent.blue,
+    ctaColor: colors.accent.blue,
     testId: "deep-section-booking",
     mockup: BookingMockup,
   },
@@ -379,9 +347,9 @@ const DEEP_SECTIONS: DeepSection[] = [
     ],
     cta: "Browse Templates",
     ctaHref: "/templates",
-    labelColor: C.pink,
-    bulletColor: C.pink,
-    ctaColor: C.pink,
+    labelColor: "#DB2777",
+    bulletColor: "#DB2777",
+    ctaColor: "#DB2777",
     testId: "deep-section-templates",
     mockup: TemplateMockup,
   },
@@ -404,7 +372,7 @@ export default function ProductPage() {
         <section
           data-testid="product-hero"
           style={{
-            background: `linear-gradient(160deg, ${C.navy} 0%, #0F2744 55%, #1a3550 100%)`,
+            background: `linear-gradient(160deg, ${mkt.dark} 0%, #0F2744 55%, #1a3550 100%)`,
             padding: "80px 28px 96px",
             position: "relative",
             overflow: "hidden",
@@ -468,7 +436,7 @@ export default function ProductPage() {
                   data-testid="product-cta-start"
                   className="mkt-btn-primary"
                   style={{
-                    padding: "14px 30px", borderRadius: 10, background: C.sage,
+                    padding: "14px 30px", borderRadius: 10, background: mkt.accent,
                     color: "#FFFFFF", fontSize: 15, fontWeight: 700, textDecoration: "none",
                     display: "inline-block",
                   }}
@@ -499,17 +467,17 @@ export default function ProductPage() {
                 style={{
                   background: "rgba(12,24,44,0.85)", backdropFilter: "blur(20px)",
                   border: "1px solid rgba(255,255,255,0.09)", borderRadius: 24,
-                  padding: 26, width: "100%", maxWidth: 400, boxShadow: SHADOW.hero,
+                  padding: 26, width: "100%", maxWidth: 400, boxShadow: shadows.xl,
                 }}
               >
                 {/* Estimate result */}
                 <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 14, padding: "16px 20px", marginBottom: 10 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, background: C.sageAccent, color: "#065F46", borderRadius: 20, padding: "3px 10px" }}>✓ Estimate Ready</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, background: mkt.accentTint, color: "#065F46", borderRadius: 20, padding: "3px 10px" }}>✓ Estimate Ready</span>
                   <div style={{ fontSize: 30, fontWeight: 800, color: "#FFF", letterSpacing: "-0.02em", marginTop: 8 }}>$1,240 – $1,680</div>
                   <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 3 }}>Bathroom Reno · 12m² · Standard</div>
                 </div>
                 <div style={{ height: 20, display: "flex", alignItems: "center", padding: "0 24px" }}>
-                  <div style={{ width: 2, height: "100%", background: C.sage, borderRadius: 1, margin: "0 auto" }} />
+                  <div style={{ width: 2, height: "100%", background: mkt.accent, borderRadius: 1, margin: "0 auto" }} />
                 </div>
                 {/* Calendar */}
                 <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 14, padding: "14px 18px", marginBottom: 10 }}>
@@ -518,7 +486,7 @@ export default function ProductPage() {
                     {["M","T","W","T","F"].map((d, i) => (
                       <div key={i} style={{
                         flex: 1, textAlign: "center", padding: "7px 0", borderRadius: 8,
-                        background: i === 1 ? C.sage : "rgba(255,255,255,0.07)",
+                        background: i === 1 ? mkt.accent : "rgba(255,255,255,0.07)",
                         color: i === 1 ? "#FFF" : "rgba(255,255,255,0.45)",
                         fontSize: 12, fontWeight: i === 1 ? 700 : 400,
                       }}>{d}</div>
@@ -526,16 +494,16 @@ export default function ProductPage() {
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
                     <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>9:00 AM — Confirmed</span>
-                    <span style={{ fontSize: 11, background: C.sageAccent, color: "#065F46", padding: "2px 10px", borderRadius: 20, fontWeight: 700 }}>$200 ✓</span>
+                    <span style={{ fontSize: 11, background: mkt.accentTint, color: "#065F46", padding: "2px 10px", borderRadius: 20, fontWeight: 700 }}>$200 ✓</span>
                   </div>
                 </div>
                 <div style={{ height: 20, display: "flex", alignItems: "center", padding: "0 24px" }}>
-                  <div style={{ width: 2, height: "100%", background: C.sage, borderRadius: 1, margin: "0 auto" }} />
+                  <div style={{ width: 2, height: "100%", background: mkt.accent, borderRadius: 1, margin: "0 auto" }} />
                 </div>
                 {/* AI bubble */}
                 <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 14, padding: "14px 18px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                    <div style={{ width: 26, height: 26, borderRadius: 10, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ width: 26, height: 26, borderRadius: 10, background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <Bot size={13} color="#FFF" strokeWidth={1.5} />
                     </div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#FFF" }}>AI Employee <span style={{ color: "#4A7C6F" }}>●</span></div>
@@ -559,16 +527,16 @@ export default function ProductPage() {
         {/* ═══════════════════════════════════
             SECTION 2 — CORE CAPABILITIES
         ═══════════════════════════════════ */}
-        <section data-testid="capabilities-section" style={{ background: C.bg, padding: "96px 28px" }}>
+        <section data-testid="capabilities-section" style={{ background: mkt.bg, padding: "96px 28px" }}>
           <div style={{ maxWidth: 1200, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 Core Platform
               </div>
-              <h2 style={{ fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 14 }}>
+              <h2 style={{ fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 600, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 14 }}>
                 Four engines. One platform. Zero friction.
               </h2>
-              <p style={{ fontSize: 17, color: C.muted, maxWidth: 520, margin: "0 auto" }}>
+              <p style={{ fontSize: 17, color: mkt.textMuted, maxWidth: 520, margin: "0 auto" }}>
                 Each module is powerful alone. Together, they create a fully automated sales machine.
               </p>
             </div>
@@ -582,15 +550,15 @@ export default function ProductPage() {
                   data-delay={delay}
                   className="mkt-feature-card"
                   style={{
-                    background: C.bg, border: `1px solid ${C.border}`, borderRadius: 16,
-                    padding: "32px 28px", boxShadow: SHADOW.card,
+                    background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 16,
+                    padding: "32px 28px", boxShadow: shadows.card,
                   }}
                 >
                   <div style={{ width: 52, height: 52, borderRadius: 14, background: bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
                     <Icon size={24} color={color} strokeWidth={1.5} />
                   </div>
-                  <h3 style={{ fontSize: 18, fontWeight: 700, color: C.heading, marginBottom: 10, letterSpacing: "-0.01em" }}>{title}</h3>
-                  <p style={{ fontSize: 15, color: C.muted, lineHeight: 1.65, margin: 0 }}>{body}</p>
+                  <h3 style={{ fontSize: 18, fontWeight: 700, color: mkt.text, marginBottom: 10, letterSpacing: "-0.01em" }}>{title}</h3>
+                  <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.65, margin: 0 }}>{body}</p>
                 </div>
               ))}
             </div>
@@ -600,16 +568,16 @@ export default function ProductPage() {
         {/* ═══════════════════════════════════
             SECTION 3 — HOW IT CONNECTS
         ═══════════════════════════════════ */}
-        <section data-testid="flow-section" style={{ background: C.bgGray, padding: "96px 28px" }}>
+        <section data-testid="flow-section" style={{ background: mkt.surface, padding: "96px 28px" }}>
           <div style={{ maxWidth: 1100, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 64 }} data-reveal="fade-up">
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 The Automation Flow
               </div>
-              <h2 style={{ fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 14 }}>
+              <h2 style={{ fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 600, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 14 }}>
                 How every visitor becomes a confirmed job
               </h2>
-              <p style={{ fontSize: 16, color: C.muted, maxWidth: 480, margin: "0 auto" }}>
+              <p style={{ fontSize: 16, color: mkt.textMuted, maxWidth: 480, margin: "0 auto" }}>
                 Each step in the flow is automated. You only need to show up to do the actual job.
               </p>
             </div>
@@ -641,7 +609,7 @@ export default function ProductPage() {
                         left: "calc(50% + 32px)",
                         right: "calc(-50% + 32px)",
                         height: 2,
-                        background: C.border,
+                        background: mkt.border,
                         opacity: 0.25,
                         zIndex: 0,
                       }} />
@@ -658,8 +626,8 @@ export default function ProductPage() {
                       <Icon size={24} color={color} strokeWidth={1.5} />
                     </div>
 
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.heading, textAlign: "center", marginBottom: 4 }}>{label}</div>
-                    <div style={{ fontSize: 12, color: C.muted, textAlign: "center", lineHeight: 1.4 }}>{sub}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: mkt.text, textAlign: "center", marginBottom: 4 }}>{label}</div>
+                    <div style={{ fontSize: 12, color: mkt.textMuted, textAlign: "center", lineHeight: 1.4 }}>{sub}</div>
                   </div>
                 ))}
               </div>
@@ -684,13 +652,13 @@ export default function ProductPage() {
                 <div
                   key={title}
                   style={{
-                    background: C.bg, border: `1px solid ${C.border}`, borderRadius: 14, padding: "20px 18px",
-                    boxShadow: SHADOW.card,
+                    background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 14, padding: "20px 18px",
+                    boxShadow: shadows.card,
                   }}
                 >
                   <div style={{ fontSize: 24, marginBottom: 10 }}>{icon}</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.heading, marginBottom: 6 }}>{title}</div>
-                  <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>{body}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: mkt.text, marginBottom: 6 }}>{title}</div>
+                  <div style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.6 }}>{body}</div>
                 </div>
               ))}
             </div>
@@ -713,7 +681,7 @@ export default function ProductPage() {
             <section
               key={id}
               data-testid={testId}
-              style={{ background: isOdd ? C.bgGray : C.bg, padding: "96px 28px" }}
+              style={{ background: isOdd ? mkt.surface : mkt.bg, padding: "96px 28px" }}
             >
               <div
                 className="alt-grid"
@@ -732,16 +700,16 @@ export default function ProductPage() {
                   <div style={{ fontSize: 11, fontWeight: 700, color: labelColor, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                     {label}
                   </div>
-                  <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em", marginBottom: 16, lineHeight: 1.15 }}>
+                  <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 600, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 16, lineHeight: 1.15 }}>
                     {title}
                   </h2>
-                  <p style={{ fontSize: 16, color: C.body, lineHeight: 1.7, marginBottom: 28 }}>
+                  <p style={{ fontSize: 16, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 28 }}>
                     {body}
                   </p>
                   {bullets.map((b) => (
                     <div key={b} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 12 }}>
                       <Check size={16} color={bulletColor} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 2 }} />
-                      <span style={{ fontSize: 14.5, color: C.body, lineHeight: 1.5 }}>{b}</span>
+                      <span style={{ fontSize: 14.5, color: mkt.textMuted, lineHeight: 1.5 }}>{b}</span>
                     </div>
                   ))}
                   <Link
@@ -777,7 +745,7 @@ export default function ProductPage() {
         <section
           data-testid="product-cta-band"
           style={{
-            background: `linear-gradient(135deg, ${C.sage} 0%, ${C.sageDark} 100%)`,
+            background: `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentHover} 100%)`,
             padding: "120px 28px",
             textAlign: "center",
           }}
@@ -796,7 +764,7 @@ export default function ProductPage() {
                 className="mkt-btn-primary"
                 style={{
                   display: "inline-block", padding: "15px 36px", borderRadius: 9999,
-                  background: "#FFFFFF", color: C.sage, fontSize: 16, fontWeight: 700, textDecoration: "none",
+                  background: "#FFFFFF", color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none",
                 }}
               >
                 Start Free

@@ -1,5 +1,6 @@
 import { Settings2, Layers, Bot, Code2, RefreshCcw } from "lucide-react";
-import FeaturePage, { C, SHADOW, type FeaturePageConfig } from "@/components/marketing/FeaturePage";
+import FeaturePage, { type FeaturePageConfig } from "@/components/marketing/FeaturePage";
+import { mkt, colors, shadows } from "@/theme/tokens";
 
 /* ── Mockup ──────────────────────────────────── */
 function EngineMockup() {
@@ -13,51 +14,51 @@ function EngineMockup() {
   return (
     <div
       style={{
-        background: C.bg,
-        border: `1px solid ${C.border}`,
+        background: mkt.bg,
+        border: `1px solid ${mkt.border}`,
         borderRadius: 20,
         padding: 26,
         width: "100%",
         maxWidth: 400,
-        boxShadow: SHADOW.hero,
+        boxShadow: shadows.xl,
       }}
     >
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.borderLight}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${mkt.borderLight}` }}>
         <div style={{ width: 36, height: 36, borderRadius: 10, background: "#F5F3FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Settings2 size={18} color={C.purple} />
+          <Settings2 size={18} color={"#7C3AED"} />
         </div>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: C.heading }}>Pricing Formula Builder</div>
-          <div style={{ fontSize: 11, color: C.muted }}>10 formula types available</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: mkt.text }}>Pricing Formula Builder</div>
+          <div style={{ fontSize: 11, color: mkt.textMuted }}>10 formula types available</div>
         </div>
-        <div style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, background: C.sageTint, color: C.sage, padding: "3px 10px", borderRadius: 20 }}>AI Validated ✓</div>
+        <div style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, background: mkt.accentTint, color: mkt.accent, padding: "3px 10px", borderRadius: 20 }}>AI Validated ✓</div>
       </div>
 
       {/* Formula type selector */}
-      <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Pricing Model</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Pricing Model</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
         {formulaTypes.map(({ name, active, example }) => (
           <div key={name} style={{
             display: "flex", justifyContent: "space-between", alignItems: "center",
             padding: "10px 14px", borderRadius: 10,
-            background: active ? "#F5F3FF" : C.bgGray,
-            border: `1.5px solid ${active ? C.purple : C.border}`,
+            background: active ? "#F5F3FF" : mkt.surface,
+            border: `1.5px solid ${active ? "#7C3AED" : mkt.border}`,
             cursor: "pointer",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 16, height: 16, borderRadius: "50%", background: active ? C.purple : C.border, border: `2px solid ${active ? C.purple : C.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 16, height: 16, borderRadius: "50%", background: active ? "#7C3AED" : mkt.border, border: `2px solid ${active ? "#7C3AED" : mkt.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {active && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#FFFFFF" }} />}
               </div>
-              <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? C.purple : C.heading }}>{name}</span>
+              <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? "#7C3AED" : mkt.text }}>{name}</span>
             </div>
-            <span style={{ fontSize: 11, color: C.muted }}>{example}</span>
+            <span style={{ fontSize: 11, color: mkt.textMuted }}>{example}</span>
           </div>
         ))}
       </div>
 
       {/* Formula parameters */}
-      <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Parameters</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Parameters</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
         {[
           { label: "Base Rate", val: "$200.00" },
@@ -65,19 +66,19 @@ function EngineMockup() {
           { label: "Minimum charge", val: "$350.00" },
         ].map(({ label, val }) => (
           <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 13, color: C.body }}>{label}</span>
-            <div style={{ background: C.bgGray, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 700, color: C.heading }}>{val}</div>
+            <span style={{ fontSize: 13, color: mkt.textMuted }}>{label}</span>
+            <div style={{ background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 700, color: mkt.text }}>{val}</div>
           </div>
         ))}
       </div>
 
       {/* Preview */}
-      <div style={{ background: C.purpleTint, borderRadius: 12, padding: "14px 18px" }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 6 }}>Formula Preview — 12m²</div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.purple, fontFamily: "monospace" }}>
+      <div style={{ background: "#F5F3FF", borderRadius: 12, padding: "14px 18px" }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: mkt.textMuted, marginBottom: 6 }}>Formula Preview — 12m²</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#7C3AED", fontFamily: "monospace" }}>
           $200 + (12 × $45) = <span style={{ color: "#6D28D9" }}>$740</span>
         </div>
-        <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Output range: $666 – $814 (±10%)</div>
+        <div style={{ fontSize: 11, color: mkt.textMuted, marginTop: 4 }}>Output range: $666 – $814 (±10%)</div>
       </div>
     </div>
   );
@@ -87,11 +88,11 @@ const config: FeaturePageConfig = {
   meta: { title: "Calculator Engine — QuickQuotePro | Build a Pricing Calculator for Any Trade" },
   hero: {
     badge: "Calculator Engine",
-    badgeColor: C.purple,
+    badgeColor: "#7C3AED",
     headline: "Build a Pricing Calculator for Any Trade, Any Job",
     highlightedWords: ["Any Trade", "Any Job"],
     sub: "10 flexible pricing formula types, AI-validated configuration, and instant results — built for the complexity of real-world trades pricing.",
-    accentColor: C.purple,
+    accentColor: "#7C3AED",
   },
   demo: {
     label: "Formula Builder",
@@ -103,7 +104,7 @@ const config: FeaturePageConfig = {
       "AI validates your formula against real-world scenarios before publishing",
       "Configurable output range (e.g. ±10%) to account for real-world variation",
     ],
-    bulletColor: C.purple,
+    bulletColor: "#7C3AED",
     mockup: EngineMockup,
   },
   benefits: [
@@ -111,25 +112,25 @@ const config: FeaturePageConfig = {
       icon: Settings2,
       title: "10 Formula Types",
       body: "Every pricing model a trades business needs — from simple per-hour rates to complex multi-variable formulas with conditional pricing logic.",
-      color: C.purple, bg: C.purpleTint,
+      color: "#7C3AED", bg: "#F5F3FF",
     },
     {
       icon: Bot,
       title: "AI-Validated Before Live",
       body: "Run 3 test scenarios before publishing. AI compares your formula output against your expected pricing and flags anything that looks wrong.",
-      color: C.sage, bg: C.sageTint,
+      color: mkt.accent, bg: mkt.accentTint,
     },
     {
       icon: Layers,
       title: "Multi-Input Calculators",
       body: "Combine room size, job complexity, finish grade, extras, and more — all feeding into a single accurate estimate for the customer.",
-      color: C.blue, bg: C.blueTint,
+      color: colors.accent.blue, bg: colors.accent.blueTint,
     },
     {
       icon: Code2,
       title: "Embed Anywhere",
       body: "A single script tag or iframe embeds your calculator on any website. Works with WordPress, Wix, Squarespace, Webflow, and custom HTML.",
-      color: C.orange, bg: C.orangeTint,
+      color: mkt.orange, bg: mkt.orangeTint,
     },
   ],
   steps: [

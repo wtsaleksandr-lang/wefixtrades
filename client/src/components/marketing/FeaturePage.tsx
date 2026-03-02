@@ -6,7 +6,7 @@ import { useScrollReveal } from "@/hooks/useScrollReveal";
 
 import { mkt, colors, shadows } from "@/theme/tokens";
 
-export const C = {
+const C = {
   navy: colors.brand.dark,
   sage: colors.accent.blue,
   sageDark: colors.accent.blueHover,
@@ -30,7 +30,7 @@ export const C = {
   borderLight: mkt.borderLight,
 };
 
-export const SHADOW = {
+const SHADOW = {
   card: shadows.card,
   hero: shadows.xl,
   md: shadows.md,

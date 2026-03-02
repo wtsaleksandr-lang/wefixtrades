@@ -2,28 +2,13 @@ import { useEffect } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, shadows, radius } from "@/theme/tokens";
 
-const p = {
-  colors: {
-    navy: mkt.dark,
-    heading: mkt.text,
-    body: mkt.textMuted,
-    muted: mkt.textMuted,
-    accent: mkt.accent,
-    pageBg: mkt.surface,
-    surface: mkt.bg,
-    border: mkt.border,
-  },
-  radius: { md: radius.md },
-  shadows: { card: shadows.card },
-};
-
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section style={{ marginBottom: 40 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: p.colors.heading, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${p.colors.border}` }}>
+      <h2 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${mkt.border}` }}>
         {title}
       </h2>
-      <div style={{ fontSize: 15, color: p.colors.body, lineHeight: 1.8 }}>
+      <div style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.8 }}>
         {children}
       </div>
     </section>
@@ -39,7 +24,7 @@ export default function TermsPage() {
     <MarketingLayout>
       <div data-testid="terms-page" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
         {/* Page Header */}
-        <section style={{ background: p.colors.navy, padding: "72px 24px 64px" }}>
+        <section style={{ background: mkt.dark, padding: "72px 24px 64px" }}>
           <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
             <h1 style={{ fontSize: 40, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2, margin: "0 0 16px" }}>
               Terms of Service
@@ -51,16 +36,16 @@ export default function TermsPage() {
         </section>
 
         {/* Content */}
-        <section style={{ background: p.colors.pageBg, padding: "64px 24px 80px" }}>
+        <section style={{ background: mkt.surface, padding: "64px 24px 80px" }}>
           <div style={{ maxWidth: 760, margin: "0 auto" }}>
             <div style={{
-              background: p.colors.surface,
-              borderRadius: p.radius.md,
+              background: mkt.bg,
+              borderRadius: radius.md,
               padding: "48px 48px",
-              boxShadow: p.shadows.card,
-              border: `1px solid ${p.colors.border}`,
+              boxShadow: shadows.card,
+              border: `1px solid ${mkt.border}`,
             }}>
-              <p style={{ fontSize: 15, color: p.colors.body, lineHeight: 1.8, marginBottom: 36 }}>
+              <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.8, marginBottom: 36 }}>
                 These Terms of Service ("Terms") govern your access to and use of QuickQuotePro, a product of WeFixTrades Pty Ltd ("Company", "we", "us", or "our"). By creating an account or using our services, you agree to be bound by these Terms.
               </p>
 
@@ -137,7 +122,7 @@ export default function TermsPage() {
 
               <Section title="6. Data and Privacy">
                 <p>
-                  Your use of the Service is also governed by our <a href="/privacy" style={{ color: p.colors.accent, textDecoration: "none" }}>Privacy Policy</a>, which is incorporated into these Terms by reference. You are responsible for ensuring that your use of the Service complies with applicable data protection laws, including obtaining necessary consent from your end-users (the customers who interact with your quote calculators).
+                  Your use of the Service is also governed by our <a href="/privacy" style={{ color: mkt.accent, textDecoration: "none" }}>Privacy Policy</a>, which is incorporated into these Terms by reference. You are responsible for ensuring that your use of the Service complies with applicable data protection laws, including obtaining necessary consent from your end-users (the customers who interact with your quote calculators).
                 </p>
                 <p style={{ marginTop: 12 }}>
                   As a data controller for your customers' information, you must have a lawful basis for processing their data and must have a compliant privacy policy on your own website.
@@ -214,9 +199,9 @@ export default function TermsPage() {
                 <p>
                   For questions about these Terms of Service, please contact us:
                 </p>
-                <div style={{ marginTop: 12, padding: "16px 20px", background: "#F0F7F4", borderRadius: 8, fontSize: 14, lineHeight: 1.8 }}>
+                <div style={{ marginTop: 12, padding: "16px 20px", background: mkt.accentTint, borderRadius: 8, fontSize: 14, lineHeight: 1.8 }}>
                   <strong>WeFixTrades Pty Ltd</strong><br />
-                  Email: <a href="mailto:contact@wefxtrades.com" style={{ color: p.colors.accent, textDecoration: "none" }}>contact@wefxtrades.com</a><br />
+                  Email: <a href="mailto:contact@wefxtrades.com" style={{ color: mkt.accent, textDecoration: "none" }}>contact@wefxtrades.com</a><br />
                   Response time: Usually within 2 business hours
                 </div>
               </Section>

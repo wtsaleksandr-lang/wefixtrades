@@ -1,5 +1,6 @@
 import { Calendar, DollarSign, Bell, Ban, ArrowRight } from "lucide-react";
-import FeaturePage, { C, SHADOW, type FeaturePageConfig } from "@/components/marketing/FeaturePage";
+import FeaturePage, { type FeaturePageConfig } from "@/components/marketing/FeaturePage";
+import { mkt, colors, shadows } from "@/theme/tokens";
 
 /* ── Mockup ──────────────────────────────────── */
 function BookingMockup() {
@@ -10,22 +11,22 @@ function BookingMockup() {
   return (
     <div
       style={{
-        background: C.bg,
-        border: `1px solid ${C.border}`,
+        background: mkt.bg,
+        border: `1px solid ${mkt.border}`,
         borderRadius: 20,
         padding: 28,
         width: "100%",
         maxWidth: 400,
-        boxShadow: SHADOW.hero,
+        boxShadow: shadows.xl,
       }}
     >
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>Available slots</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: C.heading }}>March 2026</div>
+          <div style={{ fontSize: 12, color: mkt.textMuted, marginBottom: 2 }}>Available slots</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: mkt.text }}>March 2026</div>
         </div>
-        <div style={{ fontSize: 11, fontWeight: 700, background: C.sageTint, color: C.sage, padding: "4px 12px", borderRadius: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, background: mkt.accentTint, color: mkt.accent, padding: "4px 12px", borderRadius: 20 }}>
           Deposits via Stripe ✓
         </div>
       </div>
@@ -33,7 +34,7 @@ function BookingMockup() {
       {/* Day labels */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 6 }}>
         {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
-          <div key={i} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: C.muted, padding: "4px 0" }}>{d}</div>
+          <div key={i} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: mkt.textMuted, padding: "4px 0" }}>{d}</div>
         ))}
       </div>
 
@@ -46,9 +47,9 @@ function BookingMockup() {
             <div key={d} style={{
               textAlign: "center", padding: "9px 0", borderRadius: 9,
               fontSize: 13, fontWeight: isSel ? 700 : 500,
-              background: isSel ? C.sage : isNA ? "transparent" : C.bgGray,
-              color: isSel ? "#FFFFFF" : isNA ? C.border : C.heading,
-              border: isSel ? "none" : isNA ? "none" : `1px solid ${C.border}`,
+              background: isSel ? mkt.accent : isNA ? "transparent" : mkt.surface,
+              color: isSel ? "#FFFFFF" : isNA ? mkt.border : mkt.text,
+              border: isSel ? "none" : isNA ? "none" : `1px solid ${mkt.border}`,
             }}>
               {isNA ? <span style={{ textDecoration: "line-through" }}>{d}</span> : d}
             </div>
@@ -66,12 +67,12 @@ function BookingMockup() {
           <div key={time} style={{
             display: "flex", justifyContent: "space-between", alignItems: "center",
             padding: "11px 14px", borderRadius: 10,
-            background: sel ? C.sage : C.bgGray,
-            border: sel ? "none" : `1px solid ${C.border}`,
+            background: sel ? mkt.accent : mkt.surface,
+            border: sel ? "none" : `1px solid ${mkt.border}`,
           }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: sel ? "#FFFFFF" : C.heading }}>{time}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: sel ? "#FFFFFF" : mkt.text }}>{time}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {spots && <span style={{ fontSize: 11, color: C.orange }}>{spots}</span>}
+              {spots && <span style={{ fontSize: 11, color: mkt.orange }}>{spots}</span>}
               {sel && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.75)" }}>Selected ✓</span>}
             </div>
           </div>
@@ -99,11 +100,11 @@ const config: FeaturePageConfig = {
   meta: { title: "Booking + Deposits — QuickQuotePro | No-Show Prevention Built In" },
   hero: {
     badge: "Booking Engine",
-    badgeColor: C.blue,
+    badgeColor: colors.accent.blue,
     headline: "Convert Estimates Into Paid Appointments — Automatically",
     highlightedWords: ["Paid Appointments", "Automatically"],
     sub: "Customers pick a time, pay a deposit, and you get an instant notification — no phone calls, no chasing, no no-shows.",
-    accentColor: C.blue,
+    accentColor: colors.accent.blue,
   },
   demo: {
     label: "How Booking Works",
@@ -115,7 +116,7 @@ const config: FeaturePageConfig = {
       "Automated confirmation emails to customer and business",
       "Double-booking prevention built in",
     ],
-    bulletColor: C.blue,
+    bulletColor: colors.accent.blue,
     mockup: BookingMockup,
   },
   benefits: [
@@ -123,25 +124,25 @@ const config: FeaturePageConfig = {
       icon: DollarSign,
       title: "Deposits Prevent No-Shows",
       body: "Customers who've paid a deposit cancel 80% less often than those who book for free. Protect your time and revenue.",
-      color: C.sage, bg: C.sageTint,
+      color: mkt.accent, bg: mkt.accentTint,
     },
     {
       icon: Calendar,
       title: "Zero Phone Tag",
       body: "No more 'What time works for you?' back-and-forth. Customers self-serve on your live availability.",
-      color: C.blue, bg: C.blueTint,
+      color: colors.accent.blue, bg: colors.accent.blueTint,
     },
     {
       icon: Bell,
       title: "Instant Notifications",
       body: "Get a push, email, or SMS the moment a booking is confirmed — so you can prepare for the job immediately.",
-      color: C.purple, bg: C.purpleTint,
+      color: "#7C3AED", bg: "#F5F3FF",
     },
     {
       icon: Ban,
       title: "No Double Bookings",
       body: "Slots are locked the moment a booking is confirmed. Your availability stays accurate across all open calculators.",
-      color: C.orange, bg: C.orangeTint,
+      color: mkt.orange, bg: mkt.orangeTint,
     },
   ],
   steps: [

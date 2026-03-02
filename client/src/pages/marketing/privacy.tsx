@@ -2,28 +2,13 @@ import { useEffect } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, shadows, radius } from "@/theme/tokens";
 
-const p = {
-  colors: {
-    navy: mkt.dark,
-    heading: mkt.text,
-    body: mkt.textMuted,
-    muted: mkt.textMuted,
-    accent: mkt.accent,
-    pageBg: mkt.surface,
-    surface: mkt.bg,
-    border: mkt.border,
-  },
-  radius: { md: radius.md },
-  shadows: { card: shadows.card },
-};
-
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section style={{ marginBottom: 40 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: p.colors.heading, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${p.colors.border}` }}>
+      <h2 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${mkt.border}` }}>
         {title}
       </h2>
-      <div style={{ fontSize: 15, color: p.colors.body, lineHeight: 1.8 }}>
+      <div style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.8 }}>
         {children}
       </div>
     </section>
@@ -39,7 +24,7 @@ export default function PrivacyPage() {
     <MarketingLayout>
       <div data-testid="privacy-page" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
         {/* Page Header */}
-        <section style={{ background: p.colors.navy, padding: "72px 24px 64px" }}>
+        <section style={{ background: mkt.dark, padding: "72px 24px 64px" }}>
           <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
             <h1 style={{ fontSize: 40, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2, margin: "0 0 16px" }}>
               Privacy Policy
@@ -51,16 +36,16 @@ export default function PrivacyPage() {
         </section>
 
         {/* Content */}
-        <section style={{ background: p.colors.pageBg, padding: "64px 24px 80px" }}>
+        <section style={{ background: mkt.surface, padding: "64px 24px 80px" }}>
           <div style={{ maxWidth: 760, margin: "0 auto" }}>
             <div style={{
-              background: p.colors.surface,
-              borderRadius: p.radius.md,
+              background: mkt.bg,
+              borderRadius: radius.md,
               padding: "48px 48px",
-              boxShadow: p.shadows.card,
-              border: `1px solid ${p.colors.border}`,
+              boxShadow: shadows.card,
+              border: `1px solid ${mkt.border}`,
             }}>
-              <p style={{ fontSize: 15, color: p.colors.body, lineHeight: 1.8, marginBottom: 36 }}>
+              <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.8, marginBottom: 36 }}>
                 QuickQuotePro ("we", "our", or "us"), operated by WeFixTrades, is committed to protecting your privacy. This Privacy Policy explains how we collect, use, share, and protect information about you when you use our services.
               </p>
 
@@ -119,7 +104,7 @@ export default function PrivacyPage() {
                   <li><strong>Objection:</strong> Object to processing based on legitimate interests.</li>
                   <li><strong>Opt-out of marketing:</strong> Unsubscribe from marketing emails at any time via the link in our emails.</li>
                 </ul>
-                <p style={{ marginTop: 12 }}>To exercise any of these rights, contact us at <a href="mailto:contact@wefxtrades.com" style={{ color: p.colors.accent, textDecoration: "none" }}>contact@wefxtrades.com</a>.</p>
+                <p style={{ marginTop: 12 }}>To exercise any of these rights, contact us at <a href="mailto:contact@wefxtrades.com" style={{ color: mkt.accent, textDecoration: "none" }}>contact@wefxtrades.com</a>.</p>
               </Section>
 
               <Section title="6. Cookie Policy">
@@ -163,9 +148,9 @@ export default function PrivacyPage() {
                 <p>
                   If you have questions or concerns about this Privacy Policy or our data practices, please contact us:
                 </p>
-                <div style={{ marginTop: 12, padding: "16px 20px", background: "#F0F7F4", borderRadius: 8, fontSize: 14, lineHeight: 1.8 }}>
+                <div style={{ marginTop: 12, padding: "16px 20px", background: mkt.accentTint, borderRadius: 8, fontSize: 14, lineHeight: 1.8 }}>
                   <strong>WeFixTrades Pty Ltd</strong><br />
-                  Email: <a href="mailto:contact@wefxtrades.com" style={{ color: p.colors.accent, textDecoration: "none" }}>contact@wefxtrades.com</a><br />
+                  Email: <a href="mailto:contact@wefxtrades.com" style={{ color: mkt.accent, textDecoration: "none" }}>contact@wefxtrades.com</a><br />
                   Response time: Usually within 2 business hours
                 </div>
               </Section>
