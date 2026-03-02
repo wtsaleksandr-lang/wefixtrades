@@ -436,6 +436,20 @@ export default function HomePage() {
               opacity: 0 !important;
             }
           }
+          @keyframes wf_text_shimmer {
+            0%   { background-position: 0% 50%; }
+            18%  { background-position: 120% 50%; }
+            100% { background-position: 120% 50%; }
+          }
+          .wf-shimmer {
+            background-size: 220% 100%;
+            animation: wf_text_shimmer 6.25s ease-in-out infinite;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .wf-shimmer {
+              animation: none !important;
+            }
+          }
         `}</style>
 
         <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative" }}>
@@ -519,11 +533,11 @@ export default function HomePage() {
               }}
             >
               <span
-                className="wf-underline"
+                className="wf-underline wf-shimmer"
                 style={{
                   position: "relative",
                   zIndex: 2,
-                  background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
+                  background: "linear-gradient(90deg, #1D4ED8 0%, #3B82F6 22%, rgba(255,255,255,0.55) 35%, #3B82F6 48%, #1D4ED8 70%, #1D4ED8 100%)",
                   WebkitBackgroundClip: "text",
                   backgroundClip: "text",
                   WebkitTextFillColor: "transparent",
