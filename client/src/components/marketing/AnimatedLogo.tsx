@@ -83,7 +83,7 @@ export default function AnimatedLogo() {
             style={{
               width: CAP_W,
               height: CAP_H,
-              borderRadius: 999,
+              borderRadius: 14,
               background: CAP_COLOR,
               flexShrink: 0,
               position: "relative",
