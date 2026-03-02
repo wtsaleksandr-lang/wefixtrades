@@ -511,11 +511,11 @@ export default function HomePage() {
                 letterSpacing: "-0.02em",
                 margin: 0,
                 marginTop: 4,
-                background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
                 fontFamily: '"Eudoxus Sans", Arial, sans-serif',
-                filter: "drop-shadow(0 6px 18px rgba(59,130,246,0.24))",
+                backgroundImage: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
+                backgroundClip: "text",
+                WebkitBackgroundClip: "text",
+                color: "transparent",
               }}
             >
               <span className="wf-underline">On autopilot</span>
