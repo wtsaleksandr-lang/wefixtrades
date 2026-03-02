@@ -202,17 +202,17 @@ function NavItemDesktop({
             background: "rgba(255,255,255,0.92)",
             backdropFilter: "blur(18px) saturate(1.25)",
             WebkitBackdropFilter: "blur(18px) saturate(1.25)",
-            borderRadius: 18,
+            borderRadius: 16,
             border: "1px solid rgba(0,0,0,0.10)",
             boxShadow: "0 18px 46px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.50)",
 
-            padding: "4px",
+            padding: "6px",
             zIndex: 400,
 
             display: "grid",
             gridAutoFlow: "column",
             gridTemplateRows: "repeat(3, auto)",
-            gridAutoColumns: "minmax(260px, 1fr)",
+            gridAutoColumns: "minmax(280px, 1fr)",
             gap: 6,
 
             transition: "opacity 0.15s ease, transform 0.15s ease",
@@ -226,14 +226,14 @@ function NavItemDesktop({
                 display: "flex",
                 alignItems: "center",
                 gap: 12,
-                padding: "10px 10px",
-                borderRadius: 14,
+                padding: "9px 10px",
+                borderRadius: 12,
                 fontSize: 14,
                 fontWeight: 500,
                 color: mkt.text,
                 textDecoration: "none",
-                background: "rgba(255,255,255,0.95)",
-                border: "1px solid rgba(0,0,0,0.08)",
+                background: "rgba(255,255,255,0.98)",
+                border: "1px solid rgba(0,0,0,0.10)",
                 transition: "transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease",
               }}
               onMouseEnter={(e) => {
@@ -254,7 +254,7 @@ function NavItemDesktop({
                   style={{
                     width: 40,
                     height: 40,
-                    borderRadius: 14,
+                    borderRadius: 12,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -485,7 +485,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       setDesktopDropdown({
         left: r.left,
         width: r.width,
-        top: r.bottom + 2,
+        top: Math.round(r.bottom + 3),
       });
     };
 
@@ -537,7 +537,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: isMobile ? "0" : "6px 12px 0",
+          padding: isMobile ? "0" : "4px 10px 0",
           background: "transparent",
           backdropFilter: "none",
           WebkitBackdropFilter: "none",
@@ -548,8 +548,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <div
           ref={navCardRef}
           style={{
-            maxWidth: 1680,
-            margin: "0 auto",
+            maxWidth: 9999,
+            width: "calc(100% - 24px)",
+            margin: "8px 12px 0",
             height: isMobile ? 64 : DESKTOP_HEADER.cardHeight,
             display: "flex",
             alignItems: "center",

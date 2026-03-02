@@ -1,0 +1,160 @@
+FILE: client/src/components/marketing/MarketingLayout.tsx
+
+========================================================
+GOAL: Desktop header + dropdown must stay aligned + same width,
+less gaps, less transparency, thinner spacing.
+========================================================
+
+-------------------------------
+STEP 0 — Make sure your DESKTOP nav uses NavItemDesktop (NOT V2)
+-------------------------------
+FIND (in the DESKTOP nav render / NAV_LINKS.map):
+<NavItemDesktopV2
+
+REPLACE WITH:
+<NavItemDesktop
+
+Then ensure the props include dropdown={desktopDropdown} (like below).
+
+FIND (example pattern):
+<NavItemDesktopV2
+  key={href}
+  label={label}
+  href={href}
+  children={children}
+  isActive={isActive(href)}
+/>
+
+REPLACE WITH:
+<NavItemDesktop
+  key={href}
+  label={label}
+  href={href}
+  children={children}
+  isActive={isActive(href)}
+  dropdown={desktopDropdown}
+/>
+
+(If your desktop nav already uses NavItemDesktop with dropdown={desktopDropdown}, skip STEP 0.)
+
+-------------------------------
+STEP 1 — Reduce header outer gaps + make header span wider
+-------------------------------
+1A) NAV outer padding (desktop)
+
+FIND:
+padding: isMobile ? "0" : "6px 12px 0",
+
+REPLACE WITH:
+padding: isMobile ? "0" : "4px 10px 0",
+
+1B) Header card width/margins (desktop)
+
+FIND (inside ref={navCardRef} style block, desktop branch):
+maxWidth: 1680,
+margin: "0 auto",
+
+REPLACE WITH:
+maxWidth: 9999,
+width: "calc(100% - 24px)",
+margin: "8px 12px 0",
+
+(Leave the mobile branch as-is.)
+
+-------------------------------
+STEP 2 — Reduce header↔dropdown vertical gap (desktop)
+-------------------------------
+FIND (desktop dropdown compute):
+top: Math.round(r.bottom + 6),
+
+REPLACE WITH:
+top: Math.round(r.bottom + 3),
+
+(If you also have menuTop compute for mobile using + 6, leave that one.)
+
+-------------------------------
+STEP 3 — Make dropdown container less transparent + tighter spacing
+-------------------------------
+In function NavItemDesktop(), FIND this dropdown container style keys:
+
+background: "rgba(255,255,255,0.72)",
+borderRadius: 18,
+padding: "8px",
+gridAutoColumns: "minmax(260px, 1fr)",
+gap: 8,
+
+REPLACE WITH:
+
+background: "rgba(255,255,255,0.92)",
+borderRadius: 16,
+padding: "6px",
+gridAutoColumns: "minmax(280px, 1fr)",
+gap: 6,
+
+(Keep the rest unchanged.)
+
+-------------------------------
+STEP 4 — Make submenu item cards nearly solid + thin outer border + tighter inner padding
+-------------------------------
+In the same dropdown map (children!.map(...)), FIND the Link style block values:
+
+padding: "10px 10px",
+borderRadius: 14,
+background: "rgba(255,255,255,0.95)",
+border: "1px solid rgba(0,0,0,0.08)",
+
+REPLACE WITH:
+
+padding: "9px 10px",
+borderRadius: 12,
+background: "rgba(255,255,255,0.98)",
+border: "1px solid rgba(0,0,0,0.10)",
+
+Then in the icon wrapper inside that Link, FIND:
+
+borderRadius: 14,
+
+REPLACE WITH:
+borderRadius: 12,
+
+-------------------------------
+STEP 5 — Tighten “gaps all around” inside dropdown layout
+-------------------------------
+Still inside dropdown container style (the grid), FIND:
+
+gridTemplateRows: "repeat(3, auto)",
+
+KEEP IT (do not change)
+
+And make sure gap is already 6 from STEP 3.
+If you see any extra margin on the dropdown container, remove it:
+
+FIND (if present):
+margin: "0 auto",
+
+REPLACE WITH:
+margin: 0,
+
+(If margin is not present, skip this.)
+
+-------------------------------
+STEP 6 — Optional: slightly less-rounded desktop header corners (if still too round)
+-------------------------------
+Search for DESKTOP_HEADER.cardRadius (or the desktop card borderRadius value).
+If you find something like:
+cardRadius: 22
+
+Change to:
+cardRadius: 18
+
+If instead you have inline borderRadius in the desktop branch (navCardRef style),
+set it to 18.
+
+========================================================
+SAVE FILE → hard refresh → verify desktop dropdown:
+- same left edge as header card
+- same width as header card
+- smaller gap between header and dropdown
+- dropdown container much less transparent
+- submenu cards almost solid white + thin border + tighter spacing
+========================================================
