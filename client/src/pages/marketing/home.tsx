@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
+import StackedFlowCards from "@/components/marketing/StackedFlowCards";
 import { mkt, colors, shadows } from "@/theme/tokens";
 import {
   Zap, Cpu, MessageCircle, Check,
@@ -96,6 +97,34 @@ const HERO_TRADES = [
   "Electricians",
   "HVAC Contractors",
   "Roofers",
+];
+
+const quoteFlowSteps = [
+  {
+    title: "Customer clicks your Google link",
+    subtitle: "They land on your website or Google Business Profile.",
+    badge: "Entry",
+  },
+  {
+    title: "Instant quote shown",
+    subtitle: "They answer a few questions and get pricing instantly.",
+    badge: "QuickQuote",
+  },
+  {
+    title: "Lead notification sent",
+    subtitle: "You receive SMS + email with job details.",
+    badge: "Alert",
+  },
+  {
+    title: "Automated follow-ups",
+    subtitle: "2 reminders + final message with discount.",
+    badge: "Automation",
+  },
+  {
+    title: "Job booked",
+    subtitle: "Appointment confirmed automatically.",
+    badge: "Win",
+  },
 ];
 
 const FLOW_SERVICES = [
@@ -590,6 +619,52 @@ export default function HomePage() {
           </div>
           <div data-reveal="fade-up" data-delay="100">
             <WorkflowDemo />
+          </div>
+        </div>
+      </section>
+
+      <section
+        data-testid="quote-flow-section"
+        style={{
+          padding: "100px 28px",
+          background: mkt.surface,
+        }}
+      >
+        <div
+          className="grid md:grid-cols-2 gap-16 items-center"
+          style={{
+            maxWidth: 1100,
+            margin: "0 auto",
+          }}
+        >
+          <div data-reveal="fade-up">
+            <h2
+              style={{
+                fontSize: "clamp(28px, 4vw, 44px)",
+                fontWeight: 800,
+                color: mkt.text,
+                lineHeight: 1.1,
+                marginBottom: 18,
+              }}
+            >
+              See how a job turns into revenue.
+            </h2>
+
+            <p
+              style={{
+                fontSize: 16,
+                lineHeight: 1.6,
+                color: mkt.textMuted,
+                maxWidth: 440,
+              }}
+            >
+              From first click to confirmed booking — your system handles the quoting,
+              follow-ups, and reminders automatically.
+            </p>
+          </div>
+
+          <div data-reveal="fade-up" data-delay="100" style={{ display: "flex", justifyContent: "center" }}>
+            <StackedFlowCards steps={quoteFlowSteps} mkt={mkt} />
           </div>
         </div>
       </section>
