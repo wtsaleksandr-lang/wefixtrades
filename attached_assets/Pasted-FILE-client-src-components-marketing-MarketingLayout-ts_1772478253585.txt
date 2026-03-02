@@ -1,0 +1,118 @@
+FILE: client/src/components/marketing/MarketingLayout.tsx
+
+============================================================
+HERO TITLE REFINEMENT — PREMIUM STRUCTURE (DESKTOP + MOBILE)
+============================================================
+
+OBJECTIVE:
+- Replace current hero headline with:
+    More booked jobs
+    On autopilot
+- Keep accent blue on second line
+- Remove periods
+- Improve spacing + hierarchy
+- Make it responsive (mobile included)
+- Slight premium polish (letter spacing, rhythm, subtle entrance)
+
+============================================================
+STEP 1 — REPLACE EXISTING HERO TITLE BLOCK
+============================================================
+
+ANCHOR (FIND CURRENT HERO TITLE JSX BLOCK)
+It will contain something like:
+"More booked jobs. Automatically."
+or similar structure.
+
+DELETE the entire existing headline JSX block.
+
+REPLACE WITH:
+
+<div
+  style={{
+    textAlign: "center",
+    marginBottom: isMobile ? 18 : 26,
+  }}
+>
+  <h1
+    style={{
+      fontSize: isMobile ? 34 : 60,
+      fontWeight: 800,
+      lineHeight: isMobile ? 1.15 : 1.05,
+      letterSpacing: "-0.02em",
+      margin: 0,
+      color: mkt.text,
+    }}
+  >
+    More booked jobs
+  </h1>
+
+  <h1
+    style={{
+      fontSize: isMobile ? 34 : 60,
+      fontWeight: 800,
+      lineHeight: isMobile ? 1.15 : 1.05,
+      letterSpacing: "-0.02em",
+      margin: 0,
+      marginTop: isMobile ? 4 : 6,
+      background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
+      WebkitBackgroundClip: "text",
+      WebkitTextFillColor: "transparent",
+    }}
+  >
+    On autopilot
+  </h1>
+</div>
+
+============================================================
+STEP 2 — REFINE SUBTITLE STRUCTURE
+============================================================
+
+ANCHOR (FIND CURRENT SUBTITLE TEXT BLOCK)
+
+REPLACE WITH:
+
+<p
+  style={{
+    maxWidth: 640,
+    margin: "0 auto",
+    marginTop: isMobile ? 14 : 18,
+    fontSize: isMobile ? 14 : 16,
+    lineHeight: 1.6,
+    fontWeight: 450,
+    color: mkt.textMuted,
+    textAlign: "center",
+  }}
+>
+  Customers get answers. You get booked. Everything runs in the background.
+</p>
+
+============================================================
+STEP 3 — OPTIONAL MICRO ENTRANCE ANIMATION (SAFE + SUBTLE)
+============================================================
+
+If you are already using motion (framer-motion),
+wrap the headline container with:
+
+<motion.div
+  initial={{ opacity: 0, y: 12 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.45, ease: "easeOut" }}
+>
+
+...headline block here...
+
+</motion.div>
+
+If not using motion, skip this step.
+
+============================================================
+RESULT
+============================================================
+
+• Two-line premium SaaS structure
+• Accent gradient kept (your brand blue)
+• No robotic punctuation
+• Tighter letter-spacing for high-end look
+• Proper responsive sizing
+• Cleaner visual rhythm
+• Works on desktop and mobile
