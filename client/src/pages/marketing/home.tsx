@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
+import { motion, AnimatePresence } from "framer-motion";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
@@ -89,62 +90,13 @@ const HERO_PILLS = [
   { icon: ThumbsUp, label: "Review Boost", mobileLabel: "Review Boost" },
 ];
 
-const TRADES = ["Plumbers", "Electricians", "HVAC Pros", "Roofers", "Cleaners", "Painters", "Landscapers", "Handymen"];
-
-function BuiltForRotator() {
-  const [idx, setIdx] = useState(0);
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setIdx((i) => (i + 1) % TRADES.length);
-        setVisible(true);
-      }, 250);
-    }, 2200);
-    return () => clearInterval(timer);
-  }, []);
-
-  return (
-    <div
-      data-testid="built-for-rotator"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "7px 18px",
-        borderRadius: 14,
-        background: "rgba(255,255,255,0.55)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
-        border: "1px solid rgba(0,0,0,0.05)",
-        boxShadow: shadows.xs,
-      }}
-    >
-      <span style={{ fontSize: 13, fontWeight: 500, color: mkt.textMuted, whiteSpace: "nowrap" }}>
-        Built for
-      </span>
-      <span
-        style={{
-          display: "inline-block",
-          width: 100,
-          textAlign: "left",
-          fontSize: 13,
-          fontWeight: 600,
-          color: mkt.accent,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          opacity: visible ? 1 : 0,
-          transform: visible ? "translateY(0)" : "translateY(-4px)",
-          transition: "opacity 0.25s ease, transform 0.25s ease",
-        }}
-      >
-        {TRADES[idx]}
-      </span>
-    </div>
-  );
-}
+const HERO_TRADES = [
+  "Cleaners",
+  "Plumbers",
+  "Electricians",
+  "HVAC Contractors",
+  "Roofers",
+];
 
 const FLOW_SERVICES = [
   { label: "Instant Estimates on Your Site", sub: "Give prices in seconds", icon: Calculator, color: mkt.accent },
@@ -338,6 +290,15 @@ const RESPONSIVE_CSS = `
 export default function HomePage() {
   useScrollReveal();
 
+  const [tradeIndex, setTradeIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTradeIndex((prev) => (prev + 1) % HERO_TRADES.length);
+    }, 2800);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     document.title = "WeFixTrades — More Booked Jobs, Automatically";
   }, []);
@@ -498,8 +459,74 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div style={{ marginTop: 28, display: "flex", justifyContent: "center" }}>
-            <BuiltForRotator />
+          <div
+            style={{
+              marginTop: 24,
+              display: "flex",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              data-testid="built-for-rotator"
+              style={{
+                position: "relative",
+                height: 40,
+                overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: 220,
+                perspective: "1000px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: mkt.text,
+                  marginRight: 6,
+                }}
+              >
+                Built for
+              </span>
+
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={tradeIndex}
+                  initial={{
+                    y: 24,
+                    opacity: 0,
+                    rotateX: -35,
+                    filter: "blur(6px)",
+                  }}
+                  animate={{
+                    y: 0,
+                    opacity: 1,
+                    rotateX: 0,
+                    filter: "blur(0px)",
+                  }}
+                  exit={{
+                    y: -24,
+                    opacity: 0,
+                    rotateX: 35,
+                    filter: "blur(4px)",
+                  }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 180,
+                    damping: 20,
+                  }}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: mkt.accent,
+                    display: "inline-block",
+                  }}
+                >
+                  {HERO_TRADES[tradeIndex]}
+                </motion.span>
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
