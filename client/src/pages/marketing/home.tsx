@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
@@ -461,7 +461,7 @@ export default function HomePage() {
 
           <div
             style={{
-              marginTop: 24,
+              marginTop: 18,
               display: "flex",
               justifyContent: "center",
             }}
@@ -469,17 +469,23 @@ export default function HomePage() {
             <div
               data-testid="built-for-rotator"
               style={{
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
-                gap: 6,
+                gap: 8,
+                height: 32,
+                padding: "6px 12px",
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.55)",
+                border: "1px solid rgba(0,0,0,0.06)",
               }}
             >
               <span
                 style={{
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: 600,
-                  color: mkt.text,
-                  flexShrink: 0,
+                  color: mkt.textMuted,
+                  lineHeight: 1,
+                  whiteSpace: "nowrap",
                 }}
               >
                 Built for
@@ -488,51 +494,80 @@ export default function HomePage() {
               <div
                 style={{
                   position: "relative",
-                  height: 36,
+                  height: 20,
+                  width: 150,
                   overflow: "hidden",
-                  minWidth: 220,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  perspective: "900px",
                   maskImage:
                     "linear-gradient(to bottom, transparent 0%, black 30%, black 70%, transparent 100%)",
                   WebkitMaskImage:
                     "linear-gradient(to bottom, transparent 0%, black 30%, black 70%, transparent 100%)",
                 }}
               >
-                <motion.div
-                  animate={{ y: -tradeIndex * 36 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 120,
-                    damping: 20,
-                  }}
+                <div
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
+                    position: "absolute",
+                    top: -16,
+                    left: 0,
+                    right: 0,
+                    textAlign: "center",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: mkt.accent,
+                    opacity: 0.28,
+                    filter: "blur(2px)",
+                    transform: "rotateX(18deg)",
+                    whiteSpace: "nowrap",
+                    pointerEvents: "none",
                   }}
                 >
-                  {HERO_TRADES.concat(HERO_TRADES).map((trade, i) => {
-                    const isActive = i % HERO_TRADES.length === tradeIndex;
-                    return (
-                      <div
-                        key={i}
-                        style={{
-                          height: 36,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 14,
-                          fontWeight: 600,
-                          color: mkt.accent,
-                          opacity: isActive ? 1 : 0.35,
-                          filter: isActive ? "blur(0px)" : "blur(2px)",
-                          transform: isActive ? "scale(1)" : "scale(0.92)",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {trade}
-                      </div>
-                    );
-                  })}
-                </motion.div>
+                  {HERO_TRADES[(tradeIndex - 1 + HERO_TRADES.length) % HERO_TRADES.length]}
+                </div>
+
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={tradeIndex}
+                    initial={{ y: 14, opacity: 0, rotateX: -25, filter: "blur(6px)" }}
+                    animate={{ y: 0, opacity: 1, rotateX: 0, filter: "blur(0px)" }}
+                    exit={{ y: -14, opacity: 0, rotateX: 25, filter: "blur(4px)" }}
+                    transition={{ type: "spring", stiffness: 180, damping: 20 }}
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      right: 0,
+                      textAlign: "center",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: mkt.accent,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {HERO_TRADES[tradeIndex]}
+                  </motion.div>
+                </AnimatePresence>
+
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: -16,
+                    left: 0,
+                    right: 0,
+                    textAlign: "center",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: mkt.accent,
+                    opacity: 0.28,
+                    filter: "blur(2px)",
+                    transform: "rotateX(-18deg)",
+                    whiteSpace: "nowrap",
+                    pointerEvents: "none",
+                  }}
+                >
+                  {HERO_TRADES[(tradeIndex + 1) % HERO_TRADES.length]}
+                </div>
               </div>
             </div>
           </div>
