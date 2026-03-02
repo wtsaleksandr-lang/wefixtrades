@@ -1,0 +1,119 @@
+FILE: MarketingLayout.tsx
+
+============================================================
+CRITICAL FIX — REMOVE FIXED POSITIONING (CAUSE OF MISALIGNMENT)
+============================================================
+
+The misalignment happens because dropdown is `position: fixed`
+and measured against viewport, while header is inside a centered container.
+
+We will revert dropdown back to absolute positioning,
+so it aligns relative to header layout naturally.
+
+------------------------------------------------------------
+1) REMOVE headerRef logic completely
+------------------------------------------------------------
+
+A) FIND THIS FUNCTION SIGNATURE:
+function NavItemDesktopV2({
+
+FIND the param block that includes:
+headerRef: React.RefObject<HTMLDivElement>;
+
+REMOVE headerRef from the params.
+
+------------------------------------------------------------
+
+B) REMOVE ALL cardRect / measureCard LOGIC
+
+DELETE THIS ENTIRE BLOCK:
+
+const [cardRect, setCardRect] = useState<DOMRect | null>(null);
+
+const measureCard = () => {
+  const el = headerRef.current;
+  if (!el) return;
+  setCardRect(el.getBoundingClientRect());
+};
+
+useEffect(() => {
+  if (!open) return;
+  measureCard();
+  const onResize = () => measureCard();
+  const onScroll = () => measureCard();
+  window.addEventListener("resize", onResize);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  return () => {
+    window.removeEventListener("resize", onResize);
+    window.removeEventListener("scroll", onScroll);
+  };
+}, [open]);
+
+------------------------------------------------------------
+
+C) REMOVE headerRef PASSING IN DESKTOP RENDER
+
+FIND:
+headerRef={navCardRef}
+
+DELETE THAT PROP.
+
+============================================================
+2) FIX DROPDOWN POSITIONING (ALIGN PERFECTLY WITH HEADER)
+============================================================
+
+FIND inside dropdown container style:
+
+position: "fixed",
+
+REPLACE WITH:
+position: "absolute",
+
+------------------------------------------------------------
+
+FIND:
+top: cardRect ? cardRect.bottom + 2 : 0,
+
+REPLACE WITH:
+top: "calc(100% + 4px)",
+
+------------------------------------------------------------
+
+FIND:
+left: cardRect ? cardRect.left : 0,
+
+REPLACE WITH:
+left: 0,
+
+------------------------------------------------------------
+
+FIND:
+width: cardRect ? cardRect.width : 0,
+
+REPLACE WITH:
+width: "100%",
+
+------------------------------------------------------------
+
+DELETE ANY remaining references to cardRect.
+
+============================================================
+3) REDUCE HEADER ↔ DROPDOWN GAP BY HALF
+============================================================
+
+FIND:
+top: "calc(100% + 4px)",
+
+REPLACE WITH:
+top: "calc(100% + 2px)",
+
+============================================================
+RESULT
+============================================================
+
+• Dropdown now aligns perfectly with header pill.
+• Width matches header automatically.
+• No viewport drift on wide screens.
+• Gap reduced by half.
+• No measurement logic needed.
+• No layout bugs.

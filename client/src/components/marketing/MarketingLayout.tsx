@@ -108,38 +108,15 @@ function NavItemDesktopV2({
   href,
   children,
   isActive,
-  headerRef,
 }: {
   label: string;
   href: string;
   children?: NavChild[];
   isActive: boolean;
-  headerRef: React.RefObject<HTMLDivElement>;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const hasDropdown = !!(children && children.length > 0);
-
-  const [cardRect, setCardRect] = useState<DOMRect | null>(null);
-
-  const measureCard = () => {
-    const el = headerRef.current;
-    if (!el) return;
-    setCardRect(el.getBoundingClientRect());
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    measureCard();
-    const onResize = () => measureCard();
-    const onScroll = () => measureCard();
-    window.addEventListener("resize", onResize);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onScroll);
-    };
-  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -227,10 +204,10 @@ function NavItemDesktopV2({
       {hasDropdown && (
         <div
           style={{
-            position: "fixed",
-            top: cardRect ? cardRect.bottom + 2 : 0,
-            left: cardRect ? cardRect.left : 0,
-            width: cardRect ? cardRect.width : 0,
+            position: "absolute",
+            top: "calc(100% + 2px)",
+            left: 0,
+            width: "100%",
             transform: open ? "translateY(0)" : "translateY(-6px)",
             opacity: open ? 1 : 0,
             pointerEvents: open ? "auto" : "none",
@@ -623,7 +600,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   href={href}
                   children={children}
                   isActive={isActive(href)}
-                  headerRef={navCardRef}
                 />
               ))}
             </nav>
