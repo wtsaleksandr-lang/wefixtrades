@@ -375,6 +375,8 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const navCardRef = useRef<HTMLDivElement>(null);
+  const [menuTop, setMenuTop] = useState<number>(92);
   const [location] = useLocation();
   const isMobile = useIsMobile();
   const scrolled = useScrolled();
@@ -390,6 +392,21 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     return () => {
       document.body.style.overflow = prev;
     };
+  }, [menuOpen, isMobile]);
+
+  useEffect(() => {
+    if (!isMobile || !menuOpen) return;
+
+    const compute = () => {
+      const el = navCardRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setMenuTop(Math.round(r.bottom + 10));
+    };
+
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
   }, [menuOpen, isMobile]);
 
   return (
@@ -413,29 +430,45 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           left: 0,
           right: 0,
           zIndex: 200,
-          height: 64,
+          height: isMobile ? "auto" : 64,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "0 16px",
-          background: mkt.frost,
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          borderBottom: `1px solid ${colors.header.borderBottom}`,
-          boxShadow: scrolled ? colors.header.scrollShadow : "none",
+          padding: isMobile ? "0" : "0 16px",
+          background: isMobile ? "transparent" : mkt.frost,
+          backdropFilter: isMobile ? "none" : "blur(12px)",
+          WebkitBackdropFilter: isMobile ? "none" : "blur(12px)",
+          borderBottom: isMobile ? "none" : `1px solid ${colors.header.borderBottom}`,
+          boxShadow: isMobile ? "none" : (scrolled ? colors.header.scrollShadow : "none"),
           transition: "box-shadow 0.25s ease",
         }}
       >
         <div
+          ref={navCardRef}
           style={{
             maxWidth: 1200,
-            width: "100%",
-            height: 52,
+            margin: "0 auto",
+            height: 64,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             gap: 24,
-            padding: "0 24px",
+            ...(isMobile
+              ? {
+                  width: "calc(100% - 32px)",
+                  marginTop: 16,
+                  borderRadius: 24,
+                  padding: "0 16px",
+                  background: "rgba(253,253,253,0.92)",
+                  border: "1px solid rgba(0,0,0,0.08)",
+                  boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                }
+              : {
+                  width: "100%",
+                  padding: "0 24px",
+                }),
           }}
         >
           <AnimatedLogo />
@@ -533,103 +566,59 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 260,
+            zIndex: 240,
             background: "rgba(0,0,0,0.08)",
             backdropFilter: "blur(2px)",
             WebkitBackdropFilter: "blur(2px)",
-            padding: 16,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "flex-start",
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: "100%",
-              maxWidth: 520,
-              marginTop: 10,
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
+              position: "fixed",
+              left: 16,
+              right: 16,
+              top: menuTop,
+              zIndex: 250,
+              borderRadius: 28,
+              background: "rgba(255,255,255,0.94)",
+              border: "1px solid rgba(0,0,0,0.08)",
+              boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
+              overflow: "hidden",
+              maxHeight: "72vh",
             }}
           >
-            <div
-              style={{
-                height: 64,
-                borderRadius: 22,
-                background: "rgba(253,253,253,0.92)",
-                border: "1px solid rgba(0,0,0,0.08)",
-                boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "0 16px",
-              }}
-            >
-              <AnimatedLogo />
-              <button
-                aria-label="Close menu"
+            <div style={{ padding: "10px 18px 18px", overflowY: "auto", maxHeight: "72vh" }}>
+              {NAV_LINKS.map(({ label, href, children }) => (
+                <MobileNavItem
+                  key={href + label}
+                  label={label}
+                  href={href}
+                  children={children}
+                  isActive={isActive(href)}
+                  onClose={() => setMenuOpen(false)}
+                />
+              ))}
+
+              <Link
+                href="/Wizard"
                 onClick={() => setMenuOpen(false)}
+                data-testid="nav-cta-start-free-mobile"
                 style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  width: 40,
-                  height: 40,
-                  borderRadius: 14,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: mkt.text,
+                  display: "block",
+                  marginTop: 18,
+                  padding: "14px 16px",
+                  borderRadius: 999,
+                  background: "#102126",
+                  color: "#FFFFFF",
+                  fontSize: 15,
+                  fontWeight: 650,
+                  textAlign: "center",
+                  textDecoration: "none",
                 }}
               >
-                <X size={22} strokeWidth={1.6} />
-              </button>
-            </div>
-
-            <div
-              data-testid="nav-mobile-menu"
-              style={{
-                borderRadius: 28,
-                background: "rgba(255,255,255,0.94)",
-                border: "1px solid rgba(0,0,0,0.08)",
-                boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
-                overflow: "hidden",
-              }}
-            >
-              <div style={{ padding: "14px 18px 18px", maxHeight: "72vh", overflowY: "auto" }}>
-                {NAV_LINKS.map(({ label, href, children }) => (
-                  <MobileNavItem
-                    key={href + label}
-                    label={label}
-                    href={href}
-                    children={children}
-                    isActive={isActive(href)}
-                    onClose={() => setMenuOpen(false)}
-                  />
-                ))}
-
-                <Link
-                  href="/Wizard"
-                  onClick={() => setMenuOpen(false)}
-                  data-testid="nav-cta-start-free-mobile"
-                  style={{
-                    display: "block",
-                    marginTop: 18,
-                    padding: "14px 16px",
-                    borderRadius: 999,
-                    background: mkt.dark,
-                    color: mkt.onDark,
-                    fontSize: 15,
-                    fontWeight: 650,
-                    textAlign: "center",
-                    textDecoration: "none",
-                  }}
-                >
-                  Try Free
-                </Link>
-              </div>
+                Try Free
+              </Link>
             </div>
           </div>
         </div>
