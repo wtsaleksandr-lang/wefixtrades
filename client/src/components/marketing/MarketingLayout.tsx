@@ -1,14 +1,56 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, ChevronDown } from "lucide-react";
+import { Menu, X, ChevronDown, LayoutGrid, Route, Frame, FileText, BadgePercent } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
 import AnimatedLogo from "./AnimatedLogo";
 import { mkt, colors, shadows, radius } from "@/theme/tokens";
 
-const NAV_LINKS: { label: string; href: string; children?: { label: string; href: string }[] }[] = [
-  { label: "Product", href: "/product" },
+type NavChild = {
+  label: string;
+  href: string;
+  description?: string;
+  icon?: React.ReactNode;
+};
+
+const NAV_LINKS: { label: string; href: string; children?: NavChild[] }[] = [
+  {
+    label: "Product",
+    href: "/product",
+    children: [
+      {
+        label: "QuickQuotePro",
+        href: "/product",
+        description: "Instant estimates on your site.",
+        icon: <LayoutGrid size={28} strokeWidth={1.6} />,
+      },
+      {
+        label: "MapGuard",
+        href: "/product",
+        description: "Google Maps optimization & visibility.",
+        icon: <Route size={28} strokeWidth={1.6} />,
+      },
+      {
+        label: "SiteLaunch",
+        href: "/product",
+        description: "High-converting website builds.",
+        icon: <Frame size={28} strokeWidth={1.6} />,
+      },
+      {
+        label: "ReputationShield",
+        href: "/product",
+        description: "Reviews + reputation automation.",
+        icon: <BadgePercent size={28} strokeWidth={1.6} />,
+      },
+      {
+        label: "Docs",
+        href: "/docs",
+        description: "Setup guides & integrations.",
+        icon: <FileText size={28} strokeWidth={1.6} />,
+      },
+    ],
+  },
   { label: "Templates", href: "/templates" },
-  { label: "Solutions", href: "/solutions/visibility" },
+  { label: "Solutions", href: "/solutions" },
   { label: "Docs", href: "/docs" },
 ];
 
@@ -38,7 +80,7 @@ function useIsMobile(breakpoint = 900) {
 function NavItem({ label, href, children, isActive }: {
   label: string;
   href: string;
-  children?: { label: string; href: string }[];
+  children?: NavChild[];
   isActive: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -130,39 +172,66 @@ function NavItem({ label, href, children, isActive }: {
             opacity: open ? 1 : 0,
             pointerEvents: open ? "auto" : "none",
             background: mkt.bg,
-            borderRadius: 12,
+            borderRadius: 16,
             border: `1px solid ${mkt.border}`,
-            boxShadow: shadows.md,
-            padding: "6px",
-            minWidth: 180,
+            boxShadow: shadows.lg,
+            padding: "8px",
+            minWidth: 300,
             transition: "opacity 0.15s ease, transform 0.15s ease",
             zIndex: 300,
           }}
         >
-          {children!.map(({ label: cl, href: ch }) => (
+          {children!.map(({ label: cl, href: ch, description, icon }) => (
             <Link
-              key={ch}
+              key={ch + cl}
               href={ch}
               style={{
-                display: "block",
-                padding: "9px 14px",
-                borderRadius: 8,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 12px",
+                borderRadius: 12,
                 fontSize: 14,
                 fontWeight: 500,
-                color: mkt.textMuted,
+                color: mkt.text,
                 textDecoration: "none",
-                transition: "background 0.12s ease, color 0.12s ease",
+                transition: "background 0.12s ease",
               }}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLElement).style.background = mkt.surface;
-                (e.currentTarget as HTMLElement).style.color = mkt.text;
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLElement).style.background = "transparent";
-                (e.currentTarget as HTMLElement).style.color = mkt.textMuted;
               }}
             >
-              {cl}
+              {icon && (
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: mkt.accent,
+                    background: mkt.accentTint,
+                    flexShrink: 0,
+                  }}
+                  aria-hidden
+                >
+                  {icon}
+                </div>
+              )}
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: mkt.text, lineHeight: 1.2, marginBottom: 2 }}>
+                  {cl}
+                </div>
+                {description && (
+                  <div style={{ fontSize: 12, fontWeight: 400, color: mkt.textMuted, lineHeight: 1.35 }}>
+                    {description}
+                  </div>
+                )}
+              </div>
             </Link>
           ))}
         </div>
@@ -174,7 +243,7 @@ function NavItem({ label, href, children, isActive }: {
 function MobileNavItem({ label, href, children, isActive, onClose }: {
   label: string;
   href: string;
-  children?: { label: string; href: string }[];
+  children?: NavChild[];
   isActive: boolean;
   onClose: () => void;
 }) {
@@ -211,25 +280,73 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
             />
           </button>
           {expanded && (
-            <div style={{ paddingBottom: 12 }}>
-              {children!.map(({ label: cl, href: ch }) => (
+            <div style={{ paddingBottom: 14 }}>
+              {children!.map(({ label: cl, href: ch, description, icon }) => (
                 <Link
-                  key={ch}
+                  key={ch + cl}
                   href={ch}
                   onClick={onClose}
                   style={{
-                    display: "block",
-                    padding: "10px 16px",
-                    marginBottom: 4,
-                    borderRadius: 8,
-                    fontSize: 15,
-                    fontWeight: 500,
-                    color: mkt.textMuted,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    padding: "14px 14px",
+                    marginBottom: 10,
+                    borderRadius: 18,
                     textDecoration: "none",
-                    background: mkt.surface,
+                    background: "rgba(64,64,64,0.06)",
+                    border: "1px solid rgba(0,0,0,0.06)",
                   }}
                 >
-                  {cl}
+                  <div
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 16,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#0C67FF",
+                      background: "rgba(12,103,255,0.10)",
+                      border: "1px solid rgba(12,103,255,0.18)",
+                      flexShrink: 0,
+                    }}
+                    aria-hidden
+                  >
+                    {icon ?? <span />}
+                  </div>
+
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 16,
+                        fontWeight: 650,
+                        color: mkt.text,
+                        lineHeight: 1.15,
+                        marginBottom: 4,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {cl}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 450,
+                        color: mkt.textMuted,
+                        lineHeight: 1.35,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical" as const,
+                      }}
+                    >
+                      {description ?? ""}
+                    </div>
+                  </div>
                 </Link>
               ))}
             </div>
@@ -264,6 +381,16 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   usePageView(location);
 
   const isActive = (href: string) => location === href;
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (!menuOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [menuOpen, isMobile]);
 
   return (
     <div
@@ -399,55 +526,111 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </nav>
-      {isMobile && (
+      {isMobile && menuOpen && (
         <div
-          data-testid="nav-mobile-menu"
+          data-testid="nav-mobile-overlay"
+          onClick={() => setMenuOpen(false)}
           style={{
             position: "fixed",
-            top: 64,
-            left: 0,
-            right: 0,
-            background: mkt.bg,
-            zIndex: 199,
-            borderRadius: 0,
-            boxShadow: menuOpen ? shadows.lg : "none",
-            overflow: "hidden",
-            maxHeight: menuOpen ? "80vh" : 0,
-            transition: "max-height 0.3s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s ease",
-            overflowY: "auto",
-            borderBottom: menuOpen ? `1px solid ${mkt.border}` : "none",
+            inset: 0,
+            zIndex: 260,
+            background: "rgba(0,0,0,0.08)",
+            backdropFilter: "blur(2px)",
+            WebkitBackdropFilter: "blur(2px)",
+            padding: 16,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "flex-start",
           }}
         >
-          <div style={{ padding: "8px 24px 28px" }}>
-            {NAV_LINKS.map(({ label, href, children }) => (
-              <MobileNavItem
-                key={href}
-                label={label}
-                href={href}
-                children={children}
-                isActive={isActive(href)}
-                onClose={() => setMenuOpen(false)}
-              />
-            ))}
-            <Link
-              href="/Wizard"
-              onClick={() => setMenuOpen(false)}
-              data-testid="nav-cta-start-free-mobile"
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 520,
+              marginTop: 10,
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            <div
               style={{
-                display: "block",
-                marginTop: 20,
-                padding: "12px",
-                borderRadius: 14,
-                background: mkt.dark,
-                color: mkt.onDark,
-                fontSize: 15,
-                fontWeight: 600,
-                textAlign: "center",
-                textDecoration: "none",
+                height: 64,
+                borderRadius: 22,
+                background: "rgba(253,253,253,0.92)",
+                border: "1px solid rgba(0,0,0,0.08)",
+                boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "0 16px",
               }}
             >
-              Try Free
-            </Link>
+              <AnimatedLogo />
+              <button
+                aria-label="Close menu"
+                onClick={() => setMenuOpen(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  width: 40,
+                  height: 40,
+                  borderRadius: 14,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: mkt.text,
+                }}
+              >
+                <X size={22} strokeWidth={1.6} />
+              </button>
+            </div>
+
+            <div
+              data-testid="nav-mobile-menu"
+              style={{
+                borderRadius: 28,
+                background: "rgba(255,255,255,0.94)",
+                border: "1px solid rgba(0,0,0,0.08)",
+                boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
+                overflow: "hidden",
+              }}
+            >
+              <div style={{ padding: "14px 18px 18px", maxHeight: "72vh", overflowY: "auto" }}>
+                {NAV_LINKS.map(({ label, href, children }) => (
+                  <MobileNavItem
+                    key={href + label}
+                    label={label}
+                    href={href}
+                    children={children}
+                    isActive={isActive(href)}
+                    onClose={() => setMenuOpen(false)}
+                  />
+                ))}
+
+                <Link
+                  href="/Wizard"
+                  onClick={() => setMenuOpen(false)}
+                  data-testid="nav-cta-start-free-mobile"
+                  style={{
+                    display: "block",
+                    marginTop: 18,
+                    padding: "14px 16px",
+                    borderRadius: 999,
+                    background: mkt.dark,
+                    color: mkt.onDark,
+                    fontSize: 15,
+                    fontWeight: 650,
+                    textAlign: "center",
+                    textDecoration: "none",
+                  }}
+                >
+                  Try Free
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       )}
