@@ -1,0 +1,216 @@
+FILE: MarketingLayout.tsx
+
+============================================================
+FIX 0 — STOP TS/JS ERRORS (React types) + make header/dropdown edits safe
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE AT TOP):
+import { useState, useEffect, useRef } from "react";
+
+REPLACE WITH:
+import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+
+------------------------------------------------------------
+
+ANCHOR (FIND THIS EXACT BLOCK):
+type NavChild = {
+  label: string;
+  href: string;
+  description?: string;
+  icon?: React.ReactNode;
+};
+
+REPLACE WITH:
+type NavChild = {
+  label: string;
+  href: string;
+  description?: string;
+  icon?: ReactNode;
+};
+
+============================================================
+FIX 1 — MAKE DESKTOP HEADER BAR NEAR FULL WIDTH + LESS ROUNDED
+============================================================
+
+ANCHOR (FIND THIS EXACT BLOCK):
+const DESKTOP_HEADER = {
+
+ACTION:
+Inside DESKTOP_HEADER, FIND:
+  cardRadius: 22,
+REPLACE WITH:
+  cardRadius: 18,
+
+------------------------------------------------------------
+
+ANCHOR (FIND THIS EXACT LINE INSIDE navCardRef style root):
+maxWidth: 1200,
+
+REPLACE WITH:
+maxWidth: 1400,
+
+ANCHOR (FIND THIS EXACT LINE INSIDE navCardRef style root):
+margin: "0 auto",
+
+REPLACE WITH:
+margin: "0 auto",
+
+ANCHOR (FIND THIS EXACT LINE INSIDE navCardRef DESKTOP BRANCH):
+width: "100%",
+
+REPLACE WITH:
+width: "calc(100% - 32px)",
+
+(leave everything else the same)
+
+============================================================
+FIX 2 — MAKE DROPDOWN EXACTLY SAME WIDTH/ALIGNMENT AS HEADER CARD
+(no more “relative to nav item” sizing)
+============================================================
+
+A) UPDATE NavItemDesktopV2 SIGNATURE TO ACCEPT HEADER REF
+
+ANCHOR (FIND THIS EXACT LINE):
+function NavItemDesktopV2({
+
+ACTION:
+Change the function params to include headerRef.
+FIND THIS EXACT PARAM LIST:
+function NavItemDesktopV2({
+  label,
+  href,
+  children,
+  isActive,
+}: {
+
+REPLACE WITH:
+function NavItemDesktopV2({
+  label,
+  href,
+  children,
+  isActive,
+  headerRef,
+}: {
+  label: string;
+  href: string;
+  children?: NavChild[];
+  isActive: boolean;
+  headerRef: React.RefObject<HTMLDivElement>;
+}) {
+
+------------------------------------------------------------
+
+B) FIX topItemBase TYPE (avoid React namespace)
+
+ANCHOR (FIND THIS EXACT LINE):
+const topItemBase: React.CSSProperties = {
+
+REPLACE WITH:
+const topItemBase: CSSProperties = {
+
+------------------------------------------------------------
+
+C) ADD RECT STATE + MEASURER
+
+ANCHOR (FIND THIS EXACT LINE INSIDE NavItemDesktopV2):
+const hasDropdown = !!(children && children.length > 0);
+
+ACTION:
+PASTE THIS BLOCK DIRECTLY UNDER THAT LINE:
+
+const [cardRect, setCardRect] = useState<DOMRect | null>(null);
+
+const measureCard = () => {
+  const el = headerRef.current;
+  if (!el) return;
+  setCardRect(el.getBoundingClientRect());
+};
+
+useEffect(() => {
+  if (!open) return;
+  measureCard();
+  const onResize = () => measureCard();
+  const onScroll = () => measureCard();
+  window.addEventListener("resize", onResize);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  return () => {
+    window.removeEventListener("resize", onResize);
+    window.removeEventListener("scroll", onScroll);
+  };
+}, [open]);
+
+------------------------------------------------------------
+
+D) CHANGE DROPDOWN CONTAINER POSITIONING (fixed to header card)
+
+ANCHOR (FIND THIS EXACT LINE INSIDE DROPDOWN STYLE):
+position: "absolute",
+
+REPLACE WITH:
+position: "fixed",
+
+ANCHOR (FIND THIS EXACT LINE INSIDE DROPDOWN STYLE):
+top: "calc(100% + 10px)",
+
+REPLACE WITH:
+top: cardRect ? Math.round(cardRect.bottom + 10) : 0,
+
+ANCHOR (FIND THESE 2 LINES INSIDE DROPDOWN STYLE):
+left: 0,
+right: 0,
+
+REPLACE WITH THESE 2 LINES:
+left: cardRect ? Math.round(cardRect.left) : 0,
+width: cardRect ? Math.round(cardRect.width) : 0,
+
+ANCHOR (FIND THIS EXACT LINE INSIDE DROPDOWN STYLE):
+margin: "0 auto",
+
+DELETE THAT LINE COMPLETELY
+
+(keep transform/opacity/pointerEvents as-is)
+
+============================================================
+FIX 3 — REDUCE TRANSPARENCY (CONTAINER + ITEMS)
+============================================================
+
+ANCHOR (FIND THIS EXACT LINE in DESKTOP_DROPDOWN):
+containerBg: "rgba(255,255,255,0.52)",
+
+REPLACE WITH:
+containerBg: "rgba(255,255,255,0.92)",
+
+ANCHOR (FIND THIS EXACT LINE in DESKTOP_DROPDOWN):
+itemBg: "rgba(255,255,255,0.95)",
+
+REPLACE WITH:
+itemBg: "rgba(255,255,255,0.98)",
+
+(leave itemHoverBg at 1.0)
+
+============================================================
+FIX 4 — PASS headerRef INTO NavItemDesktopV2 (DESKTOP MAP)
+============================================================
+
+ANCHOR (FIND THIS EXACT BLOCK in desktop render):
+{NAV_LINKS.map(({ label, href, children }) => (
+  <NavItemDesktopV2
+    key={href}
+    label={label}
+    href={href}
+    children={children}
+    isActive={isActive(href)}
+  />
+))}
+
+REPLACE WITH:
+{NAV_LINKS.map(({ label, href, children }) => (
+  <NavItemDesktopV2
+    key={href}
+    label={label}
+    href={href}
+    children={children}
+    isActive={isActive(href)}
+    headerRef={navCardRef}
+  />
+))}
