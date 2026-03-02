@@ -199,21 +199,21 @@ function NavItemDesktop({
             opacity: open ? 1 : 0,
             pointerEvents: open ? "auto" : "none",
 
-            background: "rgba(255,255,255,0.72)",
+            background: "rgba(255,255,255,0.92)",
             backdropFilter: "blur(18px) saturate(1.25)",
             WebkitBackdropFilter: "blur(18px) saturate(1.25)",
             borderRadius: 18,
-            border: "1px solid rgba(0,0,0,0.06)",
+            border: "1px solid rgba(0,0,0,0.10)",
             boxShadow: "0 18px 46px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.50)",
 
-            padding: "8px",
+            padding: "4px",
             zIndex: 400,
 
             display: "grid",
             gridAutoFlow: "column",
             gridTemplateRows: "repeat(3, auto)",
             gridAutoColumns: "minmax(260px, 1fr)",
-            gap: 8,
+            gap: 6,
 
             transition: "opacity 0.15s ease, transform 0.15s ease",
           }}
@@ -483,9 +483,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       if (!el) return;
       const r = el.getBoundingClientRect();
       setDesktopDropdown({
-        left: Math.round(r.left),
-        width: Math.round(r.width),
-        top: Math.round(r.bottom + 6),
+        left: r.left,
+        width: r.width,
+        top: r.bottom + 2,
       });
     };
 
