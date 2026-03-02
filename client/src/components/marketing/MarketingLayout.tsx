@@ -466,13 +466,13 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   margin: "8px 10px 0",
                   borderRadius: 24,
                   padding: "0 16px",
-                  background: "rgba(255,255,255,0.34)",
-                  backdropFilter: "blur(22px) saturate(1.6)",
-                  WebkitBackdropFilter: "blur(22px) saturate(1.6)",
+                  background: "rgba(255,255,255,0.42)",
+                  backdropFilter: "blur(20px) saturate(1.6)",
+                  WebkitBackdropFilter: "blur(20px) saturate(1.6)",
                   willChange: "backdrop-filter",
                   transform: "translateZ(0)",
-                  border: "1px solid rgba(255,255,255,0.28)",
-                  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+                  border: "1px solid rgba(255,255,255,0.30)",
+                  boxShadow: "0 12px 32px rgba(0,0,0,0.10)",
                 }
               : {
                   width: "100%",
@@ -570,65 +570,70 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       </nav>
       {isMobile && menuOpen && (
         <div
+          aria-hidden="true"
           data-testid="nav-mobile-overlay"
           onClick={() => setMenuOpen(false)}
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 240,
-            background: "rgba(0,0,0,0.08)",
-            backdropFilter: "blur(2px)",
-            WebkitBackdropFilter: "blur(2px)",
+            zIndex: 290,
+            background: "rgba(0,0,0,0.20)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+          }}
+        />
+      )}
+      {isMobile && menuOpen && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          data-testid="nav-mobile-menu"
+          style={{
+            position: "fixed",
+            left: 10,
+            right: 10,
+            top: menuTop,
+            zIndex: 300,
+            borderRadius: 28,
+            background: "rgba(255,255,255,0.36)",
+            backdropFilter: "blur(22px) saturate(1.6)",
+            WebkitBackdropFilter: "blur(22px) saturate(1.6)",
+            border: "1px solid rgba(255,255,255,0.28)",
+            boxShadow: "0 18px 45px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.35)",
+            overflow: "hidden",
+            maxHeight: "72vh",
           }}
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "fixed",
-              left: 10,
-              right: 10,
-              top: menuTop,
-              zIndex: 290,
-              borderRadius: 28,
-              background: "rgba(255,255,255,0.94)",
-              border: "1px solid rgba(0,0,0,0.08)",
-              boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
-              overflow: "hidden",
-              maxHeight: "72vh",
-            }}
-          >
-            <div style={{ padding: "10px 18px 18px", overflowY: "auto", maxHeight: "72vh" }}>
-              {NAV_LINKS.map(({ label, href, children }) => (
-                <MobileNavItem
-                  key={href + label}
-                  label={label}
-                  href={href}
-                  children={children}
-                  isActive={isActive(href)}
-                  onClose={() => setMenuOpen(false)}
-                />
-              ))}
+          <div style={{ padding: "10px 18px 18px", overflowY: "auto", maxHeight: "72vh" }}>
+            {NAV_LINKS.map(({ label, href, children }) => (
+              <MobileNavItem
+                key={href + label}
+                label={label}
+                href={href}
+                children={children}
+                isActive={isActive(href)}
+                onClose={() => setMenuOpen(false)}
+              />
+            ))}
 
-              <Link
-                href="/Wizard"
-                onClick={() => setMenuOpen(false)}
-                data-testid="nav-cta-start-free-mobile"
-                style={{
-                  display: "block",
-                  marginTop: 18,
-                  padding: "14px 16px",
-                  borderRadius: 999,
-                  background: "#102126",
-                  color: "#FFFFFF",
-                  fontSize: 15,
-                  fontWeight: 650,
-                  textAlign: "center",
-                  textDecoration: "none",
-                }}
-              >
-                Try Free
-              </Link>
-            </div>
+            <Link
+              href="/Wizard"
+              onClick={() => setMenuOpen(false)}
+              data-testid="nav-cta-start-free-mobile"
+              style={{
+                display: "block",
+                marginTop: 18,
+                padding: "14px 16px",
+                borderRadius: 999,
+                background: "#102126",
+                color: "#FFFFFF",
+                fontSize: 15,
+                fontWeight: 650,
+                textAlign: "center",
+                textDecoration: "none",
+              }}
+            >
+              Try Free
+            </Link>
           </div>
         </div>
       )}
