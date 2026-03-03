@@ -451,19 +451,17 @@ export default function HomePage() {
           .wf-cta-shimmer::after {
             content: "";
             position: absolute;
-            inset: -30% -55%;
+            inset: 0;
             z-index: 1;
             pointer-events: none;
             background: linear-gradient(
               90deg,
               rgba(255,255,255,0) 0%,
-              rgba(255,255,255,0.10) 38%,
-              rgba(255,255,255,0.55) 50%,
-              rgba(255,255,255,0.10) 62%,
+              rgba(255,255,255,0.08) 38%,
+              rgba(255,255,255,0.45) 50%,
+              rgba(255,255,255,0.08) 62%,
               rgba(255,255,255,0) 100%
             );
-            mix-blend-mode: screen;
-            filter: blur(0.3px);
             animation: wf_shimmer_sweep 4.6s ease-in-out infinite;
           }
           .wf-cta-shimmer > * {
@@ -510,17 +508,11 @@ export default function HomePage() {
             }}
           >
             <div
-              className="wf-pill-shimmer"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 10,
-                padding: "8px 12px",
-                borderRadius: 999,
-                background: "rgba(255,255,255,0.78)",
-                border: "1px solid rgba(0,0,0,0.08)",
-                boxShadow: "0 10px 26px rgba(0,0,0,0.08)",
                 margin: "0 auto",
                 marginBottom: 16,
                 maxWidth: "min(92vw, 760px)",
