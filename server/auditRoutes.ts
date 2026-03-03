@@ -158,10 +158,24 @@ router.post("/pagespeed", async (req: Request, res: Response) => {
         `&key=${encodeURIComponent(key)}`;
 
       const data = await fetchJson(endpoint);
-      const score01 = data?.lighthouseResult?.categories?.performance?.score;
+      const lhr = data?.lighthouseResult;
+      const score01 = lhr?.categories?.performance?.score;
       const score =
         typeof score01 === "number" ? Math.round(score01 * 100) : null;
-      return { score };
+
+      const audits = lhr?.audits || {};
+      const numVal = (key: string) => {
+        const v = audits[key]?.numericValue;
+        return typeof v === "number" ? v : null;
+      };
+
+      return {
+        score,
+        fcp: numVal("first-contentful-paint") !== null ? +(numVal("first-contentful-paint")! / 1000).toFixed(2) : null,
+        lcp: numVal("largest-contentful-paint") !== null ? +(numVal("largest-contentful-paint")! / 1000).toFixed(2) : null,
+        tbt: numVal("total-blocking-time") !== null ? Math.round(numVal("total-blocking-time")!) : null,
+        cls: audits["cumulative-layout-shift"]?.numericValue ?? null,
+      };
     }
 
     const [mobile, desktop] = await Promise.all([
