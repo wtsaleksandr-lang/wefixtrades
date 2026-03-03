@@ -32,17 +32,17 @@ const NAV_LINKS: { label: string; href: string; children?: NavChild[] }[] = [
     label: "Products",
     href: "/products/tradeline",
     children: [
-      { label: "TradeLine\u2122", href: "/products/tradeline", description: "24/7 lead handling ecosystem.", icon: <Workflow size={28} strokeWidth={1.6} /> },
-      { label: "AI ChatLine\u2122", href: "/products/ai-chatline", description: "Website + SMS AI chat.", icon: <MessageSquare size={28} strokeWidth={1.6} /> },
-      { label: "AI CallLine\u2122", href: "/products/ai-callline", description: "24/7 AI voice answering.", icon: <PhoneCall size={28} strokeWidth={1.6} /> },
+      { label: "TradeLine\u2122 (Overview)", href: "/products/tradeline", description: "24/7 lead handling ecosystem.", icon: <Workflow size={28} strokeWidth={1.6} /> },
+      { label: "AI ChatLine\u2122", href: "/products/ai-chatline", description: "Website + SMS chat handling.", icon: <MessageSquare size={28} strokeWidth={1.6} /> },
+      { label: "AI CallLine\u2122", href: "/products/ai-callline", description: "24/7 voice answering.", icon: <PhoneCall size={28} strokeWidth={1.6} /> },
       { label: "TradeLine\u2122 Complete", href: "/products/tradeline-complete", description: "Chat + Voice + DMs.", icon: <Layers size={28} strokeWidth={1.6} /> },
+      { label: "QuoteQuick Pro\u2122", href: "/products/quotequick", description: "Instant quotes on your site.", icon: <Calculator size={28} strokeWidth={1.6} /> },
       { label: "MapGuard\u2122", href: "/products/mapguard", description: "Google Maps optimization.", icon: <MapPinned size={28} strokeWidth={1.6} /> },
       { label: "ReputationShield\u2122", href: "/products/reputationshield", description: "Reviews + reputation.", icon: <ShieldCheck size={28} strokeWidth={1.6} /> },
-      { label: "SiteLaunch\u2122", href: "/products/sitelaunch", description: "High-converting websites.", icon: <Layout size={28} strokeWidth={1.6} /> },
       { label: "WebBoost\u2122", href: "/products/webboost", description: "Speed + SEO optimization.", icon: <Rocket size={28} strokeWidth={1.6} /> },
-      { label: "QuoteQuick Pro\u2122", href: "/products/quotequick", description: "Instant quotes on your site.", icon: <Calculator size={28} strokeWidth={1.6} /> },
       { label: "SocialSync\u2122", href: "/products/socialsync", description: "Social media automation.", icon: <Share2 size={28} strokeWidth={1.6} /> },
-      { label: "Free Audit", href: "/free-audit", description: "Free Google Maps + website report.", icon: <Search size={28} strokeWidth={1.6} /> },
+      { label: "SiteLaunch\u2122", href: "/products/sitelaunch", description: "High-converting websites.", icon: <Layout size={28} strokeWidth={1.6} /> },
+      { label: "Fix & Optimize\u2122", href: "/products/fix-and-optimize", description: "Quick improvements package.", icon: <Sparkles size={28} strokeWidth={1.6} /> },
     ],
   },
   {
@@ -57,8 +57,17 @@ const NAV_LINKS: { label: string; href: string; children?: NavChild[] }[] = [
     ],
   },
   { label: "Templates", href: "/templates" },
-  { label: "Pricing", href: "/pricing" },
-  { label: "Resources", href: "/resources" },
+  { label: "Plans", href: "/plans" },
+  {
+    label: "Resources",
+    href: "/demos",
+    children: [
+      { label: "Demo Center", href: "/demos", description: "Try live demos.", icon: <Layout size={28} strokeWidth={1.6} /> },
+      { label: "Docs", href: "/docs", description: "Guides & references.", icon: <FileText size={28} strokeWidth={1.6} /> },
+      { label: "Blog", href: "/blog", description: "Tips & updates.", icon: <FileText size={28} strokeWidth={1.6} /> },
+      { label: "Case Studies", href: "/case-studies", description: "Customer success stories.", icon: <ShieldCheck size={28} strokeWidth={1.6} /> },
+    ],
+  },
 ];
 
 function useScrolled(threshold = 24) {
@@ -334,8 +343,8 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
   return (
     <div
       style={{
-        marginBottom: 8,
-        padding: "8px 10px",
+        marginBottom: 4,
+        padding: "6px 10px",
         borderRadius: 16,
         background: "rgba(255,255,255,0.62)",
         border: "1px solid rgba(255,255,255,0.34)",
@@ -621,7 +630,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             {!isMobile && (
               <>
                 <Link
-                  href="/Dashboard"
+                  href="/login"
                   data-testid="nav-login"
                   style={{
                     fontSize: 14,
@@ -654,7 +663,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = mkt.darkHover; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = mkt.dark; }}
                 >
-                  Try Free
+                  Start Free
                 </Link>
               </>
             )}
@@ -730,7 +739,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               ? "0 22px 60px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.35)"
               : "0 12px 30px rgba(0,0,0,0.08)",
             overflow: "hidden",
-            maxHeight: "88vh",
+            maxHeight: "78vh",
             transform: menuOpen ? "translateY(0px) scale(1)" : "translateY(-12px) scale(0.98)",
             opacity: menuOpen ? 1 : 0,
             pointerEvents: menuOpen ? "auto" : "none",
@@ -738,7 +747,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               "transform 0.28s cubic-bezier(0.22,1,0.36,1), opacity 0.2s ease, box-shadow 0.25s ease",
           }}
         >
-          <div style={{ padding: "8px 14px 14px", overflowY: "auto", maxHeight: "88vh" }}>
+          <div style={{ padding: "10px 16px 14px", overflowY: "auto", maxHeight: "78vh" }}>
             {NAV_LINKS.map(({ label, href, children }) => (
               <MobileNavItem
                 key={href + label}
@@ -767,7 +776,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 textDecoration: "none",
               }}
             >
-              Try Free
+              Start Free
             </Link>
           </div>
         </div>
@@ -878,12 +887,17 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               gap: 12,
             }}
           >
-            <span style={{ fontSize: 13, color: mkt.onDarkFaint }}>
-              © {new Date().getFullYear()} WeFixTrades. All rights reserved.
-            </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={{ fontSize: 13, color: mkt.onDarkFaint }}>
+                © {new Date().getFullYear()} WeFixTrades
+              </span>
+              <span style={{ fontSize: 12, color: mkt.onDarkFaint, opacity: 0.7 }}>
+                Built for service businesses
+              </span>
+            </div>
             <div style={{ display: "flex", gap: 20 }}>
-              <Link href="/privacy" style={{ fontSize: 13, color: mkt.onDarkFaint, textDecoration: "none" }}>Privacy Policy</Link>
-              <Link href="/terms" style={{ fontSize: 13, color: mkt.onDarkFaint, textDecoration: "none" }}>Terms of Service</Link>
+              <Link href="/privacy" style={{ fontSize: 13, color: mkt.onDarkFaint, textDecoration: "none" }}>Privacy</Link>
+              <Link href="/terms" style={{ fontSize: 13, color: mkt.onDarkFaint, textDecoration: "none" }}>Terms</Link>
             </div>
           </div>
         </div>

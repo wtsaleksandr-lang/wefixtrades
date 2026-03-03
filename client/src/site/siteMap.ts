@@ -40,8 +40,16 @@ export const TOP_NAV: NavItem[] = [
     ],
   },
   { label: "Templates", href: "/templates" },
-  { label: "Pricing", href: "/pricing" },
-  { label: "Resources/Docs", href: "/resources" },
+  { label: "Plans", href: "/plans" },
+  {
+    label: "Resources",
+    children: [
+      { label: "Demo Center", href: "/demos", desc: "Try live demos.", icon: "play" },
+      { label: "Docs", href: "/docs", desc: "Guides & references.", icon: "file" },
+      { label: "Blog", href: "/blog", desc: "Tips & updates.", icon: "pen" },
+      { label: "Case Studies", href: "/case-studies", desc: "Customer success stories.", icon: "trophy" },
+    ],
+  },
 ];
 
 export const DEMOS = [
@@ -54,13 +62,14 @@ export const DEMOS = [
 
 export const FOOTER_LINKS = {
   Product: [
-    { label: "TradeLine", href: "/products/tradeline" },
-    { label: "QuoteQuick", href: "/products/quotequick" },
-    { label: "MapGuard", href: "/products/mapguard" },
-    { label: "ReputationShield", href: "/products/reputationshield" },
-    { label: "WebBoost", href: "/products/webboost" },
-    { label: "SiteLaunch", href: "/products/sitelaunch" },
-    { label: "SocialSync", href: "/products/socialsync" },
+    { label: "TradeLine™", href: "/products/tradeline" },
+    { label: "QuoteQuick Pro™", href: "/products/quotequick" },
+    { label: "MapGuard™", href: "/products/mapguard" },
+    { label: "ReputationShield™", href: "/products/reputationshield" },
+    { label: "WebBoost™", href: "/products/webboost" },
+    { label: "SocialSync™", href: "/products/socialsync" },
+    { label: "SiteLaunch™", href: "/products/sitelaunch" },
+    { label: "Fix & Optimize™", href: "/products/fix-and-optimize" },
   ],
   Solutions: [
     { label: "For Plumbers", href: "/solutions/for-plumbers" },
@@ -70,10 +79,11 @@ export const FOOTER_LINKS = {
     { label: "For Cleaners", href: "/solutions/for-cleaners" },
   ],
   Resources: [
+    { label: "Plans", href: "/plans" },
     { label: "Demo Center", href: "/demos" },
-    { label: "Docs", href: "/resources" },
-    { label: "Blog (coming soon)", href: "/blog" },
-    { label: "Case Studies (coming soon)", href: "/case-studies" },
+    { label: "Docs", href: "/docs" },
+    { label: "Blog", href: "/blog" },
+    { label: "Case Studies", href: "/case-studies" },
   ],
   Company: [
     { label: "About", href: "/about" },
