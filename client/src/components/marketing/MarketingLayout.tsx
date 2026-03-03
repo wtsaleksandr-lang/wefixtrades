@@ -341,9 +341,9 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
   return (
     <div
       style={{
-        marginBottom: 10,
-        padding: "10px 12px",
-        borderRadius: 18,
+        marginBottom: 8,
+        padding: "8px 10px",
+        borderRadius: 16,
         background: "rgba(255,255,255,0.62)",
         border: "1px solid rgba(255,255,255,0.34)",
       }}
@@ -358,12 +358,12 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
               alignItems: "center",
               justifyContent: "space-between",
               width: "100%",
-              padding: "12px 2px",
+              padding: "10px 0px",
               background: "none",
               border: "none",
               cursor: "pointer",
-              fontSize: 16,
-              fontWeight: 500,
+              fontSize: 15,
+              fontWeight: 600,
               color: mkt.text,
               textAlign: "left",
             }}
@@ -377,7 +377,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
           </button>
           <div
             style={{
-              paddingBottom: expanded ? 14 : 0,
+              paddingBottom: expanded ? 10 : 0,
               maxHeight: expanded ? 800 : 0,
               overflow: "hidden",
               transition: "max-height 0.28s cubic-bezier(0.22,1,0.36,1), padding 0.2s ease",
@@ -391,10 +391,10 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 14,
-                  padding: "12px 12px",
-                  marginBottom: 8,
-                  borderRadius: 16,
+                  gap: 12,
+                  padding: "10px 10px",
+                  marginBottom: 6,
+                  borderRadius: 14,
                   textDecoration: "none",
                   background: "rgba(255,255,255,0.68)",
                   border: "1px solid rgba(255,255,255,0.34)",
@@ -402,9 +402,9 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
               >
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 14,
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -421,7 +421,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
                 <div style={{ minWidth: 0 }}>
                   <div
                     style={{
-                      fontSize: 16,
+                      fontSize: 13,
                       fontWeight: 650,
                       color: mkt.text,
                       lineHeight: 1.15,
@@ -435,10 +435,10 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
                   </div>
                   <div
                     style={{
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: 450,
                       color: mkt.textMuted,
-                      lineHeight: 1.35,
+                      lineHeight: 1.25,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       display: "-webkit-box",
@@ -460,9 +460,9 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
           data-testid={`nav-link-${label.toLowerCase()}-mobile`}
           style={{
             display: "block",
-            padding: "12px 2px",
-            fontSize: 16,
-            fontWeight: 500,
+            padding: "10px 0px",
+            fontSize: 15,
+            fontWeight: 600,
             color: mkt.text,
             textDecoration: "none",
           }}
@@ -503,7 +503,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       const el = navCardRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      setMenuTop(Math.round(r.bottom + 6));
+      setMenuTop(Math.round(r.bottom + 3));
     };
 
     compute();
@@ -727,7 +727,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             right: 10,
             top: menuTop,
             zIndex: 300,
-            borderRadius: 22,
+            borderRadius: 20,
             background: "rgba(255,255,255,0.52)",
             backdropFilter: "blur(22px) saturate(1.6)",
             WebkitBackdropFilter: "blur(22px) saturate(1.6)",
@@ -736,7 +736,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               ? "0 22px 60px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.35)"
               : "0 12px 30px rgba(0,0,0,0.08)",
             overflow: "hidden",
-            maxHeight: "72vh",
+            maxHeight: "calc(100vh - 96px)",
             transform: menuOpen ? "translateY(0px) scale(1)" : "translateY(-12px) scale(0.98)",
             opacity: menuOpen ? 1 : 0,
             pointerEvents: menuOpen ? "auto" : "none",
@@ -744,7 +744,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               "transform 0.28s cubic-bezier(0.22,1,0.36,1), opacity 0.2s ease, box-shadow 0.25s ease",
           }}
         >
-          <div style={{ padding: "10px 18px 18px", overflowY: "auto", maxHeight: "72vh" }}>
+          <div style={{ padding: "8px 14px 12px", overflowY: "auto", maxHeight: "calc(100vh - 120px)" }}>
             {NAV_LINKS.map(({ label, href, children }) => (
               <MobileNavItem
                 key={href + label}
@@ -762,8 +762,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               data-testid="nav-cta-start-free-mobile"
               style={{
                 display: "block",
-                marginTop: 18,
-                padding: "14px 16px",
+                marginTop: 12,
+                padding: "12px 14px",
                 borderRadius: 999,
                 background: "#102126",
                 color: "#FFFFFF",
@@ -778,7 +778,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       )}
-      <div style={{ height: 72, flexShrink: 0 }} />
+      <div style={{ height: 24, flexShrink: 0 }} />
       <main style={{ flex: 1 }}>{children}</main>
       <footer data-testid="footer-marketing" style={{ background: colors.brand.dark, color: colors.brand.onDark }}>
         <div
