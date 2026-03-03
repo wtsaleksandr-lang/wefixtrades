@@ -13,7 +13,7 @@ import MarketingHome from "@/pages/marketing/home";
 import MarketingProduct from "@/pages/marketing/product";
 import MarketingPricing from "@/pages/marketing/pricing";
 import ProductIndex from "@/pages/product/ProductIndex";
-import ProductPage from "@/pages/product/ProductPage";
+import ProductPageLegacy from "@/pages/product/ProductPage";
 import MarketingServices from "@/pages/marketing/services";
 import MarketingBundles from "@/pages/marketing/bundles";
 import MarketingTemplates from "@/pages/marketing/templates";
@@ -36,20 +36,44 @@ import DocsWebhooks from "@/pages/marketing/docs/webhooks";
 import DocsTroubleshooting from "@/pages/marketing/docs/troubleshooting";
 import SolutionsVisibility from "@/pages/marketing/solutions-visibility";
 import FreeAudit from "@/pages/marketing/FreeAudit";
+import NewProductPage from "@/pages/products/ProductPage";
+import SolutionPage from "@/pages/solutions/SolutionPage";
+import DemoCenter from "@/pages/demos/DemoCenter";
+import DemoPage from "@/pages/demos/DemoPage";
+import PricingNew from "@/pages/PricingNew";
+import Resources from "@/pages/Resources";
+import About from "@/pages/About";
+import Blog from "@/pages/Blog";
+import CaseStudies from "@/pages/CaseStudies";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={MarketingHome} />
-      <Route path="/product/:slug" component={ProductPage} />
+
+      <Route path="/products/:slug" component={NewProductPage} />
+
+      <Route path="/solutions/visibility" component={SolutionsVisibility} />
+      <Route path="/solutions/:slug" component={SolutionPage} />
+
+      <Route path="/demos" component={DemoCenter} />
+      <Route path="/demos/:slug" component={DemoPage} />
+
+      <Route path="/product/:slug" component={ProductPageLegacy} />
       <Route path="/product" component={ProductIndex} />
       <Route path="/platform" component={MarketingProduct} />
-      <Route path="/pricing" component={MarketingPricing} />
+      <Route path="/pricing" component={PricingNew} />
       <Route path="/services" component={MarketingServices} />
       <Route path="/bundles" component={MarketingBundles} />
       <Route path="/templates" component={MarketingTemplates} />
+      <Route path="/resources" component={Resources} />
+      <Route path="/about" component={About} />
+      <Route path="/blog" component={Blog} />
+      <Route path="/case-studies" component={CaseStudies} />
+
       <Route path="/demo/:templateId" component={DemoTemplate} />
       <Route path="/demo" component={MarketingDemo} />
+
       <Route path="/docs" component={MarketingDocs} />
       <Route path="/contact" component={MarketingContact} />
       <Route path="/privacy" component={MarketingPrivacy} />
@@ -65,7 +89,6 @@ function Router() {
       <Route path="/docs/ai" component={DocsAi} />
       <Route path="/docs/webhooks" component={DocsWebhooks} />
       <Route path="/docs/troubleshooting" component={DocsTroubleshooting} />
-      <Route path="/solutions/visibility" component={SolutionsVisibility} />
       <Route path="/free-audit" component={FreeAudit} />
       <Route path="/Wizard" component={Wizard} />
       <Route path="/Calculator" component={Calculator} />

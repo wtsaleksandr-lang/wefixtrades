@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
-import { Menu, X, ChevronDown, LayoutGrid, Route, Frame, FileText, BadgePercent, Search } from "lucide-react";
+import { Menu, X, ChevronDown, Workflow, MessageSquare, PhoneCall, Layers, MapPinned, Wrench, RefreshCcw, ShieldCheck, Layout, Rocket, Calculator, FileText, Code2, Share2, Sparkles, Search, Zap, Home, Fan } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
 import AnimatedLogo from "./AnimatedLogo";
 import { mkt, colors } from "@/theme/tokens";
+import { FOOTER_LINKS } from "@/site/siteMap";
 
 const DEBUG_DROPDOWN = false;
 
@@ -28,50 +29,36 @@ const DESKTOP_HEADER = {
 
 const NAV_LINKS: { label: string; href: string; children?: NavChild[] }[] = [
   {
-    label: "Product",
-    href: "/product",
+    label: "Products",
+    href: "/products/tradeline",
     children: [
-      {
-        label: "QuickQuotePro",
-        href: "/product",
-        description: "Instant estimates on your site.",
-        icon: <LayoutGrid size={28} strokeWidth={1.6} />,
-      },
-      {
-        label: "MapGuard",
-        href: "/product",
-        description: "Google Maps optimization & visibility.",
-        icon: <Route size={28} strokeWidth={1.6} />,
-      },
-      {
-        label: "SiteLaunch",
-        href: "/product",
-        description: "High-converting website builds.",
-        icon: <Frame size={28} strokeWidth={1.6} />,
-      },
-      {
-        label: "ReputationShield",
-        href: "/product",
-        description: "Reviews + reputation automation.",
-        icon: <BadgePercent size={28} strokeWidth={1.6} />,
-      },
-      {
-        label: "Docs",
-        href: "/docs",
-        description: "Setup guides & integrations.",
-        icon: <FileText size={28} strokeWidth={1.6} />,
-      },
-      {
-        label: "Free Audit",
-        href: "/free-audit",
-        description: "Free Google Maps + website report.",
-        icon: <Search size={28} strokeWidth={1.6} />,
-      },
+      { label: "TradeLine\u2122", href: "/products/tradeline", description: "24/7 lead handling ecosystem.", icon: <Workflow size={28} strokeWidth={1.6} /> },
+      { label: "AI ChatLine\u2122", href: "/products/ai-chatline", description: "Website + SMS AI chat.", icon: <MessageSquare size={28} strokeWidth={1.6} /> },
+      { label: "AI CallLine\u2122", href: "/products/ai-callline", description: "24/7 AI voice answering.", icon: <PhoneCall size={28} strokeWidth={1.6} /> },
+      { label: "TradeLine\u2122 Complete", href: "/products/tradeline-complete", description: "Chat + Voice + DMs.", icon: <Layers size={28} strokeWidth={1.6} /> },
+      { label: "MapGuard\u2122", href: "/products/mapguard", description: "Google Maps optimization.", icon: <MapPinned size={28} strokeWidth={1.6} /> },
+      { label: "ReputationShield\u2122", href: "/products/reputationshield", description: "Reviews + reputation.", icon: <ShieldCheck size={28} strokeWidth={1.6} /> },
+      { label: "SiteLaunch\u2122", href: "/products/sitelaunch", description: "High-converting websites.", icon: <Layout size={28} strokeWidth={1.6} /> },
+      { label: "WebBoost\u2122", href: "/products/webboost", description: "Speed + SEO optimization.", icon: <Rocket size={28} strokeWidth={1.6} /> },
+      { label: "QuoteQuick Pro\u2122", href: "/products/quotequick", description: "Instant quotes on your site.", icon: <Calculator size={28} strokeWidth={1.6} /> },
+      { label: "SocialSync\u2122", href: "/products/socialsync", description: "Social media automation.", icon: <Share2 size={28} strokeWidth={1.6} /> },
+      { label: "Free Audit", href: "/free-audit", description: "Free Google Maps + website report.", icon: <Search size={28} strokeWidth={1.6} /> },
+    ],
+  },
+  {
+    label: "Solutions",
+    href: "/solutions/for-plumbers",
+    children: [
+      { label: "For Plumbers", href: "/solutions/for-plumbers", description: "Win more plumbing leads.", icon: <Wrench size={28} strokeWidth={1.6} /> },
+      { label: "For HVAC", href: "/solutions/for-hvac", description: "Book HVAC service calls.", icon: <Fan size={28} strokeWidth={1.6} /> },
+      { label: "For Electricians", href: "/solutions/for-electricians", description: "Automate quotes & follow-ups.", icon: <Zap size={28} strokeWidth={1.6} /> },
+      { label: "For Roofers", href: "/solutions/for-roofers", description: "Boost visibility & conversions.", icon: <Home size={28} strokeWidth={1.6} /> },
+      { label: "For Cleaners", href: "/solutions/for-cleaners", description: "Get booked on autopilot.", icon: <Sparkles size={28} strokeWidth={1.6} /> },
     ],
   },
   { label: "Templates", href: "/templates" },
-  { label: "Solutions", href: "/solutions" },
-  { label: "Docs", href: "/docs" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "Resources", href: "/resources" },
 ];
 
 function useScrolled(threshold = 24) {
@@ -798,7 +785,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: isMobile ? "1fr 1fr" : "2.5fr 1fr 1fr 1fr",
+              gridTemplateColumns: isMobile ? "1fr 1fr" : "2.5fr 1fr 1fr 1fr 1fr",
               gap: isMobile ? 32 : 48,
               marginBottom: 56,
             }}
@@ -813,7 +800,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   marginBottom: 10,
                 }}
               >
-                QuickQuote<span style={{ color: mkt.accent }}>Pro</span>
+                We<span style={{ color: mkt.accent }}>Fix</span>Trades
               </div>
               <p
                 style={{
@@ -827,7 +814,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 Instant estimates. Smart booking. 24/7 assistants — built for trades businesses.
               </p>
               <div style={{ marginTop: 20, display: "flex", gap: 12 }}>
-                {["Plumbing", "Roofing", "Cleaning", "Electrical"].map((t) => (
+                {["Plumbing", "Roofing", "Cleaning", "Electrical", "HVAC"].map((t) => (
                   <span
                     key={t}
                     style={{
@@ -843,119 +830,41 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               </div>
             </div>
 
-            <div>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: mkt.onDarkFaint,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  marginBottom: 18,
-                }}
-              >
-                Product
-              </div>
-              {[
-                { l: "Overview", h: "/product" },
-                { l: "Pricing", h: "/pricing" },
-                { l: "Templates", h: "/templates" },
-                { l: "Demo", h: "/demo" },
-                { l: "Docs", h: "/docs" },
-              ].map(({ l, h }) => (
-                <Link
-                  key={h}
-                  href={h}
+            {(Object.keys(FOOTER_LINKS) as Array<keyof typeof FOOTER_LINKS>).map((section) => (
+              <div key={section}>
+                <div
                   style={{
-                    display: "block",
-                    fontSize: 14,
-                    fontWeight: 500,
-                    color: mkt.onDarkMuted,
-                    textDecoration: "none",
-                    marginBottom: 11,
-                    transition: "color 0.15s ease",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: mkt.onDarkFaint,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    marginBottom: 18,
                   }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDarkMuted; }}
                 >
-                  {l}
-                </Link>
-              ))}
-            </div>
-
-            <div>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: mkt.onDarkFaint,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  marginBottom: 18,
-                }}
-              >
-                Company
+                  {section}
+                </div>
+                {FOOTER_LINKS[section].map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    style={{
+                      display: "block",
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: mkt.onDarkMuted,
+                      textDecoration: "none",
+                      marginBottom: 11,
+                      transition: "color 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDarkMuted; }}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
               </div>
-              {[
-                { l: "Solutions", h: "/solutions/visibility" },
-                { l: "Contact", h: "/contact" },
-              ].map(({ l, h }) => (
-                <Link
-                  key={h}
-                  href={h}
-                  style={{
-                    display: "block",
-                    fontSize: 14,
-                    fontWeight: 500,
-                    color: mkt.onDarkMuted,
-                    textDecoration: "none",
-                    marginBottom: 11,
-                    transition: "color 0.15s ease",
-                  }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDarkMuted; }}
-                >
-                  {l}
-                </Link>
-              ))}
-            </div>
-
-            <div>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: mkt.onDarkFaint,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  marginBottom: 18,
-                }}
-              >
-                Legal
-              </div>
-              {[
-                { l: "Privacy Policy", h: "/privacy" },
-                { l: "Terms of Service", h: "/terms" },
-              ].map(({ l, h }) => (
-                <Link
-                  key={h}
-                  href={h}
-                  style={{
-                    display: "block",
-                    fontSize: 14,
-                    fontWeight: 500,
-                    color: mkt.onDarkMuted,
-                    textDecoration: "none",
-                    marginBottom: 11,
-                    transition: "color 0.15s ease",
-                  }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDarkMuted; }}
-                >
-                  {l}
-                </Link>
-              ))}
-            </div>
+            ))}
           </div>
 
           <div
@@ -970,11 +879,12 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             }}
           >
             <span style={{ fontSize: 13, color: mkt.onDarkFaint }}>
-              © 2026 WeFixTrades Pty Ltd. All rights reserved.
+              © {new Date().getFullYear()} WeFixTrades. All rights reserved.
             </span>
-            <span style={{ fontSize: 13, color: mkt.onDarkFaint }}>
-              QuickQuotePro — Estimates, Booking & Automations for Trades
-            </span>
+            <div style={{ display: "flex", gap: 20 }}>
+              <Link href="/privacy" style={{ fontSize: 13, color: mkt.onDarkFaint, textDecoration: "none" }}>Privacy Policy</Link>
+              <Link href="/terms" style={{ fontSize: 13, color: mkt.onDarkFaint, textDecoration: "none" }}>Terms of Service</Link>
+            </div>
           </div>
         </div>
       </footer>
