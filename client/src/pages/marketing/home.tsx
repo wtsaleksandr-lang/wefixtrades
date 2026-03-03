@@ -374,7 +374,7 @@ export default function HomePage() {
         className="hero-section-responsive"
         style={{
           background: mkt.surface,
-          padding: "88px 28px 80px",
+          padding: "98px 28px 80px",
           marginTop: -8,
           position: "relative",
           overflow: "hidden",
@@ -451,19 +451,20 @@ export default function HomePage() {
           .wf-cta-shimmer::after {
             content: "";
             position: absolute;
-            inset: -20% -40%;
+            inset: -30% -55%;
             z-index: 1;
             pointer-events: none;
             background: linear-gradient(
               90deg,
               rgba(255,255,255,0) 0%,
-              rgba(255,255,255,0.06) 38%,
-              rgba(255,255,255,0.32) 50%,
-              rgba(255,255,255,0.06) 62%,
+              rgba(255,255,255,0.10) 38%,
+              rgba(255,255,255,0.55) 50%,
+              rgba(255,255,255,0.10) 62%,
               rgba(255,255,255,0) 100%
             );
-            filter: blur(0.2px);
-            animation: wf_shimmer_sweep 4.8s ease-in-out infinite;
+            mix-blend-mode: screen;
+            filter: blur(0.3px);
+            animation: wf_shimmer_sweep 4.6s ease-in-out infinite;
           }
           .wf-cta-shimmer > * {
             position: relative;
@@ -691,23 +692,26 @@ export default function HomePage() {
               style={{
                 padding: "14px 34px",
                 borderRadius: 14,
-                background: mkt.dark,
+                background: "linear-gradient(180deg, #0C67FF 0%, #0757E6 100%)",
                 color: mkt.onDark,
                 fontSize: 15,
                 fontWeight: 600,
                 textDecoration: "none",
                 display: "inline-block",
-                transition: "background 0.2s ease, box-shadow 0.2s ease",
+                border: "1px solid rgba(255,255,255,0.18)",
+                boxShadow: "0 16px 40px rgba(12,103,255,0.28), inset 0 1px 0 rgba(255,255,255,0.25)",
+                transform: "translateY(0px)",
+                transition: "transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease",
               }}
               onMouseEnter={(e) => {
                 const el = e.currentTarget as HTMLElement;
-                el.style.background = mkt.darkHover;
-                el.style.boxShadow = `0 4px 16px rgba(16,33,38,0.25)`;
+                el.style.transform = "translateY(-1px)";
+                el.style.boxShadow = "0 20px 48px rgba(12,103,255,0.34), inset 0 1px 0 rgba(255,255,255,0.30)";
               }}
               onMouseLeave={(e) => {
                 const el = e.currentTarget as HTMLElement;
-                el.style.background = mkt.dark;
-                el.style.boxShadow = "none";
+                el.style.transform = "translateY(0px)";
+                el.style.boxShadow = "0 16px 40px rgba(12,103,255,0.28), inset 0 1px 0 rgba(255,255,255,0.25)";
               }}
             >
               <span>Try It Free</span>

@@ -535,6 +535,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         WebkitFontSmoothing: "antialiased",
         MozOsxFontSmoothing: "grayscale",
         textRendering: "optimizeLegibility",
+        background: "linear-gradient(180deg, rgba(236,242,244,1) 0%, rgba(236,242,244,1) 60%, rgba(236,242,244,0) 100%)",
       }}
     >
       <nav
