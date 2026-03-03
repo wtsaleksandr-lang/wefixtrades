@@ -41,6 +41,7 @@ import SolutionPage from "@/pages/solutions/SolutionPage";
 import DemoCenter from "@/pages/demos/DemoCenter";
 import DemoPage from "@/pages/demos/DemoPage";
 import PricingNew from "@/pages/PricingNew";
+import Plans from "@/pages/Plans";
 import Resources from "@/pages/Resources";
 import About from "@/pages/About";
 import Blog from "@/pages/Blog";
@@ -63,6 +64,8 @@ function Router() {
       <Route path="/product" component={ProductIndex} />
       <Route path="/platform" component={MarketingProduct} />
       <Route path="/pricing" component={PricingNew} />
+      <Route path="/plans" component={Plans} />
+      <Route path="/login" component={Dashboard} />
       <Route path="/services" component={MarketingServices} />
       <Route path="/bundles" component={MarketingBundles} />
       <Route path="/templates" component={MarketingTemplates} />
