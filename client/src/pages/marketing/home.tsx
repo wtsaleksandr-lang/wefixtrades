@@ -436,6 +436,68 @@ export default function HomePage() {
               opacity: 0 !important;
             }
           }
+          @keyframes wf_shimmer_sweep {
+            0%   { transform: translateX(-140%) skewX(-18deg); opacity: 0; }
+            8%   { opacity: 0.85; }
+            32%  { opacity: 0.85; }
+            40%  { opacity: 0; }
+            100% { transform: translateX(240%) skewX(-18deg); opacity: 0; }
+          }
+          .wf-cta-shimmer {
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+          }
+          .wf-cta-shimmer::after {
+            content: "";
+            position: absolute;
+            inset: -20% -40%;
+            z-index: 1;
+            pointer-events: none;
+            background: linear-gradient(
+              90deg,
+              rgba(255,255,255,0) 0%,
+              rgba(255,255,255,0.06) 38%,
+              rgba(255,255,255,0.32) 50%,
+              rgba(255,255,255,0.06) 62%,
+              rgba(255,255,255,0) 100%
+            );
+            filter: blur(0.2px);
+            animation: wf_shimmer_sweep 4.8s ease-in-out infinite;
+          }
+          .wf-cta-shimmer > * {
+            position: relative;
+            z-index: 2;
+          }
+          .wf-pill-shimmer {
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+          }
+          .wf-pill-shimmer::after {
+            content: "";
+            position: absolute;
+            inset: -30% -60%;
+            z-index: 0;
+            pointer-events: none;
+            background: linear-gradient(
+              90deg,
+              rgba(59,130,246,0) 0%,
+              rgba(59,130,246,0.08) 40%,
+              rgba(59,130,246,0.22) 50%,
+              rgba(59,130,246,0.08) 60%,
+              rgba(59,130,246,0) 100%
+            );
+            animation: wf_shimmer_sweep 6.0s ease-in-out infinite;
+            opacity: 0.9;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .wf-cta-shimmer::after,
+            .wf-pill-shimmer::after {
+              animation: none !important;
+              opacity: 0 !important;
+            }
+          }
         `}</style>
 
         <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative" }}>
@@ -447,6 +509,7 @@ export default function HomePage() {
             }}
           >
             <div
+              className="wf-pill-shimmer"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -624,7 +687,7 @@ export default function HomePage() {
             <Link
               href="/Wizard"
               data-testid="button-try-free-hero"
-              className="mkt-btn-primary"
+              className="mkt-btn-primary wf-cta-shimmer"
               style={{
                 padding: "14px 34px",
                 borderRadius: 14,
@@ -647,7 +710,7 @@ export default function HomePage() {
                 el.style.boxShadow = "none";
               }}
             >
-              Try It Free
+              <span>Try It Free</span>
             </Link>
             <Link
               href="/product"
