@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { colors } from "@/theme/tokens";
-import { Search, MapPin, Globe, Star, AlertTriangle, CheckCircle2, ArrowRight, ChevronDown, Phone, Image } from "lucide-react";
+import { Search, CheckCircle2 } from "lucide-react";
+import reportStyles from "./FreeAuditReport.module.css";
 
 type Prediction = { placeId: string; name: string; formattedAddress: string };
 type Business = {
@@ -16,8 +17,8 @@ type Business = {
   photos: string[];
 };
 type SpeedData = {
-  mobile: { score: number | null };
-  desktop: { score: number | null };
+  mobile: { score: number | null; fcp?: number | null; lcp?: number | null; tbt?: number | null; cls?: number | null };
+  desktop: { score: number | null; fcp?: number | null; lcp?: number | null; tbt?: number | null; cls?: number | null };
 };
 type Issue = {
   title: string;
@@ -66,24 +67,313 @@ function useDebouncedValue<T>(value: T, delayMs: number) {
   return v;
 }
 
-const CARD: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid rgba(0,0,0,0.07)",
-  borderRadius: 18,
-  boxShadow: "0 6px 24px rgba(0,0,0,0.05)",
-};
+type ImpactLevel = "high" | "medium" | "low";
+type MetricStatus = "good" | "needs" | "critical";
 
-function speedColor(s: number | null) {
-  if (s === null) return colors.textMuted;
-  if (s >= 90) return "#22C55E";
-  if (s >= 50) return "#F59E0B";
-  return "#EF4444";
+function impactToLevel(impact: any): ImpactLevel {
+  const s = String(impact ?? "").toLowerCase();
+  if (s.includes("high") || s.includes("critical")) return "high";
+  if (s.includes("med") || s.includes("warn")) return "medium";
+  if (s.includes("low") || s.includes("minor")) return "low";
+  return "medium";
 }
 
-function visibilityColor(s: number) {
-  if (s >= 80) return "#22C55E";
-  if (s >= 55) return "#F59E0B";
-  return "#EF4444";
+function fmtMs(v: any): string {
+  const n = Number(v);
+  if (Number.isNaN(n)) return String(v ?? "--");
+  if (n >= 1000) return `${(n / 1000).toFixed(2)}s`;
+  return `${Math.round(n)}ms`;
+}
+
+function fmtSec(v: any): string {
+  const n = Number(v);
+  if (Number.isNaN(n)) return String(v ?? "--");
+  if (n < 1) return `${Math.round(n * 1000)}ms`;
+  return `${n.toFixed(2)}s`;
+}
+
+function metricStatus(name: "FCP" | "LCP" | "TBT" | "CLS", raw: any): MetricStatus {
+  const v = Number(raw);
+  if (Number.isNaN(v)) return "needs";
+  if (name === "FCP") return v <= 1.8 ? "good" : v <= 3.0 ? "needs" : "critical";
+  if (name === "LCP") return v <= 2.5 ? "good" : v <= 4.0 ? "needs" : "critical";
+  if (name === "TBT") return v <= 200 ? "good" : v <= 600 ? "needs" : "critical";
+  return v <= 0.1 ? "good" : v <= 0.25 ? "needs" : "critical";
+}
+
+function statusLabel(s: MetricStatus): string {
+  return s === "good" ? "Good" : s === "needs" ? "Needs work" : "Critical";
+}
+
+function StatusChip({ status }: { status: MetricStatus }) {
+  const cls =
+    status === "good"
+      ? `${reportStyles.statusChip} ${reportStyles.good}`
+      : status === "needs"
+      ? `${reportStyles.statusChip} ${reportStyles.needs}`
+      : `${reportStyles.statusChip} ${reportStyles.critical}`;
+  return <span className={cls}>{statusLabel(status)}</span>;
+}
+
+function RIcon({ kind }: { kind: "star" | "pin" | "phone" | "globe" | "clock" | "info" | "mobile" | "desktop" | "issue" }) {
+  const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", xmlns: "http://www.w3.org/2000/svg" as const };
+  if (kind === "star")
+    return (<svg {...common}><path d="M12 17.3l-5.4 3 1-6.1-4.4-4.3 6.1-.9L12 3.5l2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-3z" stroke="currentColor" strokeWidth="1.6" /></svg>);
+  if (kind === "pin")
+    return (<svg {...common}><path d="M12 21s7-4.4 7-11a7 7 0 10-14 0c0 6.6 7 11 7 11z" stroke="currentColor" strokeWidth="1.6" /><path d="M12 10.2a2.2 2.2 0 100-4.4 2.2 2.2 0 000 4.4z" stroke="currentColor" strokeWidth="1.6" /></svg>);
+  if (kind === "phone")
+    return (<svg {...common}><path d="M7 3h3l2 5-2 1c1 3 3 5 6 6l1-2 5 2v3c0 1-1 2-2 2C10 20 4 14 4 6c0-1 1-3 3-3z" stroke="currentColor" strokeWidth="1.6" /></svg>);
+  if (kind === "globe")
+    return (<svg {...common}><path d="M12 22a10 10 0 100-20 10 10 0 000 20z" stroke="currentColor" strokeWidth="1.6" /><path d="M2 12h20" stroke="currentColor" strokeWidth="1.6" /><path d="M12 2c3 3 3 17 0 20" stroke="currentColor" strokeWidth="1.6" /></svg>);
+  if (kind === "clock")
+    return (<svg {...common}><path d="M12 22a10 10 0 100-20 10 10 0 000 20z" stroke="currentColor" strokeWidth="1.6" /><path d="M12 6v6l4 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>);
+  if (kind === "info")
+    return (<svg {...common}><path d="M12 22a10 10 0 100-20 10 10 0 000 20z" stroke="currentColor" strokeWidth="1.6" /><path d="M12 10v7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /><path d="M12 7.2h.01" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>);
+  if (kind === "mobile")
+    return (<svg {...common}><path d="M8 2h8a2 2 0 012 2v16a2 2 0 01-2 2H8a2 2 0 01-2-2V4a2 2 0 012-2z" stroke="currentColor" strokeWidth="1.6" /><path d="M11 19h2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>);
+  if (kind === "desktop")
+    return (<svg {...common}><path d="M4 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V5z" stroke="currentColor" strokeWidth="1.6" /><path d="M9 21h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /><path d="M12 17v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>);
+  return (<svg {...common}><path d="M6 12h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /><path d="M12 6v12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>);
+}
+
+function ReportView(props: {
+  business: any;
+  mapsIssues: any[];
+  speed: any;
+  onFixClick?: () => void;
+  onEmailClick?: () => void;
+}) {
+  const { business, mapsIssues, speed, onFixClick, onEmailClick } = props;
+  const [activeTab, setActiveTab] = useState<"maps" | "speed">("maps");
+
+  const photos: string[] = Array.isArray(business?.photos) ? business.photos : [];
+  const name = business?.name ?? "Business";
+  const rating = business?.rating;
+  const reviews = business?.reviewsCount ?? business?.reviews;
+  const address = business?.formattedAddress ?? business?.address;
+  const phone = business?.phone;
+  const website = business?.website;
+  const hours = business?.hours;
+
+  const mobile = speed?.mobile ?? {};
+  const desktop = speed?.desktop ?? {};
+
+  function PerfBlock({ label, kind, score, data, tone }: { label: string; kind: "mobile" | "desktop"; score: any; data: any; tone: "red" | "amber" }) {
+    const cardCls =
+      tone === "red"
+        ? `${reportStyles.perfCard} ${reportStyles.perfRed}`
+        : `${reportStyles.perfCard} ${reportStyles.perfAmber}`;
+    const scoreNumCls = tone === "red" ? reportStyles.scoreNumRed : reportStyles.scoreNumAmber;
+
+    const fcp = data?.fcp ?? data?.FCP;
+    const lcp = data?.lcp ?? data?.LCP;
+    const tbt = data?.tbt ?? data?.TBT;
+    const clsVal = data?.cls ?? data?.CLS;
+
+    return (
+      <div className={cardCls}>
+        <div className={reportStyles.perfHeader}>
+          <div className={reportStyles.perfLabel}>
+            <span className={reportStyles.perfLabelIcon}><RIcon kind={kind} /></span>
+            {label}
+          </div>
+        </div>
+        <div className={reportStyles.scoreBlock}>
+          <div className={reportStyles.scoreCaption}>Performance Score</div>
+          <div className={reportStyles.scoreRow}>
+            <div className={scoreNumCls}>{Number.isFinite(Number(score)) ? Math.round(Number(score)) : "--"}</div>
+            <div className={reportStyles.scoreDen}>/100</div>
+          </div>
+        </div>
+        <div className={reportStyles.metricList}>
+          <div className={reportStyles.metricRow}>
+            <div>
+              <div className={reportStyles.metricName}>First Contentful Paint (FCP)</div>
+              <div className={reportStyles.metricVal}>{fmtSec(fcp)}</div>
+              <div className={reportStyles.metricDesc}>How fast the first text or image appears.</div>
+            </div>
+            <StatusChip status={metricStatus("FCP", fcp)} />
+          </div>
+          <div className={reportStyles.metricRow}>
+            <div>
+              <div className={reportStyles.metricName}>Largest Contentful Paint (LCP)</div>
+              <div className={reportStyles.metricVal}>{fmtSec(lcp)}</div>
+              <div className={reportStyles.metricDesc}>How fast the main content loads for visitors.</div>
+            </div>
+            <StatusChip status={metricStatus("LCP", lcp)} />
+          </div>
+          <div className={reportStyles.metricRow}>
+            <div>
+              <div className={reportStyles.metricName}>Total Blocking Time (TBT)</div>
+              <div className={reportStyles.metricVal}>{fmtMs(tbt)}</div>
+              <div className={reportStyles.metricDesc}>How long the page is unresponsive during loading.</div>
+            </div>
+            <StatusChip status={metricStatus("TBT", tbt)} />
+          </div>
+          <div className={reportStyles.metricRow}>
+            <div>
+              <div className={reportStyles.metricName}>Cumulative Layout Shift (CLS)</div>
+              <div className={reportStyles.metricVal}>{Number.isFinite(Number(clsVal)) ? String(clsVal) : "--"}</div>
+              <div className={reportStyles.metricDesc}>How stable the layout is (lower is better).</div>
+            </div>
+            <StatusChip status={metricStatus("CLS", clsVal)} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={reportStyles.page}>
+      <div className={reportStyles.container}>
+        <div className={reportStyles.stack}>
+          <div className={`${reportStyles.card} ${reportStyles.cardPad}`}>
+            <div className={reportStyles.row}>
+              <div className={reportStyles.col}>
+                <div className={reportStyles.h3}>{name}</div>
+                <div className={`${reportStyles.body} ${reportStyles.muted}`}>Your Google Maps Profile</div>
+              </div>
+            </div>
+            <div className={reportStyles.kvList}>
+              {(rating != null || reviews != null) && (
+                <div className={reportStyles.kvRow}>
+                  <span className={reportStyles.kvIcon}><RIcon kind="star" /></span>
+                  <span><b>{rating ?? "--"}</b></span>
+                  <span className={reportStyles.muted}>{reviews != null ? `${reviews} reviews` : ""}</span>
+                </div>
+              )}
+              {address && (
+                <div className={reportStyles.kvRow}>
+                  <span className={reportStyles.kvIcon}><RIcon kind="pin" /></span>
+                  <span className={reportStyles.body}>{address}</span>
+                </div>
+              )}
+              {phone && (
+                <div className={reportStyles.kvRow}>
+                  <span className={reportStyles.kvIcon}><RIcon kind="phone" /></span>
+                  <span className={reportStyles.body}>{phone}</span>
+                </div>
+              )}
+              {website && (
+                <div className={reportStyles.kvRow}>
+                  <span className={reportStyles.kvIcon}><RIcon kind="globe" /></span>
+                  <a className={reportStyles.body} href={website} target="_blank" rel="noreferrer" data-testid="link-report-website">{String(website).replace(/^https?:\/\//, "")}</a>
+                </div>
+              )}
+              {hours && Array.isArray(hours) && hours.length > 0 && (
+                <div className={reportStyles.kvRow}>
+                  <span className={reportStyles.kvIcon}><RIcon kind="clock" /></span>
+                  <span className={reportStyles.body}>Opening Hours</span>
+                </div>
+              )}
+            </div>
+            {photos.length > 0 && (
+              <div className={reportStyles.photos}>
+                {photos.slice(0, 4).map((src, i) => (
+                  <img key={i} className={reportStyles.photo} src={src} alt="" data-testid={`img-report-photo-${i}`} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className={reportStyles.tabsWrap}>
+            <button
+              type="button"
+              data-testid="button-tab-maps"
+              className={`${reportStyles.tabBtn} ${activeTab === "maps" ? reportStyles.tabBtnActive : ""}`}
+              onClick={() => setActiveTab("maps")}
+            >
+              Google Maps Audit
+            </button>
+            <button
+              type="button"
+              data-testid="button-tab-speed"
+              className={`${reportStyles.tabBtn} ${activeTab === "speed" ? reportStyles.tabBtnActive : ""}`}
+              onClick={() => setActiveTab("speed")}
+            >
+              Website SEO &amp; Speed
+            </button>
+          </div>
+
+          {activeTab === "maps" && (
+            <div className={reportStyles.stack}>
+              <div className={reportStyles.sectionTitle}>Visibility Opportunities Detected</div>
+              <div className={reportStyles.issueList}>
+                {(mapsIssues ?? []).map((it, idx) => {
+                  const level = impactToLevel(it?.severity ?? it?.impact);
+                  const cls =
+                    level === "high"
+                      ? `${reportStyles.issueCard} ${reportStyles.high}`
+                      : level === "medium"
+                      ? `${reportStyles.issueCard} ${reportStyles.med}`
+                      : `${reportStyles.issueCard} ${reportStyles.low}`;
+                  const pillText = level === "high" ? "High Impact" : level === "medium" ? "Medium Impact" : "Low Impact";
+
+                  return (
+                    <div key={idx} className={cls} data-testid={`card-issue-${idx}`}>
+                      <div className={reportStyles.issueIconBox}><RIcon kind="issue" /></div>
+                      <div className={reportStyles.issueMain}>
+                        <div className={reportStyles.issueTitle}>{it?.title ?? "Opportunity"}</div>
+                        <div className={reportStyles.issueDesc}>{it?.impact ?? it?.fix ?? ""}</div>
+                      </div>
+                      <div className={reportStyles.impactPill}>{pillText}</div>
+                    </div>
+                  );
+                })}
+                {(!mapsIssues || mapsIssues.length === 0) && (
+                  <div className={`${reportStyles.body} ${reportStyles.muted}`} style={{ padding: 8 }}>No issues detected \u2014 looking good!</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "speed" && (
+            <div className={reportStyles.stack}>
+              <div className={reportStyles.infoBox}>
+                <div className={reportStyles.infoIcon}><RIcon kind="info" /></div>
+                <div>
+                  <div className={reportStyles.h4}>Speed Impact</div>
+                  <div className={`${reportStyles.body} ${reportStyles.muted}`}>Your website speed may be limiting conversions and local rankings.</div>
+                </div>
+              </div>
+              <PerfBlock
+                label="Mobile"
+                kind="mobile"
+                tone="red"
+                score={mobile?.score}
+                data={mobile}
+              />
+              <PerfBlock
+                label="Desktop"
+                kind="desktop"
+                tone="amber"
+                score={desktop?.score}
+                data={desktop}
+              />
+              {!mobile?.score && !desktop?.score && (
+                <div className={`${reportStyles.body} ${reportStyles.muted}`} style={{ padding: 8, textAlign: "center" }}>
+                  No website linked \u2014 speed data unavailable.
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className={`${reportStyles.card} ${reportStyles.cardPad} ${reportStyles.ctaCard}`}>
+            <div className={reportStyles.ctaTitle}>Ready to fix your local visibility?</div>
+            <div className={reportStyles.ctaSub}>Professional optimization for both Google Maps and your website.</div>
+            <div className={reportStyles.ctaBtns}>
+              <button type="button" className={reportStyles.btnPrimary} onClick={onFixClick} data-testid="button-cta-fix">
+                Fix This For Me &nbsp; \u2192
+              </button>
+              <button type="button" className={reportStyles.btnSecondary} onClick={onEmailClick} data-testid="button-cta-email">
+                Email Me This Report
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const STEPS = [
@@ -112,9 +402,6 @@ export default function FreeAudit() {
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
-  const [planTab, setPlanTab] = useState<"7" | "30">("7");
 
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -148,8 +435,6 @@ export default function FreeAudit() {
       setReport(null);
       setSpeedData(null);
       setPredictions([]);
-      setExpandedIssue(null);
-      setPlanTab("7");
 
       const details = await postJSON<{ ok: true; business: Business }>(
         "/api/audit/place-details",
@@ -187,16 +472,14 @@ export default function FreeAudit() {
     }
   }
 
-  const scoreLabel = useMemo(() => {
-    if (!report) return null;
-    const s = report.scores.localVisibility;
-    if (s >= 85) return "Excellent";
-    if (s >= 70) return "Good";
-    if (s >= 55) return "Average";
-    return "Needs work";
-  }, [report]);
-
   const currentStep = busyStep(busy);
+
+  const reportReady = !!report;
+  const UI_BUSINESS = business
+    ? { ...business, reviewsCount: business.reviewsCount, address: business.formattedAddress }
+    : null;
+  const UI_MAPS_ISSUES = report?.issues ?? [];
+  const UI_SPEED = speedData ?? { mobile: { score: null }, desktop: { score: null } };
 
   return (
     <MarketingLayout>
@@ -219,41 +502,12 @@ export default function FreeAudit() {
         .audit-container {
           position: relative;
           z-index: 1;
-          max-width: 1100px;
+          max-width: 680px;
           margin: 0 auto;
           padding: 110px 16px 80px;
         }
-        @media (min-width: 980px) {
+        @media (min-width: 768px) {
           .audit-container { padding: 120px 24px 80px; }
-        }
-        .audit-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 14px;
-        }
-        @media (min-width: 980px) {
-          .audit-grid {
-            grid-template-columns: 420px 1fr;
-            gap: 18px;
-          }
-        }
-        .audit-right {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-        @media (min-width: 980px) {
-          .audit-right {
-            position: sticky;
-            top: 96px;
-            align-self: start;
-            gap: 16px;
-          }
-        }
-        .audit-left {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
         }
         .audit-input:focus {
           border-color: #0C67FF !important;
@@ -284,235 +538,139 @@ export default function FreeAudit() {
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
-        .audit-issue-body {
-          overflow: hidden;
-          max-height: 0;
-          transition: max-height 0.3s ease, opacity 0.25s ease;
-          opacity: 0;
-        }
-        .audit-issue-body.open {
-          max-height: 300px;
-          opacity: 1;
-        }
-        .audit-tab {
-          padding: 7px 16px;
-          border-radius: 10px;
-          border: none;
-          background: transparent;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          color: rgba(0,0,0,0.55);
-          transition: background 0.15s, color 0.15s;
-        }
-        .audit-tab.active {
-          background: rgba(0,0,0,0.06);
-          color: #141414;
-        }
-        .audit-photos {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 8px;
-        }
-        @media (min-width: 980px) {
-          .audit-photos {
-            grid-template-columns: repeat(4, 1fr);
-          }
-        }
-        .audit-photo {
-          aspect-ratio: 4/3;
-          border-radius: 12px;
-          object-fit: cover;
-          width: 100%;
-          background: rgba(0,0,0,0.04);
-        }
-        .audit-meter {
-          height: 8px;
-          border-radius: 8px;
-          background: rgba(0,0,0,0.07);
-          overflow: hidden;
-        }
-        .audit-meter-fill {
-          height: 100%;
-          border-radius: 8px;
-          background: linear-gradient(90deg, #0C67FF, #0757E6);
-          transition: width 0.8s ease;
-        }
-        .audit-cta-card {
-          position: relative;
-          border-radius: 18px;
-          padding: 2px;
-          background: linear-gradient(135deg, rgba(12,103,255,0.25), rgba(12,103,255,0.08), rgba(12,103,255,0.25));
-        }
-        .audit-cta-inner {
-          background: #fff;
-          border-radius: 16px;
-          padding: 20px;
-        }
-        .audit-cta-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 12px 22px;
-          border-radius: 14px;
-          border: none;
-          font-size: 14px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: transform 0.15s, box-shadow 0.15s;
-          text-decoration: none;
-        }
-        .audit-cta-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-        }
-        @media (max-width: 979px) {
-          .audit-cta-btns {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-          }
-          .audit-cta-btn {
-            width: 100%;
-          }
-        }
-        @media (min-width: 980px) {
-          .audit-cta-btns {
-            display: flex;
-            gap: 12px;
-          }
-        }
       `}</style>
 
       <div className="audit-page">
         <div className="audit-container">
-          <div style={{ textAlign: "center", marginBottom: 36 }}>
-            <h1
-              data-testid="text-audit-title"
-              style={{
-                fontSize: "clamp(30px, 5vw, 40px)",
-                fontWeight: 900,
-                letterSpacing: "-0.02em",
-                color: colors.text,
-                marginBottom: 12,
-                lineHeight: 1.05,
-              }}
-            >
-              Free Google Maps &amp; Website Audit
-            </h1>
-            <p
-              style={{
-                fontSize: 16,
-                color: "rgba(0,0,0,0.62)",
-                maxWidth: "58ch",
-                margin: "0 auto 14px",
-                lineHeight: 1.55,
-              }}
-            >
-              Search your business and get an instant report on your Google
-              Business Profile health and website speed.
-            </p>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                fontSize: 13,
-                fontWeight: 500,
-                color: "rgba(0,0,0,0.48)",
-              }}
-            >
-              <span>Instant report</span>
-              <span style={{ opacity: 0.4 }}>\u00b7</span>
-              <span>No signup</span>
-              <span style={{ opacity: 0.4 }}>\u00b7</span>
-              <span>Takes ~30 seconds</span>
-            </div>
-          </div>
-
-          {!report && !busy && (
-            <div style={{ maxWidth: 560, margin: "0 auto" }}>
-              <div
-                style={{
-                  ...CARD,
-                  background: "rgba(255,255,255,0.78)",
-                  boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
-                  padding: 16,
-                }}
-              >
-                <div style={{ position: "relative" }}>
-                  <Search
-                    size={18}
-                    strokeWidth={1.75}
-                    style={{
-                      position: "absolute",
-                      left: 14,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "rgba(0,0,0,0.35)",
-                      pointerEvents: "none",
-                    }}
-                  />
-                  <input
-                    data-testid="input-audit-search"
-                    className="audit-input"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Type your business name + city\u2026"
-                    style={{
-                      width: "100%",
-                      height: 46,
-                      borderRadius: 14,
-                      border: "1px solid rgba(0,0,0,0.10)",
-                      padding: "0 14px 0 42px",
-                      fontSize: 15,
-                      fontWeight: 500,
-                      outline: "none",
-                      background: "#fff",
-                      transition: "border-color 0.2s, box-shadow 0.2s",
-                      color: colors.text,
-                    }}
-                  />
-                  {loadingSearch && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        right: 14,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        width: 18,
-                        height: 18,
-                        border: "2px solid rgba(12,103,255,0.2)",
-                        borderTopColor: "#0C67FF",
-                        borderRadius: "50%",
-                        animation: "spin 0.7s linear infinite",
-                      }}
-                    />
-                  )}
+          {!reportReady && (
+            <>
+              <div style={{ textAlign: "center", marginBottom: 36 }}>
+                <h1
+                  data-testid="text-audit-title"
+                  style={{
+                    fontSize: "clamp(30px, 5vw, 40px)",
+                    fontWeight: 900,
+                    letterSpacing: "-0.02em",
+                    color: colors.text,
+                    marginBottom: 12,
+                    lineHeight: 1.05,
+                  }}
+                >
+                  Free Google Maps &amp; Website Audit
+                </h1>
+                <p
+                  style={{
+                    fontSize: 16,
+                    color: "rgba(0,0,0,0.62)",
+                    maxWidth: "58ch",
+                    margin: "0 auto 14px",
+                    lineHeight: 1.55,
+                  }}
+                >
+                  Search your business and get an instant report on your Google
+                  Business Profile health and website speed.
+                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: "rgba(0,0,0,0.48)",
+                  }}
+                >
+                  <span>Instant report</span>
+                  <span style={{ opacity: 0.4 }}>{"\u00b7"}</span>
+                  <span>No signup</span>
+                  <span style={{ opacity: 0.4 }}>{"\u00b7"}</span>
+                  <span>Takes ~30 seconds</span>
                 </div>
-
-                {error && (
-                  <div
-                    data-testid="text-audit-error"
-                    style={{
-                      marginTop: 12,
-                      padding: "10px 14px",
-                      borderRadius: 12,
-                      background: "rgba(239,68,68,0.06)",
-                      border: "1px solid rgba(239,68,68,0.14)",
-                      color: "#B91C1C",
-                      fontSize: 13,
-                      fontWeight: 500,
-                    }}
-                  >
-                    {error}
-                  </div>
-                )}
               </div>
 
-              {predictions.length > 0 && (
+              {!busy && (
+                <div
+                  style={{
+                    background: "rgba(255,255,255,0.78)",
+                    border: "1px solid rgba(0,0,0,0.08)",
+                    borderRadius: 18,
+                    boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
+                    padding: 16,
+                  }}
+                >
+                  <div style={{ position: "relative" }}>
+                    <Search
+                      size={18}
+                      strokeWidth={1.75}
+                      style={{
+                        position: "absolute",
+                        left: 14,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "rgba(0,0,0,0.35)",
+                        pointerEvents: "none",
+                      }}
+                    />
+                    <input
+                      data-testid="input-audit-search"
+                      className="audit-input"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Type your business name + city\u2026"
+                      style={{
+                        width: "100%",
+                        height: 46,
+                        borderRadius: 14,
+                        border: "1px solid rgba(0,0,0,0.10)",
+                        padding: "0 14px 0 42px",
+                        fontSize: 15,
+                        fontWeight: 500,
+                        outline: "none",
+                        background: "#fff",
+                        transition: "border-color 0.2s, box-shadow 0.2s",
+                        color: colors.text,
+                      }}
+                    />
+                    {loadingSearch && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          right: 14,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          width: 18,
+                          height: 18,
+                          border: "2px solid rgba(12,103,255,0.2)",
+                          borderTopColor: "#0C67FF",
+                          borderRadius: "50%",
+                          animation: "spin 0.7s linear infinite",
+                        }}
+                      />
+                    )}
+                  </div>
+
+                  {error && (
+                    <div
+                      data-testid="text-audit-error"
+                      style={{
+                        marginTop: 12,
+                        padding: "10px 14px",
+                        borderRadius: 12,
+                        background: "rgba(239,68,68,0.06)",
+                        border: "1px solid rgba(239,68,68,0.14)",
+                        color: "#B91C1C",
+                        fontSize: 13,
+                        fontWeight: 500,
+                      }}
+                    >
+                      {error}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {predictions.length > 0 && !busy && (
                 <div
                   data-testid="list-suggestions"
                   style={{
@@ -587,796 +745,91 @@ export default function FreeAudit() {
                   ))}
                 </div>
               )}
-            </div>
-          )}
 
-          {busy && (
-            <div style={{ maxWidth: 480, margin: "0 auto" }}>
-              <div style={{ ...CARD, padding: 20 }}>
+              {busy && (
                 <div
                   style={{
-                    fontSize: 15,
-                    fontWeight: 600,
-                    color: colors.text,
-                    marginBottom: 14,
+                    background: "#fff",
+                    border: "1px solid rgba(0,0,0,0.07)",
+                    borderRadius: 18,
+                    boxShadow: "0 6px 24px rgba(0,0,0,0.05)",
+                    padding: 20,
                   }}
                 >
-                  Running your audit\u2026 (step {currentStep} of 3)
-                </div>
-                <div className="audit-shimmer" style={{ marginBottom: 16 }} />
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {STEPS.map((label, idx) => {
-                    const step = idx + 1;
-                    const done = currentStep > step;
-                    const active = currentStep === step;
-                    return (
-                      <div
-                        key={idx}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          fontSize: 13,
-                          fontWeight: 500,
-                          color: done
-                            ? "#22C55E"
-                            : active
-                            ? colors.accent
-                            : "rgba(0,0,0,0.35)",
-                        }}
-                      >
-                        {done ? (
-                          <CheckCircle2 size={15} />
-                        ) : active ? (
-                          <div
-                            style={{
-                              width: 15,
-                              height: 15,
-                              border: "2px solid rgba(12,103,255,0.3)",
-                              borderTopColor: "#0C67FF",
-                              borderRadius: "50%",
-                              animation: "spin 0.7s linear infinite",
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: 15,
-                              height: 15,
-                              borderRadius: "50%",
-                              border: "2px solid rgba(0,0,0,0.12)",
-                            }}
-                          />
-                        )}
-                        {label}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {(report || (business && !busy)) && (
-            <div className="audit-grid" ref={reportRef}>
-              <div className="audit-left">
-                {business && (
                   <div
-                    data-testid="card-business-info"
-                    style={{ ...CARD, padding: 18 }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 800,
-                        color: colors.text,
-                        marginBottom: 4,
-                      }}
-                    >
-                      {business.name}
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        fontSize: 13,
-                        color: "rgba(0,0,0,0.55)",
-                        marginBottom: 10,
-                      }}
-                    >
-                      <MapPin size={13} />
-                      {business.formattedAddress}
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 14,
-                        fontSize: 13,
-                        color: colors.text,
-                        marginBottom: business.photos.length > 0 ? 14 : 0,
-                      }}
-                    >
-                      {business.rating !== null && (
-                        <span
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                          }}
-                        >
-                          <Star
-                            size={14}
-                            style={{ color: "#E8A317", fill: "#E8A317" }}
-                          />
-                          {business.rating} ({business.reviewsCount})
-                        </span>
-                      )}
-                      {business.website ? (
-                        <a
-                          href={business.website}
-                          target="_blank"
-                          rel="noreferrer"
-                          data-testid="link-business-website"
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                            color: colors.accent,
-                            textDecoration: "none",
-                          }}
-                        >
-                          <Globe size={13} />
-                          Website
-                        </a>
-                      ) : (
-                        <span style={{ color: "rgba(0,0,0,0.40)" }}>
-                          No website
-                        </span>
-                      )}
-                      {business.phone && (
-                        <span
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                            color: "rgba(0,0,0,0.55)",
-                          }}
-                        >
-                          <Phone size={13} />
-                          {business.phone}
-                        </span>
-                      )}
-                    </div>
-                    {business.photos.length > 0 ? (
-                      <div className="audit-photos">
-                        {business.photos.slice(0, 4).map((src, i) => (
-                          <img
-                            key={i}
-                            src={src}
-                            alt=""
-                            className="audit-photo"
-                            data-testid={`img-business-photo-${i}`}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          padding: "14px 0 4px",
-                          fontSize: 13,
-                          color: "rgba(0,0,0,0.35)",
-                        }}
-                      >
-                        <Image size={16} />
-                        No photos available
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div
-                  style={{
-                    ...CARD,
-                    padding: 16,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                  }}
-                >
-                  <Search
-                    size={16}
-                    strokeWidth={1.75}
-                    style={{ color: "rgba(0,0,0,0.35)", flexShrink: 0 }}
-                  />
-                  <input
-                    data-testid="input-audit-search-inline"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search another business\u2026"
-                    className="audit-input"
                     style={{
-                      flex: 1,
-                      height: 40,
-                      borderRadius: 12,
-                      border: "1px solid rgba(0,0,0,0.10)",
-                      padding: "0 12px",
-                      fontSize: 14,
-                      fontWeight: 500,
-                      outline: "none",
-                      background: "rgba(0,0,0,0.02)",
-                      transition: "border-color 0.2s, box-shadow 0.2s",
+                      fontSize: 15,
+                      fontWeight: 600,
                       color: colors.text,
-                    }}
-                  />
-                </div>
-
-                {predictions.length > 0 && report && (
-                  <div
-                    style={{
-                      borderRadius: 16,
-                      background: "rgba(255,255,255,0.92)",
-                      border: "1px solid rgba(0,0,0,0.10)",
-                      boxShadow: "0 18px 50px rgba(0,0,0,0.10)",
-                      maxHeight: 280,
-                      overflowY: "auto",
+                      marginBottom: 14,
                     }}
                   >
-                    {predictions.map((p, i) => (
-                      <button
-                        key={p.placeId}
-                        data-testid={`button-place-inline-${p.placeId}`}
-                        className="audit-suggestion"
-                        onClick={() => runAudit(p.placeId)}
-                        style={{
-                          width: "100%",
-                          textAlign: "left",
-                          padding: "10px 14px",
-                          background: "transparent",
-                          border: "none",
-                          borderBottom:
-                            i < predictions.length - 1
-                              ? "1px solid rgba(0,0,0,0.05)"
-                              : "none",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          transition: "background 0.12s",
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: 7,
-                            height: 7,
-                            borderRadius: "50%",
-                            background: "#0C67FF",
-                            flexShrink: 0,
-                          }}
-                        />
-                        <div style={{ minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontWeight: 700,
-                              fontSize: 13,
-                              color: colors.text,
-                            }}
-                          >
-                            {p.name}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 12,
-                              color: "rgba(0,0,0,0.45)",
-                            }}
-                          >
-                            {p.formattedAddress}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                    Running your audit\u2026 (step {currentStep} of 3)
                   </div>
-                )}
-              </div>
-
-              {report && (
-                <div className="audit-right">
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 14,
-                    }}
-                  >
-                    <div
-                      data-testid="card-visibility-score"
-                      style={{ ...CARD, padding: 20 }}
-                    >
-                      <div
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.06em",
-                          color: "rgba(0,0,0,0.42)",
-                          marginBottom: 8,
-                        }}
-                      >
-                        Local Visibility
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "clamp(42px, 5vw, 52px)",
-                          fontWeight: 900,
-                          lineHeight: 1,
-                          color: colors.text,
-                          marginBottom: 8,
-                        }}
-                      >
-                        {report.scores.localVisibility}
-                      </div>
-                      <span
-                        data-testid="badge-score-label"
-                        style={{
-                          display: "inline-block",
-                          padding: "4px 12px",
-                          borderRadius: 999,
-                          fontSize: 12,
-                          fontWeight: 700,
-                          background: `${visibilityColor(report.scores.localVisibility)}18`,
-                          color: visibilityColor(report.scores.localVisibility),
-                          marginBottom: 12,
-                        }}
-                      >
-                        {scoreLabel}
-                      </span>
-                      <div className="audit-meter">
-                        <div
-                          className="audit-meter-fill"
-                          style={{
-                            width: `${report.scores.localVisibility}%`,
-                            background: `linear-gradient(90deg, ${visibilityColor(report.scores.localVisibility)}, ${visibilityColor(report.scores.localVisibility)}cc)`,
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div
-                      data-testid="card-speed-scores"
-                      style={{ ...CARD, padding: 20 }}
-                    >
-                      <div
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.06em",
-                          color: "rgba(0,0,0,0.42)",
-                          marginBottom: 12,
-                        }}
-                      >
-                        Website Speed
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 10,
-                        }}
-                      >
-                        {[
-                          {
-                            label: "Mobile",
-                            score: report.scores.websiteSpeedMobile,
-                          },
-                          {
-                            label: "Desktop",
-                            score: report.scores.websiteSpeedDesktop,
-                          },
-                        ].map(({ label, score }) => (
-                          <div
-                            key={label}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              padding: "8px 12px",
-                              borderRadius: 12,
-                              background: "rgba(0,0,0,0.025)",
-                              border: "1px solid rgba(0,0,0,0.05)",
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  width: 8,
-                                  height: 8,
-                                  borderRadius: "50%",
-                                  background: speedColor(score),
-                                }}
-                              />
-                              <span
-                                style={{
-                                  fontSize: 13,
-                                  fontWeight: 600,
-                                  color: "rgba(0,0,0,0.60)",
-                                }}
-                              >
-                                {label}
-                              </span>
-                            </div>
-                            <span
-                              style={{
-                                fontSize: 20,
-                                fontWeight: 800,
-                                color:
-                                  score !== null
-                                    ? colors.text
-                                    : "rgba(0,0,0,0.25)",
-                              }}
-                            >
-                              {score ?? "\u2014"}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: "rgba(0,0,0,0.38)",
-                          marginTop: 8,
-                          fontStyle: "italic",
-                        }}
-                      >
-                        {report.scores.websiteSpeedMobile === null
-                          ? "No website linked"
-                          : "Mobile matters most"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {report.issues.length > 0 && (
-                    <div
-                      data-testid="card-issues"
-                      style={{ ...CARD, padding: 18 }}
-                    >
-                      <h3
-                        style={{
-                          margin: "0 0 12px",
-                          fontSize: 16,
-                          fontWeight: 800,
-                          color: colors.text,
-                        }}
-                      >
-                        Top Issues
-                      </h3>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {report.issues.map((issue, idx) => {
-                          const isHigh = issue.severity === "High";
-                          const borderClr = isHigh
-                            ? "rgba(220,0,0,0.22)"
-                            : "rgba(200,120,0,0.22)";
-                          const bgClr = isHigh
-                            ? "rgba(220,0,0,0.04)"
-                            : "rgba(200,120,0,0.04)";
-                          const barClr = isHigh ? "#EF4444" : "#F59E0B";
-                          const open = expandedIssue === idx;
-
-                          return (
-                            <div
-                              key={idx}
-                              data-testid={`card-issue-${idx}`}
-                              style={{
-                                border: `1px solid ${borderClr}`,
-                                background: bgClr,
-                                borderRadius: 14,
-                                overflow: "hidden",
-                                position: "relative",
-                                paddingLeft: 4,
-                              }}
-                            >
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  left: 0,
-                                  top: 0,
-                                  bottom: 0,
-                                  width: 4,
-                                  background: barClr,
-                                  borderRadius: "14px 0 0 14px",
-                                }}
-                              />
-                              <button
-                                data-testid={`button-issue-toggle-${idx}`}
-                                onClick={() =>
-                                  setExpandedIssue(open ? null : idx)
-                                }
-                                style={{
-                                  width: "100%",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                  gap: 10,
-                                  padding: "12px 14px 12px 12px",
-                                  background: "transparent",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  textAlign: "left",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 8,
-                                  }}
-                                >
-                                  <AlertTriangle
-                                    size={15}
-                                    style={{ color: barClr, flexShrink: 0 }}
-                                  />
-                                  <span
-                                    style={{
-                                      fontWeight: 800,
-                                      fontSize: 14,
-                                      color: colors.text,
-                                    }}
-                                  >
-                                    {issue.title}
-                                  </span>
-                                </div>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 8,
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      fontSize: 10,
-                                      fontWeight: 800,
-                                      padding: "2px 8px",
-                                      borderRadius: 8,
-                                      background: isHigh
-                                        ? "rgba(239,68,68,0.10)"
-                                        : "rgba(245,158,11,0.10)",
-                                      color: isHigh ? "#DC2626" : "#D97706",
-                                      textTransform: "uppercase",
-                                      letterSpacing: "0.05em",
-                                    }}
-                                  >
-                                    {issue.severity}
-                                  </span>
-                                  <ChevronDown
-                                    size={14}
-                                    style={{
-                                      color: "rgba(0,0,0,0.35)",
-                                      transition: "transform 0.2s",
-                                      transform: open
-                                        ? "rotate(180deg)"
-                                        : "rotate(0)",
-                                    }}
-                                  />
-                                </div>
-                              </button>
-                              <div
-                                className={`audit-issue-body ${open ? "open" : ""}`}
-                              >
-                                <div
-                                  style={{
-                                    padding: "0 14px 14px 12px",
-                                    fontSize: 13,
-                                    lineHeight: 1.55,
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      color: "rgba(0,0,0,0.58)",
-                                      marginBottom: 6,
-                                    }}
-                                  >
-                                    {issue.impact}
-                                  </div>
-                                  <div style={{ color: colors.text }}>
-                                    <strong>Fix:</strong> {issue.fix}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {report.quickWins.length > 0 && (
-                    <div
-                      data-testid="card-quick-wins"
-                      style={{ ...CARD, padding: 18 }}
-                    >
-                      <h3
-                        style={{
-                          margin: "0 0 12px",
-                          fontSize: 16,
-                          fontWeight: 800,
-                          color: colors.text,
-                        }}
-                      >
-                        Quick Wins
-                      </h3>
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 8,
-                        }}
-                      >
-                        {report.quickWins.map((win, idx) => (
-                          <div
-                            key={idx}
-                            style={{
-                              display: "flex",
-                              alignItems: "flex-start",
-                              gap: 10,
-                              fontSize: 13,
-                              color: colors.text,
-                              lineHeight: 1.55,
-                            }}
-                          >
-                            <CheckCircle2
-                              size={15}
-                              style={{
-                                color: "#22C55E",
-                                marginTop: 2,
-                                flexShrink: 0,
-                              }}
-                            />
-                            {win}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div
-                    data-testid="card-action-plan"
-                    style={{ ...CARD, padding: 18 }}
-                  >
-                    <h3
-                      style={{
-                        margin: "0 0 12px",
-                        fontSize: 16,
-                        fontWeight: 800,
-                        color: colors.text,
-                      }}
-                    >
-                      Action Plan
-                    </h3>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 6,
-                        marginBottom: 14,
-                        background: "rgba(0,0,0,0.03)",
-                        borderRadius: 12,
-                        padding: 3,
-                      }}
-                    >
-                      <button
-                        data-testid="button-tab-7days"
-                        className={`audit-tab ${planTab === "7" ? "active" : ""}`}
-                        onClick={() => setPlanTab("7")}
-                      >
-                        Next 7 Days
-                      </button>
-                      <button
-                        data-testid="button-tab-30days"
-                        className={`audit-tab ${planTab === "30" ? "active" : ""}`}
-                        onClick={() => setPlanTab("30")}
-                      >
-                        Next 30 Days
-                      </button>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 8,
-                      }}
-                    >
-                      {(planTab === "7"
-                        ? report.actionPlan.next7Days
-                        : report.actionPlan.next30Days
-                      ).map((item, idx) => (
+                  <div className="audit-shimmer" style={{ marginBottom: 16 }} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {STEPS.map((label, idx) => {
+                      const step = idx + 1;
+                      const done = currentStep > step;
+                      const active = currentStep === step;
+                      return (
                         <div
                           key={idx}
                           style={{
                             display: "flex",
-                            alignItems: "flex-start",
+                            alignItems: "center",
                             gap: 10,
                             fontSize: 13,
-                            color: colors.text,
-                            lineHeight: 1.55,
+                            fontWeight: 500,
+                            color: done
+                              ? "#22C55E"
+                              : active
+                              ? colors.accent
+                              : "rgba(0,0,0,0.35)",
                           }}
                         >
-                          <ArrowRight
-                            size={14}
-                            style={{
-                              color: colors.accent,
-                              marginTop: 3,
-                              flexShrink: 0,
-                            }}
-                          />
-                          {item}
+                          {done ? (
+                            <CheckCircle2 size={15} />
+                          ) : active ? (
+                            <div
+                              style={{
+                                width: 15,
+                                height: 15,
+                                border: "2px solid rgba(12,103,255,0.3)",
+                                borderTopColor: "#0C67FF",
+                                borderRadius: "50%",
+                                animation: "spin 0.7s linear infinite",
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: 15,
+                                height: 15,
+                                borderRadius: "50%",
+                                border: "2px solid rgba(0,0,0,0.12)",
+                              }}
+                            />
+                          )}
+                          {label}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="audit-cta-card">
-                    <div className="audit-cta-inner">
-                      <div
-                        style={{
-                          fontWeight: 900,
-                          fontSize: 17,
-                          color: colors.text,
-                          marginBottom: 6,
-                        }}
-                      >
-                        Ready to improve your visibility?
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 14,
-                          color: "rgba(0,0,0,0.55)",
-                          marginBottom: 16,
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        Our team can fix these issues and get you more
-                        calls, leads, and bookings.
-                      </div>
-                      <div className="audit-cta-btns">
-                        <a
-                          href="/contact"
-                          data-testid="link-cta-maps"
-                          className="audit-cta-btn"
-                          style={{
-                            background: "#0C67FF",
-                            color: "#fff",
-                          }}
-                        >
-                          Fix My Google Maps
-                          <ArrowRight size={15} />
-                        </a>
-                        <a
-                          href="/contact"
-                          data-testid="link-cta-website"
-                          className="audit-cta-btn"
-                          style={{
-                            background: "rgba(0,0,0,0.05)",
-                            color: colors.text,
-                          }}
-                        >
-                          Boost My Website
-                          <ArrowRight size={15} />
-                        </a>
-                      </div>
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
+            </>
+          )}
+
+          {reportReady && (
+            <div ref={reportRef}>
+              <ReportView
+                business={UI_BUSINESS}
+                mapsIssues={UI_MAPS_ISSUES}
+                speed={UI_SPEED}
+                onFixClick={() => { window.location.href = "/contact"; }}
+                onEmailClick={() => {}}
+              />
             </div>
           )}
         </div>
