@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
-import { Menu, X, ChevronDown, LayoutGrid, Route, Frame, FileText, BadgePercent } from "lucide-react";
+import { Menu, X, ChevronDown, LayoutGrid, Route, Frame, FileText, BadgePercent, Search } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
 import AnimatedLogo from "./AnimatedLogo";
 import { mkt, colors } from "@/theme/tokens";
@@ -60,6 +60,12 @@ const NAV_LINKS: { label: string; href: string; children?: NavChild[] }[] = [
         href: "/docs",
         description: "Setup guides & integrations.",
         icon: <FileText size={28} strokeWidth={1.6} />,
+      },
+      {
+        label: "Free Audit",
+        href: "/free-audit",
+        description: "Free Google Maps + website report.",
+        icon: <Search size={28} strokeWidth={1.6} />,
       },
     ],
   },

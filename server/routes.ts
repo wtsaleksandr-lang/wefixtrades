@@ -9,6 +9,7 @@ import { PRICING_TYPES, validatePricingConfig, FAMILY_LABELS, FAMILY_DESCRIPTION
 import { pricingIntakeSchema, sampleQuoteSchema, type PricingDraftJob, type BookingSettings } from "@shared/schema";
 import { generatePricingConfigDraft } from "./aiPricingAgent";
 import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from "@shared/slugUtils";
+import auditRouter from "./auditRoutes";
 import { sendBookingConfirmationToCustomer, sendBookingNotificationToBusiness } from "./bookingEmails";
 import { buildSystemPrompt, runChatCompletion, type AgentType } from "./aiChatEngine";
 import {
@@ -114,7 +115,10 @@ export async function registerRoutes(
     "/product/ai-voice", "/product/mapguard", "/product/webboost",
     "/product/webcare", "/product/sitelaunch", "/product/socialsync",
     "/product/reputationshield",
+    "/free-audit",
   ];
+
+  app.use("/api/audit", auditRouter);
 
   app.get("/robots.txt", (_req, res) => {
     res.type("text/plain").send(
