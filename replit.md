@@ -34,6 +34,7 @@ The application features a decoupled architecture with a React + TypeScript fron
 - **Templates + Demo System:** `/templates` page shows 10 templates with rich cards (Best for, inputs used, visual preview, Try live / Use CTAs). `client/src/config/templateConfig.ts` defines all templates with formula engine (`calculateEstimate`). `/demo/:templateId` is a fully interactive per-template demo: live client-side calculator, booking calendar mockup, AI chat toggle — no auth required.
 - **Docs Hub + Doc Pages:** Full documentation system at `/docs` (hub with live search + quickstart cards + 6 guide cards) and 6 individual guide pages: `/docs/embed`, `/docs/domain`, `/docs/booking`, `/docs/ai`, `/docs/webhooks`, `/docs/troubleshooting`. Shared `DocsLayout` component with sticky sidebar, mobile hamburger menu, breadcrumb. Reusable primitives exported: `CodeBlock` (copy-to-clipboard), `Step`, `Accordion`, `InfoBox`, `DocH2/DocH3`, `Checklist`. All routes in `App.tsx` and sitemap in `server/routes.ts`.
 - **Multi-Channel AI Messaging:** Integrates SMS and WhatsApp via Twilio for the client-facing AI employee, with conversation threads and a "Take Over" feature in the dashboard.
+- **Free Google Maps + Website Audit:** Lead-gen tool at `/free-audit` with 4 backend endpoints (`server/auditRoutes.ts`): Google Places search, place details, PageSpeed Insights, and deterministic report generation. Page at `client/src/pages/marketing/FreeAudit.tsx` wrapped in MarketingLayout. Requires `GOOGLE_MAPS_API_KEY` and `PAGESPEED_API_KEY` env vars. Nav link under Product dropdown.
 
 ## External Dependencies
 - **PostgreSQL:** Primary database (hosted via Neon).
@@ -45,3 +46,5 @@ The application features a decoupled architecture with a React + TypeScript fron
 - **Lucide-react:** Icon library.
 - **@tanstack/react-query:** Frontend data fetching and state management.
 - **Twilio:** For SMS and WhatsApp messaging integration.
+- **Google Maps/Places API:** Used by the Free Audit tool for business search and details.
+- **Google PageSpeed Insights API:** Used by the Free Audit tool for website speed scoring.
