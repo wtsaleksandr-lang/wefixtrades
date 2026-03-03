@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
@@ -336,11 +336,11 @@ export default function HomePage() {
   useScrollReveal();
 
   const [tradeIndex, setTradeIndex] = useState(1);
-  const HERO_TRUST_LINES = [
+  const HERO_TRUST_LINES: ReactNode[] = [
     "Trusted by local trade's businesses.",
     "Voted as best automation tool in Canada.",
-    "4.7 user satisfaction score.",
-  ] as const;
+    <><span style={{ color: "#E8A317" }}>★</span> 4.7 user satisfaction score.</>,
+  ];
   const [trustIndex, setTrustIndex] = useState(0);
 
   useEffect(() => {
