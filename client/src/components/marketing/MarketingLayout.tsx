@@ -574,7 +574,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             ...(isMobile
               ? {
                   width: "calc(100% - 20px)",
-                  margin: "8px 10px 0",
+                  margin: "6px 10px 0",
                   borderRadius: 20,
                   padding: "0 16px",
                   background: "rgba(255,255,255,0.42)",
@@ -737,7 +737,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               ? "0 22px 60px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.35)"
               : "0 12px 30px rgba(0,0,0,0.08)",
             overflow: "hidden",
-            maxHeight: "calc(100vh - 96px)",
+            maxHeight: "78vh",
             transform: menuOpen ? "translateY(0px) scale(1)" : "translateY(-12px) scale(0.98)",
             opacity: menuOpen ? 1 : 0,
             pointerEvents: menuOpen ? "auto" : "none",
@@ -745,7 +745,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               "transform 0.28s cubic-bezier(0.22,1,0.36,1), opacity 0.2s ease, box-shadow 0.25s ease",
           }}
         >
-          <div style={{ padding: "8px 14px 12px", overflowY: "auto", maxHeight: "calc(100vh - 120px)" }}>
+          <div style={{ padding: "8px 14px 14px", overflowY: "auto", maxHeight: "78vh" }}>
             {NAV_LINKS.map(({ label, href, children }) => (
               <MobileNavItem
                 key={href + label}
