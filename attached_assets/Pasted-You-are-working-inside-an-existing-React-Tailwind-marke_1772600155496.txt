@@ -1,0 +1,163 @@
+You are working inside an existing React + Tailwind marketing site.
+
+GOAL
+Refactor the “stats / trust numbers” section (currently a dark/blue rectangle container with 3 stat cards) to:
+1) Use a full-width blended background gradient (fade in/out) instead of a boxed gradient wrapper.
+2) Use wow-style metrics (but framed as “modeled/typical/targets” NOT guaranteed).
+3) Animate numbers on first view AND allow re-run when the user clicks any stat card.
+4) Tight spacing (no huge vertical gaps), premium look, consistent with existing design system.
+
+CONSTRAINTS
+- Keep current layout structure and fonts; do not redesign the entire page.
+- Tailwind only (ok to add a small CSS module or global CSS if needed for gradient masking).
+- Animation should be lightweight (no heavy libs). If framer-motion already exists in project, you may use it; otherwise use a small custom hook + requestAnimationFrame.
+- Numbers should animate only once on first view when section enters viewport, then re-run on click.
+- Mobile: cards stack 1-col; tablet 2-col; desktop 3-col.
+- Keep section height visually compact.
+
+STEP 1 — FIND THE SECTION
+Locate the component that renders the trust metrics section (the one with headline “Built for trades — by people who understand the job” and 3 cards: “< 60 sec”, “3 channels”, “4.7/5”).
+If it’s inside Home page sections, it might be a component like TrustMetrics, StatsStrip, ProofStats, or similar.
+Do NOT create a new page. Modify the existing component.
+
+STEP 2 — REPLACE BOXED BACKGROUND WITH BLENDED FULL-WIDTH BACKDROP
+Implement this structure:
+
+<section id="customer-feedback" className="relative w-full py-8 sm:py-10">
+  <!-- full-width blended gradient haze -->
+  <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+    <!-- top fade -->
+    <div className="absolute inset-x-0 -top-24 h-40 bg-gradient-to-b from-[rgba(0,0,0,0)] to-[rgba(37,99,235,0.12)] blur-2xl" />
+    <!-- center wash -->
+    <div className="absolute inset-0 bg-gradient-to-r from-[rgba(37,99,235,0.10)] via-[rgba(59,130,246,0.18)] to-[rgba(37,99,235,0.10)]" />
+    <!-- bottom fade -->
+    <div className="absolute inset-x-0 -bottom-24 h-40 bg-gradient-to-t from-[rgba(0,0,0,0)] to-[rgba(37,99,235,0.12)] blur-2xl" />
+    <!-- subtle vignette to keep premium -->
+    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.0)_0%,rgba(0,0,0,0.08)_100%)] opacity-30" />
+  </div>
+
+  <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+    ...header row...
+    ...cards grid...
+    ...tiny footnote...
+  </div>
+</section>
+
+IMPORTANT:
+- Remove the old rounded “boxed” container background.
+- The haze must visually blend with the page background; do not show a hard rectangle edge.
+
+STEP 3 — HEADER ROW (TIGHT + PREMIUM)
+Above cards:
+- Small label: “Performance snapshot” with a small blue dot.
+- Title: “Modeled outcomes, built for busy trades”
+- Subtext (1 line max on desktop): “Typical targets when automations are enabled. Results vary by business.”
+
+Keep spacing tight:
+- label margin-bottom: 6px
+- title margin-bottom: 6–8px
+- subtext margin-bottom: 12–16px
+
+Tailwind suggestion:
+label: text-xs font-medium text-slate-600 flex items-center gap-2
+dot: w-1.5 h-1.5 rounded-full bg-blue-500
+title: text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900
+subtext: text-sm sm:text-[15px] text-slate-600
+
+STEP 4 — STAT CARDS (WOW METRICS, CLICK TO RE-RUN)
+Use 3 cards with these exact metrics + labels:
+
+Card A:
+Value: "< 60"
+Suffix: "sec"
+Title: "Target first response"
+Description: "Auto-reply target when a call or message is missed."
+
+Card B:
+Value: "18–35"
+Suffix: "%"
+Title: "Estimated missed-lead recovery"
+Description: "Follow-ups + fast replies help recover inquiries."
+
+Card C:
+Value: "6–12"
+Suffix: "hrs/wk"
+Title: "Estimated admin time saved"
+Description: "Less chasing leads and missed messages."
+
+Rules:
+- Values are “modeled/estimated”, not guarantees.
+- Use the same icon style you already have (outline icons). If missing, use simple inline SVGs or existing icon set.
+- Card background: glassy dark-blue-ish but readable:
+  bg: bg-white/20
+  border: border-white/20
+  shadow: shadow-[0_18px_45px_rgba(0,0,0,0.18)]
+  backdrop: backdrop-blur-xl
+  text: value in white, labels in slate-100/200
+
+Card layout:
+- Icon + title row on top.
+- Big animated number below.
+- Small description under.
+
+Grid:
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+
+Card padding:
+p-4 sm:p-5
+Radius:
+rounded-2xl
+
+Hover:
+- Slight lift: hover:-translate-y-0.5
+- Border brighten: hover:border-white/30
+- Smooth transition: transition-all duration-200
+
+STEP 5 — NUMBER ANIMATION LOGIC (NO HEAVY LIBS)
+Implement a small hook:
+- useInView with IntersectionObserver (threshold 0.35)
+- animateNumber(from, to, duration=900ms) using requestAnimationFrame
+- Only run once when in view.
+- Store “hasPlayed” state.
+- Add onClick handler to each card to re-run animation:
+  - set hasPlayed false
+  - immediately re-run animation for all three cards (or only clicked card; choose ALL for stronger wow)
+
+Handle non-numeric ranges:
+- For “18–35%” and “6–12 hrs/wk” animate the RIGHT side only (end value) while left side stays fixed, OR animate both ends.
+Preferred:
+- Animate both ends (start and end) with two counters:
+  leftCounter and rightCounter
+  display `${left}–${right}`
+
+For "< 60 sec":
+- Animate number to 60 and display "< 60"
+
+Make sure it’s noticeable:
+- duration 1200ms
+- easing: easeOutCubic
+- add subtle “shine” sweep on the card when animation runs:
+  pseudo overlay div inside card:
+  absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent
+  translate-x from -120% to 120% over 900ms
+  opacity 0.6
+  pointer-events-none
+
+STEP 6 — FOOTNOTE (TINY)
+Under cards:
+Text: “Metrics shown are modeled targets/estimates and vary by business setup.”
+Style: text-[11px] text-slate-600 mt-3
+
+STEP 7 — REMOVE BORING LOOK
+If current section looks flat:
+- Increase contrast: use darker overlay behind cards:
+  add a subtle dark layer in haze container:
+  <div className="absolute inset-0 bg-slate-900/10" />
+- Ensure values are high-contrast (white) and big:
+  value class: text-3xl sm:text-4xl font-semibold text-white tracking-tight
+
+DELIVERABLE
+- The stats section now blends into page background (no hard rectangle box).
+- 3 wow metrics displayed with clear “modeled/estimated” framing.
+- Numbers animate on first view and re-run when user clicks any card.
+- Tight vertical spacing, premium look, fully responsive.
