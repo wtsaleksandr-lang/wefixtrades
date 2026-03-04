@@ -1,0 +1,281 @@
+REPLIT — IMPLEMENT TRUST STRIP + REALISTIC CUSTOMER REVIEWS SECTION
+Placement: Immediately BELOW the hero section on the homepage.
+
+OBJECTIVE
+Create a high-trust section that immediately reassures visitors the platform is used by real trades businesses. 
+This section contains TWO parts:
+
+1) TRUST STRIP (fast proof)
+2) CUSTOMER REVIEWS (Trustpilot / Facebook-style)
+
+Design must look modern SaaS, minimal, premium, and consistent with the existing WeFixTrades style (green/white/black palette, subtle shadows, rounded cards, Inter font).
+
+Do NOT overuse the word "AI".
+Use wording like:
+"24/7 answering"
+"automated follow-ups"
+"runs in the background"
+
+SECTION STRUCTURE
+
+Hero
+↓
+NEW TRUST STRIP
+↓
+NEW REVIEWS BLOCK
+↓
+Next section (product features etc)
+
+----------------------------------------------------
+
+PART 1 — TRUST STRIP
+
+Create a compact horizontal section with:
+
+Headline:
+Trusted by local trade businesses
+
+Sub-text (small):
+Helping plumbers, HVAC teams, electricians and service businesses capture more leads automatically.
+
+Below the text add THREE micro-proof badges:
+
+Badge 1
+⚡ 24/7 call & chat answering
+
+Badge 2
+📈 Faster lead follow-ups
+
+Badge 3
+⭐ Automated review collection
+
+Each badge:
+• small rounded pill
+• light background
+• icon + short text
+• subtle border
+• horizontally centered
+• responsive (stack on mobile)
+
+Under the badges place a small muted line:
+
+“Built for busy service companies that don’t want to miss calls.”
+
+Optional subtle separator line below this section.
+
+----------------------------------------------------
+
+PART 2 — CUSTOMER REVIEWS SECTION
+
+Create a review grid that looks similar to:
+Trustpilot reviews
+Facebook post reviews
+
+Style goals:
+• extremely believable
+• human
+• not overly perfect
+• varied writing styles
+• varied star ratings
+• avatars
+
+GRID LAYOUT
+
+Desktop:
+3 columns
+
+Tablet:
+2 columns
+
+Mobile:
+1 column
+
+Total reviews: 6
+
+Each review card must include:
+
+• Avatar image
+• Name
+• Company name
+• City / Region
+• Star rating
+• Review text
+• Platform badge (Trustpilot OR Facebook)
+• Small timestamp
+
+Card style:
+rounded-xl
+soft shadow
+light border
+white background
+
+----------------------------------------------------
+
+AVATAR GENERATION
+
+Create 6 realistic avatars using an avatar API.
+
+Use:
+https://i.pravatar.cc/150?img=#
+
+Assign numbers randomly for variety.
+
+Example avatars:
+https://i.pravatar.cc/150?img=12
+https://i.pravatar.cc/150?img=23
+https://i.pravatar.cc/150?img=36
+https://i.pravatar.cc/150?img=44
+https://i.pravatar.cc/150?img=52
+https://i.pravatar.cc/150?img=68
+
+Avatar style:
+• circular
+• 40–48px
+• subtle border
+
+----------------------------------------------------
+
+REVIEW CONTENT (MAKE THESE LOOK NATURAL)
+
+Review 1
+Name: Mike D.
+Company: Precision Plumbing
+Location: Dallas, TX
+Platform: Trustpilot
+Stars: ★★★★★
+Text:
+"We were missing calls constantly before. Now every call gets answered and we get a text summary. Honestly feels like having a receptionist that never sleeps."
+Time: 2 weeks ago
+
+Review 2
+Name: Sarah M.
+Company: Arctic Air HVAC
+Location: Calgary, AB
+Platform: Facebook
+Stars: ★★★★★
+Text:
+"The chat on the website surprised me. Customers actually use it and we started getting quote requests late at night."
+Time: 1 month ago
+
+Review 3
+Name: Kevin R.
+Company: R&K Electrical
+Location: Phoenix, AZ
+Platform: Trustpilot
+Stars: ★★★★☆
+Text:
+"Setup was easier than expected. We mainly use the call answering and review follow-ups. Reviews increased pretty quickly."
+Time: 3 weeks ago
+
+Review 4
+Name: Jason L.
+Company: Peak Roofing
+Location: Denver, CO
+Platform: Facebook
+Stars: ★★★★★
+Text:
+"Customers stopped saying 'no one answered the phone'. The system handles it automatically and sends us the details."
+Time: 2 months ago
+
+Review 5
+Name: Andre P.
+Company: ClearFlow Plumbing
+Location: Toronto, ON
+Platform: Trustpilot
+Stars: ★★★★★
+Text:
+"The review automation alone paid for it. We went from barely asking customers to getting reviews consistently."
+Time: 1 month ago
+
+Review 6
+Name: Daniel S.
+Company: Swift Cleaning Services
+Location: Tampa, FL
+Platform: Facebook
+Stars: ★★★★☆
+Text:
+"Not something we thought we needed, but it actually helped us respond faster to new inquiries."
+Time: 3 weeks ago
+
+----------------------------------------------------
+
+STAR RATING VISUAL
+
+Use gold star icons.
+
+★★★★★
+★★★★☆
+
+Use:
+yellow-400 / amber-400 color
+
+----------------------------------------------------
+
+PLATFORM BADGES
+
+Add small platform label under the name.
+
+Trustpilot badge:
+green accent pill
+text: Trustpilot
+
+Facebook badge:
+blue accent pill
+text: Facebook Review
+
+----------------------------------------------------
+
+SECTION HEADER
+
+Above the review grid add:
+
+Headline:
+What service businesses are saying
+
+Subtext:
+Real feedback from teams using WeFixTrades to handle calls, chats and customer follow-ups.
+
+----------------------------------------------------
+
+CTA UNDER REVIEWS
+
+Below the review grid add:
+
+Button:
+Start Free
+
+Secondary link:
+View Plans
+
+----------------------------------------------------
+
+RESPONSIVENESS
+
+Mobile:
+• reviews stack vertically
+• avatars shrink slightly
+• text wraps nicely
+• no overflow
+
+----------------------------------------------------
+
+FILES TO CREATE
+
+/components/home/TrustStrip.tsx
+/components/home/ReviewsSection.tsx
+
+Then import into homepage:
+
+/pages/Home.tsx
+
+Place in order:
+
+<HeroSection />
+
+<TrustStrip />
+
+<ReviewsSection />
+
+----------------------------------------------------
+
+IMPLEMENT NOW.
