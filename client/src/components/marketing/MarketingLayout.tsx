@@ -554,7 +554,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: isMobile ? "0" : "4px 10px 0",
+          padding: isMobile ? "0" : "0 10px 0",
           background: "transparent",
           backdropFilter: "none",
           WebkitBackdropFilter: "none",
