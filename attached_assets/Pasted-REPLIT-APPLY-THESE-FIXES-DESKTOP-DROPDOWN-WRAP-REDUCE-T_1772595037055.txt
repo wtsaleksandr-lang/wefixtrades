@@ -1,0 +1,86 @@
+REPLIT — APPLY THESE FIXES (DESKTOP DROPDOWN WRAP + REDUCE TOP GAP)
+File: client/src/components/MarketingLayout.tsx
+
+GOAL
+1) Desktop “Products” dropdown must NOT overflow horizontally on narrow widths. It must reflow (3 → 2 → 1 columns).
+2) Reduce the empty gap ABOVE the header bar (desktop).
+
+========================
+PART 1 — FIX DROPDOWN OVERFLOW (MAKE GRID RESPONSIVE)
+========================
+
+A) FIND this block inside: function NavItemDesktopV2(...)
+(keep the function as-is, only replace the dropdownGrid object)
+
+FIND:
+const dropdownGrid: React.CSSProperties = {
+  display: "grid",
+  gridAutoFlow: "column",
+  gridTemplateRows: "repeat(3, minmax(0, 1fr))",
+  gridAutoColumns: "minmax(280px, 1fr)",
+  gap: 10,
+};
+
+REPLACE WITH:
+const dropdownGrid: React.CSSProperties = {
+  display: "grid",
+  // Responsive columns that wrap automatically:
+  // Wide: ~3 columns, Medium: 2, Narrow: 1
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gridAutoFlow: "row",
+  gap: 10,
+  width: "100%",
+  maxWidth: "100%",
+};
+
+B) FIND this dropdown container style object (still inside NavItemDesktopV2)
+It looks like this (do not change anything else in this object except the lines listed below):
+
+FIND (exact lines inside the existing object):
+maxWidth: 1100,
+left: 0,
+right: 0,
+
+REPLACE those 3 lines WITH:
+width: "min(1100px, calc(100vw - 24px))",
+maxWidth: "min(1100px, calc(100vw - 24px))",
+left: "50%",
+transform: open ? "translateX(-50%) translateY(0) scale(1)" : "translateX(-50%) translateY(-8px) scale(0.985)",
+
+IMPORTANT:
+- This REPLACE assumes your object currently has a `transform:` line already. If it DOES, replace ONLY the `transform:` line with the one above.
+- Keep `top: dropdownTop` and `padding:` unchanged.
+- Keep the `transition:` unchanged.
+
+C) (SAFETY) FIND this line inside the same dropdown container style object:
+overflow: "visible",
+
+IF IT EXISTS, REPLACE WITH:
+overflow: "hidden",
+
+If it doesn’t exist, ADD this line anywhere inside the dropdown container style object:
+overflow: "hidden",
+
+========================
+PART 2 — REDUCE GAP ABOVE HEADER BAR (DESKTOP)
+========================
+
+In the main header wrapper (the <div> that wraps the nav and has: paddingTop: isMobile ? 0 : 18)
+
+FIND:
+paddingTop: isMobile ? 0 : 18,
+
+REPLACE WITH:
+paddingTop: isMobile ? 0 : 10,
+
+(If you still want it tighter, use 8 instead of 10.)
+
+========================
+VERIFY
+========================
+1) Resize desktop viewport narrower until the dropdown would previously overflow.
+   - Expected: dropdown stays centered and items reflow into fewer columns (no horizontal sticking out).
+2) Check the top spacing above the header bar.
+   - Expected: less empty space above the floating header.
+
+DONE.
