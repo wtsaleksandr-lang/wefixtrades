@@ -1,0 +1,148 @@
+REPLIT — UPDATE TRUST STRIP (REMOVE REPETITIVE BADGES) + TIGHTEN SPACING AROUND REVIEWS
+
+GOAL
+1) The “Trusted by local trade businesses” section currently feels too spacious + repeats the same trust badges already shown in hero.
+2) Replace it with a more premium, compact “positioning + proof” strip (NO big pills, NO repeated feature badges).
+3) Tighten vertical spacing around the Reviews section title and grid.
+
+DO NOT add new pages or routes. Only edit these files:
+- /components/home/TrustStrip.tsx
+- /components/home/ReviewsSection.tsx
+
+========================================================
+A) REPLACE TrustStrip.tsx ENTIRE FILE
+========================================================
+Open: /components/home/TrustStrip.tsx
+Replace the entire file contents with this component (keep Tailwind only, no extra libs):
+
+----- START FILE: /components/home/TrustStrip.tsx -----
+import React from "react";
+
+type Stat = { value: string; label: string };
+type Pill = { label: string };
+
+const STATS: Stat[] = [
+  { value: "24/7", label: "Answering coverage" },
+  { value: "< 60 sec", label: "Avg. lead response (with automations)" },
+  { value: "4.7/5", label: "User satisfaction" },
+];
+
+const TRUST_PILLS: Pill[] = [
+  { label: "North America focused" },
+  { label: "Built for service businesses" },
+  { label: "Runs in the background" },
+];
+
+export default function TrustStrip() {
+  return (
+    <section className="w-full bg-transparent">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        {/* Compact container (no huge vertical gaps) */}
+        <div className="rounded-2xl border border-black/10 bg-white/40 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.06)] px-5 py-5 sm:px-6 sm:py-6">
+          {/* Top row: positioning */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-2 w-2 rounded-full bg-blue-600 shadow-[0_0_0_4px_rgba(37,99,235,0.12)]" />
+                <p className="text-sm font-semibold text-black/80">
+                  Built for trades — by people who understand the job
+                </p>
+              </div>
+              <p className="mt-1 text-sm text-black/60">
+                A lead + customer response system designed for busy service businesses.
+              </p>
+            </div>
+
+            {/* Small pills (not feature badges) */}
+            <div className="flex flex-wrap gap-2 sm:justify-end">
+              {TRUST_PILLS.map((p) => (
+                <span
+                  key={p.label}
+                  className="inline-flex items-center rounded-full border border-black/10 bg-white/55 px-3 py-1 text-xs font-medium text-black/70"
+                >
+                  {p.label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Divider (tight) */}
+          <div className="my-4 h-px w-full bg-black/10" />
+
+          {/* Bottom row: quick proof stats */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {STATS.map((s) => (
+              <div
+                key={s.label}
+                className="rounded-xl border border-black/10 bg-white/55 px-4 py-3"
+              >
+                <div className="text-lg font-extrabold text-black/85">{s.value}</div>
+                <div className="text-xs text-black/60">{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* micro note */}
+          <p className="mt-3 text-xs text-black/45">
+            Notes: stats shown are typical outcomes when automations are enabled. Results vary.
+          </p>
+        </div>
+      </div>
+
+      {/* IMPORTANT: Keep spacing compact below; reduce huge gaps */}
+      <div className="h-8 sm:h-10" />
+    </section>
+  );
+}
+----- END FILE -----
+
+WHY THIS FIXES IT
+- Removes repeated feature pills (you already show them in hero).
+- Adds premium “positioning” copy + compact proof stats.
+- Tight spacing + a single contained card.
+
+========================================================
+B) TIGHTEN SPACING IN ReviewsSection.tsx
+========================================================
+Open: /components/home/ReviewsSection.tsx
+
+1) Find the outer <section ...> wrapper and ensure it uses smaller padding:
+- If you see something like: "py-20" or "py-24" change to "py-12 sm:py-14"
+
+2) Reduce title block margin and line spacing:
+- The H2 should NOT have large margin-bottom.
+- Use this exact title block styling:
+
+H2 class:
+"text-3xl sm:text-4xl font-extrabold tracking-tight text-black/85"
+
+Subtitle class:
+"mt-2 text-sm sm:text-base text-black/55 max-w-2xl mx-auto"
+
+Title container spacing:
+"mb-8 sm:mb-10" (NOT bigger)
+
+3) Reduce grid gap slightly:
+- If grid uses "gap-8" change to "gap-5 sm:gap-6"
+- If cards have too much internal padding, cap at:
+  - card padding: "p-5" (desktop) and "p-4" (mobile)
+
+4) Make sure the transition from TrustStrip -> Reviews feels tight:
+- There should be roughly 32–40px vertical space between them on desktop, 24–32px on mobile.
+
+========================================================
+C) OPTIONAL CLEANUP: REMOVE DUPLICATE TRUST FEATURE PILLS IF THEY STILL EXIST
+========================================================
+If the hero still has the 4 feature pills (Instant Estimates / 24/7 / Follow-ups / Review Boost),
+KEEP them (they are good).
+But do NOT reintroduce similar feature pills above reviews.
+
+========================================================
+D) AFTER CHANGES — QUICK VISUAL CHECKLIST
+========================================================
+- Trust area above reviews is now one compact “positioning + stats” card
+- No repeated “24/7 / follow-ups / reviews” pills
+- Reviews title area has tighter spacing (no big empty grey area)
+- Overall page looks more premium and intentional
+
+IMPLEMENT NOW.
