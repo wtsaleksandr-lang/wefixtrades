@@ -5,6 +5,8 @@ import { useScrollReveal } from "@/hooks/useScrollReveal";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
 import StackedFlowCards from "@/components/marketing/StackedFlowCards";
 import { mkt, colors, shadows } from "@/theme/tokens";
+import TrustStrip from "@/components/home/TrustStrip";
+import ReviewsSection from "@/components/home/ReviewsSection";
 import {
   Zap, Cpu, MessageCircle, Check,
   ArrowRight, Shield, Star, Clock, Sparkles,
@@ -855,6 +857,9 @@ export default function HomePage() {
           <FlowMapHero />
         </div>
       </section>
+
+      <TrustStrip />
+      <ReviewsSection />
 
       <section data-testid="workflow-section" style={{ background: mkt.surface, padding: "112px 28px" }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
