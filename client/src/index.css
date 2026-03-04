@@ -559,6 +559,15 @@
   100% { transform: translateX(120%); }
 }
 
+/* Button shimmer sweep */
+@keyframes wftShimmer {
+  0% { transform: translateX(-140%) rotate(12deg); opacity: 0; }
+  15% { opacity: 0.75; }
+  50% { opacity: 0.95; }
+  85% { opacity: 0.75; }
+  100% { transform: translateX(320%) rotate(12deg); opacity: 0; }
+}
+
 /* Reduced motion overrides */
 @media (prefers-reduced-motion: reduce) {
   [data-reveal] { opacity: 1 !important; transform: none !important; transition: none !important; }

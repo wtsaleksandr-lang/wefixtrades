@@ -7,6 +7,7 @@ import StackedFlowCards from "@/components/marketing/StackedFlowCards";
 import { mkt, colors, shadows } from "@/theme/tokens";
 import TrustStrip from "@/components/home/TrustStrip";
 import ReviewsSection from "@/components/home/ReviewsSection";
+import TradeMinutesSection from "@/components/sections/TradeMinutesSection";
 import {
   Zap, Cpu, MessageCircle, Check,
   ArrowRight, Shield, Star, Clock, Sparkles,
@@ -858,6 +859,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      <TradeMinutesSection />
       <TrustStrip />
       <ReviewsSection />
 
