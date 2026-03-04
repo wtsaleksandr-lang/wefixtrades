@@ -1,15 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-
-type Pill = { label: string };
-
-const TRUST_PILLS: Pill[] = [
-  { label: "North America focused" },
-  { label: "Built for service businesses" },
-  { label: "Runs in the background" },
-];
+import { Clock, BarChart3, Timer } from "lucide-react";
 
 function useCountUpController<T extends HTMLElement>(opts: { durationMs?: number; threshold?: number } = {}) {
-  const { durationMs = 950, threshold = 0.35 } = opts;
+  const { durationMs = 1200, threshold = 0.35 } = opts;
   const ref = useRef<T | null>(null);
   const [entered, setEntered] = useState(false);
   const [runKey, setRunKey] = useState(0);
@@ -18,9 +11,7 @@ function useCountUpController<T extends HTMLElement>(opts: { durationMs?: number
     const el = ref.current;
     if (!el) return;
     const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) setEntered(true);
-      },
+      (entries) => { if (entries[0].isIntersecting) setEntered(true); },
       { threshold }
     );
     obs.observe(el);
@@ -34,8 +25,7 @@ function useCountUpController<T extends HTMLElement>(opts: { durationMs?: number
     const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / durationMs);
-      const val = from + (to - from) * easeOutCubic(t);
-      onUpdate(val);
+      onUpdate(from + (to - from) * easeOutCubic(t));
       if (t < 1) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -46,101 +36,118 @@ function useCountUpController<T extends HTMLElement>(opts: { durationMs?: number
 
 export default function TrustStrip() {
   const { ref: metricsRef, entered, runKey, restart, animateNumber } =
-    useCountUpController<HTMLDivElement>({ durationMs: 1000, threshold: 0.35 });
+    useCountUpController<HTMLDivElement>({ durationMs: 1200, threshold: 0.35 });
 
   const [responseSec, setResponseSec] = useState(0);
-  const [channels, setChannels] = useState(0);
-  const [satisfaction, setSatisfaction] = useState(0);
+  const [recoveryLow, setRecoveryLow] = useState(0);
+  const [recoveryHigh, setRecoveryHigh] = useState(0);
+  const [savedLow, setSavedLow] = useState(0);
+  const [savedHigh, setSavedHigh] = useState(0);
+  const [shineKey, setShineKey] = useState(0);
 
   useEffect(() => {
     if (!entered) return;
     setResponseSec(0);
-    setChannels(0);
-    setSatisfaction(0);
+    setRecoveryLow(0);
+    setRecoveryHigh(0);
+    setSavedLow(0);
+    setSavedHigh(0);
+    setShineKey((k) => k + 1);
     animateNumber(0, 60, (v) => setResponseSec(Math.round(v)));
-    animateNumber(0, 3, (v) => setChannels(Math.round(v)));
-    animateNumber(0, 4.7, (v) => setSatisfaction(Math.round(v * 10) / 10));
+    animateNumber(0, 18, (v) => setRecoveryLow(Math.round(v)));
+    animateNumber(0, 35, (v) => setRecoveryHigh(Math.round(v)));
+    animateNumber(0, 6, (v) => setSavedLow(Math.round(v)));
+    animateNumber(0, 12, (v) => setSavedHigh(Math.round(v)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entered, runKey]);
 
+  const handleRestart = () => restart();
+
   return (
-    <section data-testid="trust-strip" className="w-full bg-transparent">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div
-          ref={metricsRef}
-          onClick={restart}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") restart(); }}
-          className="relative overflow-hidden rounded-2xl p-4 sm:p-5 border border-white/15 text-white shadow-[0_20px_60px_rgba(0,0,0,0.25)] cursor-pointer select-none transition-transform active:scale-[0.99]"
-          style={{
-            background:
-              "radial-gradient(1200px 400px at 20% 0%, rgba(59,130,246,0.35), transparent 55%), radial-gradient(900px 500px at 80% 20%, rgba(37,99,235,0.25), transparent 60%), linear-gradient(180deg, rgba(10,20,40,0.75), rgba(10,20,40,0.55))",
-          }}
-        >
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 opacity-[0.10]"
-            style={{
-              background:
-                "linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0) 70%)",
-              transform: "translateX(-60%)",
-              animation: "wftShine 7s ease-in-out infinite",
-            }}
-          />
-
-          <div className="relative flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-2 w-2 rounded-full bg-blue-400 shadow-[0_0_0_4px_rgba(96,165,250,0.25)]" />
-                <p className="text-sm font-medium text-white/90">
-                  Built for trades — by people who understand the job
-                </p>
-              </div>
-              <p className="mt-1 text-xs text-white/70">
-                A lead + customer response system designed for busy service businesses.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2 sm:justify-end">
-              {TRUST_PILLS.map((p) => (
-                <span
-                  key={p.label}
-                  className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-white/80"
-                >
-                  {p.label}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="relative my-3 h-px w-full bg-white/15" />
-
-          <div className="relative mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
-            <div className="rounded-xl p-3 bg-white/[0.08] border border-white/[0.12] backdrop-blur-md">
-              <div className="text-2xl sm:text-3xl font-semibold tracking-tight">{"< "}{responseSec}{" sec"}</div>
-              <div className="text-xs text-white/75 mt-1">Auto-reply target</div>
-              <div className="text-[11px] text-white/60 mt-1 leading-snug">Instant first response when you miss a call.</div>
-            </div>
-            <div className="rounded-xl p-3 bg-white/[0.08] border border-white/[0.12] backdrop-blur-md">
-              <div className="text-2xl sm:text-3xl font-semibold tracking-tight">{channels}</div>
-              <div className="text-xs text-white/75 mt-1">Channels covered</div>
-              <div className="text-[11px] text-white/60 mt-1 leading-snug">Calls + web chat + SMS lead capture.</div>
-            </div>
-            <div className="rounded-xl p-3 bg-white/[0.08] border border-white/[0.12] backdrop-blur-md">
-              <div className="text-2xl sm:text-3xl font-semibold tracking-tight">{satisfaction}/5</div>
-              <div className="text-xs text-white/75 mt-1">User satisfaction</div>
-              <div className="text-[11px] text-white/60 mt-1 leading-snug">Early customer feedback (updated as we scale).</div>
-            </div>
-          </div>
-
-          <p className="relative mt-2 text-[11px] text-white/55">
-            Metrics shown are targets/early feedback and vary by setup.
-          </p>
-        </div>
+    <section data-testid="trust-strip" className="relative w-full py-8 sm:py-10">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute inset-x-0 -top-24 h-40 bg-gradient-to-b from-transparent to-[rgba(37,99,235,0.12)] blur-2xl" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[rgba(37,99,235,0.10)] via-[rgba(59,130,246,0.18)] to-[rgba(37,99,235,0.10)]" />
+        <div className="absolute inset-x-0 -bottom-24 h-40 bg-gradient-to-t from-transparent to-[rgba(37,99,235,0.12)] blur-2xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.0)_0%,rgba(0,0,0,0.08)_100%)] opacity-30" />
+        <div className="absolute inset-0 bg-slate-900/10" />
       </div>
 
-      <div className="h-8 sm:h-10" />
+      <div ref={metricsRef} className="relative mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+            <span className="text-xs font-medium text-slate-600">Performance snapshot</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900 mb-1.5">
+            Modeled outcomes, built for busy trades
+          </h2>
+          <p className="text-sm sm:text-[15px] text-slate-600">
+            Typical targets when automations are enabled. Results vary by business.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          {[
+            {
+              icon: Clock,
+              value: <>{"< "}{responseSec}</>,
+              suffix: "sec",
+              title: "Target first response",
+              desc: "Auto-reply target when a call or message is missed.",
+            },
+            {
+              icon: BarChart3,
+              value: <>{recoveryLow}–{recoveryHigh}</>,
+              suffix: "%",
+              title: "Estimated missed-lead recovery",
+              desc: "Follow-ups + fast replies help recover inquiries.",
+            },
+            {
+              icon: Timer,
+              value: <>{savedLow}–{savedHigh}</>,
+              suffix: "hrs/wk",
+              title: "Estimated admin time saved",
+              desc: "Less chasing leads and missed messages.",
+            },
+          ].map((card) => (
+            <div
+              key={card.title}
+              onClick={handleRestart}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleRestart(); }}
+              className="relative overflow-hidden rounded-2xl p-4 sm:p-5 bg-white/20 border border-white/20 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-xl cursor-pointer select-none transition-all duration-200 hover:-translate-y-0.5 hover:border-white/30"
+            >
+              <div
+                key={shineKey}
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-60"
+                style={{
+                  background: "linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)",
+                  transform: "translateX(-120%)",
+                  animation: shineKey > 0 ? "wftCardShine 0.9s ease-out forwards" : "none",
+                }}
+              />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-3">
+                  <card.icon size={16} strokeWidth={1.75} className="text-white/80" />
+                  <span className="text-xs font-medium text-slate-100">{card.title}</span>
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-3xl sm:text-4xl font-semibold text-white tracking-tight">{card.value}</span>
+                  <span className="text-base font-medium text-white/70">{card.suffix}</span>
+                </div>
+                <p className="text-[11px] text-slate-200/70 mt-2 leading-snug">{card.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-[11px] text-slate-600 mt-3">
+          Metrics shown are modeled targets/estimates and vary by business setup.
+        </p>
+      </div>
     </section>
   );
 }
