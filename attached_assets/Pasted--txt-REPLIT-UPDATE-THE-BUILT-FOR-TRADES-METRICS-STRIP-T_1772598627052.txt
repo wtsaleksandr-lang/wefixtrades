@@ -1,0 +1,221 @@
+```txt
+REPLIT — UPDATE THE “BUILT FOR TRADES” METRICS STRIP (THE ONE IN SCREENSHOT) + ADD COUNT-UP ANIMATION + TIGHTEN SPACING
+
+TARGET (IMPORTANT)
+This is the section that currently shows:
+- “Built for trades — by people who understand the job”
+- chips like “North America focused / Built for service businesses / Runs in the background”
+- 3 stat cards: “24/7”, “< 60 sec”, “4.7/5”
+- small note line under it
+You MUST edit THAT exact section (not the reviews section).
+
+========================================
+STEP 1 — FIND THE COMPONENT / FILE
+========================================
+1) Search the codebase for this exact text:
+   "Built for trades — by people who understand the job"
+   OR (fallback searches):
+   "North America focused"
+   "Runs in the background"
+   "Avg. lead response"
+   "User satisfaction"
+
+2) The match will be inside a Home section component (likely Home page component or a home section component).
+Open the file where this block is rendered.
+
+3) We will do TWO changes:
+   A) Tighten spacing + improve layout compactness (no huge gaps).
+   B) Animate the 3 metric values (count-up) when the section enters viewport.
+
+========================================
+STEP 2 — REPLACE THE METRICS VALUES WITH ANIMATED VALUES
+========================================
+Inside the component that renders those 3 stat cards, do this:
+
+A) Add these imports at top (if not already present):
+- import React, { useEffect, useMemo, useRef, useState } from "react";
+
+B) Add THIS hook + helper INSIDE THE SAME FILE (near the top, above the component), unless you already have a utilities file.
+PASTE EXACTLY:
+
+--- START INSERT: useCountUpOnView ---
+function useCountUpOnView<T extends HTMLElement>(
+  opts: { durationMs?: number; once?: boolean; threshold?: number } = {}
+) {
+  const { durationMs = 900, once = true, threshold = 0.25 } = opts;
+  const ref = useRef<T | null>(null);
+  const [hasEntered, setHasEntered] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0];
+        if (e.isIntersecting) {
+          setHasEntered(true);
+          if (once) obs.disconnect();
+        }
+      },
+      { threshold }
+    );
+
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [once, threshold]);
+
+  const animateNumber = (from: number, to: number, onUpdate: (v: number) => void) => {
+    if (!hasEntered) {
+      onUpdate(from);
+      return;
+    }
+    const start = performance.now();
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs);
+      const eased = easeOutCubic(t);
+      const val = from + (to - from) * eased;
+      onUpdate(val);
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+
+  return { ref, hasEntered, animateNumber };
+}
+--- END INSERT: useCountUpOnView ---
+
+C) In the main component, create animated states for the 3 metrics:
+- coverage: animate 0 -> 24
+- responseSeconds: animate 0 -> 60 (we will DISPLAY it as “< 60 sec” but still animate to 60)
+- rating: animate 0 -> 4.7
+
+Add these states inside the component:
+--- START INSERT: metric states ---
+const { ref: metricsRef, hasEntered, animateNumber } = useCountUpOnView<HTMLDivElement>({
+  durationMs: 950,
+  once: true,
+  threshold: 0.35,
+});
+
+const [coverage, setCoverage] = useState(0);
+const [responseSec, setResponseSec] = useState(0);
+const [rating, setRating] = useState(0);
+
+useEffect(() => {
+  if (!hasEntered) return;
+  animateNumber(0, 24, (v) => setCoverage(Math.round(v)));
+  animateNumber(0, 60, (v) => setResponseSec(Math.round(v)));
+  animateNumber(0, 4.7, (v) => setRating(Math.round(v * 10) / 10));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [hasEntered]);
+--- END INSERT: metric states ---
+
+D) Attach metricsRef to the OUTER container of this section (the big rounded card).
+Find the outer wrapper div for this section and add:
+ref={metricsRef}
+
+Example (you will adapt to your actual JSX):
+<div ref={metricsRef} className="..."> ... </div>
+
+E) Replace the hardcoded display values:
+- Replace “24/7” with:  {coverage}/7
+- Replace “< 60 sec” with:  {"< "}{responseSec}{" sec"}
+- Replace “4.7/5” with:  {rating}/5
+
+IMPORTANT: keep the labels below each metric the same.
+
+========================================
+STEP 3 — TIGHTEN SPACING + FIX “HUGE GAPS”
+========================================
+In that same section, apply these layout changes:
+
+A) Outer container padding:
+- Reduce vertical padding
+- Keep it premium but tighter
+
+If the outer container currently has something like:
+p-6 / py-10 / mt-16 / mb-16
+Change to:
+- padding: "p-4 sm:p-5"
+- top/bottom margin: "mt-8 mb-8" (or smaller if it’s already close)
+
+B) Header row inside the card (“Built for trades…”, chips):
+- Reduce gap between title line and chips row
+- Chips should wrap nicely on smaller widths
+
+Set:
+- Title block gap: gap-2 (not gap-4 or larger)
+- Chips container: flex-wrap + gap-2
+- Chip padding: px-3 py-1 (small)
+
+C) Metrics grid (3 cards):
+- Reduce gaps between the 3 inner stat cards.
+- Use consistent height + tighter padding:
+  - card padding: p-3
+  - gap: gap-2 (mobile) and gap-3 (desktop)
+
+D) The note line under metrics:
+- Make it smaller and closer to metrics:
+  - text-xs
+  - mt-2 (not mt-6/mt-8)
+
+========================================
+STEP 4 — OPTIONAL “WOW” MICRO-POLISH (DO IT)
+========================================
+Add a subtle “shine sweep” over the OUTER card only (very faint) to make it feel premium.
+No big rectangle overlays over text.
+
+1) On the OUTER container add:
+- "relative overflow-hidden"
+
+2) Add a pseudo overlay div as the FIRST child inside the outer container:
+PASTE:
+
+--- START INSERT: subtle shine overlay ---
+<div
+  aria-hidden="true"
+  className="pointer-events-none absolute inset-0 opacity-[0.08]"
+  style={{
+    background:
+      "linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0) 70%)",
+    transform: "translateX(-60%)",
+    animation: "wftShine 6s ease-in-out infinite",
+  }}
+/>
+--- END INSERT: subtle shine overlay ---
+
+3) Add the keyframes once globally.
+Find your global CSS file (likely client/src/index.css or client/src/app.css).
+Add at the bottom:
+
+--- START INSERT: wftShine keyframes ---
+@keyframes wftShine {
+  0% { transform: translateX(-60%); }
+  45% { transform: translateX(120%); }
+  100% { transform: translateX(120%); }
+}
+--- END INSERT: wftShine keyframes ---
+
+This is subtle and won’t cover content.
+
+========================================
+STEP 5 — MOBILE CHECK
+========================================
+- Ensure chips wrap (no overflow).
+- Ensure metrics stack nicely on small screens:
+  Use grid:
+  - mobile: grid-cols-1
+  - sm: grid-cols-3
+- No large vertical whitespace above/below this card.
+
+========================================
+DONE CRITERIA (VERIFY)
+========================================
+1) When you scroll and this card enters view, the numbers count up smoothly.
+2) Spacing is tight: the card sits closer to the next section and inner gaps are reduced.
+3) Chips wrap cleanly on narrow widths.
+4) No “static rectangle” overlays across text.
+```

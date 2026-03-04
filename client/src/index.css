@@ -553,6 +553,13 @@
   animation: mktCaretBlink 620ms step-end infinite;
 }
 
+/* Trust strip shine sweep */
+@keyframes wftShine {
+  0% { transform: translateX(-60%); }
+  45% { transform: translateX(120%); }
+  100% { transform: translateX(120%); }
+}
+
 /* Reduced motion overrides */
 @media (prefers-reduced-motion: reduce) {
   [data-reveal] { opacity: 1 !important; transform: none !important; transition: none !important; }
