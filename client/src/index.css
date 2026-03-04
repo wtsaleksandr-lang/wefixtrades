@@ -556,7 +556,7 @@
 /* Trust strip shine sweep */
 @keyframes wftShine {
   0% { transform: translateX(-60%); }
-  45% { transform: translateX(120%); }
+  40% { transform: translateX(120%); }
   100% { transform: translateX(120%); }
 }
 
