@@ -177,12 +177,13 @@ function NavItemDesktopV2({
           <div
             style={{
               position: "fixed",
-              left: rect.left,
+              left: "50%",
               top: rect.bottom + 2,
-              width: rect.width,
+              width: "min(1100px, calc(100vw - 24px))",
+              maxWidth: "min(1100px, calc(100vw - 24px))",
+              transform: "translateX(-50%) translateY(0) scale(1)",
 
               opacity: 1,
-              transform: "translateY(0) scale(1)",
               transformOrigin: "top center",
               transition: "opacity 160ms ease, transform 160ms ease",
 
@@ -196,12 +197,12 @@ function NavItemDesktopV2({
 
               padding: "4px",
               zIndex: 9999,
+              overflow: "hidden",
 
               display: "grid",
-              gridAutoFlow: "column",
-              gridTemplateRows: "repeat(3, auto)",
-              gridAutoColumns: "minmax(280px, 1fr)",
-              gap: 6,
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gridAutoFlow: "row",
+              gap: 10,
 
               outline: DEBUG_DROPDOWN ? "3px solid rgba(0,120,255,0.85)" : "none",
             }}
@@ -590,7 +591,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               : {
                   width: "calc(100% - 32px)",
                   maxWidth: 1440,
-                  margin: "10px 16px 0",
+                  margin: "6px 16px 0",
                   borderRadius: 18,
                   padding: "0 20px",
                   background: "rgba(255,255,255,0.78)",
