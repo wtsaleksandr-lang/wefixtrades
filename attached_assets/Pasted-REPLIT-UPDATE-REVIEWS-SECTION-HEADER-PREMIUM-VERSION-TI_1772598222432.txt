@@ -1,0 +1,116 @@
+REPLIT — UPDATE REVIEWS SECTION HEADER (PREMIUM VERSION + TIGHT SPACING)
+
+GOAL
+Replace the generic review title with a stronger premium headline and remove excessive vertical spacing.
+
+FILES TO EDIT
+/components/home/ReviewsSection.tsx
+
+IMPORTANT
+Keep spacing compact.
+Do NOT introduce large margins or padding.
+We want a tight, premium SaaS look.
+
+--------------------------------------------------
+
+1) FIND THE HEADER BLOCK ABOVE THE REVIEWS GRID
+
+You likely have something similar to:
+
+<h2 className="...">
+What service businesses are saying
+</h2>
+
+<p className="...">
+Real feedback from teams using WeFixTrades to handle calls...
+</p>
+
+DELETE that entire block.
+
+--------------------------------------------------
+
+2) REPLACE WITH THIS HEADER STRUCTURE
+
+Paste this exactly above the reviews grid.
+
+<div className="text-center mb-8 sm:mb-10">
+
+  {/* small trust label */}
+  <div className="flex justify-center mb-2">
+    <span className="inline-flex items-center gap-2 text-xs font-semibold text-black/55">
+      <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+      Customer feedback
+    </span>
+  </div>
+
+  {/* main headline */}
+  <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-black/90 leading-tight">
+    Trusted by trades across North America
+  </h2>
+
+  {/* supporting text */}
+  <p className="mt-2 text-sm sm:text-base text-black/60 max-w-xl mx-auto leading-relaxed">
+    Real feedback from service businesses using WeFixTrades to capture leads,
+    respond faster, and keep customers from slipping through the cracks.
+  </p>
+
+</div>
+
+--------------------------------------------------
+
+3) ENSURE GRID SPACING IS COMPACT
+
+Find the reviews grid container.
+
+If it currently has:
+
+gap-8
+or
+gap-10
+
+Replace with:
+
+gap-5 sm:gap-6
+
+Example:
+
+<div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
+
+--------------------------------------------------
+
+4) REDUCE CARD PADDING (OPTIONAL BUT RECOMMENDED)
+
+Inside each review card change padding to:
+
+p-4 sm:p-5
+
+instead of p-6 or p-7.
+
+--------------------------------------------------
+
+5) FINAL SPACING CHECK
+
+Spacing targets:
+
+Hero → trust strip → reviews title  
+≈ 32–40px
+
+Title → review cards  
+≈ 20–28px
+
+Cards → next section  
+≈ 40px
+
+No large empty zones.
+
+--------------------------------------------------
+
+EXPECTED RESULT
+
+• Premium headline
+• Non-generic SaaS copy
+• Tight professional spacing
+• Better visual hierarchy
+• Reviews feel more credible
+
+IMPLEMENT NOW.

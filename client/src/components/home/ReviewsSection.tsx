@@ -108,35 +108,23 @@ export default function ReviewsSection() {
       data-testid="reviews-section"
       style={{
         background: mkt.surface,
-        padding: "48px 28px 56px",
+        padding: "48px 28px 40px",
       }}
     >
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <h2
-            style={{
-              fontSize: "clamp(24px, 3.5vw, 38px)",
-              fontWeight: 800,
-              color: "rgba(0,0,0,0.85)",
-              letterSpacing: "-0.025em",
-              lineHeight: 1.15,
-              margin: 0,
-            }}
-          >
-            What service businesses are saying
+        <div className="text-center mb-8 sm:mb-10">
+          <div className="flex justify-center mb-2">
+            <span className="inline-flex items-center gap-2 text-xs font-semibold text-black/55">
+              <span className="w-2 h-2 rounded-full bg-blue-600" />
+              Customer feedback
+            </span>
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-black/90 leading-tight">
+            Trusted by trades across North America
           </h2>
-          <p
-            style={{
-              marginTop: 8,
-              fontSize: 15,
-              color: "rgba(0,0,0,0.55)",
-              lineHeight: 1.6,
-              maxWidth: 540,
-              marginLeft: "auto",
-              marginRight: "auto",
-            }}
-          >
-            Real feedback from teams using WeFixTrades to handle calls, chats and customer follow-ups.
+          <p className="mt-2 text-sm sm:text-base text-black/60 max-w-xl mx-auto leading-relaxed">
+            Real feedback from service businesses using WeFixTrades to capture leads,
+            respond faster, and keep customers from slipping through the cracks.
           </p>
         </div>
 
