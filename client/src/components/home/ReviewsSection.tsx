@@ -108,17 +108,17 @@ export default function ReviewsSection() {
       data-testid="reviews-section"
       style={{
         background: mkt.surface,
-        padding: "88px 28px 96px",
+        padding: "48px 28px 56px",
       }}
     >
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
           <h2
             style={{
               fontSize: "clamp(24px, 3.5vw, 38px)",
-              fontWeight: 700,
-              color: "#141414",
-              letterSpacing: "-0.03em",
+              fontWeight: 800,
+              color: "rgba(0,0,0,0.85)",
+              letterSpacing: "-0.025em",
               lineHeight: 1.15,
               margin: 0,
             }}
@@ -127,11 +127,11 @@ export default function ReviewsSection() {
           </h2>
           <p
             style={{
-              marginTop: 14,
-              fontSize: 16,
-              color: mkt.textMuted,
+              marginTop: 8,
+              fontSize: 15,
+              color: "rgba(0,0,0,0.55)",
               lineHeight: 1.6,
-              maxWidth: 560,
+              maxWidth: 540,
               marginLeft: "auto",
               marginRight: "auto",
             }}
@@ -144,7 +144,7 @@ export default function ReviewsSection() {
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-            gap: 20,
+            gap: 16,
           }}
         >
           {REVIEWS.map((r) => (
@@ -156,7 +156,7 @@ export default function ReviewsSection() {
                 border: "1px solid rgba(0,0,0,0.07)",
                 background: "#FFFFFF",
                 boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
-                padding: "24px 24px 20px",
+                padding: "20px 20px 18px",
                 display: "flex",
                 flexDirection: "column",
                 gap: 14,
