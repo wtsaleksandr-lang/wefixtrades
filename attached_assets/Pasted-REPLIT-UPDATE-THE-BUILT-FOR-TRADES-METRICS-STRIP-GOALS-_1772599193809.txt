@@ -1,0 +1,195 @@
+REPLIT — UPDATE THE “BUILT FOR TRADES” METRICS STRIP:
+GOALS
+1) Count-up runs on first view AND re-runs whenever user clicks the metrics card.
+2) Replace “meh” metrics with more impressive (but non-fabricated) capability metrics.
+3) Redesign section to look premium: blue-tinted gradient card, white text, tighter spacing, better hierarchy.
+
+========================================
+A) FIND THE SECTION
+========================================
+Search for any of:
+"Built for trades — by people who understand the job"
+"North America focused"
+"Avg. lead response"
+Open the file/component containing this section.
+
+========================================
+B) CLICK-TO-RESTART COUNT UP
+========================================
+1) Ensure these imports exist:
+import React, { useEffect, useRef, useState } from "react";
+
+2) Replace existing count-up logic with this (or merge carefully).
+Add this hook above the component:
+
+function useCountUpController<T extends HTMLElement>(opts: { durationMs?: number; threshold?: number } = {}) {
+  const { durationMs = 950, threshold = 0.35 } = opts;
+  const ref = useRef<T | null>(null);
+  const [entered, setEntered] = useState(false);
+  const [runKey, setRunKey] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0];
+        if (e.isIntersecting) setEntered(true);
+      },
+      { threshold }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [threshold]);
+
+  const restart = () => setRunKey((k) => k + 1);
+
+  const animateNumber = (from: number, to: number, onUpdate: (v: number) => void) => {
+    const start = performance.now();
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs);
+      const eased = easeOutCubic(t);
+      const val = from + (to - from) * eased;
+      onUpdate(val);
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+
+  return { ref, entered, runKey, restart, animateNumber };
+}
+
+3) In the component, add:
+const { ref: metricsRef, entered, runKey, restart, animateNumber } =
+  useCountUpController<HTMLDivElement>({ durationMs: 1000, threshold: 0.35 });
+
+const [responseSec, setResponseSec] = useState(0);
+const [channels, setChannels] = useState(0);
+const [satisfaction, setSatisfaction] = useState(0);
+
+useEffect(() => {
+  if (!entered) return;
+  // reset first (so re-run is visible)
+  setResponseSec(0);
+  setChannels(0);
+  setSatisfaction(0);
+
+  animateNumber(0, 60, (v) => setResponseSec(Math.round(v)));     // "< 60 sec"
+  animateNumber(0, 3, (v) => setChannels(Math.round(v)));         // "3 channels"
+  animateNumber(0, 4.7, (v) => setSatisfaction(Math.round(v * 10) / 10)); // "4.7/5"
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [entered, runKey]);
+
+4) Attach metricsRef + click handler to OUTER card container:
+<div ref={metricsRef} onClick={restart} role="button" tabIndex={0}
+     onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') restart(); }}
+     className="... cursor-pointer select-none ...">
+
+Also add a tiny click feedback animation:
+- Add "active:scale-[0.99] transition-transform" to the outer container.
+
+========================================
+C) REPLACE METRICS (NON-FABRICATED, STILL “WOW”)
+========================================
+Replace the 3 stat cards content to:
+
+CARD 1:
+BIG: {"< "}{responseSec}{" sec"}
+LABEL: "Auto-reply target"
+SUBTEXT: "Instant first response when you miss a call."
+
+CARD 2:
+BIG: {channels} (or "3")
+LABEL: "Channels covered"
+SUBTEXT: "Calls + web chat + SMS lead capture."
+
+CARD 3:
+BIG: {satisfaction}/5
+LABEL: "User satisfaction"
+SUBTEXT: "Early customers feedback (update as you scale)."
+
+NOTE: Keep a small disclaimer under cards:
+“Metrics shown are targets/early feedback and vary by setup.”
+
+========================================
+D) PREMIUM VISUAL REDESIGN (BLUE TINT + WHITE TEXT)
+========================================
+Redesign the outer container classes/styles:
+- Use a deep blue gradient background + subtle border + soft glow.
+- White text.
+- Inner stat cards should be translucent “glass” panels.
+
+Implement these Tailwind styles (adjust if your project uses tokens):
+
+OUTER CARD (replace current bg styles):
+className="
+relative overflow-hidden rounded-2xl
+p-4 sm:p-5
+border border-white/15
+bg-[radial-gradient(1200px_400px_at_20%_0%,rgba(59,130,246,0.35),transparent_55%),radial-gradient(900px_500px_at_80%_20%,rgba(37,99,235,0.25),transparent_60%),linear-gradient(180deg,rgba(10,20,40,0.75),rgba(10,20,40,0.55))]
+text-white
+shadow-[0_20px_60px_rgba(0,0,0,0.25)]
+transition-transform active:scale-[0.99]
+"
+
+Add a subtle animated shimmer overlay (very faint):
+Add as first child:
+<div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-[0.10]"
+     style={{
+       background:"linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0) 70%)",
+       transform:"translateX(-60%)",
+       animation:"wftShine 7s ease-in-out infinite"
+     }} />
+
+Ensure keyframes exist once in global CSS:
+@keyframes wftShine {
+  0% { transform: translateX(-60%); }
+  40% { transform: translateX(120%); }
+  100% { transform: translateX(120%); }
+}
+
+TITLE ROW:
+- Make the title smaller + tighter:
+text-sm font-medium text-white/90
+subtitle text-xs text-white/70
+
+CHIPS:
+- Use small chips with border-white/15 bg-white/5 text-white/80
+- flex-wrap gap-2
+
+METRICS GRID:
+Use:
+<div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+
+STAT CARD STYLE:
+className="
+rounded-xl p-3
+bg-white/8 border border-white/12
+backdrop-blur-md
+"
+
+Numbers:
+- font-semibold tracking-tight text-2xl sm:text-3xl
+Labels:
+- text-xs text-white/75 mt-1
+Subtext:
+- text-[11px] text-white/60 mt-1 leading-snug
+
+DISCLAIMER:
+- mt-2 text-[11px] text-white/55
+
+========================================
+E) SPACING (NO HUGE GAPS)
+========================================
+Reduce margins above/below this section:
+- Ensure the section wrapper uses something like: mt-10 mb-10 (not 16/20)
+- Keep the next section title closer: reduce top padding on next section by ~30%
+
+========================================
+F) VERIFY
+========================================
+1) On first scroll into view, the numbers animate clearly.
+2) On tap/click anywhere on the card, they restart every time.
+3) Looks premium (blue tint + white text), not banner-ad.
+4) Mobile: chips wrap, grid stacks cleanly.
