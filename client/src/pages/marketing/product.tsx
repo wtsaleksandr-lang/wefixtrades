@@ -379,7 +379,7 @@ export default function ProductPage() {
           }}
         >
           <div style={{ position: "absolute", top: -100, right: -60, width: 500, height: 500, borderRadius: "50%", background: "rgba(45,106,79,0.1)", pointerEvents: "none" }} />
-          <div style={{ position: "absolute", bottom: -80, left: -80, width: 400, height: 400, borderRadius: "50%", background: "rgba(37,99,235,0.07)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", bottom: -80, left: -80, width: 400, height: 400, borderRadius: "50%", background: "rgba(47,107,255,0.07)", pointerEvents: "none" }} />
 
           <div
             className="hero-grid"

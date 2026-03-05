@@ -53,7 +53,7 @@ export const PLANS: Plan[] = [
     highlighted: false,
     badge: null,
     badgeBg: "#EFF6FF",
-    badgeColor: "#2563EB",
+    badgeColor: "#2F6BFF",
     accentBorder: "#BFDBFE",
 
     cta: "Start Trial",

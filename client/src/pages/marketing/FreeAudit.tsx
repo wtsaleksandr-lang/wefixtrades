@@ -510,11 +510,11 @@ export default function FreeAudit() {
           .audit-container { padding: 120px 24px 80px; }
         }
         .audit-input:focus {
-          border-color: #0C67FF !important;
-          box-shadow: 0 0 0 4px rgba(12,103,255,0.16) !important;
+          border-color: #2F6BFF !important;
+          box-shadow: 0 0 0 4px rgba(47,107,255,0.16) !important;
         }
         .audit-suggestion:hover {
-          background: rgba(12,103,255,0.06) !important;
+          background: rgba(47,107,255,0.06) !important;
         }
         .audit-shimmer {
           height: 4px;
@@ -528,7 +528,7 @@ export default function FreeAudit() {
           position: absolute;
           inset: 0;
           border-radius: 4px;
-          background: linear-gradient(90deg, transparent, #0C67FF, transparent);
+          background: linear-gradient(90deg, transparent, #2F6BFF, transparent);
           animation: audit-shimmer-move 1.4s ease-in-out infinite;
         }
         @keyframes audit-shimmer-move {
@@ -641,8 +641,8 @@ export default function FreeAudit() {
                           transform: "translateY(-50%)",
                           width: 18,
                           height: 18,
-                          border: "2px solid rgba(12,103,255,0.2)",
-                          borderTopColor: "#0C67FF",
+                          border: "2px solid rgba(47,107,255,0.2)",
+                          borderTopColor: "#2F6BFF",
                           borderRadius: "50%",
                           animation: "spin 0.7s linear infinite",
                         }}
@@ -711,7 +711,7 @@ export default function FreeAudit() {
                           width: 8,
                           height: 8,
                           borderRadius: "50%",
-                          background: "#0C67FF",
+                          background: "#2F6BFF",
                           flexShrink: 0,
                         }}
                       />
@@ -795,8 +795,8 @@ export default function FreeAudit() {
                               style={{
                                 width: 15,
                                 height: 15,
-                                border: "2px solid rgba(12,103,255,0.3)",
-                                borderTopColor: "#0C67FF",
+                                border: "2px solid rgba(47,107,255,0.3)",
+                                borderTopColor: "#2F6BFF",
                                 borderRadius: "50%",
                                 animation: "spin 0.7s linear infinite",
                               }}

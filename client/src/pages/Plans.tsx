@@ -108,10 +108,10 @@ function SectionTabs({
               borderRadius: 999,
               fontSize: 14,
               fontWeight: 700,
-              border: active ? "1px solid #0C67FF" : "1px solid rgba(0,0,0,0.10)",
+              border: active ? "1px solid #2F6BFF" : "1px solid rgba(0,0,0,0.10)",
               cursor: "pointer",
               transition: "all 0.18s ease",
-              background: active ? "#0C67FF" : "rgba(255,255,255,0.60)",
+              background: active ? "#2F6BFF" : "rgba(255,255,255,0.60)",
               color: active ? "#FFFFFF" : "rgba(0,0,0,0.65)",
             }}
           >
@@ -167,11 +167,11 @@ function BundleCard({
               height: 28,
               padding: "0 14px",
               borderRadius: 999,
-              background: "#0C67FF",
+              background: "#2F6BFF",
               color: "#FFFFFF",
               fontSize: 12,
               fontWeight: 800,
-              boxShadow: "0 10px 26px rgba(12,103,255,0.35)",
+              boxShadow: "0 10px 26px rgba(47,107,255,0.35)",
             }}
           >
             {badge}
@@ -190,7 +190,7 @@ function BundleCard({
         <ul style={{ marginTop: 12, listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
           {bullets.map((b, i) => (
             <li key={i} style={{ display: "flex", gap: 8, fontSize: 14, color: "rgba(0,0,0,0.60)" }}>
-              <span style={{ marginTop: 6, width: 8, height: 8, borderRadius: "50%", background: "rgba(12,103,255,0.55)", flexShrink: 0 }} />
+              <span style={{ marginTop: 6, width: 8, height: 8, borderRadius: "50%", background: "rgba(47,107,255,0.55)", flexShrink: 0 }} />
               <span>{b}</span>
             </li>
           ))}
@@ -274,7 +274,7 @@ function SmallCard({
       <ul style={{ marginTop: 16, listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
         {bullets.map((b, i) => (
           <li key={i} style={{ display: "flex", gap: 8, fontSize: 14, color: "rgba(0,0,0,0.60)" }}>
-            <span style={{ marginTop: 6, width: 8, height: 8, borderRadius: "50%", background: "rgba(12,103,255,0.55)", flexShrink: 0 }} />
+            <span style={{ marginTop: 6, width: 8, height: 8, borderRadius: "50%", background: "rgba(47,107,255,0.55)", flexShrink: 0 }} />
             <span>{b}</span>
           </li>
         ))}

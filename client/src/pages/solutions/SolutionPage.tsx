@@ -208,7 +208,7 @@ export default function SolutionPage() {
           data-testid="solution-hero"
         >
           <div style={{ position: "absolute", top: -80, right: -80, width: 420, height: 420, borderRadius: "50%", background: mkt.accentGlow, pointerEvents: "none" }} />
-          <div style={{ position: "absolute", bottom: -60, left: -60, width: 300, height: 300, borderRadius: "50%", background: "rgba(12,103,255,0.08)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", bottom: -60, left: -60, width: 300, height: 300, borderRadius: "50%", background: "rgba(47,107,255,0.08)", pointerEvents: "none" }} />
 
           <div style={{ maxWidth: 720, margin: "0 auto", position: "relative" }}>
             <div style={{

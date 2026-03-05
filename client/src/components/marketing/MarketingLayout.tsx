@@ -411,9 +411,9 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: "#0C67FF",
-                    background: "rgba(12,103,255,0.10)",
-                    border: "1px solid rgba(12,103,255,0.18)",
+                    color: "#2F6BFF",
+                    background: "rgba(47,107,255,0.10)",
+                    border: "1px solid rgba(47,107,255,0.18)",
                     flexShrink: 0,
                   }}
                   aria-hidden
@@ -538,7 +538,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         WebkitFontSmoothing: "antialiased",
         MozOsxFontSmoothing: "grayscale",
         textRendering: "optimizeLegibility",
-        background: "linear-gradient(180deg, rgba(227,234,237,1) 0%, rgba(227,234,237,1) 60%, rgba(227,234,237,0) 100%)",
+        background: "linear-gradient(180deg, rgba(246,247,249,1) 0%, rgba(246,247,249,1) 60%, rgba(246,247,249,0) 100%)",
       }}
     >
       <nav
