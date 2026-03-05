@@ -52,9 +52,9 @@ export const PLANS: Plan[] = [
     price: { monthly: 99, annual: 79 },
     highlighted: false,
     badge: null,
-    badgeBg: "#EFF6FF",
+    badgeBg: "#EAF1FF",
     badgeColor: "#2F6BFF",
-    accentBorder: "#BFDBFE",
+    accentBorder: "#D4E2FF",
 
     cta: "Start Trial",
     ctaStyle: "outline",

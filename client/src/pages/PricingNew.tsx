@@ -261,13 +261,13 @@ export default function PricingNewPage() {
           }}
           data-testid="pricing-new-hero"
         >
-          <div style={{ position: "absolute", top: -80, right: -80, width: 420, height: 420, borderRadius: "50%", background: "rgba(74,124,111,0.1)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", top: -80, right: -80, width: 420, height: 420, borderRadius: "50%", background: "rgba(47,107,255,0.08)", pointerEvents: "none" }} />
           <div style={{ position: "absolute", bottom: -60, left: -60, width: 320, height: 320, borderRadius: "50%", background: "rgba(47,107,255,0.07)", pointerEvents: "none" }} />
 
           <div style={{ maxWidth: 720, margin: "0 auto", position: "relative" }}>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 6,
-              background: "rgba(74,124,111,0.25)", border: "1px solid rgba(74,124,111,0.4)",
+              background: "rgba(47,107,255,0.20)", border: "1px solid rgba(47,107,255,0.35)",
               borderRadius: 20, padding: "5px 16px", marginBottom: 28,
             }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: "#6EE7B7", letterSpacing: "0.04em" }}>

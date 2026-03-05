@@ -455,7 +455,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(circle at 50% 0%, var(--card-glow, rgba(74,124,111,0.08)), transparent 70%);
+  background: radial-gradient(circle at 50% 0%, var(--card-glow, rgba(47,107,255,0.08)), transparent 70%);
   opacity: 0;
   transition: opacity 0.35s ease;
   pointer-events: none;

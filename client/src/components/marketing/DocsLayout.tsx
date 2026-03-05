@@ -106,7 +106,7 @@ export function Accordion({ title, icon, children }: { title: string; icon?: str
 /** Callout / info box */
 export function InfoBox({ type = "info", children }: { type?: "info" | "warn" | "tip"; children: React.ReactNode }) {
   const styles = {
-    info: { bg: "#EFF6FF", border: "#BFDBFE", icon: "ℹ️" },
+    info: { bg: "#EAF1FF", border: "#D4E2FF", icon: "ℹ️" },
     warn: { bg: "#FFFBEB", border: "#FDE68A", icon: "⚠️" },
     tip: { bg: C.sageTint, border: "#A7F3D0", icon: "💡" },
   }[type];
