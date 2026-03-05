@@ -190,10 +190,10 @@ function NavItemDesktopV2({
               background: "rgba(255,255,255,0.92)",
               backdropFilter: "blur(18px) saturate(1.25)",
               WebkitBackdropFilter: "blur(18px) saturate(1.25)",
-              borderRadius: 16,
-              border: "1px solid rgba(0,0,0,0.10)",
+              borderRadius: 20,
+              border: "1px solid #E5E7EB",
               boxShadow:
-                "0 18px 46px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.50)",
+                "var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.50)",
 
               padding: "4px",
               zIndex: 9999,
@@ -731,14 +731,14 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             right: 10,
             top: menuTop,
             zIndex: 300,
-            borderRadius: 20,
+            borderRadius: 22,
             background: "rgba(255,255,255,0.52)",
             backdropFilter: "blur(22px) saturate(1.6)",
             WebkitBackdropFilter: "blur(22px) saturate(1.6)",
-            border: "1px solid rgba(255,255,255,0.34)",
+            border: "1px solid #E5E7EB",
             boxShadow: menuOpen
-              ? "0 22px 60px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.35)"
-              : "0 12px 30px rgba(0,0,0,0.08)",
+              ? "var(--shadow-hover), inset 0 1px 0 rgba(255,255,255,0.35)"
+              : "var(--shadow-card)",
             overflow: "hidden",
             maxHeight: "78vh",
             transform: menuOpen ? "translateY(0px) scale(1)" : "translateY(-12px) scale(0.98)",
