@@ -59,6 +59,18 @@
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 140ms;
+  --dur: 220ms;
+  --dur-slow: 360ms;
+
+  --shadow-soft: 0 2px 10px rgba(0,0,0,0.06);
+  --shadow-card: 0 8px 24px rgba(0,0,0,0.08);
+  --shadow-hover: 0 14px 40px rgba(0,0,0,0.10);
+
+  --ring-primary: 0 0 0 3px rgba(47,107,255,0.18);
+  --glow-primary: 0 0 0 1px rgba(47,107,255,0.25), 0 12px 32px rgba(47,107,255,0.18);
+
   --sidebar-primary-border: hsl(var(--sidebar-primary));
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --sidebar-accent-border: hsl(var(--sidebar-accent));
@@ -569,9 +581,84 @@
   100% { transform: translateX(320%) rotate(12deg); opacity: 0; }
 }
 
+/* ========== WFT MICRO-INTERACTION SYSTEM ========== */
+
+.wft-interactive {
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    opacity var(--dur) var(--ease-out);
+}
+.wft-interactive:hover,
+.wft-interactive:focus-visible {
+  will-change: transform, box-shadow;
+}
+
+.wft-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.wft-press:active {
+  transform: translateY(0px) scale(0.985);
+}
+
+.wft-focus:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-primary);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+.wft-link {
+  position: relative;
+}
+.wft-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  height: 2px;
+  width: 100%;
+  background: linear-gradient(90deg, rgba(47,107,255,0), rgba(47,107,255,0.9), rgba(47,107,255,0));
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform var(--dur) var(--ease-out);
+  border-radius: 999px;
+  opacity: 0.9;
+}
+.wft-link:hover::after {
+  transform: scaleX(1);
+}
+
+.wft-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.wft-shimmer::before {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: -45%;
+  width: 40%;
+  height: 140%;
+  background: rgba(255,255,255,0.22);
+  filter: blur(10px);
+  transform: rotate(12deg);
+  animation: wftShimmer 3.8s var(--ease-out) infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
 /* Reduced motion overrides */
 @media (prefers-reduced-motion: reduce) {
   [data-reveal] { opacity: 1 !important; transform: none !important; transition: none !important; }
   .mkt-float, .mkt-ticker-track { animation: none !important; }
   .mkt-cursor { animation: none !important; opacity: 1; }
+  .wft-shimmer::before { animation: none !important; }
+  .wft-interactive { transition: none !important; }
+  .wft-lift:hover { transform: none !important; }
+  .wft-press:active { transform: none !important; }
 }

@@ -8,6 +8,7 @@ import { mkt, colors, shadows, typography } from "@/theme/tokens";
 import TrustStrip from "@/components/home/TrustStrip";
 import ReviewsSection from "@/components/home/ReviewsSection";
 import TradeMinutesSection from "@/components/sections/TradeMinutesSection";
+import { SurfaceSection } from "@/components/marketing/SurfaceSection";
 import {
   Zap, Cpu, MessageCircle, Check,
   ArrowRight, Shield, Star, Clock, Sparkles,
@@ -860,8 +861,12 @@ export default function HomePage() {
       </section>
 
       <TradeMinutesSection />
-      <TrustStrip />
-      <ReviewsSection />
+      <SurfaceSection overlap className="py-8">
+        <TrustStrip />
+      </SurfaceSection>
+      <SurfaceSection overlap className="py-8">
+        <ReviewsSection />
+      </SurfaceSection>
 
       <section data-testid="workflow-section" style={{ background: mkt.surface, padding: "112px 28px" }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
