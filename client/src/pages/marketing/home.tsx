@@ -4,7 +4,7 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
 import StackedFlowCards from "@/components/marketing/StackedFlowCards";
-import { mkt, colors, shadows } from "@/theme/tokens";
+import { mkt, colors, shadows, typography } from "@/theme/tokens";
 import TrustStrip from "@/components/home/TrustStrip";
 import ReviewsSection from "@/components/home/ReviewsSection";
 import TradeMinutesSection from "@/components/sections/TradeMinutesSection";
@@ -303,7 +303,7 @@ const RESPONSIVE_CSS = `
   }
   @keyframes flowPulse {
     0%, 100% { box-shadow: 0 8px 32px ${mkt.accentGlow}; }
-    50% { box-shadow: 0 8px 40px rgba(12,103,255,0.35); }
+    50% { box-shadow: 0 8px 40px rgba(47,107,255,0.35); }
   }
   .flow-center-node { animation: flowPulse 3s ease-in-out infinite; }
   .flow-node { transition: transform 0.2s ease, box-shadow 0.2s ease; }
@@ -484,11 +484,11 @@ export default function HomePage() {
             pointer-events: none;
             background: linear-gradient(
               90deg,
-              rgba(59,130,246,0) 0%,
-              rgba(59,130,246,0.08) 40%,
-              rgba(59,130,246,0.22) 50%,
-              rgba(59,130,246,0.08) 60%,
-              rgba(59,130,246,0) 100%
+              rgba(47,107,255,0) 0%,
+              rgba(47,107,255,0.08) 40%,
+              rgba(47,107,255,0.22) 50%,
+              rgba(47,107,255,0.08) 60%,
+              rgba(47,107,255,0) 100%
             );
             animation: wf_shimmer_sweep 6.0s ease-in-out infinite;
             opacity: 0.9;
@@ -526,8 +526,8 @@ export default function HomePage() {
                   width: 8,
                   height: 8,
                   borderRadius: 999,
-                  background: "rgba(59,130,246,0.85)",
-                  boxShadow: "0 0 0 4px rgba(59,130,246,0.12)",
+                  background: "rgba(47,107,255,0.85)",
+                  boxShadow: "0 0 0 4px rgba(47,107,255,0.12)",
                   flexShrink: 0,
                 }}
                 aria-hidden
@@ -558,7 +558,7 @@ export default function HomePage() {
                 letterSpacing: "-0.02em",
                 margin: 0,
                 color: mkt.text,
-                fontFamily: '"Eudoxus Sans", Arial, sans-serif',
+                fontFamily: typography.fontFamily,
               }}
             >
               More booked jobs
@@ -573,8 +573,8 @@ export default function HomePage() {
                 letterSpacing: "-0.02em",
                 margin: 0,
                 marginTop: 4,
-                fontFamily: '"Eudoxus Sans", Arial, sans-serif',
-                color: "#2563EB",
+                fontFamily: typography.fontFamily,
+                color: mkt.accent,
               }}
             >
               <span
@@ -582,7 +582,7 @@ export default function HomePage() {
                 style={{
                   position: "relative",
                   zIndex: 2,
-                  background: "linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)",
+                  background: `linear-gradient(180deg, ${mkt.accent} 0%, ${mkt.accentHover} 100%)`,
                   WebkitBackgroundClip: "text",
                   backgroundClip: "text",
                   WebkitTextFillColor: "transparent",
@@ -597,7 +597,7 @@ export default function HomePage() {
                   inset: 0,
                   zIndex: 1,
                   background:
-                    "radial-gradient(closest-side, rgba(59,130,246,0.18), rgba(59,130,246,0.09) 42%, transparent 78%)",
+                    "radial-gradient(closest-side, rgba(47,107,255,0.18), rgba(47,107,255,0.09) 42%, transparent 78%)",
                   filter: "blur(30px)",
                   opacity: 0.65,
                   pointerEvents: "none",
@@ -673,7 +673,7 @@ export default function HomePage() {
               fontWeight: 450,
               color: mkt.textMuted,
               textAlign: "center",
-              fontFamily: '"Eudoxus Sans", Arial, sans-serif',
+              fontFamily: typography.fontFamily,
             }}
           >
             Customers get answers. You get booked. Everything runs in the background.
@@ -687,26 +687,26 @@ export default function HomePage() {
               style={{
                 padding: "14px 34px",
                 borderRadius: 14,
-                background: "linear-gradient(180deg, #0C67FF 0%, #0757E6 100%)",
+                background: `linear-gradient(180deg, ${mkt.accent} 0%, ${mkt.accentHover} 100%)`,
                 color: mkt.onDark,
                 fontSize: 15,
                 fontWeight: 600,
                 textDecoration: "none",
                 display: "inline-block",
                 border: "1px solid rgba(255,255,255,0.18)",
-                boxShadow: "0 16px 40px rgba(12,103,255,0.28), inset 0 1px 0 rgba(255,255,255,0.25)",
+                boxShadow: "0 16px 40px rgba(47,107,255,0.28), inset 0 1px 0 rgba(255,255,255,0.25)",
                 transform: "translateY(0px)",
                 transition: "transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease",
               }}
               onMouseEnter={(e) => {
                 const el = e.currentTarget as HTMLElement;
                 el.style.transform = "translateY(-1px)";
-                el.style.boxShadow = "0 20px 48px rgba(12,103,255,0.34), inset 0 1px 0 rgba(255,255,255,0.30)";
+                el.style.boxShadow = "0 20px 48px rgba(47,107,255,0.34), inset 0 1px 0 rgba(255,255,255,0.30)";
               }}
               onMouseLeave={(e) => {
                 const el = e.currentTarget as HTMLElement;
                 el.style.transform = "translateY(0px)";
-                el.style.boxShadow = "0 16px 40px rgba(12,103,255,0.28), inset 0 1px 0 rgba(255,255,255,0.25)";
+                el.style.boxShadow = "0 16px 40px rgba(47,107,255,0.28), inset 0 1px 0 rgba(255,255,255,0.25)";
               }}
             >
               <span>Try It Free</span>
@@ -820,7 +820,7 @@ export default function HomePage() {
                     textAlign: "center",
                     fontSize: 12,
                     fontWeight: 750,
-                    color: "#1D4ED8",
+                    color: mkt.accentHover,
                     opacity: 1,
                     transform: "translateY(0px)",
                     transition: "opacity 220ms ease, transform 220ms ease",

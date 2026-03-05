@@ -34,7 +34,7 @@ export default function TradeMinutesSection() {
               backgroundSize: "56px 56px",
             }}
           />
-          <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_0%,rgba(59,130,246,0.28),rgba(0,0,0,0))]" />
+          <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_0%,rgba(47,107,255,0.28),rgba(0,0,0,0))]" />
           <div className="absolute inset-0 bg-[radial-gradient(55%_55%_at_0%_40%,rgba(16,185,129,0.10),rgba(0,0,0,0))]" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/30" />
         </div>
@@ -125,7 +125,7 @@ export default function TradeMinutesSection() {
                           data-testid="btn-start-building"
                           className={cx(
                             "relative overflow-hidden rounded-full px-4 py-2 text-sm font-semibold",
-                            "bg-[#1D4ED8] text-white shadow-[0_10px_30px_rgba(29,78,216,0.35)]",
+                            "bg-[#2F6BFF] text-white shadow-[0_10px_30px_rgba(47,107,255,0.35)]",
                             "hover:brightness-110 active:brightness-95 transition"
                           )}
                         >
@@ -142,7 +142,7 @@ export default function TradeMinutesSection() {
                 </div>
               </div>
 
-              <div className="pointer-events-none absolute -inset-6 bg-[radial-gradient(40%_40%_at_50%_55%,rgba(59,130,246,0.25),rgba(0,0,0,0))]" />
+              <div className="pointer-events-none absolute -inset-6 bg-[radial-gradient(40%_40%_at_50%_55%,rgba(47,107,255,0.25),rgba(0,0,0,0))]" />
             </div>
 
             <div className="space-y-5">
@@ -214,7 +214,7 @@ export default function TradeMinutesSection() {
                 <div className="text-[#55627A]">Service business — North America</div>
               </div>
               <div className="ml-6 inline-flex items-center gap-1 text-[#0B1220]">
-                <Star className="h-4 w-4 text-[#2563EB]" />
+                <Star className="h-4 w-4 text-[#2F6BFF]" />
                 <span className="font-semibold">4.7</span>
                 <span className="text-[#6B778C]">avg satisfaction</span>
               </div>
@@ -262,7 +262,7 @@ export default function TradeMinutesSection() {
                 data-testid={`focus-card-${c.title.toLowerCase().replace(/\s+/g, "-")}`}
                 className="rounded-2xl border border-[#E7ECF5] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)] p-5"
               >
-                <div className="h-10 w-10 rounded-xl bg-[#EEF4FF] border border-[#DCE8FF] flex items-center justify-center text-[#2563EB]">
+                <div className="h-10 w-10 rounded-xl bg-[#EAF1FF] border border-[#D4E2FF] flex items-center justify-center text-[#2F6BFF]">
                   {c.icon}
                 </div>
                 <div className="mt-3 font-semibold text-[#0B1220]">{c.title}</div>

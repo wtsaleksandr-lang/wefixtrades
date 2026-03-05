@@ -64,8 +64,8 @@
 }
 
 .tabsWrap {
-  background: rgba(59,130,246,0.10);
-  border: 1px solid rgba(59,130,246,0.25);
+  background: rgba(47,107,255,0.10);
+  border: 1px solid rgba(47,107,255,0.25);
   border-radius: 12px;
   padding: 6px;
   display: grid;
@@ -92,8 +92,8 @@
 }
 
 .infoBox {
-  background: rgba(59,130,246,0.10);
-  border: 1px solid rgba(59,130,246,0.25);
+  background: rgba(47,107,255,0.10);
+  border: 1px solid rgba(47,107,255,0.25);
   border-radius: 12px;
   padding: 12px 14px;
   display: flex;
@@ -103,7 +103,7 @@
 
 .infoIcon {
   width: 18px; height: 18px;
-  color: rgba(37,99,235,0.90);
+  color: rgba(47,107,255,0.90);
   margin-top: 2px;
 }
 
@@ -155,11 +155,11 @@
 .med .impactPill { background: rgba(245,158,11,0.18); color: rgba(146,64,14,1); }
 
 .low {
-  background: rgba(59,130,246,0.10);
-  border-color: rgba(59,130,246,0.28);
+  background: rgba(47,107,255,0.10);
+  border-color: rgba(47,107,255,0.28);
 }
-.low .issueIconBox { background: rgba(59,130,246,0.14); color: rgba(30,64,175,1); }
-.low .impactPill { background: rgba(59,130,246,0.16); color: rgba(30,64,175,1); }
+.low .issueIconBox { background: rgba(47,107,255,0.14); color: rgba(30,64,175,1); }
+.low .impactPill { background: rgba(47,107,255,0.16); color: rgba(30,64,175,1); }
 
 .perfCard {
   border-radius: 14px;

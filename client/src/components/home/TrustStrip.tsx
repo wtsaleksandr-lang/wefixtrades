@@ -66,9 +66,9 @@ export default function TrustStrip() {
   return (
     <section data-testid="trust-strip" className="relative w-full py-8 sm:py-10">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-x-0 -top-24 h-40 bg-gradient-to-b from-transparent to-[rgba(37,99,235,0.12)] blur-2xl" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[rgba(37,99,235,0.10)] via-[rgba(59,130,246,0.18)] to-[rgba(37,99,235,0.10)]" />
-        <div className="absolute inset-x-0 -bottom-24 h-40 bg-gradient-to-t from-transparent to-[rgba(37,99,235,0.12)] blur-2xl" />
+        <div className="absolute inset-x-0 -top-24 h-40 bg-gradient-to-b from-transparent to-[rgba(47,107,255,0.12)] blur-2xl" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[rgba(47,107,255,0.10)] via-[rgba(47,107,255,0.18)] to-[rgba(47,107,255,0.10)]" />
+        <div className="absolute inset-x-0 -bottom-24 h-40 bg-gradient-to-t from-transparent to-[rgba(47,107,255,0.12)] blur-2xl" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.0)_0%,rgba(0,0,0,0.08)_100%)] opacity-30" />
         <div className="absolute inset-0 bg-slate-900/10" />
       </div>

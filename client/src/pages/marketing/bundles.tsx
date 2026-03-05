@@ -223,7 +223,7 @@ export default function BundlesPage() {
         <div style={s.bundlesSection}>
           <div style={s.bundlesGrid}>
             <div style={s.bundleCard} data-testid="bundle-growth">
-              <span style={{ ...s.badge, background: "#EFF6FF", color: "#2563EB" }}>
+              <span style={{ ...s.badge, background: "#EAF1FF", color: "#2F6BFF" }}>
                 Best for growing businesses
               </span>
               <h2 style={s.bundleName}>Growth Bundle</h2>
