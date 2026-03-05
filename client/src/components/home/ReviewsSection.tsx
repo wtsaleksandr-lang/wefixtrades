@@ -164,7 +164,7 @@ export default function ReviewsSection() {
                   }}
                 />
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 650, color: "#141414", lineHeight: 1.2 }}>
+                  <div style={{ fontSize: 14, fontWeight: 650, color: "#111827", lineHeight: 1.2 }}>
                     {r.name}
                   </div>
                   <div style={{ fontSize: 12, color: mkt.textMuted, lineHeight: 1.3, marginTop: 2 }}>

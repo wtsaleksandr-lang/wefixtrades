@@ -49,7 +49,7 @@ export default function TemplatesPage() {
         {/* Hero */}
         <div style={{ background: `linear-gradient(160deg, ${mkt.dark} 0%, #0F2744 100%)`, padding: "80px 28px 72px", textAlign: "center" }}>
           <div style={{ maxWidth: 720, margin: "0 auto" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(45,106,79,0.25)", border: "1px solid rgba(45,106,79,0.4)", borderRadius: 20, padding: "5px 16px", marginBottom: 24 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(47,107,255,0.20)", border: "1px solid rgba(47,107,255,0.35)", borderRadius: 20, padding: "5px 16px", marginBottom: 24 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: "#6EE7B7", letterSpacing: "0.04em" }}>
                 {TEMPLATES.length} Templates Available
               </span>

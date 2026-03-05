@@ -551,7 +551,7 @@ export default function FreeAudit() {
                     fontSize: "clamp(30px, 5vw, 40px)",
                     fontWeight: 900,
                     letterSpacing: "-0.02em",
-                    color: "#141414",
+                    color: "#111827",
                     marginBottom: 12,
                     lineHeight: 1.05,
                   }}
@@ -629,7 +629,7 @@ export default function FreeAudit() {
                         outline: "none",
                         background: "#fff",
                         transition: "border-color 0.2s, box-shadow 0.2s",
-                        color: "#141414",
+                        color: "#111827",
                       }}
                     />
                     {loadingSearch && (
@@ -720,7 +720,7 @@ export default function FreeAudit() {
                           style={{
                             fontWeight: 800,
                             fontSize: 14,
-                            color: "#141414",
+                            color: "#111827",
                             whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -760,7 +760,7 @@ export default function FreeAudit() {
                     style={{
                       fontSize: 15,
                       fontWeight: 600,
-                      color: "#141414",
+                      color: "#111827",
                       marginBottom: 14,
                     }}
                   >

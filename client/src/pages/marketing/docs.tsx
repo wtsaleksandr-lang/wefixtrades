@@ -14,7 +14,7 @@ const GUIDES = [
     description: "Add your calculator to any website in 5 minutes. WordPress, Wix, Squarespace, Shopify — covered.",
     badge: "Popular",
     badgeColor: "#2F6BFF",
-    badgeBg: "#EFF6FF",
+    badgeBg: "#EAF1FF",
     time: "5 min read",
   },
   {
@@ -91,7 +91,7 @@ export default function DocsPage() {
         {/* Hero */}
         <div style={{ background: `linear-gradient(160deg, ${mkt.dark} 0%, #0F2744 100%)`, padding: "72px 28px 64px" }}>
           <div style={{ maxWidth: 780, margin: "0 auto", textAlign: "center" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(45,106,79,0.22)", border: "1px solid rgba(45,106,79,0.35)", borderRadius: 20, padding: "5px 16px", marginBottom: 24 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(47,107,255,0.20)", border: "1px solid rgba(47,107,255,0.30)", borderRadius: 20, padding: "5px 16px", marginBottom: 24 }}>
               <BookOpen size={13} color="#6EE7B7" />
               <span style={{ fontSize: 12, fontWeight: 700, color: "#6EE7B7", letterSpacing: "0.05em" }}>Documentation</span>
             </div>

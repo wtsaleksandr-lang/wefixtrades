@@ -686,7 +686,7 @@ export default function HomePage() {
               className="mkt-btn-primary wf-cta-shimmer"
               style={{
                 padding: "14px 34px",
-                borderRadius: 14,
+                borderRadius: 10,
                 background: `linear-gradient(180deg, ${mkt.accent} 0%, ${mkt.accentHover} 100%)`,
                 color: mkt.onDark,
                 fontSize: 15,
@@ -717,7 +717,7 @@ export default function HomePage() {
               className="mkt-btn-ghost"
               style={{
                 padding: "14px 28px",
-                borderRadius: 14,
+                borderRadius: 10,
                 background: "transparent",
                 color: mkt.text,
                 fontSize: 15,
@@ -1093,7 +1093,7 @@ export default function HomePage() {
             <Link
               href="/product"
               data-testid="button-see-plans"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 14, border: "1.5px solid rgba(255,255,255,0.25)", color: mkt.onDark, fontSize: 15, fontWeight: 600, textDecoration: "none", transition: "all 0.2s ease" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 10, border: "1.5px solid rgba(255,255,255,0.25)", color: mkt.onDark, fontSize: 15, fontWeight: 600, textDecoration: "none", transition: "all 0.2s ease" }}
               onMouseEnter={(e) => ((e.target as HTMLElement).style.background = "rgba(255,255,255,0.08)")}
               onMouseLeave={(e) => ((e.target as HTMLElement).style.background = "transparent")}
             >
@@ -1119,7 +1119,7 @@ export default function HomePage() {
               href="/Wizard"
               data-testid="button-try-free-cta"
               className="mkt-btn-primary"
-              style={{ display: "inline-block", padding: "15px 36px", borderRadius: 14, background: mkt.onDark, color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none" }}
+              style={{ display: "inline-block", padding: "15px 36px", borderRadius: 10, background: mkt.onDark, color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none" }}
             >
               Try Free
             </Link>
@@ -1127,7 +1127,7 @@ export default function HomePage() {
               href="/demo"
               data-testid="button-try-demo-cta"
               className="mkt-btn-ghost"
-              style={{ display: "inline-block", padding: "15px 32px", borderRadius: 14, background: "transparent", color: mkt.onDark, fontSize: 16, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.4)" }}
+              style={{ display: "inline-block", padding: "15px 32px", borderRadius: 10, background: "transparent", color: mkt.onDark, fontSize: 16, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.4)" }}
             >
               Try Demo
             </Link>
