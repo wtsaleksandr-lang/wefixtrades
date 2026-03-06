@@ -601,6 +601,118 @@
   background-clip: text;
 }
 
+/* ─── CTA arrow-slide buttons ─── */
+.cta-arrow-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.35s ease, color 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.cta-arrow-btn__label {
+  padding: 0 6px 0 18px;
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+  transition: color 0.35s ease;
+}
+.cta-arrow-btn__arrow {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 4px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  transition: background 0.35s ease, color 0.35s ease, transform 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+.cta-arrow-btn:active {
+  transform: scale(0.98);
+}
+
+/* Dark variant (SERVICES) */
+.cta-arrow-btn--dark {
+  background: #1F2A30;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #D3E1E8;
+}
+.cta-arrow-btn--dark .cta-arrow-btn__arrow {
+  background: #2C3B42;
+  color: #D3E1E8;
+}
+.cta-arrow-btn--dark:hover {
+  background: #66E8FA;
+  border-color: rgba(102,232,250,0.5);
+  color: #0F1E23;
+  box-shadow: 0 0 14px rgba(102,232,250,0.25);
+}
+.cta-arrow-btn--dark:hover .cta-arrow-btn__label {
+  color: #0F1E23;
+}
+.cta-arrow-btn--dark:hover .cta-arrow-btn__arrow {
+  background: #0F1E23;
+  color: #66E8FA;
+  transform: translateX(-4px);
+}
+
+/* Accent variant (PRODUCT) */
+.cta-arrow-btn--accent {
+  background: #66E8FA;
+  border: 1px solid rgba(102,232,250,0.45);
+  color: #0F1E23;
+}
+.cta-arrow-btn--accent .cta-arrow-btn__arrow {
+  background: #0F1E23;
+  color: #66E8FA;
+}
+.cta-arrow-btn--accent:hover {
+  background: #1F2A30;
+  border-color: rgba(255,255,255,0.15);
+  color: #D3E1E8;
+  box-shadow: 0 0 14px rgba(102,232,250,0.25);
+}
+.cta-arrow-btn--accent:hover .cta-arrow-btn__label {
+  color: #D3E1E8;
+}
+.cta-arrow-btn--accent:hover .cta-arrow-btn__arrow {
+  background: #66E8FA;
+  color: #0F1E23;
+  transform: translateX(-4px);
+}
+
+@media (max-width: 640px) {
+  .cta-arrow-btn {
+    height: 40px;
+    font-size: 13px;
+  }
+  .cta-arrow-btn__label {
+    padding: 0 4px 0 14px;
+  }
+  .cta-arrow-btn__arrow {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta-arrow-btn,
+  .cta-arrow-btn__arrow,
+  .cta-arrow-btn__label {
+    transition: none !important;
+  }
+}
+
 /* Pricing tier card hover */
 .mkt-tier-card {
   transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
