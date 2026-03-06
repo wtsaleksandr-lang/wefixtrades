@@ -1,0 +1,186 @@
+REPLIT TASK — BUILD TRANSFORMING HERO CTA BUTTONS (LIKE THE REFERENCE)
+
+GOAL
+Create a pair of CTA buttons that visually transform when hovered, matching the interaction style shown in the reference images.
+
+The buttons must look like a premium SaaS UI element where:
+• the arrow segment slides
+• the background inverts
+• the arrow moves across the button
+• the hover transition is smooth and responsive
+
+Buttons to create:
+1) SERVICES
+2) PRODUCT
+
+--------------------------------------------------
+
+1. BUTTON STRUCTURE
+
+Each button consists of 2 parts:
+
+LEFT SECTION
+text label
+
+RIGHT SECTION
+square arrow container
+
+Structure example:
+
+<button class="cta-btn">
+  <span class="cta-label">SERVICES</span>
+  <span class="cta-arrow">
+      →
+  </span>
+</button>
+
+--------------------------------------------------
+
+2. DEFAULT BUTTON STYLE
+
+Height
+44px
+
+Border radius
+12px
+
+Font
+medium weight
+
+Spacing
+padding-left: 18px
+padding-right: 12px
+gap between text and arrow
+
+SERVICES button (default):
+
+background:
+#1F2A30
+
+border:
+1px solid rgba(255,255,255,0.15)
+
+text color:
+#D3E1E8
+
+arrow box:
+
+width: 36px
+height: 36px
+border-radius: 8px
+
+background:
+#2C3B42
+
+--------------------------------------------------
+
+3. PRODUCT BUTTON (DEFAULT)
+
+This button is highlighted.
+
+background:
+#5FD1DC
+
+text color:
+#0F1E23
+
+border:
+1px solid rgba(95,209,220,0.45)
+
+arrow container:
+
+background:
+#0F1E23
+
+arrow color:
+#5FD1DC
+
+--------------------------------------------------
+
+4. HOVER TRANSFORMATION
+
+When hovering the button:
+
+The arrow box moves LEFT and becomes the main highlight.
+
+Effect order:
+
+1) arrow container slides left
+2) background expands behind text
+3) text and background invert
+
+Use transform animations.
+
+Example concept:
+
+.cta-btn:hover .cta-arrow {
+transform: translateX(-36px);
+}
+
+.cta-btn:hover {
+background: #5FD1DC;
+color: #0F1E23;
+}
+
+--------------------------------------------------
+
+5. TRANSITION
+
+All animation must be smooth.
+
+transition:
+all 0.35s ease
+
+Arrow container should move smoothly and feel mechanical/precise.
+
+--------------------------------------------------
+
+6. BUTTON LAYOUT
+
+Buttons must sit next to each other with spacing:
+
+gap: 12px
+
+Container example:
+
+<div class="hero-cta-group">
+  SERVICES button
+  PRODUCT button
+</div>
+
+--------------------------------------------------
+
+7. EXTRA POLISH
+
+Add subtle hover glow:
+
+box-shadow:
+0 0 14px rgba(95,209,220,0.25)
+
+Active click:
+
+transform: scale(0.98)
+
+--------------------------------------------------
+
+8. RESPONSIVE
+
+On mobile:
+
+reduce button padding slightly
+keep arrow movement effect
+
+--------------------------------------------------
+
+9. FINAL RESULT
+
+Before hover:
+button with arrow on right.
+
+After hover:
+arrow slides left
+button color transforms
+text remains readable
+interaction feels premium and fluid.
+
+Implement now.
