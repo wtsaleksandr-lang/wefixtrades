@@ -417,50 +417,97 @@
 /* Global marketing interactive baseline */
 .mkt-layout a,
 .mkt-layout button {
-  transition: color 0.2s ease, background 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  transition: color var(--dur) var(--ease-out), background var(--dur) var(--ease-out), opacity var(--dur) var(--ease-out), transform var(--dur) var(--ease-out);
 }
 
-/* CTA button hover lift — unified rounded-rectangle */
+/* CTA button hover lift — uses WFT micro-interaction system */
 .mkt-btn-primary {
   border-radius: 10px !important;
-  transition: all 0.2s ease;
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  box-shadow: var(--shadow-soft);
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    opacity var(--dur) var(--ease-out);
 }
 .mkt-btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(47,107,255,0.18) !important;
+  box-shadow: var(--glow-primary);
+  will-change: transform, box-shadow;
 }
-.mkt-btn-primary:active { transform: translateY(0); }
+.mkt-btn-primary:active {
+  transform: translateY(0px) scale(0.985);
+}
+.mkt-btn-primary:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-primary);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
 
 /* Secondary outline button */
 .mkt-btn-secondary {
   border-radius: 10px !important;
   background: transparent;
   border: 1px solid #E5E7EB;
-  transition: all 0.2s ease;
   cursor: pointer;
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out);
 }
 .mkt-btn-secondary:hover {
   background: #F1F3F6;
   border-color: #D1D5DB;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+.mkt-btn-secondary:active {
+  transform: translateY(0px) scale(0.985);
+}
+.mkt-btn-secondary:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-primary);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
 }
 
 .mkt-btn-ghost {
   border-radius: 10px !important;
-  transition: all 0.2s ease;
   cursor: pointer;
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background var(--dur) var(--ease-out);
 }
-.mkt-btn-ghost:hover { background: #F1F3F6 !important; }
+.mkt-btn-ghost:hover {
+  background: #F1F3F6 !important;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+.mkt-btn-ghost:active {
+  transform: translateY(0px) scale(0.985);
+}
+.mkt-btn-ghost:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-primary);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
 
-/* Feature card micro-elevation with glow */
+/* Feature card micro-elevation with glow — WFT powered */
 .mkt-feature-card {
   position: relative;
   overflow: hidden;
-  transition: transform 0.35s cubic-bezier(0.4,0,0.2,1),
-              box-shadow 0.35s cubic-bezier(0.4,0,0.2,1),
-              border-color 0.35s ease;
+  border-radius: 14px;
   cursor: default;
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out);
 }
 .mkt-feature-card::before {
   content: "";
@@ -469,30 +516,35 @@
   border-radius: inherit;
   background: radial-gradient(circle at 50% 0%, var(--card-glow, rgba(47,107,255,0.08)), transparent 70%);
   opacity: 0;
-  transition: opacity 0.35s ease;
+  transition: opacity var(--dur) var(--ease-out);
   pointer-events: none;
   z-index: 0;
 }
 .mkt-feature-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(0,0,0,0.08) !important;
-  border-color: rgba(0,0,0,0.1) !important;
+  box-shadow: var(--shadow-hover);
+  border-color: rgba(47,107,255,0.12) !important;
+  will-change: transform, box-shadow;
 }
 .mkt-feature-card:hover::before { opacity: 1; }
 .mkt-feature-card > * { position: relative; z-index: 1; }
 
-/* Tile cards — OW elevated tile pattern */
+/* Tile cards — WFT powered */
 .mkt-tile {
   position: relative;
   border-radius: 16px;
-  border: 1px solid rgba(0,0,0,0.06);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  border: 1px solid #E5E7EB;
   overflow: hidden;
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out);
 }
 .mkt-tile:hover {
-  border-color: rgba(0,0,0,0.12);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  border-color: rgba(47,107,255,0.15);
+  box-shadow: var(--shadow-hover);
   transform: translateY(-2px);
+  will-change: transform, box-shadow;
 }
 
 /* Arrow link hover slide */
@@ -661,4 +713,12 @@
   .wft-interactive { transition: none !important; }
   .wft-lift:hover { transform: none !important; }
   .wft-press:active { transform: none !important; }
+  .mkt-btn-primary:hover,
+  .mkt-btn-secondary:hover,
+  .mkt-btn-ghost:hover,
+  .mkt-feature-card:hover,
+  .mkt-tile:hover { transform: none !important; }
+  .mkt-btn-primary:active,
+  .mkt-btn-secondary:active,
+  .mkt-btn-ghost:active { transform: none !important; }
 }

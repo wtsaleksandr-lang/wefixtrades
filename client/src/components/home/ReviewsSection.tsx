@@ -107,7 +107,6 @@ export default function ReviewsSection() {
     <section
       data-testid="reviews-section"
       style={{
-        background: mkt.surface,
         padding: "48px 28px 40px",
       }}
     >
