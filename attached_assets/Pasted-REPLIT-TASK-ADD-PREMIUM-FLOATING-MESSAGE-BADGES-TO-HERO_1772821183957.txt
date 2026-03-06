@@ -1,0 +1,299 @@
+REPLIT TASK — ADD PREMIUM FLOATING MESSAGE BADGES TO HERO (SUBTLE, TRUSTWORTHY, FROSTED GLASS)
+
+GOAL
+Add floating pop-up message badges around the hero section.
+These must feel premium, calm, and believable — NOT scammy, flashy, or ad-like.
+
+They should:
+- appear gently
+- float in/out
+- use short premium micro-messages
+- match the website style
+- use white frosted-glass containers
+- stay readable but not overpower the hero headline / CTA
+- feel like ambient proof / product value signals
+
+IMPORTANT
+Do NOT use:
+- fake urgency
+- loud colors
+- aggressive marketing copy
+- emojis
+- “AI”, “bot”, “CRM”, “software”, “SaaS”
+- fake trust claims unless already verified elsewhere
+
+Use a premium tone only.
+
+==================================================
+1) CREATE COMPONENT
+==================================================
+
+Create file:
+client/src/components/marketing/FloatingHeroBadges.tsx
+
+This component will:
+- render 1–2 floating badges at a time
+- randomly rotate through a list of approved messages
+- place them around the hero edges
+- avoid the center hero content area
+- animate in and out softly
+
+==================================================
+2) MESSAGES TO USE
+==================================================
+
+Use ONLY these messages:
+
+const BADGES = [
+  "Calls answered instantly",
+  "Every opportunity captured",
+  "Quotes delivered immediately",
+  "Customers responded to instantly",
+  "Reviews collected automatically",
+  "Work uninterrupted",
+  "Customers always answered",
+  "More jobs. Less interruption",
+  "Work continues. Customers handled.",
+  "Built around how trades actually work.",
+];
+
+Keep them exactly like this unless needed for punctuation consistency.
+
+==================================================
+3) VISUAL STYLE
+==================================================
+
+Each badge must have:
+
+- font size: 16px
+- font weight: 500 or 600
+- text color: rgba(17, 24, 39, 0.88)
+- line height: 1.25
+- white frosted glass background
+- rounded corners
+- subtle border
+- soft shadow
+
+Badge container style:
+
+background:
+rgba(255,255,255,0.58)
+
+backdrop-filter:
+blur(16px) saturate(1.25)
+
+-webkit-backdrop-filter:
+blur(16px) saturate(1.25)
+
+border:
+1px solid rgba(255,255,255,0.45)
+
+box-shadow:
+0 12px 36px rgba(15,23,42,0.10)
+
+border-radius:
+16px
+
+padding:
+12px 16px
+
+max-width:
+260px to 320px
+
+text-align:
+left
+
+The badges should feel like premium floating system notifications, not chat bubbles.
+
+==================================================
+4) POSITIONING
+==================================================
+
+Place them around the outer hero area only.
+
+Do NOT allow badges to cover:
+- hero headline
+- CTA buttons
+- subtitle
+- main center content block
+
+Use 5–6 predefined positions around hero edges.
+
+Example positions:
+- top-left
+- upper-right
+- mid-left
+- mid-right
+- lower-left
+- lower-right
+
+But use only 1–2 visible at once.
+
+Avoid exact center.
+
+On mobile:
+- show only 1 badge at a time
+- position near top-left / top-right / lower edge
+- keep away from buttons
+
+==================================================
+5) ANIMATION
+==================================================
+
+Animation must feel calm and premium.
+
+Behavior:
+- fade in
+- slight upward drift
+- stay visible
+- fade out
+- next badge appears in another location
+
+Timing:
+- fade in: 450ms
+- visible: 4.5s to 5.5s
+- fade out: 400ms
+- small gap between rotations: 300ms
+
+Motion:
+transform:
+translateY(8px) → translateY(0px)
+
+Opacity:
+0 → 1 → 0
+
+Optional subtle floating while visible:
+translateY(-2px) slow ease
+
+Do NOT bounce.
+Do NOT scale aggressively.
+
+==================================================
+6) INTERACTION RULE
+==================================================
+
+Badges are decorative.
+They do NOT need click actions.
+
+Set:
+pointer-events: none
+
+==================================================
+7) IMPLEMENTATION LOGIC
+==================================================
+
+Use React state + interval.
+
+Suggested logic:
+- maintain an array of currently visible badges
+- on desktop: max 2 visible
+- on mobile: max 1 visible
+- randomly choose:
+  - a message not currently visible
+  - a position not currently used
+
+Each badge gets:
+- id
+- message
+- position
+- enter timestamp
+- visible state
+
+Cycle continuously.
+
+==================================================
+8) COMPONENT STRUCTURE
+==================================================
+
+Suggested structure:
+
+<div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+  badges rendered here
+</div>
+
+Each badge:
+position: absolute
+style based on chosen preset position
+
+==================================================
+9) ADD POSITION PRESETS
+==================================================
+
+Use a small preset array.
+
+Desktop preset examples:
+[
+  { top: "10%", left: "5%" },
+  { top: "16%", right: "6%" },
+  { top: "42%", left: "4%" },
+  { top: "40%", right: "5%" },
+  { bottom: "18%", left: "8%" },
+  { bottom: "14%", right: "8%" },
+]
+
+Mobile preset examples:
+[
+  { top: "8%", left: "5%" },
+  { top: "12%", right: "5%" },
+  { bottom: "18%", left: "8%" },
+]
+
+==================================================
+10) ADD SMALL ACCENT DETAIL
+==================================================
+
+Inside each badge, add a subtle accent marker on the left.
+
+Example:
+a small 6px circular dot
+color:
+rgba(47,107,255,0.85)
+
+Place it before the text with gap 10px.
+
+This makes the badge feel more intentional and aligned with the site accent.
+
+==================================================
+11) INSERT INTO HERO
+==================================================
+
+Find the homepage hero section.
+
+Insert:
+<FloatingHeroBadges />
+
+inside the hero wrapper, above the animated background but below the main hero content if needed.
+
+Recommended layering:
+- background animation layer = z-0
+- floating badges = z-10 or z-20
+- hero content = z-30
+
+Make sure the badges do not visually overpower content.
+
+==================================================
+12) RESPONSIVENESS
+==================================================
+
+Desktop:
+- max 2 badges visible
+- full styling
+
+Mobile:
+- max 1 visible
+- slightly smaller max width
+- font can remain 16px if it still fits, otherwise reduce to 15px
+- keep padding balanced
+
+==================================================
+13) FINAL RESULT
+==================================================
+
+The hero should now have:
+- subtle floating premium frosted-glass badges
+- short believable benefit statements
+- smooth fade/float motion
+- no scammy vibe
+- no interruption to hero readability
+
+Implement now.

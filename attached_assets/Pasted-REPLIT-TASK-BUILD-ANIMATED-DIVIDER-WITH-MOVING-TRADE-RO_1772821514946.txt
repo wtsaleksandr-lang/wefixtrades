@@ -1,0 +1,389 @@
+REPLIT TASK — BUILD ANIMATED DIVIDER WITH MOVING TRADE ROWS + FLOATING PREMIUM BADGES
+
+GOAL
+Create a premium animated divider section placed directly below the hero section and above the next content section.
+
+This divider must contain:
+
+1) A vertical gradient background transitioning from hero dark gray to the next section light gray
+2) 3 horizontally moving trade-text rows (marquee style)
+3) Subtle floating frosted-glass badges that appear and disappear randomly
+4) A smooth visual transition into the next rounded-corner section
+
+This divider should feel modern, calm, and premium — not busy, flashy, or ad-like.
+
+--------------------------------------------------
+
+SECTION STRUCTURE
+
+Page layout should be:
+
+HERO SECTION
+
+↓
+
+ANIMATED DIVIDER (this component)
+
+↓
+
+NEXT SECTION (light background with rounded top corners)
+
+--------------------------------------------------
+
+CREATE COMPONENT
+
+Create a new component:
+
+client/src/components/marketing/AnimatedTradeDivider.tsx
+
+This component will include:
+
+• gradient divider background
+• 3 moving trade rows
+• floating frosted-glass badges
+• proper spacing
+• responsive behavior
+
+--------------------------------------------------
+
+DIVIDER HEIGHT
+
+Desktop:
+160px – 190px
+
+Tablet:
+140px – 160px
+
+Mobile:
+120px – 140px
+
+--------------------------------------------------
+
+DIVIDER BACKGROUND GRADIENT
+
+Create a smooth vertical gradient that transitions from the hero color to the next section color.
+
+Example:
+
+background: linear-gradient(
+to bottom,
+#172127 0%,
+#2B3840 35%,
+#56656E 65%,
+#A7B6BF 100%
+)
+
+Adjust colors slightly if needed to perfectly match hero and next section.
+
+--------------------------------------------------
+
+TRADE TEXT ROWS
+
+Add 3 horizontal rows of trade names.
+
+Each row must continuously scroll horizontally.
+
+Row directions:
+
+Row 1 → move LEFT  
+Row 2 → move RIGHT  
+Row 3 → move LEFT  
+
+Movement must be slow and subtle.
+
+Duration:
+
+Row 1: ~32s  
+Row 2: ~36s  
+Row 3: ~40s  
+
+--------------------------------------------------
+
+TRADE WORDS
+
+Use only one-word trades.
+
+Trade list:
+
+PLUMBING  
+ROOFING  
+ELECTRICAL  
+PAINTING  
+FLOORING  
+FENCING  
+DRYWALL  
+CONCRETE  
+CLEANING  
+LANDSCAPING  
+
+Each row should repeat these words across the full width.
+
+Example row:
+
+PLUMBING   ROOFING   ELECTRICAL   PAINTING   FLOORING   FENCING
+
+Repeat content twice to create seamless looping marquee.
+
+--------------------------------------------------
+
+TRADE TEXT STYLE
+
+Font size:
+
+Desktop:
+18px – 22px
+
+Mobile:
+14px – 16px
+
+Font weight:
+500
+
+Letter spacing:
+0.12em
+
+Text transform:
+uppercase
+
+Color:
+accent blue / teal with low opacity
+
+Example:
+
+rgba(95,209,220,0.18)
+
+Alternate row opacity slightly:
+
+Row 1: 0.16  
+Row 2: 0.22  
+Row 3: 0.14  
+
+Optional slight blur:
+
+filter: blur(0.2px)
+
+--------------------------------------------------
+
+ROW SPACING
+
+Rows must be evenly spaced vertically.
+
+Use flex column layout:
+
+gap:
+18px – 22px
+
+Center rows vertically inside divider.
+
+--------------------------------------------------
+
+FLOATING BADGES
+
+Add floating informational badges inside the divider.
+
+These should appear randomly, fade in, stay briefly, and fade out.
+
+Maximum badges visible at once:
+
+Desktop: 2  
+Mobile: 1  
+
+Badges should appear around edges of divider, NOT in the center.
+
+--------------------------------------------------
+
+BADGE MESSAGES
+
+Use ONLY these messages:
+
+const BADGES = [
+"Calls answered instantly",
+"Every opportunity captured",
+"Quotes delivered immediately",
+"Customers responded to instantly",
+"Reviews collected automatically",
+"Work uninterrupted",
+"Customers always answered",
+"More jobs. Less interruption",
+"Work continues. Customers handled.",
+"Built around how trades actually work."
+];
+
+--------------------------------------------------
+
+BADGE STYLE
+
+Font size:
+16px
+
+Font weight:
+500
+
+Text color:
+rgba(17,24,39,0.88)
+
+Container style:
+
+background:
+rgba(255,255,255,0.60)
+
+backdrop-filter:
+blur(16px) saturate(1.2)
+
+border:
+1px solid rgba(255,255,255,0.45)
+
+border-radius:
+16px
+
+padding:
+12px 16px
+
+max-width:
+260px
+
+box-shadow:
+0 12px 36px rgba(15,23,42,0.10)
+
+Add small accent indicator on the left:
+
+• 6px circular dot  
+• color: accent blue (#2F6BFF or site accent)
+
+Spacing between dot and text:
+10px
+
+--------------------------------------------------
+
+BADGE POSITIONING
+
+Define several anchor zones.
+
+Example desktop positions:
+
+top-left  
+top-right  
+mid-left  
+mid-right  
+bottom-left  
+bottom-right  
+
+Badges must appear in RANDOM positions chosen from these zones.
+
+Rules:
+
+• never use same position twice in a row
+• if 2 badges visible, positions must be different
+• positions must rotate around edges
+• badges must NOT appear in center safe zone
+
+--------------------------------------------------
+
+SAFE ZONE
+
+Center area must remain clear.
+
+Do not place badges over the main trade rows center or where user eyes naturally focus.
+
+Badges should sit between rows or near divider edges.
+
+--------------------------------------------------
+
+BADGE ANIMATION
+
+Animation sequence:
+
+Fade in:
+450ms
+
+Visible:
+4.5s – 5.5s
+
+Fade out:
+400ms
+
+Motion:
+
+transform:
+translateY(8px) → translateY(0)
+
+Opacity:
+0 → 1 → 0
+
+Optional subtle float:
+
+translateY(-2px)
+
+Animation must feel smooth and calm.
+
+No bouncing.
+
+--------------------------------------------------
+
+LOGIC
+
+Use React state.
+
+Each cycle:
+
+1) choose random message
+2) choose random position
+3) render badge
+4) fade in
+5) stay visible
+6) fade out
+7) remove
+8) repeat
+
+Ensure no duplicate messages simultaneously.
+
+--------------------------------------------------
+
+NEXT SECTION TRANSITION
+
+The next section after the divider must appear as a rounded surface overlay.
+
+Apply to next section container:
+
+background:
+#A7B6BF (or site light gray)
+
+border-top-left-radius:
+28px
+
+border-top-right-radius:
+28px
+
+margin-top:
+-20px
+
+overflow:
+hidden
+
+This creates a stacked card effect.
+
+--------------------------------------------------
+
+RESPONSIVE RULES
+
+Mobile:
+
+• show only 1 badge at a time
+• slightly reduce badge max-width
+• keep font near 16px
+• keep row motion slower
+
+--------------------------------------------------
+
+FINAL RESULT
+
+The divider should display:
+
+• smooth gradient transition
+• three subtle moving trade rows
+• occasional floating frosted-glass badges
+• calm motion
+• premium SaaS visual style
+• clear transition into rounded next section
+
+Implement this as a reusable component and insert it below the hero section.
