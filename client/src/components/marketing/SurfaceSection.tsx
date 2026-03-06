@@ -1,3 +1,5 @@
+import { mkt } from "@/theme/tokens";
+
 export function SurfaceSection({
   children,
   className = "",
@@ -19,11 +21,21 @@ export function SurfaceSection({
       >
         <div
           className={
-            "relative rounded-[18px] sm:rounded-[22px] bg-white border border-[#E5E7EB] shadow-[var(--shadow-card)] overflow-hidden wft-interactive " +
+            "relative rounded-[20px] sm:rounded-[24px] overflow-hidden wft-interactive " +
             innerClassName
           }
+          style={{
+            background: mkt.surface,
+            border: `1px solid ${mkt.cardBorder}`,
+            boxShadow: "0 10px 20px #33314833",
+          }}
         >
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.90),rgba(255,255,255,0))]" />
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 h-10"
+            style={{
+              background: `linear-gradient(to bottom, rgba(255,255,255,0.04), transparent)`,
+            }}
+          />
           <div className="p-6 sm:p-10">{children}</div>
         </div>
       </div>

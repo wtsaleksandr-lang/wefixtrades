@@ -52,7 +52,7 @@ export default function Footer() {
                         lineHeight: 1.5,
                         transition: "color 0.15s ease-out",
                       }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDark; }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.accent; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDarkFaint; }}
                     >
                       {link.label}
@@ -86,7 +86,7 @@ export default function Footer() {
               href="/privacy"
               data-testid="footer-link-privacy"
               style={{ color: mkt.onDarkFaint, textDecoration: "none", transition: "color 0.15s ease-out" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDark; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.accent; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDarkFaint; }}
             >
               Privacy Policy
@@ -95,7 +95,7 @@ export default function Footer() {
               href="/terms"
               data-testid="footer-link-terms"
               style={{ color: mkt.onDarkFaint, textDecoration: "none", transition: "color 0.15s ease-out" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDark; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.accent; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDarkFaint; }}
             >
               Terms of Service
