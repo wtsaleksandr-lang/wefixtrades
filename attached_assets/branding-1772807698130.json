@@ -1,0 +1,137 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "Satoshi Variable",
+      "role": "body"
+    },
+    {
+      "family": "Et Mono",
+      "role": "monospace"
+    },
+    {
+      "family": "Impact",
+      "role": "display"
+    }
+  ],
+  "colors": {
+    "primary": "#5F6F77",
+    "accent": "#66E8FA",
+    "background": "#E4EDF1",
+    "textPrimary": "#22282A",
+    "link": "#66E8FA"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Satoshi Variable",
+      "heading": "Impact"
+    },
+    "fontStacks": {
+      "heading": [
+        "Satoshi Variable",
+        "sans-serif"
+      ],
+      "body": [
+        "Satoshi Variable",
+        "sans-serif"
+      ],
+      "paragraph": [
+        "Et Mono",
+        "Impact",
+        "sans-serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "87.552px",
+      "h2": "87.552px",
+      "body": "16.416px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "16px"
+  },
+  "components": {
+    "buttonPrimary": {
+      "background": "#66E8FA",
+      "textColor": "#5F6F77",
+      "borderRadius": "27.3458px",
+      "borderRadiusCorners": {
+        "topLeft": "27.3458px",
+        "topRight": "27.3458px",
+        "bottomRight": "27.3458px",
+        "bottomLeft": "27.3458px"
+      },
+      "shadow": "none"
+    },
+    "buttonSecondary": {
+      "background": "transparent",
+      "textColor": "#5F6F77",
+      "borderColor": "#394247",
+      "borderRadius": "16.416px",
+      "borderRadiusCorners": {
+        "topLeft": "16.416px",
+        "topRight": "16.416px",
+        "bottomRight": "16.416px",
+        "bottomLeft": "16.416px"
+      },
+      "shadow": "none"
+    }
+  },
+  "images": {
+    "logo": "File saved at: attached_assets/logo.svg",
+    "favicon": "File saved at: attached_assets/favicon.png",
+    "ogImage": "File saved at: attached_assets/ogImage.webp",
+    "logoHref": "File saved at: attached_assets/logoHref.html",
+    "logoAlt": "Effortel Logo"
+  },
+  "__llm_logo_reasoning": {
+    "selectedIndex": 0,
+    "reasoning": "Selected #0 because it is visible, located in the header, links to the homepage, and matches the brand name 'Effortel'.",
+    "confidence": 0.95,
+    "source": "llm"
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": 0,
+      "text": "Get in Touch",
+      "reasoning": "Button #3 has a vibrant brand color (#66E8FA) and action-oriented text 'Get in Touch', making it the primary CTA."
+    },
+    "secondary": {
+      "index": 21,
+      "text": "Read study",
+      "reasoning": "Button #1 has a transparent background with a border, making it a suitable secondary CTA with a different color group."
+    },
+    "confidence": 0.95
+  },
+  "personality": {
+    "tone": "professional",
+    "energy": "medium",
+    "targetAudience": "telecom industry professionals"
+  },
+  "designSystem": {
+    "framework": "custom",
+    "componentLibrary": ""
+  },
+  "confidence": {
+    "buttons": 0.95,
+    "colors": 0.9,
+    "overall": 0.925
+  },
+  "__llm_metadata": {
+    "logoSelection": {
+      "llmCalled": true,
+      "llmSucceeded": true,
+      "finalSource": "llm",
+      "rawLogoSelection": {
+        "selectedLogoIndex": 0,
+        "selectedLogoReasoning": "Selected #0 because it is visible, located in the header, links to the homepage, and matches the brand name 'Effortel'.",
+        "confidence": 0.95
+      }
+    },
+    "buttonClassification": {
+      "llmCalled": true,
+      "llmSucceeded": true
+    }
+  }
+}
