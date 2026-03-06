@@ -414,7 +414,7 @@ export default function HomePage() {
             bottom: -10px;
             height: 3px;
             border-radius: 999px;
-            background: rgba(59, 130, 246, 0.22);
+            background: rgba(47,107,255, 0.22);
             z-index: 0;
           }
           .wf-underline::after {
@@ -621,7 +621,7 @@ export default function HomePage() {
             {HERO_PILLS.map(({ icon: PillIcon, label, mobileLabel }) => (
               <div
                 key={label}
-                className="hero-pill"
+                className="hero-pill wft-interactive wft-lift"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -637,24 +637,10 @@ export default function HomePage() {
                   color: mkt.text,
                   boxSizing: "border-box",
                   whiteSpace: "nowrap",
-                  boxShadow: "0 4px 10px rgba(0,0,0,0.06)",
                   cursor: "default",
-                  transition: "all 140ms ease",
-                }}
-                onMouseEnter={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.transform = "translateY(-2px)";
-                  el.style.boxShadow = "0 10px 24px rgba(0,0,0,0.10)";
-                  el.style.background = "rgba(255,255,255,0.95)";
-                }}
-                onMouseLeave={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.transform = "translateY(0px)";
-                  el.style.boxShadow = "0 4px 10px rgba(0,0,0,0.06)";
-                  el.style.background = "rgba(255,255,255,0.65)";
                 }}
               >
-                <PillIcon size={15} color={mkt.accent} strokeWidth={1.5} style={{ flexShrink: 0, transition: "transform 140ms ease" }} />
+                <PillIcon size={15} color={mkt.accent} strokeWidth={1.5} style={{ flexShrink: 0 }} />
                 <span className="hero-pill-label-full">{label}</span>
                 <span className="hero-pill-label-short" style={{ display: "none" }}>{mobileLabel}</span>
               </div>
@@ -695,19 +681,6 @@ export default function HomePage() {
                 textDecoration: "none",
                 display: "inline-block",
                 border: "1px solid rgba(255,255,255,0.18)",
-                boxShadow: "0 16px 40px rgba(47,107,255,0.28), inset 0 1px 0 rgba(255,255,255,0.25)",
-                transform: "translateY(0px)",
-                transition: "transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.transform = "translateY(-1px)";
-                el.style.boxShadow = "0 20px 48px rgba(47,107,255,0.34), inset 0 1px 0 rgba(255,255,255,0.30)";
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.transform = "translateY(0px)";
-                el.style.boxShadow = "0 16px 40px rgba(47,107,255,0.28), inset 0 1px 0 rgba(255,255,255,0.25)";
               }}
             >
               <span>Try It Free</span>
@@ -728,17 +701,6 @@ export default function HomePage() {
                 alignItems: "center",
                 gap: 6,
                 border: `1.5px solid ${mkt.border}`,
-                transition: "border-color 0.2s ease, background 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.borderColor = "rgba(0,0,0,0.15)";
-                el.style.background = "rgba(0,0,0,0.02)";
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.borderColor = mkt.border;
-                el.style.background = "transparent";
               }}
             >
               See Pricing
@@ -800,7 +762,7 @@ export default function HomePage() {
                     textAlign: "center",
                     fontSize: 11,
                     fontWeight: 650,
-                    color: "rgba(29,78,216,0.55)",
+                    color: "rgba(47,107,255,0.55)",
                     opacity: 0.18,
                     transform: "scale(0.98)",
                     filter: "blur(0.1px)",
@@ -840,7 +802,7 @@ export default function HomePage() {
                     textAlign: "center",
                     fontSize: 11,
                     fontWeight: 650,
-                    color: "rgba(29,78,216,0.55)",
+                    color: "rgba(47,107,255,0.55)",
                     opacity: 0.18,
                     transform: "scale(0.98)",
                     filter: "blur(0.1px)",
