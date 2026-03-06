@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
@@ -339,20 +339,6 @@ const RESPONSIVE_CSS = `
 export default function HomePage() {
   useScrollReveal();
 
-  const HERO_TRUST_LINES: ReactNode[] = [
-    "Trusted by local trade's businesses.",
-    "Voted as best automation tool in Canada.",
-    <><span style={{ color: mkt.orange }}>★</span> 4.7 user satisfaction score.</>,
-  ];
-  const [trustIndex, setTrustIndex] = useState(0);
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setTrustIndex((i) => (i + 1) % HERO_TRUST_LINES.length);
-    }, 4200);
-    return () => window.clearInterval(id);
-  }, []);
-
   useEffect(() => {
     document.title = "WeFixTrades — More Booked Jobs, Automatically";
   }, []);
@@ -496,46 +482,6 @@ export default function HomePage() {
               marginBottom: 24,
             }}
           >
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                margin: "0 auto",
-                marginBottom: 16,
-                maxWidth: "min(92vw, 760px)",
-              }}
-            >
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 999,
-                  background: mkt.accent,
-                  boxShadow: `0 0 0 4px ${mkt.accentTint}`,
-                  flexShrink: 0,
-                }}
-                aria-hidden
-              />
-              <span
-                key={trustIndex}
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: mkt.textMuted,
-                  lineHeight: 1.2,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  opacity: 1,
-                  transition: "opacity 180ms ease, transform 180ms ease",
-                }}
-              >
-                {HERO_TRUST_LINES[trustIndex]}
-              </span>
-            </div>
-
             <h1
               style={{
                 fontSize: "clamp(32px, 5.5vw, 56px)",
