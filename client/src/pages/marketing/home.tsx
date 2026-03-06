@@ -9,6 +9,7 @@ import HeroGridGlow from "@/components/marketing/HeroGridGlow";
 import TrustStrip from "@/components/home/TrustStrip";
 import ReviewsSection from "@/components/home/ReviewsSection";
 import TradeMinutesSection from "@/components/sections/TradeMinutesSection";
+import HeroTradeDivider from "@/components/marketing/HeroTradeDivider";
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
 import {
   Zap, Cpu, MessageCircle, Check,
@@ -808,7 +809,29 @@ export default function HomePage() {
         </div>
       </section>
 
-      <TradeMinutesSection />
+      <HeroTradeDivider />
+      <div style={{
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        overflow: "hidden",
+        marginTop: -22,
+        position: "relative",
+        zIndex: 2,
+      }}>
+        <div style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 30,
+          background: "linear-gradient(to bottom, rgba(255,255,255,0.18), rgba(255,255,255,0))",
+          pointerEvents: "none",
+          zIndex: 3,
+          borderTopLeftRadius: 30,
+          borderTopRightRadius: 30,
+        }} />
+        <TradeMinutesSection />
+      </div>
       <TrustStrip />
       <SurfaceSection overlap className="py-8">
         <ReviewsSection />

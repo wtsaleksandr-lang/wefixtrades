@@ -716,6 +716,37 @@
   }
 }
 
+/* ─── Hero trade divider marquee ─── */
+.hero-trade-divider {
+  height: 160px;
+}
+@keyframes htdScrollLeft {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes htdScrollRight {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+.htd-scroll-left {
+  animation: htdScrollLeft 38s linear infinite;
+}
+.htd-scroll-right {
+  animation: htdScrollRight 32s linear infinite;
+}
+@media (max-width: 1024px) {
+  .hero-trade-divider { height: 135px; }
+}
+@media (max-width: 640px) {
+  .hero-trade-divider { height: 110px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .htd-scroll-left,
+  .htd-scroll-right {
+    animation: none !important;
+  }
+}
+
 /* Pricing tier card hover */
 .mkt-tier-card {
   transition: all 0.3s cubic-bezier(0.4,0,0.2,1);

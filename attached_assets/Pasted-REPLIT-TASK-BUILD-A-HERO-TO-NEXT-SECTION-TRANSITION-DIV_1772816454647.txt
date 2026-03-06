@@ -1,0 +1,275 @@
+REPLIT TASK — BUILD A HERO-TO-NEXT-SECTION TRANSITION DIVIDER WITH 3 MOVING TRADE ROWS + GRADIENT SURFACE + ROUNDED TOP CORNERS
+
+GOAL
+Create a divider directly under the hero section that:
+
+1) transitions visually from the dark hero background into the light gray next section
+2) contains 3 subtle animated trade-text rows moving horizontally in alternating directions
+3) introduces the next section as a rounded surface/card with large top-left and top-right rounded corners
+4) feels premium, clean, and non-distracting
+
+This divider must look like part of the page structure, not a random strip.
+
+--------------------------------------------------
+1. PLACEMENT
+--------------------------------------------------
+
+Insert this divider directly below the hero section and directly above the next main section.
+
+Structure should visually be:
+
+[ dark hero ]
+↓
+[ transition divider with animated trade rows ]
+↓
+[ light gray rounded next section surface ]
+
+--------------------------------------------------
+2. VISUAL BACKGROUND TRANSITION
+--------------------------------------------------
+
+The divider background must gradually transition:
+
+TOP:
+same dark charcoal / dark gray as hero
+
+BOTTOM:
+same light cool gray as next section
+
+Use a vertical gradient.
+
+Suggested colors:
+Top: #172127
+Middle: #33434C
+Bottom: #A7B6BF
+
+Use a soft gradient, not a hard split.
+
+Example:
+background: linear-gradient(
+to bottom,
+#172127 0%,
+#2B3840 35%,
+#56656E 65%,
+#A7B6BF 100%
+)
+
+Adjust if needed to match actual site colors exactly.
+
+--------------------------------------------------
+3. HEIGHT
+--------------------------------------------------
+
+Desktop:
+height around 140px to 180px
+
+Tablet:
+120px to 150px
+
+Mobile:
+100px to 130px
+
+Enough room for 3 rows of moving text without feeling crowded.
+
+--------------------------------------------------
+4. MOVING TRADE ROWS
+--------------------------------------------------
+
+Inside the divider create 3 rows of repeated one-word trades.
+
+Use uppercase text.
+
+Recommended trade list:
+PLUMBING
+ROOFING
+ELECTRICAL
+PAINTING
+FLOORING
+FENCING
+DRYWALL
+CONCRETE
+CLEANING
+LANDSCAPING
+
+Each row should contain multiple repeated trades with large spacing.
+
+Example row:
+PLUMBING   ROOFING   ELECTRICAL   PAINTING   FLOORING   FENCING
+
+Animation direction:
+Row 1 → left
+Row 2 → right
+Row 3 → left
+
+Movement:
+very slow
+continuous
+subtle
+
+Do NOT make it feel like a banner ticker.
+
+--------------------------------------------------
+5. TEXT STYLING
+--------------------------------------------------
+
+The text must stay subtle and background-like.
+
+Style:
+font-size:
+desktop 18px to 22px
+mobile 14px to 16px
+
+font-weight:
+500 or 600
+
+letter-spacing:
+0.08em to 0.14em
+
+color:
+accent blue/teal tint but dimmed
+
+Suggested:
+rgba(95,209,220,0.22)
+or
+rgba(47,107,255,0.18)
+
+Alternate rows can use slightly different opacity:
+row 1: 0.16
+row 2: 0.22
+row 3: 0.14
+
+Optional:
+tiny blur: blur(0.2px)
+but only if it still looks sharp enough
+
+--------------------------------------------------
+6. ROW SPACING
+--------------------------------------------------
+
+Use only 3 rows.
+Keep them centered vertically.
+
+Example:
+display flex
+flex-direction column
+justify-content center
+gap 14px to 20px
+
+Do NOT make it too dense.
+
+--------------------------------------------------
+7. NEXT SECTION SURFACE / ROUNDED TOP CORNERS
+--------------------------------------------------
+
+This is important.
+
+The next section directly below the divider must feel like a large rounded surface/card sitting on top of the page.
+
+Add to the NEXT section wrapper:
+
+background:
+#A7B6BF (or the actual section bg token)
+
+border-top-left-radius:
+26px to 34px
+
+border-top-right-radius:
+26px to 34px
+
+overflow:
+hidden
+
+And visually connect it smoothly with the divider above.
+
+The divider should fade into this section naturally.
+
+--------------------------------------------------
+8. OVERLAP / STACKED LOOK
+--------------------------------------------------
+
+To get the layered card effect:
+
+Make the next section pull upward slightly over the divider.
+
+Example:
+margin-top: -18px to -28px
+
+This should create the impression that the light section is overlaying the transition area.
+
+But it must remain smooth and premium.
+
+No visible hard seam.
+
+--------------------------------------------------
+9. SOFT TOP HIGHLIGHT ON NEXT SECTION
+--------------------------------------------------
+
+To make the light surface feel premium, add a very subtle top highlight:
+
+pseudo-element or overlay:
+linear-gradient(
+to bottom,
+rgba(255,255,255,0.20),
+rgba(255,255,255,0.00)
+)
+
+height:
+24px to 36px
+
+very subtle only
+
+--------------------------------------------------
+10. COMPONENT STRUCTURE
+--------------------------------------------------
+
+Create a reusable component:
+
+client/src/components/marketing/HeroTradeDivider.tsx
+
+This component should render:
+- gradient background
+- 3 animated rows
+- no hard borders
+
+Then insert it below hero.
+
+The NEXT section wrapper should be updated where needed to get the rounded-surface appearance.
+
+--------------------------------------------------
+11. ANIMATION IMPLEMENTATION
+--------------------------------------------------
+
+Use CSS marquee-style motion.
+
+Each row should duplicate content so the movement loops seamlessly.
+
+Use keyframes:
+translateX()
+
+Speed:
+slow enough to feel ambient
+
+Example:
+28s to 40s per row depending on row
+
+Alternate direction per row.
+
+--------------------------------------------------
+12. IMPORTANT VISUAL RULES
+--------------------------------------------------
+
+- No bright or high-contrast text
+- No harsh lines
+- No obvious seams between hero / divider / next section
+- Rounded corners must be large and elegant
+- The whole thing should feel like one carefully designed transition
+
+--------------------------------------------------
+13. FINAL RESULT
+--------------------------------------------------
+
+The hero should fade into a premium animated divider,
+and then into a large rounded light-gray surface below,
+similar to high-end SaaS websites.
+
+Implement now.
