@@ -26,7 +26,7 @@ const TOOLS = [
     href: "/product/quickquote",
     iconBg: mkt.accentTint,
     iconColor: mkt.accent,
-    cardBg: mkt.accentTint,
+    cardBg: "rgba(102,232,250,0.06)",
   },
   {
     id: "assistants",
@@ -34,9 +34,9 @@ const TOOLS = [
     title: "24/7 Assistants",
     body: "Never miss a call or chat. Your assistant handles enquiries, provides quotes, and captures leads — even at 2am.",
     href: "/product/assistants",
-    iconBg: "rgba(139,124,181,0.08)",
-    iconColor: "#8B7CB5",
-    cardBg: "rgba(139,124,181,0.08)",
+    iconBg: "rgba(163,209,144,0.10)",
+    iconColor: "#A3D190",
+    cardBg: "rgba(163,209,144,0.06)",
   },
   {
     id: "followups",
@@ -46,7 +46,7 @@ const TOOLS = [
     href: "/product/assistants",
     iconBg: mkt.cyanTint,
     iconColor: mkt.cyan,
-    cardBg: mkt.cyanTint,
+    cardBg: "rgba(104,212,227,0.06)",
   },
   {
     id: "visibility",
@@ -56,7 +56,7 @@ const TOOLS = [
     href: "/solutions/visibility",
     iconBg: mkt.orangeTint,
     iconColor: mkt.orange,
-    cardBg: mkt.orangeTint,
+    cardBg: "rgba(247,180,48,0.06)",
   },
 ];
 
@@ -82,8 +82,8 @@ const TESTIMONIALS = [
 ];
 
 const PRICING_TIERS = [
-  { name: "FREE",    price: "$0",   label: "Get started today",      features: ["1 calculator", "Hosted page", "50 leads/mo"],         border: "rgba(255,255,255,0.1)",  badge: null,           badgeBg: null },
-  { name: "STARTER", price: "$99",  label: "For growing businesses", features: ["1 calculator", "Custom branding", "Email follow-ups"], border: "rgba(255,255,255,0.1)",  badge: null,           badgeBg: null },
+  { name: "FREE",    price: "$0",   label: "Get started today",      features: ["1 calculator", "Hosted page", "50 leads/mo"],         border: "rgba(255,255,255,0.08)",  badge: null,           badgeBg: null },
+  { name: "STARTER", price: "$99",  label: "For growing businesses", features: ["1 calculator", "Custom branding", "Email follow-ups"], border: "rgba(255,255,255,0.08)",  badge: null,           badgeBg: null },
   { name: "PRO",     price: "$199", label: "Most popular",           features: ["3 calculators", "24/7 Assistant", "SMS & WhatsApp"],   border: mkt.accent,               badge: "Most Popular", badgeBg: mkt.accent },
 ];
 
@@ -135,7 +135,7 @@ const FLOW_SERVICES = [
   { label: "Instant Estimates on Your Site", sub: "Give prices in seconds", icon: Calculator, color: mkt.accent },
   { label: "Calls & Messages Answered 24/7", sub: "No missed jobs", icon: PhoneCall, color: mkt.cyan },
   { label: "Rank Higher on Google Maps", sub: "Show up when customers search", icon: MapPin, color: mkt.orange },
-  { label: "Automatic Review Requests", sub: "Turn jobs into 5-star reviews", icon: Star, color: "#8B7CB5" },
+  { label: "Automatic Review Requests", sub: "Turn jobs into 5-star reviews", icon: Star, color: "#A3D190" },
   { label: "Quote Follow-ups Sent Automatically", sub: "No chasing leads", icon: RefreshCw, color: mkt.cyan },
   { label: "Website Speed & Fixes Handled", sub: "We keep it running fast", icon: Wrench, color: mkt.orange },
 ];
@@ -144,7 +144,7 @@ const FLOW_OUTCOMES = [
   { label: "More booked jobs", sub: "Turn more quotes into paying work", icon: Target, color: mkt.accent },
   { label: "Missed calls recovered", sub: "Capture every enquiry", icon: Phone, color: mkt.cyan },
   { label: "Faster estimates", sub: "Quotes delivered in seconds", icon: Zap, color: mkt.orange },
-  { label: "More 5-star reviews", sub: "Build trust automatically", icon: Award, color: "#8B7CB5" },
+  { label: "More 5-star reviews", sub: "Build trust automatically", icon: Award, color: "#A3D190" },
   { label: "You focus on the work", sub: "Less admin, more tools", icon: Hammer, color: mkt.accent },
 ];
 
@@ -156,16 +156,16 @@ function FlowCard({ label, sub, icon: Icon, color }: { label: string; sub: strin
       className="flow-node"
       style={{
         display: "flex", alignItems: "center", gap: 10,
-        background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 12,
+        background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 12,
         padding: "0 14px",
         width: FL.cardW, height: FL.cardH,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
         boxSizing: "border-box",
       }}
     >
       <div style={{
         width: FL.iconBox, height: FL.iconBox, borderRadius: 10,
-        background: `${color}14`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        background: `${color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
       }}>
         <Icon size={16} color={color} strokeWidth={1.5} />
       </div>
@@ -194,7 +194,7 @@ function FlowConnectorSvg({ count, direction }: { count: number; direction: "lef
         return (
           <g key={i}>
             <path d={pathD} stroke={mkt.accentGlow} strokeWidth="1.5" fill="none" id={pathId} />
-            <circle r="3" fill={mkt.accent} opacity="0.45">
+            <circle r="3" fill={mkt.accent} opacity="0.55">
               <animateMotion dur={`${2.8 + i * 0.35}s`} repeatCount="indefinite" begin={`${i * 0.4}s`}>
                 <mpath href={`#${pathId}`} />
               </animateMotion>
@@ -222,13 +222,13 @@ function FlowMapHero() {
         <FlowConnectorSvg count={FLOW_SERVICES.length} direction="left" />
         <div className="flow-center-node" style={{
           width: FL.centerR * 2, height: FL.centerR * 2, borderRadius: "50%",
-          background: `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentHover} 100%)`,
+          background: `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentDark} 100%)`,
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           boxShadow: `0 8px 32px ${mkt.accentGlow}`,
           position: "relative", zIndex: 2, flexShrink: 0,
         }}>
-          <Briefcase size={24} color={mkt.onDark} strokeWidth={1.5} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: mkt.onDark, marginTop: 4, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
+          <Briefcase size={24} color={mkt.buttonText} strokeWidth={1.5} />
+          <span style={{ fontSize: 10, fontWeight: 700, color: mkt.buttonText, marginTop: 4, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
         </div>
         <FlowConnectorSvg count={FLOW_OUTCOMES.length} direction="right" />
         <div style={{ display: "grid", gridAutoRows: FL.cardH, rowGap: FL.gap, alignItems: "center", justifyItems: "start" }}>
@@ -241,7 +241,7 @@ function FlowMapHero() {
           {FLOW_SERVICES.map(({ label, icon: SIcon, color }) => (
             <div key={label} style={{
               display: "flex", alignItems: "center", gap: 6,
-              background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 10,
+              background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 10,
               padding: "8px 12px", fontSize: 12, fontWeight: 600, color: mkt.text,
             }}>
               <SIcon size={14} color={color} strokeWidth={1.5} /> {label}
@@ -254,12 +254,12 @@ function FlowMapHero() {
         </div>
         <div className="flow-center-node" style={{
           width: 88, height: 88, borderRadius: "50%",
-          background: `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentHover} 100%)`,
+          background: `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentDark} 100%)`,
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           boxShadow: `0 8px 32px ${mkt.accentGlow}`,
         }}>
-          <Briefcase size={20} color={mkt.onDark} strokeWidth={1.5} />
-          <span style={{ fontSize: 9, fontWeight: 700, color: mkt.onDark, marginTop: 3, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
+          <Briefcase size={20} color={mkt.buttonText} strokeWidth={1.5} />
+          <span style={{ fontSize: 9, fontWeight: 700, color: mkt.buttonText, marginTop: 3, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <div style={{ width: 1.5, height: 18, background: mkt.accentGlow }} />
@@ -269,7 +269,7 @@ function FlowMapHero() {
           {FLOW_OUTCOMES.map(({ label, icon: OIcon, color }) => (
             <div key={label} style={{
               display: "flex", alignItems: "center", gap: 6,
-              background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 10,
+              background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 10,
               padding: "8px 12px", fontSize: 12, fontWeight: 600, color: mkt.text,
             }}>
               <OIcon size={14} color={color} strokeWidth={1.5} /> {label}
@@ -304,11 +304,11 @@ const RESPONSIVE_CSS = `
   }
   @keyframes flowPulse {
     0%, 100% { box-shadow: 0 8px 32px ${mkt.accentGlow}; }
-    50% { box-shadow: 0 8px 40px rgba(47,107,255,0.35); }
+    50% { box-shadow: 0 8px 40px rgba(102,232,250,0.35); }
   }
   .flow-center-node { animation: flowPulse 3s ease-in-out infinite; }
   .flow-node { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-  .flow-node:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important; }
+  .flow-node:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.20) !important; }
   @media (max-width: 640px) {
     .hero-section-responsive { padding: 56px 18px 48px !important; }
     .hero-pills-grid { grid-template-columns: 1fr 1fr !important; gap: 6px !important; }
@@ -343,7 +343,7 @@ export default function HomePage() {
   const HERO_TRUST_LINES: ReactNode[] = [
     "Trusted by local trade's businesses.",
     "Voted as best automation tool in Canada.",
-    <><span style={{ color: "#E8A317" }}>★</span> 4.7 user satisfaction score.</>,
+    <><span style={{ color: mkt.orange }}>★</span> 4.7 user satisfaction score.</>,
   ];
   const [trustIndex, setTrustIndex] = useState(0);
 
@@ -390,7 +390,7 @@ export default function HomePage() {
             position: "absolute",
             top: "32%", left: "50%", transform: "translate(-50%, -50%)",
             width: 800, height: 500,
-            background: `radial-gradient(ellipse at center, rgba(47,107,255,0.10) 0%, rgba(47,107,255,0.04) 40%, transparent 70%)`,
+            background: `radial-gradient(ellipse at center, rgba(102,232,250,0.08) 0%, rgba(102,232,250,0.03) 40%, transparent 70%)`,
             pointerEvents: "none",
           }}
         />
@@ -414,7 +414,7 @@ export default function HomePage() {
             bottom: -10px;
             height: 3px;
             border-radius: 999px;
-            background: rgba(47,107,255, 0.22);
+            background: rgba(102,232,250, 0.22);
             z-index: 0;
           }
           .wf-underline::after {
@@ -427,9 +427,9 @@ export default function HomePage() {
             border-radius: 999px;
             background: linear-gradient(
               90deg,
-              rgba(255, 70, 70, 0) 0%,
-              rgba(255, 70, 70, 0.85) 45%,
-              rgba(255, 70, 70, 0) 100%
+              rgba(102,232,250,0) 0%,
+              rgba(102,232,250,0.85) 45%,
+              rgba(102,232,250,0) 100%
             );
             animation: wf_underline_beam 6.25s ease-in-out infinite;
             z-index: 1;
@@ -461,9 +461,9 @@ export default function HomePage() {
             background: linear-gradient(
               90deg,
               rgba(255,255,255,0) 0%,
-              rgba(255,255,255,0.08) 38%,
-              rgba(255,255,255,0.45) 50%,
-              rgba(255,255,255,0.08) 62%,
+              rgba(255,255,255,0.06) 38%,
+              rgba(255,255,255,0.35) 50%,
+              rgba(255,255,255,0.06) 62%,
               rgba(255,255,255,0) 100%
             );
             animation: wf_shimmer_sweep 4.6s ease-in-out infinite;
@@ -472,31 +472,8 @@ export default function HomePage() {
             position: relative;
             z-index: 2;
           }
-          .wf-pill-shimmer {
-            position: relative;
-            overflow: hidden;
-            isolation: isolate;
-          }
-          .wf-pill-shimmer::after {
-            content: "";
-            position: absolute;
-            inset: -30% -60%;
-            z-index: 0;
-            pointer-events: none;
-            background: linear-gradient(
-              90deg,
-              rgba(47,107,255,0) 0%,
-              rgba(47,107,255,0.08) 40%,
-              rgba(47,107,255,0.22) 50%,
-              rgba(47,107,255,0.08) 60%,
-              rgba(47,107,255,0) 100%
-            );
-            animation: wf_shimmer_sweep 6.0s ease-in-out infinite;
-            opacity: 0.9;
-          }
           @media (prefers-reduced-motion: reduce) {
-            .wf-cta-shimmer::after,
-            .wf-pill-shimmer::after {
+            .wf-cta-shimmer::after {
               animation: none !important;
               opacity: 0 !important;
             }
@@ -527,8 +504,8 @@ export default function HomePage() {
                   width: 8,
                   height: 8,
                   borderRadius: 999,
-                  background: "rgba(47,107,255,0.85)",
-                  boxShadow: "0 0 0 4px rgba(47,107,255,0.12)",
+                  background: mkt.accent,
+                  boxShadow: `0 0 0 4px ${mkt.accentTint}`,
                   flexShrink: 0,
                 }}
                 aria-hidden
@@ -538,7 +515,7 @@ export default function HomePage() {
                 style={{
                   fontSize: 13,
                   fontWeight: 600,
-                  color: "rgba(0,0,0,0.70)",
+                  color: mkt.textMuted,
                   lineHeight: 1.2,
                   whiteSpace: "nowrap",
                   overflow: "hidden",
@@ -579,14 +556,10 @@ export default function HomePage() {
               }}
             >
               <span
-                className="wf-underline"
+                className="wf-underline mkt-gradient-text"
                 style={{
                   position: "relative",
                   zIndex: 2,
-                  background: `linear-gradient(180deg, ${mkt.accent} 0%, ${mkt.accentHover} 100%)`,
-                  WebkitBackgroundClip: "text",
-                  backgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
                 }}
               >
                 On autopilot
@@ -598,7 +571,7 @@ export default function HomePage() {
                   inset: 0,
                   zIndex: 1,
                   background:
-                    "radial-gradient(closest-side, rgba(47,107,255,0.18), rgba(47,107,255,0.09) 42%, transparent 78%)",
+                    "radial-gradient(closest-side, rgba(102,232,250,0.15), rgba(102,232,250,0.06) 42%, transparent 78%)",
                   filter: "blur(30px)",
                   opacity: 0.65,
                   pointerEvents: "none",
@@ -630,9 +603,9 @@ export default function HomePage() {
                   padding: "10px 16px",
                   height: 44,
                   borderRadius: 14,
-                  background: "#FFFFFF",
-                  border: "1px solid #E5E7EB",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                  background: mkt.surface,
+                  border: `1px solid ${mkt.border}`,
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
                   fontSize: 13,
                   fontWeight: 600,
                   color: mkt.text,
@@ -675,14 +648,16 @@ export default function HomePage() {
               style={{
                 padding: "14px 34px",
                 borderRadius: 10,
-                background: `linear-gradient(180deg, ${mkt.accent} 0%, ${mkt.accentHover} 100%)`,
-                color: mkt.onDark,
+                background: mkt.buttonBg,
+                color: mkt.buttonText,
                 fontSize: 15,
-                fontWeight: 600,
+                fontWeight: 500,
                 textDecoration: "none",
                 display: "inline-block",
-                border: "1px solid rgba(255,255,255,0.18)",
-                boxShadow: "0 8px 28px rgba(47,107,255,0.25), inset 0 1px 0 rgba(255,255,255,0.20)",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+                border: `1px solid rgba(255,255,255,0.18)`,
+                boxShadow: `0 8px 28px ${mkt.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.20)`,
               }}
             >
               <span>Try It Free</span>
@@ -697,12 +672,14 @@ export default function HomePage() {
                 background: "transparent",
                 color: mkt.text,
                 fontSize: 15,
-                fontWeight: 600,
+                fontWeight: 500,
                 textDecoration: "none",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
-                border: `1.5px solid ${mkt.border}`,
+                border: `1.5px solid rgba(255,255,255,0.12)`,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
               }}
             >
               See Pricing
@@ -725,9 +702,9 @@ export default function HomePage() {
                 gap: 10,
                 padding: "8px 14px",
                 borderRadius: 999,
-                background: "rgba(255,255,255,0.78)",
-                border: "1px solid rgba(0,0,0,0.08)",
-                boxShadow: "0 10px 26px rgba(0,0,0,0.08)",
+                background: "rgba(255,255,255,0.05)",
+                border: `1px solid ${mkt.border}`,
+                boxShadow: "0 10px 26px rgba(0,0,0,0.20)",
                 overflow: "hidden",
                 minWidth: 260,
                 justifyContent: "center",
@@ -737,7 +714,7 @@ export default function HomePage() {
                 style={{
                   fontSize: 12,
                   fontWeight: 600,
-                  color: "rgba(0,0,0,0.55)",
+                  color: mkt.textFaint,
                   lineHeight: 1,
                   whiteSpace: "nowrap",
                 }}
@@ -764,7 +741,7 @@ export default function HomePage() {
                     textAlign: "center",
                     fontSize: 11,
                     fontWeight: 650,
-                    color: "rgba(47,107,255,0.55)",
+                    color: mkt.accentGlow,
                     opacity: 0.18,
                     transform: "scale(0.98)",
                     filter: "blur(0.1px)",
@@ -785,7 +762,7 @@ export default function HomePage() {
                     textAlign: "center",
                     fontSize: 12,
                     fontWeight: 750,
-                    color: mkt.accentHover,
+                    color: mkt.accent,
                     opacity: 1,
                     transform: "translateY(0px)",
                     transition: "opacity 220ms ease, transform 220ms ease",
@@ -804,7 +781,7 @@ export default function HomePage() {
                     textAlign: "center",
                     fontSize: 11,
                     fontWeight: 650,
-                    color: "rgba(47,107,255,0.55)",
+                    color: mkt.accentGlow,
                     opacity: 0.18,
                     transform: "scale(0.98)",
                     filter: "blur(0.1px)",
@@ -830,7 +807,7 @@ export default function HomePage() {
         <ReviewsSection />
       </SurfaceSection>
 
-      <section data-testid="workflow-section" style={{ background: mkt.surface, padding: "112px 28px" }}>
+      <section data-testid="workflow-section" style={{ background: mkt.surfaceAlt, padding: "112px 28px" }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <div data-reveal="fade-up" style={{ marginBottom: 48 }}>
             <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 16 }}>
@@ -892,7 +869,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section data-testid="tools-section" style={{ background: mkt.surface, padding: "112px 28px" }}>
+      <section data-testid="tools-section" style={{ background: mkt.surfaceAlt, padding: "112px 28px" }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <div data-reveal="fade-up" style={{ marginBottom: 48, textAlign: "center" }}>
             <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 16 }}>
@@ -919,6 +896,7 @@ export default function HomePage() {
                     className="mkt-feature-card"
                     style={{
                       background: tool.cardBg,
+                      border: `1px solid ${mkt.border}`,
                       borderRadius: 20,
                       padding: "32px 28px",
                       display: "flex",
@@ -929,7 +907,7 @@ export default function HomePage() {
                       transition: "box-shadow 0.3s ease",
                     }}
                   >
-                    <div style={{ width: 52, height: 52, borderRadius: 14, background: `${tool.iconColor}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ width: 52, height: 52, borderRadius: 14, background: tool.iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <Icon size={24} color={tool.iconColor} strokeWidth={1.5} />
                     </div>
                     <h3 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, letterSpacing: "-0.01em" }}>{tool.title}</h3>
@@ -939,12 +917,12 @@ export default function HomePage() {
                         style={{
                           display: "inline-flex", alignItems: "center", gap: 8,
                           padding: "10px 20px", borderRadius: 14,
-                          background: mkt.overlay, color: mkt.text,
+                          background: "rgba(255,255,255,0.05)", color: mkt.text,
                           fontSize: 14, fontWeight: 600,
                         }}
                       >
                         Explore
-                        <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(255,255,255,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                           <ArrowRight size={14} strokeWidth={2} />
                         </span>
                       </span>
@@ -968,8 +946,8 @@ export default function HomePage() {
                 data-reveal="fade-up"
                 data-delay={String(i * 100)}
                 style={{
-                  background: mkt.bg,
-                  border: `1px solid ${mkt.border}`,
+                  background: mkt.cardBg,
+                  border: `1px solid ${mkt.cardBorder}`,
                   borderRadius: 16,
                   padding: "28px 24px",
                   textAlign: "center",
@@ -990,7 +968,7 @@ export default function HomePage() {
               <h3 style={{ fontSize: "clamp(22px, 2.5vw, 30px)", fontWeight: 600, color: mkt.text, letterSpacing: "-0.02em", marginBottom: 8 }}>
                 What trades businesses are saying
               </h3>
-              <p style={{ fontSize: 13, color: mkt.textMuted, fontStyle: "italic" }}>Example reviews (replace with real reviews)</p>
+              <p style={{ fontSize: 13, color: mkt.textFaint, fontStyle: "italic" }}>Example reviews (replace with real reviews)</p>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
               {TESTIMONIALS.map(({ quote, name, role }, i) => (
@@ -1000,7 +978,7 @@ export default function HomePage() {
                   data-reveal="fade-up"
                   data-delay={String(i * 100)}
                   className="mkt-feature-card"
-                  style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 16, padding: "28px 24px", boxShadow: shadows.card }}
+                  style={{ background: mkt.cardBg, border: `1px solid ${mkt.cardBorder}`, borderRadius: 16, padding: "28px 24px", boxShadow: shadows.card }}
                 >
                   <div style={{ display: "flex", gap: 2, marginBottom: 16 }}>
                     {Array.from({ length: 5 }).map((_, j) => <span key={j} style={{ fontSize: 16, color: mkt.orange }}>★</span>)}
@@ -1008,7 +986,7 @@ export default function HomePage() {
                   <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.65, fontStyle: "italic", marginBottom: 20 }}>"{quote}"</p>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: mkt.text }}>{name}</div>
-                    <div style={{ fontSize: 13, color: mkt.textMuted }}>{role}</div>
+                    <div style={{ fontSize: 13, color: mkt.textFaint }}>{role}</div>
                   </div>
                 </div>
               ))}
@@ -1017,7 +995,7 @@ export default function HomePage() {
         </div>
       </SurfaceSection>
 
-      <section data-testid="pricing-teaser-section" style={{ background: `linear-gradient(160deg, ${mkt.darkHover} 0%, ${mkt.dark} 100%)`, padding: "112px 28px" }}>
+      <section data-testid="pricing-teaser-section" style={{ background: mkt.dark, padding: "112px 28px" }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
             <h2 style={{ fontSize: "clamp(26px, 3vw, 40px)", fontWeight: 600, color: mkt.onDark, letterSpacing: "-0.025em", marginBottom: 12 }}>
@@ -1032,10 +1010,10 @@ export default function HomePage() {
                 data-reveal="fade-up"
                 data-delay={String(i * 100)}
                 className="mkt-tier-card"
-                style={{ background: "rgba(255,255,255,0.05)", border: `1.5px solid ${border}`, borderRadius: 16, padding: "28px 24px", position: "relative" }}
+                style={{ background: "rgba(255,255,255,0.03)", border: `1.5px solid ${border}`, borderRadius: 20, padding: "28px 24px", position: "relative" }}
               >
                 {badge && (
-                  <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: badgeBg!, color: mkt.onDark, fontSize: 11, fontWeight: 700, padding: "4px 14px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                  <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: badgeBg!, color: mkt.buttonText, fontSize: 11, fontWeight: 700, padding: "4px 14px", borderRadius: 20, whiteSpace: "nowrap" }}>
                     {badge}
                   </div>
                 )}
@@ -1060,9 +1038,8 @@ export default function HomePage() {
             <Link
               href="/product"
               data-testid="button-see-plans"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 10, border: "1.5px solid rgba(255,255,255,0.25)", color: mkt.onDark, fontSize: 15, fontWeight: 600, textDecoration: "none", transition: "all 0.2s ease" }}
-              onMouseEnter={(e) => ((e.target as HTMLElement).style.background = "rgba(255,255,255,0.08)")}
-              onMouseLeave={(e) => ((e.target as HTMLElement).style.background = "transparent")}
+              className="mkt-btn-secondary"
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 10, border: "1.5px solid rgba(255,255,255,0.15)", color: mkt.onDark, fontSize: 15, fontWeight: 500, textDecoration: "none", textTransform: "uppercase", letterSpacing: "0.04em" }}
             >
               See plans <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
@@ -1072,34 +1049,32 @@ export default function HomePage() {
 
       <section
         data-testid="cta-band"
-        style={{ background: `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentHover} 100%)`, padding: "136px 28px", textAlign: "center" }}
+        style={{ background: `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentDark} 100%)`, padding: "136px 28px", textAlign: "center" }}
       >
         <div style={{ maxWidth: 680, margin: "0 auto" }} data-reveal="scale">
-          <h2 style={{ fontSize: "clamp(32px, 4vw, 52px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em", marginBottom: 18, lineHeight: 1.1 }}>
+          <h2 style={{ fontSize: "clamp(32px, 4vw, 52px)", fontWeight: 700, color: mkt.buttonText, letterSpacing: "-0.025em", marginBottom: 18, lineHeight: 1.1 }}>
             Ready to get more booked jobs?
           </h2>
-          <p style={{ fontSize: 18, color: mkt.onDarkMuted, lineHeight: 1.65, marginBottom: 44, maxWidth: 520, margin: "0 auto 44px" }}>
+          <p style={{ fontSize: 18, color: "rgba(34,40,42,0.72)", lineHeight: 1.65, marginBottom: 44, maxWidth: 520, margin: "0 auto 44px" }}>
             Join thousands of trades businesses using QuickQuotePro to automate quotes, bookings, and follow-ups.
           </p>
           <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
             <Link
               href="/Wizard"
               data-testid="button-try-free-cta"
-              className="mkt-btn-primary"
-              style={{ display: "inline-block", padding: "15px 36px", borderRadius: 10, background: mkt.onDark, color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none" }}
+              style={{ display: "inline-block", padding: "15px 36px", borderRadius: 10, background: mkt.bg, color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none", textTransform: "uppercase", letterSpacing: "0.04em" }}
             >
               Try Free
             </Link>
             <Link
               href="/demo"
               data-testid="button-try-demo-cta"
-              className="mkt-btn-ghost"
-              style={{ display: "inline-block", padding: "15px 32px", borderRadius: 10, background: "transparent", color: mkt.onDark, fontSize: 16, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.4)" }}
+              style={{ display: "inline-block", padding: "15px 32px", borderRadius: 10, background: "transparent", color: mkt.buttonText, fontSize: 16, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(34,40,42,0.3)", textTransform: "uppercase", letterSpacing: "0.04em" }}
             >
               Try Demo
             </Link>
           </div>
-          <p style={{ fontSize: 13, color: mkt.onDarkFaint, marginTop: 24 }}>
+          <p style={{ fontSize: 13, color: "rgba(34,40,42,0.55)", marginTop: 24 }}>
             No credit card required · Live in 10 minutes · Cancel anytime
           </p>
         </div>

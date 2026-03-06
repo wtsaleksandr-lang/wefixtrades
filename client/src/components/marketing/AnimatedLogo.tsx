@@ -1,11 +1,11 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "wouter";
-import { colors } from "@/theme/tokens";
+import { mkt } from "@/theme/tokens";
 
 const CAP_W = 8;
 const CAP_H = 22;
 const CAP_GAP = 5;
-const CAP_COLOR = colors.accent.blue;
+const CAP_COLOR = mkt.accent;
 
 export default function AnimatedLogo() {
   const prefersReduced = useReducedMotion();
@@ -46,7 +46,7 @@ export default function AnimatedLogo() {
             inset: "-4px -6px",
             borderRadius: 8,
             background:
-              `radial-gradient(ellipse at center, ${colors.accent.blueGlow} 0%, transparent 70%)`,
+              `radial-gradient(ellipse at center, ${mkt.accentGlow} 0%, transparent 70%)`,
             filter: "blur(4px)",
             pointerEvents: "none",
             zIndex: 0,
@@ -104,7 +104,7 @@ export default function AnimatedLogo() {
         style={{
           fontSize: 17,
           fontWeight: 800,
-          color: colors.text.primary,
+          color: mkt.onDark,
           letterSpacing: "-0.025em",
           whiteSpace: "nowrap",
         }}

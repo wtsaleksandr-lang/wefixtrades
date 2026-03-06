@@ -73,7 +73,7 @@ function Stars({ count }: { count: number }) {
           key={i}
           size={15}
           strokeWidth={0}
-          fill={i < count ? "#F59E0B" : "#E5E7EB"}
+          fill={i < count ? "#F59E0B" : "rgba(255,255,255,0.15)"}
         />
       ))}
     </div>
@@ -93,8 +93,8 @@ function PlatformBadge({ platform }: { platform: "trustpilot" | "facebook" }) {
         fontSize: 11,
         fontWeight: 700,
         letterSpacing: "0.02em",
-        background: isTp ? "rgba(0,176,80,0.10)" : "rgba(24,119,242,0.10)",
-        color: isTp ? "#00B050" : "#1877F2",
+        background: isTp ? "rgba(0,176,80,0.15)" : "rgba(24,119,242,0.15)",
+        color: isTp ? "#4ADE80" : "#60A5FA",
       }}
     >
       {isTp ? "Trustpilot" : "Facebook Review"}
@@ -113,15 +113,15 @@ export default function ReviewsSection() {
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div className="text-center mb-8 sm:mb-10">
           <div className="flex justify-center mb-2">
-            <span className="inline-flex items-center gap-2 text-xs font-semibold text-black/55">
-              <span className="w-2 h-2 rounded-full bg-blue-600" />
+            <span className="inline-flex items-center gap-2 text-xs font-semibold" style={{ color: mkt.textMuted }}>
+              <span className="w-2 h-2 rounded-full" style={{ background: mkt.accent }} />
               Customer feedback
             </span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-black/90 leading-tight">
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight" style={{ color: mkt.text }}>
             Trusted by trades across North America
           </h2>
-          <p className="mt-2 text-sm sm:text-base text-black/60 max-w-xl mx-auto leading-relaxed">
+          <p className="mt-2 text-sm sm:text-base max-w-xl mx-auto leading-relaxed" style={{ color: mkt.textMuted }}>
             Real feedback from service businesses using WeFixTrades to capture leads,
             respond faster, and keep customers from slipping through the cracks.
           </p>
@@ -139,10 +139,10 @@ export default function ReviewsSection() {
               key={r.name}
               data-testid={`review-card-${r.name.replace(/\s+/g, "-").toLowerCase()}`}
               style={{
-                borderRadius: 14,
-                border: "1px solid rgba(0,0,0,0.07)",
-                background: "#FFFFFF",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+                borderRadius: 20,
+                border: `1px solid ${mkt.cardBorder}`,
+                background: mkt.surface,
+                boxShadow: "0 10px 20px #33314833",
                 padding: "20px 20px 18px",
                 display: "flex",
                 flexDirection: "column",
@@ -157,13 +157,13 @@ export default function ReviewsSection() {
                   height={44}
                   style={{
                     borderRadius: "50%",
-                    border: "2px solid rgba(0,0,0,0.06)",
+                    border: `2px solid ${mkt.border}`,
                     objectFit: "cover",
                     flexShrink: 0,
                   }}
                 />
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 650, color: "#111827", lineHeight: 1.2 }}>
+                  <div style={{ fontSize: 14, fontWeight: 650, color: mkt.onDark, lineHeight: 1.2 }}>
                     {r.name}
                   </div>
                   <div style={{ fontSize: 12, color: mkt.textMuted, lineHeight: 1.3, marginTop: 2 }}>
@@ -180,7 +180,7 @@ export default function ReviewsSection() {
               <p
                 style={{
                   fontSize: 14,
-                  color: "rgba(20,20,20,0.72)",
+                  color: mkt.textMuted,
                   lineHeight: 1.65,
                   margin: 0,
                   flex: 1,
@@ -189,7 +189,7 @@ export default function ReviewsSection() {
                 "{r.text}"
               </p>
 
-              <div style={{ fontSize: 12, color: mkt.textMuted, opacity: 0.7 }}>
+              <div style={{ fontSize: 12, color: mkt.textFaint }}>
                 {r.time}
               </div>
             </div>
@@ -209,22 +209,19 @@ export default function ReviewsSection() {
           <Link
             href="/Wizard"
             data-testid="reviews-cta-start"
+            className="mkt-btn-primary"
             style={{
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
               height: 48,
               padding: "0 28px",
-              borderRadius: 14,
-              background: mkt.dark,
-              color: mkt.onDark,
               fontSize: 15,
-              fontWeight: 650,
+              fontWeight: 500,
               textDecoration: "none",
-              transition: "filter 0.15s ease",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
             }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(1.12)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(1)"; }}
           >
             Start Free
           </Link>

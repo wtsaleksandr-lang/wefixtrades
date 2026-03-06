@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Clock, BarChart3, Timer } from "lucide-react";
+import { mkt } from "@/theme/tokens";
 
 function useCountUpController<T extends HTMLElement>(opts: { durationMs?: number; threshold?: number } = {}) {
   const { durationMs = 1200, threshold = 0.35 } = opts;
@@ -66,23 +67,31 @@ export default function TrustStrip() {
   return (
     <section data-testid="trust-strip" className="relative w-full py-8 sm:py-10">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-x-0 -top-24 h-40 bg-gradient-to-b from-transparent to-[rgba(47,107,255,0.12)] blur-2xl" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[rgba(47,107,255,0.10)] via-[rgba(47,107,255,0.18)] to-[rgba(47,107,255,0.10)]" />
-        <div className="absolute inset-x-0 -bottom-24 h-40 bg-gradient-to-t from-transparent to-[rgba(47,107,255,0.12)] blur-2xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.0)_0%,rgba(0,0,0,0.08)_100%)] opacity-30" />
-        <div className="absolute inset-0 bg-slate-900/10" />
+        <div
+          className="absolute inset-x-0 -top-24 h-40 blur-2xl"
+          style={{ background: `linear-gradient(to bottom, transparent, ${mkt.accentGlow})` }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: `linear-gradient(to right, ${mkt.accentTint}, ${mkt.accentGlow}, ${mkt.accentTint})` }}
+        />
+        <div
+          className="absolute inset-x-0 -bottom-24 h-40 blur-2xl"
+          style={{ background: `linear-gradient(to top, transparent, ${mkt.accentGlow})` }}
+        />
+        <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.15) 100%)` }} />
       </div>
 
       <div ref={metricsRef} className="relative mx-auto max-w-6xl px-4 sm:px-6">
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-            <span className="text-xs font-medium text-slate-600">Performance snapshot</span>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: mkt.accent }} />
+            <span className="text-xs font-medium" style={{ color: mkt.textMuted }}>Performance snapshot</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900 mb-1.5">
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-1.5" style={{ color: mkt.text }}>
             Modeled outcomes, built for busy trades
           </h2>
-          <p className="text-sm sm:text-[15px] text-slate-600">
+          <p className="text-sm sm:text-[15px]" style={{ color: mkt.textMuted }}>
             Typical targets when automations are enabled. Results vary by business.
           </p>
         </div>
@@ -117,34 +126,39 @@ export default function TrustStrip() {
               role="button"
               tabIndex={0}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleRestart(); }}
-              className="relative overflow-hidden rounded-2xl p-4 sm:p-5 bg-white/20 border border-white/20 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-xl cursor-pointer select-none transition-all duration-200 hover:-translate-y-0.5 hover:border-white/30"
+              className="relative overflow-hidden rounded-2xl p-4 sm:p-5 backdrop-blur-xl cursor-pointer select-none transition-all duration-200 hover:-translate-y-0.5"
+              style={{
+                background: mkt.cardBg,
+                border: `1px solid ${mkt.cardBorder}`,
+                boxShadow: '0 18px 45px rgba(0,0,0,0.25)',
+              }}
             >
               <div
                 key={shineKey}
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-0 opacity-60"
                 style={{
-                  background: "linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)",
+                  background: "linear-gradient(120deg, transparent 0%, rgba(102,232,250,0.15) 50%, transparent 100%)",
                   transform: "translateX(-120%)",
                   animation: shineKey > 0 ? "wftCardShine 0.9s ease-out forwards" : "none",
                 }}
               />
               <div className="relative">
                 <div className="flex items-center gap-2 mb-3">
-                  <card.icon size={16} strokeWidth={1.75} className="text-white/80" />
-                  <span className="text-xs font-medium text-slate-100">{card.title}</span>
+                  <card.icon size={16} strokeWidth={1.75} style={{ color: mkt.accent }} />
+                  <span className="text-xs font-medium" style={{ color: mkt.textMuted }}>{card.title}</span>
                 </div>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl sm:text-4xl font-semibold text-white tracking-tight">{card.value}</span>
-                  <span className="text-base font-medium text-white/70">{card.suffix}</span>
+                  <span className="text-3xl sm:text-4xl font-semibold tracking-tight" style={{ color: mkt.onDark }}>{card.value}</span>
+                  <span className="text-base font-medium" style={{ color: mkt.textMuted }}>{card.suffix}</span>
                 </div>
-                <p className="text-[11px] text-slate-200/70 mt-2 leading-snug">{card.desc}</p>
+                <p className="text-[11px] mt-2 leading-snug" style={{ color: mkt.textFaint }}>{card.desc}</p>
               </div>
             </div>
           ))}
         </div>
 
-        <p className="text-[11px] text-slate-600 mt-3">
+        <p className="text-[11px] mt-3" style={{ color: mkt.textFaint }}>
           Metrics shown are modeled targets/estimates and vary by business setup.
         </p>
       </div>

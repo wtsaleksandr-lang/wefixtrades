@@ -19,11 +19,6 @@ type NavChild = {
 const DESKTOP_HEADER = {
   navHeight: 72,
   cardHeight: 52,
-  cardRadius: 18,
-  cardBg: "rgba(255,255,255,0.78)",
-  cardBorder: "1px solid rgba(0,0,0,0.06)",
-  cardShadow: "0 14px 38px rgba(0,0,0,0.10)",
-  navPadding: "6px 12px 0",
 };
 
 
@@ -162,8 +157,8 @@ function NavItemDesktopV2({
   };
 
   const topHoverOn = (el: HTMLElement) => {
-    el.style.background = "rgba(15,59,53,0.06)";
-    el.style.borderColor = "rgba(15,59,53,0.16)";
+    el.style.background = "rgba(255,255,255,0.06)";
+    el.style.borderColor = "rgba(255,255,255,0.12)";
   };
 
   const topHoverOff = (el: HTMLElement) => {
@@ -187,13 +182,13 @@ function NavItemDesktopV2({
               transformOrigin: "top center",
               transition: "opacity 160ms ease, transform 160ms ease",
 
-              background: "rgba(255,255,255,0.92)",
+              background: "rgba(34,40,42,0.92)",
               backdropFilter: "blur(18px) saturate(1.25)",
               WebkitBackdropFilter: "blur(18px) saturate(1.25)",
               borderRadius: 20,
-              border: "1px solid #E5E7EB",
+              border: `1px solid ${mkt.border}`,
               boxShadow:
-                "var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.50)",
+                "0 10px 20px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04)",
 
               padding: "4px",
               zIndex: 9999,
@@ -221,20 +216,20 @@ function NavItemDesktopV2({
                   fontWeight: 500,
                   color: mkt.text,
                   textDecoration: "none",
-                  background: "rgba(255,255,255,0.98)",
-                  border: "1px solid rgba(0,0,0,0.10)",
+                  background: mkt.surface,
+                  border: `1px solid ${mkt.border}`,
                   transition:
                     "transform 140ms ease, box-shadow 140ms ease, background 140ms ease",
                 }}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget as HTMLElement;
-                  el.style.background = "rgba(255,255,255,1)";
-                  el.style.boxShadow = "0 10px 24px rgba(0,0,0,0.10)";
+                  el.style.background = "rgba(255,255,255,0.08)";
+                  el.style.boxShadow = "0 10px 24px rgba(0,0,0,0.25)";
                   el.style.transform = "translateY(-1px)";
                 }}
                 onMouseLeave={(e) => {
                   const el = e.currentTarget as HTMLElement;
-                  el.style.background = "rgba(255,255,255,0.98)";
+                  el.style.background = mkt.surface;
                   el.style.boxShadow = "none";
                   el.style.transform = "translateY(0px)";
                 }}
@@ -249,8 +244,8 @@ function NavItemDesktopV2({
                       alignItems: "center",
                       justifyContent: "center",
                       color: mkt.accent,
-                      background: "rgba(15,59,53,0.10)",
-                      border: "1px solid rgba(15,59,53,0.16)",
+                      background: mkt.accentTint,
+                      border: `1px solid rgba(102,232,250,0.15)`,
                       flexShrink: 0,
                     }}
                     aria-hidden
@@ -347,8 +342,8 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
         marginBottom: 4,
         padding: "6px 10px",
         borderRadius: 16,
-        background: "rgba(255,255,255,0.62)",
-        border: "1px solid rgba(255,255,255,0.34)",
+        background: "rgba(255,255,255,0.04)",
+        border: `1px solid ${mkt.border}`,
       }}
     >
       {hasDropdown ? (
@@ -399,8 +394,8 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
                   marginBottom: 6,
                   borderRadius: 14,
                   textDecoration: "none",
-                  background: "rgba(255,255,255,0.68)",
-                  border: "1px solid rgba(255,255,255,0.34)",
+                  background: "rgba(255,255,255,0.04)",
+                  border: `1px solid ${mkt.border}`,
                 }}
               >
                 <div
@@ -411,9 +406,9 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: "#2F6BFF",
-                    background: "rgba(47,107,255,0.10)",
-                    border: "1px solid rgba(47,107,255,0.18)",
+                    color: mkt.accent,
+                    background: mkt.accentTint,
+                    border: "1px solid rgba(102,232,250,0.15)",
                     flexShrink: 0,
                   }}
                   aria-hidden
@@ -538,7 +533,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         WebkitFontSmoothing: "antialiased",
         MozOsxFontSmoothing: "grayscale",
         textRendering: "optimizeLegibility",
-        background: "linear-gradient(180deg, rgba(246,247,249,1) 0%, rgba(246,247,249,1) 60%, rgba(246,247,249,0) 100%)",
+        background: mkt.bg,
       }}
     >
       <nav
@@ -580,13 +575,13 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   margin: "6px 10px 0",
                   borderRadius: 20,
                   padding: "0 16px",
-                  background: "rgba(255,255,255,0.42)",
+                  background: "rgba(34,40,42,0.82)",
                   backdropFilter: "blur(20px) saturate(1.6)",
                   WebkitBackdropFilter: "blur(20px) saturate(1.6)",
                   willChange: "backdrop-filter",
                   transform: "translateZ(0)",
-                  border: "1px solid rgba(255,255,255,0.30)",
-                  boxShadow: "0 12px 32px rgba(0,0,0,0.10)",
+                  border: `1px solid ${mkt.border}`,
+                  boxShadow: "0 12px 32px rgba(0,0,0,0.25)",
                 }
               : {
                   width: "calc(100% - 32px)",
@@ -594,11 +589,11 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   margin: "3px 16px 0",
                   borderRadius: 18,
                   padding: "0 20px",
-                  background: "rgba(255,255,255,0.78)",
+                  background: "rgba(34,40,42,0.82)",
                   backdropFilter: "blur(18px) saturate(1.3)",
                   WebkitBackdropFilter: "blur(18px) saturate(1.3)",
-                  border: "1px solid rgba(0,0,0,0.06)",
-                  boxShadow: scrolled ? "0 14px 38px rgba(0,0,0,0.12)" : "0 12px 30px rgba(0,0,0,0.10)",
+                  border: `1px solid ${mkt.border}`,
+                  boxShadow: scrolled ? "0 14px 38px rgba(0,0,0,0.30)" : "0 12px 30px rgba(0,0,0,0.20)",
                 }),
           }}
         >
@@ -640,7 +635,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                     textDecoration: "none",
                     transition: "color 0.15s ease",
                   }}
-                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = mkt.textMuted)}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = mkt.accent)}
                   onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = mkt.text)}
                 >
                   Login
@@ -651,20 +646,22 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   data-testid="nav-cta-start-free"
                   style={{
                     padding: "9px 20px",
-                    borderRadius: 14,
-                    background: mkt.dark,
-                    color: mkt.onDark,
+                    borderRadius: 10,
+                    background: mkt.buttonBg,
+                    color: mkt.buttonText,
                     fontSize: 13,
-                    fontWeight: 600,
+                    fontWeight: 500,
+                    textTransform: "uppercase" as const,
+                    letterSpacing: "0.04em",
                     textDecoration: "none",
                     display: "inline-block",
                     whiteSpace: "nowrap",
                     transition: "background 0.2s ease, box-shadow 0.2s ease",
                   }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = mkt.darkHover; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = mkt.dark; }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = mkt.buttonHoverBg; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = mkt.buttonBg; }}
                 >
-                  Start Free
+                  START FREE
                 </Link>
               </>
             )}
@@ -712,7 +709,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             position: "fixed",
             inset: 0,
             zIndex: 290,
-            background: "rgba(0,0,0,0.20)",
+            background: "rgba(0,0,0,0.45)",
             backdropFilter: "blur(10px)",
             WebkitBackdropFilter: "blur(10px)",
             opacity: menuOpen ? 1 : 0,
@@ -732,13 +729,13 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             top: menuTop,
             zIndex: 300,
             borderRadius: 22,
-            background: "rgba(255,255,255,0.52)",
+            background: "rgba(34,40,42,0.88)",
             backdropFilter: "blur(22px) saturate(1.6)",
             WebkitBackdropFilter: "blur(22px) saturate(1.6)",
-            border: "1px solid #E5E7EB",
+            border: `1px solid ${mkt.border}`,
             boxShadow: menuOpen
-              ? "var(--shadow-hover), inset 0 1px 0 rgba(255,255,255,0.35)"
-              : "var(--shadow-card)",
+              ? "0 20px 36px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)"
+              : "0 10px 20px rgba(0,0,0,0.25)",
             overflow: "hidden",
             maxHeight: "78vh",
             transform: menuOpen ? "translateY(0px) scale(1)" : "translateY(-12px) scale(0.98)",
@@ -768,16 +765,18 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 display: "block",
                 marginTop: 12,
                 padding: "12px 14px",
-                borderRadius: 999,
-                background: "#102126",
-                color: "#FFFFFF",
+                borderRadius: 10,
+                background: mkt.buttonBg,
+                color: mkt.buttonText,
                 fontSize: 15,
-                fontWeight: 650,
+                fontWeight: 500,
+                textTransform: "uppercase" as const,
+                letterSpacing: "0.04em",
                 textAlign: "center",
                 textDecoration: "none",
               }}
             >
-              Start Free
+              START FREE
             </Link>
           </div>
         </div>
@@ -867,7 +866,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                       marginBottom: 11,
                       transition: "color 0.15s ease",
                     }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.accent; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDarkMuted; }}
                   >
                     {item.label}

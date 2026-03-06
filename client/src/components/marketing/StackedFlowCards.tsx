@@ -74,12 +74,12 @@ export default function StackedFlowCards({ steps, mkt }: StackedFlowCardsProps) 
                 left: 0,
                 right: 0,
                 padding: "24px 28px",
-                borderRadius: 14,
+                borderRadius: 20,
                 background: mkt.bg,
                 border: `1px solid ${isActive ? mkt.accent : mkt.border}`,
                 boxShadow: isActive
-                  ? `0 8px 32px ${mkt.accentGlow}, ${shadows.xs}`
-                  : shadows.xs,
+                  ? `0 8px 32px ${mkt.accentGlow}, ${shadows.card}`
+                  : shadows.card,
                 cursor: "pointer",
               }}
               onClick={() => setActiveIndex(i)}

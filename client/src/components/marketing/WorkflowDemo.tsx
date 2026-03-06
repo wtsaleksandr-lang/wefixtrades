@@ -2,22 +2,22 @@ import { useState } from "react";
 import { Check, ArrowRight, Zap, Phone, RefreshCw, Star } from "lucide-react";
 import { Link } from "wouter";
 
-import { mkt, colors, shadows } from "@/theme/tokens";
+import { mkt, shadows } from "@/theme/tokens";
 
 const C = {
-  heading: colors.text.primary,
-  body: colors.text.secondary,
-  muted: colors.text.secondary,
+  heading: mkt.text,
+  body: mkt.textMuted,
+  muted: mkt.textFaint,
   border: mkt.border,
   borderLight: mkt.borderLight,
   green: mkt.accent,
   greenDark: mkt.accentHover,
-  bg: mkt.bg,
-  bgGray: colors.surface.muted,
-  bgGrayAlt: colors.surface.muted,
+  bg: mkt.surface,
+  bgGray: mkt.surfaceAlt,
+  bgGrayAlt: 'rgba(255,255,255,0.06)',
   sageTint: mkt.accentTint,
   sageAccent: mkt.accentTint,
-  warmGray: colors.surface.muted,
+  warmGray: mkt.surfaceAlt,
 };
 
 const SHADOW = {
@@ -138,7 +138,7 @@ export default function WorkflowDemo({ expanded = false }: { expanded?: boolean 
                     flexShrink: 0,
                   }}
                 >
-                  <Icon size={18} color={isActive ? "#FFFFFF" : C.muted} strokeWidth={1.5} />
+                  <Icon size={18} color={isActive ? mkt.buttonText : C.muted} strokeWidth={1.5} />
                 </div>
                 <div>
                   <div
@@ -156,7 +156,7 @@ export default function WorkflowDemo({ expanded = false }: { expanded?: boolean 
                     style={{
                       fontSize: 14,
                       fontWeight: 600,
-                      color: isActive ? C.heading : C.body,
+                      color: isActive ? mkt.onDark : C.body,
                     }}
                   >
                     {s.label}
@@ -186,7 +186,7 @@ export default function WorkflowDemo({ expanded = false }: { expanded?: boolean 
               style={{
                 fontSize: expanded ? 24 : 20,
                 fontWeight: 700,
-                color: C.heading,
+                color: mkt.onDark,
                 marginBottom: 12,
                 letterSpacing: "-0.01em",
               }}
