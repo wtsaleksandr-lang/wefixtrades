@@ -668,49 +668,28 @@ export default function HomePage() {
             Customers get answers. You get booked. Everything runs in the background.
           </p>
 
-          <div className="hero-cta-row" style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
-            <Link
-              href="/Wizard"
-              data-testid="button-try-free-hero"
-              className="mkt-btn-primary wf-cta-shimmer"
-              style={{
-                padding: "14px 34px",
-                borderRadius: 10,
-                background: mkt.buttonBg,
-                color: mkt.buttonText,
-                fontSize: 15,
-                fontWeight: 500,
-                textDecoration: "none",
-                display: "inline-block",
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-                border: `1px solid rgba(255,255,255,0.18)`,
-                boxShadow: `0 8px 28px ${mkt.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.20)`,
-              }}
-            >
-              <span>Try It Free</span>
-            </Link>
+          <div className="hero-cta-row" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <Link
               href="/product"
-              data-testid="button-see-pricing-hero"
-              className="mkt-btn-ghost"
-              style={{
-                padding: "14px 28px",
-                borderRadius: 10,
-                background: "transparent",
-                color: mkt.text,
-                fontSize: 15,
-                fontWeight: 500,
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                border: `1.5px solid rgba(255,255,255,0.12)`,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
+              data-testid="button-services-hero"
+              className="cta-arrow-btn cta-arrow-btn--dark"
+              style={{ textDecoration: "none" }}
             >
-              See Pricing
+              <span className="cta-arrow-btn__label">Services</span>
+              <span className="cta-arrow-btn__arrow">
+                <ArrowRight size={16} strokeWidth={2} />
+              </span>
+            </Link>
+            <Link
+              href="/Wizard"
+              data-testid="button-product-hero"
+              className="cta-arrow-btn cta-arrow-btn--accent"
+              style={{ textDecoration: "none" }}
+            >
+              <span className="cta-arrow-btn__label">Product</span>
+              <span className="cta-arrow-btn__arrow">
+                <ArrowRight size={16} strokeWidth={2} />
+              </span>
             </Link>
           </div>
 
