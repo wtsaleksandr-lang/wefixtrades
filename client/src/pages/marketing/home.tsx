@@ -213,8 +213,9 @@ function FlowMapHero() {
 
   return (
     <div data-testid="flow-map-hero" style={{ position: "relative", maxWidth: 1000, margin: "0 auto" }}>
+      {/* Hidden for now — re-enable by removing display:"none" */}
       <div className="flow-map-desktop" style={{
-        display: "flex", alignItems: "center", justifyContent: "center", gap: 0, minHeight: maxH,
+        display: "none", alignItems: "center", justifyContent: "center", gap: 0, minHeight: maxH,
       }}>
         <div style={{ display: "grid", gridAutoRows: FL.cardH, rowGap: FL.gap, alignItems: "center", justifyItems: "end" }}>
           {FLOW_SERVICES.map((s) => <FlowCard key={s.label} {...s} />)}
@@ -299,7 +300,7 @@ const RESPONSIVE_CSS = `
   .hero-pill:nth-child(3) { animation-delay: 0.45s; }
   .hero-pill:nth-child(4) { animation-delay: 0.6s; }
   @media (max-width: 820px) {
-    .flow-map-desktop { display: none !important; }
+    .flow-map-desktop { display: none !important; } /* already hidden inline */
     .flow-map-mobile { display: flex !important; }
   }
   @keyframes flowPulse {
