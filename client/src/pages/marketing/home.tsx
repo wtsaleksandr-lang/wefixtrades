@@ -377,7 +377,7 @@ export default function HomePage() {
         data-testid="hero-section"
         className="hero-section-responsive"
         style={{
-          background: mkt.surface,
+          background: mkt.bg,
           padding: "98px 28px 80px",
           marginTop: -8,
           position: "relative",
@@ -388,9 +388,9 @@ export default function HomePage() {
           aria-hidden="true"
           style={{
             position: "absolute",
-            top: "38%", left: "50%", transform: "translate(-50%, -50%)",
-            width: 600, height: 400,
-            background: `radial-gradient(ellipse at center, ${mkt.accentTint} 0%, transparent 70%)`,
+            top: "32%", left: "50%", transform: "translate(-50%, -50%)",
+            width: 800, height: 500,
+            background: `radial-gradient(ellipse at center, rgba(47,107,255,0.10) 0%, rgba(47,107,255,0.04) 40%, transparent 70%)`,
             pointerEvents: "none",
           }}
         />
@@ -630,8 +630,9 @@ export default function HomePage() {
                   padding: "10px 16px",
                   height: 44,
                   borderRadius: 14,
-                  background: "rgba(255,255,255,0.65)",
-                  border: "1px solid rgba(0,0,0,0.06)",
+                  background: "#FFFFFF",
+                  border: "1px solid #E5E7EB",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
                   fontSize: 13,
                   fontWeight: 600,
                   color: mkt.text,
@@ -681,6 +682,7 @@ export default function HomePage() {
                 textDecoration: "none",
                 display: "inline-block",
                 border: "1px solid rgba(255,255,255,0.18)",
+                boxShadow: "0 8px 28px rgba(47,107,255,0.25), inset 0 1px 0 rgba(255,255,255,0.20)",
               }}
             >
               <span>Try It Free</span>
@@ -848,7 +850,7 @@ export default function HomePage() {
         data-testid="quote-flow-section"
         style={{
           padding: "100px 28px",
-          background: mkt.surface,
+          background: mkt.bg,
         }}
       >
         <div
@@ -890,7 +892,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section data-testid="tools-section" style={{ background: mkt.bg, padding: "112px 28px" }}>
+      <section data-testid="tools-section" style={{ background: mkt.surface, padding: "112px 28px" }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <div data-reveal="fade-up" style={{ marginBottom: 48, textAlign: "center" }}>
             <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 16 }}>

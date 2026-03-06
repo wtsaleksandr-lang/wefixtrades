@@ -9,7 +9,7 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 220 14% 96%;
+  --background: 210 17% 97%;
   --foreground: 220 14% 10%;
   --border: 220 13% 91%;
   --card: 0 0% 100%;
@@ -424,7 +424,7 @@
 .mkt-btn-primary {
   border-radius: 10px !important;
   cursor: pointer;
-  box-shadow: var(--shadow-soft);
+  box-shadow: 0 4px 14px rgba(47,107,255,0.18), 0 1px 3px rgba(0,0,0,0.06);
   transition:
     transform var(--dur) var(--ease-out),
     box-shadow var(--dur) var(--ease-out),
