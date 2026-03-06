@@ -5,6 +5,7 @@ import { useScrollReveal } from "@/hooks/useScrollReveal";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
 import StackedFlowCards from "@/components/marketing/StackedFlowCards";
 import { mkt, colors, shadows, typography } from "@/theme/tokens";
+import HeroGridGlow from "@/components/marketing/HeroGridGlow";
 import TrustStrip from "@/components/home/TrustStrip";
 import ReviewsSection from "@/components/home/ReviewsSection";
 import TradeMinutesSection from "@/components/sections/TradeMinutesSection";
@@ -335,6 +336,12 @@ const RESPONSIVE_CSS = `
     .hero-pill-label-full { display: inline !important; }
     .hero-pill-label-short { display: none !important; }
   }
+  @media (max-width: 640px) {
+    .hero-safe-zone {
+      width: 92% !important;
+      height: 60% !important;
+    }
+  }
 `;
 
 export default function HomePage() {
@@ -385,6 +392,25 @@ export default function HomePage() {
           overflow: "hidden",
         }}
       >
+        <HeroGridGlow className="hero-grid-glow" />
+
+        <div
+          aria-hidden="true"
+          className="hero-safe-zone"
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "45%",
+            transform: "translate(-50%, -50%)",
+            width: "70%",
+            maxWidth: 1000,
+            height: "55%",
+            background: `radial-gradient(ellipse at center, rgba(34,40,42,0.95) 0%, rgba(34,40,42,0.82) 20%, rgba(34,40,42,0.58) 38%, rgba(34,40,42,0.22) 58%, rgba(34,40,42,0.06) 74%, transparent 90%)`,
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        />
+
         <div
           aria-hidden="true"
           style={{
@@ -393,6 +419,7 @@ export default function HomePage() {
             width: 800, height: 500,
             background: `radial-gradient(ellipse at center, rgba(102,232,250,0.08) 0%, rgba(102,232,250,0.03) 40%, transparent 70%)`,
             pointerEvents: "none",
+            zIndex: 1,
           }}
         />
 
@@ -481,7 +508,7 @@ export default function HomePage() {
           }
         `}</style>
 
-        <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 2 }}>
           <div
             data-testid="hero-headline"
             style={{
@@ -797,7 +824,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div style={{ marginTop: 56 }}>
+        <div style={{ marginTop: 56, position: "relative", zIndex: 2 }}>
           <FlowMapHero />
         </div>
       </section>
