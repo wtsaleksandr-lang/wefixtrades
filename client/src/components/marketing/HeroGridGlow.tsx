@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const ACCENT_COLORS = [
   "rgba(102,232,250,0.18)",
@@ -11,24 +11,44 @@ const GLOW_SHADOW = "0 0 12px rgba(102,232,250,0.10)";
 const CELL_TRANSITION = "background-color 0.7s ease, box-shadow 0.7s ease";
 
 interface HeroGridGlowProps {
-  rows?: number;
-  cols?: number;
   cellSize?: number;
   className?: string;
 }
 
 export default function HeroGridGlow({
-  rows = 16,
-  cols = 48,
   cellSize = 28,
   className = "",
 }: HeroGridGlowProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [grid, setGrid] = useState<{ cols: number; rows: number } | null>(null);
 
   useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    const measure = () => {
+      const parent = wrapper.parentElement;
+      if (!parent) return;
+      const { width, height } = parent.getBoundingClientRect();
+      const cols = Math.ceil(width / cellSize) + 2;
+      const rows = Math.ceil(height / cellSize) + 2;
+      setGrid((prev) => {
+        if (prev && prev.cols === cols && prev.rows === rows) return prev;
+        return { cols, rows };
+      });
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [cellSize]);
+
+  useEffect(() => {
+    if (!grid) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-    const container = containerRef.current;
+    const container = gridRef.current;
     if (!container) return;
 
     const cells = container.children;
@@ -93,40 +113,49 @@ export default function HeroGridGlow({
         }
       }
     };
-  }, []);
-
-  const totalCells = rows * cols;
+  }, [grid]);
 
   return (
     <div
-      ref={containerRef}
+      ref={wrapperRef}
       className={className}
       aria-hidden="true"
       style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${cols}, ${cellSize}px)`,
-        gridTemplateRows: `repeat(${rows}, ${cellSize}px)`,
-        width: cols * cellSize,
-        height: rows * cellSize,
         position: "absolute",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
+        inset: 0,
+        overflow: "hidden",
         pointerEvents: "none",
       }}
     >
-      {Array.from({ length: totalCells }, (_, i) => (
+      {grid && (
         <div
-          key={i}
+          ref={gridRef}
           style={{
-            width: cellSize,
-            height: cellSize,
-            boxSizing: "border-box",
-            border: "1px solid rgba(255,255,255,0.04)",
-            transition: CELL_TRANSITION,
+            display: "grid",
+            gridTemplateColumns: `repeat(${grid.cols}, ${cellSize}px)`,
+            gridTemplateRows: `repeat(${grid.rows}, ${cellSize}px)`,
+            width: grid.cols * cellSize,
+            height: grid.rows * cellSize,
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
           }}
-        />
-      ))}
+        >
+          {Array.from({ length: grid.cols * grid.rows }, (_, i) => (
+            <div
+              key={i}
+              style={{
+                width: cellSize,
+                height: cellSize,
+                boxSizing: "border-box",
+                border: "1px solid rgba(255,255,255,0.04)",
+                transition: CELL_TRANSITION,
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
