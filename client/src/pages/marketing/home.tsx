@@ -96,15 +96,6 @@ const HERO_PILLS = [
   { icon: ThumbsUp, label: "Review Boost", mobileLabel: "Review Boost" },
 ];
 
-const HERO_TRADES = [
-  "Plumbers",
-  "HVAC Contractors",
-  "Electricians",
-  "Roofers",
-  "Garage Door Pros",
-  "Painters",
-] as const;
-
 const quoteFlowSteps = [
   {
     title: "Customer clicks your Google link",
@@ -348,7 +339,6 @@ const RESPONSIVE_CSS = `
 export default function HomePage() {
   useScrollReveal();
 
-  const [tradeIndex, setTradeIndex] = useState(1);
   const HERO_TRUST_LINES: ReactNode[] = [
     "Trusted by local trade's businesses.",
     "Voted as best automation tool in Canada.",
@@ -357,22 +347,11 @@ export default function HomePage() {
   const [trustIndex, setTrustIndex] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTradeIndex((prev) => (prev + 1) % HERO_TRADES.length);
-    }, 2600);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
     const id = window.setInterval(() => {
       setTrustIndex((i) => (i + 1) % HERO_TRUST_LINES.length);
     }, 4200);
     return () => window.clearInterval(id);
   }, []);
-
-  const prevTrade = HERO_TRADES[(tradeIndex - 1 + HERO_TRADES.length) % HERO_TRADES.length];
-  const currTrade = HERO_TRADES[tradeIndex];
-  const nextTrade = HERO_TRADES[(tradeIndex + 1) % HERO_TRADES.length];
 
   useEffect(() => {
     document.title = "WeFixTrades — More Booked Jobs, Automatically";
@@ -694,114 +673,6 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              marginTop: 12,
-            }}
-          >
-            <div
-              data-testid="built-for-rotator"
-              style={{
-                position: "relative",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "8px 14px",
-                borderRadius: 999,
-                background: "rgba(255,255,255,0.05)",
-                border: `1px solid ${mkt.border}`,
-                boxShadow: "0 10px 26px rgba(0,0,0,0.20)",
-                overflow: "hidden",
-                minWidth: 260,
-                justifyContent: "center",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: mkt.textFaint,
-                  lineHeight: 1,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Built for
-              </span>
-
-              <div
-                style={{
-                  position: "relative",
-                  height: 18,
-                  width: 170,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    top: -14,
-                    left: 0,
-                    right: 0,
-                    textAlign: "center",
-                    fontSize: 11,
-                    fontWeight: 650,
-                    color: mkt.accentGlow,
-                    opacity: 0.18,
-                    transform: "scale(0.98)",
-                    filter: "blur(0.1px)",
-                    whiteSpace: "nowrap",
-                    pointerEvents: "none",
-                  }}
-                >
-                  {prevTrade}
-                </div>
-
-                <div
-                  key={currTrade}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    textAlign: "center",
-                    fontSize: 12,
-                    fontWeight: 750,
-                    color: mkt.accent,
-                    opacity: 1,
-                    transform: "translateY(0px)",
-                    transition: "opacity 220ms ease, transform 220ms ease",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {currTrade}
-                </div>
-
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: -14,
-                    left: 0,
-                    right: 0,
-                    textAlign: "center",
-                    fontSize: 11,
-                    fontWeight: 650,
-                    color: mkt.accentGlow,
-                    opacity: 0.18,
-                    transform: "scale(0.98)",
-                    filter: "blur(0.1px)",
-                    whiteSpace: "nowrap",
-                    pointerEvents: "none",
-                  }}
-                >
-                  {nextTrade}
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         <div style={{ marginTop: 56, position: "relative", zIndex: 2 }}>
