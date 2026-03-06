@@ -861,9 +861,7 @@ export default function HomePage() {
       </section>
 
       <TradeMinutesSection />
-      <SurfaceSection overlap className="py-8">
-        <TrustStrip />
-      </SurfaceSection>
+      <TrustStrip />
       <SurfaceSection overlap className="py-8">
         <ReviewsSection />
       </SurfaceSection>
@@ -996,8 +994,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section data-testid="trust-section" style={{ background: mkt.surface, padding: "112px 28px" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+      <SurfaceSection className="py-16 sm:py-20">
+        <div data-testid="trust-section" style={{ maxWidth: 1000, margin: "0 auto" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 24, marginBottom: 72 }}>
             {TRUST_BADGES.map(({ icon: Icon, text, sub }, i) => (
               <div
@@ -1053,7 +1051,7 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-      </section>
+      </SurfaceSection>
 
       <section data-testid="pricing-teaser-section" style={{ background: `linear-gradient(160deg, ${mkt.darkHover} 0%, ${mkt.dark} 100%)`, padding: "112px 28px" }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
