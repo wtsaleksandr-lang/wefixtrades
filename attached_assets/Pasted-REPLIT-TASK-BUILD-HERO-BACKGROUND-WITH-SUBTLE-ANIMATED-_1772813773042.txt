@@ -1,0 +1,236 @@
+REPLIT TASK — BUILD HERO BACKGROUND WITH SUBTLE ANIMATED GRID CUBES + CENTER SAFE ZONE
+
+GOAL
+Create a subtle animated hero background consisting of a faint grid where random squares softly light up in the website accent color (blue/teal).
+
+Important requirement:
+The center hero content area (headline + CTA buttons) must remain clean.  
+The cube animation must gradually fade out when approaching the content area, with no visible hard borders.
+
+The effect should look premium and subtle like modern SaaS landing pages.
+
+DO NOT use heavy animation libraries.  
+Use React + Tailwind + lightweight JS logic.
+
+--------------------------------------------------
+
+1. CREATE COMPONENT
+
+Create a reusable component:
+
+client/src/components/marketing/HeroGridGlow.tsx
+
+This component renders the animated background grid.
+
+Component props:
+
+rows?: number
+cols?: number
+cellSize?: number
+className?: string
+
+Default values:
+
+rows = 16
+cols = 48
+cellSize = 28
+
+--------------------------------------------------
+
+2. BASE STRUCTURE
+
+The component must be positioned behind the hero content.
+
+Structure:
+
+Hero section
+ ├─ animated grid background
+ ├─ fade mask (safe zone)
+ └─ hero content (headline, buttons)
+
+Hero content must remain above everything with higher z-index.
+
+--------------------------------------------------
+
+3. GRID DESIGN
+
+Create a CSS grid covering the hero.
+
+Each cell:
+
+width: cellSize
+height: cellSize
+border: 1px solid rgba(255,255,255,0.04)
+
+Base grid must be extremely faint.
+
+No background color by default.
+
+--------------------------------------------------
+
+4. RANDOM LIGHTING CUBES
+
+Random grid cells should softly light up.
+
+Use accent colors only.
+
+Allowed colors:
+
+rgba(47,107,255,0.22)
+rgba(95,209,220,0.18)
+rgba(47,107,255,0.14)
+rgba(95,209,220,0.26)
+
+Lighting effect:
+
+background-color: accent color  
+box-shadow: 0 0 12px rgba(47,107,255,0.12)
+
+Each active cube should fade in and fade out smoothly.
+
+Transitions:
+
+transition:
+background-color 0.7s ease,
+box-shadow 0.7s ease,
+opacity 0.7s ease
+
+--------------------------------------------------
+
+5. ANIMATION LOGIC
+
+Use lightweight JS.
+
+Maintain a list of active cells.
+
+Every 250–400ms:
+
+• randomly activate 1–2 new cells  
+• deactivate cells older than ~2 seconds  
+
+Maximum simultaneously active cells:
+
+Desktop: 10–16  
+Tablet: 8–12  
+Mobile: 5–8  
+
+Keep the effect sparse and subtle.
+
+--------------------------------------------------
+
+6. HERO SAFE ZONE (IMPORTANT)
+
+The hero headline and CTA area must stay clean.
+
+The animation must gradually fade out toward the center.
+
+Do NOT create a visible rectangle.
+
+Use a soft radial gradient mask.
+
+Add a layer ABOVE the animated grid but BELOW the hero content.
+
+Example gradient:
+
+radial-gradient(
+ellipse at center,
+rgba(15,23,28,0.95) 0%,
+rgba(15,23,28,0.80) 22%,
+rgba(15,23,28,0.55) 40%,
+rgba(15,23,28,0.20) 60%,
+rgba(15,23,28,0.05) 75%,
+rgba(15,23,28,0.00) 90%
+)
+
+This layer softly hides cubes behind the headline.
+
+--------------------------------------------------
+
+7. SAFE ZONE SIZE
+
+Place the fade mask centered on the hero.
+
+Suggested container:
+
+position: absolute  
+left: 50%  
+top: 45%  
+transform: translate(-50%, -50%)
+
+Desktop:
+
+width: 70%
+max-width: 1000px
+height: 55%
+
+Mobile:
+
+width: 92%
+height: 60%
+
+Edges must be very soft so no visible border appears.
+
+--------------------------------------------------
+
+8. EXTRA HERO GLOW
+
+Add a very subtle ambient glow behind the hero headline.
+
+Example:
+
+radial-gradient(
+circle at 50% 35%,
+rgba(47,107,255,0.10),
+transparent 45%
+)
+
+Opacity must stay very low.
+
+--------------------------------------------------
+
+9. PERFORMANCE
+
+Keep the system lightweight:
+
+• no canvas  
+• no WebGL  
+• no particle engines  
+• only div grid + simple JS  
+
+Maximum cells ~700 on desktop.
+
+--------------------------------------------------
+
+10. INSERT INTO HERO
+
+Inside the hero section:
+
+<div className="relative overflow-hidden">
+
+  <HeroGridGlow className="absolute inset-0 z-0" />
+
+  <div className="relative z-10">
+      hero headline
+      trust badge
+      feature pills
+      CTA buttons
+  </div>
+
+</div>
+
+Hero content must remain perfectly readable.
+
+--------------------------------------------------
+
+11. FINAL VISUAL RESULT
+
+The page should look like:
+
+• subtle grid everywhere  
+• random cubes softly lighting up  
+• animation visible mostly on left/right edges  
+• center content area clean and focused  
+• no visible hard mask border  
+• premium SaaS feel
+
+Implement now.
