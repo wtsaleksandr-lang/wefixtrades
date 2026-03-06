@@ -10,6 +10,7 @@ import TrustStrip from "@/components/home/TrustStrip";
 import ReviewsSection from "@/components/home/ReviewsSection";
 import TradeMinutesSection from "@/components/sections/TradeMinutesSection";
 import HeroTradeDivider from "@/components/marketing/HeroTradeDivider";
+import ServiceHighlights from "@/components/marketing/ServiceHighlights";
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
 import {
   Zap, Cpu, MessageCircle, Check,
@@ -647,6 +648,7 @@ export default function HomePage() {
           borderTopLeftRadius: 30,
           borderTopRightRadius: 30,
         }} />
+        <ServiceHighlights />
         <TradeMinutesSection />
       </div>
       <TrustStrip />

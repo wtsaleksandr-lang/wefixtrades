@@ -785,6 +785,63 @@
   }
 }
 
+/* ─── Service Highlights section ─── */
+.sh-content-fade {
+  animation: shFadeIn 450ms ease both;
+}
+.sh-visual-fade {
+  animation: shFadeIn 500ms ease both;
+}
+@keyframes shFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.sh-float-card {
+  animation: shFloat 7s ease-in-out infinite;
+}
+.sh-float-card:nth-child(2) { animation-delay: 1.5s; }
+.sh-float-card:nth-child(3) { animation-delay: 3s; }
+@keyframes shFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.sh-tab-btn:hover {
+  background: rgba(255,255,255,0.55) !important;
+}
+@media (max-width: 1024px) {
+  .sh-grid {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+  }
+  .sh-tabs {
+    flex-direction: row !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px !important;
+    padding-bottom: 4px;
+  }
+  .sh-tab-btn {
+    min-width: max-content;
+  }
+  .sh-visual {
+    padding-top: 0 !important;
+  }
+}
+@media (max-width: 640px) {
+  .service-highlights {
+    padding: 60px 20px !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sh-content-fade,
+  .sh-visual-fade {
+    animation: none !important;
+  }
+  .sh-float-card {
+    animation: none !important;
+  }
+}
+
 /* Pricing tier card hover */
 .mkt-tier-card {
   transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
