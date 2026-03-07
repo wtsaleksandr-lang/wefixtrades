@@ -90,13 +90,6 @@ const PRICING_TIERS = [
   { name: "PRO",     price: "$199", label: "Most popular",           features: ["3 calculators", "24/7 Assistant", "SMS & WhatsApp"],   border: mkt.accent,               badge: "Most Popular", badgeBg: mkt.accent },
 ];
 
-const HERO_PILLS = [
-  { icon: Zap, label: "Instant Estimates", mobileLabel: "Instant Estimates" },
-  { icon: Phone, label: "24/7 Call & Chat Answering", mobileLabel: "24/7 Call & Chat" },
-  { icon: Mail, label: "Automatic Follow-ups", mobileLabel: "Auto Follow-ups" },
-  { icon: ThumbsUp, label: "Review Boost", mobileLabel: "Review Boost" },
-];
-
 const quoteFlowSteps = [
   {
     title: "Customer clicks your Google link",
@@ -535,47 +528,6 @@ export default function HomePage() {
             </h1>
           </div>
 
-          <div
-            data-testid="hero-pills"
-            className="hero-pills-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, auto)",
-              gap: 10,
-              justifyContent: "center",
-              marginBottom: 28,
-            }}
-          >
-            {HERO_PILLS.map(({ icon: PillIcon, label, mobileLabel }) => (
-              <div
-                key={label}
-                className="hero-pill wft-interactive wft-lift"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 7,
-                  padding: "10px 16px",
-                  height: 44,
-                  borderRadius: 14,
-                  background: mkt.surface,
-                  border: `1px solid ${mkt.border}`,
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: mkt.text,
-                  boxSizing: "border-box",
-                  whiteSpace: "nowrap",
-                  cursor: "default",
-                }}
-              >
-                <PillIcon size={15} color={mkt.accent} strokeWidth={1.5} style={{ flexShrink: 0 }} />
-                <span className="hero-pill-label-full">{label}</span>
-                <span className="hero-pill-label-short" style={{ display: "none" }}>{mobileLabel}</span>
-              </div>
-            ))}
-          </div>
-
           <p
             data-testid="hero-subtext"
             className="hero-subtext"
@@ -629,10 +581,10 @@ export default function HomePage() {
 
       <HeroTradeDivider />
       <div style={{
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
+        borderTopLeftRadius: 18,
+        borderTopRightRadius: 18,
         overflow: "hidden",
-        marginTop: -22,
+        marginTop: 6,
         position: "relative",
         zIndex: 2,
       }}>
@@ -645,8 +597,8 @@ export default function HomePage() {
           background: "linear-gradient(to bottom, rgba(255,255,255,0.18), rgba(255,255,255,0))",
           pointerEvents: "none",
           zIndex: 3,
-          borderTopLeftRadius: 30,
-          borderTopRightRadius: 30,
+          borderTopLeftRadius: 18,
+          borderTopRightRadius: 18,
         }} />
         <ServiceHighlights />
         <TradeMinutesSection />
