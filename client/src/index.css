@@ -603,25 +603,26 @@
 
 /* ─── CTA arrow-slide buttons ─── */
 .cta-arrow-btn {
-  --arrow-box: 36px;
-  --arrow-gap: 4px;
-  --pad: 18px;
+  --arrow-box: 28px;
+  --arrow-gap: 6px;
+  --pad: 24px;
   display: inline-flex;
   align-items: center;
-  height: 44px;
-  border-radius: 12px;
-  font-size: 14px;
+  justify-content: center;
+  height: 48px;
+  border-radius: 14px;
+  font-size: 15px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  padding: 0 calc(var(--arrow-box) + var(--arrow-gap) * 2) 0 var(--pad);
+  padding: 0 calc(var(--arrow-box) + var(--arrow-gap) * 2 + 4px) 0 var(--pad);
   transition: background 0.35s ease, color 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease, padding 0.35s cubic-bezier(0.4,0,0.2,1);
 }
 .cta-arrow-btn:hover {
-  padding: 0 var(--pad) 0 calc(var(--arrow-box) + var(--arrow-gap) * 2);
+  padding: 0 var(--pad) 0 calc(var(--arrow-box) + var(--arrow-gap) * 2 + 4px);
 }
 .cta-arrow-btn__label {
   white-space: nowrap;
@@ -632,7 +633,7 @@
 .cta-arrow-btn__arrow {
   width: var(--arrow-box);
   height: var(--arrow-box);
-  border-radius: 8px;
+  border-radius: 7px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -654,7 +655,7 @@
 /* Dark variant (SERVICES) */
 .cta-arrow-btn--dark {
   background: #1F2A30;
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid #66E8FA;
   color: #D3E1E8;
 }
 .cta-arrow-btn--dark .cta-arrow-btn__arrow {
@@ -701,9 +702,9 @@
 
 @media (max-width: 640px) {
   .cta-arrow-btn {
-    --arrow-box: 32px;
-    --pad: 14px;
-    height: 40px;
+    --arrow-box: 26px;
+    --pad: 18px;
+    height: 44px;
     font-size: 13px;
   }
 }
