@@ -28,7 +28,7 @@ export default function HeroTradeDivider() {
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
-        gap: 20,
+        gap: 10,
       }}
     >
       {ROW_CONFIG.map((cfg, i) => (
