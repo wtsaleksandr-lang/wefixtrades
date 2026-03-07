@@ -618,11 +618,11 @@
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  padding: 0 calc(var(--arrow-box) + var(--arrow-gap) * 2 + 4px) 0 var(--pad);
+  padding: 0 calc(var(--arrow-box) + var(--arrow-gap) * 2 + 4px) 0 calc(var(--pad) - 6px);
   transition: background 0.35s ease, color 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease, padding 0.35s cubic-bezier(0.4,0,0.2,1);
 }
 .cta-arrow-btn:hover {
-  padding: 0 var(--pad) 0 calc(var(--arrow-box) + var(--arrow-gap) * 2 + 4px);
+  padding: 0 calc(var(--pad) - 6px) 0 calc(var(--arrow-box) + var(--arrow-gap) * 2 + 4px);
 }
 .cta-arrow-btn__label {
   white-space: nowrap;
