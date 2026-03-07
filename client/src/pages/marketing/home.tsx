@@ -584,7 +584,7 @@ export default function HomePage() {
         borderTopLeftRadius: 18,
         borderTopRightRadius: 18,
         overflow: "hidden",
-        marginTop: 6,
+        marginTop: -3,
         position: "relative",
         zIndex: 2,
       }}>
