@@ -2,10 +2,10 @@ import { useEffect } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, colors, shadows } from "@/theme/tokens";
-import mapguardIcon from "@assets/mapguard-icon_1772080241423.png";
-import webboostIcon from "@assets/webboost-icon_1772080241365.png";
-import reputationshieldIcon from "@assets/reputationshield-icon_1772080241309.png";
-import socialsyncIcon from "@assets/socialsync-icon_1772080241338.png";
+import mapguardIcon from "@assets/mapguard-icon_1772080241423.webp";
+import webboostIcon from "@assets/webboost-icon_1772080241365.webp";
+import reputationshieldIcon from "@assets/reputationshield-icon_1772080241309.webp";
+import socialsyncIcon from "@assets/socialsync-icon_1772080241338.webp";
 
 const services = [
   {
@@ -241,7 +241,7 @@ export default function SolutionsVisibility() {
               <div key={svc.id} style={S.card} data-testid={`card-solution-${svc.id}`}>
                 <div style={S.cardHeader}>
                   <div style={S.iconWrap}>
-                    <img src={svc.icon} alt={svc.title} style={S.icon} />
+                    <img src={svc.icon} alt={svc.title} style={S.icon} loading="lazy" />
                   </div>
                   <div style={S.titleGroup}>
                     <h2 style={S.title}>{svc.title}</h2>

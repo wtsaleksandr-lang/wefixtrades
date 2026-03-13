@@ -1,0 +1,40 @@
+{
+  "recordedAt": "2026-03-13T03:13:59.933Z",
+  "sectionOffsetTop": 7467,
+  "sectionHeight": 1401,
+  "framesRecorded": 35,
+  "scrollTriggers": 32,
+  "cardsFound": 1,
+  "cssRules": 84,
+  "savedJsFiles": [
+    "https://cdn.prod.website-files.com/66e53bf67b6fc1646ce0777e/css/effortel-new.webflow.shared.01825aaf0.min.css",
+    "https://www.googletagmanager.com/gtag/js?id=G-EFZ7RJ17X2",
+    "https://cdn.prod.website-files.com/66e53bf67b6fc1646ce0777e/js/webflow.schunk.7fe095dc13b731cf.js",
+    "https://cdn.prod.website-files.com/66e53bf67b6fc1646ce0777e/js/webflow.3d216da1.6d634d6da341eb53.js",
+    "https://www.googletagmanager.com/gtm.js?id=GTM-P9TM72S3",
+    "https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js",
+    "https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/ScrollTrigger.min.js",
+    "https://unpkg.com/lenis@1.2.0/dist/lenis.min.js",
+    "https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/CustomEase.min.js",
+    "https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/Draggable.min.js",
+    "https://cdn.jsdelivr.net/npm/@barba/prefetch@2.2.0/dist/barba-prefetch.umd.min.js",
+    "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js",
+    "https://cdn.jsdelivr.net/npm/@barba/core@2.10.3/dist/barba.umd.min.js",
+    "https://cdn.jsdelivr.net/npm/@finsweet/attributes-cmscore@1/cmscore.js",
+    "https://cdn.jsdelivr.net/npm/@finsweet/attributes-animation@1/animation.esm.js",
+    "https://js-eu1.hsadspixel.net/pixels.js",
+    "https://js-eu1.hscollectedforms.net/collectedforms.js",
+    "https://www.googletagmanager.com/gtag/js?id=AW-11484604402",
+    "https://www.googletagmanager.com/gtag/js?id=AW-11484604402&cx=c&gtm=4e63b1"
+  ],
+  "outputs": {
+    "frames": "frames/ — scroll through animation frame by frame",
+    "sectionHTML": "data/section-full.html — full markup of the section",
+    "sectionText": "data/section-text-content.txt — all copy/text",
+    "scrollTriggers": "data/scroll-triggers.json — GSAP ScrollTrigger config",
+    "liveStates": "data/live-scroll-states.jsonl — transform/opacity at each scroll position",
+    "cardContent": "data/card-text-content.json — per-card text and HTML",
+    "css": "data/section-css.json — extracted CSS rules",
+    "lenis": "data/lenis-config.json — smooth scroll config"
+  }
+}

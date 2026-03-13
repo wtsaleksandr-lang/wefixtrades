@@ -1,7 +1,9 @@
 import twilio from "twilio";
+const { validateRequest } = twilio as any;
+import type { Request } from "express";
 import { db } from "./db";
 import { smsMessages, leads } from "@shared/schema";
-import { eq, and, gte, sql } from "drizzle-orm";
+import { eq, and, gte, sql, desc } from "drizzle-orm";
 import type { InsertSmsMessage } from "@shared/schema";
 
 export function isTwilioConfigured(): boolean {
@@ -85,11 +87,35 @@ export function normalizePhone(phone: string): string {
 export async function matchLeadByPhone(fromPhone: string) {
   const normalized = normalizePhone(fromPhone);
 
+  // First try to resolve via recent SMS messages to avoid scanning the entire leads table
+  const recentMsg = await db
+    .select()
+    .from(smsMessages)
+    .where(
+      and(
+        sql`regexp_replace(${smsMessages.from_number}::text, '\\D', '', 'g') LIKE ${'%' + normalized}`,
+        sql`${smsMessages.lead_id} IS NOT NULL`,
+      ),
+    )
+    .orderBy(desc(smsMessages.created_at))
+    .limit(1);
+
+  const candidateLeadId = recentMsg[0]?.lead_id;
+
+  if (candidateLeadId) {
+    const [lead] = await db.select().from(leads).where(eq(leads.id, candidateLeadId));
+    if (lead) {
+      return lead;
+    }
+  }
+
+  // Fallback: scan a capped set of leads that have a phone
   const allLeads = await db
     .select()
     .from(leads)
     .where(sql`phone IS NOT NULL`)
-    .orderBy(sql`created_date DESC`);
+    .orderBy(desc(leads.created_date))
+    .limit(500);
 
   const match = allLeads.find((l) => {
     if (!l.phone) return false;
@@ -98,6 +124,27 @@ export async function matchLeadByPhone(fromPhone: string) {
   });
 
   return match ?? null;
+}
+
+export function verifyTwilioSignature(req: Request): boolean {
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const signature = req.header("x-twilio-signature") || "";
+  if (!authToken || !signature) return false;
+
+  const protocol = (req.headers["x-forwarded-proto"] as string) || "https";
+  const host = req.headers.host;
+  if (!host) return false;
+
+  const url = `${protocol}://${host}${req.originalUrl}`;
+
+  // Twilio sends URL-encoded form data; Express has already parsed it into req.body
+  const params = req.body ?? {};
+
+  try {
+    return validateRequest(authToken, signature, url, params);
+  } catch {
+    return false;
+  }
 }
 
 export function truncateSms(text: string, maxLen = 160): string {

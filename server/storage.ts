@@ -509,18 +509,39 @@ export class DatabaseStorage implements IStorage {
       .from(smsMessages)
       .where(eq(smsMessages.calculator_id, calculatorId));
 
-    const threads: { lead: Lead; messages: SmsMessage[] }[] = [];
+    const leadIds = threadLeads.map(t => t.leadId).filter((id): id is number => !!id);
+    if (leadIds.length === 0) return [];
 
-    for (const { leadId } of threadLeads) {
-      if (!leadId) continue;
-      const [lead] = await db.select().from(leads).where(eq(leads.id, leadId));
+    const leadRows = await db
+      .select()
+      .from(leads)
+      .where(and(eq(leads.calculator_id, calculatorId), sql`${leads.id} = ANY(${leadIds})`));
+
+    const leadById = new Map<number, Lead>();
+    for (const lead of leadRows) {
+      leadById.set(lead.id, lead);
+    }
+
+    const messages = await db
+      .select()
+      .from(smsMessages)
+      .where(and(eq(smsMessages.calculator_id, calculatorId), sql`${smsMessages.lead_id} = ANY(${leadIds})`))
+      .orderBy(smsMessages.created_at);
+
+    const messagesByLead = new Map<number, SmsMessage[]>();
+    for (const msg of messages) {
+      if (!msg.lead_id) continue;
+      const arr = messagesByLead.get(msg.lead_id) || [];
+      arr.push(msg);
+      messagesByLead.set(msg.lead_id, arr);
+    }
+
+    const threads: { lead: Lead; messages: SmsMessage[] }[] = [];
+    for (const leadId of leadIds) {
+      const lead = leadById.get(leadId);
       if (!lead) continue;
-      const messages = await db
-        .select()
-        .from(smsMessages)
-        .where(and(eq(smsMessages.lead_id, leadId), eq(smsMessages.calculator_id, calculatorId)))
-        .orderBy(smsMessages.created_at);
-      threads.push({ lead, messages });
+      const msgs = messagesByLead.get(leadId) || [];
+      threads.push({ lead, messages: msgs });
     }
 
     return threads;

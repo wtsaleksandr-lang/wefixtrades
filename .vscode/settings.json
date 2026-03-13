@@ -1,0 +1,5 @@
+{
+    "claudeCode.initialPermissionMode": "bypassPermissions",
+    "claudeCode.useCtrlEnterToSend": false,
+    "claudeCode.allowDangerouslySkipPermissions": true
+}

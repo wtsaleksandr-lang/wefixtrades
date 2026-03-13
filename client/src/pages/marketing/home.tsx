@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Link } from "wouter";
+import gsap from "gsap";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
@@ -10,7 +11,11 @@ import TrustStrip from "@/components/home/TrustStrip";
 import ReviewsSection from "@/components/home/ReviewsSection";
 import TradeMinutesSection from "@/components/sections/TradeMinutesSection";
 import HeroTradeDivider from "@/components/marketing/HeroTradeDivider";
-import ServiceHighlights from "@/components/marketing/ServiceHighlights";
+import TrustMarquee from "@/components/marketing/TrustMarquee";
+import CapabilitiesShowcase from "@/components/marketing/CapabilitiesShowcase";
+import StickyStackCards from "@/components/marketing/StickyStackCards";
+import BentoGrid from "@/components/marketing/BentoGrid";
+import FeatureCards from "@/components/marketing/FeatureCards";
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
 import {
   Zap, Cpu, MessageCircle, Check,
@@ -298,7 +303,7 @@ const RESPONSIVE_CSS = `
   .flow-node { transition: transform 0.2s ease, box-shadow 0.2s ease; }
   .flow-node:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.20) !important; }
   @media (max-width: 640px) {
-    .hero-section-responsive { padding: 56px 18px 48px !important; }
+    .hero-section-responsive { padding: 72px 18px 56px !important; }
     .hero-pills-grid { grid-template-columns: 1fr 1fr !important; gap: 6px !important; }
     .hero-pill {
       height: 34px !important;
@@ -332,27 +337,50 @@ const RESPONSIVE_CSS = `
 
 export default function HomePage() {
   useScrollReveal();
+  const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     document.title = "WeFixTrades — More Booked Jobs, Automatically";
+  }, []);
+
+  // Hero entrance stagger — Effortel style
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const el = heroRef.current;
+    if (!el) return;
+    const targets = el.querySelectorAll(".hero-enter");
+    gsap.fromTo(
+      targets,
+      { y: 36, opacity: 0 },
+      {
+        y: 0,
+        opacity: 1,
+        duration: 0.78,
+        stagger: 0.13,
+        ease: "cubic-bezier(0.526, 0.007, 0, 0.989)",
+        delay: 0.1,
+      }
+    );
   }, []);
 
   return (
     <MarketingLayout>
       <style>{RESPONSIVE_CSS}</style>
 
+      {/* Shared grid zone — covers hero + trust marquee seamlessly */}
+      <div style={{ position: "relative", background: mkt.bg, overflow: "hidden" }}>
+        <HeroGridGlow className="hero-grid-glow" />
+
       <section
         data-testid="hero-section"
         className="hero-section-responsive"
         style={{
-          background: mkt.bg,
-          padding: "98px 28px 80px",
+          background: "transparent",
+          padding: "132px 28px 56px",
           marginTop: -8,
           position: "relative",
-          overflow: "hidden",
         }}
       >
-        <HeroGridGlow className="hero-grid-glow" />
 
         <div
           aria-hidden="true"
@@ -422,12 +450,6 @@ export default function HomePage() {
             animation: wf_underline_beam 6.25s ease-in-out infinite;
             z-index: 1;
           }
-          @media (prefers-reduced-motion: reduce) {
-            .wf-underline::after {
-              animation: none !important;
-              opacity: 0 !important;
-            }
-          }
           @keyframes wf_shimmer_sweep {
             0%   { transform: translateX(-140%) skewX(-18deg); opacity: 0; }
             8%   { opacity: 0.85; }
@@ -468,12 +490,13 @@ export default function HomePage() {
           }
         `}</style>
 
-        <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 2 }}>
+        <div ref={heroRef} style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 2 }}>
           <div
             data-testid="hero-headline"
+            className="hero-enter"
             style={{
               textAlign: "center",
-              marginBottom: 24,
+              marginBottom: 36,
             }}
           >
             <h1
@@ -530,12 +553,12 @@ export default function HomePage() {
 
           <p
             data-testid="hero-subtext"
-            className="hero-subtext"
+            className="hero-subtext hero-enter"
             style={{
               maxWidth: 640,
               margin: "0 auto",
-              marginTop: 16,
-              marginBottom: 36,
+              marginTop: 24,
+              marginBottom: 52,
               fontSize: 16,
               lineHeight: 1.6,
               fontWeight: 450,
@@ -547,7 +570,7 @@ export default function HomePage() {
             Customers get answers. You get booked. Everything runs in the background.
           </p>
 
-          <div className="hero-cta-row" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+          <div className="hero-cta-row hero-enter" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 12 }}>
             <Link
               href="/product"
               data-testid="button-services-hero"
@@ -574,33 +597,25 @@ export default function HomePage() {
 
         </div>
 
-        <div style={{ marginTop: 56, position: "relative", zIndex: 2 }}>
+        <div style={{ marginTop: 24, position: "relative", zIndex: 2 }}>
           <FlowMapHero />
         </div>
       </section>
 
+      <TrustMarquee />
+      </div>{/* end shared grid zone */}
       <HeroTradeDivider />
+      <CapabilitiesShowcase />
+      <StickyStackCards />
+      <BentoGrid />
+      <FeatureCards />
       <div style={{
-        borderTopLeftRadius: 18,
-        borderTopRightRadius: 18,
+        borderRadius: "28px 28px 0 0",
         overflow: "hidden",
-        marginTop: -3,
+        marginTop: -28,
         position: "relative",
-        zIndex: 2,
+        zIndex: 3,
       }}>
-        <div style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 30,
-          background: "linear-gradient(to bottom, rgba(255,255,255,0.18), rgba(255,255,255,0))",
-          pointerEvents: "none",
-          zIndex: 3,
-          borderTopLeftRadius: 18,
-          borderTopRightRadius: 18,
-        }} />
-        <ServiceHighlights />
         <TradeMinutesSection />
       </div>
       <TrustStrip />
@@ -608,7 +623,7 @@ export default function HomePage() {
         <ReviewsSection />
       </SurfaceSection>
 
-      <section data-testid="workflow-section" style={{ background: mkt.surfaceAlt, padding: "112px 28px" }}>
+      <section data-testid="workflow-section" style={{ background: mkt.surfaceAlt, padding: "112px 28px", borderRadius: "28px 28px 0 0", marginTop: -28, position: "relative", zIndex: 4 }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <div data-reveal="fade-up" style={{ marginBottom: 48 }}>
             <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 16 }}>
@@ -629,6 +644,10 @@ export default function HomePage() {
         style={{
           padding: "100px 28px",
           background: mkt.bg,
+          borderRadius: "28px 28px 0 0",
+          marginTop: -28,
+          position: "relative",
+          zIndex: 5,
         }}
       >
         <div
@@ -670,7 +689,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section data-testid="tools-section" style={{ background: mkt.surfaceAlt, padding: "112px 28px" }}>
+      <section data-testid="tools-section" style={{ background: mkt.surfaceAlt, padding: "112px 28px", borderRadius: "28px 28px 0 0", marginTop: -28, position: "relative", zIndex: 6 }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <div data-reveal="fade-up" style={{ marginBottom: 48, textAlign: "center" }}>
             <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 16 }}>

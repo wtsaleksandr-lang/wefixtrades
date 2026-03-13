@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { useState, useEffect, useRef, Fragment, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
 import { Menu, X, ChevronDown, Workflow, MessageSquare, PhoneCall, Layers, MapPinned, Wrench, RefreshCcw, ShieldCheck, Layout, Rocket, Calculator, FileText, Code2, Share2, Sparkles, Search, Zap, Home, Fan } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
+import { useLenis } from "@/hooks/useLenis";
 import AnimatedLogo from "./AnimatedLogo";
 import { mkt, colors } from "@/theme/tokens";
 import { FOOTER_LINKS } from "@/site/siteMap";
@@ -103,8 +104,23 @@ function NavItemDesktopV2({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasDropdown = !!(children && children.length > 0);
   const [rect, setRect] = useState<DOMRect | null>(null);
+
+  const openDropdown = () => {
+    if (!hasDropdown) return;
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    setOpen(true);
+  };
+
+  const scheduleClose = () => {
+    closeTimerRef.current = setTimeout(() => setOpen(false), 120);
+  };
+
+  const cancelClose = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+  };
 
   const measure = () => {
     const el = headerRef.current;
@@ -169,36 +185,47 @@ function NavItemDesktopV2({
   const dropdownNode =
     hasDropdown && open && rect
       ? createPortal(
-          <div
+          <Fragment>
+            {/* Page blur overlay */}
+            <div
+              style={{
+                position: "fixed",
+                top: rect.bottom,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 9998,
+                backdropFilter: "blur(6px)",
+                WebkitBackdropFilter: "blur(6px)",
+                background: "rgba(0,0,0,0.28)",
+                animation: "mktDropdownOverlayIn 0.2s ease-out forwards",
+              }}
+              onClick={() => setOpen(false)}
+            />
+            <div
+            className="mkt-dropdown-tray"
+            onMouseEnter={cancelClose}
+            onMouseLeave={scheduleClose}
             style={{
               position: "fixed",
-              left: "50%",
-              top: rect.bottom + 2,
-              width: "min(1100px, calc(100vw - 24px))",
-              maxWidth: "min(1100px, calc(100vw - 24px))",
-              transform: "translateX(-50%) translateY(0) scale(1)",
+              left: rect.left + rect.width / 2,
+              top: rect.bottom + 6,
+              width: Math.min(1080, rect.width),
+              maxWidth: "calc(100vw - 24px)",
+              // translateX(-50%) centers the panel on the nav bar's midpoint.
+              // Kept here in inline style so it's always applied, even before
+              // the CSS entrance animation starts.
+              transform: "translateX(-50%)",
 
-              opacity: 1,
-              transformOrigin: "top center",
-              transition: "opacity 160ms ease, transform 160ms ease",
-
-              background: "rgba(34,40,42,0.92)",
-              backdropFilter: "blur(18px) saturate(1.25)",
-              WebkitBackdropFilter: "blur(18px) saturate(1.25)",
-              borderRadius: 20,
-              border: `1px solid ${mkt.border}`,
-              boxShadow:
-                "0 10px 20px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04)",
-
-              padding: "4px",
+              padding: 10,
               zIndex: 9999,
-              overflow: "hidden",
 
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gridTemplateColumns: "repeat(3, 1fr)",
               gridAutoFlow: "row",
-              gap: 10,
+              gap: 8,
 
+              boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
               outline: DEBUG_DROPDOWN ? "3px solid rgba(0,120,255,0.85)" : "none",
             }}
           >
@@ -206,67 +233,35 @@ function NavItemDesktopV2({
               <Link
                 key={ch + cl}
                 href={ch}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "9px 10px",
-                  borderRadius: 12,
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: mkt.text,
-                  textDecoration: "none",
-                  background: mkt.surface,
-                  border: `1px solid ${mkt.border}`,
-                  transition:
-                    "transform 140ms ease, box-shadow 140ms ease, background 140ms ease",
-                }}
-                onMouseEnter={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.background = "rgba(255,255,255,0.08)";
-                  el.style.boxShadow = "0 10px 24px rgba(0,0,0,0.25)";
-                  el.style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.background = mkt.surface;
-                  el.style.boxShadow = "none";
-                  el.style.transform = "translateY(0px)";
-                }}
+                className="mkt-menu-card"
+                onClick={() => setOpen(false)}
               >
-                {icon && (
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 12,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: mkt.accent,
-                      background: mkt.accentTint,
-                      border: `1px solid rgba(102,232,250,0.15)`,
-                      flexShrink: 0,
-                    }}
-                    aria-hidden
-                  >
-                    {icon}
-                  </div>
-                )}
+                {/* Icon badge */}
+                <div
+                  className="mkt-menu-card-icon"
+                  style={{
+                    color: mkt.accent,
+                    background: mkt.accentTint,
+                    border: `1px solid rgba(102,232,250,0.18)`,
+                  }}
+                  aria-hidden
+                >
+                  {icon ?? null}
+                </div>
 
+                {/* Text */}
                 <div style={{ minWidth: 0 }}>
                   <div
                     style={{
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: 650,
                       color: mkt.text,
                       lineHeight: 1.2,
-                      marginBottom: 1,
+                      marginBottom: 3,
                     }}
                   >
                     {cl}
                   </div>
-
                   {description && (
                     <div
                       style={{
@@ -282,7 +277,8 @@ function NavItemDesktopV2({
                 </div>
               </Link>
             ))}
-          </div>,
+          </div>
+          </Fragment>,
           document.body
         )
       : null;
@@ -295,8 +291,8 @@ function NavItemDesktopV2({
           aria-haspopup="true"
           onClick={() => setOpen((o) => !o)}
           style={topItemBase}
-          onMouseEnter={(e) => topHoverOn(e.currentTarget as HTMLElement)}
-          onMouseLeave={(e) => topHoverOff(e.currentTarget as HTMLElement)}
+          onMouseEnter={(e) => { topHoverOn(e.currentTarget as HTMLElement); openDropdown(); }}
+          onMouseLeave={(e) => { topHoverOff(e.currentTarget as HTMLElement); scheduleClose(); }}
         >
           {label}
           <ChevronDown
@@ -473,6 +469,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
 }
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
+  useLenis();
   const [menuOpen, setMenuOpen] = useState(false);
   const navCardRef = useRef<HTMLDivElement>(null);
   const [menuTop, setMenuTop] = useState<number>(92);

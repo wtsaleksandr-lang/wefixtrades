@@ -387,27 +387,14 @@
 
 /* ==========================================
    MARKETING SCROLL REVEAL & ANIMATIONS
+   GSAP handles initial hidden state + animation.
+   CSS only provides a fallback for SSR/no-JS.
    ========================================== */
 
 [data-reveal] {
-  opacity: 0;
-  transition: opacity 0.6s cubic-bezier(0.4,0,0.2,1), transform 0.6s cubic-bezier(0.4,0,0.2,1);
+  /* GSAP sets opacity/transform inline — no CSS transition needed */
+  will-change: transform, opacity;
 }
-[data-reveal="fade-up"] { transform: translateY(10px); }
-[data-reveal="fade-left"] { transform: translateX(-10px); }
-[data-reveal="fade-right"] { transform: translateX(10px); }
-[data-reveal="scale"] { transform: scale(0.98); }
-[data-reveal].is-visible { opacity: 1 !important; transform: none !important; }
-
-[data-delay="100"] { transition-delay: 0.1s; }
-[data-delay="120"] { transition-delay: 0.12s; }
-[data-delay="150"] { transition-delay: 0.15s; }
-[data-delay="200"] { transition-delay: 0.2s; }
-[data-delay="250"] { transition-delay: 0.25s; }
-[data-delay="300"] { transition-delay: 0.3s; }
-[data-delay="400"] { transition-delay: 0.4s; }
-[data-delay="500"] { transition-delay: 0.5s; }
-[data-delay="600"] { transition-delay: 0.6s; }
 
 /* Marketing navbar transitions */
 .mkt-nav {
@@ -709,13 +696,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .cta-arrow-btn,
-  .cta-arrow-btn__arrow,
-  .cta-arrow-btn__label {
-    transition: none !important;
-  }
-}
 
 /* ─── Hero trade divider marquee ─── */
 .hero-trade-divider {
@@ -731,9 +711,13 @@
 }
 .htd-scroll-left {
   animation: htdScrollLeft 38s linear infinite;
+  will-change: transform;
+  transform: translateZ(0);
 }
 .htd-scroll-right {
   animation: htdScrollRight 32s linear infinite;
+  will-change: transform;
+  transform: translateZ(0);
 }
 @media (max-width: 1024px) {
   .hero-trade-divider { height: 150px; }
@@ -779,12 +763,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .htd-scroll-left,
-  .htd-scroll-right {
-    animation: none !important;
-  }
-}
 
 /* ─── Service Highlights section ─── */
 .sh-content-fade {
@@ -957,9 +935,146 @@
   z-index: 1;
 }
 
+/* ========== TRUST MARQUEE ========== */
+
+.clients__stopper {
+  width: 100%;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+}
+
+.clients_track {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 45s linear infinite;
+  will-change: transform;
+}
+
+.clients__stopper:hover .clients_track {
+  animation-play-state: paused;
+}
+
+.clients__collection {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.client__card {
+  width: 186px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0 20px;
+  opacity: 0.65;
+  transition: opacity 0.2s ease;
+}
+
+.client__card:hover {
+  opacity: 1;
+}
+
+.client__card svg {
+  max-width: 140px;
+  max-height: 44px;
+  width: auto;
+  height: auto;
+}
+
+@keyframes marquee-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+
+/* ========== NAV DROPDOWN MENU CARDS ========== */
+
+/* Outer dropdown tray — faint gray, "cards on a tray" */
+.mkt-dropdown-tray {
+  background: rgba(180, 185, 183, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: mktDropdownIn 0.2s ease-out forwards;
+}
+
+@keyframes mktDropdownIn {
+  from { opacity: 0; transform: translateX(-50%) scale(0.97) translateY(-8px); }
+  to   { opacity: 1; transform: translateX(-50%) scale(1)    translateY(0px); }
+}
+/* Note: translateX(-50%) is also set inline on the element so centering
+   works regardless of animation fill-mode browser quirks */
+
+@keyframes mktDropdownOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Individual dark card */
+.mkt-menu-card {
+  background: #181d1c;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 16px 14px;
+  cursor: pointer;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+/* Dot pattern as ::before */
+.mkt-menu-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.065) 1px, transparent 1px);
+  background-size: 18px 18px;
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* All card content above dot layer */
+.mkt-menu-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Card hover */
+.mkt-menu-card:hover {
+  background: #111615;
+  border-color: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+/* Icon badge inside card */
+.mkt-menu-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mkt-menu-card:hover .mkt-menu-card-icon {
+  transform: scale(1.08) translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+}
+
+
 /* Reduced motion overrides */
 @media (prefers-reduced-motion: reduce) {
-  [data-reveal] { opacity: 1 !important; transform: none !important; transition: none !important; }
+  [data-reveal] { opacity: 1 !important; transform: none !important; }
   .mkt-float, .mkt-ticker-track { animation: none !important; }
   .mkt-cursor { animation: none !important; opacity: 1; }
   .wft-shimmer::before { animation: none !important; }

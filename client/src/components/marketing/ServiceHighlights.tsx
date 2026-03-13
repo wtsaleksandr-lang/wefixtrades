@@ -8,6 +8,7 @@ const TABS = [
     icon: Phone,
     iconBg: "rgba(250,78,29,0.12)",
     iconColor: "#FA4E1D",
+    fillColor: "rgba(250,78,29,0.14)",
     title: "Calls handled instantly",
     desc: "When customers call, they get a response right away — even when you're on the job. Every opportunity is captured and organized.",
     cards: [
@@ -22,6 +23,7 @@ const TABS = [
     icon: FileText,
     iconBg: "rgba(250,190,40,0.14)",
     iconColor: "#D4A017",
+    fillColor: "rgba(250,190,40,0.18)",
     title: "Quotes delivered immediately",
     desc: "Customers can request pricing directly from your website without waiting for a callback.",
     cards: [
@@ -36,6 +38,7 @@ const TABS = [
     icon: Star,
     iconBg: "rgba(16,185,129,0.12)",
     iconColor: "#10B981",
+    fillColor: "rgba(16,185,129,0.14)",
     title: "Reviews collected automatically",
     desc: "After the job is done, customers are prompted to leave a review, helping build a stronger reputation over time.",
     cards: [
@@ -50,6 +53,7 @@ const TABS = [
     icon: MapPin,
     iconBg: "rgba(102,232,250,0.14)",
     iconColor: "#54A1AB",
+    fillColor: "rgba(102,232,250,0.16)",
     title: "Stay visible where customers search",
     desc: "Your business information and customer feedback stay active and up to date, helping more customers find you.",
     cards: [
@@ -89,10 +93,6 @@ export default function ServiceHighlights() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [startCycle]);
 
-  const handleClick = (i: number) => {
-    startCycle(i);
-  };
-
   const tab = TABS[active];
 
   return (
@@ -105,153 +105,194 @@ export default function ServiceHighlights() {
         position: "relative",
       }}
     >
-      <div
-        style={{
-          maxWidth: 1120,
-          margin: "0 auto",
-        }}
-      >
+      <style>{`
+        .sh-tab-btn {
+          transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+        .sh-tab-btn:hover {
+          background: rgba(255,255,255,0.55) !important;
+        }
+        .sh-content-fade {
+          animation: shFadeIn 0.35s ease forwards;
+        }
+        @keyframes shFadeIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 700px) {
+          .sh-tab-row { flex-wrap: wrap !important; justify-content: flex-start !important; }
+          .sh-tab-btn { flex: 1 1 calc(50% - 6px) !important; }
+          .sh-panel-grid { grid-template-columns: 1fr !important; }
+          .sh-cards-col { justify-content: center !important; }
+        }
+      `}</style>
+
+      <div style={{ maxWidth: 1120, margin: "0 auto" }}>
+
+        {/* ── eyebrow ───────────────────────────────────────── */}
         <div
-          className="sh-grid"
           style={{
-            display: "grid",
-            gridTemplateColumns: "220px 1fr 320px",
-            gap: 64,
-            alignItems: "start",
+            fontSize: 12,
+            letterSpacing: "0.18em",
+            fontWeight: 600,
+            textTransform: "uppercase" as const,
+            color: "rgba(15,30,35,0.50)",
+            marginBottom: 18,
+            textAlign: "center",
           }}
         >
-          <div className="sh-tabs" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {TABS.map((t, i) => {
-              const Icon = t.icon;
-              const isActive = i === active;
-              return (
-                <button
-                  key={t.key}
-                  data-testid={`sh-tab-${t.key}`}
-                  onClick={() => handleClick(i)}
-                  className="sh-tab-btn"
-                  style={{
-                    position: "relative",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "14px 18px",
-                    borderRadius: 16,
-                    background: isActive ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.40)",
-                    border: `1px solid ${isActive ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.50)"}`,
-                    cursor: "pointer",
-                    overflow: "hidden",
-                    textAlign: "left",
-                    width: "100%",
-                    transition: "background 0.3s ease, border-color 0.3s ease",
-                  }}
-                >
-                  {isActive && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: `${progress * 100}%`,
-                        background: "linear-gradient(90deg, rgba(95,209,220,0.25), rgba(47,107,255,0.25))",
-                        borderRadius: "inherit",
-                        transition: "width 60ms linear",
-                        pointerEvents: "none",
-                      }}
-                    />
-                  )}
+          Built for trades
+        </div>
+
+        {/* ── tab bar ───────────────────────────────────────── */}
+        <div
+          className="sh-tab-row"
+          role="tablist"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+            marginBottom: 20,
+          }}
+        >
+          {TABS.map((t, i) => {
+            const Icon = t.icon;
+            const isActive = i === active;
+            return (
+              <button
+                key={t.key}
+                role="tab"
+                aria-selected={isActive}
+                data-testid={`sh-tab-${t.key}`}
+                onClick={() => startCycle(i)}
+                className="sh-tab-btn"
+                style={{
+                  position: "relative",
+                  overflow: "hidden",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "8px 16px 8px 8px",
+                  borderRadius: 14,
+                  background: isActive
+                    ? "rgba(255,255,255,0.45)"
+                    : "rgba(255,255,255,0.30)",
+                  border: `1px solid ${isActive
+                    ? "rgba(255,255,255,0.75)"
+                    : "rgba(255,255,255,0.45)"}`,
+                  boxShadow: isActive
+                    ? "0 2px 12px rgba(0,0,0,0.08)"
+                    : "none",
+                  cursor: "pointer",
+                  textAlign: "left" as const,
+                  outline: "none",
+                }}
+              >
+                {isActive && (
                   <div
                     style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 10,
-                      background: t.iconBg,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                      position: "relative",
-                      zIndex: 1,
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: `${progress * 100}%`,
+                      background: t.fillColor,
+                      borderRadius: "inherit",
+                      transition: "width 60ms linear",
+                      pointerEvents: "none",
+                      zIndex: 0,
                     }}
-                  >
-                    <Icon size={18} color={t.iconColor} strokeWidth={1.8} />
-                  </div>
-                  <span
-                    style={{
-                      fontSize: 13,
-                      letterSpacing: "0.12em",
-                      fontWeight: 600,
-                      textTransform: "uppercase" as const,
-                      color: "#1C2B33",
-                      position: "relative",
-                      zIndex: 1,
-                    }}
-                  >
-                    {t.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                  />
+                )}
+                <div
+                  style={{
+                    position: "relative",
+                    zIndex: 1,
+                    width: 42,
+                    height: 42,
+                    borderRadius: 12,
+                    background: t.iconBg,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Icon size={20} color={t.iconColor} strokeWidth={1.8} />
+                </div>
+                <span
+                  style={{
+                    position: "relative",
+                    zIndex: 1,
+                    fontSize: 13,
+                    letterSpacing: "0.12em",
+                    fontWeight: 600,
+                    textTransform: "uppercase" as const,
+                    color: "#1C2B33",
+                  }}
+                >
+                  {t.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-          <div className="sh-content" style={{ paddingTop: 8 }}>
-            <div
-              style={{
-                fontSize: 12,
-                letterSpacing: "0.18em",
-                fontWeight: 600,
-                textTransform: "uppercase" as const,
-                color: "rgba(15,30,35,0.50)",
-                marginBottom: 18,
-              }}
-            >
-              Built for trades
-            </div>
-            <div
-              key={tab.key}
-              className="sh-content-fade"
-            >
+        {/* ── content panel ─────────────────────────────────── */}
+        <div
+          style={{
+            background: "rgba(255,255,255,0.55)",
+            borderRadius: 20,
+            border: "1px solid rgba(255,255,255,0.65)",
+            padding: "48px 52px",
+            boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+          }}
+        >
+          <div
+            className="sh-panel-grid"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "2fr 3fr",
+              gap: 48,
+              alignItems: "center",
+            }}
+          >
+            {/* left: text */}
+            <div key={tab.key} className="sh-content-fade">
               <h2
                 style={{
-                  fontSize: "clamp(28px, 3.5vw, 44px)",
-                  fontWeight: 600,
+                  fontSize: "clamp(22px, 2.8vw, 32px)",
+                  fontWeight: 700,
                   lineHeight: 1.2,
                   color: "#0F1E23",
-                  marginBottom: 18,
                   letterSpacing: "-0.02em",
+                  margin: "0 0 16px",
                 }}
               >
                 {tab.title}
               </h2>
               <p
                 style={{
-                  fontSize: 18,
-                  lineHeight: 1.55,
-                  maxWidth: 520,
-                  color: "rgba(15,30,35,0.70)",
+                  fontSize: 16,
+                  lineHeight: 1.6,
+                  color: "rgba(15,30,35,0.65)",
                   margin: 0,
+                  maxWidth: 420,
                 }}
               >
                 {tab.desc}
               </p>
             </div>
-          </div>
 
-          <div className="sh-visual" style={{ paddingTop: 16 }}>
+            {/* right: cards */}
             <div
-              key={tab.key}
-              className="sh-visual-fade"
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-              }}
+              key={`${tab.key}-cards`}
+              className="sh-content-fade sh-cards-col"
+              style={{ display: "flex", flexDirection: "column", gap: 14 }}
             >
               {tab.cards.map((card, ci) => (
                 <div
                   key={ci}
-                  className="sh-float-card"
                   style={{
                     background: "rgba(255,255,255,0.75)",
                     border: "1px solid rgba(255,255,255,0.65)",
@@ -261,7 +302,6 @@ export default function ServiceHighlights() {
                     display: "flex",
                     alignItems: "center",
                     gap: 12,
-                    animationDelay: `${ci * 0.8}s`,
                   }}
                 >
                   <div
@@ -273,13 +313,7 @@ export default function ServiceHighlights() {
                       flexShrink: 0,
                     }}
                   />
-                  <span
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 500,
-                      color: "#1C2B33",
-                    }}
-                  >
+                  <span style={{ fontSize: 15, fontWeight: 500, color: "#1C2B33" }}>
                     {card.text}
                   </span>
                 </div>
@@ -287,6 +321,7 @@ export default function ServiceHighlights() {
             </div>
           </div>
         </div>
+
       </div>
     </section>
   );

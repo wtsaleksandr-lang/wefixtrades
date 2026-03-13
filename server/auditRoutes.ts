@@ -150,7 +150,7 @@ router.post("/pagespeed", async (req: Request, res: Response) => {
     const url = normalizeUrl(urlRaw);
     if (!url) return safeJsonError(res, 400, "Invalid url");
 
-    async function run(strategy: "mobile" | "desktop") {
+    const run = async (strategy: "mobile" | "desktop") => {
       const endpoint =
         `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?` +
         `url=${encodeURIComponent(url)}` +

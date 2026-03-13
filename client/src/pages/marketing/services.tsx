@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, colors, shadows } from "@/theme/tokens";
-import voiceAssistantIcon from "@assets/voice-assistant-icon_1772080241394.png";
-import chatAssistantIcon from "@assets/chat-assistant-icon_1772080241379.png";
-import webboostIcon from "@assets/webboost-icon_1772080241365.png";
-import webcareIcon from "@assets/webcare-icon_1772080241410.png";
-import mapguardIcon from "@assets/mapguard-icon_1772080241423.png";
-import calendarIcon from "@assets/calendar-icon_1772080241291.png";
-import sitelaunchIcon from "@assets/sitelaunch-icon_1772080241325.png";
-import quickquoteIcon from "@assets/quickquote-icon_1772080241349.png";
-import socialsyncIcon from "@assets/socialsync-icon_1772080241338.png";
-import reputationshieldIcon from "@assets/reputationshield-icon_1772080241309.png";
+import voiceAssistantIcon from "@assets/voice-assistant-icon_1772080241394.webp";
+import chatAssistantIcon from "@assets/chat-assistant-icon_1772080241379.webp";
+import webboostIcon from "@assets/webboost-icon_1772080241365.webp";
+import webcareIcon from "@assets/webcare-icon_1772080241410.webp";
+import mapguardIcon from "@assets/mapguard-icon_1772080241423.webp";
+import calendarIcon from "@assets/calendar-icon_1772080241291.webp";
+import sitelaunchIcon from "@assets/sitelaunch-icon_1772080241325.webp";
+import quickquoteIcon from "@assets/quickquote-icon_1772080241349.webp";
+import socialsyncIcon from "@assets/socialsync-icon_1772080241338.webp";
+import reputationshieldIcon from "@assets/reputationshield-icon_1772080241309.webp";
 
 export default function ServicesPage() {
   useEffect(() => {
@@ -322,7 +322,7 @@ export default function ServicesPage() {
             {services.map(svc => (
               <div key={svc.id} style={s.serviceCard} data-testid={svc.testid}>
                 <div style={s.iconWrap}>
-                  <img src={svc.img} alt={svc.title} style={s.serviceIcon} />
+                  <img src={svc.img} alt={svc.title} style={s.serviceIcon} loading="lazy" />
                 </div>
                 <h3 style={s.serviceTitle}>{svc.title}</h3>
                 <p style={s.serviceDesc}>{svc.desc}</p>

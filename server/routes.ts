@@ -6,7 +6,7 @@ import { z } from "zod";
 import OpenAI from "openai";
 import Stripe from "stripe";
 import { PRICING_TYPES, validatePricingConfig, FAMILY_LABELS, FAMILY_DESCRIPTIONS } from "@shared/pricingConfig";
-import { pricingIntakeSchema, sampleQuoteSchema, type PricingDraftJob, type BookingSettings } from "@shared/schema";
+import { pricingIntakeSchema, sampleQuoteSchema, calculatorSettingsSchema, type PricingDraftJob, type BookingSettings } from "@shared/schema";
 import { generatePricingConfigDraft } from "./aiPricingAgent";
 import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from "@shared/slugUtils";
 import auditRouter from "./auditRoutes";
@@ -14,11 +14,11 @@ import { sendBookingConfirmationToCustomer, sendBookingNotificationToBusiness } 
 import { buildSystemPrompt, runChatCompletion, type AgentType } from "./aiChatEngine";
 import {
   isTwilioConfigured,
-  sendSMS,
   checkRateLimit,
   storeSmsMessage,
   matchLeadByPhone,
   truncateSms,
+  verifyTwilioSignature,
 } from "./twilioClient";
 
 const openai = new OpenAI({
@@ -353,6 +353,15 @@ Return ONLY the JSON pricing config object.`;
       const pricingValidation = validatePricingConfig(parsed.data.pricing_config);
       const validatedPricingConfig = pricingValidation.config;
 
+      let validatedSettings = parsed.data.calculator_settings || null;
+      if (parsed.data.calculator_settings) {
+        try {
+          validatedSettings = calculatorSettingsSchema.parse(parsed.data.calculator_settings);
+        } catch (err: any) {
+          return res.status(400).json({ error: "Invalid calculator_settings", details: err?.message });
+        }
+      }
+
       const calculator = await storage.createCalculator({
         slug,
         business_name: parsed.data.business_name,
@@ -363,7 +372,7 @@ Return ONLY the JSON pricing config object.`;
         pricing_config: validatedPricingConfig,
         primary_color: parsed.data.primary_color || "#6366f1",
         theme_overrides: parsed.data.theme_overrides || null,
-        calculator_settings: parsed.data.calculator_settings || null,
+        calculator_settings: validatedSettings,
         edit_token,
         token_expires_at,
       });
@@ -624,6 +633,18 @@ Return ONLY the JSON pricing config object.`;
       if (updates.pricing_config) {
         const pricingValidation = validatePricingConfig(updates.pricing_config);
         updates.pricing_config = pricingValidation.config;
+      }
+
+      if (updates.calculator_settings) {
+        const currentSettings = (calculator.calculator_settings as any) || {};
+        try {
+          updates.calculator_settings = calculatorSettingsSchema.parse({
+            ...currentSettings,
+            ...updates.calculator_settings,
+          });
+        } catch (err: any) {
+          return res.status(400).json({ error: "Invalid calculator_settings", details: err?.message });
+        }
       }
 
       const updated = await storage.updateCalculator(calculator.id, updates);
@@ -1657,6 +1678,27 @@ Return ONLY the JSON pricing config object.`;
 
       const calc = await storage.getCalculatorById(booking.calculator_id);
 
+      const settings = (calc?.calculator_settings as any) || {};
+      const bookingSettings = settings.booking_settings || {};
+      const stripeAccountId = bookingSettings.stripe_account_id;
+
+      if (!stripeAccountId) {
+        return res.status(400).send("Stripe not connected for this booking");
+      }
+
+      const session = await stripe.checkout.sessions.retrieve(sessionId, {
+        stripeAccount: stripeAccountId,
+      });
+
+      if (session.payment_status !== "paid") {
+        return res.status(400).send("Payment not completed");
+      }
+
+      const expectedCents = (booking.deposit_amount || 0) * 100;
+      if (session.amount_total && expectedCents > 0 && session.amount_total !== expectedCents) {
+        return res.status(400).send("Payment amount mismatch");
+      }
+
       await storage.updateBooking(booking.id, {
         status: "confirmed",
         deposit_paid: true,
@@ -2098,6 +2140,12 @@ Return ONLY the JSON pricing config object.`;
     };
 
     try {
+      const valid = verifyTwilioSignature(req);
+      if (!valid) {
+        res.set("Content-Type", "text/xml");
+        return res.status(403).send("<Response></Response>");
+      }
+
       const from: string = req.body?.From || "";
       const body: string = req.body?.Body || "";
       const messageSid: string = req.body?.MessageSid || "";
@@ -2162,7 +2210,6 @@ Return ONLY the JSON pricing config object.`;
         tradeType: calculator?.trade_type,
         trainingProfile,
         pricingConfig: calculator?.pricing_config as Record<string, any>,
-        channel,
       }) + "\n\nIMPORTANT: This is an SMS/WhatsApp conversation. Keep ALL replies under 160 characters. Be very concise.";
 
       const chatMessages = [{ role: "user" as const, content: body }];

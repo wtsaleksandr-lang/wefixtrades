@@ -37,7 +37,7 @@ export function log(message: string, source = "express") {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  let capturedJsonResponse: unknown;
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
@@ -47,14 +47,27 @@ app.use((req, res, next) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
+    if (!path.startsWith("/api")) return;
 
-      log(logLine);
+    let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+
+    if (capturedJsonResponse && process.env.LOG_LEVEL === "debug") {
+      if (typeof capturedJsonResponse === "object" && capturedJsonResponse !== null) {
+        const obj = capturedJsonResponse as Record<string, unknown>;
+        const keys = Object.keys(obj);
+        const sample: Record<string, string> = {};
+        for (const key of keys.slice(0, 5)) {
+          const val = obj[key];
+          const type = Array.isArray(val) ? "array" : typeof val;
+          sample[key] = type;
+        }
+        logLine += ` :: keys=${JSON.stringify(keys.slice(0, 5))} sampleTypes=${JSON.stringify(sample)}`;
+      } else {
+        logLine += ` :: type=${typeof capturedJsonResponse}`;
+      }
     }
+
+    log(logLine);
   });
 
   next();
