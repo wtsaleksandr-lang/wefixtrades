@@ -5,12 +5,12 @@ const TRADES = [
   "FENCING", "DRYWALL", "CONCRETE", "CLEANING", "LANDSCAPING",
 ];
 
-const SPACER = "\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0";
+const SPACER = "\u00A0\u00A0\u00A0\u00A0";
 const rowText = TRADES.join(SPACER) + SPACER;
 
 const ROW_CONFIG: { opacity: number; dur: string; reverse: boolean }[] = [
-  { opacity: 0.16, dur: "32s", reverse: false },
-  { opacity: 0.22, dur: "36s", reverse: true },
+  { opacity: 0.18, dur: "32s", reverse: false },
+  { opacity: 0.28, dur: "36s", reverse: true },
   { opacity: 0.14, dur: "40s", reverse: false },
 ];
 
@@ -28,7 +28,10 @@ export default function HeroTradeDivider() {
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
-        gap: 5,
+        gap: 3,
+        paddingTop: 6,
+        paddingBottom: 6,
+        height: 72,
       }}
     >
       {ROW_CONFIG.map((cfg, i) => (
@@ -37,12 +40,13 @@ export default function HeroTradeDivider() {
           className="hero-trade-divider__row"
           style={{
             whiteSpace: "nowrap",
-            fontSize: "clamp(14px, 2vw, 20px)",
-            fontWeight: 500,
-            letterSpacing: "0.12em",
+            fontSize: "clamp(11px, 1.4vw, 15px)",
+            fontWeight: 600,
+            letterSpacing: "0.22em",
+            fontFamily: "'Space Grotesk', 'DM Sans', system-ui, sans-serif",
             color: `rgba(102,232,250,${cfg.opacity})`,
-            overflow: "hidden",
-            lineHeight: 1.4,
+            lineHeight: 1.2,
+            textTransform: "uppercase",
           }}
         >
           <div

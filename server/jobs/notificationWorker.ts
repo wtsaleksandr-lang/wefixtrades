@@ -129,12 +129,53 @@ export async function processNotificationQueue(): Promise<{ processed: number; e
         }
 
         try {
-          const resp = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload?.webhook_payload || {}),
+          const url = new URL(webhookUrl);
+          if (url.protocol !== 'https:') {
+            throw new Error('Webhook URL must use HTTPS');
+          }
+
+          const dns = await import('dns');
+          const lookups = await dns.promises.lookup(url.hostname, { all: true });
+          const isPrivate = lookups.some((addr) => {
+            const ip = addr.address;
+            return (
+              ip.startsWith('10.') ||
+              ip.startsWith('192.168.') ||
+              ip.startsWith('172.16.') ||
+              ip.startsWith('172.17.') ||
+              ip.startsWith('172.18.') ||
+              ip.startsWith('172.19.') ||
+              ip.startsWith('172.2') || // covers 172.20–172.29
+              ip.startsWith('172.30.') || // covers 172.30.x.x (private)
+              ip.startsWith('172.31.') || // covers 172.31.x.x (private)
+              ip.startsWith('127.') ||
+              ip === '0.0.0.0' ||
+              ip.startsWith('169.254.') ||
+              ip === '::1' ||
+              ip.startsWith('fc') ||
+              ip.startsWith('fd') ||
+              ip.startsWith('fe80:')
+            );
           });
-          if (!resp.ok) throw new Error(`Webhook returned ${resp.status}`);
+          if (isPrivate) {
+            throw new Error('Webhook host resolves to a private or loopback address');
+          }
+
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 5000);
+
+          try {
+            const resp = await fetch(webhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload?.webhook_payload || {}),
+              signal: controller.signal,
+            });
+            if (!resp.ok) throw new Error(`Webhook returned ${resp.status}`);
+          } finally {
+            clearTimeout(timeout);
+          }
+
           await storage.updateNotification(notif.id, {
             status: 'sent',
             processed_at: new Date(),

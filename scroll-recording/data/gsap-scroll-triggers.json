@@ -1,0 +1,5 @@
+[
+  {
+    "error": "Converting circular structure to JSON\n    --> starting at object with constructor 'HTMLDivElement'\n    |     property '_gsap' -> object with constructor 'GSCache'\n    --- property 'target' closes the circle"
+  }
+]

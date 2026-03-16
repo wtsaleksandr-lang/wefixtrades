@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Link } from "wouter";
+import gsap from "gsap";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
@@ -8,60 +9,23 @@ import { mkt, colors, shadows, typography } from "@/theme/tokens";
 import HeroGridGlow from "@/components/marketing/HeroGridGlow";
 import TrustStrip from "@/components/home/TrustStrip";
 import ReviewsSection from "@/components/home/ReviewsSection";
-import TradeMinutesSection from "@/components/sections/TradeMinutesSection";
 import HeroTradeDivider from "@/components/marketing/HeroTradeDivider";
-import ServiceHighlights from "@/components/marketing/ServiceHighlights";
+import TrustMarquee from "@/components/marketing/TrustMarquee";
+import CapabilitiesShowcase from "@/components/marketing/CapabilitiesShowcase";
+import StickyStackCards from "@/components/marketing/StickyStackCards";
+import BentoGrid from "@/components/marketing/BentoGrid";
+import FeatureCards from "@/components/marketing/FeatureCards";
+import CTASection from "@/components/marketing/CTASection";
+import TrustSection from "@/components/marketing/TrustSection";
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
 import {
-  Zap, Cpu, MessageCircle, Check,
-  ArrowRight, Shield, Star, Clock, Sparkles,
+  Zap, Check,
+  ArrowRight, Star, Clock, Sparkles,
   Phone, ThumbsUp, Mail, Target,
   MapPin, Briefcase, Award, Hammer,
   Calculator, PhoneCall, RefreshCw, Wrench,
 } from "lucide-react";
 
-const TOOLS = [
-  {
-    id: "quickquote",
-    icon: Zap,
-    title: "QuickQuotePro",
-    body: "Embed instant quotes on your website. Visitors get a price in seconds — you get their details automatically.",
-    href: "/product/quickquote",
-    iconBg: mkt.accentTint,
-    iconColor: mkt.accent,
-    cardBg: "rgba(102,232,250,0.06)",
-  },
-  {
-    id: "assistants",
-    icon: Cpu,
-    title: "24/7 Assistants",
-    body: "Never miss a call or chat. Your assistant handles enquiries, provides quotes, and captures leads — even at 2am.",
-    href: "/product/assistants",
-    iconBg: "rgba(163,209,144,0.10)",
-    iconColor: "#A3D190",
-    cardBg: "rgba(163,209,144,0.06)",
-  },
-  {
-    id: "followups",
-    icon: MessageCircle,
-    title: "Follow-ups + Reviews",
-    body: "Auto reminders, quote follow-ups, and review requests that run in the background — converting more quotes into jobs.",
-    href: "/product/assistants",
-    iconBg: mkt.cyanTint,
-    iconColor: mkt.cyan,
-    cardBg: "rgba(104,212,227,0.06)",
-  },
-  {
-    id: "visibility",
-    icon: Shield,
-    title: "Visibility",
-    body: "Google Maps, website speed, reputation monitoring, and social posts — all handled so customers find you first.",
-    href: "/solutions/visibility",
-    iconBg: mkt.orangeTint,
-    iconColor: mkt.orange,
-    cardBg: "rgba(247,180,48,0.06)",
-  },
-];
 
 const TRUST_BADGES = [
   { icon: Clock, text: "No contracts", sub: "Cancel anytime, no questions asked" },
@@ -84,11 +48,6 @@ const TESTIMONIALS = [
   },
 ];
 
-const PRICING_TIERS = [
-  { name: "FREE",    price: "$0",   label: "Get started today",      features: ["1 calculator", "Hosted page", "50 leads/mo"],         border: "rgba(255,255,255,0.08)",  badge: null,           badgeBg: null },
-  { name: "STARTER", price: "$99",  label: "For growing businesses", features: ["1 calculator", "Custom branding", "Email follow-ups"], border: "rgba(255,255,255,0.08)",  badge: null,           badgeBg: null },
-  { name: "PRO",     price: "$199", label: "Most popular",           features: ["3 calculators", "24/7 Assistant", "SMS & WhatsApp"],   border: mkt.accent,               badge: "Most Popular", badgeBg: mkt.accent },
-];
 
 const quoteFlowSteps = [
   {
@@ -216,7 +175,7 @@ function FlowMapHero() {
           position: "relative", zIndex: 2, flexShrink: 0,
         }}>
           <Briefcase size={24} color={mkt.buttonText} strokeWidth={1.5} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: mkt.buttonText, marginTop: 4, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: mkt.buttonText, marginTop: 6, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
         </div>
         <FlowConnectorSvg count={FLOW_OUTCOMES.length} direction="right" />
         <div style={{ display: "grid", gridAutoRows: FL.cardH, rowGap: FL.gap, alignItems: "center", justifyItems: "start" }}>
@@ -288,7 +247,7 @@ const RESPONSIVE_CSS = `
   .hero-pill:nth-child(4) { animation-delay: 0.6s; }
   @media (max-width: 820px) {
     .flow-map-desktop { display: none !important; } /* already hidden inline */
-    .flow-map-mobile { display: flex !important; }
+    .flow-map-mobile { display: none !important; }
   }
   @keyframes flowPulse {
     0%, 100% { box-shadow: 0 8px 32px ${mkt.accentGlow}; }
@@ -297,8 +256,13 @@ const RESPONSIVE_CSS = `
   .flow-center-node { animation: flowPulse 3s ease-in-out infinite; }
   .flow-node { transition: transform 0.2s ease, box-shadow 0.2s ease; }
   .flow-node:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.20) !important; }
+  @media (max-width: 768px) {
+    .hero-section-responsive { padding: 96px 20px 40px !important; }
+    .hero-subtext { font-size: 16px !important; }
+  }
   @media (max-width: 640px) {
-    .hero-section-responsive { padding: 56px 18px 48px !important; }
+    .hero-section-responsive { padding: 88px 18px 32px !important; }
+    .hero-subtext { margin-bottom: 32px !important; }
     .hero-pills-grid { grid-template-columns: 1fr 1fr !important; gap: 6px !important; }
     .hero-pill {
       height: 34px !important;
@@ -311,8 +275,8 @@ const RESPONSIVE_CSS = `
     .hero-pill-label-full { display: none !important; }
     .hero-pill-label-short { display: inline !important; }
     .hero-subtext { font-size: 15px !important; margin-bottom: 28px !important; }
-    .hero-cta-row { gap: 10px !important; }
-    .hero-cta-row a { padding: 12px 24px !important; font-size: 14px !important; }
+    .hero-cta-row { gap: 8px !important; }
+    .hero-cta-row .cta-arrow-btn__text { font-size: 10px !important; }
     .built-for-chip { height: 28px !important; padding: 4px 10px !important; gap: 6px !important; }
     .built-for-chip .bf-label { font-size: 11px !important; }
     .built-for-chip .bf-window { height: 16px !important; width: 130px !important; }
@@ -328,31 +292,73 @@ const RESPONSIVE_CSS = `
       height: 60% !important;
     }
   }
+  /* Tablet: hero zone + 150px divider = 100svh */
+  @media (max-width: 1024px) {
+    .hero-first-screen-zone {
+      min-height: calc(100svh - 150px);
+    }
+  }
+  /* Mobile: hero zone + 130px divider = 100svh */
+  @media (max-width: 640px) {
+    .hero-first-screen-zone {
+      min-height: calc(100svh - 130px);
+    }
+  }
+  /* Common mobile viewport class (around 390x844): keep first fold on hero + trade divider */
+  @media (max-width: 430px) {
+    .hero-first-screen-zone {
+      min-height: calc(100svh - 72px);
+      padding-bottom: clamp(56px, 9svh, 92px);
+    }
+  }
 `;
 
 export default function HomePage() {
   useScrollReveal();
+  const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     document.title = "WeFixTrades — More Booked Jobs, Automatically";
+  }, []);
+
+  // Hero entrance stagger — Effortel style
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const el = heroRef.current;
+    if (!el) return;
+    const targets = el.querySelectorAll(".hero-enter");
+    gsap.fromTo(
+      targets,
+      { y: 36, opacity: 0 },
+      {
+        y: 0,
+        opacity: 1,
+        duration: 0.78,
+        stagger: 0.13,
+        ease: "cubic-bezier(0.526, 0.007, 0, 0.989)",
+        delay: 0.1,
+      }
+    );
   }, []);
 
   return (
     <MarketingLayout>
       <style>{RESPONSIVE_CSS}</style>
 
+      {/* Shared grid zone — covers hero + trust marquee seamlessly */}
+      <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.bg, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <HeroGridGlow className="hero-grid-glow" />
+
       <section
         data-testid="hero-section"
         className="hero-section-responsive"
         style={{
-          background: mkt.bg,
-          padding: "98px 28px 80px",
+          background: "transparent",
+          padding: "132px 28px 56px",
           marginTop: -8,
           position: "relative",
-          overflow: "hidden",
         }}
       >
-        <HeroGridGlow className="hero-grid-glow" />
 
         <div
           aria-hidden="true"
@@ -422,12 +428,6 @@ export default function HomePage() {
             animation: wf_underline_beam 6.25s ease-in-out infinite;
             z-index: 1;
           }
-          @media (prefers-reduced-motion: reduce) {
-            .wf-underline::after {
-              animation: none !important;
-              opacity: 0 !important;
-            }
-          }
           @keyframes wf_shimmer_sweep {
             0%   { transform: translateX(-140%) skewX(-18deg); opacity: 0; }
             8%   { opacity: 0.85; }
@@ -468,17 +468,18 @@ export default function HomePage() {
           }
         `}</style>
 
-        <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 2 }}>
+        <div ref={heroRef} style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 2 }}>
           <div
             data-testid="hero-headline"
+            className="hero-enter"
             style={{
               textAlign: "center",
-              marginBottom: 24,
+              marginBottom: 36,
             }}
           >
             <h1
               style={{
-                fontSize: "clamp(32px, 5.5vw, 56px)",
+                fontSize: "clamp(30px, 5vw, 50px)",
                 fontWeight: 700,
                 lineHeight: 1.06,
                 letterSpacing: "-0.02em",
@@ -493,12 +494,12 @@ export default function HomePage() {
             <h1
               style={{
                 position: "relative",
-                fontSize: "clamp(34px, 6.2vw, 64px)",
+                fontSize: "clamp(32px, 5.6vw, 56px)",
                 fontWeight: 800,
                 lineHeight: 1.02,
                 letterSpacing: "-0.02em",
                 margin: 0,
-                marginTop: 4,
+                marginTop: 6,
                 fontFamily: typography.fontFamily,
                 color: mkt.accent,
               }}
@@ -530,12 +531,12 @@ export default function HomePage() {
 
           <p
             data-testid="hero-subtext"
-            className="hero-subtext"
+            className="hero-subtext hero-enter"
             style={{
               maxWidth: 640,
               margin: "0 auto",
-              marginTop: 16,
-              marginBottom: 36,
+              marginTop: 26,
+              marginBottom: 52,
               fontSize: 16,
               lineHeight: 1.6,
               fontWeight: 450,
@@ -547,68 +548,50 @@ export default function HomePage() {
             Customers get answers. You get booked. Everything runs in the background.
           </p>
 
-          <div className="hero-cta-row" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <Link
-              href="/product"
-              data-testid="button-services-hero"
-              className="cta-arrow-btn cta-arrow-btn--dark"
-              style={{ textDecoration: "none" }}
-            >
-              <span className="cta-arrow-btn__label">Services</span>
-              <span className="cta-arrow-btn__arrow">
-                <ArrowRight size={16} strokeWidth={2} />
-              </span>
-            </Link>
-            <Link
-              href="/Wizard"
-              data-testid="button-product-hero"
-              className="cta-arrow-btn cta-arrow-btn--accent"
-              style={{ textDecoration: "none" }}
-            >
-              <span className="cta-arrow-btn__label">Product</span>
-              <span className="cta-arrow-btn__arrow">
-                <ArrowRight size={16} strokeWidth={2} />
-              </span>
-            </Link>
+          <div className="hero-cta-row hero-enter" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 96 }}>
+            {/* Bold solid arrow matching effortel's arrow shape */}
+            {(() => {
+              const BoldArrow = () => (
+                <svg width="13" height="13" viewBox="0 0 31 31" fill="currentColor">
+                  <path fillRule="evenodd" clipRule="evenodd" d="M18.9493 17.8324L3.43262 17.8324L3.43262 12.2443L18.9493 12.2443L11.2915 4.5865L15.2429 0.63509L26.4851 11.8772C28.2309 13.6231 28.2309 16.4536 26.4851 18.1995L15.1423 29.5425L11.1909 25.5911L18.9493 17.8324Z" />
+                </svg>
+              );
+              return (
+                <>
+                  <Link href="/product" data-testid="button-services-hero" className="cta-arrow-btn" style={{ textDecoration: "none" }}>
+                    <span className="cta-arrow-btn__text">Services</span>
+                    <span className="cta-arrow-btn__arrow-rest"><BoldArrow /></span>
+                    <span className="cta-arrow-btn__arrow-hover"><BoldArrow /></span>
+                  </Link>
+                  <Link href="/Wizard" data-testid="button-product-hero" className="cta-arrow-btn cta-arrow-btn--primary" style={{ textDecoration: "none" }}>
+                    <span className="cta-arrow-btn__text">Product</span>
+                    <span className="cta-arrow-btn__arrow-rest"><BoldArrow /></span>
+                    <span className="cta-arrow-btn__arrow-hover"><BoldArrow /></span>
+                  </Link>
+                </>
+              );
+            })()}
           </div>
 
         </div>
 
-        <div style={{ marginTop: 56, position: "relative", zIndex: 2 }}>
-          <FlowMapHero />
-        </div>
       </section>
 
-      <HeroTradeDivider />
-      <div style={{
-        borderTopLeftRadius: 18,
-        borderTopRightRadius: 18,
-        overflow: "hidden",
-        marginTop: -3,
-        position: "relative",
-        zIndex: 2,
-      }}>
-        <div style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 30,
-          background: "linear-gradient(to bottom, rgba(255,255,255,0.18), rgba(255,255,255,0))",
-          pointerEvents: "none",
-          zIndex: 3,
-          borderTopLeftRadius: 18,
-          borderTopRightRadius: 18,
-        }} />
-        <ServiceHighlights />
-        <TradeMinutesSection />
+      <div style={{ marginTop: "auto", paddingTop: 34 }}>
+        <TrustMarquee />
       </div>
+      </div>{/* end shared grid zone */}
+      <HeroTradeDivider />
+      <CapabilitiesShowcase />
+      <StickyStackCards />
+      <FeatureCards />
+      <BentoGrid />
       <TrustStrip />
       <SurfaceSection overlap className="py-8">
         <ReviewsSection />
       </SurfaceSection>
 
-      <section data-testid="workflow-section" style={{ background: mkt.surfaceAlt, padding: "112px 28px" }}>
+      <section data-testid="workflow-section" style={{ background: mkt.surfaceAlt, padding: "112px 28px", borderRadius: "28px 28px 0 0", marginTop: -28, position: "relative", zIndex: 4 }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <div data-reveal="fade-up" style={{ marginBottom: 48 }}>
             <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 16 }}>
@@ -629,6 +612,10 @@ export default function HomePage() {
         style={{
           padding: "100px 28px",
           background: mkt.bg,
+          borderRadius: "28px 28px 0 0",
+          marginTop: -28,
+          position: "relative",
+          zIndex: 5,
         }}
       >
         <div
@@ -670,72 +657,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section data-testid="tools-section" style={{ background: mkt.surfaceAlt, padding: "112px 28px" }}>
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
-          <div data-reveal="fade-up" style={{ marginBottom: 48, textAlign: "center" }}>
-            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 16 }}>
-              Tools that power growth
-            </h2>
-            <p style={{ fontSize: 17, color: mkt.textMuted, lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
-              Everything a trades business needs to win more jobs — in one platform.
-            </p>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }} className="tools-grid">
-            {TOOLS.map((tool, i) => {
-              const Icon = tool.icon;
-              return (
-                <Link
-                  key={tool.id}
-                  href={tool.href}
-                  style={{ textDecoration: "none", color: "inherit" }}
-                >
-                  <div
-                    data-testid={`tool-card-${tool.id}`}
-                    data-reveal="fade-up"
-                    data-delay={String(i * 100)}
-                    className="mkt-feature-card"
-                    style={{
-                      background: tool.cardBg,
-                      border: `1px solid ${mkt.border}`,
-                      borderRadius: 20,
-                      padding: "32px 28px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 16,
-                      height: "100%",
-                      cursor: "pointer",
-                      transition: "box-shadow 0.3s ease",
-                    }}
-                  >
-                    <div style={{ width: 52, height: 52, borderRadius: 14, background: tool.iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <Icon size={24} color={tool.iconColor} strokeWidth={1.5} />
-                    </div>
-                    <h3 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, letterSpacing: "-0.01em" }}>{tool.title}</h3>
-                    <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.65, margin: 0, flex: 1 }}>{tool.body}</p>
-                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-                      <span
-                        style={{
-                          display: "inline-flex", alignItems: "center", gap: 8,
-                          padding: "10px 20px", borderRadius: 14,
-                          background: "rgba(255,255,255,0.05)", color: mkt.text,
-                          fontSize: 14, fontWeight: 600,
-                        }}
-                      >
-                        Explore
-                        <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(255,255,255,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                          <ArrowRight size={14} strokeWidth={2} />
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-          <style>{`@media (max-width: 620px) { .tools-grid { grid-template-columns: 1fr !important; } }`}</style>
-        </div>
-      </section>
 
       <SurfaceSection className="py-16 sm:py-20">
         <div data-testid="trust-section" style={{ maxWidth: 1000, margin: "0 auto" }}>
@@ -796,90 +717,9 @@ export default function HomePage() {
         </div>
       </SurfaceSection>
 
-      <section data-testid="pricing-teaser-section" style={{ background: mkt.dark, padding: "112px 28px" }}>
-        <div style={{ maxWidth: 960, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
-            <h2 style={{ fontSize: "clamp(26px, 3vw, 40px)", fontWeight: 600, color: mkt.onDark, letterSpacing: "-0.025em", marginBottom: 12 }}>
-              Simple pricing that scales with you
-            </h2>
-            <p style={{ fontSize: 17, color: mkt.onDarkFaint }}>Start for free. Upgrade when you're ready.</p>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20, marginBottom: 32 }}>
-            {PRICING_TIERS.map(({ name, price, label, features, border, badge, badgeBg }, i) => (
-              <div
-                key={name}
-                data-reveal="fade-up"
-                data-delay={String(i * 100)}
-                className="mkt-tier-card"
-                style={{ background: "rgba(255,255,255,0.03)", border: `1.5px solid ${border}`, borderRadius: 20, padding: "28px 24px", position: "relative" }}
-              >
-                {badge && (
-                  <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: badgeBg!, color: mkt.buttonText, fontSize: 11, fontWeight: 700, padding: "4px 14px", borderRadius: 20, whiteSpace: "nowrap" }}>
-                    {badge}
-                  </div>
-                )}
-                <div style={{ fontSize: 11, fontWeight: 700, color: mkt.onDarkFaint, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{name}</div>
-                <div style={{ fontSize: 36, fontWeight: 800, color: mkt.onDark, letterSpacing: "-0.02em", marginBottom: 6 }}>
-                  {price}<span style={{ fontSize: 14, fontWeight: 400, color: mkt.onDarkFaint }}>/mo</span>
-                </div>
-                <div style={{ fontSize: 13, color: mkt.onDarkFaint, marginBottom: 20 }}>{label}</div>
-                {features.map((f) => (
-                  <div key={f} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ color: mkt.accent, fontSize: 12 }}>✓</span>
-                    <span style={{ fontSize: 13, color: mkt.onDarkMuted }}>{f}</span>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <p style={{ fontSize: 13, color: mkt.onDarkFaint, marginBottom: 28 }}>
-              Calls/SMS usage billed at cost (you control limits).
-            </p>
-            <Link
-              href="/product"
-              data-testid="button-see-plans"
-              className="mkt-btn-secondary"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 10, border: "1.5px solid rgba(255,255,255,0.15)", color: mkt.onDark, fontSize: 15, fontWeight: 500, textDecoration: "none", textTransform: "uppercase", letterSpacing: "0.04em" }}
-            >
-              See plans <ArrowRight size={16} strokeWidth={1.5} />
-            </Link>
-          </div>
-        </div>
-      </section>
 
-      <section
-        data-testid="cta-band"
-        style={{ background: `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentDark} 100%)`, padding: "136px 28px", textAlign: "center" }}
-      >
-        <div style={{ maxWidth: 680, margin: "0 auto" }} data-reveal="scale">
-          <h2 style={{ fontSize: "clamp(32px, 4vw, 52px)", fontWeight: 700, color: mkt.buttonText, letterSpacing: "-0.025em", marginBottom: 18, lineHeight: 1.1 }}>
-            Ready to get more booked jobs?
-          </h2>
-          <p style={{ fontSize: 18, color: "rgba(34,40,42,0.72)", lineHeight: 1.65, marginBottom: 44, maxWidth: 520, margin: "0 auto 44px" }}>
-            Join thousands of trades businesses using QuickQuotePro to automate quotes, bookings, and follow-ups.
-          </p>
-          <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
-            <Link
-              href="/Wizard"
-              data-testid="button-try-free-cta"
-              style={{ display: "inline-block", padding: "15px 36px", borderRadius: 10, background: mkt.bg, color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none", textTransform: "uppercase", letterSpacing: "0.04em" }}
-            >
-              Try Free
-            </Link>
-            <Link
-              href="/demo"
-              data-testid="button-try-demo-cta"
-              style={{ display: "inline-block", padding: "15px 32px", borderRadius: 10, background: "transparent", color: mkt.buttonText, fontSize: 16, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(34,40,42,0.3)", textTransform: "uppercase", letterSpacing: "0.04em" }}
-            >
-              Try Demo
-            </Link>
-          </div>
-          <p style={{ fontSize: 13, color: "rgba(34,40,42,0.55)", marginTop: 24 }}>
-            No credit card required · Live in 10 minutes · Cancel anytime
-          </p>
-        </div>
-      </section>
+      <TrustSection />
+      <CTASection />
     </MarketingLayout>
   );
 }

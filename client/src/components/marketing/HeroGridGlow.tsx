@@ -67,7 +67,7 @@ export default function HeroGridGlow({
     const tick = () => {
       const now = Date.now();
 
-      for (const [idx, activatedAt] of activeCells) {
+      for (const [idx, activatedAt] of Array.from(activeCells.entries())) {
         if (now - activatedAt > 2000) {
           const cell = cells[idx] as HTMLElement | undefined;
           if (cell) {
@@ -105,7 +105,7 @@ export default function HeroGridGlow({
     const id = setInterval(tick, 320);
     return () => {
       clearInterval(id);
-      for (const idx of activeCells.keys()) {
+      for (const idx of Array.from(activeCells.keys())) {
         const cell = cells[idx] as HTMLElement | undefined;
         if (cell) {
           cell.style.backgroundColor = "transparent";

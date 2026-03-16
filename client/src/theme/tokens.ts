@@ -149,7 +149,7 @@ export const transitions = {
 } as const;
 
 export const mkt = {
-  bg: colors.effortel.n800,
+  bg: '#181D1F',
   surface: colors.effortel.n700,
   surfaceAlt: '#2E3638',
   text: colors.effortel.n300,

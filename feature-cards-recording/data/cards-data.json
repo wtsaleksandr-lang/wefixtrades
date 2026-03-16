@@ -1,0 +1,29 @@
+[
+  {
+    "index": 0,
+    "class": "container-small flex-vertical flex-gap-2",
+    "tag": "ASIDE",
+    "innerText": "(\nINDUSTRY RECOGNITION AND AWARDS\n)",
+    "position": "relative",
+    "top": "0px",
+    "zIndex": "auto",
+    "background": "rgba(0, 0, 0, 0)",
+    "borderRadius": "0px",
+    "transform": "none",
+    "opacity": "1",
+    "offsetTop": 7670,
+    "width": 1429,
+    "height": 870,
+    "hasImage": true,
+    "hasCanvas": false,
+    "dataTrigger": null,
+    "dataAnimation": null,
+    "children": [
+      {
+        "tag": "DIV",
+        "class": "container-inner",
+        "text": "(\nINDUSTRY RECOGNITION AND AWARDS\n)"
+      }
+    ]
+  }
+]

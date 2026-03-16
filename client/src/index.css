@@ -387,27 +387,14 @@
 
 /* ==========================================
    MARKETING SCROLL REVEAL & ANIMATIONS
+   GSAP handles initial hidden state + animation.
+   CSS only provides a fallback for SSR/no-JS.
    ========================================== */
 
 [data-reveal] {
-  opacity: 0;
-  transition: opacity 0.6s cubic-bezier(0.4,0,0.2,1), transform 0.6s cubic-bezier(0.4,0,0.2,1);
+  /* GSAP sets opacity/transform inline — no CSS transition needed */
+  will-change: transform, opacity;
 }
-[data-reveal="fade-up"] { transform: translateY(10px); }
-[data-reveal="fade-left"] { transform: translateX(-10px); }
-[data-reveal="fade-right"] { transform: translateX(10px); }
-[data-reveal="scale"] { transform: scale(0.98); }
-[data-reveal].is-visible { opacity: 1 !important; transform: none !important; }
-
-[data-delay="100"] { transition-delay: 0.1s; }
-[data-delay="120"] { transition-delay: 0.12s; }
-[data-delay="150"] { transition-delay: 0.15s; }
-[data-delay="200"] { transition-delay: 0.2s; }
-[data-delay="250"] { transition-delay: 0.25s; }
-[data-delay="300"] { transition-delay: 0.3s; }
-[data-delay="400"] { transition-delay: 0.4s; }
-[data-delay="500"] { transition-delay: 0.5s; }
-[data-delay="600"] { transition-delay: 0.6s; }
 
 /* Marketing navbar transitions */
 .mkt-nav {
@@ -601,120 +588,116 @@
   background-clip: text;
 }
 
-/* ─── CTA arrow-slide buttons ─── */
+/* ─── CTA arrow buttons ─────────────────────────────────────────────
+   SERVICES (default):  dark pill, light-grey square, dark arrow
+   PRODUCT  (--primary): cyan pill,  dark square,      light arrow
+   Hover for both: square slides RIGHT→LEFT, text shifts LEFT→RIGHT
+──────────────────────────────────────────────────────────────────── */
 .cta-arrow-btn {
-  --arrow-box: 28px;
-  --arrow-gap: 6px;
-  --pad: 24px;
+  position: relative;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  height: 48px;
-  border-radius: 14px;
-  font-size: 15px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  position: relative;
+  height: 46px;
+  min-width: 168px;
+  border-radius: 12px;
+  background: #181d1c;
+  border: 1px solid rgba(255, 255, 255, 0.10);
   overflow: hidden;
-  padding: 0 calc(var(--arrow-box) + var(--arrow-gap) * 2 + 4px) 0 calc(var(--pad) - 6px);
-  transition: background 0.35s ease, color 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease, padding 0.35s cubic-bezier(0.4,0,0.2,1);
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background 0.28s ease, border-color 0.28s ease;
 }
 .cta-arrow-btn:hover {
-  padding: 0 calc(var(--pad) - 6px) 0 calc(var(--arrow-box) + var(--arrow-gap) * 2 + 4px);
+  background: #111615;
+  border-color: rgba(255, 255, 255, 0.18);
 }
-.cta-arrow-btn__label {
+
+/* PRODUCT variant — matches the "Start Free" nav button exactly */
+.cta-arrow-btn--primary {
+  background: #66E8FA;
+  border-color: #66E8FA;
+}
+.cta-arrow-btn--primary:hover {
+  background: #9CF0FC;
+  border-color: #9CF0FC;
+}
+
+/* Label — shifts right on hover to make room for incoming left arrow */
+.cta-arrow-btn__text {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-family: "DM Mono", monospace;
+  color: rgba(255, 255, 255, 0.85);
   white-space: nowrap;
-  position: relative;
-  z-index: 1;
-  transition: color 0.35s ease;
+  /* rest: 16px left gap, 50px right gap (36px square + 5px inset + 9px breathing room) */
+  padding: 0 50px 0 16px;
+  transition: padding 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.cta-arrow-btn__arrow {
-  width: var(--arrow-box);
-  height: var(--arrow-box);
-  border-radius: 7px;
-  display: inline-flex;
+.cta-arrow-btn--primary .cta-arrow-btn__text {
+  color: #0d1514;
+}
+.cta-arrow-btn:hover .cta-arrow-btn__text {
+  /* hover: 50px left gap (for left arrow), 16px right gap */
+  padding: 0 16px 0 50px;
+}
+
+/* Shared arrow square styles — both buttons identical size */
+.cta-arrow-btn__arrow-rest,
+.cta-arrow-btn__arrow-hover {
+  position: absolute;
+  top: 50%;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  position: absolute;
-  top: 50%;
-  left: calc(100% - var(--arrow-box) - var(--arrow-gap));
-  transform: translateY(-50%);
-  z-index: 2;
-  transition: background 0.35s ease, color 0.35s ease, left 0.35s cubic-bezier(0.4,0,0.2,1);
+  /* SERVICES default: light grey square, dark arrow */
+  background: #e4edf1;
+  color: #0d1514;
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.cta-arrow-btn:hover .cta-arrow-btn__arrow {
-  left: var(--arrow-gap);
+/* PRODUCT: dark square, light arrow */
+.cta-arrow-btn--primary .cta-arrow-btn__arrow-rest,
+.cta-arrow-btn--primary .cta-arrow-btn__arrow-hover {
+  background: #0d1514;
+  color: rgba(255, 255, 255, 0.88);
 }
+
+/* REST arrow — right side at rest, exits to the right on hover */
+.cta-arrow-btn__arrow-rest {
+  right: 5px;
+  transform: translateY(-50%) translateX(0);
+}
+.cta-arrow-btn:hover .cta-arrow-btn__arrow-rest {
+  transform: translateY(-50%) translateX(80px);
+}
+
+/* HOVER arrow — starts off-screen left, slides in on hover */
+.cta-arrow-btn__arrow-hover {
+  left: 5px;
+  transform: translateY(-50%) translateX(-80px);
+}
+.cta-arrow-btn:hover .cta-arrow-btn__arrow-hover {
+  transform: translateY(-50%) translateX(0);
+}
+
 .cta-arrow-btn:active {
   transform: scale(0.98);
 }
 
-/* Dark variant (SERVICES) */
-.cta-arrow-btn--dark {
-  background: #1F2A30;
-  border: 1px solid #66E8FA;
-  color: #D3E1E8;
+@media (max-width: 768px) {
+  .cta-arrow-btn { height: 42px; }
+  .cta-arrow-btn__text { font-size: 10px; }
 }
-.cta-arrow-btn--dark .cta-arrow-btn__arrow {
-  background: #2C3B42;
-  color: #D3E1E8;
-}
-.cta-arrow-btn--dark:hover {
-  background: #66E8FA;
-  border-color: rgba(102,232,250,0.5);
-  color: #0F1E23;
-  box-shadow: 0 0 14px rgba(102,232,250,0.25);
-}
-.cta-arrow-btn--dark:hover .cta-arrow-btn__label {
-  color: #0F1E23;
-}
-.cta-arrow-btn--dark:hover .cta-arrow-btn__arrow {
-  background: #0F1E23;
-  color: #66E8FA;
-}
-
-/* Accent variant (PRODUCT) */
-.cta-arrow-btn--accent {
-  background: #66E8FA;
-  border: 1px solid rgba(102,232,250,0.45);
-  color: #0F1E23;
-}
-.cta-arrow-btn--accent .cta-arrow-btn__arrow {
-  background: #0F1E23;
-  color: #66E8FA;
-}
-.cta-arrow-btn--accent:hover {
-  background: #1F2A30;
-  border-color: rgba(255,255,255,0.15);
-  color: #D3E1E8;
-  box-shadow: 0 0 14px rgba(102,232,250,0.25);
-}
-.cta-arrow-btn--accent:hover .cta-arrow-btn__label {
-  color: #D3E1E8;
-}
-.cta-arrow-btn--accent:hover .cta-arrow-btn__arrow {
-  background: #66E8FA;
-  color: #0F1E23;
-}
-
 @media (max-width: 640px) {
-  .cta-arrow-btn {
-    --arrow-box: 26px;
-    --pad: 18px;
-    height: 44px;
-    font-size: 13px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cta-arrow-btn,
-  .cta-arrow-btn__arrow,
-  .cta-arrow-btn__label {
-    transition: none !important;
-  }
+  .cta-arrow-btn { height: 40px; }
+  .cta-arrow-btn__text { font-size: 10px; }
 }
 
 /* ─── Hero trade divider marquee ─── */
@@ -731,9 +714,13 @@
 }
 .htd-scroll-left {
   animation: htdScrollLeft 38s linear infinite;
+  will-change: transform;
+  transform: translateZ(0);
 }
 .htd-scroll-right {
   animation: htdScrollRight 32s linear infinite;
+  will-change: transform;
+  transform: translateZ(0);
 }
 @media (max-width: 1024px) {
   .hero-trade-divider { height: 150px; }
@@ -779,12 +766,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .htd-scroll-left,
-  .htd-scroll-right {
-    animation: none !important;
-  }
-}
 
 /* ─── Service Highlights section ─── */
 .sh-content-fade {
@@ -843,15 +824,6 @@
   }
 }
 
-/* Pricing tier card hover */
-.mkt-tier-card {
-  transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
-}
-.mkt-tier-card:hover {
-  transform: translateY(-2px);
-  background: rgba(255,255,255,0.06) !important;
-  border-color: rgba(255,255,255,0.2) !important;
-}
 
 /* Flow diagram line pulse */
 @keyframes mktFlowPulse {
@@ -957,9 +929,329 @@
   z-index: 1;
 }
 
+/* ========== TRUST MARQUEE ========== */
+
+.clients__stopper {
+  width: 100%;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+}
+
+.clients_track {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 45s linear infinite;
+  will-change: transform;
+}
+
+.clients__stopper:hover .clients_track {
+  animation-play-state: paused;
+}
+
+.clients__collection {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.client__card {
+  width: 186px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0 20px;
+  opacity: 0.65;
+  transition: opacity 0.2s ease;
+}
+
+.client__card:hover {
+  opacity: 1;
+}
+
+.client__card svg {
+  max-width: 140px;
+  max-height: 44px;
+  width: auto;
+  height: auto;
+}
+
+@keyframes marquee-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+
+/* ========== NAV DROPDOWN MENU CARDS ========== */
+
+/* Outer dropdown tray — faint gray, "cards on a tray" */
+.mkt-dropdown-tray {
+  background: rgba(180, 185, 183, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: mktDropdownIn 0.2s ease-out forwards;
+}
+
+@keyframes mktDropdownIn {
+  from { opacity: 0; transform: translateX(-50%) scale(0.97) translateY(-8px); }
+  to   { opacity: 1; transform: translateX(-50%) scale(1)    translateY(0px); }
+}
+/* Note: translateX(-50%) is also set inline on the element so centering
+   works regardless of animation fill-mode browser quirks */
+
+@keyframes mktDropdownOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Individual dark card */
+.mkt-menu-card {
+  background: #181d1c;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 16px 14px;
+  cursor: pointer;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+/* Dot pattern as ::before */
+.mkt-menu-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.065) 1px, transparent 1px);
+  background-size: 18px 18px;
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+  /* Slightly below full opacity at rest — imperceptible at this dot density.
+     Hover/active brings it to 1.0, adding ~8% more visible contrast. */
+  opacity: 0.92;
+  transition: opacity 200ms ease;
+}
+
+/* Dot grid brightens on interaction — desktop hover + mobile tap */
+.mkt-menu-card:hover::before,
+.mkt-menu-card:active::before,
+.mkt-menu-card:focus-visible::before {
+  opacity: 1;
+}
+
+/* All card content above dot layer */
+.mkt-menu-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Mobile cards: override the column layout the base CSS sets */
+.mkt-menu-card--mobile {
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 14px !important;
+}
+
+/* Pressed state — JS-applied for 140ms on mobile tap so feedback is visible */
+.mkt-menu-card--pressed {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+.mkt-menu-card--pressed::before {
+  opacity: 1;
+}
+.mkt-menu-card--pressed .mkt-menu-card-icon {
+  background: #E4EDF1;
+  border-color: rgba(228, 237, 241, 0.45);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+}
+
+/* Card hover */
+.mkt-menu-card:hover {
+  background: #111615;
+  border-color: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+/* Icon badge inside card */
+.mkt-menu-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  /* Default state — moved from inline style so hover can override */
+  background: rgba(102, 232, 250, 0.10);
+  border: 1px solid rgba(102, 232, 250, 0.18);
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    transform 220ms ease,
+    box-shadow 220ms ease;
+}
+
+/* Desktop hover + mobile tap/active/focus — badge shifts to site light grey */
+.mkt-menu-card:hover .mkt-menu-card-icon,
+.mkt-menu-card:active .mkt-menu-card-icon,
+.mkt-menu-card:focus-visible .mkt-menu-card-icon {
+  background: #E4EDF1;          /* effortel.n200 — site light grey */
+  border-color: rgba(228, 237, 241, 0.45);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+}
+
+
+/* ═══════════════════════════════════════════════════
+   NAV BUTTON — SERVICES (dark) style
+   Extracted from effortel.com DevTools.
+   ═══════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: 'Et Mono';
+  src: url('https://cdn.prod.website-files.com/66e53bf67b6fc1646ce0777e/678541298a6dd5f874e10d02_et_mono.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+.nav-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 2.9em;
+  font-size: 14px;
+  border-radius: 0.74em;
+  background-color: #22282a;
+  border: 1px solid #394247;
+  padding: 1px calc(2.9em) 1px 1em;
+  overflow: hidden;
+  cursor: pointer;
+  text-decoration: none;
+  gap: 0;
+  color: #b1c5ce;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.nav-btn .nav-btn__text {
+  font-family: 'Et Mono', 'Courier New', monospace;
+  font-size: 0.95em;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  color: #b1c5ce;
+  text-align: left;
+  position: relative;
+  z-index: 3;
+  padding-right: 0.8em;
+  white-space: nowrap;
+  line-height: 1em;
+  transform: translateX(0);
+  transition: transform 0.45s cubic-bezier(.579, .001, 0, 1.007),
+              color 0.5s ease;
+}
+
+/* translateX = paddingRight - paddingLeft = 2.9em - 1em
+   Text mirrors to right side with same 1em gap as the left. */
+.nav-btn:hover .nav-btn__text,
+.hover-forced .nav-btn__text {
+  transform: translateX(calc(2.9em - 1em));
+  color: #22282a;
+}
+
+.nav-btn__square {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  bottom: 2px;
+  width: calc(2.9em - 4px);
+  border-radius: 6px;
+  background: #394247;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transition: width 0.45s cubic-bezier(.579, .001, 0, 1.007);
+}
+
+/* calc(100% - [original_width] - 4px) = calc(100% - 2.9em)
+   Stops short of left edge — arrow (2.2em wide) sits in the gap. */
+.nav-btn:hover .nav-btn__square,
+.hover-forced .nav-btn__square {
+  width: calc(100% - 2.9em);
+}
+
+.nav-btn__square-track {
+  display: flex;
+  width: 200%;
+  height: 100%;
+  position: absolute;
+  left: 0;
+  align-items: center;
+  transition: transform 0.45s cubic-bezier(.579, .001, 0, 1.007);
+}
+
+.nav-btn:hover .nav-btn__square-track,
+.hover-forced .nav-btn__square-track {
+  transform: translateX(-50%);
+}
+
+.nav-btn__arrow-left {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2.2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+  background: transparent;
+}
+
+.nav-btn__arrow-track {
+  display: flex;
+  width: 200%;
+  height: 100%;
+  align-items: center;
+  position: absolute;
+  right: 0;
+  transition: transform 0.45s cubic-bezier(.579, .001, 0, 1.007);
+  transform: translateX(100%);
+}
+
+.nav-btn:hover .nav-btn__arrow-track,
+.hover-forced .nav-btn__arrow-track {
+  transform: translateX(0%);
+}
+
+.nav-btn__arrow-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 50%;
+  height: 100%;
+  color: #9cf0fc;
+}
+
+/* ═══════════════════════════════════════════════════ */
+
 /* Reduced motion overrides */
 @media (prefers-reduced-motion: reduce) {
-  [data-reveal] { opacity: 1 !important; transform: none !important; transition: none !important; }
+  [data-reveal] { opacity: 1 !important; transform: none !important; }
   .mkt-float, .mkt-ticker-track { animation: none !important; }
   .mkt-cursor { animation: none !important; opacity: 1; }
   .wft-shimmer::before { animation: none !important; }

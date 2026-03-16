@@ -1,5 +1,69 @@
-import pLimit from "p-limit";
-import pRetry from "p-retry";
+class AbortError extends Error {
+  constructor(readonly originalError: Error) {
+    super(originalError.message);
+    this.name = "AbortError";
+  }
+}
+
+function createLimit(concurrency: number) {
+  let activeCount = 0;
+  const queue: Array<() => void> = [];
+
+  const next = () => {
+    activeCount--;
+    queue.shift()?.();
+  };
+
+  return async function limit<T>(fn: () => Promise<T>): Promise<T> {
+    if (activeCount >= concurrency) {
+      await new Promise<void>((resolve) => {
+        queue.push(resolve);
+      });
+    }
+
+    activeCount++;
+    try {
+      return await fn();
+    } finally {
+      next();
+    }
+  };
+}
+
+type RetryOptions = {
+  retries: number;
+  minTimeout: number;
+  maxTimeout: number;
+  factor: number;
+  onFailedAttempt?: (error: unknown) => void;
+};
+
+async function retry<T>(fn: () => Promise<T>, options: RetryOptions): Promise<T> {
+  const { retries, minTimeout, maxTimeout, factor, onFailedAttempt } = options;
+
+  let attempt = 0;
+  let delayMs = minTimeout;
+
+  while (true) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error instanceof AbortError) {
+        throw error.originalError;
+      }
+
+      onFailedAttempt?.(error);
+
+      if (attempt >= retries) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, Math.min(delayMs, maxTimeout)));
+      attempt++;
+      delayMs = Math.min(delayMs * factor, maxTimeout);
+    }
+  }
+}
 
 /**
  * Batch Processing Utilities
@@ -90,12 +154,12 @@ export async function batchProcess<T, R>(
     onProgress,
   } = options;
 
-  const limit = pLimit(concurrency);
+  const limit = createLimit(concurrency);
   let completed = 0;
 
   const promises = items.map((item, index) =>
     limit(() =>
-      pRetry(
+      retry(
         async () => {
           try {
             const result = await processor(item, index);
@@ -104,10 +168,9 @@ export async function batchProcess<T, R>(
             return result;
           } catch (error: unknown) {
             if (isRateLimitError(error)) {
-              throw error; // Rethrow to trigger p-retry
+              throw error;
             }
-            // For non-rate-limit errors, abort immediately
-            throw new pRetry.AbortError(
+            throw new AbortError(
               error instanceof Error ? error : new Error(String(error))
             );
           }
@@ -147,16 +210,16 @@ export async function batchProcessWithSSE<T, R>(
     sendEvent({ type: "processing", index, item });
 
     try {
-      const result = await pRetry(
+      const result = await retry(
         () => processor(item, index),
         {
           retries,
           minTimeout,
           maxTimeout,
           factor: 2,
-          onFailedAttempt: (error) => {
+          onFailedAttempt: (error: unknown) => {
             if (!isRateLimitError(error)) {
-              throw new pRetry.AbortError(
+              throw new AbortError(
                 error instanceof Error ? error : new Error(String(error))
               );
             }
@@ -167,7 +230,7 @@ export async function batchProcessWithSSE<T, R>(
       sendEvent({ type: "progress", index, result });
     } catch (error) {
       errors++;
-      results.push(undefined as R); // Placeholder for failed items
+      results.push(undefined as R);
       sendEvent({
         type: "progress",
         index,
@@ -179,4 +242,3 @@ export async function batchProcessWithSSE<T, R>(
   sendEvent({ type: "complete", processed: items.length, errors });
   return results;
 }
-

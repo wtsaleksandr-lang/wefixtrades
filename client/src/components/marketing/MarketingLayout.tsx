@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { useState, useEffect, useRef, Fragment, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
-import { Menu, X, ChevronDown, Workflow, MessageSquare, PhoneCall, Layers, MapPinned, Wrench, RefreshCcw, ShieldCheck, Layout, Rocket, Calculator, FileText, Code2, Share2, Sparkles, Search, Zap, Home, Fan } from "lucide-react";
+import { Menu, X, Plus, Workflow, MessageSquare, PhoneCall, Layers, MapPinned, Wrench, RefreshCcw, ShieldCheck, Layout, Rocket, Calculator, FileText, Code2, Share2, Sparkles, Search, Zap, Home, Fan } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
-import AnimatedLogo from "./AnimatedLogo";
+import { useLenis } from "@/hooks/useLenis";
+import Logo from "@/components/primitives/Logo";
 import { mkt, colors } from "@/theme/tokens";
 import { FOOTER_LINKS } from "@/site/siteMap";
 
@@ -17,8 +18,8 @@ type NavChild = {
 };
 
 const DESKTOP_HEADER = {
-  navHeight: 72,
-  cardHeight: 52,
+  navHeight: 68,
+  cardHeight: 48,
 };
 
 
@@ -103,8 +104,23 @@ function NavItemDesktopV2({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasDropdown = !!(children && children.length > 0);
   const [rect, setRect] = useState<DOMRect | null>(null);
+
+  const openDropdown = () => {
+    if (!hasDropdown) return;
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    setOpen(true);
+  };
+
+  const scheduleClose = () => {
+    closeTimerRef.current = setTimeout(() => setOpen(false), 120);
+  };
+
+  const cancelClose = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+  };
 
   const measure = () => {
     const el = headerRef.current;
@@ -143,11 +159,14 @@ function NavItemDesktopV2({
   const topItemBase: CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
-    gap: 6,
-    padding: "6px 10px",
-    borderRadius: 12,
-    fontSize: 15,
+    gap: 7,
+    padding: "5px 10px",
+    borderRadius: 10,
+    fontSize: 13,
     fontWeight: 500,
+    fontFamily: "'DM Mono', monospace",
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
     color: mkt.text,
     background: "transparent",
     border: "1px solid transparent",
@@ -169,36 +188,47 @@ function NavItemDesktopV2({
   const dropdownNode =
     hasDropdown && open && rect
       ? createPortal(
-          <div
+          <Fragment>
+            {/* Page blur overlay */}
+            <div
+              style={{
+                position: "fixed",
+                top: rect.bottom,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 9998,
+                backdropFilter: "blur(6px)",
+                WebkitBackdropFilter: "blur(6px)",
+                background: "rgba(0,0,0,0.28)",
+                animation: "mktDropdownOverlayIn 0.2s ease-out forwards",
+              }}
+              onClick={() => setOpen(false)}
+            />
+            <div
+            className="mkt-dropdown-tray"
+            onMouseEnter={cancelClose}
+            onMouseLeave={scheduleClose}
             style={{
               position: "fixed",
-              left: "50%",
-              top: rect.bottom + 2,
-              width: "min(1100px, calc(100vw - 24px))",
-              maxWidth: "min(1100px, calc(100vw - 24px))",
-              transform: "translateX(-50%) translateY(0) scale(1)",
+              left: rect.left + rect.width / 2,
+              top: rect.bottom + 6,
+              width: Math.min(1080, rect.width),
+              maxWidth: "calc(100vw - 24px)",
+              // translateX(-50%) centers the panel on the nav bar's midpoint.
+              // Kept here in inline style so it's always applied, even before
+              // the CSS entrance animation starts.
+              transform: "translateX(-50%)",
 
-              opacity: 1,
-              transformOrigin: "top center",
-              transition: "opacity 160ms ease, transform 160ms ease",
-
-              background: "rgba(34,40,42,0.92)",
-              backdropFilter: "blur(18px) saturate(1.25)",
-              WebkitBackdropFilter: "blur(18px) saturate(1.25)",
-              borderRadius: 20,
-              border: `1px solid ${mkt.border}`,
-              boxShadow:
-                "0 10px 20px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04)",
-
-              padding: "4px",
+              padding: 10,
               zIndex: 9999,
-              overflow: "hidden",
 
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gridTemplateColumns: "repeat(3, 1fr)",
               gridAutoFlow: "row",
-              gap: 10,
+              gap: 8,
 
+              boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
               outline: DEBUG_DROPDOWN ? "3px solid rgba(0,120,255,0.85)" : "none",
             }}
           >
@@ -206,67 +236,31 @@ function NavItemDesktopV2({
               <Link
                 key={ch + cl}
                 href={ch}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "9px 10px",
-                  borderRadius: 12,
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: mkt.text,
-                  textDecoration: "none",
-                  background: mkt.surface,
-                  border: `1px solid ${mkt.border}`,
-                  transition:
-                    "transform 140ms ease, box-shadow 140ms ease, background 140ms ease",
-                }}
-                onMouseEnter={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.background = "rgba(255,255,255,0.08)";
-                  el.style.boxShadow = "0 10px 24px rgba(0,0,0,0.25)";
-                  el.style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.background = mkt.surface;
-                  el.style.boxShadow = "none";
-                  el.style.transform = "translateY(0px)";
-                }}
+                className="mkt-menu-card"
+                onClick={() => setOpen(false)}
               >
-                {icon && (
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 12,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: mkt.accent,
-                      background: mkt.accentTint,
-                      border: `1px solid rgba(102,232,250,0.15)`,
-                      flexShrink: 0,
-                    }}
-                    aria-hidden
-                  >
-                    {icon}
-                  </div>
-                )}
+                {/* Icon badge */}
+                <div
+                  className="mkt-menu-card-icon"
+                  style={{ color: mkt.accent }}
+                  aria-hidden
+                >
+                  {icon ?? null}
+                </div>
 
+                {/* Text */}
                 <div style={{ minWidth: 0 }}>
                   <div
                     style={{
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: 650,
                       color: mkt.text,
                       lineHeight: 1.2,
-                      marginBottom: 1,
+                      marginBottom: 3,
                     }}
                   >
                     {cl}
                   </div>
-
                   {description && (
                     <div
                       style={{
@@ -282,7 +276,8 @@ function NavItemDesktopV2({
                 </div>
               </Link>
             ))}
-          </div>,
+          </div>
+          </Fragment>,
           document.body
         )
       : null;
@@ -295,17 +290,18 @@ function NavItemDesktopV2({
           aria-haspopup="true"
           onClick={() => setOpen((o) => !o)}
           style={topItemBase}
-          onMouseEnter={(e) => topHoverOn(e.currentTarget as HTMLElement)}
-          onMouseLeave={(e) => topHoverOff(e.currentTarget as HTMLElement)}
+          onMouseEnter={(e) => { topHoverOn(e.currentTarget as HTMLElement); openDropdown(); }}
+          onMouseLeave={(e) => { topHoverOff(e.currentTarget as HTMLElement); scheduleClose(); }}
         >
           {label}
-          <ChevronDown
-            size={13}
-            strokeWidth={1.5}
+          <Plus
+            size={11}
+            strokeWidth={2}
             style={{
-              transition: "transform 0.2s ease",
-              transform: open ? "rotate(180deg)" : "rotate(0deg)",
-              opacity: 0.55,
+              transition: "transform 0.22s ease, opacity 0.2s ease",
+              transform: open ? "rotate(45deg)" : "rotate(0deg)",
+              opacity: 0.95,
+              color: mkt.accent,
             }}
           />
         </button>
@@ -334,7 +330,19 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
   onClose: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [pressedHref, setPressedHref] = useState<string | null>(null);
+  const [, navigate] = useLocation();
   const hasDropdown = children && children.length > 0;
+
+  const handleCardTap = (ch: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    if (pressedHref) return;
+    setPressedHref(ch);
+    setTimeout(() => {
+      onClose();
+      navigate(ch);
+    }, 140);
+  };
 
   return (
     <div
@@ -360,17 +368,25 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
               background: "none",
               border: "none",
               cursor: "pointer",
-              fontSize: 15,
-              fontWeight: 600,
+              fontSize: 13,
+              fontWeight: 500,
+              fontFamily: "'DM Mono', monospace",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
               color: mkt.text,
               textAlign: "left",
             }}
           >
             {label}
-            <ChevronDown
-              size={16}
-              strokeWidth={1.5}
-              style={{ transition: "transform 0.2s ease", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", color: mkt.textMuted }}
+            <Plus
+              size={13}
+              strokeWidth={2}
+              style={{
+                transition: "transform 0.22s ease, opacity 0.2s ease",
+                transform: expanded ? "rotate(45deg)" : "rotate(0deg)",
+                color: mkt.accent,
+                opacity: 0.95,
+              }}
             />
           </button>
           <div
@@ -382,14 +398,16 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
             }}
           >
             {children!.map(({ label: cl, href: ch, description, icon }) => (
-              <Link
+              <a
                 key={ch + cl}
                 href={ch}
-                onClick={onClose}
+                onClick={handleCardTap(ch)}
+                className={`mkt-menu-card mkt-menu-card--mobile${pressedHref === ch ? " mkt-menu-card--pressed" : ""}`}
                 style={{
                   display: "flex",
+                  flexDirection: "row",
                   alignItems: "center",
-                  gap: 12,
+                  gap: 14,
                   padding: "10px 10px",
                   marginBottom: 6,
                   borderRadius: 14,
@@ -399,34 +417,25 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
                 }}
               >
                 <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: mkt.accent,
-                    background: mkt.accentTint,
-                    border: "1px solid rgba(102,232,250,0.15)",
-                    flexShrink: 0,
-                  }}
+                  className="mkt-menu-card-icon"
+                  style={{ color: mkt.accent, flexShrink: 0 }}
                   aria-hidden
                 >
                   {icon ?? <span />}
                 </div>
 
-                <div style={{ minWidth: 0 }}>
+                <div style={{ minWidth: 0, display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center" }}>
                   <div
                     style={{
                       fontSize: 13,
                       fontWeight: 650,
                       color: mkt.text,
                       lineHeight: 1.15,
-                      marginBottom: 4,
+                      marginBottom: 3,
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
+                      textAlign: "left",
                     }}
                   >
                     {cl}
@@ -437,6 +446,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
                       fontWeight: 450,
                       color: mkt.textMuted,
                       lineHeight: 1.25,
+                      textAlign: "left",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       display: "-webkit-box",
@@ -447,7 +457,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
                     {description ?? ""}
                   </div>
                 </div>
-              </Link>
+              </a>
             ))}
           </div>
         </>
@@ -459,8 +469,11 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
           style={{
             display: "block",
             padding: "10px 0px",
-            fontSize: 15,
-            fontWeight: 600,
+            fontSize: 13,
+            fontWeight: 500,
+            fontFamily: "'DM Mono', monospace",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
             color: mkt.text,
             textDecoration: "none",
           }}
@@ -473,6 +486,7 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
 }
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
+  useLenis();
   const [menuOpen, setMenuOpen] = useState(false);
   const navCardRef = useRef<HTMLDivElement>(null);
   const [menuTop, setMenuTop] = useState<number>(92);
@@ -562,8 +576,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           style={{
             maxWidth: 1600,
             outline: DEBUG_DROPDOWN ? "3px solid rgba(255,0,0,0.8)" : "none",
-            width: "calc(100% - 24px)",
-            margin: "8px 12px 0",
             height: isMobile ? 64 : DESKTOP_HEADER.cardHeight,
             display: "flex",
             alignItems: "center",
@@ -587,8 +599,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   width: "calc(100% - 32px)",
                   maxWidth: 1440,
                   margin: "3px 16px 0",
-                  borderRadius: 18,
-                  padding: "0 20px",
+                  borderRadius: 16,
+                  padding: "0 18px",
                   background: "rgba(34,40,42,0.55)",
                   backdropFilter: "blur(12px) saturate(1.3)",
                   WebkitBackdropFilter: "blur(12px) saturate(1.3)",
@@ -597,18 +609,18 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 }),
           }}
         >
-          <AnimatedLogo />
+          <Logo />
 
-          {!isMobile && (
-            <nav
-              aria-label="Main navigation"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                flex: "0 1 auto",
-              }}
-            >
+            {!isMobile && (
+              <nav
+                aria-label="Main navigation"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 2,
+                  flex: "0 1 auto",
+                }}
+              >
               {NAV_LINKS.map(({ label, href, children }) => (
                 <NavItemDesktopV2
                   key={href}
@@ -629,8 +641,11 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   href="/login"
                   data-testid="nav-login"
                   style={{
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: 500,
+                    fontFamily: "'DM Mono', monospace",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
                     color: mkt.text,
                     textDecoration: "none",
                     transition: "color 0.15s ease",
@@ -645,14 +660,15 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   className="mkt-btn-primary"
                   data-testid="nav-cta-start-free"
                   style={{
-                    padding: "9px 20px",
-                    borderRadius: 10,
+                    padding: "8px 18px",
+                    borderRadius: 9,
                     background: mkt.buttonBg,
                     color: mkt.buttonText,
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: 500,
+                    fontFamily: "'DM Mono', monospace",
                     textTransform: "uppercase" as const,
-                    letterSpacing: "0.04em",
+                    letterSpacing: "0.08em",
                     textDecoration: "none",
                     display: "inline-block",
                     whiteSpace: "nowrap",
@@ -783,74 +799,51 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       )}
       <div style={{ height: 24, flexShrink: 0 }} />
       <main style={{ flex: 1 }}>{children}</main>
-      <footer data-testid="footer-marketing" style={{ background: colors.brand.dark, color: colors.brand.onDark }}>
+      <footer data-testid="footer-marketing" style={{ background: "#0d1514", color: "rgba(255,255,255,0.55)" }}>
         <div
           style={{
             maxWidth: 1200,
             margin: "0 auto",
-            padding: isMobile ? "56px 24px 36px" : "72px 48px 44px",
+            padding: isMobile ? "48px 20px 32px" : "80px 80px 40px",
           }}
         >
+          {/* Main grid */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: isMobile ? "1fr 1fr" : "2.5fr 1fr 1fr 1fr 1fr",
+              gridTemplateColumns: isMobile ? "1fr 1fr" : "2.2fr 1fr 1fr 1fr 1fr",
               gap: isMobile ? 32 : 48,
-              marginBottom: 56,
+              marginBottom: 48,
             }}
           >
+            {/* Brand column */}
             <div style={{ gridColumn: isMobile ? "1 / -1" : "auto" }}>
-              <div
-                style={{
-                  fontSize: 20,
-                  fontWeight: 700,
-                  color: colors.brand.onDark,
-                  letterSpacing: "-0.02em",
-                  marginBottom: 10,
-                }}
-              >
-                We<span style={{ color: mkt.accent }}>Fix</span>Trades
+              <div style={{ marginBottom: 12 }}>
+                <Logo animate={false} />
               </div>
-              <p
-                style={{
-                  fontSize: 14,
-                  color: mkt.onDarkMuted,
-                  lineHeight: 1.7,
-                  maxWidth: 280,
-                  margin: 0,
-                }}
-              >
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.7, maxWidth: 240, margin: 0 }}>
                 Instant estimates. Smart booking. 24/7 assistants — built for trades businesses.
               </p>
-              <div style={{ marginTop: 20, display: "flex", gap: 12 }}>
+              <div style={{ marginTop: 20, display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {["Plumbing", "Roofing", "Cleaning", "Electrical", "HVAC"].map((t) => (
-                  <span
-                    key={t}
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: mkt.onDarkFaint,
-                      letterSpacing: "0.04em",
-                    }}
-                  >
+                  <span key={t} style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: "0.03em" }}>
                     {t}
                   </span>
                 ))}
               </div>
             </div>
 
+            {/* Link columns */}
             {(Object.keys(FOOTER_LINKS) as Array<keyof typeof FOOTER_LINKS>).map((section) => (
               <div key={section}>
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: mkt.onDarkFaint,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    marginBottom: 18,
-                  }}
-                >
+                <div style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.35)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.12em",
+                  marginBottom: 20,
+                }}>
                   {section}
                 </div>
                 {FOOTER_LINKS[section].map((item) => (
@@ -859,15 +852,15 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                     href={item.href}
                     style={{
                       display: "block",
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: mkt.onDarkMuted,
+                      fontSize: 13,
+                      fontWeight: 400,
+                      color: "rgba(255,255,255,0.55)",
                       textDecoration: "none",
-                      marginBottom: 11,
-                      transition: "color 0.15s ease",
+                      lineHeight: 2.0,
+                      transition: "color 0.2s ease",
                     }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.accent; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDarkMuted; }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.9)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
                   >
                     {item.label}
                   </Link>
@@ -876,28 +869,30 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             ))}
           </div>
 
-          <div
-            style={{
-              borderTop: `1px solid ${mkt.onDarkBorder}`,
-              paddingTop: 28,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 12,
-            }}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={{ fontSize: 13, color: mkt.onDarkFaint }}>
-                © {new Date().getFullYear()} WeFixTrades
-              </span>
-              <span style={{ fontSize: 12, color: mkt.onDarkFaint, opacity: 0.7 }}>
-                Built for service businesses
-              </span>
+          {/* Divider */}
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", margin: "0 0 24px" }} />
+
+          {/* Bottom bar */}
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 12,
+          }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>© 2026 WeFixTrades</span>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>Built for service businesses</span>
             </div>
-            <div style={{ display: "flex", gap: 20 }}>
-              <Link href="/privacy" style={{ fontSize: 13, color: mkt.onDarkFaint, textDecoration: "none" }}>Privacy</Link>
-              <Link href="/terms" style={{ fontSize: 13, color: mkt.onDarkFaint, textDecoration: "none" }}>Terms</Link>
+            <div style={{ display: "flex", gap: 24 }}>
+              <Link href="/privacy" style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", textDecoration: "none" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.8)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"; }}
+              >Privacy</Link>
+              <Link href="/terms" style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", textDecoration: "none" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.8)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"; }}
+              >Terms</Link>
             </div>
           </div>
         </div>

@@ -10,6 +10,26 @@ packages = ["unzip"]
 localPort = 5000
 externalPort = 80
 
+[[ports]]
+localPort = 13759
+externalPort = 3003
+exposeLocalhost = true
+
+[[ports]]
+localPort = 31093
+externalPort = 3000
+exposeLocalhost = true
+
+[[ports]]
+localPort = 31503
+externalPort = 3002
+exposeLocalhost = true
+
+[[ports]]
+localPort = 63329
+externalPort = 3001
+exposeLocalhost = true
+
 [env]
 PORT = "5000"
 

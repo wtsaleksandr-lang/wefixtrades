@@ -382,14 +382,16 @@ export async function executeTool(
     const settings = (calc?.calculator_settings as any) || {};
     const bookingSettings = settings.booking_settings || {};
     const availability = bookingSettings.availability || {};
-    const startHour = parseInt((availability.start_time || "09:00").split(":")[0]);
-    const endHour = parseInt((availability.end_time || "17:00").split(":")[0]);
-    const slotDuration = bookingSettings.slot_duration_minutes || 60;
+    const startTimeParts = (availability.start_time || "09:00").split(":");
+    const endTimeParts = (availability.end_time || "17:00").split(":");
+    const startMinutes = parseInt(startTimeParts[0]) * 60 + parseInt(startTimeParts[1] || "0");
+    const endMinutes = parseInt(endTimeParts[0]) * 60 + parseInt(endTimeParts[1] || "0");
+    const slotDuration = Math.max(bookingSettings.slot_duration_minutes || 60, 15);
 
     const slots: { time: string; available: boolean }[] = [];
-    for (let h = startHour; h < endHour; h += slotDuration / 60) {
-      const hour = Math.floor(h);
-      const minute = Math.round((h - hour) * 60);
+    for (let m = startMinutes; m < endMinutes; m += slotDuration) {
+      const hour = Math.floor(m / 60);
+      const minute = m % 60;
       const timeStr = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
       slots.push({ time: timeStr, available: !bookedTimes.has(timeStr) });
     }
