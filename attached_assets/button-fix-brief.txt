@@ -1,0 +1,593 @@
+====================================================================
+BRIEF: CTA BUTTON — COMPLETE REBUILD
+WeFixTrades — Fix all issues visible in screenshots
+====================================================================
+
+SCREENSHOTS PROVIDED (3 images):
+  Image 1: Normal state — both buttons visible side by side
+  Image 2: PRODUCT button mid-hover animation
+  Image 3: PRODUCT button hover complete
+
+THIS BRIEF SUPERSEDES ALL PREVIOUS BUTTON BRIEFS.
+Start from scratch on the button component.
+
+====================================================================
+PART 1 — READING THE SCREENSHOTS EXACTLY
+====================================================================
+
+NORMAL STATE (Image 1):
+  Left button:  "SERVICES" — dark background, white/light text
+                + a SEPARATE standalone cyan square NEXT to it (not inside)
+  Right button: "PRODUCT"  — dark background, white/light text
+                + a SEPARATE standalone cyan square NEXT to it (not inside)
+
+  The cyan squares are NOT part of the button rectangle.
+  They float BESIDE the dark button pill as independent elements.
+  The button and the square together form one interactive unit.
+
+  SERVICES button: dark pill | [cyan square]
+  PRODUCT button:  dark pill | [cyan square]
+
+  Both look identical in normal state.
+
+HOVER STATE — MID ANIMATION (Image 2):
+  SERVICES: unchanged (not being hovered)
+  PRODUCT:  The dark pill has EXPANDED rightward — it's now much wider,
+            and the cyan square is now INSIDE the left portion of the
+            expanded dark container. The button is mid-animation,
+            stretching to the right. The cyan square stayed in place
+            and the dark container grew to engulf it.
+
+HOVER STATE — COMPLETE (Image 3):
+  SERVICES: unchanged
+  PRODUCT:  NOW FULLY CYAN — the entire pill is #00D4C8 cyan.
+            Text "PRODUCT" on the left, arrow "→" on the right.
+            The button is one unified cyan pill.
+
+HOW THE ANIMATION WORKS (the real mechanism):
+  
+  Each button unit is:
+  [ DARK PILL with text ] [ CYAN SQUARE ]
+  
+  They sit side by side. The dark pill and cyan square are SEPARATE elements
+  but together act as one button.
+  
+  On hover:
+  1. The DARK PILL expands its width rightward, growing to cover/absorb 
+     the cyan square's position
+  2. As the dark pill covers the cyan square area, the ENTIRE thing 
+     transitions to CYAN background
+  3. End state: one wide CYAN pill containing [TEXT] [→]
+  
+  The arrow (→) was always in the cyan square, it just wasn't visible 
+  because the current implementation seems to have hidden/missing arrows.
+
+====================================================================
+PART 2 — ISSUES TO FIX (per user description)
+====================================================================
+
+1. COLOR MISMATCH
+   The cyan color (#00D4C8) must match the headline "On autopilot" color.
+   Check what color that headline uses — should be same cyan.
+   Both the cyan squares AND the hovered button must use identical color.
+
+2. ARROWS MISSING / NOT VISIBLE
+   The arrow icon in the cyan square is not rendering or invisible.
+   The arrow must be dark (#0d1514 or near-black) on the cyan background.
+   NOT white. Dark arrow on cyan = visible. White arrow on cyan = invisible.
+
+3. CYAN SQUARE: SHOULD HAVE A GAP FROM BUTTON EDGE
+   The square should NOT touch the outer border of the dark pill.
+   There must be ~4px of padding/gap between the square and the button's edges.
+   Think of it as an inset square with the dark button background visible
+   as a thin border all around the square.
+   
+   Implementation: the cyan square sits INSIDE a padding area.
+   OR: the square has `margin: 4px` inside its container.
+
+4. NO TRANSPARENT EFFECT ON BUTTONS
+   Remove any opacity, backdrop-filter, or rgba transparency from the button.
+   The dark button background must be a solid color: #1a1f1e or #1c2220
+   NOT rgba(255,255,255,0.06) or any semi-transparent value.
+
+5. FONT STYLE MUST MATCH EFFORTEL
+   Effortel nav buttons use:
+     font-size: 11px
+     font-weight: 700
+     letter-spacing: 0.12em
+     text-transform: uppercase
+     font-family: same as site heading font (check what's loaded)
+   
+   The text in Image 1 appears to match — verify it's using the correct
+   font and not falling back to a system font.
+
+6. HOVER ANIMATION IS WRONG — currently expands full width
+   The button should NOT expand to fill its container/parent width.
+   It should expand ONLY to a fixed target width that fits text + arrow.
+   
+   Target width on hover = button text width + arrow area (~44px) + padding
+   
+   Do NOT use width: 100% on hover.
+   Use a calculated fixed width or use fit-content with a max.
+
+7. PRODUCT = CYAN, SERVICES = DARK (default states differ)
+   Looking again at Image 1 more carefully:
+   Both buttons appear similar in normal state.
+   But the PRODUCT button may have slight cyan tint as default.
+   
+   ACTUALLY from Image 3: PRODUCT ends up cyan after hover.
+   The normal state shows PRODUCT as dark, same as SERVICES.
+   The difference is which one you hover.
+
+====================================================================
+PART 3 — CORRECT STRUCTURE AND CSS
+====================================================================
+
+EACH BUTTON IS A SINGLE <a> ELEMENT containing:
+  - The text label span
+  - The arrow square span (with inset styling)
+
+The "separate square" look is achieved through CSS on the arrow span,
+NOT by having two separate DOM elements.
+
+HTML:
+<a class="effortel-btn" href="/services">
+  <span class="effortel-btn__text">SERVICES</span>
+  <span class="effortel-btn__arrow">
+    <svg><!-- right arrow --></svg>
+  </span>
+</a>
+
+CSS — NORMAL STATE:
+
+.effortel-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 46px;
+  border-radius: 12px;
+  background: #181d1c;           /* solid dark — NO transparency */
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0 4px 0 16px;         /* 4px right = space before arrow square */
+  gap: 0;
+  position: relative;
+  transition: background 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.32s ease;
+}
+
+.effortel-btn__text {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  padding-right: 12px;
+  white-space: nowrap;
+  transition: color 0.25s ease;
+}
+
+.effortel-btn__arrow {
+  /* This IS the cyan square */
+  width: 36px;                   /* slightly smaller than full height */
+  height: 36px;                  /* leaving 4px gap top + bottom + right */
+  border-radius: 8px;
+  background: #00D4C8;           /* CYAN — matches headline color */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #0d1514;                /* DARK arrow on cyan — visible! */
+  transition: background 0.32s ease;
+  overflow: hidden;
+  position: relative;
+}
+
+/* The 4px gap effect: button is 46px tall, square is 36px → 5px top+bottom gap */
+/* Combined with padding-right: 4px → 4px right gap */
+/* Left gap comes from the padding between text and square */
+
+CSS — HOVER STATE:
+
+.effortel-btn:hover {
+  background: #00D4C8;           /* entire button turns cyan */
+  border-color: #00D4C8;
+}
+
+.effortel-btn:hover .effortel-btn__text {
+  color: #0d1514;                /* text turns dark on cyan bg */
+}
+
+.effortel-btn:hover .effortel-btn__arrow {
+  background: rgba(0, 0, 0, 0.15);  /* slight darkening of arrow area on cyan */
+}
+
+/* The arrow square background becomes slightly darker than the cyan button
+   bg, creating the "inset square" visual on hover too */
+
+CSS — TRANSITION DETAILS:
+
+The background transition on the button creates the "spreading" effect.
+To make it feel like the cyan EXPANDS from the right (where the square is):
+
+Use clip-path or a pseudo-element instead of background transition:
+
+.effortel-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;                      /* starts from RIGHT where square is */
+  bottom: 0;
+  width: 44px;                   /* starts as arrow square width */
+  background: #00D4C8;
+  border-radius: inherit;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
+}
+
+.effortel-btn:hover::after {
+  width: 100%;                   /* expands to cover entire button */
+  left: 0;
+  right: 0;
+}
+
+/* Text and arrow must be above the pseudo-element */
+.effortel-btn__text,
+.effortel-btn__arrow {
+  position: relative;
+  z-index: 1;
+}
+
+/* Text color transition on hover */
+.effortel-btn:hover .effortel-btn__text {
+  color: #0d1514;
+  transition-delay: 0.1s;        /* slight delay so text changes after cyan covers it */
+}
+
+====================================================================
+PART 4 — THE ARROW (CONVEYOR BELT)
+====================================================================
+
+The arrow square uses conveyor-belt: two arrows in a 200%-wide track.
+On hover, track shifts left by 50%.
+
+Arrow color: ALWAYS #0d1514 (dark)
+  - In normal state: dark arrow on cyan square ✓
+  - In hover state: dark arrow on cyan button ✓ (same color, stays visible)
+
+.effortel-btn__arrow {
+  overflow: hidden;
+  position: relative;
+  width: 36px;
+  height: 36px;
+  /* ... rest of styles */
+}
+
+.arrow-track {
+  display: flex;
+  width: 72px;                   /* 2 × 36px */
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.effortel-btn:hover .arrow-track {
+  transform: translateX(-36px);  /* shift by one arrow width */
+}
+
+.arrow-slot {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #0d1514;
+}
+
+Arrow SVG (right-pointing, 12×12):
+<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+  <path d="M2 6h8M7 3l3 3-3 3"
+    stroke="currentColor"
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+</svg>
+
+====================================================================
+PART 5 — SIZES (matching Effortel exactly)
+====================================================================
+
+Button height:          46px
+Button border-radius:   12px
+Arrow square size:      36px × 36px  (leaves ~5px gap top/bottom, 4px right)
+Arrow square radius:    8px
+Button padding-left:    16px
+Button padding-right:   4px
+Gap between text+arrow: 0px (text has padding-right: 12px)
+Font size:              11px
+Letter spacing:         0.12em
+Font weight:            700
+
+Total button min-width when NOT hovered:
+  16px (pad-left) + ~70px (text) + 12px (text-right-pad) + 36px (sq) + 4px (pad-right)
+  ≈ 138px for "SERVICES"
+  ≈ 122px for "PRODUCT"
+
+====================================================================
+PART 6 — COMPLETE REACT COMPONENT
+====================================================================
+
+// EfFortelButton.jsx  (rename to match your naming convention)
+import { useRef } from 'react';
+
+const ArrowIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+    <path
+      d="M2 6h8M7 3l3 3-3 3"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+export function NavButton({ label, href, onClick }) {
+  return (
+    <a
+      href={href}
+      onClick={onClick}
+      className="effortel-btn"
+    >
+      <span className="effortel-btn__text">{label}</span>
+      <span className="effortel-btn__arrow">
+        <span className="arrow-track">
+          <span className="arrow-slot"><ArrowIcon /></span>
+          <span className="arrow-slot"><ArrowIcon /></span>
+        </span>
+      </span>
+    </a>
+  );
+}
+
+CSS (add to your global stylesheet or CSS module):
+
+.effortel-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 46px;
+  border-radius: 12px;
+  background: #181d1c;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0 4px 0 16px;
+  position: relative;
+  transition: border-color 0.32s ease;
+}
+
+/* Expanding cyan overlay — starts as small square on right */
+.effortel-btn::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  bottom: 4px;
+  width: 36px;
+  background: #00D4C8;
+  border-radius: 8px;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.effortel-btn:hover::before {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  border-radius: 11px;           /* match button radius minus border */
+}
+
+.effortel-btn:hover {
+  border-color: #00D4C8;
+}
+
+.effortel-btn__text {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  padding-right: 12px;
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+  transition: color 0.15s ease 0.12s;   /* delayed — changes after cyan covers */
+}
+
+.effortel-btn:hover .effortel-btn__text {
+  color: #0d1514;
+}
+
+.effortel-btn__arrow {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #0d1514;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  /* No background needed — the ::before pseudo covers this area */
+}
+
+.arrow-track {
+  display: flex;
+  width: 72px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.effortel-btn:hover .arrow-track {
+  transform: translateX(-36px);
+}
+
+.arrow-slot {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #0d1514;
+}
+
+====================================================================
+PART 7 — PLAYWRIGHT VERIFICATION SCRIPT
+====================================================================
+
+Save as verify-buttons.cjs and run: node verify-buttons.cjs
+
+const { chromium } = require('/home/claude/.npm-global/lib/node_modules/playwright');
+const fs = require('fs');
+
+(async () => {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  
+  await page.goto('http://localhost:3000', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(2000);
+
+  fs.mkdirSync('./btn-verify', { recursive: true });
+
+  // Full page normal
+  await page.screenshot({ path: './btn-verify/01-normal-full.png' });
+
+  // Find buttons
+  const buttons = await page.$$('.effortel-btn, [class*="nav-btn"], [class*="NavButton"]');
+  console.log(`Found ${buttons.length} buttons`);
+
+  for (let i = 0; i < buttons.length; i++) {
+    const btn = buttons[i];
+    const visible = await btn.isVisible();
+    if (!visible) continue;
+
+    const box = await btn.boundingBox();
+    const CROP_PADDING = 20;
+    const clip = {
+      x: Math.max(0, box.x - CROP_PADDING),
+      y: Math.max(0, box.y - CROP_PADDING),
+      width: box.width + CROP_PADDING * 4,
+      height: box.height + CROP_PADDING * 2
+    };
+
+    // --- Normal state ---
+    await page.screenshot({ path: `./btn-verify/btn${i}-1-normal.png`, clip });
+
+    // --- Get computed styles normal ---
+    const normalStyles = await page.evaluate((el) => {
+      const s = window.getComputedStyle(el);
+      const sq = el.querySelector('[class*="arrow"], [class*="square"]');
+      const sqS = sq ? window.getComputedStyle(sq) : null;
+      return {
+        btnBg: s.backgroundColor,
+        btnHeight: s.height,
+        btnBorderRadius: s.borderRadius,
+        btnOpacity: s.opacity,
+        btnBorder: s.border,
+        squareBg: sqS?.backgroundColor,
+        squareWidth: sqS?.width,
+        squareHeight: sqS?.height,
+        squareBorderRadius: sqS?.borderRadius,
+        text: el.textContent?.trim().substring(0, 30),
+      };
+    }, btn);
+    console.log(`\nButton ${i}: "${normalStyles.text}"`);
+    console.log('  Normal state:');
+    console.log('  BG:', normalStyles.btnBg, normalStyles.btnBg.includes('0, 0, 0, 0') ? '⚠️ TRANSPARENT!' : '✅');
+    console.log('  Height:', normalStyles.btnHeight, normalStyles.btnHeight === '46px' ? '✅' : '⚠️ expected 46px');
+    console.log('  Border-radius:', normalStyles.btnBorderRadius);
+    console.log('  Arrow square:', normalStyles.squareBg, normalStyles.squareWidth, '×', normalStyles.squareHeight);
+
+    // --- Hover mid (capture at 150ms) ---
+    await btn.hover();
+    await page.waitForTimeout(150);
+    await page.screenshot({ path: `./btn-verify/btn${i}-2-hover-mid.png`, clip });
+
+    // --- Hover complete ---
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `./btn-verify/btn${i}-3-hover-done.png`, clip });
+
+    // --- Get hover styles ---
+    const hoverStyles = await page.evaluate((el) => {
+      const s = window.getComputedStyle(el);
+      return {
+        btnBg: s.backgroundColor,
+        textColor: window.getComputedStyle(el.querySelector('[class*="text"], span'))?.color,
+      };
+    }, btn);
+    console.log('  Hover BG:', hoverStyles.btnBg, hoverStyles.btnBg.includes('0, 212, 200') ? '✅ cyan' : '⚠️ not cyan');
+
+    // --- Reset ---
+    await page.mouse.move(100, 500);
+    await page.waitForTimeout(400);
+  }
+
+  // Verify cyan color matches headline
+  const headlineColor = await page.evaluate(() => {
+    const h1 = document.querySelector('h1, h2, [class*="headline"]');
+    if (!h1) return null;
+    // Find cyan-colored text (span, em, etc.)
+    const spans = h1.querySelectorAll('span, em, strong');
+    for (const span of spans) {
+      const color = window.getComputedStyle(span).color;
+      if (color.includes('0, 212') || color.includes('0, 180') || color.includes('turquoise')) {
+        return { element: span.tagName, color };
+      }
+    }
+    return { headlineFull: window.getComputedStyle(h1).color };
+  });
+  console.log('\nHeadline cyan color:', JSON.stringify(headlineColor));
+  console.log('Button cyan should match: #00D4C8 = rgb(0, 212, 200)');
+
+  await browser.close();
+  console.log('\nDone! Check ./btn-verify/ for screenshots.');
+  console.log('Compare btn0-1-normal, btn0-2-hover-mid, btn0-3-hover-done');
+})();
+
+====================================================================
+PART 8 — CHECKLIST FOR CLAUDE CODE
+====================================================================
+
+[ ] Remove ALL transparency from button background (no rgba, no opacity trick)
+[ ] Set button background to solid #181d1c
+[ ] Set button height to exactly 46px
+[ ] Set button border-radius to 12px
+[ ] Arrow square size: 36×36px with 4-5px inset gap from button edges
+[ ] Arrow square background: #00D4C8 (cyan)
+[ ] Arrow icon color: #0d1514 (DARK — not white)
+[ ] Implement ::before pseudo-element that starts as cyan square, expands to full width on hover
+[ ] Text color: rgba(255,255,255,0.85) normal → #0d1514 on hover (delayed)
+[ ] Arrow conveyor belt: two arrow slots in 72px track, shifts -36px on hover
+[ ] Button border: 1px solid rgba(255,255,255,0.10) → #00D4C8 on hover
+[ ] Font: 11px, weight 700, letter-spacing 0.12em, uppercase
+[ ] Verify font matches site heading font (not fallback)
+[ ] Run Playwright verification and check all 3 states per button
+
+====================================================================
+END OF BRIEF
+====================================================================

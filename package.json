@@ -4,7 +4,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "fuser -k 5000/tcp 2>/dev/null; NODE_ENV=development tsx server/index.ts",
+    "dev": "kill $(cat /tmp/wft-server.pid 2>/dev/null) 2>/dev/null; sleep 0.5; CHOKIDAR_USEPOLLING=1 NODE_ENV=development tsx server/index.ts & echo $! > /tmp/wft-server.pid && wait",
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",

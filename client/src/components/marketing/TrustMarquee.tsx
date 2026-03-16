@@ -169,8 +169,8 @@ export default function TrustMarquee() {
     <section
       style={{
         width: "100%",
-        paddingTop: 28,
-        paddingBottom: 36,
+        paddingTop: 8,
+        paddingBottom: 10,
         position: "relative",
       }}
     >
@@ -201,13 +201,13 @@ export default function TrustMarquee() {
           flex-wrap: nowrap;
         }
         .tm-card {
-          width: 186px;
-          height: 100px;
+          width: 148px;
+          height: 66px;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
-          padding: 0 20px;
+          padding: 0 10px;
           opacity: 0.65;
           transition: opacity 0.2s ease;
         }
@@ -234,12 +234,12 @@ export default function TrustMarquee() {
           position: "relative",
           zIndex: 1,
           textAlign: "center",
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: 600,
-          letterSpacing: "0.18em",
+          letterSpacing: "0.16em",
           textTransform: "uppercase",
           color: "rgba(255,255,255,0.35)",
-          marginBottom: 24,
+          marginBottom: 8,
           marginTop: 0,
         }}
       >

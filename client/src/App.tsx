@@ -46,6 +46,7 @@ import Resources from "@/pages/Resources";
 import About from "@/pages/About";
 import Blog from "@/pages/Blog";
 import CaseStudies from "@/pages/CaseStudies";
+import PrimitivesPage from "@/pages/dev/primitives";
 
 function Router() {
   return (
@@ -92,6 +93,7 @@ function Router() {
       <Route path="/docs/ai" component={DocsAi} />
       <Route path="/docs/webhooks" component={DocsWebhooks} />
       <Route path="/docs/troubleshooting" component={DocsTroubleshooting} />
+      <Route path="/dev/primitives" component={PrimitivesPage} />
       <Route path="/free-audit" component={FreeAudit} />
       <Route path="/Wizard" component={Wizard} />
       <Route path="/Calculator" component={Calculator} />

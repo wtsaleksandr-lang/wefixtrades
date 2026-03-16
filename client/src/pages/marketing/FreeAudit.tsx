@@ -784,7 +784,7 @@ export default function FreeAudit() {
                             color: done
                               ? "#22C55E"
                               : active
-                              ? colors.accent
+                              ? colors.accent.blue
                               : "rgba(0,0,0,0.35)",
                           }}
                         >

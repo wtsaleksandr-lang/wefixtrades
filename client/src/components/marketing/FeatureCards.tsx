@@ -183,16 +183,16 @@ function CardPair({ card, index }: { card: typeof CARDS[0]; index: number }) {
   const isReversed = index % 2 !== 0;
 
   const textCol = (
-    <div style={{
+    <div className="fc-text-col" style={{
       flex: "0 0 30%",
-      background: "#2e3638",       // medium gray — clearly lighter than visual column
+      background: "#2e3638",
       position: "relative",
       overflow: "hidden",
       display: "flex",
       flexDirection: "column",
       justifyContent: "space-between",
       padding: "28px 24px",
-      // No dot grid on text column
+      borderRadius: 18,           // own radius — gap between columns shows bg
     }}>
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
         <h3 style={{ fontSize: 15, fontWeight: 600, color: "#fff", lineHeight: 1.3, letterSpacing: "-0.01em", margin: 0 }}>
@@ -214,15 +214,16 @@ function CardPair({ card, index }: { card: typeof CARDS[0]; index: number }) {
   );
 
   const visualCol = (
-    <div style={{
+    <div className="fc-visual-col" style={{
       flex: 1,
-      background: "#161b1a",       // very dark — visual side
+      background: "#161b1a",
       position: "relative",
       overflow: "hidden",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       padding: 20,
+      borderRadius: 18,           // own radius
     }}>
       {/* Dot grid on visual column only */}
       <div style={dotGrid} />
@@ -241,21 +242,60 @@ function CardPair({ card, index }: { card: typeof CARDS[0]; index: number }) {
   );
 
   return (
-    <div style={{
+    <div className="fc-card-pair" style={{
       display: "flex",
       flexDirection: "row",
-      gap: 0,
+      gap: 5,                     // thin gap — section bg shows through, columns each have own radius
       alignItems: "stretch",
       borderRadius: 24,
-      overflow: "hidden",
-      border: "1px solid rgba(255,255,255,0.1)",
-      minHeight: 380,
-      maxHeight: 480,
+      overflow: "visible",        // let individual column radii show
     }}>
       {isReversed ? <>{visualCol}{textCol}</> : <>{textCol}{visualCol}</>}
     </div>
   );
 }
+
+// ── Responsive styles ─────────────────────────────────────────────────
+
+const RESPONSIVE_CSS = `
+  .fc-card-pair {
+    min-height: 520px;
+  }
+  @media (max-width: 767px) {
+    .fc-section {
+      padding: 72px 16px 100px !important;
+    }
+    .fc-container {
+      gap: 32px !important;
+    }
+    .fc-card {
+      position: relative !important;
+      top: auto !important;
+    }
+    .fc-card-pair {
+      flex-direction: column !important;
+      min-height: auto !important;
+      gap: 6px !important;
+    }
+    .fc-text-col {
+      flex: none !important;
+      width: 100% !important;
+    }
+    .fc-visual-col {
+      flex: none !important;
+      width: 100% !important;
+      min-height: 200px !important;
+    }
+  }
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .fc-section {
+      padding: 90px 20px 140px !important;
+    }
+    .fc-card-pair {
+      min-height: 380px !important;
+    }
+  }
+`;
 
 // ── Main export ───────────────────────────────────────────────────────
 
@@ -263,6 +303,8 @@ export default function FeatureCards() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) return;
+
     const ctx = gsap.context(() => {
       const cards = containerRef.current!.querySelectorAll<HTMLElement>(".fc-card");
 
@@ -274,8 +316,8 @@ export default function FeatureCards() {
 
         ScrollTrigger.create({
           trigger: nextCard,
-          start: "top 70%",
-          end: "top 30%",
+          start: "top 90%",       // start dimming sooner
+          end: "top 40%",
           scrub: 2,
           onUpdate: (self) => {
             const p = self.progress;
@@ -290,7 +332,7 @@ export default function FeatureCards() {
   }, []);
 
   return (
-    <section style={{
+    <section className="fc-section" style={{
       background: "#22282A",
       padding: "120px 28px 200px",
       position: "relative",
@@ -298,6 +340,7 @@ export default function FeatureCards() {
       marginTop: -28,
       zIndex: 7,
     }}>
+      <style>{RESPONSIVE_CSS}</style>
       {/* Section header */}
       <div style={{ textAlign: "center", maxWidth: 680, margin: "0 auto 88px" }}>
         <div style={{
@@ -319,7 +362,7 @@ export default function FeatureCards() {
       </div>
 
       {/* Card stack */}
-      <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: 80, maxWidth: 1100, margin: "0 auto" }}>
+      <div ref={containerRef} className="fc-container" style={{ display: "flex", flexDirection: "column", gap: 80, maxWidth: 1100, margin: "0 auto" }}>
         {CARDS.map((card, i) => (
           <div
             key={i}
@@ -329,8 +372,8 @@ export default function FeatureCards() {
             {/* Dim overlay — fades in as next card slides over this one */}
             <div className="fc-overlay" style={{
               position: "absolute", inset: 0, zIndex: 10,
-              background: mkt.bg, opacity: 0,
-              borderRadius: 24, pointerEvents: "none",
+              background: "#22282A", opacity: 0,
+              borderRadius: 18, pointerEvents: "none",
             }} />
             <CardPair card={card} index={i} />
           </div>
