@@ -2,6 +2,10 @@ import type { StepDefinition, StepType } from '@shared/wizardSchema';
 import QuestionStep from './steps/QuestionStep';
 import MultiQuestionStep from './steps/MultiQuestionStep';
 import InfoStep from './steps/InfoStep';
+import PriceRevealStep from './steps/PriceRevealStep';
+import PackageSelectionStep from './steps/PackageSelectionStep';
+import AddonSelectionStep from './steps/AddonSelectionStep';
+import LeadCaptureStep from './steps/LeadCaptureStep';
 
 interface StepRendererProps {
   step: StepDefinition;
@@ -24,11 +28,19 @@ export default function StepRenderer({ step, accentColor }: StepRendererProps) {
     case 'info':
       return <InfoStep step={step} />;
 
-    // ─── Future step types (Phase 2 actions 7-10) ───
-    case 'package_selection':
-    case 'addon_selection':
     case 'price_reveal':
+      return <PriceRevealStep step={step} accentColor={accentColor} />;
+
+    case 'package_selection':
+      return <PackageSelectionStep step={step} accentColor={accentColor} />;
+
+    case 'addon_selection':
+      return <AddonSelectionStep step={step} accentColor={accentColor} />;
+
     case 'lead_capture':
+      return <LeadCaptureStep step={step} accentColor={accentColor} />;
+
+    // ─── Not yet implemented ───
     case 'booking':
     case 'confirmation':
       return <StepPlaceholder step={step} />;
