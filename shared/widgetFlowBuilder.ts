@@ -175,6 +175,13 @@ function buildRateQuantityStep(
     type: 'question',
     title,
     questions: [question],
+    help: {
+      title: 'Sizing your job',
+      items: [
+        { question: 'What if I\'m not sure of the exact amount?', answer: 'Give your best estimate — you can always adjust later with your service provider.' },
+        { question: 'Does this affect my final price?', answer: 'This gives you a ballpark estimate. Your final quote may vary based on the specifics of your project.' },
+      ],
+    },
     config: { show_progress: true, can_skip: false, auto_advance: false },
   };
 }
@@ -203,6 +210,13 @@ function buildPackageSelectionStep(
     type: 'package_selection',
     title: 'Select a package',
     questions: [question],
+    help: {
+      title: 'Choosing a package',
+      items: [
+        { question: 'Can I change my package later?', answer: 'Yes — this is an estimate. Discuss adjustments with your service provider.' },
+        { question: 'What\'s included?', answer: 'Each package includes the services listed. Add-ons are available on the next step.' },
+      ],
+    },
     config: { show_progress: true, can_skip: false, auto_advance: false },
   };
 }
@@ -230,6 +244,13 @@ function buildAddOnStep(config: PricingConfigV1): StepDefinition | null {
     type: 'addon_selection',
     title: 'Any extras?',
     questions: [question],
+    help: {
+      title: 'About add-ons',
+      items: [
+        { question: 'Are add-ons required?', answer: 'No — add-ons are optional. Skip this step if you don\'t need any extras.' },
+        { question: 'How do percentages work?', answer: 'Percentage-based add-ons are calculated on your base service cost.' },
+      ],
+    },
     config: { show_progress: true, can_skip: true, auto_advance: false },
   };
 }
@@ -241,6 +262,13 @@ function buildPriceRevealStep(config: PricingConfigV1): StepDefinition {
     type: 'price_reveal',
     title: isCallOnly ? 'Request a Quote' : 'Your Estimate',
     questions: [],
+    help: {
+      title: 'About this estimate',
+      items: [
+        { question: 'Is this my final price?', answer: 'This is an estimate based on the information you provided. Final pricing may vary.' },
+        { question: 'How accurate is this?', answer: 'Most estimates are within 10–15% of the final cost for standard jobs.' },
+      ],
+    },
     config: { show_progress: true, can_skip: false, auto_advance: false },
   };
 }

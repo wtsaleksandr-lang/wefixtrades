@@ -7,6 +7,7 @@ import { getWidgetTheme } from '@/theme/widgetTheme';
 import { WidgetProvider } from './WidgetContext';
 import { useWidgetState } from './useWidgetState';
 import StepRenderer from './StepRenderer';
+import StepHelp from './StepHelp';
 import { evaluateVisibility } from './visibility';
 import type { CalculatorData, WidgetConfig } from './types';
 
@@ -216,7 +217,17 @@ function WidgetCard({
       )}
 
       {/* ─── Step Content ─── */}
-      <div style={{ padding: '32px' }}>
+      <div style={{ padding: '32px', position: 'relative' }}>
+        {currentStep.help && (
+          <div style={{
+            position: 'absolute',
+            top: '32px',
+            right: '32px',
+            zIndex: 10,
+          }}>
+            <StepHelp help={currentStep.help} />
+          </div>
+        )}
         <StepRenderer step={currentStep} accentColor={accentColor} />
       </div>
 

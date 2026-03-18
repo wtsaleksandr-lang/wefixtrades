@@ -151,6 +151,22 @@ export const STEP_TYPES = [
 
 export type StepType = (typeof STEP_TYPES)[number];
 
+/* ─── Step Help ─── */
+
+export const stepHelpItemSchema = z.object({
+  question: z.string(),
+  answer: z.string(),
+});
+
+export type StepHelpItem = z.infer<typeof stepHelpItemSchema>;
+
+export const stepHelpSchema = z.object({
+  title: z.string().optional(),
+  items: z.array(stepHelpItemSchema).min(1),
+});
+
+export type StepHelp = z.infer<typeof stepHelpSchema>;
+
 /* ─── Step Definition ─── */
 
 export const stepDefinitionSchema = z.object({
@@ -164,6 +180,9 @@ export const stepDefinitionSchema = z.object({
 
   // Conditional visibility for the entire step
   visible_when: z.array(visibilityConditionSchema).optional(),
+
+  // Optional contextual help (shown via help icon)
+  help: stepHelpSchema.optional(),
 
   // Step-level config
   config: z.object({
