@@ -1,3 +1,4 @@
+// FROZEN — scheduled for rebuild in Phase 3 (Builder Wizard). Do not add features.
 import { useState, useMemo, useEffect } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
 import type { CalculatorSettings } from '@shared/schema';

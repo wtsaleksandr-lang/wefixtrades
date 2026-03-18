@@ -1,3 +1,5 @@
+// FROZEN — scheduled for rebuild in Phase 3 (Builder Wizard). Do not add features.
+// This component will be decomposed into tab-level modules.
 import { useState, useCallback } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
 import type { CalculatorSettings } from '@shared/schema';

@@ -1,3 +1,6 @@
+// FROZEN — scheduled for rebuild in Phase 2 (Customer Widget). Do not add features.
+// This 2,284-line component will be replaced by a schema-driven step renderer.
+// See: ARCHITECTURE_AUDIT.md, EXTRACTION_MAP.md
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { getWidgetTheme } from '@/theme/widgetTheme';
 import { Loader2, PartyPopper, AlertCircle, ChevronLeft, ArrowRight, CheckCircle2, Plus, Minus, Phone, CalendarDays, Clock, ChevronRight, Shield, Star, MessageCircle, Award, Lock, ThumbsUp, Tag, X } from 'lucide-react';
