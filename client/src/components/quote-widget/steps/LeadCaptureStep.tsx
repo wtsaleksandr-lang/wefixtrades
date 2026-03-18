@@ -190,6 +190,7 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
             onCheckedChange={(checked) =>
               dispatch({ type: 'SET_SMS_CONSENT', value: !!checked })
             }
+            className="h-5 w-5 rounded border-[#d5e1e7] data-[state=checked]:bg-[#394247] data-[state=checked]:border-[#394247] data-[state=checked]:text-[#e4edf1] focus-visible:ring-[#d5e1e7]"
             style={{ marginTop: '2px' }}
           />
           <span style={{ fontSize: '12px', color: eff.textBody, lineHeight: 1.6 }}>

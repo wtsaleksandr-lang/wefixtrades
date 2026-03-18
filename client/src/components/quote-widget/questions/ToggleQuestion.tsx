@@ -1,5 +1,5 @@
 import { Switch } from '@/components/ui/switch';
-import { eff, labelStyle, optionRowStyle } from '../designTokens';
+import { eff, optionRowStyle } from '../designTokens';
 import type { QuestionComponentProps } from './QuestionProps';
 
 export default function ToggleQuestion({ question, value, onChange }: QuestionComponentProps) {
@@ -21,6 +21,7 @@ export default function ToggleQuestion({ question, value, onChange }: QuestionCo
       <Switch
         checked={boolValue}
         onCheckedChange={(checked) => onChange(checked)}
+        className="data-[state=checked]:bg-[#394247] data-[state=unchecked]:bg-[#d5e1e7] focus-visible:ring-[#d5e1e7]"
       />
     </div>
   );

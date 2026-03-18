@@ -33,6 +33,7 @@ export default function CheckboxGroupQuestion({ question, value, onChange }: Que
               <Checkbox
                 checked={isChecked}
                 onCheckedChange={(checked) => handleToggle(opt.value, !!checked)}
+                className="h-5 w-5 rounded border-[#d5e1e7] data-[state=checked]:bg-[#394247] data-[state=checked]:border-[#394247] data-[state=checked]:text-[#e4edf1] focus-visible:ring-[#d5e1e7]"
               />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontSize: '14px', fontWeight: 600, color: eff.text }}>{opt.label}</span>
