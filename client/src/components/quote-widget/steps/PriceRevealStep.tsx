@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Phone } from 'lucide-react';
 import { useWidgetState } from '../useWidgetState';
 import { calculateEstimate } from '@shared/calculateEstimate';
+import { eff, stepTitleStyle, stepSubtitleStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
 
 interface PriceRevealStepProps {
@@ -26,26 +27,29 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
   );
 
   return (
-    <div className="space-y-4">
-      {step.title && <h3 className="text-lg font-semibold">{step.title}</h3>}
-      {step.subtitle && <p className="text-sm text-muted-foreground">{step.subtitle}</p>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {step.title && <h3 style={stepTitleStyle}>{step.title}</h3>}
+      {step.subtitle && <p style={stepSubtitleStyle}>{step.subtitle}</p>}
 
       {!estimate && (
-        <div className="rounded-lg border p-6 text-center text-muted-foreground">
+        <div style={{
+          borderRadius: eff.radiusLg,
+          border: `1px solid ${eff.buttonBorder}`,
+          padding: '40px 24px',
+          textAlign: 'center',
+          color: eff.textBody,
+          fontSize: '14px',
+        }}>
           Calculating...
         </div>
       )}
 
       {estimate?.type === 'call_for_quote' && (
-        <CallForQuoteBlock message={estimate.message} accentColor={accentColor} />
+        <CallForQuoteBlock message={estimate.message} />
       )}
 
       {estimate?.type === 'range' && (
-        <RangeBlock
-          rangeMin={estimate.rangeMin!}
-          rangeMax={estimate.rangeMax!}
-          accentColor={accentColor}
-        />
+        <RangeBlock rangeMin={estimate.rangeMin!} rangeMax={estimate.rangeMax!} />
       )}
 
       {estimate?.type === 'exact' && (
@@ -53,7 +57,6 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
           total={estimate.total}
           breakdown={estimate.breakdown}
           callUs={estimate.callUs}
-          accentColor={accentColor}
         />
       )}
     </div>
@@ -66,28 +69,59 @@ function ExactPriceBlock({
   total,
   breakdown,
   callUs,
-  accentColor,
 }: {
   total: number;
   breakdown: Array<{ label: string; amount: number }>;
   callUs: boolean;
-  accentColor?: string;
 }) {
   return (
-    <div className="rounded-xl border p-6 space-y-4">
-      <div className="text-center">
-        <p className="text-sm text-muted-foreground mb-1">Your Estimate</p>
-        <p className="text-4xl font-bold" style={{ color: accentColor }}>
+    <div style={{
+      borderRadius: eff.radiusXl,
+      border: `1px solid ${eff.buttonBorder}`,
+      background: eff.bgSecondary,
+      padding: '32px 24px',
+    }}>
+      <div style={{ textAlign: 'center', marginBottom: breakdown.length > 0 ? '24px' : 0 }}>
+        <p style={{
+          fontSize: '12px',
+          fontWeight: 600,
+          color: eff.textBody,
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+          margin: '0 0 8px',
+          fontFamily: eff.fontMono,
+        }}>
+          Your Estimate
+        </p>
+        <p style={{
+          fontSize: '40px',
+          fontWeight: 800,
+          color: eff.text,
+          margin: 0,
+          fontFamily: eff.fontMono,
+          lineHeight: 1,
+          letterSpacing: '-0.02em',
+        }}>
           ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </p>
       </div>
 
       {breakdown.length > 0 && (
-        <div className="border-t pt-3 space-y-2">
+        <div style={{
+          borderTop: `1px solid ${eff.buttonBorder}`,
+          paddingTop: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+        }}>
           {breakdown.map((line, i) => (
-            <div key={i} className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{line.label}</span>
-              <span className="font-medium">
+            <div key={i} style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: '14px',
+            }}>
+              <span style={{ color: eff.textBody }}>{line.label}</span>
+              <span style={{ fontWeight: 600, color: eff.text, fontFamily: eff.fontMono }}>
                 ${line.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
@@ -96,8 +130,19 @@ function ExactPriceBlock({
       )}
 
       {callUs && (
-        <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-          <Phone className="h-4 w-4 shrink-0" />
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          borderRadius: eff.radiusMd,
+          background: '#fff',
+          border: `1px solid ${eff.buttonBorder}`,
+          padding: '12px 16px',
+          fontSize: '13px',
+          color: eff.textBody,
+          marginTop: '16px',
+        }}>
+          <Phone style={{ width: 16, height: 16, flexShrink: 0, color: eff.buttonBg }} />
           <span>For jobs this size, we recommend calling us for a custom quote.</span>
         </div>
       )}
@@ -108,19 +153,41 @@ function ExactPriceBlock({
 function RangeBlock({
   rangeMin,
   rangeMax,
-  accentColor,
 }: {
   rangeMin: number;
   rangeMax: number;
-  accentColor?: string;
 }) {
   return (
-    <div className="rounded-xl border p-6 text-center space-y-2">
-      <p className="text-sm text-muted-foreground">Estimated Range</p>
-      <p className="text-3xl font-bold" style={{ color: accentColor }}>
-        ${rangeMin.toLocaleString()} – ${rangeMax.toLocaleString()}
+    <div style={{
+      borderRadius: eff.radiusXl,
+      border: `1px solid ${eff.buttonBorder}`,
+      background: eff.bgSecondary,
+      padding: '32px 24px',
+      textAlign: 'center',
+    }}>
+      <p style={{
+        fontSize: '12px',
+        fontWeight: 600,
+        color: eff.textBody,
+        textTransform: 'uppercase',
+        letterSpacing: '0.06em',
+        margin: '0 0 8px',
+        fontFamily: eff.fontMono,
+      }}>
+        Estimated Range
       </p>
-      <p className="text-sm text-muted-foreground">
+      <p style={{
+        fontSize: '36px',
+        fontWeight: 800,
+        color: eff.text,
+        margin: '0 0 8px',
+        fontFamily: eff.fontMono,
+        lineHeight: 1,
+        letterSpacing: '-0.02em',
+      }}>
+        ${rangeMin.toLocaleString()} &ndash; ${rangeMax.toLocaleString()}
+      </p>
+      <p style={{ fontSize: '14px', color: eff.textBody, margin: 0, lineHeight: 1.5 }}>
         Contact us for an exact quote tailored to your needs.
       </p>
     </div>
@@ -129,21 +196,33 @@ function RangeBlock({
 
 function CallForQuoteBlock({
   message,
-  accentColor,
 }: {
   message?: string;
-  accentColor?: string;
 }) {
   return (
-    <div className="rounded-xl border p-6 text-center space-y-3">
-      <div
-        className="mx-auto flex h-12 w-12 items-center justify-center rounded-full"
-        style={{ backgroundColor: accentColor ? `${accentColor}15` : '#f1f5f9' }}
-      >
-        <Phone className="h-6 w-6" style={{ color: accentColor }} />
+    <div style={{
+      borderRadius: eff.radiusXl,
+      border: `1px solid ${eff.buttonBorder}`,
+      background: eff.bgSecondary,
+      padding: '40px 24px',
+      textAlign: 'center',
+    }}>
+      <div style={{
+        width: '48px',
+        height: '48px',
+        borderRadius: '50%',
+        background: eff.bg,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: '0 auto 16px',
+      }}>
+        <Phone style={{ width: 24, height: 24, color: eff.buttonBg }} />
       </div>
-      <p className="text-lg font-semibold">{message || 'Request a Quote'}</p>
-      <p className="text-sm text-muted-foreground">
+      <p style={{ fontSize: '18px', fontWeight: 700, color: eff.text, margin: '0 0 8px' }}>
+        {message || 'Request a Quote'}
+      </p>
+      <p style={{ fontSize: '14px', color: eff.textBody, margin: 0, lineHeight: 1.5 }}>
         Fill in your details below and we'll get back to you with a custom quote.
       </p>
     </div>

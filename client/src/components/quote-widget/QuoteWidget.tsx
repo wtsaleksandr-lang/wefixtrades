@@ -10,6 +10,8 @@ import StepRenderer from './StepRenderer';
 import { evaluateVisibility } from './visibility';
 import type { CalculatorData, WidgetConfig } from './types';
 
+import { eff } from './designTokens';
+
 /* ─── Public Props (matches CalculatorWidget interface) ─── */
 
 interface QuoteWidgetProps {
@@ -60,8 +62,12 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
   return (
     <WidgetProvider config={config}>
       <div
-        className="mx-auto w-full max-w-2xl"
-        style={{ fontFamily: theme.typography.fontFamily }}
+        className="mx-auto w-full"
+        style={{
+          maxWidth: '576px',
+          fontFamily: eff.font,
+          color: eff.text,
+        }}
       >
         <WidgetCard theme={theme} calculator={calculator} />
       </div>
@@ -115,25 +121,56 @@ function WidgetCard({
 
   return (
     <div
-      className="rounded-2xl border bg-white shadow-sm overflow-hidden"
-      style={{ boxShadow: theme.shadows.card }}
+      style={{
+        background: '#fff',
+        borderRadius: eff.radius2xl,
+        border: `1px solid ${eff.buttonBorder}`,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03)',
+        overflow: 'hidden',
+      }}
     >
       {/* ─── Header ─── */}
       {(calculator.business_name || calculator.logo_url) && (
-        <div className="border-b px-6 py-4 flex items-center gap-3">
+        <div
+          style={{
+            padding: '24px 32px',
+            borderBottom: `1px solid ${eff.buttonBorder}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+          }}
+        >
           {calculator.logo_url && (
             <img
               src={calculator.logo_url}
               alt={calculator.business_name}
-              className="h-8 w-8 rounded-lg object-contain"
+              style={{
+                height: '40px',
+                width: '40px',
+                borderRadius: eff.radiusMd,
+                objectFit: 'contain',
+              }}
             />
           )}
           <div>
-            <p className="text-sm font-semibold text-foreground">
+            <p style={{
+              fontSize: '15px',
+              fontWeight: 700,
+              color: eff.text,
+              lineHeight: 1.3,
+              margin: 0,
+            }}>
               {calculator.business_name}
             </p>
             {calculator.tagline && (
-              <p className="text-xs text-muted-foreground">{calculator.tagline}</p>
+              <p style={{
+                fontSize: '13px',
+                color: eff.textBody,
+                lineHeight: 1.4,
+                margin: '2px 0 0',
+              }}>
+                {calculator.tagline}
+              </p>
             )}
           </div>
         </div>
@@ -141,18 +178,37 @@ function WidgetCard({
 
       {/* ─── Progress Bar ─── */}
       {showProgress && (
-        <div className="px-6 pt-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-muted-foreground">
-              Step {currentStepIndex + 1} of {visibleStepCount}
+        <div style={{ padding: '24px 32px 0' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '8px',
+          }}>
+            <span style={{
+              fontSize: '12px',
+              fontWeight: 600,
+              color: eff.textBody,
+              letterSpacing: '0.02em',
+              fontFamily: eff.fontMono,
+              textTransform: 'uppercase' as const,
+            }}>
+              Step {currentStepIndex + 1} / {visibleStepCount}
             </span>
           </div>
-          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div style={{
+            height: '4px',
+            borderRadius: '2px',
+            background: eff.bg,
+            overflow: 'hidden',
+          }}>
             <div
-              className="h-full rounded-full transition-all duration-300"
               style={{
+                height: '100%',
+                borderRadius: '2px',
+                transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                 width: `${((currentStepIndex + 1) / visibleStepCount) * 100}%`,
-                backgroundColor: accentColor,
+                background: eff.buttonBg,
               }}
             />
           </div>
@@ -160,31 +216,66 @@ function WidgetCard({
       )}
 
       {/* ─── Step Content ─── */}
-      <div className="px-6 py-6">
+      <div style={{ padding: '32px' }}>
         <StepRenderer step={currentStep} accentColor={accentColor} />
       </div>
 
       {/* ─── Navigation ─── */}
       {(showBack || showNext || canSkip) && (
-        <div className="border-t px-6 py-4 flex items-center justify-between">
+        <div
+          style={{
+            borderTop: `1px solid ${eff.buttonBorder}`,
+            padding: '24px 32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
           <div>
             {showBack && (
               <button
                 type="button"
                 onClick={prevStep}
-                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: eff.textBody,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '8px 0',
+                  fontFamily: eff.font,
+                  transition: 'color 0.15s',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = eff.text; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = eff.textBody; }}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft style={{ width: 16, height: 16 }} />
                 Back
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             {canSkip && (
               <button
                 type="button"
                 onClick={nextStep}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: eff.textBody,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '8px 0',
+                  fontFamily: eff.font,
+                  transition: 'color 0.15s',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = eff.text; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = eff.textBody; }}
               >
                 Skip
               </button>
@@ -193,11 +284,29 @@ function WidgetCard({
               <button
                 type="button"
                 onClick={nextStep}
-                className="flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ background: theme.colors.gradientButton }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  borderRadius: eff.radiusXl,
+                  padding: '12px 28px',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  color: eff.buttonText,
+                  background: eff.buttonBg,
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: eff.font,
+                  transition: 'background 0.15s, transform 0.1s',
+                  letterSpacing: '0.01em',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = eff.buttonBgHover; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = eff.buttonBg; }}
+                onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.98)'; }}
+                onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
               >
                 Continue
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight style={{ width: 16, height: 16 }} />
               </button>
             )}
           </div>

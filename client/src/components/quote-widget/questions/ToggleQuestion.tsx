@@ -1,16 +1,21 @@
 import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+import { eff, labelStyle, optionRowStyle } from '../designTokens';
 import type { QuestionComponentProps } from './QuestionProps';
 
 export default function ToggleQuestion({ question, value, onChange }: QuestionComponentProps) {
   const boolValue = typeof value === 'boolean' ? value : value === 'true';
 
   return (
-    <div className="flex items-center justify-between gap-4 py-2">
-      <div className="space-y-0.5">
-        <Label>{question.label}</Label>
+    <div
+      style={{
+        ...optionRowStyle,
+        justifyContent: 'space-between',
+      }}
+    >
+      <div>
+        <span style={{ fontSize: '14px', fontWeight: 600, color: eff.text }}>{question.label}</span>
         {question.description && (
-          <p className="text-sm text-muted-foreground">{question.description}</p>
+          <p style={{ fontSize: '13px', color: eff.textBody, margin: '4px 0 0', lineHeight: 1.4 }}>{question.description}</p>
         )}
       </div>
       <Switch

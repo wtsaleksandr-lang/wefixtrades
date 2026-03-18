@@ -1,5 +1,6 @@
 import QuestionRenderer from '../QuestionRenderer';
 import { useWidgetState } from '../useWidgetState';
+import { stepTitleStyle, stepSubtitleStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
 import { evaluateVisibility } from '../visibility';
 
@@ -21,9 +22,9 @@ export default function MultiQuestionStep({ step, accentColor }: MultiQuestionSt
   });
 
   return (
-    <div className="space-y-6">
-      {step.title && <h3 className="text-lg font-semibold">{step.title}</h3>}
-      {step.subtitle && <p className="text-sm text-muted-foreground">{step.subtitle}</p>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {step.title && <h3 style={stepTitleStyle}>{step.title}</h3>}
+      {step.subtitle && <p style={stepSubtitleStyle}>{step.subtitle}</p>}
       {visibleQuestions.map((question) => (
         <QuestionRenderer
           key={question.id}
@@ -34,7 +35,7 @@ export default function MultiQuestionStep({ step, accentColor }: MultiQuestionSt
         />
       ))}
       {visibleQuestions.length === 0 && (
-        <p className="text-sm text-muted-foreground">No questions to display.</p>
+        <p style={{ fontSize: '14px', color: '#5f6f77' }}>No questions to display.</p>
       )}
     </div>
   );

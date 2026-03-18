@@ -1,22 +1,19 @@
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { eff, labelStyle, descStyle, inputStyle } from '../designTokens';
 import type { QuestionComponentProps } from './QuestionProps';
 
 export default function NumberInputQuestion({ question, value, onChange }: QuestionComponentProps) {
   const numValue = value !== undefined ? String(value) : '';
 
   return (
-    <div className="space-y-2">
-      <Label>
+    <div>
+      <label style={labelStyle}>
         {question.label}
         {question.unit_suffix && (
-          <span className="ml-1 text-xs text-muted-foreground">({question.unit_suffix})</span>
+          <span style={{ marginLeft: '4px', fontSize: '12px', fontWeight: 400, color: eff.textBody }}>({question.unit_suffix})</span>
         )}
-      </Label>
-      {question.description && (
-        <p className="text-sm text-muted-foreground">{question.description}</p>
-      )}
-      <Input
+      </label>
+      {question.description && <p style={descStyle}>{question.description}</p>}
+      <input
         type="number"
         placeholder={question.placeholder || ''}
         value={numValue}
@@ -27,6 +24,9 @@ export default function NumberInputQuestion({ question, value, onChange }: Quest
           const parsed = parseFloat(e.target.value);
           onChange(isNaN(parsed) ? 0 : parsed);
         }}
+        style={inputStyle}
+        onFocus={(e) => { e.currentTarget.style.borderColor = eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
+        onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
       />
     </div>
   );

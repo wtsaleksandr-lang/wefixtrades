@@ -1,5 +1,5 @@
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
+import { eff, labelStyle, descStyle, optionRowStyle } from '../designTokens';
 import type { QuestionComponentProps } from './QuestionProps';
 
 export default function CheckboxGroupQuestion({ question, value, onChange }: QuestionComponentProps) {
@@ -13,29 +13,36 @@ export default function CheckboxGroupQuestion({ question, value, onChange }: Que
   }
 
   return (
-    <div className="space-y-3">
-      <Label>{question.label}</Label>
-      {question.description && (
-        <p className="text-sm text-muted-foreground">{question.description}</p>
-      )}
-      <div className="space-y-2">
-        {(question.options || []).map((opt) => (
-          <label
-            key={opt.value}
-            className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
-          >
-            <Checkbox
-              checked={selected.includes(opt.value)}
-              onCheckedChange={(checked) => handleToggle(opt.value, !!checked)}
-            />
-            <div className="flex-1 min-w-0">
-              <span className="text-sm font-medium">{opt.label}</span>
-              {opt.description && (
-                <span className="ml-2 text-xs text-muted-foreground">{opt.description}</span>
-              )}
-            </div>
-          </label>
-        ))}
+    <div>
+      <label style={labelStyle}>{question.label}</label>
+      {question.description && <p style={descStyle}>{question.description}</p>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {(question.options || []).map((opt) => {
+          const isChecked = selected.includes(opt.value);
+          return (
+            <label
+              key={opt.value}
+              style={{
+                ...optionRowStyle,
+                borderColor: isChecked ? eff.buttonBg : eff.buttonBorder,
+                background: isChecked ? eff.bgSecondary : '#fff',
+              }}
+              onMouseEnter={(e) => { if (!isChecked) e.currentTarget.style.borderColor = eff.textBody; }}
+              onMouseLeave={(e) => { if (!isChecked) e.currentTarget.style.borderColor = eff.buttonBorder; }}
+            >
+              <Checkbox
+                checked={isChecked}
+                onCheckedChange={(checked) => handleToggle(opt.value, !!checked)}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: eff.text }}>{opt.label}</span>
+                {opt.description && (
+                  <span style={{ marginLeft: '8px', fontSize: '13px', color: eff.textBody }}>{opt.description}</span>
+                )}
+              </div>
+            </label>
+          );
+        })}
       </div>
     </div>
   );

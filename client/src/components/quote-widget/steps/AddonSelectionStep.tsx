@@ -1,5 +1,6 @@
 import QuestionRenderer from '../QuestionRenderer';
 import { useWidgetState } from '../useWidgetState';
+import { stepTitleStyle, stepSubtitleStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
 
 interface AddonSelectionStepProps {
@@ -27,7 +28,7 @@ export default function AddonSelectionStep({ step, accentColor }: AddonSelection
 
     if (!addOns) {
       return (
-        <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
+        <div style={{ padding: '16px', textAlign: 'center', fontSize: '14px', color: '#5f6f77' }}>
           No add-ons available.
         </div>
       );
@@ -48,9 +49,9 @@ export default function AddonSelectionStep({ step, accentColor }: AddonSelection
     };
 
     return (
-      <div className="space-y-4">
-        {step.title && <h3 className="text-lg font-semibold">{step.title}</h3>}
-        {step.subtitle && <p className="text-sm text-muted-foreground">{step.subtitle}</p>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {step.title && <h3 style={stepTitleStyle}>{step.title}</h3>}
+        {step.subtitle && <p style={stepSubtitleStyle}>{step.subtitle}</p>}
         <QuestionRenderer
           question={synth}
           value={getAnswer('addon_selection') ?? synth.default_value}
@@ -62,9 +63,9 @@ export default function AddonSelectionStep({ step, accentColor }: AddonSelection
   }
 
   return (
-    <div className="space-y-4">
-      {step.title && <h3 className="text-lg font-semibold">{step.title}</h3>}
-      {step.subtitle && <p className="text-sm text-muted-foreground">{step.subtitle}</p>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {step.title && <h3 style={stepTitleStyle}>{step.title}</h3>}
+      {step.subtitle && <p style={stepSubtitleStyle}>{step.subtitle}</p>}
       <QuestionRenderer
         question={question}
         value={getAnswer(question.id)}

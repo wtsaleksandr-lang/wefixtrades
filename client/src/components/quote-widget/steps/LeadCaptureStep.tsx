@@ -1,10 +1,9 @@
 import { useState, useMemo } from 'react';
 import { Send, CheckCircle2, Loader2 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { calculateEstimate } from '@shared/calculateEstimate';
 import { useWidgetState } from '../useWidgetState';
+import { eff, stepTitleStyle, stepSubtitleStyle, inputStyle, primaryButtonStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
 
 interface LeadCaptureStepProps {
@@ -88,17 +87,23 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
   // ─── Already submitted state ───
   if (leadSubmitted) {
     return (
-      <div className="space-y-4 text-center py-4">
-        <div
-          className="mx-auto flex h-14 w-14 items-center justify-center rounded-full"
-          style={{ backgroundColor: accentColor ? `${accentColor}15` : '#f0fdf4' }}
-        >
-          <CheckCircle2 className="h-7 w-7" style={{ color: accentColor || '#22c55e' }} />
+      <div style={{ textAlign: 'center', padding: '24px 0' }}>
+        <div style={{
+          width: '56px',
+          height: '56px',
+          borderRadius: '50%',
+          background: eff.bg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 16px',
+        }}>
+          <CheckCircle2 style={{ width: 28, height: 28, color: eff.buttonBg }} />
         </div>
-        <h3 className="text-lg font-semibold">
+        <h3 style={{ ...stepTitleStyle, textAlign: 'center' }}>
           {config.calculator.lead_thank_you_message || 'Thank you!'}
         </h3>
-        <p className="text-sm text-muted-foreground">
+        <p style={{ ...stepSubtitleStyle, textAlign: 'center' }}>
           We've received your information and will be in touch soon.
         </p>
       </div>
@@ -107,84 +112,112 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
 
   // ─── Form ───
   return (
-    <div className="space-y-4">
-      {step.title && <h3 className="text-lg font-semibold">{step.title}</h3>}
-      {step.subtitle && <p className="text-sm text-muted-foreground">{step.subtitle}</p>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {step.title && <h3 style={stepTitleStyle}>{step.title}</h3>}
+      {step.subtitle && <p style={stepSubtitleStyle}>{step.subtitle}</p>}
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="lead-name">Name</Label>
-          <Input
-            id="lead-name"
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div>
+          <label style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
+            Name
+          </label>
+          <input
             type="text"
             placeholder="Your name"
             value={leadData.name}
             onChange={(e) => updateLead('name', e.target.value)}
+            style={inputStyle}
+            onFocus={(e) => { e.currentTarget.style.borderColor = eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="lead-email">Email</Label>
-          <Input
-            id="lead-email"
+        <div>
+          <label style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
+            Email
+          </label>
+          <input
             type="email"
             placeholder="you@example.com"
             value={leadData.email}
             onChange={(e) => updateLead('email', e.target.value)}
+            style={inputStyle}
+            onFocus={(e) => { e.currentTarget.style.borderColor = eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="lead-phone">Phone</Label>
-          <Input
-            id="lead-phone"
+        <div>
+          <label style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
+            Phone
+          </label>
+          <input
             type="tel"
             placeholder="(555) 123-4567"
             value={leadData.phone}
             onChange={(e) => updateLead('phone', e.target.value)}
+            style={inputStyle}
+            onFocus={(e) => { e.currentTarget.style.borderColor = eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="lead-company">Company (optional)</Label>
-          <Input
-            id="lead-company"
+        <div>
+          <label style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
+            Company <span style={{ fontWeight: 400, color: eff.textBody }}>(optional)</span>
+          </label>
+          <input
             type="text"
             placeholder="Company name"
             value={leadData.company}
             onChange={(e) => updateLead('company', e.target.value)}
+            style={inputStyle}
+            onFocus={(e) => { e.currentTarget.style.borderColor = eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
         </div>
 
         {/* SMS consent */}
-        <label className="flex items-start gap-3 pt-1 cursor-pointer">
+        <label style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '12px',
+          padding: '8px 0',
+          cursor: 'pointer',
+        }}>
           <Checkbox
             checked={smsConsent}
             onCheckedChange={(checked) =>
               dispatch({ type: 'SET_SMS_CONSENT', value: !!checked })
             }
-            className="mt-0.5"
+            style={{ marginTop: '2px' }}
           />
-          <span className="text-xs text-muted-foreground leading-relaxed">
+          <span style={{ fontSize: '12px', color: eff.textBody, lineHeight: 1.6 }}>
             I agree to receive text messages about my quote from this business.
             Message &amp; data rates may apply.
           </span>
         </label>
 
         {error && (
-          <p className="text-sm text-red-600">{error}</p>
+          <p style={{ fontSize: '14px', color: '#dc2626', margin: 0 }}>{error}</p>
         )}
 
         <button
           type="submit"
           disabled={submitting}
-          className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
-          style={{ background: accentColor ? `linear-gradient(135deg, ${accentColor}, ${accentColor}dd)` : '#6366f1' }}
+          style={{
+            ...primaryButtonStyle,
+            opacity: submitting ? 0.6 : 1,
+          }}
+          onMouseEnter={(e) => { if (!submitting) e.currentTarget.style.background = eff.buttonBgHover; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = eff.buttonBg; }}
+          onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.98)'; }}
+          onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
         >
           {submitting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />
           ) : (
-            <Send className="h-4 w-4" />
+            <Send style={{ width: 16, height: 16 }} />
           )}
           {config.calculator.cta_button_text || 'Get My Quote'}
         </button>

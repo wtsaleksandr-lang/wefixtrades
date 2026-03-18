@@ -1,4 +1,5 @@
 import { Info } from 'lucide-react';
+import { eff } from '../designTokens';
 import type { QuestionComponentProps } from './QuestionProps';
 
 /**
@@ -7,12 +8,19 @@ import type { QuestionComponentProps } from './QuestionProps';
  */
 export default function InfoDisplay({ question }: QuestionComponentProps) {
   return (
-    <div className="flex gap-3 rounded-lg border border-blue-100 bg-blue-50/50 p-4">
-      <Info className="h-5 w-5 shrink-0 text-blue-500 mt-0.5" />
+    <div style={{
+      display: 'flex',
+      gap: '12px',
+      borderRadius: eff.radiusMd,
+      border: `1px solid ${eff.buttonBorder}`,
+      background: eff.bgSecondary,
+      padding: '16px',
+    }}>
+      <Info style={{ width: 18, height: 18, flexShrink: 0, marginTop: '1px', color: eff.accent }} />
       <div>
-        <p className="text-sm font-medium text-foreground">{question.label}</p>
+        <p style={{ fontSize: '14px', fontWeight: 600, color: eff.text, margin: 0 }}>{question.label}</p>
         {question.description && (
-          <p className="mt-1 text-sm text-muted-foreground">{question.description}</p>
+          <p style={{ fontSize: '13px', color: eff.textBody, margin: '4px 0 0', lineHeight: 1.5 }}>{question.description}</p>
         )}
       </div>
     </div>
