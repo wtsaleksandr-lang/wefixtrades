@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Send, CheckCircle2, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { calculateEstimate } from '@shared/calculateEstimate';
 import { useWidgetState } from '../useWidgetState';
 import type { StepDefinition } from '@shared/wizardSchema';
 
@@ -24,9 +25,15 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
     leadData,
     leadSubmitted,
     updateLead,
-    estimate,
+    estimateInputs,
     answers,
   } = useWidgetState();
+
+  // Derive current estimate for quote_amount (same pattern as PriceRevealStep)
+  const estimate = useMemo(
+    () => calculateEstimate(config.pricingConfig, estimateInputs),
+    [config.pricingConfig, estimateInputs],
+  );
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
