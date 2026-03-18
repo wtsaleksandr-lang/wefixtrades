@@ -6,6 +6,8 @@ import PriceRevealStep from './steps/PriceRevealStep';
 import PackageSelectionStep from './steps/PackageSelectionStep';
 import AddonSelectionStep from './steps/AddonSelectionStep';
 import LeadCaptureStep from './steps/LeadCaptureStep';
+import BookingStep from './steps/BookingStep';
+import ConfirmationStep from './steps/ConfirmationStep';
 
 interface StepRendererProps {
   step: StepDefinition;
@@ -14,8 +16,7 @@ interface StepRendererProps {
 
 /**
  * Central step dispatcher. Maps StepDefinition.type to the
- * correct step component. Unimplemented step types render a
- * safe placeholder instead of crashing.
+ * correct step component. All 9 step types are now implemented.
  */
 export default function StepRenderer({ step, accentColor }: StepRendererProps) {
   switch (step.type) {
@@ -40,10 +41,11 @@ export default function StepRenderer({ step, accentColor }: StepRendererProps) {
     case 'lead_capture':
       return <LeadCaptureStep step={step} accentColor={accentColor} />;
 
-    // ─── Not yet implemented ───
     case 'booking':
+      return <BookingStep step={step} accentColor={accentColor} />;
+
     case 'confirmation':
-      return <StepPlaceholder step={step} />;
+      return <ConfirmationStep step={step} accentColor={accentColor} />;
 
     default:
       return <StepPlaceholder step={step} />;
