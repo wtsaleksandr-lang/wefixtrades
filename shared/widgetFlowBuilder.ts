@@ -105,7 +105,7 @@ export function buildWidgetFlow(
 function buildInputSteps(config: PricingConfigV1): StepDefinition[] {
   switch (config.pricingType) {
     case 'hourly':
-      return [buildRateQuantityStep('How many hours?', 'hour', 'hours', config.unitName)];
+      return [buildRateQuantityStep('How many hours?', 'hour', 'hours', 'hours')];
 
     case 'per_unit':
       return [buildRateQuantityStep('How many do you need?', config.unitName, `${config.unitName}s`, config.unitName)];
