@@ -55,10 +55,10 @@ const TABS = [
 type TabKey = (typeof TABS)[number]["key"];
 
 const CYCLE_MS = 8000;
-const BUTTON_H = 52; // height of each button strip (px)
+const BUTTON_H = 44; // height of each button strip (px)
 const SLIDER_H = 490; // total slider height (px)
-const GAP = 10;
-const BADGE_SIZE = 48; // icon badge width/height (px)
+const GAP = 4;
+const BADGE_SIZE = 34; // icon badge width/height (px)
 
 /* ── per-tab mockup panels ───────────────────────────────────────────── */
 
@@ -312,7 +312,7 @@ export default function CapabilitiesShowcase() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [startCycle]);
 
-  const CARD_TOP = BUTTON_H + 2; // button height + 2px gap (matches Effortel's 0.13em gap)
+  const CARD_TOP = BUTTON_H + 4; // button height + gap
 
   return (
     <section
@@ -446,18 +446,18 @@ export default function CapabilitiesShowcase() {
                     onClick={() => startCycle(i)}
                     style={{
                       height: BUTTON_H,
-                      borderRadius: isActive ? "14px 14px 0 0" : 14,
+                      borderRadius: isActive ? "10px 10px 0 0" : 10,
                       background: isActive
                         ? "rgba(255,255,255,0.42)"
-                        : "rgba(255,255,255,0.18)",
+                        : "rgba(255,255,255,0.16)",
                       border: `1px solid ${isActive
                         ? "rgba(255,255,255,0.55)"
-                        : "rgba(255,255,255,0.22)"}`,
+                        : "rgba(255,255,255,0.20)"}`,
                       borderBottom: isActive ? "none" : undefined,
-                      boxShadow: isActive ? "0 2px 16px rgba(0,0,0,0.08)" : "none",
+                      boxShadow: isActive ? "0 2px 12px rgba(0,0,0,0.07)" : "none",
                       display: "flex",
                       alignItems: "center",
-                      padding: 4, gap: 12,
+                      padding: 3, gap: 10,
                       cursor: "pointer",
                       position: "relative",
                       overflow: "hidden",
@@ -474,16 +474,17 @@ export default function CapabilitiesShowcase() {
                     {/* icon badge */}
                     <div style={{
                       width: BADGE_SIZE, height: BADGE_SIZE,
-                      borderRadius: 12, background: t.badgeBg,
+                      borderRadius: 8, background: t.badgeBg,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexShrink: 0, position: "relative", zIndex: 1,
                     }}>
-                      <Icon size={22} color={t.iconColor} strokeWidth={2} />
+                      <Icon size={17} color={t.iconColor} strokeWidth={2} />
                     </div>
                     {/* label */}
                     <span style={{
                       position: "relative", zIndex: 2,
-                      fontSize: 14, fontWeight: 600, color: "#1C2B33",
+                      fontFamily: "Satoshi, sans-serif",
+                      fontSize: 13, fontWeight: 600, color: "#1C2B33",
                       paddingRight: 14,
                     }}>
                       {t.label}
@@ -540,7 +541,7 @@ export default function CapabilitiesShowcase() {
           style={{
             position: "relative",
             height: SLIDER_H,
-            borderRadius: 20,
+            borderRadius: 16,
             overflow: "hidden",
           }}
         >
@@ -550,7 +551,7 @@ export default function CapabilitiesShowcase() {
             top: CARD_TOP, left: 0, right: 0, bottom: 0,
             background: "rgba(255,255,255,0.36)",
             border: "1px solid rgba(255,255,255,0.28)",
-            borderRadius: 20,
+            borderRadius: 16,
             boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
           }} />
 
@@ -577,12 +578,12 @@ export default function CapabilitiesShowcase() {
                     data-testid={`cs-tab-${t.key}`}
                     onClick={() => startCycle(i)}
                     style={{
-                      height: BUTTON_H, borderRadius: 14,
-                      background: isActive ? "rgba(255,255,255,0.42)" : "rgba(255,255,255,0.18)",
-                      border: `1px solid ${isActive ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.22)"}`,
-                      boxShadow: isActive ? "0 2px 16px rgba(0,0,0,0.08)" : "none",
+                      height: BUTTON_H, borderRadius: 10,
+                      background: isActive ? "rgba(255,255,255,0.42)" : "rgba(255,255,255,0.16)",
+                      border: `1px solid ${isActive ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.20)"}`,
+                      boxShadow: isActive ? "0 2px 12px rgba(0,0,0,0.07)" : "none",
                       display: "flex", alignItems: "center",
-                      padding: 4, gap: 12,
+                      padding: 3, gap: 10,
                       cursor: "pointer", position: "relative", overflow: "hidden",
                     }}
                   >
@@ -597,14 +598,15 @@ export default function CapabilitiesShowcase() {
                     {/* icon badge */}
                     <div style={{
                       width: BADGE_SIZE, height: BADGE_SIZE,
-                      borderRadius: 12, background: t.badgeBg,
+                      borderRadius: 8, background: t.badgeBg,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexShrink: 0, position: "relative", zIndex: 1,
                     }}>
-                      <Icon size={22} color={t.iconColor} strokeWidth={2} />
+                      <Icon size={17} color={t.iconColor} strokeWidth={2} />
                     </div>
                     <span style={{
                       position: "relative", zIndex: 2,
+                      fontFamily: "Satoshi, sans-serif",
                       fontSize: 13, fontWeight: 600, color: "#1C2B33",
                       whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                       paddingRight: 14,

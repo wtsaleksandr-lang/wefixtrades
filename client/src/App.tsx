@@ -47,6 +47,7 @@ import About from "@/pages/About";
 import Blog from "@/pages/Blog";
 import CaseStudies from "@/pages/CaseStudies";
 import PrimitivesPage from "@/pages/dev/primitives";
+import DemoCanvas from "@/pages/dev/DemoCanvas";
 
 function Router() {
   return (
@@ -94,6 +95,7 @@ function Router() {
       <Route path="/docs/webhooks" component={DocsWebhooks} />
       <Route path="/docs/troubleshooting" component={DocsTroubleshooting} />
       <Route path="/dev/primitives" component={PrimitivesPage} />
+      <Route path="/dev/canvas" component={DemoCanvas} />
       <Route path="/free-audit" component={FreeAudit} />
       <Route path="/Wizard" component={Wizard} />
       <Route path="/Calculator" component={Calculator} />

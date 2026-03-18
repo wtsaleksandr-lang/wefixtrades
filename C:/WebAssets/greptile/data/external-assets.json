@@ -1,0 +1,201 @@
+[
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/logo.svg",
+    "alt": "Greptile AI Code Review Tool - Automated GitHub PR Review Bot with Full Codebase Understanding"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/logo-only.svg",
+    "alt": "Greptile Logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2Ffeatures%2Fcode-context%2Fthumbnail.png&w=3840&q=75",
+    "alt": "Code Context"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2Ffeatures%2Fcustom-rules%2Fthumbnail.png&w=3840&q=75",
+    "alt": "Custom Rules"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2Ffeatures%2Flearning%2Fthumbnail.png&w=3840&q=75",
+    "alt": "Learning"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2Ffeatures%2Fsequence-diagrams%2Fthumbnail.png&w=3840&q=75",
+    "alt": "Sequence Diagrams"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/heart.svg",
+    "alt": "heart"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fbrex.8af9077d.webp&w=256&q=75",
+    "alt": "Brex logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fsubstack.de2a6b87.webp&w=256&q=75",
+    "alt": "Substack logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fscale.05acb4ef.png&w=128&q=75",
+    "alt": "Scale AI logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fklaviyo.775824d7.png&w=256&q=75",
+    "alt": "Klaviyo logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fposthog.791bacfe.webp&w=256&q=75",
+    "alt": "PostHog logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fmintlify.c050f67c.webp&w=256&q=75",
+    "alt": "Mintlify logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fbrowserbase.c5a70e94.webp&w=256&q=75",
+    "alt": "Browserbase logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fbilt.78a07f95.webp&w=256&q=75",
+    "alt": "Bilt logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fcrossmint.3eeebeb2.png&w=256&q=75",
+    "alt": "Crossmint logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fpylon.7e08ebe0.png&w=384&q=75",
+    "alt": "Pylon AI logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2Ffeatures%2Fcustom-rules%2Fimage0.png&w=3840&q=75",
+    "alt": "Describe your coding standards in English"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2Ffeatures%2Fcustom-rules%2Fimage0.png&w=3840&q=75",
+    "alt": "Describe your coding standards in English"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/logo-only.svg",
+    "alt": "Greptile"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fjames-reggio.e9dddb45.png&w=96&q=75",
+    "alt": "James"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fbrex-logo.8288b64e.webp&w=48&q=75",
+    "alt": "Brex logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fmarktran.2118a85d.webp&w=96&q=75",
+    "alt": "Mark"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fworkos-logo.575eed10.webp&w=48&q=75",
+    "alt": "WorkOS logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fanirudh.738df9e1.webp&w=96&q=75",
+    "alt": "Anirudh"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fbrowserbase-logo.df3535a0.webp&w=48&q=75",
+    "alt": "Browserbase logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fmartin.c13d1456.webp&w=96&q=75",
+    "alt": "Martin"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fpurplefish.c1c6048d.webp&w=48&q=75",
+    "alt": "PurpleFish logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fhahnbee.97651ce3.webp&w=96&q=75",
+    "alt": "Hahnbee"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fmintlify-logo.0bce2019.webp&w=48&q=75",
+    "alt": "Mintlify logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fchasegladish.10590432.webp&w=96&q=75",
+    "alt": "Chase"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Frollcredits.ad796191.webp&w=48&q=75",
+    "alt": "RollCredits logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fchrispaul.401669bb.webp&w=96&q=75",
+    "alt": "Chris"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Frisotto.33bdd871.webp&w=48&q=75",
+    "alt": "Risotto logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fharish.a5af53fb.webp&w=96&q=75",
+    "alt": "Harish"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fflaire.10ae8280.webp&w=48&q=75",
+    "alt": "Flaire logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/logo.svg",
+    "alt": "Greptile AI Code Review Tool - Automated GitHub PR Review Bot with Full Codebase Understanding"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/logo-only.svg",
+    "alt": "Greptile Logo"
+  },
+  {
+    "type": "img",
+    "src": "https://www.greptile.com/_next/image?url=%2Ftextures%2Fpaper-texture.webp&w=3840&q=75",
+    "alt": ""
+  },
+  {
+    "type": "bg",
+    "value": "linear-gradient(rgba(204, 145, 0, 0.15) 1px, rgba(0, 0, 0, 0) 1px), linear-gradient(90deg, rgba(204, 145, 0, 0.15) 1px, rgba(0, 0, 0, 0) 1px)"
+  }
+]

@@ -1,0 +1,34 @@
+{
+  "site": "greptile",
+  "url": "https://www.greptile.com",
+  "extractedAt": "2026-03-16T05:50:03.802Z",
+  "svgCount": 63,
+  "cssFiles": 3,
+  "fontFiles": 4,
+  "animationRules": 157,
+  "hoverFrames": 3,
+  "bodyBackground": "rgb(241, 239, 235)",
+  "bodyFont": "Inter, \"Inter Fallback\", sans-serif",
+  "topColors": [
+    [
+      "rgb(0, 0, 0)",
+      6167
+    ],
+    [
+      "rgb(255, 255, 255)",
+      1370
+    ],
+    [
+      "rgba(255, 255, 255, 0.15)",
+      1232
+    ],
+    [
+      "rgb(42, 42, 42)",
+      153
+    ],
+    [
+      "rgb(74, 74, 74)",
+      115
+    ]
+  ]
+}

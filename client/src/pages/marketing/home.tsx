@@ -15,6 +15,7 @@ import CapabilitiesShowcase from "@/components/marketing/CapabilitiesShowcase";
 import StickyStackCards from "@/components/marketing/StickyStackCards";
 import BentoGrid from "@/components/marketing/BentoGrid";
 import FeatureCards from "@/components/marketing/FeatureCards";
+import PillarAnimation from "@/components/sections/PillarAnimation";
 import CTASection from "@/components/marketing/CTASection";
 import TrustSection from "@/components/marketing/TrustSection";
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
@@ -560,13 +561,15 @@ export default function HomePage() {
                 <>
                   <Link href="/product" data-testid="button-services-hero" className="cta-arrow-btn" style={{ textDecoration: "none" }}>
                     <span className="cta-arrow-btn__text">Services</span>
-                    <span className="cta-arrow-btn__arrow-rest"><BoldArrow /></span>
-                    <span className="cta-arrow-btn__arrow-hover"><BoldArrow /></span>
+                    <span className="cta-arrow-btn__square" />
+                    <span className="cta-arrow-btn__arrow-out"><BoldArrow /></span>
+                    <span className="cta-arrow-btn__arrow-in"><BoldArrow /></span>
                   </Link>
                   <Link href="/Wizard" data-testid="button-product-hero" className="cta-arrow-btn cta-arrow-btn--primary" style={{ textDecoration: "none" }}>
                     <span className="cta-arrow-btn__text">Product</span>
-                    <span className="cta-arrow-btn__arrow-rest"><BoldArrow /></span>
-                    <span className="cta-arrow-btn__arrow-hover"><BoldArrow /></span>
+                    <span className="cta-arrow-btn__square" />
+                    <span className="cta-arrow-btn__arrow-out"><BoldArrow /></span>
+                    <span className="cta-arrow-btn__arrow-in"><BoldArrow /></span>
                   </Link>
                 </>
               );
@@ -584,6 +587,7 @@ export default function HomePage() {
       <HeroTradeDivider />
       <CapabilitiesShowcase />
       <StickyStackCards />
+      <PillarAnimation />
       <FeatureCards />
       <BentoGrid />
       <TrustStrip />

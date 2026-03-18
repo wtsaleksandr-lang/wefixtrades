@@ -1,0 +1,227 @@
+[
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/10/LOGO_ABB_V02.svg",
+    "alt": "ABB"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/10/LOGO_OLYMEL_V02.svg",
+    "alt": "OLYMEL"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/10/LOGO_CASCADES_V02.svg",
+    "alt": "Cascade"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/10/LOGO_ANGELCARE_V02.svg",
+    "alt": "AngelCare"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/10/LOGO_RESEAU_FIX_V02.svg",
+    "alt": "Réseau FIX"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/10/LOGO_OACIQ_V02.svg",
+    "alt": "OACIQ"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/10/LOGO_STM_V02.svg",
+    "alt": "Bromont"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-power-bi.png",
+    "alt": "icon-power-bi"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-power-automate.png",
+    "alt": "icon-power-automate"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-unknow1.png",
+    "alt": "icon-unknow1"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-azure-data-lake.png",
+    "alt": "icon-azure-data-lake"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-microsoft-fabric.png",
+    "alt": "icon-microsoft-fabric"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/data-cognitive-services.png",
+    "alt": "data-cognitive-services"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-microsoft-copilot.png",
+    "alt": "icon-microsoft-copilot"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-data-factory.png",
+    "alt": "icon-data-factory"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-unknow2.png",
+    "alt": "icon-unknow2"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-azure-functions-seek.png",
+    "alt": "icon-azure-functions-seek"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-power-bi.png",
+    "alt": "icon-power-bi"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-power-automate.png",
+    "alt": "icon-power-automate"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-unknow1.png",
+    "alt": "icon-unknow1"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-azure-data-lake.png",
+    "alt": "icon-azure-data-lake"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-microsoft-fabric.png",
+    "alt": "icon-microsoft-fabric"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/data-cognitive-services.png",
+    "alt": "data-cognitive-services"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-microsoft-copilot.png",
+    "alt": "icon-microsoft-copilot"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-data-factory.png",
+    "alt": "icon-data-factory"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-unknow2.png",
+    "alt": "icon-unknow2"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-azure-functions-seek.png",
+    "alt": "icon-azure-functions-seek"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-power-bi.png",
+    "alt": "icon-power-bi"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-power-automate.png",
+    "alt": "icon-power-automate"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-unknow1.png",
+    "alt": "icon-unknow1"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-azure-data-lake.png",
+    "alt": "icon-azure-data-lake"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-microsoft-fabric.png",
+    "alt": "icon-microsoft-fabric"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/data-cognitive-services.png",
+    "alt": "data-cognitive-services"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-microsoft-copilot.png",
+    "alt": "icon-microsoft-copilot"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-data-factory.png",
+    "alt": "icon-data-factory"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-unknow2.png",
+    "alt": "icon-unknow2"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/icon-azure-functions-seek.png",
+    "alt": "icon-azure-functions-seek"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/Frame-3.svg",
+    "alt": "LOGO BRP TESTIMONIALS"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/10/ABB2.svg",
+    "alt": "ABB2"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/Frame-1-11.svg",
+    "alt": "Frame 1 (11)"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/Frame-3.svg",
+    "alt": "LOGO BRP TESTIMONIALS"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/10/ABB2.svg",
+    "alt": "ABB2"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/05/Frame-1-11.svg",
+    "alt": "Frame 1 (11)"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/10/Ventriloc_Solution_Home_V02-576x527.png",
+    "alt": "Ventriloc_Solution_Home_V02"
+  },
+  {
+    "type": "img",
+    "src": "https://ventriloc.ca/wp-content/uploads/2025/10/Ventriloc_Solution_Home_front_EN.svg",
+    "alt": "Ventriloc_Solution_Home_front_EN"
+  }
+]

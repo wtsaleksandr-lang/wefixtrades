@@ -597,107 +597,138 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  height: 46px;
-  min-width: 168px;
-  border-radius: 12px;
-  background: #181d1c;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  font-size: 14px;
+  height: 2.9em;
+  min-width: 9em;
+  border-radius: 0.74em;
+  background: #171818;
+  border: none;
+  padding: 0;
   overflow: hidden;
   cursor: pointer;
   text-decoration: none;
   user-select: none;
   -webkit-user-select: none;
-  transition: background 0.28s ease, border-color 0.28s ease;
-}
-.cta-arrow-btn:hover {
-  background: #111615;
-  border-color: rgba(255, 255, 255, 0.18);
 }
 
-/* PRODUCT variant — matches the "Start Free" nav button exactly */
+/* PRODUCT variant */
 .cta-arrow-btn--primary {
   background: #66E8FA;
-  border-color: #66E8FA;
+  height: calc(2.9em - 1px);
 }
 .cta-arrow-btn--primary:hover {
   background: #9CF0FC;
-  border-color: #9CF0FC;
 }
 
-/* Label — shifts right on hover to make room for incoming left arrow */
+/* Label — absolute, fills the non-square region at rest, fills square region on hover.
+   Uses px (not em) so positioning matches the button's 14px-based square, not this
+   element's own 11px font-size (which would make em resolve differently). */
 .cta-arrow-btn__text {
-  font-size: 11px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 14px;
+  right: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.79em;
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-family: "DM Mono", monospace;
+  font-family: "Satoshi", sans-serif;
   color: rgba(255, 255, 255, 0.85);
   white-space: nowrap;
-  /* rest: 16px left gap, 50px right gap (36px square + 5px inset + 9px breathing room) */
-  padding: 0 50px 0 16px;
-  transition: padding 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 3;
+  pointer-events: none;
+  transition: left 0.38s cubic-bezier(.579, .001, 0, 1.007),
+              right 0.38s cubic-bezier(.579, .001, 0, 1.007),
+              color 0.2s ease;
+}
+.cta-arrow-btn:hover .cta-arrow-btn__text {
+  /* square left edge = 2.9 × 14px - 2px = 38.6px ≈ 39px */
+  left: 39px;
+  right: 2px;
 }
 .cta-arrow-btn--primary .cta-arrow-btn__text {
   color: #0d1514;
 }
-.cta-arrow-btn:hover .cta-arrow-btn__text {
-  /* hover: 50px left gap (for left arrow), 16px right gap */
-  padding: 0 16px 0 50px;
-}
-
-/* Shared arrow square styles — both buttons identical size */
-.cta-arrow-btn__arrow-rest,
-.cta-arrow-btn__arrow-hover {
-  position: absolute;
-  top: 50%;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  /* SERVICES default: light grey square, dark arrow */
-  background: #e4edf1;
-  color: #0d1514;
-  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-}
-/* PRODUCT: dark square, light arrow */
-.cta-arrow-btn--primary .cta-arrow-btn__arrow-rest,
-.cta-arrow-btn--primary .cta-arrow-btn__arrow-hover {
-  background: #0d1514;
+.cta-arrow-btn--primary:hover .cta-arrow-btn__text {
   color: rgba(255, 255, 255, 0.88);
 }
 
-/* REST arrow — right side at rest, exits to the right on hover */
-.cta-arrow-btn__arrow-rest {
-  right: 5px;
-  transform: translateY(-50%) translateX(0);
+/* Square — anchored right, expands LEFT, stops leaving room = square's resting width */
+.cta-arrow-btn__square {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  bottom: 2px;
+  width: calc(2.9em - 4px);
+  border-radius: calc(0.74em - 2px);
+  background: #22282a;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  pointer-events: none;
+  z-index: 1;
+  transition: width 0.38s cubic-bezier(.579, .001, 0, 1.007);
 }
-.cta-arrow-btn:hover .cta-arrow-btn__arrow-rest {
-  transform: translateY(-50%) translateX(80px);
+.cta-arrow-btn:hover .cta-arrow-btn__square {
+  width: calc(100% - 2.9em);
+}
+.cta-arrow-btn--primary .cta-arrow-btn__square {
+  background: #0d1514;
+  border-color: transparent;
 }
 
-/* HOVER arrow — starts off-screen left, slides in on hover */
-.cta-arrow-btn__arrow-hover {
-  left: 5px;
-  transform: translateY(-50%) translateX(-80px);
+/* Arrow exits right on hover — uses `right` transition so overflow:hidden clips correctly */
+.cta-arrow-btn__arrow-out {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  right: 2px;
+  width: calc(2.9em - 4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #66E8FA;
+  pointer-events: none;
+  z-index: 2;
+  transition: right 0.38s cubic-bezier(.579, .001, 0, 1.007);
 }
-.cta-arrow-btn:hover .cta-arrow-btn__arrow-hover {
-  transform: translateY(-50%) translateX(0);
+.cta-arrow-btn:hover .cta-arrow-btn__arrow-out {
+  right: calc(-2.9em);
+}
+.cta-arrow-btn--primary .cta-arrow-btn__arrow-out {
+  color: rgba(255, 255, 255, 0.88);
+}
+.cta-arrow-btn--primary:hover .cta-arrow-btn__arrow-out,
+.cta-arrow-btn--primary:hover .cta-arrow-btn__arrow-in {
+  color: #0d1514;
+}
+
+/* Arrow enters from left — uses `left` transition so overflow:hidden clips correctly */
+.cta-arrow-btn__arrow-in {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: calc(-2.9em);
+  width: calc(2.9em - 4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #66E8FA;
+  pointer-events: none;
+  z-index: 2;
+  transition: left 0.38s cubic-bezier(.579, .001, 0, 1.007);
+}
+.cta-arrow-btn:hover .cta-arrow-btn__arrow-in {
+  left: 2px;
+}
+.cta-arrow-btn--primary .cta-arrow-btn__arrow-in {
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .cta-arrow-btn:active {
   transform: scale(0.98);
-}
-
-@media (max-width: 768px) {
-  .cta-arrow-btn { height: 42px; }
-  .cta-arrow-btn__text { font-size: 10px; }
-}
-@media (max-width: 640px) {
-  .cta-arrow-btn { height: 40px; }
-  .cta-arrow-btn__text { font-size: 10px; }
 }
 
 /* ─── Hero trade divider marquee ─── */
@@ -992,12 +1023,20 @@
   border-radius: 20px;
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
-  animation: mktDropdownIn 0.2s ease-out forwards;
+  animation: mktDropdownIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 @keyframes mktDropdownIn {
-  from { opacity: 0; transform: translateX(-50%) scale(0.97) translateY(-8px); }
-  to   { opacity: 1; transform: translateX(-50%) scale(1)    translateY(0px); }
+  from {
+    opacity: 0.5;
+    transform: translateX(-50%);
+    clip-path: inset(0 0 96% 0 round 20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%);
+    clip-path: inset(0 0 0% 0 round 20px);
+  }
 }
 /* Note: translateX(-50%) is also set inline on the element so centering
    works regardless of animation fill-mode browser quirks */
@@ -1012,12 +1051,13 @@
   background: #181d1c;
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 14px;
-  padding: 16px 14px;
+  padding: 12px 14px;
   cursor: pointer;
   text-decoration: none;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
   position: relative;
   overflow: hidden;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
