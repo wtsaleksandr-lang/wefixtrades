@@ -1,35 +1,32 @@
 import type { Express } from "express";
 import { type Server } from "http";
+import auditRouter from "../auditRoutes";
 
 import { registerMarketingRoutes } from "./marketingRoutes";
-// Legacy monolith contains all remaining routes — being progressively extracted.
-import { registerRoutes as registerLegacyRoutes } from "./_legacy";
+import { registerAiRoutes } from "./aiRoutes";
+import { registerCalculatorRoutes } from "./calculatorRoutes";
+import { registerLeadRoutes } from "./leadRoutes";
+import { registerDashboardRoutes } from "./dashboardRoutes";
+import { registerDomainRoutes } from "./domainRoutes";
+import { registerBookingRoutes } from "./bookingRoutes";
+import { registerStripeRoutes } from "./stripeRoutes";
+import { registerTwilioRoutes } from "./twilioRoutes";
 
-/**
- * Route registration barrel.
- *
- * Extracted route modules are registered first, then the legacy monolith
- * handles everything else. As modules are extracted from _legacy.ts,
- * they get their own import + registration call here.
- *
- * Extraction order (Phase 1):
- *   [x] marketingRoutes.ts — robots, sitemap, contact, pageview
- *   [ ] calculatorRoutes.ts
- *   [ ] leadRoutes.ts
- *   [ ] dashboardRoutes.ts
- *   [ ] aiRoutes.ts
- *   [ ] bookingRoutes.ts
- *   [ ] stripeRoutes.ts
- *   [ ] domainRoutes.ts
- *   [ ] twilioRoutes.ts
- */
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Extracted domain modules
-  registerMarketingRoutes(app);
+  app.use("/api/audit", auditRouter);
 
-  // Legacy monolith — all remaining routes
-  return registerLegacyRoutes(httpServer, app);
+  registerMarketingRoutes(app);
+  registerAiRoutes(app);
+  registerCalculatorRoutes(app);
+  registerLeadRoutes(app);
+  registerDashboardRoutes(app);
+  registerDomainRoutes(app);
+  registerBookingRoutes(app);
+  registerStripeRoutes(app);
+  registerTwilioRoutes(app);
+
+  return httpServer;
 }
