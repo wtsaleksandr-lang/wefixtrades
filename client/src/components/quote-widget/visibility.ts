@@ -14,7 +14,7 @@ export function evaluateVisibility(
 
 function evaluateCondition(cond: VisibilityCondition, answers: WidgetAnswers): boolean {
   const actual = answers[cond.field];
-  if (actual === undefined) return false;
+  if (actual === undefined || actual === null) return false;
 
   switch (cond.operator) {
     case 'equals':

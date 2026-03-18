@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
-import { DollarSign, Phone, AlertCircle } from 'lucide-react';
+import { useMemo } from 'react';
+import { Phone } from 'lucide-react';
 import { useWidgetState } from '../useWidgetState';
+import { calculateEstimate } from '@shared/calculateEstimate';
 import type { StepDefinition } from '@shared/wizardSchema';
 
 interface PriceRevealStepProps {
@@ -9,17 +10,20 @@ interface PriceRevealStepProps {
 }
 
 /**
- * Calculates and displays the estimate. Calls the existing pricing
- * engine via useWidgetState().recalculate() on mount and when
- * estimateInputs change. Zero changes to calculateEstimate.ts.
+ * Calculates and displays the estimate. Derives the result
+ * synchronously from estimateInputs — no stale-dependency risk.
+ * Zero changes to calculateEstimate.ts.
  */
 export default function PriceRevealStep({ step, accentColor }: PriceRevealStepProps) {
-  const { estimate, recalculate, estimateInputs } = useWidgetState();
+  const { estimateInputs, config } = useWidgetState();
 
-  // Recalculate whenever this step renders or inputs change
-  useEffect(() => {
-    recalculate();
-  }, [recalculate]);
+  // Derive estimate directly from current inputs. useMemo ensures
+  // recalculation only when inputs or pricing config actually change,
+  // and avoids the stale-dependency bug of useEffect + recalculate().
+  const estimate = useMemo(
+    () => calculateEstimate(config.pricingConfig, estimateInputs),
+    [config.pricingConfig, estimateInputs],
+  );
 
   return (
     <div className="space-y-4">

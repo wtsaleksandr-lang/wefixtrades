@@ -252,7 +252,48 @@ interface WidgetProviderProps {
 
 export function WidgetProvider({ config, children }: WidgetProviderProps) {
   const reducer = useMemo(() => createWidgetReducer(config.flow), [config.flow]);
-  const [state, dispatch] = useReducer(reducer, initialWidgetState);
+
+  // Build initial state with default values from question definitions.
+  // This ensures estimateInputs reflect defaults even if the user never
+  // interacts with a question (Bug 5+7: defaults not populated on mount).
+  const initialState = useMemo(() => {
+    let state = { ...initialWidgetState, answers: { ...initialWidgetState.answers } };
+    let inputs = { ...state.estimateInputs };
+
+    for (const step of config.flow.steps) {
+      for (const q of step.questions) {
+        if (q.default_value !== undefined) {
+          state.answers[q.id] = q.default_value;
+
+          // Mirror default into estimateInputs if question has maps_to
+          if (q.maps_to) {
+            switch (q.maps_to) {
+              case 'quantity':
+                inputs.quantity = typeof q.default_value === 'number' ? q.default_value : Number(q.default_value) || 1;
+                break;
+              case 'selected_tier_index':
+                inputs.selectedTierIndex = typeof q.default_value === 'number' ? q.default_value : Number(q.default_value) || 0;
+                break;
+              case 'selected_add_on_ids':
+                inputs.selectedAddOnIds = Array.isArray(q.default_value) ? q.default_value : [String(q.default_value)];
+                break;
+              case 'selected_difficulty_id':
+                inputs.selectedDifficultyId = String(q.default_value);
+                break;
+              case 'is_after_hours':
+                inputs.isAfterHours = Boolean(q.default_value);
+                break;
+            }
+          }
+        }
+      }
+    }
+
+    state.estimateInputs = inputs;
+    return state;
+  }, [config.flow]);
+
+  const [state, dispatch] = useReducer(reducer, initialState);
 
   const currentStep = config.flow.steps[state.currentStepIndex] ?? config.flow.steps[0];
   const totalSteps = config.flow.steps.length;

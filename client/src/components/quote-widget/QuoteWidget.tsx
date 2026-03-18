@@ -103,10 +103,15 @@ function WidgetCard({
     config.flow.settings.progress_style !== 'hidden' &&
     visibleStepCount > 1;
 
+  // Step types that own their own submit/advance action.
+  // These must not show a generic Continue button that would skip them.
+  const selfAdvancingSteps = new Set(['lead_capture', 'booking', 'confirmation']);
+  const isSelfAdvancing = selfAdvancingSteps.has(currentStep.type);
+
   // Determine if nav buttons should show
   const showBack = config.flow.settings.allow_back_navigation && !isFirstStep;
-  const showNext = !isLastStep;
-  const canSkip = currentStep.config.can_skip;
+  const showNext = !isLastStep && !isSelfAdvancing;
+  const canSkip = currentStep.config.can_skip && !isSelfAdvancing;
 
   return (
     <div
