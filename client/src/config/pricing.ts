@@ -1,3 +1,7 @@
+/**
+ * SaaS platform product catalog (what WE charge customers for the platform).
+ * NOT related to shared/pricingConfig.ts which defines trade-work pricing types.
+ */
 export const BASE_CURRENCY = "CAD" as const;
 export const YEARLY_DISCOUNT_PCT = 0.15;
 
