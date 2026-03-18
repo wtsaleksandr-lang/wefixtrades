@@ -1,0 +1,278 @@
+import type { PricingConfigV1 } from './pricingConfig';
+import type { TemplateDefinition } from './templateLibrary';
+import type { WizardFlow, StepDefinition, QuestionDefinition } from './wizardSchema';
+import { getSliderConfig } from './sliderMappings';
+
+/**
+ * Widget Flow Builder
+ *
+ * Converts a PricingConfigV1 + TemplateDefinition + calculator settings
+ * into a renderable WizardFlow. This is the bridge between "what the
+ * business configured" and "what the customer sees".
+ *
+ * The builder does NOT mutate any input. It produces a fresh WizardFlow
+ * that the step renderer consumes.
+ */
+
+/* ─── Settings extracted from calculator_settings JSONB ─── */
+
+export interface FlowBuilderSettings {
+  /** e.g. 'estimate_only' | 'estimate_plus_booking' */
+  calculatorType?: string;
+  /** Lead form config from calculator_settings.lead_form */
+  leadForm?: {
+    fields?: Record<string, boolean>;
+    cta_text?: string;
+  };
+  /** Booking enabled */
+  bookingEnabled?: boolean;
+  /** Promotions/coupon enabled */
+  promotionsEnabled?: boolean;
+  /** Quote rules (expiration) */
+  quoteRules?: {
+    expiration_enabled?: boolean;
+    valid_days?: number;
+  };
+}
+
+/* ─── Builder ─── */
+
+export function buildWidgetFlow(
+  pricingConfig: PricingConfigV1,
+  template: TemplateDefinition,
+  settings: FlowBuilderSettings = {},
+): WizardFlow {
+  // If the template already has wizard_steps, use them directly.
+  // This allows fully custom flows defined at the template level.
+  if (template.wizard_steps && template.wizard_steps.length > 0) {
+    return {
+      version: 1,
+      id: `flow_${template.id}`,
+      name: template.name,
+      steps: template.wizard_steps,
+      settings: {
+        progress_style: template.layout_style === 'multi_step' ? 'bar' : 'hidden',
+        allow_back_navigation: true,
+        show_step_count: template.layout_style === 'multi_step',
+        mobile_optimized: true,
+      },
+    };
+  }
+
+  // Otherwise, generate steps from the pricing config
+  const steps: StepDefinition[] = [];
+
+  // Step 1: Input questions (pricing-type-specific)
+  const inputSteps = buildInputSteps(pricingConfig);
+  steps.push(...inputSteps);
+
+  // Step 2: Add-on selection (if config has add-ons)
+  const addOnStep = buildAddOnStep(pricingConfig);
+  if (addOnStep) steps.push(addOnStep);
+
+  // Step 3: Price reveal
+  steps.push(buildPriceRevealStep(pricingConfig));
+
+  // Step 4: Lead capture (always present)
+  steps.push(buildLeadCaptureStep(settings));
+
+  // Step 5: Booking (if enabled)
+  if (settings.bookingEnabled) {
+    steps.push(buildBookingStep());
+  }
+
+  // Step 6: Confirmation
+  steps.push(buildConfirmationStep());
+
+  const isMultiStep = template.layout_style === 'multi_step' || steps.length > 3;
+
+  return {
+    version: 1,
+    id: `flow_${template.id}_${pricingConfig.pricingType}`,
+    name: template.name,
+    steps,
+    settings: {
+      progress_style: isMultiStep ? 'bar' : 'hidden',
+      allow_back_navigation: true,
+      show_step_count: isMultiStep,
+      mobile_optimized: true,
+    },
+  };
+}
+
+/* ─── Input Step Builders (per pricing type) ─── */
+
+function buildInputSteps(config: PricingConfigV1): StepDefinition[] {
+  switch (config.pricingType) {
+    case 'hourly':
+      return [buildRateQuantityStep('How many hours?', 'hour', 'hours', config.unitName)];
+
+    case 'per_unit':
+      return [buildRateQuantityStep('How many do you need?', config.unitName, `${config.unitName}s`, config.unitName)];
+
+    case 'per_sqft':
+      return [buildRateQuantityStep('What\'s the area?', 'sq ft', 'sq ft', 'sqft')];
+
+    case 'per_linear_ft':
+      return [buildRateQuantityStep('What\'s the length?', 'linear ft', 'linear ft', 'linear_ft')];
+
+    case 'base_plus_rate':
+      return [buildRateQuantityStep('How many do you need?', config.unitName, `${config.unitName}s`, config.unitName)];
+
+    case 'tiered_packages':
+      return [buildPackageSelectionStep(config.tiers)];
+
+    case 'tiered_ranges':
+      return [buildRateQuantityStep('What quantity?', config.unitName, `${config.unitName}s`, config.unitName)];
+
+    case 'min_charge_plus_addons':
+      // No quantity input needed — just show the minimum charge with add-ons
+      return [];
+
+    case 'price_range_only':
+      // No input needed — skip straight to price reveal
+      return [];
+
+    case 'call_for_quote_only':
+      // No input needed — skip straight to lead capture
+      return [];
+
+    default:
+      return [];
+  }
+}
+
+/* ─── Reusable Step Builders ─── */
+
+function buildRateQuantityStep(
+  title: string,
+  unitSingular: string,
+  unitPlural: string,
+  sliderKey: string,
+): StepDefinition {
+  const sliderConfig = getSliderConfig(sliderKey);
+  const question: QuestionDefinition = {
+    id: 'quantity',
+    type: sliderConfig ? 'slider' : 'number_input',
+    label: title,
+    maps_to: 'quantity',
+    default_value: sliderConfig?.min ?? 1,
+    validation: [{ type: 'required', value: true }],
+    ...(sliderConfig && {
+      min: sliderConfig.min,
+      max: sliderConfig.max,
+      step: sliderConfig.step,
+      unit_suffix: sliderConfig.unitSuffix || unitPlural,
+    }),
+    ...(!sliderConfig && {
+      placeholder: `Enter ${unitPlural}`,
+      min: 1,
+    }),
+  };
+
+  return {
+    id: 'input_quantity',
+    type: 'question',
+    title,
+    questions: [question],
+    config: { show_progress: true, can_skip: false, auto_advance: false },
+  };
+}
+
+function buildPackageSelectionStep(
+  tiers: Array<{ label: string; price: number }>,
+): StepDefinition {
+  const question: QuestionDefinition = {
+    id: 'package_tier',
+    type: 'package_card',
+    label: 'Choose your package',
+    maps_to: 'selected_tier_index',
+    default_value: 0,
+    packages: tiers.map((tier, i) => ({
+      id: String(i),
+      label: tier.label,
+      price: tier.price,
+      features: [],
+      highlighted: i === 1, // Middle tier highlighted by default
+    })),
+    validation: [{ type: 'required', value: true }],
+  };
+
+  return {
+    id: 'input_packages',
+    type: 'package_selection',
+    title: 'Select a package',
+    questions: [question],
+    config: { show_progress: true, can_skip: false, auto_advance: false },
+  };
+}
+
+function buildAddOnStep(config: PricingConfigV1): StepDefinition | null {
+  // Only configs with addOns field can have add-on steps
+  if (!('addOns' in config) || !config.addOns?.length) return null;
+
+  const question: QuestionDefinition = {
+    id: 'addon_selection',
+    type: 'checkbox_group',
+    label: 'Add extras to your service',
+    maps_to: 'selected_add_on_ids',
+    default_value: config.addOns.filter(a => a.default).map(a => a.id),
+    options: config.addOns.map(addon => ({
+      value: addon.id,
+      label: addon.label,
+      description: addon.type === 'pct' ? `+${addon.amount}%` : `+$${addon.amount}`,
+    })),
+    validation: [],
+  };
+
+  return {
+    id: 'input_addons',
+    type: 'addon_selection',
+    title: 'Any extras?',
+    questions: [question],
+    config: { show_progress: true, can_skip: true, auto_advance: false },
+  };
+}
+
+function buildPriceRevealStep(config: PricingConfigV1): StepDefinition {
+  const isCallOnly = config.pricingType === 'call_for_quote_only';
+  return {
+    id: 'price_reveal',
+    type: 'price_reveal',
+    title: isCallOnly ? 'Request a Quote' : 'Your Estimate',
+    questions: [],
+    config: { show_progress: true, can_skip: false, auto_advance: false },
+  };
+}
+
+function buildLeadCaptureStep(settings: FlowBuilderSettings): StepDefinition {
+  return {
+    id: 'lead_capture',
+    type: 'lead_capture',
+    title: 'Get your detailed quote',
+    subtitle: settings.leadForm?.cta_text || 'Enter your details and we\'ll send you a full breakdown.',
+    questions: [],
+    config: { show_progress: true, can_skip: false, auto_advance: false },
+  };
+}
+
+function buildBookingStep(): StepDefinition {
+  return {
+    id: 'booking',
+    type: 'booking',
+    title: 'Book your appointment',
+    subtitle: 'Choose a date and time that works for you.',
+    questions: [],
+    config: { show_progress: true, can_skip: true, auto_advance: false },
+  };
+}
+
+function buildConfirmationStep(): StepDefinition {
+  return {
+    id: 'confirmation',
+    type: 'confirmation',
+    title: 'You\'re all set!',
+    questions: [],
+    config: { show_progress: false, can_skip: false, auto_advance: false },
+  };
+}
