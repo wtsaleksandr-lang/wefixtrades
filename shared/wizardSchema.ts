@@ -163,6 +163,7 @@ export type StepHelpItem = z.infer<typeof stepHelpItemSchema>;
 export const stepHelpSchema = z.object({
   title: z.string().optional(),
   items: z.array(stepHelpItemSchema).min(1),
+  cta: z.string().optional(),
 });
 
 export type StepHelp = z.infer<typeof stepHelpSchema>;

@@ -178,9 +178,11 @@ function buildRateQuantityStep(
     help: {
       title: 'Sizing your job',
       items: [
-        { question: 'What if I\'m not sure of the exact amount?', answer: 'Give your best estimate — you can always adjust later with your service provider.' },
+        { question: 'What if I\'m not sure of the exact amount?', answer: 'Give your best estimate. You can always discuss the details with your service provider before confirming.' },
         { question: 'Does this affect my final price?', answer: 'This gives you a ballpark estimate. Your final quote may vary based on the specifics of your project.' },
+        { question: 'Can I change this later?', answer: 'Yes. This is just for your estimate. Nothing is locked in until you confirm with the provider.' },
       ],
+      cta: 'Not sure about sizing? The service provider can help you measure and scope your project.',
     },
     config: { show_progress: true, can_skip: false, auto_advance: false },
   };
@@ -211,11 +213,13 @@ function buildPackageSelectionStep(
     title: 'Select a package',
     questions: [question],
     help: {
-      title: 'Choosing a package',
+      title: 'How do packages work?',
       items: [
-        { question: 'Can I change my package later?', answer: 'Yes — this is an estimate. Discuss adjustments with your service provider.' },
-        { question: 'What\'s included?', answer: 'Each package includes the services listed. Add-ons are available on the next step.' },
+        { question: 'What are packages?', answer: 'Packages let you choose between Good, Better, and Best options based on your budget and needs.' },
+        { question: 'Can I change my package later?', answer: 'Yes. This is just for your estimate. You can discuss adjustments with your service provider.' },
+        { question: 'What\'s included?', answer: 'Each package includes the services listed. Optional add-ons are available on the next step.' },
       ],
+      cta: 'Not sure which package is right? The service provider can help you choose the best fit.',
     },
     config: { show_progress: true, can_skip: false, auto_advance: false },
   };
@@ -245,11 +249,13 @@ function buildAddOnStep(config: PricingConfigV1): StepDefinition | null {
     title: 'Any extras?',
     questions: [question],
     help: {
-      title: 'About add-ons',
+      title: 'How do add-ons work?',
       items: [
-        { question: 'Are add-ons required?', answer: 'No — add-ons are optional. Skip this step if you don\'t need any extras.' },
-        { question: 'How do percentages work?', answer: 'Percentage-based add-ons are calculated on your base service cost.' },
+        { question: 'Are add-ons required?', answer: 'No. Add-ons are completely optional. Skip this step if you don\'t need any extras.' },
+        { question: 'How do percentages work?', answer: 'Percentage-based add-ons are calculated on your base service cost before other fees.' },
+        { question: 'Should I add anything?', answer: 'Add-ons help you get a more accurate estimate. Choose the ones relevant to your project.' },
       ],
+      cta: 'Need help deciding? The service provider can recommend the right extras for your project.',
     },
     config: { show_progress: true, can_skip: true, auto_advance: false },
   };
@@ -265,9 +271,11 @@ function buildPriceRevealStep(config: PricingConfigV1): StepDefinition {
     help: {
       title: 'About this estimate',
       items: [
-        { question: 'Is this my final price?', answer: 'This is an estimate based on the information you provided. Final pricing may vary.' },
+        { question: 'Is this my final price?', answer: 'This is an estimate based on what you entered. Final pricing may vary after an on-site or detailed review.' },
         { question: 'How accurate is this?', answer: 'Most estimates are within 10–15% of the final cost for standard jobs.' },
+        { question: 'What happens next?', answer: 'Enter your details on the next step to receive a full breakdown and connect with the provider.' },
       ],
+      cta: 'Want an exact quote? Share your details and the provider will follow up with a precise number.',
     },
     config: { show_progress: true, can_skip: false, auto_advance: false },
   };
@@ -280,6 +288,15 @@ function buildLeadCaptureStep(settings: FlowBuilderSettings): StepDefinition {
     title: 'Get your detailed quote',
     subtitle: settings.leadForm?.cta_text || 'Enter your details and we\'ll send you a full breakdown.',
     questions: [],
+    help: {
+      title: 'Why do we need your details?',
+      items: [
+        { question: 'Why do you need my email?', answer: 'We\'ll send your full quote breakdown so you have it saved for reference.' },
+        { question: 'Will I get spammed?', answer: 'No. Your info is only shared with this service provider for your quote request.' },
+        { question: 'Can I get a quote without signing up?', answer: 'This form just sends your estimate — no account or payment required.' },
+      ],
+      cta: 'Your information is kept private and only shared with this service provider.',
+    },
     config: { show_progress: true, can_skip: false, auto_advance: false },
   };
 }
