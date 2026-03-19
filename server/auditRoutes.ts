@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import express from "express";
+import { storage } from "./storage";
 
 const router = express.Router();
 
@@ -418,10 +419,29 @@ router.post("/submit-lead", async (req: Request, res: Response) => {
       submittedAt: new Date().toISOString(),
     };
 
-    // Log the lead (primary capture mechanism without DB)
+    // Log the lead
     console.log(
       `[AuditLead] ${leadPayload.email} | ${leadPayload.businessName} | visibility=${leadPayload.localVisibility} | wantsHelp=${leadPayload.wantsHelp}`
     );
+
+    // Persist to database (best-effort — don't block the response on failure)
+    try {
+      await storage.createAuditSubmission({
+        business_name: leadPayload.businessName,
+        place_id: leadPayload.placeId,
+        email: leadPayload.email,
+        phone: leadPayload.phone,
+        name: leadPayload.name,
+        wants_help: leadPayload.wantsHelp,
+        local_visibility_score: leadPayload.localVisibility,
+        mobile_speed_score: leadPayload.mobileSpeed,
+        desktop_speed_score: leadPayload.desktopSpeed,
+        issue_count: leadPayload.issueCount,
+        report_json: reportJson ?? null,
+      });
+    } catch (dbErr: any) {
+      console.error("[AuditLead] DB save failed:", dbErr?.message);
+    }
 
     // Best-effort email delivery
     try {
