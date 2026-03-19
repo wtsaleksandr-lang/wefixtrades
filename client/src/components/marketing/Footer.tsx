@@ -10,7 +10,7 @@ const ftLink: CSSProperties = {
   color: "rgba(255,255,255,0.5)",
   textDecoration: "none",
   lineHeight: 1.4,
-  padding: "5px 0",
+  padding: "7px 0",
   transition: "color 0.15s ease",
 };
 
@@ -102,11 +102,11 @@ export default function Footer() {
               <FtLink href="/login">Login</FtLink>
             )}
             {isAuthenticated && (
-              <FtLink href="/Dashboard">Dashboard</FtLink>
+              <FtLink href="/dashboard">Dashboard</FtLink>
             )}
             {isPortalUser && (
               <Link
-                href="/Dashboard"
+                href="/dashboard"
                 data-testid="footer-link-portal"
                 style={{
                   ...ftLink,

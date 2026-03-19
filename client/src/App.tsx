@@ -100,10 +100,15 @@ function Router() {
       <Route path="/dev/canvas">{() => <RequirePortal><DemoCanvas /></RequirePortal>}</Route>
       <Route path="/free-audit" component={FreeAudit} />
       <Route path="/Wizard" component={Wizard} />
+      <Route path="/wizard" component={Wizard} />
       <Route path="/Calculator" component={Calculator} />
+      <Route path="/calculator" component={Calculator} />
       <Route path="/EditCalculator" component={EditCalculator} />
+      <Route path="/edit-calculator" component={EditCalculator} />
       <Route path="/Leads" component={LeadsPage} />
+      <Route path="/leads" component={LeadsPage} />
       <Route path="/Dashboard" component={Dashboard} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route component={NotFound} />
     </Switch>
   );

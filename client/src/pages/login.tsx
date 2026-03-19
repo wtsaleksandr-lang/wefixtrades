@@ -26,13 +26,35 @@ export default function LoginPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
-      navigate("/Dashboard");
+      navigate("/dashboard");
     },
   });
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     login.mutate();
+  };
+
+  const labelStyle = {
+    display: "block" as const,
+    fontSize: 12,
+    fontWeight: 600,
+    color: mkt.textFaint,
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.06em",
+    marginBottom: 6,
+  };
+
+  const inputStyle = {
+    width: "100%",
+    padding: "12px 14px",
+    fontSize: 14,
+    color: mkt.text,
+    background: mkt.surface,
+    border: `1px solid ${mkt.border}`,
+    borderRadius: 8,
+    outline: "none",
+    boxSizing: "border-box" as const,
   };
 
   return (
@@ -75,70 +97,24 @@ export default function LoginPage() {
           </p>
 
           <form onSubmit={handleSubmit}>
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 600,
-                color: mkt.textFaint,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                marginBottom: 6,
-              }}
-            >
-              Email
-            </label>
+            <label style={labelStyle}>Email</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                fontSize: 14,
-                color: mkt.text,
-                background: mkt.surface,
-                border: `1px solid ${mkt.border}`,
-                borderRadius: 8,
-                outline: "none",
-                marginBottom: 16,
-                boxSizing: "border-box",
-              }}
+              style={{ ...inputStyle, marginBottom: 20 }}
             />
 
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 600,
-                color: mkt.textFaint,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                marginBottom: 6,
-              }}
-            >
-              Password
-            </label>
+            <label style={labelStyle}>Password</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                fontSize: 14,
-                color: mkt.text,
-                background: mkt.surface,
-                border: `1px solid ${mkt.border}`,
-                borderRadius: 8,
-                outline: "none",
-                marginBottom: 24,
-                boxSizing: "border-box",
-              }}
+              style={{ ...inputStyle, marginBottom: 28 }}
             />
 
             {login.error && (
@@ -158,7 +134,7 @@ export default function LoginPage() {
               disabled={login.isPending}
               style={{
                 width: "100%",
-                padding: "10px 0",
+                padding: "14px 0",
                 fontSize: 14,
                 fontWeight: 500,
                 color: mkt.buttonText,
