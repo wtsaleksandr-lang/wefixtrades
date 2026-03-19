@@ -7,7 +7,6 @@ import { useLenis } from "@/hooks/useLenis";
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/components/primitives/Logo";
 import { mkt, colors } from "@/theme/tokens";
-import { FOOTER_LINKS, FOOTER_LEGAL_LINKS } from "@/site/siteMap";
 
 const DEBUG_DROPDOWN = false;
 
@@ -488,34 +487,35 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
 
 /* ─── Footer ─── */
 
-const footerLinkStyle: CSSProperties = {
+const ftLink: CSSProperties = {
   display: "block",
   fontSize: 13,
   fontWeight: 400,
-  color: "rgba(255,255,255,0.55)",
+  color: "rgba(255,255,255,0.5)",
   textDecoration: "none",
-  lineHeight: 2.0,
-  transition: "color 0.2s ease",
+  lineHeight: 1.4,
+  padding: "5px 0",
+  transition: "color 0.15s ease",
 };
 
-const footerHeadingStyle: CSSProperties = {
+const ftHeading: CSSProperties = {
   fontSize: 10,
   fontWeight: 600,
-  color: "rgba(255,255,255,0.35)",
+  color: "rgba(255,255,255,0.3)",
   textTransform: "uppercase",
-  letterSpacing: "0.12em",
-  marginBottom: 20,
+  letterSpacing: "0.1em",
+  marginBottom: 16,
 };
 
-function FooterLink({ href, children: label }: { href: string; children: React.ReactNode }) {
+function FtLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Link
       href={href}
-      style={footerLinkStyle}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.9)"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
+      style={ftLink}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = ftLink.color as string; }}
     >
-      {label}
+      {children}
     </Link>
   );
 }
@@ -524,95 +524,94 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
   const { isAuthenticated, isPortalUser } = useAuth();
 
   return (
-    <footer data-testid="footer-marketing" style={{ background: "#0d1514", color: "rgba(255,255,255,0.55)" }}>
+    <footer
+      data-testid="footer-marketing"
+      style={{
+        borderTop: "1px solid rgba(255,255,255,0.06)",
+        background: "#0b1110",
+        color: "rgba(255,255,255,0.5)",
+      }}
+    >
       <div
         style={{
-          maxWidth: 1200,
+          maxWidth: 960,
           margin: "0 auto",
-          padding: isMobile ? "48px 20px 32px" : "80px 80px 40px",
+          padding: isMobile ? "48px 24px 32px" : "64px 40px 36px",
         }}
       >
-        {/* Main grid */}
+        {/* 3-column grid */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: isMobile ? "1fr 1fr" : "2.2fr 1fr 1fr 1fr 1fr 1fr",
-            gap: isMobile ? 32 : 48,
+            gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr 1fr",
+            gap: isMobile ? 40 : 48,
             marginBottom: 48,
           }}
         >
-          {/* Brand column */}
-          <div style={{ gridColumn: isMobile ? "1 / -1" : "auto" }}>
-            <div style={{ marginBottom: 12 }}>
+          {/* Col 1 — Brand */}
+          <div>
+            <div style={{ marginBottom: 14 }}>
               <Logo animate={false} />
             </div>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.7, maxWidth: 240, margin: 0 }}>
-              Instant estimates. Smart booking. 24/7 assistants — built for trades businesses.
+            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", lineHeight: 1.65, maxWidth: 280, margin: 0 }}>
+              Quote tools and AI workflows for modern service businesses.
             </p>
-            <div style={{ marginTop: 20, display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {["Plumbing", "Roofing", "Cleaning", "Electrical", "HVAC"].map((t) => (
-                <span key={t} style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: "0.03em" }}>
-                  {t}
-                </span>
-              ))}
-            </div>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", lineHeight: 1.5, marginTop: 12, margin: "12px 0 0" }}>
+              Built for speed, clarity, and conversion.
+            </p>
           </div>
 
-          {/* Link columns from siteMap */}
-          {(Object.keys(FOOTER_LINKS) as Array<keyof typeof FOOTER_LINKS>).map((section) => (
-            <div key={section}>
-              <div style={footerHeadingStyle}>{section}</div>
-              {FOOTER_LINKS[section].map((item) => (
-                <FooterLink key={item.href} href={item.href}>{item.label}</FooterLink>
-              ))}
-            </div>
-          ))}
-
-          {/* Account column — auth-aware */}
+          {/* Col 2 — Company */}
           <div>
-            <div style={footerHeadingStyle}>Account</div>
+            <div style={ftHeading}>Company</div>
+            <FtLink href="/about">About</FtLink>
+            <FtLink href="/contact">Contact</FtLink>
+          </div>
+
+          {/* Col 3 — Legal + Access */}
+          <div>
+            <div style={ftHeading}>Legal &amp; Access</div>
+            <FtLink href="/privacy">Privacy Policy</FtLink>
+            <FtLink href="/terms">Terms</FtLink>
+
             {!isAuthenticated && (
-              <FooterLink href="/login">Login</FooterLink>
+              <FtLink href="/login">Login</FtLink>
             )}
             {isAuthenticated && (
-              <FooterLink href="/Dashboard">Dashboard</FooterLink>
+              <FtLink href="/Dashboard">Dashboard</FtLink>
             )}
             {isPortalUser && (
-              <FooterLink href="/Dashboard">Portal</FooterLink>
+              <Link
+                href="/Dashboard"
+                style={{
+                  ...ftLink,
+                  fontSize: 12,
+                  color: "rgba(255,255,255,0.28)",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.28)"; }}
+              >
+                Portal
+              </Link>
             )}
           </div>
         </div>
 
-        {/* Divider */}
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", margin: "0 0 24px" }} />
-
         {/* Bottom bar */}
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 12,
-        }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
-              &copy; {new Date().getFullYear()} WeFixTrades
-            </span>
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>Built for service businesses</span>
-          </div>
-          <div style={{ display: "flex", gap: 24 }}>
-            {FOOTER_LEGAL_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", textDecoration: "none" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.8)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"; }}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
+        <div
+          style={{
+            borderTop: "1px solid rgba(255,255,255,0.06)",
+            paddingTop: 20,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 8,
+          }}
+        >
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.22)" }}>
+            &copy; {new Date().getFullYear()} WeFixTrades
+          </span>
         </div>
       </div>
     </footer>
