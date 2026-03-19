@@ -4,9 +4,10 @@ import { Link, useLocation } from "wouter";
 import { Menu, X, Plus, Workflow, MessageSquare, PhoneCall, Layers, MapPinned, Wrench, RefreshCcw, ShieldCheck, Layout, Rocket, Calculator, FileText, Code2, Share2, Sparkles, Search, Zap, Home, Fan } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
 import { useLenis } from "@/hooks/useLenis";
+import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/components/primitives/Logo";
 import { mkt, colors } from "@/theme/tokens";
-import { FOOTER_LINKS } from "@/site/siteMap";
+import { FOOTER_LINKS, FOOTER_LEGAL_LINKS } from "@/site/siteMap";
 
 const DEBUG_DROPDOWN = false;
 
@@ -485,6 +486,139 @@ function MobileNavItem({ label, href, children, isActive, onClose }: {
   );
 }
 
+/* ─── Footer ─── */
+
+const footerLinkStyle: CSSProperties = {
+  display: "block",
+  fontSize: 13,
+  fontWeight: 400,
+  color: "rgba(255,255,255,0.55)",
+  textDecoration: "none",
+  lineHeight: 2.0,
+  transition: "color 0.2s ease",
+};
+
+const footerHeadingStyle: CSSProperties = {
+  fontSize: 10,
+  fontWeight: 600,
+  color: "rgba(255,255,255,0.35)",
+  textTransform: "uppercase",
+  letterSpacing: "0.12em",
+  marginBottom: 20,
+};
+
+function FooterLink({ href, children: label }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      style={footerLinkStyle}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.9)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
+    >
+      {label}
+    </Link>
+  );
+}
+
+function MarketingFooter({ isMobile }: { isMobile: boolean }) {
+  const { isAuthenticated, isPortalUser } = useAuth();
+
+  return (
+    <footer data-testid="footer-marketing" style={{ background: "#0d1514", color: "rgba(255,255,255,0.55)" }}>
+      <div
+        style={{
+          maxWidth: 1200,
+          margin: "0 auto",
+          padding: isMobile ? "48px 20px 32px" : "80px 80px 40px",
+        }}
+      >
+        {/* Main grid */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr 1fr" : "2.2fr 1fr 1fr 1fr 1fr 1fr",
+            gap: isMobile ? 32 : 48,
+            marginBottom: 48,
+          }}
+        >
+          {/* Brand column */}
+          <div style={{ gridColumn: isMobile ? "1 / -1" : "auto" }}>
+            <div style={{ marginBottom: 12 }}>
+              <Logo animate={false} />
+            </div>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.7, maxWidth: 240, margin: 0 }}>
+              Instant estimates. Smart booking. 24/7 assistants — built for trades businesses.
+            </p>
+            <div style={{ marginTop: 20, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {["Plumbing", "Roofing", "Cleaning", "Electrical", "HVAC"].map((t) => (
+                <span key={t} style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: "0.03em" }}>
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Link columns from siteMap */}
+          {(Object.keys(FOOTER_LINKS) as Array<keyof typeof FOOTER_LINKS>).map((section) => (
+            <div key={section}>
+              <div style={footerHeadingStyle}>{section}</div>
+              {FOOTER_LINKS[section].map((item) => (
+                <FooterLink key={item.href} href={item.href}>{item.label}</FooterLink>
+              ))}
+            </div>
+          ))}
+
+          {/* Account column — auth-aware */}
+          <div>
+            <div style={footerHeadingStyle}>Account</div>
+            {!isAuthenticated && (
+              <FooterLink href="/login">Login</FooterLink>
+            )}
+            {isAuthenticated && (
+              <FooterLink href="/Dashboard">Dashboard</FooterLink>
+            )}
+            {isPortalUser && (
+              <FooterLink href="/Dashboard">Portal</FooterLink>
+            )}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", margin: "0 0 24px" }} />
+
+        {/* Bottom bar */}
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 12,
+        }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
+              &copy; {new Date().getFullYear()} WeFixTrades
+            </span>
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>Built for service businesses</span>
+          </div>
+          <div style={{ display: "flex", gap: 24 }}>
+            {FOOTER_LEGAL_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", textDecoration: "none" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.8)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"; }}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   useLenis();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -494,6 +628,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   const [location] = useLocation();
   const isMobile = useIsMobile();
   const scrolled = useScrolled();
+  const { isAuthenticated } = useAuth();
   usePageView(location);
 
   const isActive = (href: string) => location === href;
@@ -638,8 +773,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             {!isMobile && (
               <>
                 <Link
-                  href="/login"
-                  data-testid="nav-login"
+                  href={isAuthenticated ? "/Dashboard" : "/login"}
+                  data-testid={isAuthenticated ? "nav-dashboard" : "nav-login"}
                   style={{
                     fontSize: 13,
                     fontWeight: 500,
@@ -653,7 +788,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                   onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = mkt.accent)}
                   onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = mkt.text)}
                 >
-                  Login
+                  {isAuthenticated ? "Dashboard" : "Login"}
                 </Link>
                 <Link
                   href="/Wizard"
@@ -799,104 +934,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       )}
       <div style={{ height: 24, flexShrink: 0 }} />
       <main style={{ flex: 1 }}>{children}</main>
-      <footer data-testid="footer-marketing" style={{ background: "#0d1514", color: "rgba(255,255,255,0.55)" }}>
-        <div
-          style={{
-            maxWidth: 1200,
-            margin: "0 auto",
-            padding: isMobile ? "48px 20px 32px" : "80px 80px 40px",
-          }}
-        >
-          {/* Main grid */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: isMobile ? "1fr 1fr" : "2.2fr 1fr 1fr 1fr 1fr",
-              gap: isMobile ? 32 : 48,
-              marginBottom: 48,
-            }}
-          >
-            {/* Brand column */}
-            <div style={{ gridColumn: isMobile ? "1 / -1" : "auto" }}>
-              <div style={{ marginBottom: 12 }}>
-                <Logo animate={false} />
-              </div>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.7, maxWidth: 240, margin: 0 }}>
-                Instant estimates. Smart booking. 24/7 assistants — built for trades businesses.
-              </p>
-              <div style={{ marginTop: 20, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {["Plumbing", "Roofing", "Cleaning", "Electrical", "HVAC"].map((t) => (
-                  <span key={t} style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: "0.03em" }}>
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Link columns */}
-            {(Object.keys(FOOTER_LINKS) as Array<keyof typeof FOOTER_LINKS>).map((section) => (
-              <div key={section}>
-                <div style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: "rgba(255,255,255,0.35)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.12em",
-                  marginBottom: 20,
-                }}>
-                  {section}
-                </div>
-                {FOOTER_LINKS[section].map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    style={{
-                      display: "block",
-                      fontSize: 13,
-                      fontWeight: 400,
-                      color: "rgba(255,255,255,0.55)",
-                      textDecoration: "none",
-                      lineHeight: 2.0,
-                      transition: "color 0.2s ease",
-                    }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.9)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-            ))}
-          </div>
-
-          {/* Divider */}
-          <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", margin: "0 0 24px" }} />
-
-          {/* Bottom bar */}
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 12,
-          }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
-              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>© 2026 WeFixTrades</span>
-              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>Built for service businesses</span>
-            </div>
-            <div style={{ display: "flex", gap: 24 }}>
-              <Link href="/privacy" style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", textDecoration: "none" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.8)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"; }}
-              >Privacy</Link>
-              <Link href="/terms" style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", textDecoration: "none" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.8)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"; }}
-              >Terms</Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter isMobile={isMobile} />
     </div>
   );
 }

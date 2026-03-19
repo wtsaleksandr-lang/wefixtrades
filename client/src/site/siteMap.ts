@@ -88,10 +88,14 @@ export const FOOTER_LINKS = {
   Company: [
     { label: "About", href: "/about" },
     { label: "Contact", href: "/contact" },
-    { label: "Privacy", href: "/privacy" },
-    { label: "Terms", href: "/terms" },
   ],
 } as const;
+
+/** Legal links shown in the footer bottom bar */
+export const FOOTER_LEGAL_LINKS = [
+  { label: "Privacy Policy", href: "/privacy" },
+  { label: "Terms of Service", href: "/terms" },
+] as const;
 
 export type ProductConfig = {
   slug: string;
