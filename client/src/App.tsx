@@ -36,6 +36,7 @@ import DocsWebhooks from "@/pages/marketing/docs/webhooks";
 import DocsTroubleshooting from "@/pages/marketing/docs/troubleshooting";
 import SolutionsVisibility from "@/pages/marketing/solutions-visibility";
 import FreeAudit from "@/pages/marketing/FreeAudit";
+import MissedCallCalculator from "@/pages/marketing/missed-call-calculator";
 import NewProductPage from "@/pages/products/ProductPage";
 import SolutionPage from "@/pages/solutions/SolutionPage";
 import DemoCenter from "@/pages/demos/DemoCenter";
@@ -96,6 +97,7 @@ function Router() {
       <Route path="/docs/troubleshooting" component={DocsTroubleshooting} />
       <Route path="/dev/primitives" component={PrimitivesPage} />
       <Route path="/dev/canvas" component={DemoCanvas} />
+      <Route path="/missed-call-calculator" component={MissedCallCalculator} />
       <Route path="/free-audit" component={FreeAudit} />
       <Route path="/Wizard" component={Wizard} />
       <Route path="/Calculator" component={Calculator} />
