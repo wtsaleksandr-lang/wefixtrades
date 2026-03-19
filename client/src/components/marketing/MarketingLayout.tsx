@@ -5,6 +5,7 @@ import { Menu, X, Plus, Workflow, MessageSquare, PhoneCall, Layers, MapPinned, W
 import { usePageView } from "@/hooks/usePageView";
 import { useLenis } from "@/hooks/useLenis";
 import { useAuth } from "@/hooks/useAuth";
+import { queryClient } from "@/lib/queryClient";
 import Logo from "@/components/primitives/Logo";
 import { mkt, colors } from "@/theme/tokens";
 
@@ -593,6 +594,29 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
               >
                 Portal
               </Link>
+            )}
+            {isAuthenticated && (
+              <button
+                onClick={async () => {
+                  await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
+                  queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+                }}
+                style={{
+                  ...ftLink,
+                  fontSize: 12,
+                  color: "rgba(255,255,255,0.28)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "7px 0",
+                  fontFamily: "inherit",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.28)"; }}
+              >
+                Sign out
+              </button>
             )}
           </div>
         </div>

@@ -91,6 +91,19 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
           </p>
         )}
       </div>
+
+      {/* Next-step guidance */}
+      <p style={{
+        fontSize: '13px',
+        color: eff.textBody,
+        textAlign: 'center',
+        margin: '24px 0 0',
+        lineHeight: 1.5,
+      }}>
+        {leadSubmitted
+          ? "Check your email for a copy of your estimate. We'll follow up within 24 hours."
+          : "We'll reach out shortly to discuss your project."}
+      </p>
     </div>
   );
 }

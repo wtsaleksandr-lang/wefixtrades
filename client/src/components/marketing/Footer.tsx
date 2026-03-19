@@ -1,6 +1,7 @@
 import { type CSSProperties } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { queryClient } from "@/lib/queryClient";
 import { mkt } from "@/theme/tokens";
 
 const ftLink: CSSProperties = {
@@ -118,6 +119,30 @@ export default function Footer() {
               >
                 Portal
               </Link>
+            )}
+            {isAuthenticated && (
+              <button
+                data-testid="footer-link-signout"
+                onClick={async () => {
+                  await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
+                  queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+                }}
+                style={{
+                  ...ftLink,
+                  fontSize: 12,
+                  color: "rgba(255,255,255,0.28)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "7px 0",
+                  fontFamily: "inherit",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.28)"; }}
+              >
+                Sign out
+              </button>
             )}
           </div>
         </div>
