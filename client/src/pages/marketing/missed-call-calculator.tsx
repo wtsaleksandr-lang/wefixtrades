@@ -1,17 +1,11 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { mkt, colors, typography, radius, shadows } from "@/theme/tokens";
-import { PhoneOff, DollarSign, TrendingUp, ArrowRight, Zap } from "lucide-react";
+import { mkt, colors, shadows } from "@/theme/tokens";
+import { PhoneOff, DollarSign, TrendingUp, ArrowRight, Zap, Calculator } from "lucide-react";
 
 const DARK = "#0d1514";
 const CYAN = "#00D4C8";
-
-function formatCurrency(value: number): string {
-  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
-  return `$${value.toLocaleString()}`;
-}
 
 function formatCurrencyFull(value: number): string {
   return `$${value.toLocaleString()}`;
@@ -25,7 +19,6 @@ export default function MissedCallCalculator() {
   const lostJobsPerWeek = missedCalls * (closeRate / 100);
   const lostRevenueMonth = Math.round(lostJobsPerWeek * avgJobValue * 4.33);
   const lostRevenueYear = Math.round(lostRevenueMonth * 12);
-  // Assume 80% recovery rate with instant response
   const recoveredRevenue = Math.round(lostRevenueYear * 0.8);
 
   return (
@@ -73,13 +66,6 @@ export default function MissedCallCalculator() {
           border-radius: 3px;
           background: rgba(255,255,255,0.08);
         }
-        .calc-result-card {
-          animation: calcFadeUp 0.4s ease-out;
-        }
-        @keyframes calcFadeUp {
-          from { opacity: 0; transform: translateY(12px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
         .calc-cta-wrap {
           transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
@@ -101,6 +87,10 @@ export default function MissedCallCalculator() {
         .calc-cta-wrap:hover .calc-arrow-track {
           transform: translateX(-52px);
         }
+        .calc-crosslink:hover {
+          border-color: rgba(255,255,255,0.12) !important;
+          background: rgba(255,255,255,0.06) !important;
+        }
       `}</style>
 
       <section style={{
@@ -108,7 +98,7 @@ export default function MissedCallCalculator() {
         minHeight: "100vh",
         padding: "clamp(100px, 12vw, 140px) clamp(16px, 5vw, 40px) clamp(48px, 8vw, 80px)",
       }}>
-        <div style={{ maxWidth: 560, margin: "0 auto" }}>
+        <div style={{ maxWidth: 640, margin: "0 auto" }}>
 
           {/* Header */}
           <div style={{ textAlign: "center", marginBottom: "clamp(32px, 5vw, 48px)" }}>
@@ -134,35 +124,40 @@ export default function MissedCallCalculator() {
               color: colors.effortel.n300,
               lineHeight: 1.1,
               letterSpacing: "-0.025em",
-              margin: "0 0 12px",
+              margin: "0 0 14px",
             }}>
-              How much are missed calls{" "}
-              <span style={{ color: "#EF4444" }}>costing you</span>?
+              How much money are you losing from{" "}
+              <span style={{ color: "#EF4444" }}>missed calls</span>?
             </h1>
 
             <p style={{
               fontSize: "clamp(15px, 2vw, 17px)",
               color: mkt.textMuted,
+              lineHeight: 1.55,
+              margin: "0 auto 10px",
+              maxWidth: 480,
+            }}>
+              Most service businesses lose 20–40% of leads just by not responding instantly.
+            </p>
+            <p style={{
+              fontSize: 14,
+              color: mkt.textFaint,
               lineHeight: 1.5,
               margin: 0,
-              maxWidth: 420,
-              marginLeft: "auto",
-              marginRight: "auto",
             }}>
-              Every missed call is a lost job. See how much revenue slips away each month.
+              Customers don't wait. They call the next business.
             </p>
           </div>
 
           {/* Input Card */}
           <div style={{
-            background: "rgba(255,255,255,0.04)",
-            border: `1px solid ${mkt.border}`,
+            background: mkt.cardBg,
+            border: `1px solid ${mkt.cardBorder}`,
             borderRadius: 20,
             padding: "clamp(24px, 4vw, 36px)",
-            marginBottom: 24,
+            boxShadow: shadows.card,
+            marginBottom: 20,
           }}>
-
-            {/* Missed Calls */}
             <SliderInput
               label="Missed calls per week"
               value={missedCalls}
@@ -171,8 +166,6 @@ export default function MissedCallCalculator() {
               max={50}
               suffix=" calls"
             />
-
-            {/* Close Rate */}
             <SliderInput
               label="Close rate"
               value={closeRate}
@@ -182,8 +175,6 @@ export default function MissedCallCalculator() {
               step={5}
               suffix="%"
             />
-
-            {/* Average Job Value */}
             <SliderInput
               label="Average job value"
               value={avgJobValue}
@@ -197,12 +188,7 @@ export default function MissedCallCalculator() {
           </div>
 
           {/* Results */}
-          <div style={{
-            display: "grid",
-            gap: 12,
-            marginBottom: 24,
-          }}>
-            {/* Lost Revenue Cards */}
+          <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <ResultCard
                 label="Lost per month"
@@ -228,9 +214,7 @@ export default function MissedCallCalculator() {
               borderRadius: 16,
               padding: "clamp(20px, 3vw, 28px)",
               textAlign: "center",
-            }}
-              className="calc-result-card"
-            >
+            }}>
               <div style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -270,7 +254,7 @@ export default function MissedCallCalculator() {
           </div>
 
           {/* CTA */}
-          <Link href="/demo" style={{ textDecoration: "none", display: "block" }}>
+          <Link href="/demo" style={{ textDecoration: "none", display: "block", marginBottom: 32 }}>
             <div className="calc-cta-wrap" style={{
               background: CYAN,
               borderRadius: 16,
@@ -288,7 +272,7 @@ export default function MissedCallCalculator() {
                   lineHeight: 1.2,
                   marginBottom: 4,
                 }}>
-                  Stop losing leads
+                  Stop missing leads
                 </div>
                 <div style={{
                   fontSize: 14,
@@ -324,6 +308,43 @@ export default function MissedCallCalculator() {
             </div>
           </Link>
 
+          {/* Cross-link */}
+          <Link href="/tools/quote-demo" style={{ textDecoration: "none", display: "block" }}>
+            <div className="calc-crosslink" style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              padding: "16px 20px",
+              borderRadius: 14,
+              border: `1px solid ${mkt.border}`,
+              background: mkt.cardBg,
+              cursor: "pointer",
+              transition: "border-color 0.2s, background 0.2s",
+            }}>
+              <div style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: mkt.accentTint,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}>
+                <Calculator size={18} color={mkt.accent} strokeWidth={1.8} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 650, color: mkt.text }}>
+                  Try the Quote Calculator Demo
+                </div>
+                <div style={{ fontSize: 13, color: mkt.textMuted }}>
+                  See how instant quotes work for your trade
+                </div>
+              </div>
+              <ArrowRight size={16} color={mkt.textFaint} />
+            </div>
+          </Link>
+
         </div>
       </section>
     </MarketingLayout>
@@ -355,20 +376,14 @@ function SliderInput({
   const pct = ((value - min) / (max - min)) * 100;
 
   return (
-    <div style={{
-      marginBottom: isLast ? 0 : 28,
-    }}>
+    <div style={{ marginBottom: isLast ? 0 : 28 }}>
       <div style={{
         display: "flex",
         justifyContent: "space-between",
         alignItems: "baseline",
         marginBottom: 12,
       }}>
-        <label style={{
-          fontSize: 14,
-          fontWeight: 500,
-          color: mkt.textMuted,
-        }}>
+        <label style={{ fontSize: 14, fontWeight: 500, color: mkt.textMuted }}>
           {label}
         </label>
         <span style={{
@@ -413,7 +428,7 @@ function ResultCard({
   bold?: boolean;
 }) {
   return (
-    <div className="calc-result-card" style={{
+    <div style={{
       background: colorTint,
       border: `1px solid ${color}22`,
       borderRadius: 14,

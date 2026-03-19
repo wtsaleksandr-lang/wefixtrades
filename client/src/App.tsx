@@ -98,6 +98,10 @@ function Router() {
       <Route path="/docs/troubleshooting" component={DocsTroubleshooting} />
       <Route path="/dev/primitives" component={PrimitivesPage} />
       <Route path="/dev/canvas" component={DemoCanvas} />
+      <Route path="/tools/missed-call-calculator" component={MissedCallCalculator} />
+      <Route path="/tools/quote-demo" component={QuoteCalculatorDemo} />
+      <Route path="/tools/free-audit" component={FreeAudit} />
+      {/* Legacy redirects */}
       <Route path="/missed-call-calculator" component={MissedCallCalculator} />
       <Route path="/quote-demo" component={QuoteCalculatorDemo} />
       <Route path="/free-audit" component={FreeAudit} />

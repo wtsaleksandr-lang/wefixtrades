@@ -2,11 +2,11 @@ import { useState, useCallback } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
-import { mkt, colors } from "@/theme/tokens";
+import { mkt, colors, shadows } from "@/theme/tokens";
 import type { CalculatorData } from "@/components/quote-widget/types";
 import {
   Wrench, SprayCan, Paintbrush, Zap, Home,
-  ArrowRight, Clock, DollarSign, Smartphone, Check,
+  ArrowRight, Clock, DollarSign, Smartphone, PhoneOff,
 } from "lucide-react";
 
 /* ─── Trade Definitions ─── */
@@ -191,7 +191,6 @@ export default function QuoteCalculatorDemo() {
 
   const activeTrade = TRADES.find((t) => t.key === selectedTrade)!;
 
-  // Force remount of QuoteWidget when trade changes by using key
   const handleSelect = useCallback((key: string) => {
     setSelectedTrade(key);
   }, []);
@@ -253,6 +252,10 @@ export default function QuoteCalculatorDemo() {
           from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        .demo-crosslink:hover {
+          border-color: rgba(255,255,255,0.12) !important;
+          background: rgba(255,255,255,0.06) !important;
+        }
       `}</style>
 
       <section style={{
@@ -260,7 +263,7 @@ export default function QuoteCalculatorDemo() {
         minHeight: "100vh",
         padding: "clamp(100px, 12vw, 140px) clamp(16px, 5vw, 40px) clamp(48px, 8vw, 80px)",
       }}>
-        <div style={{ maxWidth: 600, margin: "0 auto" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
 
           {/* ─── Headline ─── */}
           <div style={{ textAlign: "center", marginBottom: "clamp(28px, 4vw, 40px)" }}>
@@ -270,21 +273,21 @@ export default function QuoteCalculatorDemo() {
               color: colors.effortel.n300,
               lineHeight: 1.1,
               letterSpacing: "-0.025em",
-              margin: "0 0 12px",
+              margin: "0 0 14px",
             }}>
-              See the quote tool{" "}
-              <span style={{ color: mkt.accent }}>in action</span>
+              Let your customers get{" "}
+              <span style={{ color: mkt.accent }}>instant quotes</span> on your website
             </h1>
             <p style={{
               fontSize: "clamp(15px, 2vw, 17px)",
               color: mkt.textMuted,
-              lineHeight: 1.5,
+              lineHeight: 1.55,
               margin: 0,
-              maxWidth: 440,
+              maxWidth: 480,
               marginLeft: "auto",
               marginRight: "auto",
             }}>
-              Pick a trade. Try the calculator. This is exactly what your customers see.
+              Try it yourself — this is exactly what your customers will see.
             </p>
           </div>
 
@@ -313,16 +316,18 @@ export default function QuoteCalculatorDemo() {
             })}
           </div>
 
-          {/* ─── Live Widget ─── */}
-          <div
-            key={selectedTrade}
-            className="widget-fade-in"
-            style={{ marginBottom: "clamp(32px, 5vw, 48px)" }}
-          >
-            <QuoteWidget
-              calculator={activeTrade.calculator}
-              isEmbed={false}
-            />
+          {/* ─── Live Widget (centered) ─── */}
+          <div style={{ maxWidth: 576, margin: "0 auto" }}>
+            <div
+              key={selectedTrade}
+              className="widget-fade-in"
+              style={{ marginBottom: "clamp(32px, 5vw, 48px)" }}
+            >
+              <QuoteWidget
+                calculator={activeTrade.calculator}
+                isEmbed={false}
+              />
+            </div>
           </div>
 
           {/* ─── Benefits ─── */}
@@ -345,7 +350,7 @@ export default function QuoteCalculatorDemo() {
                     width: 28,
                     height: 28,
                     borderRadius: 8,
-                    background: "rgba(102,232,250,0.1)",
+                    background: mkt.accentTint,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -366,59 +371,98 @@ export default function QuoteCalculatorDemo() {
           </div>
 
           {/* ─── CTA ─── */}
-          <Link href="/demo" style={{ textDecoration: "none", display: "block" }}>
-            <div className="demo-cta-wrap" style={{
-              background: CYAN,
-              borderRadius: 16,
-              border: "2px solid transparent",
-              padding: "20px 24px",
-              display: "flex",
-              alignItems: "center",
-              cursor: "pointer",
-            }}>
-              <div className="demo-cta-text" style={{ flex: 1 }}>
-                <div style={{
-                  fontSize: "clamp(17px, 2.5vw, 20px)",
-                  fontWeight: 700,
-                  color: DARK,
-                  lineHeight: 1.2,
-                  marginBottom: 4,
-                }}>
-                  Get this on your website
-                </div>
-                <div style={{
-                  fontSize: 14,
-                  color: "rgba(13,21,20,0.6)",
-                  fontWeight: 500,
-                }}>
-                  Live in under 10 minutes — no code needed
-                </div>
-              </div>
-              <div style={{
-                width: 52,
-                height: 52,
-                background: DARK,
-                borderRadius: 10,
-                overflow: "hidden",
-                flexShrink: 0,
+          <div style={{ maxWidth: 640, margin: "0 auto" }}>
+            <Link href="/demo" style={{ textDecoration: "none", display: "block", marginBottom: 32 }}>
+              <div className="demo-cta-wrap" style={{
+                background: CYAN,
+                borderRadius: 16,
+                border: "2px solid transparent",
+                padding: "20px 24px",
+                display: "flex",
+                alignItems: "center",
+                cursor: "pointer",
               }}>
-                <div className="demo-arrow-track" style={{ height: 52 }}>
-                  {[0, 1].map((i) => (
-                    <div key={i} style={{
-                      width: 52,
-                      height: 52,
-                      flexShrink: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}>
-                      <ArrowRight size={18} color="white" strokeWidth={2.2} />
-                    </div>
-                  ))}
+                <div className="demo-cta-text" style={{ flex: 1 }}>
+                  <div style={{
+                    fontSize: "clamp(17px, 2.5vw, 20px)",
+                    fontWeight: 700,
+                    color: DARK,
+                    lineHeight: 1.2,
+                    marginBottom: 4,
+                  }}>
+                    Get this on your website
+                  </div>
+                  <div style={{
+                    fontSize: 14,
+                    color: "rgba(13,21,20,0.6)",
+                    fontWeight: 500,
+                  }}>
+                    Live in under 10 minutes — no code needed
+                  </div>
+                </div>
+                <div style={{
+                  width: 52,
+                  height: 52,
+                  background: DARK,
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  flexShrink: 0,
+                }}>
+                  <div className="demo-arrow-track" style={{ height: 52 }}>
+                    {[0, 1].map((i) => (
+                      <div key={i} style={{
+                        width: 52,
+                        height: 52,
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}>
+                        <ArrowRight size={18} color="white" strokeWidth={2.2} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          </Link>
+            </Link>
+
+            {/* Cross-link */}
+            <Link href="/tools/missed-call-calculator" style={{ textDecoration: "none", display: "block" }}>
+              <div className="demo-crosslink" style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                padding: "16px 20px",
+                borderRadius: 14,
+                border: `1px solid ${mkt.border}`,
+                background: mkt.cardBg,
+                cursor: "pointer",
+                transition: "border-color 0.2s, background 0.2s",
+              }}>
+                <div style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: "rgba(239,68,68,0.1)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  <PhoneOff size={18} color="#EF4444" strokeWidth={1.8} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 650, color: mkt.text }}>
+                    Missed Call Revenue Calculator
+                  </div>
+                  <div style={{ fontSize: 13, color: mkt.textMuted }}>
+                    See how much missed calls are costing you
+                  </div>
+                </div>
+                <ArrowRight size={16} color={mkt.textFaint} />
+              </div>
+            </Link>
+          </div>
 
         </div>
       </section>

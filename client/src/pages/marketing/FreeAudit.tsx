@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { colors } from "@/theme/tokens";
-import { Search, CheckCircle2 } from "lucide-react";
+import { Search, CheckCircle2, PhoneOff, Calculator, ArrowRight } from "lucide-react";
+import { Link } from "wouter";
 import reportStyles from "./FreeAuditReport.module.css";
 
 type Prediction = { placeId: string; name: string; formattedAddress: string };
@@ -369,6 +370,52 @@ function ReportView(props: {
                 Email Me This Report
               </button>
             </div>
+          </div>
+
+          {/* ─── Cross-links to tools ─── */}
+          <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
+            {([
+              { href: "/tools/missed-call-calculator", icon: PhoneOff, iconColor: "#EF4444", iconBg: "rgba(239,68,68,0.08)", title: "Missed Call Calculator", sub: "See how much revenue you lose from missed calls" },
+              { href: "/tools/quote-demo", icon: Calculator, iconColor: "#2F6BFF", iconBg: "rgba(47,107,255,0.08)", title: "Quote Calculator Demo", sub: "Try instant quotes for your trade" },
+            ] as const).map((link) => {
+              const Icon = link.icon;
+              return (
+                <Link key={link.href} href={link.href} style={{ textDecoration: "none", display: "block" }}>
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    padding: "14px 18px",
+                    borderRadius: 14,
+                    border: "1px solid rgba(0,0,0,0.07)",
+                    background: "rgba(255,255,255,0.6)",
+                    cursor: "pointer",
+                    transition: "border-color 0.2s, background 0.2s",
+                  }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(0,0,0,0.14)"; e.currentTarget.style.background = "rgba(255,255,255,0.85)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(0,0,0,0.07)"; e.currentTarget.style.background = "rgba(255,255,255,0.6)"; }}
+                  >
+                    <div style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 10,
+                      background: link.iconBg,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}>
+                      <Icon size={17} color={link.iconColor} strokeWidth={1.8} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 650, color: "#111827" }}>{link.title}</div>
+                      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.5)" }}>{link.sub}</div>
+                    </div>
+                    <ArrowRight size={15} color="rgba(0,0,0,0.3)" />
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </div>

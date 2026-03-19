@@ -52,6 +52,15 @@ const NAV_LINKS: { label: string; href: string; children?: NavChild[] }[] = [
       { label: "For Cleaners", href: "/solutions/for-cleaners", description: "Get booked on autopilot.", icon: <Sparkles size={28} strokeWidth={1.6} /> },
     ],
   },
+  {
+    label: "Tools",
+    href: "/tools/missed-call-calculator",
+    children: [
+      { label: "Missed Call Calculator", href: "/tools/missed-call-calculator", description: "See revenue lost to missed calls.", icon: <Calculator size={28} strokeWidth={1.6} /> },
+      { label: "Quote Calculator Demo", href: "/tools/quote-demo", description: "Try instant quote generation.", icon: <Zap size={28} strokeWidth={1.6} /> },
+      { label: "Free Website Audit", href: "/tools/free-audit", description: "Google Maps & speed audit.", icon: <Search size={28} strokeWidth={1.6} /> },
+    ],
+  },
   { label: "Templates", href: "/templates" },
   { label: "Plans", href: "/plans" },
   {
