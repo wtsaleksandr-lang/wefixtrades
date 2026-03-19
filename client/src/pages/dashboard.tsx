@@ -5,6 +5,7 @@ import { useLocation } from 'wouter';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { platformTheme } from '@/theme/platformTheme';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import {
   LayoutDashboard, DollarSign, Users, BarChart3, Settings,
   ExternalLink, Copy, Search, Download, Trash2, RefreshCw,
@@ -40,14 +41,17 @@ export default function Dashboard() {
   const [supportOpen, setSupportOpen] = useState(false);
   const token = getToken();
   const [, setLocation] = useLocation();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
-  if (!token) {
+  // Allow access via token OR session auth
+  if (!token && !authLoading && !isAuthenticated) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: p.colors.pageBg }}>
         <div style={{ textAlign: 'center', padding: '40px' }}>
           <AlertCircle style={{ width: 48, height: 48, color: p.colors.muted, margin: '0 auto 16px' }} />
-          <h2 style={{ ...p.typography.h2, marginBottom: 8 }}>No access token</h2>
-          <p style={{ ...p.typography.body, color: p.colors.muted }}>Use the link from your calculator creation to access the dashboard.</p>
+          <h2 style={{ ...p.typography.h2, marginBottom: 8 }}>Access required</h2>
+          <p style={{ ...p.typography.body, color: p.colors.muted, marginBottom: 16 }}>Sign in or use the link from your calculator creation to access the dashboard.</p>
+          <a href="/login" style={{ color: p.colors.accent, fontSize: 14, textDecoration: "none" }}>Go to login</a>
         </div>
       </div>
     );

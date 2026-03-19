@@ -1,8 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import passport from "passport";
 import { registerRoutes } from "./routes/index";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initScheduler } from "./jobs/scheduler";
+import { pool } from "./db";
+import { setupPassport } from "./auth";
 
 const app = express();
 const httpServer = createServer(app);
@@ -22,6 +27,26 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+/* ─── Session + Passport ─── */
+const PgStore = connectPgSimple(session);
+app.use(
+  session({
+    store: new PgStore({ pool, createTableIfMissing: true }),
+    secret: process.env.SESSION_SECRET || "wft-dev-secret-change-in-prod",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    },
+  })
+);
+setupPassport();
+app.use(passport.initialize());
+app.use(passport.session());
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
