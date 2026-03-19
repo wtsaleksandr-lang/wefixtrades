@@ -570,7 +570,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
 
           {/* Col 3 — Legal + Access */}
           <div>
-            <div style={ftHeading}>Legal &amp; Access</div>
+            <div style={ftHeading}>Legal</div>
             <FtLink href="/privacy">Privacy Policy</FtLink>
             <FtLink href="/terms">Terms</FtLink>
 
