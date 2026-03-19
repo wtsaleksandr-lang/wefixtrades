@@ -391,4 +391,118 @@ router.post("/generate", async (req: Request, res: Response) => {
   }
 });
 
+/* ─── Lead submission + optional email ─── */
+
+router.post("/submit-lead", async (req: Request, res: Response) => {
+  try {
+    const { name, email, phone, wantsHelp, business, scores, reportJson } =
+      req.body ?? {};
+
+    const emailStr = String(email || "").trim().toLowerCase();
+    if (!emailStr || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) {
+      return safeJsonError(res, 400, "A valid email is required.");
+    }
+
+    const leadPayload = {
+      name: String(name || "").trim() || null,
+      email: emailStr,
+      phone: String(phone || "").trim() || null,
+      wantsHelp: !!wantsHelp,
+      businessName: business?.name || null,
+      placeId: business?.placeId || null,
+      localVisibility: scores?.localVisibility ?? null,
+      mobileSpeed: scores?.websiteSpeedMobile ?? null,
+      desktopSpeed: scores?.websiteSpeedDesktop ?? null,
+      issueCount:
+        Array.isArray(reportJson?.issues) ? reportJson.issues.length : 0,
+      submittedAt: new Date().toISOString(),
+    };
+
+    // Log the lead (primary capture mechanism without DB)
+    console.log(
+      `[AuditLead] ${leadPayload.email} | ${leadPayload.businessName} | visibility=${leadPayload.localVisibility} | wantsHelp=${leadPayload.wantsHelp}`
+    );
+
+    // Best-effort email delivery
+    try {
+      const smtpHost = process.env.SMTP_HOST;
+      const smtpUser = process.env.SMTP_USER;
+      const smtpPass = process.env.SMTP_PASS;
+      const smtpFrom = process.env.SMTP_FROM || smtpUser;
+
+      if (smtpHost && smtpUser && smtpPass) {
+        const nodemailer = await import("nodemailer");
+        const port = parseInt(process.env.SMTP_PORT || "587", 10);
+        const transporter = nodemailer.default.createTransport({
+          host: smtpHost,
+          port,
+          secure: port === 465,
+          auth: { user: smtpUser, pass: smtpPass },
+        });
+
+        const biz = business?.name || "your business";
+        const vis = scores?.localVisibility ?? "--";
+        const mob = scores?.websiteSpeedMobile ?? "--";
+        const desk = scores?.websiteSpeedDesktop ?? "--";
+
+        const issues: Array<{ title: string; severity: string; fix: string }> =
+          Array.isArray(reportJson?.issues) ? reportJson.issues : [];
+        const quickWins: string[] = Array.isArray(reportJson?.quickWins)
+          ? reportJson.quickWins
+          : [];
+
+        const issueLines = issues
+          .map(
+            (i, idx) => `  ${idx + 1}. [${i.severity}] ${i.title}\n     → ${i.fix}`
+          )
+          .join("\n\n");
+
+        const quickWinLines = quickWins
+          .map((w, idx) => `  ${idx + 1}. ${w}`)
+          .join("\n");
+
+        const text = [
+          `Hi${leadPayload.name ? ` ${leadPayload.name}` : ""},`,
+          ``,
+          `Here's your free audit report for ${biz}.`,
+          ``,
+          `── Scores ──`,
+          `Local Visibility:  ${vis}/100`,
+          `Mobile Speed:      ${mob !== "--" ? `${mob}/100` : "N/A"}`,
+          `Desktop Speed:     ${desk !== "--" ? `${desk}/100` : "N/A"}`,
+          ``,
+          issues.length > 0
+            ? `── Issues Found (${issues.length}) ──\n${issueLines}`
+            : `── No Issues Found ──`,
+          ``,
+          quickWins.length > 0
+            ? `── Quick Wins ──\n${quickWinLines}`
+            : "",
+          ``,
+          `Want us to fix these for you? Reply to this email or visit:`,
+          `https://wefixtrades.com/contact`,
+          ``,
+          `— WeFixTrades`,
+        ]
+          .filter(Boolean)
+          .join("\n");
+
+        await transporter.sendMail({
+          from: smtpFrom,
+          to: emailStr,
+          subject: `Your Free Audit Report — ${biz}`,
+          text,
+        });
+      }
+    } catch (emailErr: any) {
+      // Non-fatal: log but don't fail the request
+      console.error("[AuditLead] Email send failed:", emailErr?.message);
+    }
+
+    return res.json({ ok: true });
+  } catch (e: any) {
+    return safeJsonError(res, 500, e?.message || "submit-lead failed");
+  }
+});
+
 export default router;
