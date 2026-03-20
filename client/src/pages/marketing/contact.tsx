@@ -10,7 +10,18 @@ export default function ContactPage() {
     document.title = "Contact — QuickQuotePro";
   }, []);
 
-  const [form, setForm] = useState({ name: "", email: "", subject: "General", message: "" });
+  const [form, setForm] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const name = params.get("name") || "";
+    const email = params.get("email") || "";
+    const business = params.get("business") || "";
+    return {
+      name,
+      email,
+      subject: business ? "Sales" : "General",
+      message: business ? `Audit for: ${business}\n\nI'd like help improving my online presence.` : "",
+    };
+  });
   const [submitted, setSubmitted] = useState(false);
 
   const mutation = useMutation({

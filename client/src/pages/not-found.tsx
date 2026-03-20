@@ -1,21 +1,67 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { Link } from "wouter";
+import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { mkt } from "@/theme/tokens";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">404 Page Not Found</h1>
-          </div>
-
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
+    <MarketingLayout>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "50vh",
+          padding: "80px 24px 40px",
+          textAlign: "center",
+        }}
+      >
+        <div>
+          <p
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: mkt.textFaint,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              marginBottom: 12,
+            }}
+          >
+            404
           </p>
-        </CardContent>
-      </Card>
-    </div>
+          <h1
+            style={{
+              fontSize: 24,
+              fontWeight: 600,
+              color: mkt.text,
+              marginBottom: 8,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            Page not found
+          </h1>
+          <p
+            style={{
+              fontSize: 14,
+              color: mkt.textMuted,
+              marginBottom: 28,
+              lineHeight: 1.5,
+            }}
+          >
+            The page you're looking for doesn't exist or has been moved.
+          </p>
+          <Link
+            href="/"
+            style={{
+              fontSize: 14,
+              fontWeight: 500,
+              color: mkt.accent,
+              textDecoration: "none",
+            }}
+          >
+            Back to home
+          </Link>
+        </div>
+      </div>
+    </MarketingLayout>
   );
 }

@@ -142,9 +142,8 @@ function ReportView(props: {
   mapsIssues: any[];
   speed: any;
   onFixClick?: () => void;
-  onEmailClick?: () => void;
 }) {
-  const { business, mapsIssues, speed, onFixClick, onEmailClick } = props;
+  const { business, mapsIssues, speed, onFixClick } = props;
   const [activeTab, setActiveTab] = useState<"maps" | "speed">("maps");
 
   const photos: string[] = Array.isArray(business?.photos) ? business.photos : [];
@@ -366,9 +365,6 @@ function ReportView(props: {
               <button type="button" className={reportStyles.btnPrimary} onClick={onFixClick} data-testid="button-cta-fix">
                 Fix This For Me &nbsp; \u2192
               </button>
-              <button type="button" className={reportStyles.btnSecondary} onClick={onEmailClick} data-testid="button-cta-email">
-                Email Me This Report
-              </button>
             </div>
           </div>
 
@@ -520,6 +516,47 @@ export default function FreeAudit() {
   }
 
   const currentStep = busyStep(busy);
+
+  // ─── Lead gate state ───
+  const [unlocked, setUnlocked] = useState(false);
+  const [leadName, setLeadName] = useState("");
+  const [leadEmail, setLeadEmail] = useState("");
+  const [leadPhone, setLeadPhone] = useState("");
+  const [wantsHelp, setWantsHelp] = useState(false);
+  const [leadError, setLeadError] = useState<string | null>(null);
+  const [leadSubmitting, setLeadSubmitting] = useState(false);
+
+  async function submitLead() {
+    const email = leadEmail.trim();
+    if (!email) {
+      setLeadError("Email is required.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setLeadError("Please enter a valid email address.");
+      return;
+    }
+    setLeadError(null);
+    setLeadSubmitting(true);
+    try {
+      await postJSON("/api/audit/submit-lead", {
+        name: leadName.trim(),
+        email,
+        phone: leadPhone.trim(),
+        wantsHelp,
+        business: business
+          ? { name: business.name, placeId: business.placeId }
+          : null,
+        scores: report?.scores ?? null,
+        reportJson: report,
+      });
+      setUnlocked(true);
+    } catch (e: any) {
+      setLeadError(e?.message || "Something went wrong. Please try again.");
+    } finally {
+      setLeadSubmitting(false);
+    }
+  }
 
   const reportReady = !!report;
   const UI_BUSINESS = business
@@ -868,14 +905,136 @@ export default function FreeAudit() {
             </>
           )}
 
-          {reportReady && (
+          {/* ─── Teaser + Lead Gate (report ready but not unlocked) ─── */}
+          {reportReady && !unlocked && (
+            <div ref={reportRef}>
+              <div className={reportStyles.page}>
+                <div className={reportStyles.container}>
+                  <div className={reportStyles.stack}>
+                    {/* Business identity card */}
+                    {UI_BUSINESS && (
+                      <div className={`${reportStyles.card} ${reportStyles.cardPad}`}>
+                        <div className={reportStyles.row}>
+                          <div className={reportStyles.col}>
+                            <div className={reportStyles.h3}>{UI_BUSINESS.name}</div>
+                            <div className={`${reportStyles.body} ${reportStyles.muted}`}>Your Google Maps Profile</div>
+                          </div>
+                        </div>
+                        <div className={reportStyles.kvList}>
+                          {(UI_BUSINESS.rating != null || UI_BUSINESS.reviewsCount != null) && (
+                            <div className={reportStyles.kvRow}>
+                              <span className={reportStyles.kvIcon}><RIcon kind="star" /></span>
+                              <span><b>{UI_BUSINESS.rating ?? "--"}</b></span>
+                              <span className={reportStyles.muted}>{UI_BUSINESS.reviewsCount != null ? `${UI_BUSINESS.reviewsCount} reviews` : ""}</span>
+                            </div>
+                          )}
+                          {UI_BUSINESS.formattedAddress && (
+                            <div className={reportStyles.kvRow}>
+                              <span className={reportStyles.kvIcon}><RIcon kind="pin" /></span>
+                              <span className={reportStyles.body}>{UI_BUSINESS.formattedAddress}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Score teaser */}
+                    <div className={`${reportStyles.card} ${reportStyles.scoreTeaser}`}>
+                      <div className={reportStyles.scoreTeaserLabel}>Local Visibility Score</div>
+                      <div>
+                        <span className={reportStyles.scoreTeaserValue}>{report?.scores.localVisibility ?? "--"}</span>
+                        <span className={reportStyles.scoreTeaserDen}> /100</span>
+                      </div>
+                    </div>
+
+                    {/* Lead gate */}
+                    <div className={`${reportStyles.card} ${reportStyles.leadGate}`}>
+                      <div className={reportStyles.leadGateTitle}>Your audit is ready</div>
+                      <div className={reportStyles.leadGateSub}>
+                        Enter your email to unlock the full report with issues, quick wins, and action plan.
+                      </div>
+                      <div className={reportStyles.leadGateForm}>
+                        <div>
+                          <label className={reportStyles.leadGateLabel}>
+                            Name <span style={{ fontWeight: 400 }}>(optional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Your name"
+                            value={leadName}
+                            onChange={(e) => setLeadName(e.target.value)}
+                            className={reportStyles.leadGateInput}
+                          />
+                        </div>
+                        <div>
+                          <label className={reportStyles.leadGateLabel}>Email *</label>
+                          <input
+                            type="email"
+                            placeholder="you@example.com"
+                            value={leadEmail}
+                            onChange={(e) => { setLeadEmail(e.target.value); setLeadError(null); }}
+                            className={`${reportStyles.leadGateInput} ${leadError ? reportStyles.leadGateInputError : ""}`}
+                          />
+                          {leadError && <div className={reportStyles.leadGateError}>{leadError}</div>}
+                        </div>
+                        <div>
+                          <label className={reportStyles.leadGateLabel}>
+                            Phone <span style={{ fontWeight: 400 }}>(optional)</span>
+                          </label>
+                          <input
+                            type="tel"
+                            placeholder="(555) 123-4567"
+                            value={leadPhone}
+                            onChange={(e) => setLeadPhone(e.target.value)}
+                            className={reportStyles.leadGateInput}
+                          />
+                        </div>
+                        <label className={reportStyles.leadGateCheckRow}>
+                          <input
+                            type="checkbox"
+                            checked={wantsHelp}
+                            onChange={(e) => setWantsHelp(e.target.checked)}
+                            style={{ marginTop: 2, accentColor: "#2F6BFF" }}
+                          />
+                          <span className={reportStyles.leadGateCheckLabel}>
+                            I want help fixing these issues
+                          </span>
+                        </label>
+                        <button
+                          type="button"
+                          className={reportStyles.btnPrimary}
+                          disabled={leadSubmitting}
+                          onClick={submitLead}
+                          style={{ opacity: leadSubmitting ? 0.7 : 1 }}
+                          data-testid="button-unlock-report"
+                        >
+                          {leadSubmitting ? "Unlocking\u2026" : "View Full Report"}
+                        </button>
+                        <div className={reportStyles.leadGateHint}>
+                          We'll also send a copy to your email.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Full report (unlocked) ─── */}
+          {reportReady && unlocked && (
             <div ref={reportRef}>
               <ReportView
                 business={UI_BUSINESS}
                 mapsIssues={UI_MAPS_ISSUES}
                 speed={UI_SPEED}
-                onFixClick={() => { window.location.href = "/contact"; }}
-                onEmailClick={() => {}}
+                onFixClick={() => {
+                  const params = new URLSearchParams();
+                  if (business?.name) params.set("business", business.name);
+                  if (leadEmail) params.set("email", leadEmail);
+                  if (leadName) params.set("name", leadName);
+                  window.location.href = `/contact${params.toString() ? `?${params}` : ""}`;
+                }}
               />
             </div>
           )}

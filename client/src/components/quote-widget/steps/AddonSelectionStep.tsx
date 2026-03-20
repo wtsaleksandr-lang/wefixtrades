@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import QuestionRenderer from '../QuestionRenderer';
 import { useWidgetState } from '../useWidgetState';
-import { stepTitleStyle, stepSubtitleStyle } from '../designTokens';
+import { calculateEstimate } from '@shared/calculateEstimate';
+import { eff, stepTitleStyle, stepSubtitleStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
 
 interface AddonSelectionStepProps {
@@ -17,7 +19,12 @@ interface AddonSelectionStepProps {
  * from the pricing config.
  */
 export default function AddonSelectionStep({ step, accentColor }: AddonSelectionStepProps) {
-  const { getAnswer, setAnswer, config } = useWidgetState();
+  const { getAnswer, setAnswer, config, estimateInputs } = useWidgetState();
+
+  const estimate = useMemo(
+    () => calculateEstimate(config.pricingConfig, estimateInputs),
+    [config.pricingConfig, estimateInputs],
+  );
 
   const question = step.questions[0];
 
@@ -58,6 +65,7 @@ export default function AddonSelectionStep({ step, accentColor }: AddonSelection
           onChange={(v) => setAnswer('addon_selection', v)}
           accentColor={accentColor}
         />
+        <RunningTotal estimate={estimate} />
       </div>
     );
   }
@@ -72,6 +80,38 @@ export default function AddonSelectionStep({ step, accentColor }: AddonSelection
         onChange={(v) => setAnswer(question.id, v)}
         accentColor={accentColor}
       />
+      <RunningTotal estimate={estimate} />
+    </div>
+  );
+}
+
+function RunningTotal({ estimate }: { estimate: ReturnType<typeof calculateEstimate> | null }) {
+  if (!estimate || estimate.type === 'call_for_quote') return null;
+
+  const display = estimate.type === 'range'
+    ? `$${estimate.rangeMin!.toLocaleString()} – $${estimate.rangeMax!.toLocaleString()}`
+    : `$${estimate.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  return (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderTop: `1px solid ${eff.buttonBorder}`,
+      paddingTop: '16px',
+    }}>
+      <span style={{ fontSize: '13px', color: eff.textBody, fontWeight: 500 }}>
+        Current estimate
+      </span>
+      <span style={{
+        fontSize: '18px',
+        fontWeight: 700,
+        color: eff.text,
+        fontFamily: eff.fontMono,
+        letterSpacing: '-0.01em',
+      }}>
+        {display}
+      </span>
     </div>
   );
 }

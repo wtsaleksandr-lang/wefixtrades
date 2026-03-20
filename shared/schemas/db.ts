@@ -278,3 +278,27 @@ export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
 export type SupportTicket = typeof supportTickets.$inferSelect;
 export type InsertSmsMessage = z.infer<typeof insertSmsMessageSchema>;
 export type SmsMessage = typeof smsMessages.$inferSelect;
+
+/* ─── Audit Submissions ─── */
+export const auditSubmissions = pgTable("audit_submissions", {
+  id: serial("id").primaryKey(),
+  business_name: text("business_name"),
+  place_id: text("place_id"),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  name: text("name"),
+  wants_help: boolean("wants_help").default(false),
+  local_visibility_score: integer("local_visibility_score"),
+  mobile_speed_score: integer("mobile_speed_score"),
+  desktop_speed_score: integer("desktop_speed_score"),
+  issue_count: integer("issue_count").default(0),
+  report_json: jsonb("report_json"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertAuditSubmissionSchema = createInsertSchema(auditSubmissions).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertAuditSubmission = z.infer<typeof insertAuditSubmissionSchema>;
+export type AuditSubmission = typeof auditSubmissions.$inferSelect;

@@ -4,7 +4,7 @@ import {
   calculatorAnalyticsSummary, jobLogs,
   notificationQueue, followupJobs, bookings,
   aiConversations, supportTickets, smsMessages,
-  users,
+  users, auditSubmissions,
   type Calculator, type InsertCalculator,
   type Lead, type InsertLead,
   type AnalyticsEvent, type InsertAnalyticsEvent,
@@ -18,6 +18,7 @@ import {
   type SupportTicket, type InsertSupportTicket,
   type SmsMessage,
   type User, type InsertUser,
+  type AuditSubmission, type InsertAuditSubmission,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -96,6 +97,10 @@ export interface IStorage {
   listUsers(limit?: number, offset?: number): Promise<User[]>;
   getUserCount(): Promise<number>;
   getCalculatorsByUserId(userId: number): Promise<Calculator[]>;
+
+  createAuditSubmission(data: InsertAuditSubmission): Promise<AuditSubmission>;
+  listAuditSubmissions(limit?: number, offset?: number): Promise<AuditSubmission[]>;
+  getAuditSubmissionCount(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -613,6 +618,20 @@ export class DatabaseStorage implements IStorage {
 
   async getCalculatorsByUserId(userId: number): Promise<Calculator[]> {
     return db.select().from(calculators).where(eq(calculators.user_id, userId)).orderBy(desc(calculators.id));
+  }
+
+  async createAuditSubmission(data: InsertAuditSubmission): Promise<AuditSubmission> {
+    const [row] = await db.insert(auditSubmissions).values(data).returning();
+    return row;
+  }
+
+  async listAuditSubmissions(limit = 50, offset = 0): Promise<AuditSubmission[]> {
+    return db.select().from(auditSubmissions).orderBy(desc(auditSubmissions.created_at)).limit(limit).offset(offset);
+  }
+
+  async getAuditSubmissionCount(): Promise<number> {
+    const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(auditSubmissions);
+    return row?.total ?? 0;
   }
 }
 

@@ -9,6 +9,7 @@ import Calculator from "@/pages/calculator";
 import EditCalculator from "@/pages/edit-calculator";
 import LeadsPage from "@/pages/leads";
 import Dashboard from "@/pages/dashboard";
+import LoginPage from "@/pages/login";
 import MarketingHome from "@/pages/marketing/home";
 import MarketingProduct from "@/pages/marketing/product";
 import MarketingPricing from "@/pages/marketing/pricing";
@@ -50,6 +51,7 @@ import Blog from "@/pages/Blog";
 import CaseStudies from "@/pages/CaseStudies";
 import PrimitivesPage from "@/pages/dev/primitives";
 import DemoCanvas from "@/pages/dev/DemoCanvas";
+import RequirePortal from "@/components/auth/RequirePortal";
 
 function Router() {
   return (
@@ -69,7 +71,7 @@ function Router() {
       <Route path="/platform" component={MarketingProduct} />
       <Route path="/pricing" component={PricingNew} />
       <Route path="/plans" component={Plans} />
-      <Route path="/login" component={Dashboard} />
+      <Route path="/login" component={LoginPage} />
       <Route path="/services" component={MarketingServices} />
       <Route path="/bundles" component={MarketingBundles} />
       <Route path="/templates" component={MarketingTemplates} />
@@ -96,8 +98,8 @@ function Router() {
       <Route path="/docs/ai" component={DocsAi} />
       <Route path="/docs/webhooks" component={DocsWebhooks} />
       <Route path="/docs/troubleshooting" component={DocsTroubleshooting} />
-      <Route path="/dev/primitives" component={PrimitivesPage} />
-      <Route path="/dev/canvas" component={DemoCanvas} />
+      <Route path="/dev/primitives">{() => <RequirePortal><PrimitivesPage /></RequirePortal>}</Route>
+      <Route path="/dev/canvas">{() => <RequirePortal><DemoCanvas /></RequirePortal>}</Route>
       <Route path="/tools/missed-call-calculator" component={MissedCallCalculator} />
       <Route path="/tools/quote-demo" component={QuoteCalculatorDemo} />
       <Route path="/tools/free-audit" component={FreeAudit} />
@@ -106,10 +108,15 @@ function Router() {
       <Route path="/quote-demo" component={QuoteCalculatorDemo} />
       <Route path="/free-audit" component={FreeAudit} />
       <Route path="/Wizard" component={Wizard} />
+      <Route path="/wizard" component={Wizard} />
       <Route path="/Calculator" component={Calculator} />
+      <Route path="/calculator" component={Calculator} />
       <Route path="/EditCalculator" component={EditCalculator} />
+      <Route path="/edit-calculator" component={EditCalculator} />
       <Route path="/Leads" component={LeadsPage} />
+      <Route path="/leads" component={LeadsPage} />
       <Route path="/Dashboard" component={Dashboard} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route component={NotFound} />
     </Switch>
   );

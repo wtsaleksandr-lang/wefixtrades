@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { type Server } from "http";
 import auditRouter from "../auditRoutes";
 
+import { registerAuthRoutes } from "./authRoutes";
 import { registerMarketingRoutes } from "./marketingRoutes";
 import { registerAiRoutes } from "./aiRoutes";
 import { registerCalculatorRoutes } from "./calculatorRoutes";
@@ -18,6 +19,7 @@ export async function registerRoutes(
 ): Promise<Server> {
   app.use("/api/audit", auditRouter);
 
+  registerAuthRoutes(app);
   registerMarketingRoutes(app);
   registerAiRoutes(app);
   registerCalculatorRoutes(app);

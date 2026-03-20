@@ -36,18 +36,43 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; phone?: string }>({});
 
   const smsConsent = state.lead.smsConsent;
+
+  function validateFields(): boolean {
+    const email = leadData.email.trim();
+    const phone = leadData.phone.trim();
+    const errs: { email?: string; phone?: string } = {};
+
+    // Require at least email or phone
+    if (!email && !phone) {
+      setError('Please provide your email or phone number.');
+      return false;
+    }
+
+    // Validate email format if provided
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errs.email = 'Please enter a valid email address.';
+    }
+
+    // Validate phone has at least 7 digits if provided
+    if (phone && phone.replace(/\D/g, '').length < 7) {
+      errs.phone = 'Please enter a valid phone number.';
+    }
+
+    setFieldErrors(errs);
+    if (Object.keys(errs).length > 0) return false;
+
+    setError(null);
+    return true;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting || leadSubmitted) return;
 
-    // Basic client-side validation
-    if (!leadData.name.trim() && !leadData.email.trim() && !leadData.phone.trim()) {
-      setError('Please fill in at least one contact field.');
-      return;
-    }
+    if (!validateFields()) return;
 
     setSubmitting(true);
     setError(null);
@@ -140,11 +165,17 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
             type="email"
             placeholder="you@example.com"
             value={leadData.email}
-            onChange={(e) => updateLead('email', e.target.value)}
-            style={inputStyle}
-            onFocus={(e) => { e.currentTarget.style.borderColor = eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
+            onChange={(e) => { updateLead('email', e.target.value); setFieldErrors(p => ({ ...p, email: undefined })); setError(null); }}
+            style={{
+              ...inputStyle,
+              ...(fieldErrors.email ? { borderColor: '#dc2626' } : {}),
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = fieldErrors.email ? '#dc2626' : eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = fieldErrors.email ? '#dc2626' : eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
+          {fieldErrors.email && (
+            <p style={{ fontSize: '12px', color: '#dc2626', margin: '4px 0 0' }}>{fieldErrors.email}</p>
+          )}
         </div>
 
         <div>
@@ -155,11 +186,17 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
             type="tel"
             placeholder="(555) 123-4567"
             value={leadData.phone}
-            onChange={(e) => updateLead('phone', e.target.value)}
-            style={inputStyle}
-            onFocus={(e) => { e.currentTarget.style.borderColor = eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
+            onChange={(e) => { updateLead('phone', e.target.value); setFieldErrors(p => ({ ...p, phone: undefined })); setError(null); }}
+            style={{
+              ...inputStyle,
+              ...(fieldErrors.phone ? { borderColor: '#dc2626' } : {}),
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = fieldErrors.phone ? '#dc2626' : eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = fieldErrors.phone ? '#dc2626' : eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
+          {fieldErrors.phone && (
+            <p style={{ fontSize: '12px', color: '#dc2626', margin: '4px 0 0' }}>{fieldErrors.phone}</p>
+          )}
         </div>
 
         <div>

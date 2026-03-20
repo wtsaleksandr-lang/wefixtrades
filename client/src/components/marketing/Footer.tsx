@@ -1,106 +1,164 @@
+import { type CSSProperties } from "react";
 import { Link } from "wouter";
-import { FOOTER_LINKS } from "@/site/siteMap";
+import { useAuth } from "@/hooks/useAuth";
+import { queryClient } from "@/lib/queryClient";
 import { mkt } from "@/theme/tokens";
 
-const columns = Object.entries(FOOTER_LINKS) as [keyof typeof FOOTER_LINKS, typeof FOOTER_LINKS[keyof typeof FOOTER_LINKS]][];
+const ftLink: CSSProperties = {
+  display: "block",
+  fontSize: 13,
+  fontWeight: 400,
+  color: "rgba(255,255,255,0.5)",
+  textDecoration: "none",
+  lineHeight: 1.4,
+  padding: "7px 0",
+  transition: "color 0.15s ease",
+};
+
+const ftHeading: CSSProperties = {
+  fontSize: 10,
+  fontWeight: 600,
+  color: "rgba(255,255,255,0.3)",
+  textTransform: "uppercase",
+  letterSpacing: "0.1em",
+  marginBottom: 16,
+};
+
+function FtLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      data-testid={`footer-link-${String(children).toLowerCase().replace(/[\s&()]+/g, "-")}`}
+      style={ftLink}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = ftLink.color as string; }}
+    >
+      {children}
+    </Link>
+  );
+}
 
 export default function Footer() {
+  const { isAuthenticated, isPortalUser } = useAuth();
+
   return (
     <footer
       data-testid="footer"
-      style={{ backgroundColor: mkt.dark, color: mkt.onDark }}
+      style={{
+        borderTop: "1px solid rgba(255,255,255,0.06)",
+        backgroundColor: mkt.dark,
+        color: mkt.onDark,
+      }}
     >
       <div
         style={{
-          maxWidth: 1200,
+          maxWidth: 960,
           margin: "0 auto",
-          padding: "64px 24px 0",
+          padding: "64px 24px 36px",
         }}
       >
+        {/* 3-column grid */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-            gap: 40,
+            gridTemplateColumns: "2fr 1fr 1fr",
+            gap: 48,
+            marginBottom: 48,
           }}
         >
-          {columns.map(([heading, links]) => (
-            <div key={heading}>
-              <h4
-                data-testid={`footer-heading-${heading.toLowerCase()}`}
+          {/* Col 1 — Brand */}
+          <div>
+            <p
+              style={{
+                fontSize: 15,
+                fontWeight: 600,
+                color: "rgba(255,255,255,0.7)",
+                margin: "0 0 10px",
+              }}
+            >
+              WeFixTrades
+            </p>
+            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", lineHeight: 1.65, maxWidth: 280, margin: 0 }}>
+              Quote tools and AI workflows for modern service businesses.
+            </p>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", lineHeight: 1.5, margin: "12px 0 0" }}>
+              Built for speed, clarity, and conversion.
+            </p>
+          </div>
+
+          {/* Col 2 — Company */}
+          <div>
+            <div style={ftHeading}>Company</div>
+            <FtLink href="/about">About</FtLink>
+            <FtLink href="/contact">Contact</FtLink>
+          </div>
+
+          {/* Col 3 — Legal + Access */}
+          <div>
+            <div style={ftHeading}>Legal</div>
+            <FtLink href="/privacy">Privacy Policy</FtLink>
+            <FtLink href="/terms">Terms</FtLink>
+
+            {!isAuthenticated && (
+              <FtLink href="/login">Login</FtLink>
+            )}
+            {isAuthenticated && (
+              <FtLink href="/dashboard">Dashboard</FtLink>
+            )}
+            {isPortalUser && (
+              <Link
+                href="/dashboard"
+                data-testid="footer-link-portal"
                 style={{
+                  ...ftLink,
                   fontSize: 12,
-                  fontWeight: 700,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  color: mkt.onDarkMuted,
-                  marginBottom: 16,
+                  color: "rgba(255,255,255,0.28)",
                 }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.28)"; }}
               >
-                {heading}
-              </h4>
-              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-                {links.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      data-testid={`footer-link-${link.label.toLowerCase().replace(/[\s()]/g, "-")}`}
-                      style={{
-                        color: mkt.onDarkFaint,
-                        textDecoration: "none",
-                        fontSize: 14,
-                        lineHeight: 1.5,
-                        transition: "color 0.15s ease-out",
-                      }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.accent; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDarkFaint; }}
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+                Portal
+              </Link>
+            )}
+            {isAuthenticated && (
+              <button
+                data-testid="footer-link-signout"
+                onClick={async () => {
+                  await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
+                  queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+                }}
+                style={{
+                  ...ftLink,
+                  fontSize: 12,
+                  color: "rgba(255,255,255,0.28)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "7px 0",
+                  fontFamily: "inherit",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.28)"; }}
+              >
+                Sign out
+              </button>
+            )}
+          </div>
         </div>
 
+        {/* Bottom bar */}
         <div
           style={{
             borderTop: `1px solid ${mkt.onDarkBorder}`,
-            marginTop: 56,
-            padding: "24px 0",
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 16,
-            fontSize: 13,
+            paddingTop: 20,
+            fontSize: 12,
             color: mkt.onDarkFaint,
           }}
         >
           <span data-testid="footer-copyright">
-            &copy; {new Date().getFullYear()} WeFixTrades. All rights reserved.
+            &copy; {new Date().getFullYear()} WeFixTrades
           </span>
-          <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-            <Link
-              href="/privacy"
-              data-testid="footer-link-privacy"
-              style={{ color: mkt.onDarkFaint, textDecoration: "none", transition: "color 0.15s ease-out" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.accent; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDarkFaint; }}
-            >
-              Privacy Policy
-            </Link>
-            <Link
-              href="/terms"
-              data-testid="footer-link-terms"
-              style={{ color: mkt.onDarkFaint, textDecoration: "none", transition: "color 0.15s ease-out" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.accent; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = mkt.onDarkFaint; }}
-            >
-              Terms of Service
-            </Link>
-          </div>
         </div>
       </div>
     </footer>
