@@ -18,6 +18,7 @@ import FeatureCards from "@/components/marketing/FeatureCards";
 import PillarAnimation from "@/components/sections/PillarAnimation";
 import CTASection from "@/components/marketing/CTASection";
 import TrustSection from "@/components/marketing/TrustSection";
+import GlobeSection from "@/components/marketing/globe/GlobeSection";
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
 import {
   Zap, Check,
@@ -617,6 +618,7 @@ export default function HomePage() {
       <PillarAnimation />
       <FeatureCards />
       <BentoGrid />
+      <GlobeSection />
       <TrustStrip />
       <SurfaceSection overlap className="py-8">
         <ReviewsSection />
