@@ -376,7 +376,7 @@ export default function HomePage() {
       <style>{RESPONSIVE_CSS}</style>
 
       {/* Outer page background behind hero shell */}
-      <div className="hero-shell-backdrop" style={{ background: "radial-gradient(circle at 50% 0%, #cfd8dd 0%, #a7b6bf 50%, #8fa1ab 100%)", padding: "0 24px" }}>
+      <div className="hero-shell-backdrop" style={{ background: "radial-gradient(circle at 50% 0%, #cfd8dd 0%, #a7b6bf 50%, #8fa1ab 100%)", padding: "0 24px", position: "relative" as const, zIndex: 1 }}>
       {/* Shared grid zone — covers hero + trust marquee seamlessly */}
       <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.bg, overflow: "hidden", display: "flex", flexDirection: "column", maxWidth: 1400, margin: "0 auto", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 20px 60px rgba(0,0,0,0.25), 0 4px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
         {/* Subtle inner lighting overlay */}
