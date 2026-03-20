@@ -1,6 +1,5 @@
 import type { Express } from "express";
 import { z } from "zod";
-import OpenAI from "openai";
 import { storage } from "../storage";
 import {
   isTwilioConfigured,
@@ -11,11 +10,7 @@ import {
   verifyTwilioSignature,
 } from "../twilioClient";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { getOpenAI } from "../openaiClient";
 
 export function registerTwilioRoutes(app: Express): void {
   app.post("/api/twilio/inbound", async (req, res) => {
@@ -99,7 +94,7 @@ export function registerTwilioRoutes(app: Express): void {
 
       const chatMessages = [{ role: "user" as const, content: body }];
       const { reply } = await runChatCompletion(
-        openai,
+        getOpenAI(),
         "client_ai_employee",
         chatMessages,
         systemPrompt,

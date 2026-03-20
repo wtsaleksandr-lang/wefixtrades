@@ -1,17 +1,12 @@
 import type { Express } from "express";
 import { z } from "zod";
 import { randomBytes } from "crypto";
-import OpenAI from "openai";
 import { storage } from "../storage";
 import { PRICING_TYPES, validatePricingConfig, FAMILY_LABELS, FAMILY_DESCRIPTIONS } from "@shared/pricingConfig";
 import { pricingIntakeSchema, sampleQuoteSchema, type PricingDraftJob } from "@shared/schema";
 import { generatePricingConfigDraft } from "../aiPricingAgent";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { getOpenAI } from "../openaiClient";
 
 const generatePricingBody = z.object({
   trade_type: z.string().min(1),
@@ -72,7 +67,7 @@ Rules:
 
 Return ONLY the JSON pricing config object.`;
 
-      const completion = await openai.chat.completions.create({
+      const completion = await getOpenAI().chat.completions.create({
         model: "gpt-5-mini",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
@@ -122,7 +117,7 @@ Return ONLY the JSON pricing config object.`;
 
       res.json({ success: true, job_id: jobId });
 
-      generatePricingConfigDraft(pricing_intake, sample_quotes, openai)
+      generatePricingConfigDraft(pricing_intake, sample_quotes, getOpenAI())
         .then(result => {
           const existingJob = draftJobs.get(jobId);
           if (existingJob) {
@@ -190,7 +185,7 @@ Return ONLY the JSON pricing config object.`;
         stage2: {},
       });
 
-      const result = await generatePricingConfigDraft(intake, undefined, openai);
+      const result = await generatePricingConfigDraft(intake, undefined, getOpenAI());
 
       res.json({
         success: true,
@@ -224,7 +219,7 @@ Return ONLY the JSON pricing config object.`;
       const systemPrompt = buildSystemPrompt("demo_ai_employee", { tradeCategory: trade_category });
 
       const { reply, toolResults } = await runChatCompletion(
-        openai,
+        getOpenAI(),
         "demo_ai_employee",
         messages as any,
         systemPrompt,
@@ -285,7 +280,7 @@ Return ONLY the JSON pricing config object.`;
       });
 
       const { reply, toolResults } = await runChatCompletion(
-        openai,
+        getOpenAI(),
         "platform_support_ai",
         messages as any,
         systemPrompt,
@@ -367,7 +362,7 @@ Return ONLY the JSON pricing config object.`;
       });
 
       const { reply, toolResults } = await runChatCompletion(
-        openai,
+        getOpenAI(),
         "client_ai_employee",
         messages as any,
         systemPrompt,
