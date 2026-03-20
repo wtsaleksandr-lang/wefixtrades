@@ -583,8 +583,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             gap: 24,
             ...(isMobile
               ? {
-                  width: "calc(100% - 20px)",
-                  margin: "6px 10px 0",
+                  width: "calc(100% - 4px)",
+                  margin: "2px 2px 0",
                   borderRadius: 20,
                   padding: "0 16px",
                   background: "rgba(34,40,42,0.55)",
@@ -740,11 +740,11 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           data-testid="nav-mobile-menu"
           style={{
             position: "fixed",
-            left: 10,
-            right: 10,
+            left: 2,
+            right: 2,
             top: menuTop,
             zIndex: 300,
-            borderRadius: 22,
+            borderRadius: 20,
             background: "rgba(34,40,42,0.88)",
             backdropFilter: "blur(22px) saturate(1.6)",
             WebkitBackdropFilter: "blur(22px) saturate(1.6)",
