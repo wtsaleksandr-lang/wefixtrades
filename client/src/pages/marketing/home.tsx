@@ -293,6 +293,26 @@ const RESPONSIVE_CSS = `
       height: 60% !important;
     }
   }
+  /* Hero shell — Cloudflare-style framed container */
+  .hero-first-screen-zone {
+    min-height: 640px;
+  }
+  @media (min-width: 768px) {
+    .hero-first-screen-zone {
+      min-height: 720px;
+    }
+  }
+  /* Backdrop responsive side padding */
+  .hero-shell-backdrop {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  @media (max-width: 640px) {
+    .hero-shell-backdrop {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+  }
   /* Tablet: hero zone + 150px divider = 100svh */
   @media (max-width: 1024px) {
     .hero-first-screen-zone {
@@ -346,8 +366,10 @@ export default function HomePage() {
     <MarketingLayout>
       <style>{RESPONSIVE_CSS}</style>
 
+      {/* Outer page background behind hero shell */}
+      <div className="hero-shell-backdrop" style={{ background: "#A7B6BF", padding: "0 16px" }}>
       {/* Shared grid zone — covers hero + trust marquee seamlessly */}
-      <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.bg, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.bg, overflow: "hidden", display: "flex", flexDirection: "column", maxWidth: 1480, margin: "0 auto", borderRadius: 16 }}>
         <HeroGridGlow className="hero-grid-glow" />
 
       <section
@@ -584,6 +606,7 @@ export default function HomePage() {
         <TrustMarquee />
       </div>
       </div>{/* end shared grid zone */}
+      </div>{/* end hero shell backdrop */}
       <HeroTradeDivider />
       <CapabilitiesShowcase />
       <StickyStackCards />
