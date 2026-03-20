@@ -307,10 +307,19 @@ const RESPONSIVE_CSS = `
     padding-top: 0;
     padding-bottom: 0;
   }
+  @media (max-width: 768px) {
+    .hero-shell-backdrop {
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+  }
   @media (max-width: 640px) {
     .hero-shell-backdrop {
       padding-left: 8px;
       padding-right: 8px;
+    }
+    .hero-first-screen-zone {
+      border-radius: 18px !important;
     }
   }
   /* Tablet: hero zone + 150px divider = 100svh */
@@ -367,9 +376,11 @@ export default function HomePage() {
       <style>{RESPONSIVE_CSS}</style>
 
       {/* Outer page background behind hero shell */}
-      <div className="hero-shell-backdrop" style={{ background: "#A7B6BF", padding: "0 16px" }}>
+      <div className="hero-shell-backdrop" style={{ background: "radial-gradient(circle at 50% 0%, #cfd8dd 0%, #a7b6bf 50%, #8fa1ab 100%)", padding: "0 24px" }}>
       {/* Shared grid zone — covers hero + trust marquee seamlessly */}
-      <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.bg, overflow: "hidden", display: "flex", flexDirection: "column", maxWidth: 1480, margin: "0 auto", borderRadius: 16 }}>
+      <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.bg, overflow: "hidden", display: "flex", flexDirection: "column", maxWidth: 1400, margin: "0 auto", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 20px 60px rgba(0,0,0,0.25), 0 4px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
+        {/* Subtle inner lighting overlay */}
+        <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(0,0,0,0.2))", pointerEvents: "none", zIndex: 0, borderRadius: 24 }} />
         <HeroGridGlow className="hero-grid-glow" />
 
       <section
