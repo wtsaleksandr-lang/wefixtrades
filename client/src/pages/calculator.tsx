@@ -1,4 +1,5 @@
 import CalculatorWidget from '@/components/calculator/CalculatorWidget';
+import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import AIChatBubble from '@/components/ai/AIChatBubble';
 import { Loader2, SearchX } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -7,6 +8,9 @@ export default function Calculator() {
   const params = new URLSearchParams(window.location.search);
   const slug = params.get('slug');
   const isEmbed = params.get('embed') === 'true';
+  // Opt-in toggle: add ?widget=v2 to URL to use the new schema-driven widget.
+  // Default remains the frozen CalculatorWidget for safety.
+  const useNewWidget = params.get('widget') === 'v2';
 
   const { data: calculator, isLoading, error } = useQuery<any>({
     queryKey: ['/api/calculators/lookup', { slug }],
@@ -71,7 +75,11 @@ export default function Calculator() {
 
   return (
     <div className={isEmbed ? '' : 'min-h-screen bg-slate-50 py-8 px-4'}>
-      <CalculatorWidget calculator={calculator} isEmbed={isEmbed} />
+      {useNewWidget ? (
+        <QuoteWidget calculator={calculator} isEmbed={isEmbed} />
+      ) : (
+        <CalculatorWidget calculator={calculator} isEmbed={isEmbed} />
+      )}
       {showChatBubble && (
         <AIChatBubble
           calculatorId={calculator.id}

@@ -1,4 +1,4 @@
-/* ─── Single source of truth for all pricing data ─── */
+/* ─── SaaS subscription tier definitions (platform plans, NOT trade pricing) ─── */
 import { colors, mkt } from '@/theme/tokens';
 
 export interface PlanFeature {

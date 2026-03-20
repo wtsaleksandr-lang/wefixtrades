@@ -1,3 +1,4 @@
+// FROZEN — scheduled for rebuild in Phase 3 (Builder Wizard). Do not add features.
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useLocation } from 'wouter';

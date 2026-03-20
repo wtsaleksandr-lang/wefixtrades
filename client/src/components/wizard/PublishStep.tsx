@@ -1,3 +1,4 @@
+// FROZEN — scheduled for rebuild in Phase 3 (Builder Wizard). Do not add features.
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'wouter';
 import { platformTheme } from '@/theme/platformTheme';

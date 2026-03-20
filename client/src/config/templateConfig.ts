@@ -1,4 +1,19 @@
-/* ─── Shared template config used by /templates + /demo/:templateId ─── */
+/**
+ * @deprecated MARKETING-ONLY demo template definitions.
+ *
+ * This file powers the /templates and /demo/:templateId marketing pages only.
+ * It is NOT the canonical template system.
+ *
+ * Canonical source of truth: shared/templateLibrary.ts (TemplateDefinition / TEMPLATE_LIBRARY)
+ *
+ * The `calculateEstimate()` in this file is a simplified marketing-demo formula.
+ * The production pricing engine lives in shared/calculateEstimate.ts.
+ *
+ * Do NOT add new templates here. New trade templates should be added to
+ * shared/templateLibrary.ts with proper TemplateDefinition structure.
+ *
+ * Phase 2+ will migrate these marketing demos to render from templateLibrary data.
+ */
 import { colors } from '@/theme/tokens';
 
 export type FormulaType = "sqft" | "hourly" | "per_room" | "package" | "fixed_plus";
@@ -41,7 +56,10 @@ export interface TemplateConfig {
   resultUnit: string; // e.g. "total", "per visit", "per session"
 }
 
-/* ─── Formula engine (client-side, no API needed) ─── */
+/**
+ * @deprecated Simplified marketing-demo formula engine.
+ * Production pricing engine: shared/calculateEstimate.ts
+ */
 export function calculateEstimate(
   config: TemplateConfig,
   values: Record<string, number | string>

@@ -1,8 +1,0 @@
-{
-  "gsap": true,
-  "ScrollTrigger": true,
-  "lottie": false,
-  "framerMotion": false,
-  "anime": false,
-  "AOS": false
-}

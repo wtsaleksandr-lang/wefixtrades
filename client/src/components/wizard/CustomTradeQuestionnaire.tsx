@@ -1,3 +1,4 @@
+// FROZEN — scheduled for rebuild in Phase 3 (Builder Wizard). Do not add features.
 import { useState } from 'react';
 import { Check, ChevronDown, ChevronUp, CreditCard } from 'lucide-react';
 import { type CustomTradeData, type CalculatorSettings, type BookingSettings, bookingSettingsSchema } from '@shared/schema';

@@ -1,3 +1,4 @@
+// FROZEN — scheduled for rebuild in Phase 3 (Builder Wizard). Do not add features.
 import { Plus, Minus, X } from 'lucide-react';
 import { type CustomTradeData, type Stage2Data } from '@shared/schema';
 import { platformTheme } from '@/theme/platformTheme';

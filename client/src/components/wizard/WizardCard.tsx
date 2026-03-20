@@ -1,3 +1,6 @@
+// FROZEN — scheduled for rebuild in Phase 3 (Builder Wizard). Do not add features.
+// This 1,889-line god-component will be replaced by a schema-driven builder.
+// See: ARCHITECTURE_AUDIT.md, EXTRACTION_MAP.md
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { platformTheme } from '@/theme/platformTheme';

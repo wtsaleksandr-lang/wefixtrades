@@ -1,3 +1,5 @@
+import type { StepDefinition } from "./wizardSchema";
+
 export interface TemplateDefinition {
   id: string;
   name: string;
@@ -18,6 +20,12 @@ export interface TemplateDefinition {
     encourages_contact?: boolean;
     booking_cta_emphasis?: boolean;
   };
+  /**
+   * Optional wizard step definitions for schema-driven rendering.
+   * When present, the customer-facing widget renders these steps
+   * instead of hardcoded UI. Added in Phase 1 for forward compatibility.
+   */
+  wizard_steps?: StepDefinition[];
 }
 
 export const TEMPLATE_LIBRARY: TemplateDefinition[] = [
@@ -65,6 +73,61 @@ export const TEMPLATE_LIBRARY: TemplateDefinition[] = [
       show_images: false,
     },
     features: { stepper: true },
+    // Proof-of-concept wizard step definitions — will be populated per-trade in Phase 2
+    wizard_steps: [
+      {
+        id: 'scope',
+        type: 'question',
+        title: 'What do you need?',
+        questions: [{
+          id: 'service_type',
+          type: 'select',
+          label: 'Service type',
+          options: [],
+          default_value: '',
+          validation: [{ type: 'required', value: true }],
+        }],
+        config: { show_progress: true, can_skip: false, auto_advance: false },
+      },
+      {
+        id: 'sizing',
+        type: 'question',
+        title: 'How big is the job?',
+        questions: [{
+          id: 'quantity',
+          type: 'slider',
+          label: 'Size',
+          min: 1,
+          max: 100,
+          step: 1,
+          default_value: 10,
+          maps_to: 'quantity',
+          validation: [],
+        }],
+        config: { show_progress: true, can_skip: false, auto_advance: false },
+      },
+      {
+        id: 'extras',
+        type: 'addon_selection',
+        title: 'Any extras?',
+        questions: [],
+        config: { show_progress: true, can_skip: true, auto_advance: false },
+      },
+      {
+        id: 'result',
+        type: 'price_reveal',
+        title: 'Your estimate',
+        questions: [],
+        config: { show_progress: true, can_skip: false, auto_advance: false },
+      },
+      {
+        id: 'contact',
+        type: 'lead_capture',
+        title: 'Get your detailed quote',
+        questions: [],
+        config: { show_progress: true, can_skip: false, auto_advance: false },
+      },
+    ],
   },
   {
     id: 'package_selector',
