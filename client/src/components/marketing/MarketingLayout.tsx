@@ -728,9 +728,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           zIndex: 300,
           height: isMobile ? "auto" : DESKTOP_HEADER.navHeight,
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           justifyContent: "center",
-          padding: isMobile ? "0" : "0 10px 0",
+          padding: isMobile ? "0" : "0",
           background: "transparent",
           backdropFilter: "none",
           WebkitBackdropFilter: "none",
@@ -741,7 +741,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <div
           ref={navCardRef}
           style={{
-            maxWidth: 1600,
             outline: DEBUG_DROPDOWN ? "3px solid rgba(255,0,0,0.8)" : "none",
             height: isMobile ? 64 : DESKTOP_HEADER.cardHeight,
             display: "flex",
@@ -750,8 +749,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             gap: 24,
             ...(isMobile
               ? {
-                  width: "calc(100% - 20px)",
-                  margin: "6px 10px 0",
+                  width: "calc(100% - 16px)",
+                  margin: "10px auto 0",
                   borderRadius: 20,
                   padding: "0 16px",
                   background: "rgba(34,40,42,0.55)",
@@ -764,9 +763,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 }
               : {
                   width: "calc(100% - 32px)",
-                  maxWidth: 1440,
-                  margin: "3px 16px 0",
-                  borderRadius: 16,
+                  margin: "16px auto 0",
+                  borderRadius: 24,
                   padding: "0 18px",
                   background: "rgba(34,40,42,0.55)",
                   backdropFilter: "blur(12px) saturate(1.3)",
@@ -907,11 +905,11 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           data-testid="nav-mobile-menu"
           style={{
             position: "fixed",
-            left: 10,
-            right: 10,
+            left: 2,
+            right: 2,
             top: menuTop,
             zIndex: 300,
-            borderRadius: 22,
+            borderRadius: 20,
             background: "rgba(34,40,42,0.88)",
             backdropFilter: "blur(22px) saturate(1.6)",
             WebkitBackdropFilter: "blur(22px) saturate(1.6)",

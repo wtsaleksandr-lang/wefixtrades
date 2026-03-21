@@ -29,6 +29,9 @@ export function useScrollReveal() {
     const triggers: ScrollTrigger[] = [];
 
     els.forEach((el) => {
+      // Never touch elements inside the automation diagram section
+      if (el.closest('.ad-diagram')) return;
+
       const variant = el.getAttribute("data-reveal") || "fade-up";
       const delayAttr = el.getAttribute("data-delay");
       const delay = delayAttr ? parseInt(delayAttr, 10) / 1000 : 0;
@@ -39,7 +42,7 @@ export function useScrollReveal() {
 
       const trigger = ScrollTrigger.create({
         trigger: el,
-        start: "top 88%",
+        start: "top 95%",
         once: true,
         onEnter: () => {
           gsap.to(el, {
@@ -47,7 +50,7 @@ export function useScrollReveal() {
             y: 0,
             scale: 1,
             opacity: 1,
-            duration: 0.72,
+            duration: 0.55,
             delay,
             ease: EASE,
             clearProps: "transform",

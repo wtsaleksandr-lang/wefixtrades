@@ -4,79 +4,30 @@ import gsap from "gsap";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
-import StackedFlowCards from "@/components/marketing/StackedFlowCards";
 import { mkt, colors, shadows, typography } from "@/theme/tokens";
 import HeroGridGlow from "@/components/marketing/HeroGridGlow";
-import TrustStrip from "@/components/home/TrustStrip";
 import ReviewsSection from "@/components/home/ReviewsSection";
 import HeroTradeDivider from "@/components/marketing/HeroTradeDivider";
 import TrustMarquee from "@/components/marketing/TrustMarquee";
 import CapabilitiesShowcase from "@/components/marketing/CapabilitiesShowcase";
 import StickyStackCards from "@/components/marketing/StickyStackCards";
-import BentoGrid from "@/components/marketing/BentoGrid";
 import FeatureCards from "@/components/marketing/FeatureCards";
 import PillarAnimation from "@/components/sections/PillarAnimation";
 import CTASection from "@/components/marketing/CTASection";
 import TrustSection from "@/components/marketing/TrustSection";
+import GlobeSection from "@/components/marketing/globe/GlobeSection";
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
+import BuiltForRotator from "@/components/marketing/BuiltForRotator";
+import AutomationDiagram from "@/components/marketing/AutomationDiagram";
 import {
   Zap, Check,
-  ArrowRight, Star, Clock, Sparkles,
+  ArrowRight, Star,
   Phone, ThumbsUp, Mail, Target,
   MapPin, Briefcase, Award, Hammer,
   Calculator, PhoneCall, RefreshCw, Wrench,
 } from "lucide-react";
 
 
-const TRUST_BADGES = [
-  { icon: Clock, text: "No contracts", sub: "Cancel anytime, no questions asked" },
-  { icon: Sparkles, text: "Live in under 10 minutes", sub: "From sign-up to embedded on your site" },
-  { icon: Star, text: "Built for busy trades", sub: "Plumbers, roofers, cleaners & more" },
-];
-
-const TESTIMONIALS = [
-  {
-    quote: "Went from zero online bookings to 23 confirmed jobs in our first month. The deposit feature alone changed our cash flow.",
-    name: "Jake M.", role: "Owner, Metro Plumbing Co.",
-  },
-  {
-    quote: "The 24/7 assistant answers leads at 2am while I sleep. We've captured 40 more leads per month than before.",
-    name: "Sarah T.", role: "Director, Sparkle Cleaning Services",
-  },
-  {
-    quote: "Setup took 15 minutes. We've collected over $14,000 in deposits since going live. This tool pays for itself.",
-    name: "Mike R.", role: "Founder, Ridge Roofing",
-  },
-];
-
-
-const quoteFlowSteps = [
-  {
-    title: "Customer clicks your Google link",
-    subtitle: "They land on your website or Google Business Profile.",
-    badge: "Entry",
-  },
-  {
-    title: "Instant quote shown",
-    subtitle: "They answer a few questions and get pricing instantly.",
-    badge: "QuickQuote",
-  },
-  {
-    title: "Lead notification sent",
-    subtitle: "You receive SMS + email with job details.",
-    badge: "Alert",
-  },
-  {
-    title: "Automated follow-ups",
-    subtitle: "2 reminders + final message with discount.",
-    badge: "Automation",
-  },
-  {
-    title: "Job booked",
-    subtitle: "Appointment confirmed automatically.",
-    badge: "Win",
-  },
-];
 
 const FLOW_SERVICES = [
   { label: "Instant Estimates on Your Site", sub: "Give prices in seconds", icon: Calculator, color: mkt.accent },
@@ -258,11 +209,11 @@ const RESPONSIVE_CSS = `
   .flow-node { transition: transform 0.2s ease, box-shadow 0.2s ease; }
   .flow-node:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.20) !important; }
   @media (max-width: 768px) {
-    .hero-section-responsive { padding: 96px 20px 40px !important; }
+    .hero-section-responsive { padding: 110px 20px 40px !important; }
     .hero-subtext { font-size: 16px !important; }
   }
   @media (max-width: 640px) {
-    .hero-section-responsive { padding: 88px 18px 32px !important; }
+    .hero-section-responsive { padding: 105px 18px 32px !important; }
     .hero-subtext { margin-bottom: 32px !important; }
     .hero-pills-grid { grid-template-columns: 1fr 1fr !important; gap: 6px !important; }
     .hero-pill {
@@ -291,6 +242,32 @@ const RESPONSIVE_CSS = `
     .hero-safe-zone {
       width: 92% !important;
       height: 60% !important;
+    }
+  }
+  /* Hero shell — Cloudflare-style framed container */
+  .hero-first-screen-zone {
+    min-height: 640px;
+  }
+  @media (min-width: 768px) {
+    .hero-first-screen-zone {
+      min-height: 720px;
+    }
+  }
+  /* Backdrop responsive gaps */
+  @media (max-width: 768px) {
+    .hero-shell-backdrop {
+      padding: 10px 8px 0 !important;
+    }
+    .hero-first-screen-zone {
+      border-radius: 20px !important;
+    }
+  }
+  @media (max-width: 430px) {
+    .hero-shell-backdrop {
+      padding: 8px 6px 0 !important;
+    }
+    .hero-first-screen-zone {
+      border-radius: 18px !important;
     }
   }
   /* Tablet: hero zone + 150px divider = 100svh */
@@ -346,9 +323,18 @@ export default function HomePage() {
     <MarketingLayout>
       <style>{RESPONSIVE_CSS}</style>
 
+      {/* Outer page background behind hero shell */}
+      <div className="hero-shell-backdrop" style={{ background: mkt.bg, padding: "16px 16px 0", position: "relative" as const, zIndex: 1 }}>
       {/* Shared grid zone — covers hero + trust marquee seamlessly */}
-      <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.bg, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.surface, overflow: "hidden", display: "flex", flexDirection: "column", width: "100%", borderRadius: 24, border: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 20px 60px rgba(0,0,0,0.25), 0 4px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
+        {/* Subtle inner lighting overlay */}
+        <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(0,0,0,0.2))", pointerEvents: "none", zIndex: 0, borderRadius: "inherit" }} />
         <HeroGridGlow className="hero-grid-glow" />
+
+        {/* Built-for rotator — top-left, below navbar */}
+        <div style={{ position: "absolute", top: 56, left: 28, zIndex: 3 }}>
+          <BuiltForRotator />
+        </div>
 
       <section
         data-testid="hero-section"
@@ -584,18 +570,18 @@ export default function HomePage() {
         <TrustMarquee />
       </div>
       </div>{/* end shared grid zone */}
+      </div>{/* end hero shell backdrop */}
       <HeroTradeDivider />
       <CapabilitiesShowcase />
       <StickyStackCards />
       <PillarAnimation />
       <FeatureCards />
-      <BentoGrid />
-      <TrustStrip />
-      <SurfaceSection overlap className="py-8">
+      {/* <GlobeSection /> */}
+      <SurfaceSection overlap className="py-4">
         <ReviewsSection />
       </SurfaceSection>
 
-      <section data-testid="workflow-section" style={{ background: mkt.surfaceAlt, padding: "112px 28px", borderRadius: "28px 28px 0 0", marginTop: -28, position: "relative", zIndex: 4 }}>
+      <section data-testid="workflow-section" style={{ background: mkt.surfaceAlt, padding: "72px 28px 80px", borderRadius: "28px 28px 0 0", marginTop: -28, position: "relative", zIndex: 4 }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <div data-reveal="fade-up" style={{ marginBottom: 48 }}>
             <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 16 }}>
@@ -605,123 +591,15 @@ export default function HomePage() {
               Four steps that run on autopilot. Click each to see how it works.
             </p>
           </div>
-          <div data-reveal="fade-up" data-delay="100">
+          <div data-reveal="fade-up">
             <WorkflowDemo />
           </div>
         </div>
       </section>
 
-      <section
-        data-testid="quote-flow-section"
-        style={{
-          padding: "100px 28px",
-          background: mkt.bg,
-          borderRadius: "28px 28px 0 0",
-          marginTop: -28,
-          position: "relative",
-          zIndex: 5,
-        }}
-      >
-        <div
-          className="grid md:grid-cols-2 gap-16 items-center"
-          style={{
-            maxWidth: 1100,
-            margin: "0 auto",
-          }}
-        >
-          <div data-reveal="fade-up">
-            <h2
-              style={{
-                fontSize: "clamp(28px, 4vw, 44px)",
-                fontWeight: 800,
-                color: mkt.text,
-                lineHeight: 1.1,
-                marginBottom: 18,
-              }}
-            >
-              See how a job turns into revenue.
-            </h2>
-
-            <p
-              style={{
-                fontSize: 16,
-                lineHeight: 1.6,
-                color: mkt.textMuted,
-                maxWidth: 440,
-              }}
-            >
-              From first click to confirmed booking — your system handles the quoting,
-              follow-ups, and reminders automatically.
-            </p>
-          </div>
-
-          <div data-reveal="fade-up" data-delay="100" style={{ display: "flex", justifyContent: "center" }}>
-            <StackedFlowCards steps={quoteFlowSteps} mkt={mkt} />
-          </div>
-        </div>
-      </section>
 
 
-      <SurfaceSection className="py-16 sm:py-20">
-        <div data-testid="trust-section" style={{ maxWidth: 1000, margin: "0 auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 24, marginBottom: 72 }}>
-            {TRUST_BADGES.map(({ icon: Icon, text, sub }, i) => (
-              <div
-                key={text}
-                data-testid={`trust-badge-${i}`}
-                data-reveal="fade-up"
-                data-delay={String(i * 100)}
-                style={{
-                  background: mkt.cardBg,
-                  border: `1px solid ${mkt.cardBorder}`,
-                  borderRadius: 16,
-                  padding: "28px 24px",
-                  textAlign: "center",
-                  boxShadow: shadows.card,
-                }}
-              >
-                <div style={{ width: 52, height: 52, borderRadius: 14, background: mkt.accentTint, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                  <Icon size={24} color={mkt.accent} strokeWidth={1.5} />
-                </div>
-                <div style={{ fontSize: 17, fontWeight: 700, color: mkt.text, marginBottom: 6 }}>{text}</div>
-                <div style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.5 }}>{sub}</div>
-              </div>
-            ))}
-          </div>
-
-          <div data-reveal="fade-up">
-            <div style={{ textAlign: "center", marginBottom: 32 }}>
-              <h3 style={{ fontSize: "clamp(22px, 2.5vw, 30px)", fontWeight: 600, color: mkt.text, letterSpacing: "-0.02em", marginBottom: 8 }}>
-                What trades businesses are saying
-              </h3>
-              <p style={{ fontSize: 13, color: mkt.textFaint, fontStyle: "italic" }}>Example reviews (replace with real reviews)</p>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
-              {TESTIMONIALS.map(({ quote, name, role }, i) => (
-                <div
-                  key={name}
-                  data-testid={`testimonial-${i}`}
-                  data-reveal="fade-up"
-                  data-delay={String(i * 100)}
-                  className="mkt-feature-card"
-                  style={{ background: mkt.cardBg, border: `1px solid ${mkt.cardBorder}`, borderRadius: 16, padding: "28px 24px", boxShadow: shadows.card }}
-                >
-                  <div style={{ display: "flex", gap: 2, marginBottom: 16 }}>
-                    {Array.from({ length: 5 }).map((_, j) => <span key={j} style={{ fontSize: 16, color: mkt.orange }}>★</span>)}
-                  </div>
-                  <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.65, fontStyle: "italic", marginBottom: 20 }}>"{quote}"</p>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: mkt.text }}>{name}</div>
-                    <div style={{ fontSize: 13, color: mkt.textFaint }}>{role}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </SurfaceSection>
-
-
+      <AutomationDiagram />
       <TrustSection />
       <CTASection />
     </MarketingLayout>

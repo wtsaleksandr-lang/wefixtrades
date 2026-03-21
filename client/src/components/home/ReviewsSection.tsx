@@ -107,11 +107,11 @@ export default function ReviewsSection() {
     <section
       data-testid="reviews-section"
       style={{
-        padding: "48px 28px 40px",
+        padding: "32px 20px 28px",
       }}
     >
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <div className="text-center mb-8 sm:mb-10">
+        <div className="text-center mb-5 sm:mb-6">
           <div className="flex justify-center mb-2">
             <span className="inline-flex items-center gap-2 text-xs font-semibold" style={{ color: mkt.textMuted }}>
               <span className="w-2 h-2 rounded-full" style={{ background: mkt.accent }} />
@@ -198,7 +198,7 @@ export default function ReviewsSection() {
 
         <div
           style={{
-            marginTop: 48,
+            marginTop: 28,
             display: "flex",
             flexWrap: "wrap",
             justifyContent: "center",
