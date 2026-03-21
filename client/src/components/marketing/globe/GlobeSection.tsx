@@ -140,13 +140,13 @@ export default function GlobeSection() {
           aria-hidden="true"
           style={{
             position: "absolute",
-            top: "20%",
+            top: "50%",
             left: "50%",
-            transform: "translateX(-50%)",
-            width: "80%",
-            height: "80%",
+            transform: "translate(-50%, -50%)",
+            width: "120%",
+            height: "120%",
             background:
-              "radial-gradient(ellipse, rgba(102,232,250,0.05) 0%, transparent 60%)",
+              "radial-gradient(circle, rgba(102,232,250,0.06) 0%, transparent 65%)",
             pointerEvents: "none",
             zIndex: 0,
           }}
