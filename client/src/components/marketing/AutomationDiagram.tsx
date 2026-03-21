@@ -489,6 +489,7 @@ export default function AutomationDiagram() {
         padding: isMobile ? "48px 0" : "80px 0",
         position: "relative",
         overflow: "hidden",
+        zIndex: 5,
       }}
     >
       <style>{DIAGRAM_CSS}</style>
@@ -503,6 +504,7 @@ export default function AutomationDiagram() {
             letterSpacing: "-0.03em",
             lineHeight: 1.1,
             marginBottom: 10,
+            opacity: 1,
           }}
         >
           See how it <span style={{ color: C.accent }}>works</span>
@@ -514,6 +516,7 @@ export default function AutomationDiagram() {
             lineHeight: 1.6,
             maxWidth: 460,
             margin: "0 auto",
+            opacity: 1,
           }}
         >
           Every automation flows through a simple pipeline. Drag the canvas to explore.
@@ -529,6 +532,7 @@ export default function AutomationDiagram() {
           justifyContent: isMobile ? "flex-start" : "center",
           marginBottom: 16,
           padding: "0 16px",
+          opacity: 1,
         }}
       >
         <div

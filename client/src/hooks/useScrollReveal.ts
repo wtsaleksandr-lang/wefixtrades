@@ -29,6 +29,9 @@ export function useScrollReveal() {
     const triggers: ScrollTrigger[] = [];
 
     els.forEach((el) => {
+      // Never touch elements inside the automation diagram section
+      if (el.closest('.ad-diagram')) return;
+
       const variant = el.getAttribute("data-reveal") || "fade-up";
       const delayAttr = el.getAttribute("data-delay");
       const delay = delayAttr ? parseInt(delayAttr, 10) / 1000 : 0;
