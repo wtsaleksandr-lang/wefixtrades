@@ -33,39 +33,75 @@ import {
 /* ------------------------------------------------------------------ */
 /*  Responsive hook                                                    */
 /* ------------------------------------------------------------------ */
-function useIsMobileCanvas(bp = 700) {
-  const [mobile, setMobile] = useState(
-    typeof window !== "undefined" ? window.innerWidth < bp : false
+function useBreakpoint() {
+  const [width, setWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 1200
   );
   useEffect(() => {
-    const h = () => setMobile(window.innerWidth < bp);
+    const h = () => setWidth(window.innerWidth);
     window.addEventListener("resize", h);
     return () => window.removeEventListener("resize", h);
-  }, [bp]);
-  return mobile;
+  }, []);
+  return { isMobile: width < 640, isTablet: width < 900, width };
 }
 
 /* ------------------------------------------------------------------ */
-/*  Cloudflare-style colour palette                                    */
+/*  Cloudflare-inspired colour palette                                 */
 /* ------------------------------------------------------------------ */
 const C = {
-  bg: "#111618",
-  nodeBg: "rgba(17,22,24,0.94)",
+  bg: "#0e1214",
+  canvasBg: "#111618",
+  nodeSurface: "rgba(14,18,20,0.96)",
   text: mkt.text,
   textMuted: mkt.textMuted,
   accent: mkt.accent,
   accentGlow: mkt.accentGlow,
-  // Per-tab accent colours (muted, Cloudflare-like)
-  cyan:       { border: "rgba(102,232,250,0.35)", bg: "rgba(102,232,250,0.06)", glow: "rgba(102,232,250,0.12)", text: "#66E8FA", edge: "rgba(102,232,250,0.45)" },
-  amber:      { border: "rgba(247,180,48,0.35)",  bg: "rgba(247,180,48,0.06)",  glow: "rgba(247,180,48,0.12)",  text: "#F7B430", edge: "rgba(247,180,48,0.45)" },
-  green:      { border: "rgba(74,222,128,0.35)",   bg: "rgba(74,222,128,0.06)",  glow: "rgba(74,222,128,0.12)",  text: "#4ADE80", edge: "rgba(74,222,128,0.45)" },
-  magenta:    { border: "rgba(192,132,252,0.35)",  bg: "rgba(192,132,252,0.06)", glow: "rgba(192,132,252,0.12)", text: "#C084FC", edge: "rgba(192,132,252,0.45)" },
+  handleSize: 6,
+  // Per-group accent palettes — muted, premium
+  cyan: {
+    border: "rgba(102,232,250,0.40)",
+    borderMuted: "rgba(102,232,250,0.18)",
+    bg: "rgba(102,232,250,0.04)",
+    glow: "rgba(102,232,250,0.10)",
+    text: "#66E8FA",
+    edge: "rgba(102,232,250,0.35)",
+    inner: "rgba(102,232,250,0.08)",
+    innerBorder: "rgba(102,232,250,0.22)",
+  },
+  amber: {
+    border: "rgba(247,180,48,0.40)",
+    borderMuted: "rgba(247,180,48,0.18)",
+    bg: "rgba(247,180,48,0.04)",
+    glow: "rgba(247,180,48,0.10)",
+    text: "#F7B430",
+    edge: "rgba(247,180,48,0.35)",
+    inner: "rgba(247,180,48,0.08)",
+    innerBorder: "rgba(247,180,48,0.22)",
+  },
+  green: {
+    border: "rgba(74,222,128,0.40)",
+    borderMuted: "rgba(74,222,128,0.18)",
+    bg: "rgba(74,222,128,0.04)",
+    glow: "rgba(74,222,128,0.10)",
+    text: "#4ADE80",
+    edge: "rgba(74,222,128,0.35)",
+    inner: "rgba(74,222,128,0.08)",
+    innerBorder: "rgba(74,222,128,0.22)",
+  },
+  magenta: {
+    border: "rgba(192,132,252,0.40)",
+    borderMuted: "rgba(192,132,252,0.18)",
+    bg: "rgba(192,132,252,0.04)",
+    glow: "rgba(192,132,252,0.10)",
+    text: "#C084FC",
+    edge: "rgba(192,132,252,0.35)",
+    inner: "rgba(192,132,252,0.08)",
+    innerBorder: "rgba(192,132,252,0.22)",
+  },
 };
 
-/* Distinct node accent per position in pipeline */
 type ColorSet = typeof C.cyan;
-
-const PIPELINE_COLOURS: ColorSet[] = [C.cyan, C.amber, C.green, C.magenta];
+const PALETTE: ColorSet[] = [C.cyan, C.amber, C.green, C.magenta];
 
 /* ------------------------------------------------------------------ */
 /*  Tab definitions                                                    */
@@ -80,66 +116,87 @@ interface TabDef {
   quote: string;
 }
 
-const ICON_PROPS = { size: 18, strokeWidth: 1.6 } as const;
+const TI = { size: 18, strokeWidth: 1.6 } as const;
 
 const TABS: TabDef[] = [
   {
     key: "calls",
     label: "Calls",
-    tabIcon: <PhoneCall {...ICON_PROPS} />,
+    tabIcon: <PhoneCall {...TI} />,
     description: "Never lose a lead again — missed calls trigger instant automated replies that keep the conversation going.",
     quote: '"We used to lose 40% of leads from missed calls. Now every single one gets a reply within seconds."',
   },
   {
     key: "quotes",
     label: "Quotes",
-    tabIcon: <Calculator {...ICON_PROPS} />,
+    tabIcon: <Calculator {...TI} />,
     description: "Visitors describe their job, get an instant price range, and receive a professional quote — all automated.",
     quote: '"Our quoting time dropped from 2 hours to 2 minutes. Customers love the instant response."',
   },
   {
     key: "reviews",
     label: "Reviews",
-    tabIcon: <Star {...ICON_PROPS} />,
+    tabIcon: <Star {...TI} />,
     description: "After every completed job, automated review requests go out — building your reputation on autopilot.",
     quote: '"We went from 12 reviews to over 200 in six months without lifting a finger."',
   },
   {
     key: "visibility",
     label: "Visibility",
-    tabIcon: <MapPin {...ICON_PROPS} />,
+    tabIcon: <MapPin {...TI} />,
     description: "Keep your profile fresh, collect reviews, and climb Google Maps rankings automatically.",
     quote: '"We now show up in the top 3 on Google Maps for every service we offer."',
   },
 ];
 
 /* ------------------------------------------------------------------ */
-/*  Node icon mapping — Lucide only, no emojis                         */
+/*  Icon map — Lucide only                                             */
 /* ------------------------------------------------------------------ */
-const NODE_ICON_SIZE = 22;
-const NODE_ICON_SW = 1.5;
+const NI = { size: 28, strokeWidth: 1.4 } as const;
 
-const NODE_ICONS: Record<string, ReactNode> = {
-  "missed-call":    <PhoneCall size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "instant-reply":  <MessageSquare size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "lead-captured":  <UserCheck size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "callback":       <CalendarCheck size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "service":        <Wrench size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "job-details":    <ClipboardList size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "price":          <Calculator size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "quote-sent":     <Send size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "job-complete":   <CheckCircle2 size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "request-sent":   <Mail size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "five-star":      <Star size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "ranking-up":     <TrendingUp size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "profile":        <UserCog size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "reviews-grow":   <BarChart3 size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "maps":           <MapPin size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
-  "more-calls":     <Phone size={NODE_ICON_SIZE} strokeWidth={NODE_ICON_SW} />,
+const ICONS: Record<string, ReactNode> = {
+  "missed-call":   <PhoneCall {...NI} />,
+  "instant-reply": <MessageSquare {...NI} />,
+  "lead-captured": <UserCheck {...NI} />,
+  "callback":      <CalendarCheck {...NI} />,
+  "service":       <Wrench {...NI} />,
+  "job-details":   <ClipboardList {...NI} />,
+  "price":         <Calculator {...NI} />,
+  "quote-sent":    <Send {...NI} />,
+  "job-complete":  <CheckCircle2 {...NI} />,
+  "request-sent":  <Mail {...NI} />,
+  "five-star":     <Star {...NI} />,
+  "ranking-up":    <TrendingUp {...NI} />,
+  "profile":       <UserCog {...NI} />,
+  "reviews-grow":  <BarChart3 {...NI} />,
+  "maps":          <MapPin {...NI} />,
+  "more-calls":    <Phone {...NI} />,
 };
 
 /* ------------------------------------------------------------------ */
-/*  Custom node component (Cloudflare-style)                           */
+/*  Corner handle — small square like design-tool selection             */
+/* ------------------------------------------------------------------ */
+function CornerHandle({ top, left, right, bottom, color }: { top?: boolean; left?: boolean; right?: boolean; bottom?: boolean; color: string }) {
+  const sz = C.handleSize;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        width: sz,
+        height: sz,
+        border: `1.5px solid ${color}`,
+        background: C.bg,
+        ...(top !== undefined && { top: -sz / 2 }),
+        ...(bottom !== undefined && { bottom: -sz / 2 }),
+        ...(left !== undefined && { left: -sz / 2 }),
+        ...(right !== undefined && { right: -sz / 2 }),
+      }}
+    />
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Custom node — Cloudflare outer frame + inner icon card              */
 /* ------------------------------------------------------------------ */
 interface FlowNodeData {
   label: string;
@@ -150,67 +207,92 @@ interface FlowNodeData {
 }
 
 function DiagramNode({ data }: { data: FlowNodeData }) {
-  const palette = PIPELINE_COLOURS[data.colorIdx % PIPELINE_COLOURS.length];
-  const icon = NODE_ICONS[data.iconKey];
+  const p = PALETTE[data.colorIdx % PALETTE.length];
+  const icon = ICONS[data.iconKey];
 
   return (
-    <div
-      style={{
-        border: `1.5px dashed ${palette.border}`,
-        borderRadius: 12,
-        background: palette.bg,
-        padding: "14px 18px",
-        minWidth: 130,
-        position: "relative",
-        cursor: "pointer",
-        transition: "box-shadow 0.25s ease, border-color 0.25s ease",
-        boxShadow: `0 0 16px ${palette.glow}`,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = `0 0 28px ${palette.glow}, 0 0 56px ${palette.glow}`;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = `0 0 16px ${palette.glow}`;
-      }}
-    >
-      {/* Group label badge */}
+    <div style={{ position: "relative" }}>
+      {/* ── Group label above frame ── */}
       {data.groupLabel && (
-        <span
+        <div
           style={{
             position: "absolute",
-            top: -9,
-            left: 14,
-            fontSize: 10,
+            top: -20,
+            left: 0,
+            width: "100%",
+            textAlign: "center",
+            fontSize: 11,
             fontWeight: 600,
             fontFamily: "'DM Mono', monospace",
             letterSpacing: "0.08em",
             textTransform: "uppercase",
-            color: palette.text,
-            background: C.bg,
-            padding: "1px 7px",
-            borderRadius: 4,
+            color: p.text,
+            pointerEvents: "none",
           }}
         >
           {data.groupLabel}
-        </span>
+        </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: data.groupLabel ? 2 : 0 }}>
-        <span style={{ color: palette.text, display: "flex", flexShrink: 0 }}>{icon}</span>
-        <span
+      {/* ── Outer selection frame ── */}
+      <div
+        style={{
+          position: "relative",
+          border: `1.5px solid ${p.border}`,
+          borderRadius: 4,
+          padding: 10,
+          background: "transparent",
+          cursor: "pointer",
+          transition: "box-shadow 0.3s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = `0 0 24px ${p.glow}, 0 0 48px ${p.glow}`;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = "none";
+        }}
+      >
+        {/* Corner handles */}
+        <CornerHandle top left color={p.border} />
+        <CornerHandle top right color={p.border} />
+        <CornerHandle bottom left color={p.border} />
+        <CornerHandle bottom right color={p.border} />
+
+        {/* ── Inner dashed card with icon ── */}
+        <div
           style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: C.text,
-            fontFamily: "'DM Mono', monospace",
-            letterSpacing: "0.02em",
-            whiteSpace: "nowrap",
+            width: 64,
+            height: 64,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: `1.5px dashed ${p.innerBorder}`,
+            borderRadius: 8,
+            background: p.inner,
+            color: p.text,
           }}
         >
-          {data.label}
-        </span>
+          {icon}
+        </div>
       </div>
 
+      {/* ── Label below ── */}
+      <div
+        style={{
+          marginTop: 8,
+          textAlign: "center",
+          fontSize: 11,
+          fontWeight: 500,
+          color: C.textMuted,
+          fontFamily: "'DM Mono', monospace",
+          letterSpacing: "0.02em",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {data.label}
+      </div>
+
+      {/* Hidden handles for React Flow edges */}
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
       <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
       <Handle type="target" position={Position.Top} id="top" style={{ opacity: 0 }} />
@@ -229,28 +311,28 @@ function makeEdge(
   source: string,
   target: string,
   colorIdx: number,
-  sourceHandle?: string,
-  targetHandle?: string,
+  srcHandle?: string,
+  tgtHandle?: string,
 ): Edge {
-  const palette = PIPELINE_COLOURS[colorIdx % PIPELINE_COLOURS.length];
+  const p = PALETTE[colorIdx % PALETTE.length];
   return {
     id,
     source,
     target,
-    sourceHandle: sourceHandle || null,
-    targetHandle: targetHandle || null,
+    sourceHandle: srcHandle || null,
+    targetHandle: tgtHandle || null,
     type: "smoothstep",
     animated: true,
     style: {
-      stroke: palette.edge,
-      strokeWidth: 1.5,
-      strokeDasharray: "6 4",
+      stroke: p.edge,
+      strokeWidth: 2,
+      strokeDasharray: "8 6",
     },
   } as Edge;
 }
 
 /* ------------------------------------------------------------------ */
-/*  Layout helpers — desktop (horizontal) vs mobile (2×2 grid)         */
+/*  Layout builder — responsive node positions                         */
 /* ------------------------------------------------------------------ */
 interface NodeDef {
   id: string;
@@ -260,19 +342,26 @@ interface NodeDef {
   groupLabel: string;
 }
 
-function buildTabData(items: NodeDef[], isMobile: boolean): { nodes: Node[]; edges: Edge[] } {
+function buildTabData(
+  items: NodeDef[],
+  layout: "mobile" | "tablet" | "desktop",
+): { nodes: Node[]; edges: Edge[] } {
+  const nodeWidth = 100;
+
   const nodes: Node[] = items.map((item, i) => {
     let x: number, y: number;
-    if (isMobile) {
-      // 2×2 grid: top-left, top-right, bottom-left, bottom-right
+    if (layout === "mobile") {
+      // 2×2 grid with generous spacing
       const col = i % 2;
       const row = Math.floor(i / 2);
-      x = col * 240;
-      y = row * 140;
+      x = col * 180;
+      y = row * 170;
+    } else if (layout === "tablet") {
+      x = i * 220;
+      y = 50;
     } else {
-      // Horizontal row
-      x = i * 290;
-      y = 80;
+      x = i * 300;
+      y = 50;
     }
     return {
       id: item.id,
@@ -285,23 +374,17 @@ function buildTabData(items: NodeDef[], isMobile: boolean): { nodes: Node[]; edg
         groupLabel: item.groupLabel,
       },
       draggable: true,
+      width: nodeWidth,
     };
   });
 
   let edges: Edge[];
-  if (isMobile) {
-    // Flow: top-left → top-right → bottom-right → bottom-left (Z-pattern)
-    // Sequence: 0→1 (right), 1→3 (down), 2→3 is wrong
-    // Actually: 0→1 across top, 1→3 down-right to bottom-right, but we want sequential
-    // Let's do: 0→1 (horizontal), 1→2 (1 is top-right, 2 is bottom-left — diagonal via down then left)
-    // Better: 0→1 horizontal, 1→(down to row2)→2, 2→3 horizontal
-    // 0(top-left)→1(top-right): source right, target left
-    // 1(top-right)→2(bottom-left): source bottom, target top
-    // 2(bottom-left)→3(bottom-right): source right, target left
+  if (layout === "mobile") {
+    // Z-pattern: 0→1 (right), 1→2 (diagonal down-left), 2→3 (right)
     edges = [
-      makeEdge(`e0`, items[0].id, items[1].id, items[0].colorIdx),
-      makeEdge(`e1`, items[1].id, items[2].id, items[1].colorIdx, "bottom", "top"),
-      makeEdge(`e2`, items[2].id, items[3].id, items[2].colorIdx),
+      makeEdge("e0", items[0].id, items[1].id, items[0].colorIdx),
+      makeEdge("e1", items[1].id, items[2].id, items[1].colorIdx, "bottom", "top"),
+      makeEdge("e2", items[2].id, items[3].id, items[2].colorIdx),
     ];
   } else {
     edges = items.slice(0, -1).map((item, i) =>
@@ -317,49 +400,48 @@ function buildTabData(items: NodeDef[], isMobile: boolean): { nodes: Node[]; edg
 /* ------------------------------------------------------------------ */
 const TAB_NODES: Record<TabKey, NodeDef[]> = {
   calls: [
-    { id: "c1", label: "Missed Call",         iconKey: "missed-call",   colorIdx: 0, groupLabel: "Trigger" },
-    { id: "c2", label: "Instant Reply",       iconKey: "instant-reply", colorIdx: 1, groupLabel: "Automation" },
-    { id: "c3", label: "Lead Captured",       iconKey: "lead-captured", colorIdx: 2, groupLabel: "CRM" },
-    { id: "c4", label: "Callback Scheduled",  iconKey: "callback",      colorIdx: 3, groupLabel: "Calendar" },
+    { id: "c1", label: "Missed Call",        iconKey: "missed-call",   colorIdx: 0, groupLabel: "Trigger" },
+    { id: "c2", label: "Instant Reply",      iconKey: "instant-reply", colorIdx: 1, groupLabel: "Reply" },
+    { id: "c3", label: "Lead Captured",      iconKey: "lead-captured", colorIdx: 2, groupLabel: "Lead" },
+    { id: "c4", label: "Callback Scheduled", iconKey: "callback",      colorIdx: 3, groupLabel: "Callback" },
   ],
   quotes: [
-    { id: "q1", label: "Service Selected",    iconKey: "service",       colorIdx: 0, groupLabel: "Visitor" },
-    { id: "q2", label: "Job Details",         iconKey: "job-details",   colorIdx: 1, groupLabel: "Form" },
-    { id: "q3", label: "Price Generated",     iconKey: "price",         colorIdx: 2, groupLabel: "Engine" },
-    { id: "q4", label: "Quote Delivered",     iconKey: "quote-sent",    colorIdx: 3, groupLabel: "Output" },
+    { id: "q1", label: "Service Selected",   iconKey: "service",       colorIdx: 0, groupLabel: "Input" },
+    { id: "q2", label: "Job Details",        iconKey: "job-details",   colorIdx: 1, groupLabel: "Estimate" },
+    { id: "q3", label: "Price Generated",    iconKey: "price",         colorIdx: 2, groupLabel: "Engine" },
+    { id: "q4", label: "Quote Delivered",    iconKey: "quote-sent",    colorIdx: 3, groupLabel: "Delivery" },
   ],
   reviews: [
-    { id: "r1", label: "Job Completed",       iconKey: "job-complete",  colorIdx: 0, groupLabel: "Trigger" },
-    { id: "r2", label: "Request Sent",        iconKey: "request-sent",  colorIdx: 1, groupLabel: "Email" },
-    { id: "r3", label: "5-Star Review",       iconKey: "five-star",     colorIdx: 2, groupLabel: "Google" },
-    { id: "r4", label: "Ranking Improves",    iconKey: "ranking-up",    colorIdx: 3, groupLabel: "Result" },
+    { id: "r1", label: "Job Completed",      iconKey: "job-complete",  colorIdx: 0, groupLabel: "Job Done" },
+    { id: "r2", label: "Request Sent",       iconKey: "request-sent",  colorIdx: 1, groupLabel: "Request" },
+    { id: "r3", label: "5-Star Review",      iconKey: "five-star",     colorIdx: 2, groupLabel: "Review" },
+    { id: "r4", label: "Ranking Improves",   iconKey: "ranking-up",    colorIdx: 3, groupLabel: "Rating" },
   ],
   visibility: [
-    { id: "v1", label: "Profile Updated",     iconKey: "profile",       colorIdx: 0, groupLabel: "Profile" },
-    { id: "v2", label: "Reviews Grow",        iconKey: "reviews-grow",  colorIdx: 1, groupLabel: "Analytics" },
-    { id: "v3", label: "Maps Visibility",     iconKey: "maps",          colorIdx: 2, groupLabel: "Google Maps" },
-    { id: "v4", label: "More Calls",          iconKey: "more-calls",    colorIdx: 3, groupLabel: "Result" },
+    { id: "v1", label: "Profile Updated",    iconKey: "profile",       colorIdx: 0, groupLabel: "Profile" },
+    { id: "v2", label: "Reviews Grow",       iconKey: "reviews-grow",  colorIdx: 1, groupLabel: "Reviews" },
+    { id: "v3", label: "Maps Visibility",    iconKey: "maps",          colorIdx: 2, groupLabel: "Ranking" },
+    { id: "v4", label: "More Calls",         iconKey: "more-calls",    colorIdx: 3, groupLabel: "Calls" },
   ],
 };
 
 /* ------------------------------------------------------------------ */
-/*  CSS — animated flowing dashes, hidden scrollbar for tabs           */
+/*  CSS — animated flowing dashes, scrollbar hiding, pane cursors      */
 /* ------------------------------------------------------------------ */
 const DIAGRAM_CSS = `
-.automation-diagram .react-flow__edge path.react-flow__edge-path {
-  stroke-dasharray: 8 5 !important;
-  animation: dashFlow 1.4s linear infinite;
+.ad-diagram .react-flow__edge path.react-flow__edge-path {
+  stroke-dasharray: 8 6 !important;
+  animation: adDashFlow 1.6s linear infinite;
 }
-@keyframes dashFlow {
-  to { stroke-dashoffset: -26; }
+@keyframes adDashFlow {
+  to { stroke-dashoffset: -28; }
 }
-.automation-diagram .react-flow__attribution {
-  display: none !important;
-}
-.automation-diagram .react-flow__pane { cursor: grab; }
-.automation-diagram .react-flow__pane:active { cursor: grabbing; }
+.ad-diagram .react-flow__attribution { display: none !important; }
+.ad-diagram .react-flow__pane { cursor: grab; }
+.ad-diagram .react-flow__pane:active { cursor: grabbing; }
+.ad-diagram .react-flow__node { transition: none; }
 
-/* Tab row — horizontally scrollable on mobile, hidden scrollbar */
+/* Tab scroll — mobile horizontal, hidden scrollbar */
 .ad-tab-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -373,19 +455,18 @@ const DIAGRAM_CSS = `
 /* ------------------------------------------------------------------ */
 export default function AutomationDiagram() {
   const [activeTab, setActiveTab] = useState<TabKey>("calls");
-  const isMobile = useIsMobileCanvas();
+  const { isMobile, isTablet } = useBreakpoint();
   const tabScrollRef = useRef<HTMLDivElement>(null);
 
-  const { nodes, edges } = buildTabData(TAB_NODES[activeTab], isMobile);
+  const layout = isMobile ? "mobile" : isTablet ? "tablet" : "desktop";
+  const { nodes, edges } = buildTabData(TAB_NODES[activeTab], layout);
   const activeTabDef = TABS.find((t) => t.key === activeTab)!;
 
   // Scroll active tab into view on mobile
   useEffect(() => {
     if (!tabScrollRef.current) return;
-    const active = tabScrollRef.current.querySelector("[data-active='true']") as HTMLElement | null;
-    if (active) {
-      active.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
-    }
+    const el = tabScrollRef.current.querySelector("[data-active='true']") as HTMLElement | null;
+    el?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
   }, [activeTab]);
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
@@ -393,43 +474,47 @@ export default function AutomationDiagram() {
   }, []);
 
   const defaultViewport = isMobile
-    ? { x: 40, y: 30, zoom: 0.85 }
-    : { x: 50, y: 30, zoom: 0.88 };
+    ? { x: 30, y: 40, zoom: 0.82 }
+    : isTablet
+      ? { x: 40, y: 30, zoom: 0.82 }
+      : { x: 80, y: 20, zoom: 0.9 };
+
+  const canvasHeight = isMobile ? 420 : isTablet ? 320 : 320;
 
   return (
     <section
-      className="automation-diagram"
+      className="ad-diagram"
       style={{
         background: C.bg,
-        padding: isMobile ? "56px 0" : "80px 0",
+        padding: isMobile ? "48px 0" : "80px 0",
         position: "relative",
         overflow: "hidden",
       }}
     >
       <style>{DIAGRAM_CSS}</style>
 
-      {/* Section heading */}
-      <div style={{ textAlign: "center", marginBottom: 28, padding: "0 20px" }}>
+      {/* ── Heading ── */}
+      <div style={{ textAlign: "center", marginBottom: 24, padding: "0 20px" }}>
         <h2
           data-reveal="fade-up"
           style={{
             fontSize: "clamp(26px, 3.5vw, 42px)",
             fontWeight: 700,
-            color: mkt.text,
+            color: C.text,
             letterSpacing: "-0.03em",
             lineHeight: 1.1,
-            marginBottom: 12,
+            marginBottom: 10,
           }}
         >
-          See how it <span style={{ color: mkt.accent }}>works</span>
+          See how it <span style={{ color: C.accent }}>works</span>
         </h2>
         <p
           data-reveal="fade-up"
           style={{
             fontSize: isMobile ? 15 : 17,
-            color: mkt.textMuted,
+            color: C.textMuted,
             lineHeight: 1.6,
-            maxWidth: 480,
+            maxWidth: 460,
             margin: "0 auto",
           }}
         >
@@ -437,7 +522,7 @@ export default function AutomationDiagram() {
         </p>
       </div>
 
-      {/* ── Pill tab row (scrollable on mobile) ── */}
+      {/* ── Pill tab bar ── */}
       <div
         data-reveal="fade-up"
         ref={tabScrollRef}
@@ -445,17 +530,17 @@ export default function AutomationDiagram() {
         style={{
           display: "flex",
           justifyContent: isMobile ? "flex-start" : "center",
-          marginBottom: 20,
-          padding: isMobile ? "0 16px" : "0 16px",
+          marginBottom: 16,
+          padding: "0 16px",
         }}
       >
         <div
           style={{
             display: "inline-flex",
-            gap: 4,
+            gap: 2,
             padding: 4,
             borderRadius: 999,
-            border: `1px solid ${mkt.border}`,
+            border: `1px solid rgba(255,255,255,0.10)`,
             background: "rgba(255,255,255,0.03)",
             flexShrink: 0,
           }}
@@ -470,8 +555,8 @@ export default function AutomationDiagram() {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 6,
-                  padding: isMobile ? "10px 16px" : "10px 22px",
+                  gap: 7,
+                  padding: isMobile ? "10px 16px" : "10px 24px",
                   borderRadius: 999,
                   border: "none",
                   cursor: "pointer",
@@ -480,14 +565,14 @@ export default function AutomationDiagram() {
                   fontFamily: "'Space Grotesk', 'DM Sans', system-ui, sans-serif",
                   letterSpacing: "0.01em",
                   transition: "all 0.2s ease",
-                  background: active ? mkt.accent : "transparent",
-                  color: active ? "#111618" : mkt.textMuted,
-                  boxShadow: active ? `0 2px 12px ${C.accentGlow}` : "none",
+                  background: active ? C.accent : "transparent",
+                  color: active ? "#0e1214" : C.textMuted,
+                  boxShadow: active ? `0 2px 16px ${C.accentGlow}` : "none",
                   whiteSpace: "nowrap",
                   flexShrink: 0,
                 }}
               >
-                <span style={{ display: "flex" }}>{tab.tabIcon}</span>
+                <span style={{ display: "flex", alignItems: "center" }}>{tab.tabIcon}</span>
                 {tab.label}
               </button>
             );
@@ -495,22 +580,22 @@ export default function AutomationDiagram() {
         </div>
       </div>
 
-      {/* ── React Flow canvas ── */}
+      {/* ── Canvas board ── */}
       <div
         style={{
           width: "calc(100% - 32px)",
           maxWidth: 1200,
-          height: isMobile ? 360 : 300,
+          height: canvasHeight,
           margin: "0 auto",
           borderRadius: 16,
-          border: `1px solid ${mkt.border}`,
-          background: C.bg,
+          border: `1px solid rgba(255,255,255,0.08)`,
+          background: C.canvasBg,
           overflow: "hidden",
           position: "relative",
         }}
       >
         <ReactFlow
-          key={`${activeTab}-${isMobile}`}
+          key={`${activeTab}-${layout}`}
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
@@ -521,28 +606,28 @@ export default function AutomationDiagram() {
           zoomOnPinch
           zoomOnDoubleClick={false}
           preventScrolling={false}
-          minZoom={0.4}
-          maxZoom={2}
+          minZoom={0.35}
+          maxZoom={2.5}
           fitView={false}
           proOptions={{ hideAttribution: true }}
         >
           <Background
             variant={BackgroundVariant.Dots}
-            gap={20}
-            size={1}
-            color="rgba(102,232,250,0.08)"
+            gap={24}
+            size={1.2}
+            color="rgba(102,232,250,0.06)"
           />
         </ReactFlow>
       </div>
 
-      {/* ── Description + quote BELOW canvas ── */}
+      {/* ── Explanation copy below canvas ── */}
       <div style={{ textAlign: "center", marginTop: 28, padding: "0 24px" }}>
         <p
           style={{
             fontSize: isMobile ? 15 : 16,
             fontWeight: 500,
             color: C.text,
-            maxWidth: 580,
+            maxWidth: 560,
             margin: "0 auto 10px",
             lineHeight: 1.6,
           }}
@@ -554,7 +639,7 @@ export default function AutomationDiagram() {
             fontSize: 14,
             color: C.textMuted,
             fontStyle: "italic",
-            maxWidth: 540,
+            maxWidth: 520,
             margin: "0 auto",
             lineHeight: 1.55,
           }}
