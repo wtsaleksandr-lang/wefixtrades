@@ -209,11 +209,11 @@ const RESPONSIVE_CSS = `
   .flow-node { transition: transform 0.2s ease, box-shadow 0.2s ease; }
   .flow-node:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.20) !important; }
   @media (max-width: 768px) {
-    .hero-section-responsive { padding: 96px 20px 40px !important; }
+    .hero-section-responsive { padding: 110px 20px 40px !important; }
     .hero-subtext { font-size: 16px !important; }
   }
   @media (max-width: 640px) {
-    .hero-section-responsive { padding: 88px 18px 32px !important; }
+    .hero-section-responsive { padding: 105px 18px 32px !important; }
     .hero-subtext { margin-bottom: 32px !important; }
     .hero-pills-grid { grid-template-columns: 1fr 1fr !important; gap: 6px !important; }
     .hero-pill {
@@ -577,11 +577,11 @@ export default function HomePage() {
       <PillarAnimation />
       <FeatureCards />
       {/* <GlobeSection /> */}
-      <SurfaceSection overlap className="py-8">
+      <SurfaceSection overlap className="py-4">
         <ReviewsSection />
       </SurfaceSection>
 
-      <section data-testid="workflow-section" style={{ background: mkt.surfaceAlt, padding: "112px 28px", borderRadius: "28px 28px 0 0", marginTop: -28, position: "relative", zIndex: 4 }}>
+      <section data-testid="workflow-section" style={{ background: mkt.surfaceAlt, padding: "72px 28px 80px", borderRadius: "28px 28px 0 0", marginTop: -28, position: "relative", zIndex: 4 }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <div data-reveal="fade-up" style={{ marginBottom: 48 }}>
             <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 16 }}>
@@ -591,7 +591,7 @@ export default function HomePage() {
               Four steps that run on autopilot. Click each to see how it works.
             </p>
           </div>
-          <div data-reveal="fade-up" data-delay="100">
+          <div data-reveal="fade-up">
             <WorkflowDemo />
           </div>
         </div>

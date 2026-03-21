@@ -39,7 +39,7 @@ export function useScrollReveal() {
 
       const trigger = ScrollTrigger.create({
         trigger: el,
-        start: "top 88%",
+        start: "top 95%",
         once: true,
         onEnter: () => {
           gsap.to(el, {
@@ -47,7 +47,7 @@ export function useScrollReveal() {
             y: 0,
             scale: 1,
             opacity: 1,
-            duration: 0.72,
+            duration: 0.55,
             delay,
             ease: EASE,
             clearProps: "transform",
