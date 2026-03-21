@@ -32,15 +32,16 @@ export default function GlobeCanvas({ markers, size = 480 }: GlobeCanvasProps) {
       width: size * 2,
       height: size * 2,
       phi: 3.5,
-      theta: -0.15,
+      theta: 0.1,
       dark: 1,
       diffuse: 0.8,
       mapSamples: isMobile ? 10000 : 16000,
       mapBrightness: 6,
-      baseColor: [0.22, 0.26, 0.28],
+      baseColor: [0.3, 0.3, 0.3],
       markerColor: [0.4, 0.91, 0.98],
-      glowColor: [0.15, 0.18, 0.2],
-      opacity: 0.85,
+      glowColor: [0.2, 0.2, 0.2],
+      opacity: 0.7,
+      scale: 1.05,
       markers: cobeMarkers,
     });
 
@@ -49,7 +50,7 @@ export default function GlobeCanvas({ markers, size = 480 }: GlobeCanvasProps) {
     // Animation loop — update phi for auto-rotation
     const tick = () => {
       if (!pausedRef.current) {
-        phi += 0.003;
+        phi += 0.005;
         globe.update({ phi });
       }
       rafRef.current = requestAnimationFrame(tick);
@@ -82,6 +83,8 @@ export default function GlobeCanvas({ markers, size = 480 }: GlobeCanvasProps) {
         maxWidth: "100%",
         aspectRatio: "1",
         display: "block",
+        position: "relative",
+        zIndex: 1,
       }}
     />
   );

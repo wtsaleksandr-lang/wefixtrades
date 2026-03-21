@@ -138,6 +138,22 @@ export default function GlobeSection() {
             minHeight: 480,
           }}
         >
+          {/* Ambient glow behind globe */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "120%",
+              height: "120%",
+              background: "radial-gradient(circle, rgba(102,232,250,0.06) 0%, transparent 65%)",
+              pointerEvents: "none",
+              zIndex: 0,
+            }}
+          />
+
           <GlobeCanvas markers={GLOBE_MARKERS} size={480} />
 
           {/* Floating result cards */}
