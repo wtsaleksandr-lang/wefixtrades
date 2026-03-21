@@ -7,7 +7,7 @@ interface GlobeCanvasProps {
   size?: number;
 }
 
-export default function GlobeCanvas({ markers, size = 480 }: GlobeCanvasProps) {
+export default function GlobeCanvas({ markers, size = 900 }: GlobeCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const globeRef = useRef<ReturnType<typeof createGlobe> | null>(null);
   const rafRef = useRef<number>(0);
@@ -32,32 +32,31 @@ export default function GlobeCanvas({ markers, size = 480 }: GlobeCanvasProps) {
       width: size * 2,
       height: size * 2,
       phi: 3.5,
-      theta: 0.1,
+      theta: 0.15,
       dark: 1,
-      diffuse: 0.8,
-      mapSamples: isMobile ? 10000 : 16000,
-      mapBrightness: 6,
-      baseColor: [0.3, 0.3, 0.3],
+      diffuse: 1.2,
+      mapSamples: isMobile ? 12000 : 20000,
+      mapBrightness: 8,
+      baseColor: [0.12, 0.14, 0.15],
       markerColor: [0.4, 0.91, 0.98],
-      glowColor: [0.2, 0.2, 0.2],
-      opacity: 0.7,
-      scale: 1.05,
+      glowColor: [0.06, 0.06, 0.06],
+      opacity: 0.85,
+      scale: 1.0,
+      offset: [0, 0],
       markers: cobeMarkers,
     });
 
     globeRef.current = globe;
 
-    // Animation loop — update phi for auto-rotation
     const tick = () => {
       if (!pausedRef.current) {
-        phi += 0.005;
+        phi += 0.003;
         globe.update({ phi });
       }
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
 
-    // Pause rendering when section is off-screen
     const observer = new IntersectionObserver(
       ([entry]) => {
         pausedRef.current = !entry.isIntersecting;

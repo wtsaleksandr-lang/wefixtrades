@@ -65,10 +65,16 @@ export const GLOBE_MARKERS: GlobeMarker[] = [
   },
 ];
 
-// Fixed card positions relative to globe container (percentage-based).
-// Three slots that cycle through markers.
-export const CARD_SLOTS: { top?: string; bottom?: string; right: string; id: string }[] = [
-  { top: "8%", right: "-10%", id: "slot-0" },
-  { top: "45%", right: "-18%", id: "slot-1" },
-  { bottom: "12%", right: "2%", id: "slot-2" },
+// Fixed card positions relative to globe viewport (percentage-based).
+// Three slots positioned around the visible top half of the globe.
+export const CARD_SLOTS: {
+  top?: string;
+  bottom?: string;
+  left?: string;
+  right?: string;
+  id: string;
+}[] = [
+  { top: "8%", right: "8%", id: "slot-0" },
+  { top: "42%", left: "6%", id: "slot-1" },
+  { top: "22%", right: "3%", id: "slot-2" },
 ];
