@@ -17,6 +17,7 @@ import CTASection from "@/components/marketing/CTASection";
 import TrustSection from "@/components/marketing/TrustSection";
 import GlobeSection from "@/components/marketing/globe/GlobeSection";
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
+import BuiltForRotator from "@/components/marketing/BuiltForRotator";
 import {
   Zap, Check,
   ArrowRight, Star,
@@ -445,6 +446,9 @@ export default function HomePage() {
         `}</style>
 
         <div ref={heroRef} style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 2 }}>
+          <div className="hero-enter" style={{ marginBottom: 24 }}>
+            <BuiltForRotator />
+          </div>
           <div
             data-testid="hero-headline"
             className="hero-enter"
