@@ -595,6 +595,103 @@ export const PRODUCT_PAGES: ProductPage[] = [
     },
     related: ["mapguard", "socialsync", "ai-chat"],
   },
+  {
+    slug: "tradeline-complete",
+    name: "TradeLine\u2122 Complete",
+    shortTagline: "Chat + Voice + DMs",
+    seoTitle: "TradeLine Complete — Chat, Voice & DM Answering for Trades | WeFixTrades",
+    seoDescription: "The full 24/7 lead handling system. AI answers website chats, phone calls, and social media DMs — so you never miss a lead, even off the clock.",
+    category: "ai",
+    heroVisualType: "chat",
+    primaryCTA: { label: "Get Started", href: "/Wizard" },
+    secondaryCTA: { label: "See Demo", href: "/demo" },
+    highlights: [
+      "24/7 website chat answering with AI",
+      "24/7 voice call answering with natural AI",
+      "Facebook and Instagram DM handling",
+      "Unified lead dashboard for all channels",
+      "Auto follow-ups via SMS, email, and WhatsApp",
+      "Booking integration and calendar sync",
+    ],
+    outcomes: [
+      { title: "Never Miss a Lead", desc: "Every chat, call, and DM is answered instantly — 24/7, across every channel." },
+      { title: "One Dashboard", desc: "All conversations from chat, phone, and social in one place. No tab switching." },
+      { title: "More Booked Jobs", desc: "Automated follow-ups and booking keep leads warm and convert more enquiries into jobs." },
+    ],
+    howItWorks: [
+      { title: "Connect Channels", desc: "Add the chat widget, forward your phone number, and link your social accounts." },
+      { title: "Train Your AI", desc: "Tell the AI about your services, pricing, and service area. It learns in minutes." },
+      { title: "Watch Leads Roll In", desc: "AI handles conversations across all channels. You review leads and booked jobs in your dashboard." },
+    ],
+    bestFor: ["Busy trades teams", "Multi-channel businesses", "After-hours coverage", "High-volume enquiries"],
+    visuals: [
+      { title: "Unified Inbox", desc: "See chats, calls, and DMs in one timeline view." },
+      { title: "AI Conversations", desc: "Natural AI responses across chat, voice, and social." },
+      { title: "Lead Pipeline", desc: "Track every lead from first contact to booked job." },
+    ],
+    faq: [
+      { q: "What channels does TradeLine Complete cover?", a: "Website chat, phone calls, Facebook Messenger, and Instagram DMs — all from one dashboard." },
+      { q: "Can the AI handle all channels simultaneously?", a: "Yes. Unlike a human receptionist, the AI handles unlimited simultaneous conversations across all channels." },
+      { q: "Is this different from buying ChatLine and CallLine separately?", a: "TradeLine Complete includes both plus social DM handling and a unified dashboard. It's also more cost-effective than buying each separately." },
+    ],
+    pricingSection: {
+      plans: [
+        { name: "Starter", price: "$249", period: "/mo", features: ["Chat + Voice answering", "100 conversations/month", "Lead dashboard", "Email notifications", "Basic follow-ups"] },
+        { name: "Pro", price: "$399", period: "/mo", features: ["All channels (Chat + Voice + DMs)", "Unlimited conversations", "SMS + WhatsApp follow-ups", "Calendar booking", "Priority support"], highlighted: true, badge: "Most Popular" },
+      ],
+      note: "Per-minute call rates apply. Social DM channels require connected accounts.",
+    },
+    related: ["ai-chat", "ai-voice", "quickquotepro"],
+  },
+  {
+    slug: "fix-and-optimize",
+    name: "Fix & Optimize\u2122",
+    shortTagline: "Quick Improvements Package",
+    seoTitle: "Fix & Optimize — Website & Google Profile Cleanup for Trades | WeFixTrades",
+    seoDescription: "Fast, one-time cleanup of your website and Google Business Profile. Fix speed issues, broken pages, outdated info, and SEO basics — done in days, not months.",
+    category: "growth",
+    heroVisualType: "dashboard",
+    primaryCTA: { label: "Get Started", href: "/Wizard" },
+    secondaryCTA: { label: "See What's Included", href: "#capabilities" },
+    highlights: [
+      "Website speed optimization and cleanup",
+      "Google Business Profile audit and fixes",
+      "Broken links and page error repair",
+      "Basic on-page SEO corrections",
+      "Mobile responsiveness fixes",
+      "Fast turnaround — typically 3-5 business days",
+    ],
+    outcomes: [
+      { title: "Faster Website", desc: "Speed improvements that directly impact your Google ranking and visitor experience." },
+      { title: "Accurate Listings", desc: "Your Google profile shows the right hours, services, and contact info — no more outdated data." },
+      { title: "Quick Wins", desc: "Get measurable improvements without a long-term commitment or ongoing costs." },
+    ],
+    howItWorks: [
+      { title: "We Audit", desc: "We scan your website and Google profile for issues — speed, SEO, accuracy, and mobile problems." },
+      { title: "We Fix", desc: "Our team resolves the critical issues identified in the audit. No fluff, just fixes." },
+      { title: "We Report", desc: "You get a before/after report showing exactly what was fixed and the measurable improvements." },
+    ],
+    bestFor: ["Trades with existing websites", "Businesses with outdated Google profiles", "Anyone wanting quick results", "Pre-launch cleanup"],
+    visuals: [
+      { title: "Audit Report", desc: "Detailed breakdown of issues found and fixes applied." },
+      { title: "Speed Improvement", desc: "Before and after page speed scores." },
+      { title: "Google Profile", desc: "Optimized business profile with accurate information." },
+    ],
+    faq: [
+      { q: "Is this a one-time service?", a: "Yes. Fix & Optimize is a one-time cleanup. For ongoing maintenance, check out WebCare." },
+      { q: "How long does it take?", a: "Most projects are completed within 3-5 business days." },
+      { q: "Do I need to provide access?", a: "Yes. We'll need access to your website admin panel and Google Business Profile." },
+      { q: "What if I need ongoing help after?", a: "We recommend WebCare for monthly maintenance or WebBoost for ongoing SEO work." },
+    ],
+    pricingSection: {
+      plans: [
+        { name: "Standard", price: "$399", period: " one-time", features: ["Website speed audit + fixes", "Google Business Profile cleanup", "Broken link repair", "Basic SEO corrections", "Before/after report"] },
+        { name: "Pro", price: "$699", period: " one-time", features: ["Everything in Standard", "Mobile optimization", "Schema markup setup", "Content review", "Priority turnaround (2-3 days)", "30-min strategy call"], highlighted: true, badge: "Best Value" },
+      ],
+      note: "One-time payment. No recurring fees.",
+    },
+    related: ["webboost", "webcare", "mapguard"],
+  },
 ];
 
 export function getProductBySlug(slug: string): ProductPage | undefined {

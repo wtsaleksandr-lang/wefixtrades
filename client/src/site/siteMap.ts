@@ -8,23 +8,19 @@ export const TOP_NAV: NavItem[] = [
   {
     label: "Products",
     children: [
-      { label: "TradeLine™", href: "/products/tradeline", desc: "24/7 lead handling ecosystem.", icon: "workflow" },
-      { label: "AI ChatLine™", href: "/products/ai-chatline", desc: "Website + SMS AI chat handling.", icon: "message" },
-      { label: "AI CallLine™", href: "/products/ai-callline", desc: "24/7 AI voice answering.", icon: "phone" },
+      { label: "TradeLine™", href: "/products/assistants", desc: "24/7 lead handling ecosystem.", icon: "workflow" },
+      { label: "AI ChatLine™", href: "/products/ai-chat", desc: "Website + SMS AI chat handling.", icon: "message" },
+      { label: "AI CallLine™", href: "/products/ai-voice", desc: "24/7 AI voice answering.", icon: "phone" },
       { label: "TradeLine™ Complete", href: "/products/tradeline-complete", desc: "Chat + Voice + DMs.", icon: "layers" },
 
       { label: "MapGuard™", href: "/products/mapguard", desc: "Google Maps optimization.", icon: "map" },
-      { label: "MapGuard Setup", href: "/products/mapguard-setup", desc: "One-time optimization setup.", icon: "wrench" },
-      { label: "MapGuard Ongoing", href: "/products/mapguard-ongoing", desc: "Monthly maintenance & growth.", icon: "refresh" },
 
       { label: "ReputationShield™", href: "/products/reputationshield", desc: "Reviews + reputation automation.", icon: "shield" },
       { label: "SiteLaunch™", href: "/products/sitelaunch", desc: "High-converting website builds.", icon: "layout" },
       { label: "WebBoost™", href: "/products/webboost", desc: "Website speed + SEO optimization.", icon: "rocket" },
       { label: "Fix & Optimize™", href: "/products/fix-and-optimize", desc: "Quick improvements package.", icon: "sparkle" },
 
-      { label: "QuoteQuick Pro™", href: "/products/quotequick", desc: "Instant quotes on your site.", icon: "calculator" },
-      { label: "QuoteQuick Template", href: "/products/quotequick-template", desc: "Launch with templates fast.", icon: "file" },
-      { label: "QuoteQuick Custom", href: "/products/quotequick-custom", desc: "Custom calculator build.", icon: "code" },
+      { label: "QuoteQuick Pro™", href: "/products/quickquotepro", desc: "Instant quotes on your site.", icon: "calculator" },
 
       { label: "SocialSync™", href: "/products/socialsync", desc: "Social management automation.", icon: "share" },
     ],

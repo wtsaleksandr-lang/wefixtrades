@@ -27,13 +27,13 @@ const DESKTOP_HEADER = {
 const NAV_LINKS: { label: string; href: string; children?: NavChild[] }[] = [
   {
     label: "Products",
-    href: "/products/tradeline",
+    href: "/products/assistants",
     children: [
-      { label: "TradeLine\u2122 (Overview)", href: "/products/tradeline", description: "24/7 lead handling ecosystem.", icon: <Workflow size={28} strokeWidth={1.6} /> },
-      { label: "AI ChatLine\u2122", href: "/products/ai-chatline", description: "Website + SMS chat handling.", icon: <MessageSquare size={28} strokeWidth={1.6} /> },
-      { label: "AI CallLine\u2122", href: "/products/ai-callline", description: "24/7 voice answering.", icon: <PhoneCall size={28} strokeWidth={1.6} /> },
+      { label: "TradeLine\u2122 (Overview)", href: "/products/assistants", description: "24/7 lead handling ecosystem.", icon: <Workflow size={28} strokeWidth={1.6} /> },
+      { label: "AI ChatLine\u2122", href: "/products/ai-chat", description: "Website + SMS chat handling.", icon: <MessageSquare size={28} strokeWidth={1.6} /> },
+      { label: "AI CallLine\u2122", href: "/products/ai-voice", description: "24/7 voice answering.", icon: <PhoneCall size={28} strokeWidth={1.6} /> },
       { label: "TradeLine\u2122 Complete", href: "/products/tradeline-complete", description: "Chat + Voice + DMs.", icon: <Layers size={28} strokeWidth={1.6} /> },
-      { label: "QuoteQuick Pro\u2122", href: "/products/quotequick", description: "Instant quotes on your site.", icon: <Calculator size={28} strokeWidth={1.6} /> },
+      { label: "QuoteQuick Pro\u2122", href: "/products/quickquotepro", description: "Instant quotes on your site.", icon: <Calculator size={28} strokeWidth={1.6} /> },
       { label: "MapGuard\u2122", href: "/products/mapguard", description: "Google Maps optimization.", icon: <MapPinned size={28} strokeWidth={1.6} /> },
       { label: "ReputationShield\u2122", href: "/products/reputationshield", description: "Reviews + reputation.", icon: <ShieldCheck size={28} strokeWidth={1.6} /> },
       { label: "WebBoost\u2122", href: "/products/webboost", description: "Speed + SEO optimization.", icon: <Rocket size={28} strokeWidth={1.6} /> },
