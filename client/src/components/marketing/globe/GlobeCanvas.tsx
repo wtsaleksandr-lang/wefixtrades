@@ -18,9 +18,8 @@ const GLOBE_SCALE = 1.8;
 
 // Appearance (dark theme, cyan markers)
 const DARK = 1;
-const DIFFUSE = 3;
-const MAP_BRIGHTNESS = 1.8;
-const MAP_BASE_BRIGHTNESS = 0.05;
+const DIFFUSE = 0.8;
+const MAP_BRIGHTNESS = 6;
 const BASE_COLOR: [number, number, number] = [0.3, 0.3, 0.3];
 const MARKER_COLOR: [number, number, number] = [0.4, 0.91, 0.98];
 const GLOW_COLOR: [number, number, number] = [0.2, 0.2, 0.2];
@@ -139,7 +138,6 @@ export default function GlobeCanvas({
       diffuse: DIFFUSE,
       mapSamples: isMobile ? 12000 : 20000,
       mapBrightness: MAP_BRIGHTNESS,
-      mapBaseBrightness: MAP_BASE_BRIGHTNESS,
       baseColor: BASE_COLOR,
       markerColor: MARKER_COLOR,
       glowColor: GLOW_COLOR,
@@ -301,7 +299,6 @@ export default function GlobeCanvas({
         style={{
           width: "100%",
           height: "100%",
-          contain: "layout paint size",
           display: "block",
           cursor: "grab",
           touchAction: "none",
