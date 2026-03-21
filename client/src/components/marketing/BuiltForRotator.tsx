@@ -17,6 +17,14 @@ const TRADES = [
 const HOLD_MS = 2200;
 const TRANSITION_MS = 360;
 
+const FONT: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 500,
+  fontFamily: "'DM Mono', monospace",
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+};
+
 export default function BuiltForRotator() {
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<"visible" | "exiting" | "entering">("visible");
@@ -24,19 +32,14 @@ export default function BuiltForRotator() {
 
   useEffect(() => {
     const cycle = () => {
-      // Start exit
       setPhase("exiting");
 
       timerRef.current = setTimeout(() => {
-        // Swap word and start enter
         setIndex((i) => (i + 1) % TRADES.length);
         setPhase("entering");
 
         timerRef.current = setTimeout(() => {
-          // Settle
           setPhase("visible");
-
-          // Schedule next cycle
           timerRef.current = setTimeout(cycle, HOLD_MS);
         }, TRANSITION_MS);
       }, TRANSITION_MS);
@@ -47,7 +50,7 @@ export default function BuiltForRotator() {
   }, []);
 
   const wordStyle: React.CSSProperties = {
-    display: "inline-block",
+    display: "block",
     transition: `transform ${TRANSITION_MS}ms cubic-bezier(0.4, 0, 0.2, 1), opacity ${TRANSITION_MS}ms cubic-bezier(0.4, 0, 0.2, 1), filter ${TRANSITION_MS}ms ease`,
     willChange: "transform, opacity, filter",
     ...(phase === "visible"
@@ -57,13 +60,10 @@ export default function BuiltForRotator() {
         : { transform: "translateY(100%)", opacity: 0.6, filter: "blur(1.5px)", transition: "none" }),
   };
 
-  // After setting "entering" with no transition, force reflow then animate to final
   const wordRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     if (phase === "entering" && wordRef.current) {
-      // Force reflow so the browser registers the translateY(100%) position
       wordRef.current.getBoundingClientRect();
-      // Then animate to final position
       requestAnimationFrame(() => {
         setPhase("visible");
       });
@@ -71,36 +71,23 @@ export default function BuiltForRotator() {
   }, [phase]);
 
   return (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-      }}
-    >
-      <span
-        style={{
-          fontSize: 13,
-          fontWeight: 500,
-          fontFamily: "'DM Mono', monospace",
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
-          color: mkt.textMuted,
-          whiteSpace: "nowrap",
-        }}
-      >
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ ...FONT, color: mkt.textMuted, whiteSpace: "nowrap", flexShrink: 0 }}>
         Built for:
       </span>
       <span
         style={{
-          display: "inline-block",
-          height: "1.3em",
+          display: "block",
+          height: "1.4em",
           overflow: "hidden",
           position: "relative",
-          verticalAlign: "bottom",
+          ...FONT,
         }}
       >
-        <span ref={wordRef} style={{ ...wordStyle, color: mkt.accent, fontWeight: 600 }}>
+        <span
+          ref={wordRef}
+          style={{ ...wordStyle, color: mkt.accent, fontWeight: 600, whiteSpace: "nowrap" }}
+        >
           {TRADES[index]}
         </span>
       </span>

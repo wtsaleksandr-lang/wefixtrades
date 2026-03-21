@@ -326,6 +326,11 @@ export default function HomePage() {
         <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(0,0,0,0.2))", pointerEvents: "none", zIndex: 0, borderRadius: 24 }} />
         <HeroGridGlow className="hero-grid-glow" />
 
+        {/* Built-for rotator — top-left, below navbar */}
+        <div style={{ position: "absolute", top: 20, left: 28, zIndex: 3 }}>
+          <BuiltForRotator />
+        </div>
+
       <section
         data-testid="hero-section"
         className="hero-section-responsive"
@@ -446,9 +451,6 @@ export default function HomePage() {
         `}</style>
 
         <div ref={heroRef} style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 2 }}>
-          <div className="hero-enter" style={{ marginBottom: 24 }}>
-            <BuiltForRotator />
-          </div>
           <div
             data-testid="hero-headline"
             className="hero-enter"
