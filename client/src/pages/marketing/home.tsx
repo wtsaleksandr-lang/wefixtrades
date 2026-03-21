@@ -18,6 +18,7 @@ import TrustSection from "@/components/marketing/TrustSection";
 import GlobeSection from "@/components/marketing/globe/GlobeSection";
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
 import BuiltForRotator from "@/components/marketing/BuiltForRotator";
+import AutomationDiagram from "@/components/marketing/AutomationDiagram";
 import {
   Zap, Check,
   ArrowRight, Star,
@@ -598,6 +599,7 @@ export default function HomePage() {
 
 
 
+      <AutomationDiagram />
       <TrustSection />
       <CTASection />
     </MarketingLayout>
