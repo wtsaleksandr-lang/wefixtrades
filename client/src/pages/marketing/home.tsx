@@ -252,17 +252,21 @@ const RESPONSIVE_CSS = `
       min-height: 720px;
     }
   }
-  /* Backdrop responsive side padding */
-  .hero-shell-backdrop {
-    padding-top: 0;
-    padding-bottom: 0;
-  }
+  /* Backdrop responsive gaps */
   @media (max-width: 768px) {
     .hero-shell-backdrop {
-      padding: 2px 2px 0 2px !important;
+      padding: 10px 8px 0 !important;
     }
     .hero-first-screen-zone {
       border-radius: 20px !important;
+    }
+  }
+  @media (max-width: 430px) {
+    .hero-shell-backdrop {
+      padding: 8px 6px 0 !important;
+    }
+    .hero-first-screen-zone {
+      border-radius: 18px !important;
     }
   }
   /* Tablet: hero zone + 150px divider = 100svh */
@@ -319,11 +323,11 @@ export default function HomePage() {
       <style>{RESPONSIVE_CSS}</style>
 
       {/* Outer page background behind hero shell */}
-      <div className="hero-shell-backdrop" style={{ background: "#F5F7F8", padding: "0 24px", position: "relative" as const, zIndex: 1 }}>
+      <div className="hero-shell-backdrop" style={{ background: mkt.bg, padding: "16px 16px 0", position: "relative" as const, zIndex: 1 }}>
       {/* Shared grid zone — covers hero + trust marquee seamlessly */}
-      <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.bg, overflow: "hidden", display: "flex", flexDirection: "column", maxWidth: 1400, margin: "0 auto", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 20px 60px rgba(0,0,0,0.25), 0 4px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
+      <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.surface, overflow: "hidden", display: "flex", flexDirection: "column", width: "100%", borderRadius: 24, border: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 20px 60px rgba(0,0,0,0.25), 0 4px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
         {/* Subtle inner lighting overlay */}
-        <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(0,0,0,0.2))", pointerEvents: "none", zIndex: 0, borderRadius: 24 }} />
+        <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(0,0,0,0.2))", pointerEvents: "none", zIndex: 0, borderRadius: "inherit" }} />
         <HeroGridGlow className="hero-grid-glow" />
 
         {/* Built-for rotator — top-left, below navbar */}
