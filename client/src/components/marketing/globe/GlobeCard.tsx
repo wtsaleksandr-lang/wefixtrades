@@ -5,11 +5,13 @@ interface GlobeCardProps {
   label: string;
   visible: boolean;
   style?: CSSProperties;
+  className?: string;
 }
 
-export default function GlobeCard({ stat, label, visible, style }: GlobeCardProps) {
+export default function GlobeCard({ stat, label, visible, style, className }: GlobeCardProps) {
   return (
     <div
+      className={`globe-card ${className || ""}`}
       style={{
         position: "absolute",
         pointerEvents: "none",
@@ -30,6 +32,7 @@ export default function GlobeCard({ stat, label, visible, style }: GlobeCardProp
       }}
     >
       <div
+        className="globe-card-stat"
         style={{
           fontSize: 14,
           fontWeight: 700,
@@ -41,6 +44,7 @@ export default function GlobeCard({ stat, label, visible, style }: GlobeCardProp
         {stat}
       </div>
       <div
+        className="globe-card-label"
         style={{
           fontSize: 11,
           fontWeight: 500,

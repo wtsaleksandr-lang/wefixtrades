@@ -30,7 +30,7 @@ export default function GlobeSection() {
       data-testid="globe-section"
       style={{
         background: mkt.bg,
-        padding: "100px 28px",
+        padding: "clamp(48px, 8vw, 100px) clamp(16px, 4vw, 28px)",
         position: "relative",
         overflow: "hidden",
       }}
@@ -106,24 +106,26 @@ export default function GlobeSection() {
             ))}
           </div>
 
-          <Link
-            href="/Wizard"
-            className="cta-arrow-btn cta-arrow-btn--primary"
-            style={{ textDecoration: "none", display: "inline-flex" }}
-          >
-            <span className="cta-arrow-btn__text">See what we can do for you</span>
-            <span className="cta-arrow-btn__square" />
-            <span className="cta-arrow-btn__arrow-out">
-              <svg width="13" height="13" viewBox="0 0 31 31" fill="currentColor">
-                <path fillRule="evenodd" clipRule="evenodd" d="M18.9493 17.8324L3.43262 17.8324L3.43262 12.2443L18.9493 12.2443L11.2915 4.5865L15.2429 0.63509L26.4851 11.8772C28.2309 13.6231 28.2309 16.4536 26.4851 18.1995L15.1423 29.5425L11.1909 25.5911L18.9493 17.8324Z" />
-              </svg>
-            </span>
-            <span className="cta-arrow-btn__arrow-in">
-              <svg width="13" height="13" viewBox="0 0 31 31" fill="currentColor">
-                <path fillRule="evenodd" clipRule="evenodd" d="M18.9493 17.8324L3.43262 17.8324L3.43262 12.2443L18.9493 12.2443L11.2915 4.5865L15.2429 0.63509L26.4851 11.8772C28.2309 13.6231 28.2309 16.4536 26.4851 18.1995L15.1423 29.5425L11.1909 25.5911L18.9493 17.8324Z" />
-              </svg>
-            </span>
-          </Link>
+          <div className="globe-cta-wrap">
+            <Link
+              href="/Wizard"
+              className="cta-arrow-btn cta-arrow-btn--primary"
+              style={{ textDecoration: "none", display: "inline-flex" }}
+            >
+              <span className="cta-arrow-btn__text">See what we can do for you</span>
+              <span className="cta-arrow-btn__square" />
+              <span className="cta-arrow-btn__arrow-out">
+                <svg width="13" height="13" viewBox="0 0 31 31" fill="currentColor">
+                  <path fillRule="evenodd" clipRule="evenodd" d="M18.9493 17.8324L3.43262 17.8324L3.43262 12.2443L18.9493 12.2443L11.2915 4.5865L15.2429 0.63509L26.4851 11.8772C28.2309 13.6231 28.2309 16.4536 26.4851 18.1995L15.1423 29.5425L11.1909 25.5911L18.9493 17.8324Z" />
+                </svg>
+              </span>
+              <span className="cta-arrow-btn__arrow-in">
+                <svg width="13" height="13" viewBox="0 0 31 31" fill="currentColor">
+                  <path fillRule="evenodd" clipRule="evenodd" d="M18.9493 17.8324L3.43262 17.8324L3.43262 12.2443L18.9493 12.2443L11.2915 4.5865L15.2429 0.63509L26.4851 11.8772C28.2309 13.6231 28.2309 16.4536 26.4851 18.1995L15.1423 29.5425L11.1909 25.5911L18.9493 17.8324Z" />
+                </svg>
+              </span>
+            </Link>
+          </div>
         </div>
 
         {/* Right column — globe + overlay cards */}
@@ -172,6 +174,7 @@ export default function GlobeSection() {
                 label={marker.label}
                 visible={true}
                 style={pos}
+                className={`globe-slot-${slotIdx}`}
               />
             );
           })}
@@ -184,6 +187,7 @@ export default function GlobeSection() {
           .globe-section-inner {
             flex-direction: column !important;
             text-align: center;
+            gap: 32px !important;
           }
           .globe-text-col {
             flex: none !important;
@@ -197,15 +201,69 @@ export default function GlobeSection() {
           .globe-visual-col {
             flex: none !important;
             width: 100%;
-            min-height: 340px !important;
-            max-width: 400px;
+            min-height: auto !important;
+            max-width: 360px;
             margin: 0 auto;
+            aspect-ratio: 1;
+          }
+          .globe-visual-col canvas {
+            max-width: 320px !important;
+            max-height: 320px !important;
+            margin: 0 auto;
+          }
+          .globe-card {
+            min-width: 140px !important;
+            max-width: 180px !important;
+            padding: 8px 12px !important;
+          }
+          .globe-card .globe-card-stat {
+            font-size: 12px !important;
+          }
+          .globe-card .globe-card-label {
+            font-size: 10px !important;
+          }
+          .globe-slot-0 {
+            top: 4% !important;
+            right: -4% !important;
+          }
+          .globe-slot-1 {
+            top: 42% !important;
+            right: auto !important;
+            left: -4% !important;
+          }
+          .globe-slot-2 {
+            bottom: 4% !important;
+            right: 0% !important;
+          }
+          .globe-cta-wrap {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+          }
+          .globe-cta-wrap .cta-arrow-btn {
+            width: 100% !important;
+            max-width: 340px;
+            justify-content: center;
           }
         }
         @media (max-width: 640px) {
           .globe-visual-col {
-            min-height: 300px !important;
-            max-width: 320px;
+            max-width: 300px;
+          }
+          .globe-visual-col canvas {
+            max-width: 260px !important;
+            max-height: 260px !important;
+          }
+          .globe-card {
+            min-width: 120px !important;
+            max-width: 160px !important;
+            padding: 6px 10px !important;
+          }
+          .globe-card .globe-card-stat {
+            font-size: 11px !important;
+          }
+          .globe-card .globe-card-label {
+            font-size: 9px !important;
           }
         }
       `}</style>
