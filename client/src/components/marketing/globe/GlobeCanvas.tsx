@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import createGlobe from "cobe";
 import type { GlobeMarker } from "./globeData";
 
@@ -7,11 +7,24 @@ interface GlobeCanvasProps {
   size?: number;
 }
 
+const AUTO_ROTATE_SPEED = 0.005;
+const DRAG_SENSITIVITY = 0.005;
+const RESUME_DELAY = 2000; // ms before auto-rotate resumes after drag
+
 export default function GlobeCanvas({ markers, size = 900 }: GlobeCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const globeRef = useRef<ReturnType<typeof createGlobe> | null>(null);
   const rafRef = useRef<number>(0);
   const pausedRef = useRef(false);
+
+  // Drag state refs (avoid re-renders)
+  const draggingRef = useRef(false);
+  const pointerXRef = useRef(0);
+  const pointerYRef = useRef(0);
+  const phiRef = useRef(3.5);
+  const thetaRef = useRef(0.1);
+  const userDraggingRef = useRef(false);
+  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -20,7 +33,8 @@ export default function GlobeCanvas({ markers, size = 900 }: GlobeCanvasProps) {
     const isMobile = window.innerWidth < 768;
     const dpr = isMobile ? 1 : Math.min(window.devicePixelRatio, 2);
 
-    let phi = 3.5; // Start facing North America
+    phiRef.current = 3.5;
+    thetaRef.current = 0.1;
 
     const cobeMarkers = markers.map((m) => ({
       location: m.location,
@@ -49,10 +63,10 @@ export default function GlobeCanvas({ markers, size = 900 }: GlobeCanvasProps) {
     globeRef.current = globe;
 
     const tick = () => {
-      if (!pausedRef.current) {
-        phi += 0.005;
-        globe.update({ phi });
+      if (!pausedRef.current && !userDraggingRef.current) {
+        phiRef.current += AUTO_ROTATE_SPEED;
       }
+      globe.update({ phi: phiRef.current, theta: thetaRef.current });
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -70,12 +84,47 @@ export default function GlobeCanvas({ markers, size = 900 }: GlobeCanvasProps) {
       cancelAnimationFrame(rafRef.current);
       globe.destroy();
       globeRef.current = null;
+      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     };
   }, [markers, size]);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    draggingRef.current = true;
+    userDraggingRef.current = true;
+    pointerXRef.current = e.clientX;
+    pointerYRef.current = e.clientY;
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, []);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!draggingRef.current) return;
+    const dx = e.clientX - pointerXRef.current;
+    const dy = e.clientY - pointerYRef.current;
+    pointerXRef.current = e.clientX;
+    pointerYRef.current = e.clientY;
+    phiRef.current += dx * DRAG_SENSITIVITY;
+    thetaRef.current = Math.max(
+      -Math.PI / 2,
+      Math.min(Math.PI / 2, thetaRef.current - dy * DRAG_SENSITIVITY),
+    );
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    draggingRef.current = false;
+    // Resume auto-rotate after a short delay
+    resumeTimerRef.current = setTimeout(() => {
+      userDraggingRef.current = false;
+    }, RESUME_DELAY);
+  }, []);
 
   return (
     <canvas
       ref={canvasRef}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
       style={{
         width: size,
         height: size,
@@ -84,6 +133,8 @@ export default function GlobeCanvas({ markers, size = 900 }: GlobeCanvasProps) {
         display: "block",
         position: "relative",
         zIndex: 1,
+        cursor: "grab",
+        touchAction: "none",
       }}
     />
   );
