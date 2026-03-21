@@ -561,7 +561,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           zIndex: 300,
           height: isMobile ? "auto" : DESKTOP_HEADER.navHeight,
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           justifyContent: "center",
           padding: isMobile ? "0" : "0",
           background: "transparent",
@@ -583,7 +583,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             ...(isMobile
               ? {
                   width: "calc(100% - 16px)",
-                  margin: "2px auto 0",
+                  margin: "10px auto 0",
                   borderRadius: 20,
                   padding: "0 16px",
                   background: "rgba(34,40,42,0.55)",
@@ -596,7 +596,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 }
               : {
                   width: "calc(100% - 32px)",
-                  margin: "3px auto 0",
+                  margin: "16px auto 0",
                   borderRadius: 24,
                   padding: "0 18px",
                   background: "rgba(34,40,42,0.55)",

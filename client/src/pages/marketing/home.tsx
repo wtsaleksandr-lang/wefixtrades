@@ -331,7 +331,7 @@ export default function HomePage() {
         <HeroGridGlow className="hero-grid-glow" />
 
         {/* Built-for rotator — top-left, below navbar */}
-        <div style={{ position: "absolute", top: 20, left: 28, zIndex: 3 }}>
+        <div style={{ position: "absolute", top: 56, left: 28, zIndex: 3 }}>
           <BuiltForRotator />
         </div>
 
