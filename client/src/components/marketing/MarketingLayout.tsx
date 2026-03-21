@@ -563,7 +563,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: isMobile ? "0" : "0 10px 0",
+          padding: isMobile ? "0" : "0",
           background: "transparent",
           backdropFilter: "none",
           WebkitBackdropFilter: "none",
@@ -574,7 +574,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <div
           ref={navCardRef}
           style={{
-            maxWidth: 1600,
             outline: DEBUG_DROPDOWN ? "3px solid rgba(255,0,0,0.8)" : "none",
             height: isMobile ? 64 : DESKTOP_HEADER.cardHeight,
             display: "flex",
@@ -583,8 +582,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             gap: 24,
             ...(isMobile
               ? {
-                  width: "calc(100% - 4px)",
-                  margin: "2px 2px 0",
+                  width: "calc(100% - 16px)",
+                  margin: "2px auto 0",
                   borderRadius: 20,
                   padding: "0 16px",
                   background: "rgba(34,40,42,0.55)",
@@ -597,8 +596,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 }
               : {
                   width: "calc(100% - 32px)",
-                  maxWidth: 1440,
-                  margin: "3px 16px 0",
+                  margin: "3px auto 0",
                   borderRadius: 16,
                   padding: "0 18px",
                   background: "rgba(34,40,42,0.55)",
