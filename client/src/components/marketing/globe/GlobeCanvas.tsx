@@ -145,45 +145,46 @@ export default function GlobeCanvas({
       scale: GLOBE_SCALE,
       offset: [0, 0],
       markers: cobeMarkers,
-      onRender: (state) => {
-        // Auto-draggable variant: auto-rotate unless user is dragging
-        if (!pausedRef.current && !userDraggingRef.current) {
-          phiRef.current += AUTO_DRIFT_SPEED;
-        }
-
-        state.phi = phiRef.current;
-        state.theta = thetaRef.current;
-        state.width = size * 2;
-        state.height = size * 2;
-
-        // Update card position via DOM (no React re-render)
-        const idx = activeIdxRef.current;
-        if (
-          cardElRef.current &&
-          idx !== null &&
-          idx >= 0 &&
-          idx < markers.length
-        ) {
-          const m = markers[idx];
-          const p = projectToScreen(
-            m.location[0],
-            m.location[1],
-            phiRef.current,
-            thetaRef.current,
-            size,
-            GLOBE_SCALE,
-          );
-          cardElRef.current.style.left = (p.x / size) * 100 + "%";
-          cardElRef.current.style.top = (p.y / size) * 100 + "%";
-          cardElRef.current.style.opacity = p.visible ? "1" : "0";
-        }
-      },
     });
 
-    // Fade in via opacity transition (Eldora UI pattern)
+    // Fade in
     setTimeout(() => {
       if (canvas) canvas.style.opacity = "1";
     }, 100);
+
+    const tick = () => {
+      // Auto-rotate unless user is dragging
+      if (!pausedRef.current && !userDraggingRef.current) {
+        phiRef.current += AUTO_DRIFT_SPEED;
+      }
+
+      globe.update({ phi: phiRef.current, theta: thetaRef.current });
+
+      // Update card position via DOM (no React re-render)
+      const idx = activeIdxRef.current;
+      if (
+        cardElRef.current &&
+        idx !== null &&
+        idx >= 0 &&
+        idx < markers.length
+      ) {
+        const m = markers[idx];
+        const p = projectToScreen(
+          m.location[0],
+          m.location[1],
+          phiRef.current,
+          thetaRef.current,
+          size,
+          GLOBE_SCALE,
+        );
+        cardElRef.current.style.left = (p.x / size) * 100 + "%";
+        cardElRef.current.style.top = (p.y / size) * 100 + "%";
+        cardElRef.current.style.opacity = p.visible ? "1" : "0";
+      }
+
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -195,6 +196,7 @@ export default function GlobeCanvas({
 
     return () => {
       observer.disconnect();
+      cancelAnimationFrame(rafRef.current);
       globe.destroy();
       window.removeEventListener("resize", onResize);
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
