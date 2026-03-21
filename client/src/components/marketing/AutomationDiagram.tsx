@@ -496,7 +496,6 @@ export default function AutomationDiagram() {
       {/* ── Heading ── */}
       <div style={{ textAlign: "center", marginBottom: 24, padding: "0 20px" }}>
         <h2
-          data-reveal="fade-up"
           style={{
             fontSize: "clamp(26px, 3.5vw, 42px)",
             fontWeight: 700,
@@ -509,7 +508,6 @@ export default function AutomationDiagram() {
           See how it <span style={{ color: C.accent }}>works</span>
         </h2>
         <p
-          data-reveal="fade-up"
           style={{
             fontSize: isMobile ? 15 : 17,
             color: C.textMuted,
@@ -524,7 +522,6 @@ export default function AutomationDiagram() {
 
       {/* ── Pill tab bar ── */}
       <div
-        data-reveal="fade-up"
         ref={tabScrollRef}
         className="ad-tab-scroll"
         style={{
