@@ -1,25 +1,41 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { mkt, typography } from "@/theme/tokens";
-import { GLOBE_MARKERS, CARD_SLOTS } from "./globeData";
+import { GLOBE_MARKERS } from "./globeData";
 import GlobeCanvas from "./GlobeCanvas";
-import GlobeCard from "./GlobeCard";
 
 const CYCLE_INTERVAL = 4000;
-const VISIBLE_CARDS = 3;
 
 export default function GlobeSection() {
-  const [activeStart, setActiveStart] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveStart((prev) => (prev + 1) % GLOBE_MARKERS.length);
+  const startCycle = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setActiveIndex((prev) => {
+        let next: number;
+        do {
+          next = Math.floor(Math.random() * GLOBE_MARKERS.length);
+        } while (next === prev && GLOBE_MARKERS.length > 1);
+        return next;
+      });
     }, CYCLE_INTERVAL);
-    return () => clearInterval(timer);
   }, []);
 
-  const visibleIndices = Array.from({ length: VISIBLE_CARDS }, (_, i) =>
-    (activeStart + i) % GLOBE_MARKERS.length,
+  useEffect(() => {
+    startCycle();
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [startCycle]);
+
+  const handleMarkerClick = useCallback(
+    (index: number) => {
+      setActiveIndex(index);
+      startCycle(); // reset timer so it doesn't immediately switch
+    },
+    [startCycle],
   );
 
   return (
@@ -95,30 +111,13 @@ export default function GlobeSection() {
             width: "100%",
           }}
         >
-          <GlobeCanvas markers={GLOBE_MARKERS} size={900} />
+          <GlobeCanvas
+            markers={GLOBE_MARKERS}
+            size={900}
+            activeMarkerIndex={activeIndex}
+            onMarkerClick={handleMarkerClick}
+          />
         </div>
-
-        {/* Floating result cards */}
-        {CARD_SLOTS.map((slot, slotIdx) => {
-          const markerIdx = visibleIndices[slotIdx];
-          const marker = GLOBE_MARKERS[markerIdx];
-          const pos: Record<string, string | undefined> = {
-            top: slot.top,
-            bottom: slot.bottom,
-            left: slot.left,
-            right: slot.right,
-          };
-          return (
-            <GlobeCard
-              key={`slot-${slotIdx}`}
-              stat={marker.stat}
-              label={marker.label}
-              visible={true}
-              style={pos}
-              className={`globe-slot-${slotIdx}`}
-            />
-          );
-        })}
 
         {/* Bottom fade — blends globe into section background */}
         <div
@@ -271,22 +270,6 @@ export default function GlobeSection() {
           }
           .globe-card .globe-card-label {
             font-size: 10px !important;
-          }
-          .globe-slot-0 {
-            top: 6% !important;
-            right: 4% !important;
-            left: auto !important;
-          }
-          .globe-slot-1 {
-            top: 38% !important;
-            left: 4% !important;
-            right: auto !important;
-          }
-          .globe-slot-2 {
-            top: 18% !important;
-            right: 2% !important;
-            left: auto !important;
-            bottom: auto !important;
           }
           .globe-cta-wrap .cta-arrow-btn {
             width: 100% !important;

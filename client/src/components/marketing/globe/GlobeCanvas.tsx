@@ -5,27 +5,99 @@ import type { GlobeMarker } from "./globeData";
 interface GlobeCanvasProps {
   markers: GlobeMarker[];
   size?: number;
+  activeMarkerIndex: number | null;
+  onMarkerClick?: (index: number) => void;
 }
 
-const AUTO_ROTATE_SPEED = 0.005;
-const DRAG_SENSITIVITY = 0.005;
-const RESUME_DELAY = 2000; // ms before auto-rotate resumes after drag
+// North America center
+const CENTER_PHI = 4.5;
+const CENTER_THETA = 0.45;
+const GLOBE_SCALE = 1.8;
 
-export default function GlobeCanvas({ markers, size = 900 }: GlobeCanvasProps) {
+// Interaction
+const DRAG_SENSITIVITY = 0.004;
+const PHI_RANGE = 0.5;
+const THETA_RANGE = 0.3;
+const AUTO_DRIFT_SPEED = 0.0008;
+const RESUME_DELAY = 3000;
+const CLICK_THRESHOLD = 5; // px — distinguishes click from drag
+const MARKER_HIT_RADIUS = 50; // px — how close a click must be to a marker
+
+/** Project a lat/lon marker to screen coordinates given current globe rotation. */
+function projectToScreen(
+  lat: number,
+  lon: number,
+  phi: number,
+  theta: number,
+  displaySize: number,
+  scale: number,
+) {
+  const latR = (lat * Math.PI) / 180;
+  const lonR = (lon * Math.PI) / 180;
+
+  const cosLat = Math.cos(latR);
+  const sinLat = Math.sin(latR);
+  const dLon = lonR - phi;
+
+  // Rotate by phi (longitude rotation)
+  const x1 = cosLat * Math.sin(dLon);
+  const y1 = -sinLat;
+  const z1 = cosLat * Math.cos(dLon);
+
+  // Rotate by theta (latitude tilt — inverse/camera convention to match COBE)
+  const cosT = Math.cos(theta);
+  const sinT = Math.sin(theta);
+  const x2 = x1;
+  const y2 = y1 * cosT + z1 * sinT;
+  const z2 = -y1 * sinT + z1 * cosT;
+
+  const r = displaySize / 2;
+  return {
+    x: r + x2 * r * scale,
+    y: r + y2 * r * scale,
+    visible: z2 > 0,
+  };
+}
+
+export default function GlobeCanvas({
+  markers,
+  size = 900,
+  activeMarkerIndex,
+  onMarkerClick,
+}: GlobeCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const globeRef = useRef<ReturnType<typeof createGlobe> | null>(null);
   const rafRef = useRef<number>(0);
   const pausedRef = useRef(false);
 
-  // Drag state refs (avoid re-renders)
+  // Drag state
   const draggingRef = useRef(false);
-  const pointerXRef = useRef(0);
-  const pointerYRef = useRef(0);
-  const phiRef = useRef(3.5);
-  const thetaRef = useRef(0.1);
+  const pxRef = useRef(0);
+  const pyRef = useRef(0);
+  const dragDistRef = useRef(0);
+
+  // Globe orientation
+  const phiRef = useRef(CENTER_PHI);
+  const thetaRef = useRef(CENTER_THETA);
+  const driftDirRef = useRef(1);
+
+  // User interaction state
   const userDraggingRef = useRef(false);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Stable callback refs
+  const onClickRef = useRef(onMarkerClick);
+  useEffect(() => {
+    onClickRef.current = onMarkerClick;
+  }, [onMarkerClick]);
+
+  // Card DOM ref for per-frame position updates
+  const cardElRef = useRef<HTMLDivElement>(null);
+  const activeIdxRef = useRef(activeMarkerIndex);
+  useEffect(() => {
+    activeIdxRef.current = activeMarkerIndex;
+  }, [activeMarkerIndex]);
+
+  // ─── COBE lifecycle ──────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -33,8 +105,8 @@ export default function GlobeCanvas({ markers, size = 900 }: GlobeCanvasProps) {
     const isMobile = window.innerWidth < 768;
     const dpr = isMobile ? 1 : Math.min(window.devicePixelRatio, 2);
 
-    phiRef.current = 3.5;
-    thetaRef.current = 0.1;
+    phiRef.current = CENTER_PHI;
+    thetaRef.current = CENTER_THETA;
 
     const cobeMarkers = markers.map((m) => ({
       location: m.location,
@@ -45,28 +117,50 @@ export default function GlobeCanvas({ markers, size = 900 }: GlobeCanvasProps) {
       devicePixelRatio: dpr,
       width: size * 2,
       height: size * 2,
-      phi: 3.5,
-      theta: 0.1,
+      phi: CENTER_PHI,
+      theta: CENTER_THETA,
       dark: 1,
       diffuse: 0.8,
-      mapSamples: isMobile ? 10000 : 16000,
+      mapSamples: isMobile ? 12000 : 20000,
       mapBrightness: 6,
       baseColor: [0.3, 0.3, 0.3],
       markerColor: [0.4, 0.91, 0.98],
       glowColor: [0.2, 0.2, 0.2],
       opacity: 0.7,
-      scale: 1.05,
+      scale: GLOBE_SCALE,
       offset: [0, 0],
       markers: cobeMarkers,
     });
 
-    globeRef.current = globe;
-
     const tick = () => {
+      // Gentle auto-drift (oscillate within bounds)
       if (!pausedRef.current && !userDraggingRef.current) {
-        phiRef.current += AUTO_ROTATE_SPEED;
+        phiRef.current += driftDirRef.current * AUTO_DRIFT_SPEED;
+        if (phiRef.current > CENTER_PHI + PHI_RANGE * 0.3)
+          driftDirRef.current = -1;
+        if (phiRef.current < CENTER_PHI - PHI_RANGE * 0.3)
+          driftDirRef.current = 1;
       }
+
       globe.update({ phi: phiRef.current, theta: thetaRef.current });
+
+      // Update card position via DOM (no React re-render)
+      const idx = activeIdxRef.current;
+      if (cardElRef.current && idx !== null && idx >= 0 && idx < markers.length) {
+        const m = markers[idx];
+        const p = projectToScreen(
+          m.location[0],
+          m.location[1],
+          phiRef.current,
+          thetaRef.current,
+          size,
+          GLOBE_SCALE,
+        );
+        cardElRef.current.style.left = (p.x / size) * 100 + "%";
+        cardElRef.current.style.top = (p.y / size) * 100 + "%";
+        cardElRef.current.style.opacity = p.visible ? "1" : "0";
+      }
+
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -83,59 +177,171 @@ export default function GlobeCanvas({ markers, size = 900 }: GlobeCanvasProps) {
       observer.disconnect();
       cancelAnimationFrame(rafRef.current);
       globe.destroy();
-      globeRef.current = null;
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     };
   }, [markers, size]);
 
+  // ─── Pointer handlers ────────────────────────────────────────────
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     draggingRef.current = true;
     userDraggingRef.current = true;
-    pointerXRef.current = e.clientX;
-    pointerYRef.current = e.clientY;
+    pxRef.current = e.clientX;
+    pyRef.current = e.clientY;
+    dragDistRef.current = 0;
     if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }, []);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!draggingRef.current) return;
-    const dx = e.clientX - pointerXRef.current;
-    const dy = e.clientY - pointerYRef.current;
-    pointerXRef.current = e.clientX;
-    pointerYRef.current = e.clientY;
-    phiRef.current += dx * DRAG_SENSITIVITY;
+
+    const dx = e.clientX - pxRef.current;
+    const dy = e.clientY - pyRef.current;
+    pxRef.current = e.clientX;
+    pyRef.current = e.clientY;
+    dragDistRef.current += Math.abs(dx) + Math.abs(dy);
+
+    // Fixed directions: drag right → globe moves right, drag down → see south
+    phiRef.current = Math.max(
+      CENTER_PHI - PHI_RANGE,
+      Math.min(CENTER_PHI + PHI_RANGE, phiRef.current - dx * DRAG_SENSITIVITY),
+    );
     thetaRef.current = Math.max(
-      -Math.PI / 2,
-      Math.min(Math.PI / 2, thetaRef.current - dy * DRAG_SENSITIVITY),
+      CENTER_THETA - THETA_RANGE,
+      Math.min(
+        CENTER_THETA + THETA_RANGE,
+        thetaRef.current + dy * DRAG_SENSITIVITY,
+      ),
     );
   }, []);
 
-  const handlePointerUp = useCallback(() => {
+  const scheduleResume = useCallback(() => {
     draggingRef.current = false;
-    // Resume auto-rotate after a short delay
     resumeTimerRef.current = setTimeout(() => {
       userDraggingRef.current = false;
     }, RESUME_DELAY);
   }, []);
 
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      const wasClick = dragDistRef.current < CLICK_THRESHOLD;
+      scheduleResume();
+
+      if (wasClick && onClickRef.current && canvasRef.current) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const scaleF = size / rect.width;
+        const cx = (e.clientX - rect.left) * scaleF;
+        const cy = (e.clientY - rect.top) * scaleF;
+
+        let bestIdx = -1;
+        let bestDist = MARKER_HIT_RADIUS;
+
+        markers.forEach((m, i) => {
+          const p = projectToScreen(
+            m.location[0],
+            m.location[1],
+            phiRef.current,
+            thetaRef.current,
+            size,
+            GLOBE_SCALE,
+          );
+          if (!p.visible) return;
+          const d = Math.hypot(p.x - cx, p.y - cy);
+          if (d < bestDist) {
+            bestDist = d;
+            bestIdx = i;
+          }
+        });
+
+        if (bestIdx >= 0) onClickRef.current(bestIdx);
+      }
+    },
+    [markers, size, scheduleResume],
+  );
+
+  // ─── Render ───────────────────────────────────────────────────────
+  const activeMarker =
+    activeMarkerIndex !== null && activeMarkerIndex >= 0
+      ? markers[activeMarkerIndex]
+      : null;
+
   return (
-    <canvas
-      ref={canvasRef}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
+    <div
       style={{
+        position: "relative",
         width: size,
-        height: size,
         maxWidth: "100%",
         aspectRatio: "1",
-        display: "block",
-        position: "relative",
-        zIndex: 1,
-        cursor: "grab",
-        touchAction: "none",
       }}
-    />
+    >
+      <canvas
+        ref={canvasRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={scheduleResume}
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "block",
+          cursor: "grab",
+          touchAction: "none",
+        }}
+      />
+
+      {/* Card overlay — positioned per-frame by the tick loop */}
+      {activeMarker && (
+        <div
+          ref={cardElRef}
+          style={{
+            position: "absolute",
+            transform: "translate(-50%, -130%)",
+            pointerEvents: "none",
+            zIndex: 10,
+            opacity: 0,
+            transition: "opacity 0.4s ease",
+          }}
+        >
+          <div
+            className="globe-card"
+            style={{
+              background: "rgba(34,40,42,0.82)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 14,
+              padding: "12px 16px",
+              minWidth: 180,
+              maxWidth: 230,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+            }}
+          >
+            <div
+              className="globe-card-stat"
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: "#fff",
+                lineHeight: 1.3,
+                marginBottom: 4,
+              }}
+            >
+              {activeMarker.stat}
+            </div>
+            <div
+              className="globe-card-label"
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: "rgba(255,255,255,0.45)",
+                lineHeight: 1.3,
+              }}
+            >
+              {activeMarker.label}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
