@@ -2,16 +2,18 @@ import { useEffect, useState, useRef } from "react";
 import { mkt } from "@/theme/tokens";
 
 const TRADES = [
-  "Plumbers",
   "Electricians",
-  "HVAC",
-  "Roofers",
-  "Landscapers",
   "Cleaners",
-  "Painters",
-  "Fences",
-  "Decks",
-  "Concrete",
+  "Locksmiths",
+  "HVAC Technicians",
+  "Plumbers",
+  "Contractors",
+  "Detailers",
+  "Mechanics",
+  "Roofers",
+  "Welders",
+  "Carpenters",
+  "Landscapers",
 ];
 
 const HOLD_MS = 2200;

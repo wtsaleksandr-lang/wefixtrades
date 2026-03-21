@@ -597,7 +597,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               : {
                   width: "calc(100% - 32px)",
                   margin: "3px auto 0",
-                  borderRadius: 16,
+                  borderRadius: 24,
                   padding: "0 18px",
                   background: "rgba(34,40,42,0.55)",
                   backdropFilter: "blur(12px) saturate(1.3)",
