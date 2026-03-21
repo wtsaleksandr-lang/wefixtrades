@@ -9,19 +9,31 @@ interface GlobeCanvasProps {
   onMarkerClick?: (index: number) => void;
 }
 
-// North America center
+/* ── Eldora-UI–inspired config ─────────────────────────────────────── */
+
+// Globe orientation (North America center)
 const CENTER_PHI = 4.5;
 const CENTER_THETA = 0.45;
 const GLOBE_SCALE = 1.8;
+
+// Appearance (dark theme, cyan markers)
+const DARK = 1;
+const DIFFUSE = 3;
+const MAP_BRIGHTNESS = 1.8;
+const MAP_BASE_BRIGHTNESS = 0.05;
+const BASE_COLOR: [number, number, number] = [0.3, 0.3, 0.3];
+const MARKER_COLOR: [number, number, number] = [0.4, 0.91, 0.98];
+const GLOW_COLOR: [number, number, number] = [0.2, 0.2, 0.2];
+const OPACITY = 0.7;
 
 // Interaction
 const DRAG_SENSITIVITY = 0.004;
 const PHI_RANGE = 0.5;
 const THETA_RANGE = 0.3;
-const AUTO_DRIFT_SPEED = 0.0008;
+const AUTO_DRIFT_SPEED = 0.005;
 const RESUME_DELAY = 3000;
-const CLICK_THRESHOLD = 5; // px — distinguishes click from drag
-const MARKER_HIT_RADIUS = 50; // px — how close a click must be to a marker
+const CLICK_THRESHOLD = 5;
+const MARKER_HIT_RADIUS = 50;
 
 /** Project a lat/lon marker to screen coordinates given current globe rotation. */
 function projectToScreen(
@@ -39,12 +51,10 @@ function projectToScreen(
   const sinLat = Math.sin(latR);
   const dLon = lonR - phi;
 
-  // Rotate by phi (longitude rotation)
   const x1 = cosLat * Math.sin(dLon);
   const y1 = -sinLat;
   const z1 = cosLat * Math.cos(dLon);
 
-  // Rotate by theta (latitude tilt — inverse/camera convention to match COBE)
   const cosT = Math.cos(theta);
   const sinT = Math.sin(theta);
   const x2 = x1;
@@ -78,9 +88,8 @@ export default function GlobeCanvas({
   // Globe orientation
   const phiRef = useRef(CENTER_PHI);
   const thetaRef = useRef(CENTER_THETA);
-  const driftDirRef = useRef(1);
 
-  // User interaction state
+  // User interaction state (auto-draggable variant)
   const userDraggingRef = useRef(false);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -97,7 +106,7 @@ export default function GlobeCanvas({
     activeIdxRef.current = activeMarkerIndex;
   }, [activeMarkerIndex]);
 
-  // ─── COBE lifecycle ──────────────────────────────────────────────
+  // ─── COBE lifecycle (Eldora UI pattern) ────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -113,57 +122,70 @@ export default function GlobeCanvas({
       size: m.size,
     }));
 
+    let width = canvas.offsetWidth;
+
+    const onResize = () => {
+      if (canvas) width = canvas.offsetWidth;
+    };
+    window.addEventListener("resize", onResize);
+
     const globe = createGlobe(canvas, {
       devicePixelRatio: dpr,
       width: size * 2,
       height: size * 2,
       phi: CENTER_PHI,
       theta: CENTER_THETA,
-      dark: 1,
-      diffuse: 0.8,
+      dark: DARK,
+      diffuse: DIFFUSE,
       mapSamples: isMobile ? 12000 : 20000,
-      mapBrightness: 6,
-      baseColor: [0.3, 0.3, 0.3],
-      markerColor: [0.4, 0.91, 0.98],
-      glowColor: [0.2, 0.2, 0.2],
-      opacity: 0.7,
+      mapBrightness: MAP_BRIGHTNESS,
+      mapBaseBrightness: MAP_BASE_BRIGHTNESS,
+      baseColor: BASE_COLOR,
+      markerColor: MARKER_COLOR,
+      glowColor: GLOW_COLOR,
+      opacity: OPACITY,
       scale: GLOBE_SCALE,
       offset: [0, 0],
       markers: cobeMarkers,
+      onRender: (state) => {
+        // Auto-draggable variant: auto-rotate unless user is dragging
+        if (!pausedRef.current && !userDraggingRef.current) {
+          phiRef.current += AUTO_DRIFT_SPEED;
+        }
+
+        state.phi = phiRef.current;
+        state.theta = thetaRef.current;
+        state.width = size * 2;
+        state.height = size * 2;
+
+        // Update card position via DOM (no React re-render)
+        const idx = activeIdxRef.current;
+        if (
+          cardElRef.current &&
+          idx !== null &&
+          idx >= 0 &&
+          idx < markers.length
+        ) {
+          const m = markers[idx];
+          const p = projectToScreen(
+            m.location[0],
+            m.location[1],
+            phiRef.current,
+            thetaRef.current,
+            size,
+            GLOBE_SCALE,
+          );
+          cardElRef.current.style.left = (p.x / size) * 100 + "%";
+          cardElRef.current.style.top = (p.y / size) * 100 + "%";
+          cardElRef.current.style.opacity = p.visible ? "1" : "0";
+        }
+      },
     });
 
-    const tick = () => {
-      // Gentle auto-drift (oscillate within bounds)
-      if (!pausedRef.current && !userDraggingRef.current) {
-        phiRef.current += driftDirRef.current * AUTO_DRIFT_SPEED;
-        if (phiRef.current > CENTER_PHI + PHI_RANGE * 0.3)
-          driftDirRef.current = -1;
-        if (phiRef.current < CENTER_PHI - PHI_RANGE * 0.3)
-          driftDirRef.current = 1;
-      }
-
-      globe.update({ phi: phiRef.current, theta: thetaRef.current });
-
-      // Update card position via DOM (no React re-render)
-      const idx = activeIdxRef.current;
-      if (cardElRef.current && idx !== null && idx >= 0 && idx < markers.length) {
-        const m = markers[idx];
-        const p = projectToScreen(
-          m.location[0],
-          m.location[1],
-          phiRef.current,
-          thetaRef.current,
-          size,
-          GLOBE_SCALE,
-        );
-        cardElRef.current.style.left = (p.x / size) * 100 + "%";
-        cardElRef.current.style.top = (p.y / size) * 100 + "%";
-        cardElRef.current.style.opacity = p.visible ? "1" : "0";
-      }
-
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
+    // Fade in via opacity transition (Eldora UI pattern)
+    setTimeout(() => {
+      if (canvas) canvas.style.opacity = "1";
+    }, 100);
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -175,13 +197,13 @@ export default function GlobeCanvas({
 
     return () => {
       observer.disconnect();
-      cancelAnimationFrame(rafRef.current);
       globe.destroy();
+      window.removeEventListener("resize", onResize);
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     };
   }, [markers, size]);
 
-  // ─── Pointer handlers ────────────────────────────────────────────
+  // ─── Pointer handlers (auto-draggable variant) ─────────────────────
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     draggingRef.current = true;
     userDraggingRef.current = true;
@@ -201,11 +223,7 @@ export default function GlobeCanvas({
     pyRef.current = e.clientY;
     dragDistRef.current += Math.abs(dx) + Math.abs(dy);
 
-    // Fixed directions: drag right → globe moves right, drag down → see south
-    phiRef.current = Math.max(
-      CENTER_PHI - PHI_RANGE,
-      Math.min(CENTER_PHI + PHI_RANGE, phiRef.current - dx * DRAG_SENSITIVITY),
-    );
+    phiRef.current -= dx * DRAG_SENSITIVITY;
     thetaRef.current = Math.max(
       CENTER_THETA - THETA_RANGE,
       Math.min(
@@ -259,7 +277,7 @@ export default function GlobeCanvas({
     [markers, size, scheduleResume],
   );
 
-  // ─── Render ───────────────────────────────────────────────────────
+  // ─── Render ─────────────────────────────────────────────────────────
   const activeMarker =
     activeMarkerIndex !== null && activeMarkerIndex >= 0
       ? markers[activeMarkerIndex]
@@ -283,13 +301,16 @@ export default function GlobeCanvas({
         style={{
           width: "100%",
           height: "100%",
+          contain: "layout paint size",
           display: "block",
           cursor: "grab",
           touchAction: "none",
+          opacity: 0,
+          transition: "opacity 1s ease",
         }}
       />
 
-      {/* Card overlay — positioned per-frame by the tick loop */}
+      {/* Card overlay — positioned per-frame by the onRender callback */}
       {activeMarker && (
         <div
           ref={cardElRef}
