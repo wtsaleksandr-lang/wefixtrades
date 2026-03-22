@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { queryClient } from "@/lib/queryClient";
 import Logo from "@/components/primitives/Logo";
 import { mkt, colors } from "@/theme/tokens";
+import { FOOTER_LINKS, FOOTER_LEGAL_LINKS } from "@/site/siteMap";
 
 const DEBUG_DROPDOWN = false;
 
@@ -530,6 +531,17 @@ function FtLink({ href, children }: { href: string; children: React.ReactNode })
   );
 }
 
+function FooterColumn({ heading, links }: { heading: string; links: readonly { label: string; href: string }[] }) {
+  return (
+    <div>
+      <div style={ftHeading}>{heading}</div>
+      {links.map((link) => (
+        <FtLink key={link.href} href={link.href}>{link.label}</FtLink>
+      ))}
+    </div>
+  );
+}
+
 function MarketingFooter({ isMobile }: { isMobile: boolean }) {
   const { isAuthenticated, isPortalUser } = useAuth();
 
@@ -542,22 +554,34 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
         color: "rgba(255,255,255,0.5)",
       }}
     >
+      <style>{`
+        .ft-grid {
+          display: grid;
+          grid-template-columns: 2fr 1.2fr 1fr 1fr 1fr;
+          gap: 48px;
+        }
+        @media (max-width: 900px) {
+          .ft-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 36px;
+          }
+        }
+        @media (max-width: 480px) {
+          .ft-grid {
+            grid-template-columns: 1fr;
+            gap: 32px;
+          }
+        }
+      `}</style>
+
       <div
         style={{
-          maxWidth: 960,
+          maxWidth: 1100,
           margin: "0 auto",
           padding: isMobile ? "48px 24px 32px" : "64px 40px 36px",
         }}
       >
-        {/* 3-column grid */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr 1fr",
-            gap: isMobile ? 40 : 48,
-            marginBottom: 48,
-          }}
-        >
+        <div className="ft-grid" style={{ marginBottom: 48 }}>
           {/* Col 1 — Brand */}
           <div>
             <div style={{ marginBottom: 14 }}>
@@ -566,23 +590,31 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             <p style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", lineHeight: 1.65, maxWidth: 280, margin: 0 }}>
               Quote tools and AI workflows for modern service businesses.
             </p>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", lineHeight: 1.5, marginTop: 12, margin: "12px 0 0" }}>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", lineHeight: 1.5, margin: "12px 0 0" }}>
               Built for speed, clarity, and conversion.
             </p>
           </div>
 
-          {/* Col 2 — Company */}
+          {/* Col 2 — Products */}
+          <FooterColumn heading="Products" links={FOOTER_LINKS.Product} />
+
+          {/* Col 3 — Solutions */}
+          <FooterColumn heading="Solutions" links={FOOTER_LINKS.Solutions} />
+
+          {/* Col 4 — Resources */}
+          <FooterColumn heading="Resources" links={FOOTER_LINKS.Resources} />
+
+          {/* Col 5 — Company + Legal + Access */}
           <div>
             <div style={ftHeading}>Company</div>
-            <FtLink href="/about">About</FtLink>
-            <FtLink href="/contact">Contact</FtLink>
-          </div>
+            {FOOTER_LINKS.Company.map((link) => (
+              <FtLink key={link.href} href={link.href}>{link.label}</FtLink>
+            ))}
 
-          {/* Col 3 — Legal + Access */}
-          <div>
-            <div style={ftHeading}>Legal</div>
-            <FtLink href="/privacy">Privacy Policy</FtLink>
-            <FtLink href="/terms">Terms</FtLink>
+            <div style={{ ...ftHeading, marginTop: 24 }}>Legal</div>
+            {FOOTER_LEGAL_LINKS.map((link) => (
+              <FtLink key={link.href} href={link.href}>{link.label}</FtLink>
+            ))}
 
             {!isAuthenticated && (
               <FtLink href="/login">Login</FtLink>
@@ -617,7 +649,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
                   background: "none",
                   border: "none",
                   cursor: "pointer",
-                  padding: "7px 0",
+                  padding: "5px 0",
                   fontFamily: "inherit",
                   textAlign: "left",
                 }}
@@ -639,12 +671,25 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             justifyContent: "space-between",
             alignItems: "center",
             flexWrap: "wrap",
-            gap: 8,
+            gap: 12,
           }}
         >
           <span style={{ fontSize: 12, color: "rgba(255,255,255,0.22)" }}>
             &copy; {new Date().getFullYear()} WeFixTrades
           </span>
+          <div style={{ display: "flex", gap: 16 }}>
+            {FOOTER_LEGAL_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                style={{ fontSize: 12, color: "rgba(255,255,255,0.22)", textDecoration: "none", transition: "color 0.15s ease" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.22)"; }}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </footer>

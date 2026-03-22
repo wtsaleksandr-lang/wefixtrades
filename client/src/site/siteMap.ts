@@ -58,14 +58,17 @@ export const DEMOS = [
 
 export const FOOTER_LINKS = {
   Product: [
-    { label: "TradeLine™", href: "/products/tradeline" },
-    { label: "QuoteQuick Pro™", href: "/products/quotequick" },
-    { label: "MapGuard™", href: "/products/mapguard" },
-    { label: "ReputationShield™", href: "/products/reputationshield" },
-    { label: "WebBoost™", href: "/products/webboost" },
-    { label: "SocialSync™", href: "/products/socialsync" },
-    { label: "SiteLaunch™", href: "/products/sitelaunch" },
-    { label: "Fix & Optimize™", href: "/products/fix-and-optimize" },
+    { label: "TradeLine\u2122", href: "/products/assistants" },
+    { label: "AI ChatLine\u2122", href: "/products/ai-chat" },
+    { label: "AI CallLine\u2122", href: "/products/ai-voice" },
+    { label: "TradeLine\u2122 Complete", href: "/products/tradeline-complete" },
+    { label: "QuoteQuick Pro\u2122", href: "/products/quickquotepro" },
+    { label: "MapGuard\u2122", href: "/products/mapguard" },
+    { label: "ReputationShield\u2122", href: "/products/reputationshield" },
+    { label: "WebBoost\u2122", href: "/products/webboost" },
+    { label: "SocialSync\u2122", href: "/products/socialsync" },
+    { label: "SiteLaunch\u2122", href: "/products/sitelaunch" },
+    { label: "Fix & Optimize\u2122", href: "/products/fix-and-optimize" },
   ],
   Solutions: [
     { label: "For Plumbers", href: "/solutions/for-plumbers" },
