@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, Fragment, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Plus, Workflow, MessageSquare, PhoneCall, Layers, MapPinned, Wrench, RefreshCcw, ShieldCheck, Layout, Rocket, Calculator, FileText, Code2, Share2, Sparkles, Search, Zap, Home, Fan } from "lucide-react";
+import { Menu, X, Plus, Workflow, MessageSquare, PhoneCall, Layers, MapPinned, Wrench, RefreshCcw, ShieldCheck, Layout, Rocket, Calculator, FileText, Code2, Share2, Sparkles, Search, Zap, Home, Fan, Lock, Award } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
 import { useLenis } from "@/hooks/useLenis";
 import { useAuth } from "@/hooks/useAuth";
@@ -501,20 +501,22 @@ const ftLink: CSSProperties = {
   display: "block",
   fontSize: 13,
   fontWeight: 400,
-  color: "rgba(255,255,255,0.5)",
+  color: "rgba(255,255,255,0.45)",
   textDecoration: "none",
-  lineHeight: 1.4,
-  padding: "7px 0",
+  lineHeight: 1.3,
+  padding: "5px 0",
   transition: "color 0.15s ease",
 };
 
 const ftHeading: CSSProperties = {
-  fontSize: 10,
+  fontSize: 11,
   fontWeight: 600,
-  color: "rgba(255,255,255,0.3)",
+  color: mkt.accent,
   textTransform: "uppercase",
-  letterSpacing: "0.1em",
-  marginBottom: 16,
+  letterSpacing: "0.08em",
+  paddingBottom: 10,
+  marginBottom: 12,
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
 };
 
 function FtLink({ href, children }: { href: string; children: React.ReactNode }) {
@@ -538,72 +540,60 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
       data-testid="footer-marketing"
       style={{
         borderTop: "1px solid rgba(255,255,255,0.06)",
-        background: "#0b1110",
+        background: "#0a0d0f",
         color: "rgba(255,255,255,0.5)",
       }}
     >
-      <div
-        style={{
-          maxWidth: 960,
-          margin: "0 auto",
-          padding: isMobile ? "48px 24px 32px" : "64px 40px 36px",
-        }}
-      >
-        {/* 3-column grid */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr 1fr",
-            gap: isMobile ? 40 : 48,
-            marginBottom: 48,
-          }}
-        >
-          {/* Col 1 — Brand */}
+      {/* ── Main footer grid ───────────────────────────────────────── */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 24px 0" }}>
+        <div className="mkt-footer-grid">
+          {/* Col 1 — Products */}
           <div>
-            <div style={{ marginBottom: 14 }}>
-              <Logo animate={false} />
-            </div>
-            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", lineHeight: 1.65, maxWidth: 280, margin: 0 }}>
-              Quote tools and AI workflows for modern service businesses.
-            </p>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", lineHeight: 1.5, marginTop: 12, margin: "12px 0 0" }}>
-              Built for speed, clarity, and conversion.
-            </p>
+            <div style={ftHeading}>Products</div>
+            <FtLink href="/solutions/ai-call-answering">AI Call Answering</FtLink>
+            <FtLink href="/solutions/instant-quotes">Instant Quotes</FtLink>
+            <FtLink href="/solutions/review-engine">Review Engine</FtLink>
+            <FtLink href="/solutions/visibility-boost">Visibility Boost</FtLink>
+            <FtLink href="/solutions/website-chat">Website Chat</FtLink>
           </div>
 
-          {/* Col 2 — Company */}
+          {/* Col 2 — Solutions */}
           <div>
-            <div style={ftHeading}>Company</div>
-            <FtLink href="/about">About</FtLink>
-            <FtLink href="/contact">Contact</FtLink>
+            <div style={ftHeading}>Solutions</div>
+            <FtLink href="/industries/plumbing">Plumbing</FtLink>
+            <FtLink href="/industries/hvac">HVAC</FtLink>
+            <FtLink href="/industries/electrical">Electrical</FtLink>
+            <FtLink href="/industries/roofing">Roofing</FtLink>
+            <FtLink href="/industries/cleaning">Cleaning</FtLink>
           </div>
 
-          {/* Col 3 — Legal + Access */}
+          {/* Col 3 — Resources */}
           <div>
-            <div style={ftHeading}>Legal</div>
-            <FtLink href="/privacy">Privacy Policy</FtLink>
-            <FtLink href="/terms">Terms</FtLink>
-
-            {!isAuthenticated && (
-              <FtLink href="/login">Login</FtLink>
-            )}
-            {isAuthenticated && (
-              <FtLink href="/dashboard">Dashboard</FtLink>
-            )}
+            <div style={ftHeading}>Resources</div>
+            <FtLink href="/about">About Us</FtLink>
+            <FtLink href="/contact">Contact Sales</FtLink>
+            <FtLink href="/plans">Pricing</FtLink>
+            {!isAuthenticated && <FtLink href="/login">Login</FtLink>}
+            {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}
             {isPortalUser && (
               <Link
                 href="/dashboard"
-                style={{
-                  ...ftLink,
-                  fontSize: 12,
-                  color: "rgba(255,255,255,0.28)",
-                }}
+                style={{ ...ftLink, color: "rgba(255,255,255,0.28)" }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.28)"; }}
               >
                 Portal
               </Link>
             )}
+          </div>
+
+          {/* Col 4 — Legal */}
+          <div>
+            <div style={ftHeading}>Legal</div>
+            <FtLink href="/privacy">Privacy Policy</FtLink>
+            <FtLink href="/terms">Terms of Service</FtLink>
+            <FtLink href="/terms">Cookie Policy</FtLink>
+            <FtLink href="/terms">GDPR</FtLink>
             {isAuthenticated && (
               <button
                 onClick={async () => {
@@ -617,7 +607,6 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
                   background: "none",
                   border: "none",
                   cursor: "pointer",
-                  padding: "7px 0",
                   fontFamily: "inherit",
                   textAlign: "left",
                 }}
@@ -629,24 +618,77 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             )}
           </div>
         </div>
+      </div>
 
-        {/* Bottom bar */}
-        <div
-          style={{
-            borderTop: "1px solid rgba(255,255,255,0.06)",
-            paddingTop: 20,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 8,
-          }}
-        >
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.22)" }}>
-            &copy; {new Date().getFullYear()} WeFixTrades
-          </span>
+      {/* ── Divider ────────────────────────────────────────────────── */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 36 }} />
+      </div>
+
+      {/* ── Corporate bottom bar ───────────────────────────────────── */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 24px 16px" }}>
+        {/* Trust badges */}
+        <div className="mkt-footer-trust" style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 16, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.25)", fontSize: 11, fontWeight: 500 }}>
+            <ShieldCheck size={14} strokeWidth={1.5} />
+            <span>SOC 2 Compliant</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.25)", fontSize: 11, fontWeight: 500 }}>
+            <Lock size={14} strokeWidth={1.5} />
+            <span>256-bit SSL Encrypted</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.25)", fontSize: 11, fontWeight: 500 }}>
+            <Award size={14} strokeWidth={1.5} />
+            <span>GDPR Ready</span>
+          </div>
+        </div>
+
+        {/* Company info + copyright */}
+        <div className="mkt-footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+          <div>
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.22)", margin: "0 0 4px", lineHeight: 1.5 }}>
+              &copy; {new Date().getFullYear()} WeFixTrades Inc. All rights reserved.
+            </p>
+            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.14)", margin: 0, lineHeight: 1.5, maxWidth: 480 }}>
+              WeFixTrades Inc. is a registered technology company. Business Registration No. 2024-WFT-0847.
+              Registered office: 1200 Market Street, Suite 400, Wilmington, DE 19801, United States.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 16, flexShrink: 0 }}>
+            <Link href="/privacy" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Privacy</Link>
+            <Link href="/terms" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Terms</Link>
+            <Link href="/terms" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Cookies</Link>
+          </div>
         </div>
       </div>
+
+      {/* ── Responsive CSS ─────────────────────────────────────────── */}
+      <style>{`
+        .mkt-footer-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 40px;
+        }
+        @media (max-width: 768px) {
+          .mkt-footer-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 28px 24px;
+          }
+        }
+        @media (max-width: 400px) {
+          .mkt-footer-grid {
+            gap: 24px 20px;
+          }
+        }
+        @media (max-width: 640px) {
+          .mkt-footer-bottom {
+            flex-direction: column !important;
+          }
+          .mkt-footer-trust {
+            gap: 12px !important;
+          }
+        }
+      `}</style>
     </footer>
   );
 }
