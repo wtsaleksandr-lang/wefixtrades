@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import Globe from "globe.gl";
 import * as topojson from "topojson-client";
 import { MeshPhongMaterial, Color, CanvasTexture } from "three";
@@ -121,18 +121,6 @@ interface GlobeCanvasProps {
   onMarkerClick?: (index: number) => void;
 }
 
-function hasWebGL(): boolean {
-  try {
-    const canvas = document.createElement("canvas");
-    return !!(
-      canvas.getContext("webgl") ||
-      canvas.getContext("experimental-webgl")
-    );
-  } catch (e) {
-    return false;
-  }
-}
-
 export default function GlobeCanvas({
   markers,
   size = 900,
@@ -142,17 +130,18 @@ export default function GlobeCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<any>(null);
   const onClickRef = useRef(onMarkerClick);
-  const [webglAvailable] = useState(() => hasWebGL());
   onClickRef.current = onMarkerClick;
 
   // ── Mount globe.gl instance ─────────────────────────────────────────
   useEffect(() => {
-    if (!containerRef.current || !webglAvailable) return;
+    if (!containerRef.current) return;
 
     // Clear any previous content
     containerRef.current.innerHTML = "";
 
-    const globe = new Globe(containerRef.current)
+    let globe: any;
+    try {
+    globe = new Globe(containerRef.current)
       .backgroundColor("rgba(0,0,0,0)")
       .showGlobe(true)
       .showAtmosphere(false)
@@ -256,12 +245,15 @@ export default function GlobeCanvas({
     setTimeout(() => {
       if (containerRef.current) containerRef.current.style.opacity = "1";
     }, 400);
+    } catch (_e) {
+      return;
+    }
 
     return () => {
-      globe._destructor();
+      if (globe) globe._destructor();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [markers, size, webglAvailable]);
+  }, [markers, size]);
 
   // ── Update active marker ring + highlight ───────────────────────────
   useEffect(() => {
@@ -284,8 +276,6 @@ export default function GlobeCanvas({
       el.classList.toggle("active", idx === activeMarkerIndex);
     });
   }, [activeMarkerIndex, markers]);
-
-  if (!webglAvailable) return null;
 
   return (
     <>
