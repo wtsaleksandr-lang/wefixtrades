@@ -102,18 +102,18 @@ export default function GlobeSection() {
           position: "relative",
           width: "100%",
           maxWidth: 1200,
-          margin: "24px auto 0",
+          margin: "-8px auto 0",
           overflow: "hidden",
           height: "clamp(380px, 50vw, 620px)",
         }}
       >
-        {/* Globe container — absolutely centered, overflows viewport edges */}
+        {/* Globe container — pulled up to minimize dead space */}
         <div
           className="globe-center"
           style={{
             position: "absolute",
             left: "50%",
-            top: 0,
+            top: "clamp(-180px, -18vw, -80px)",
             transform: "translateX(-50%)",
           }}
         >
@@ -125,52 +125,54 @@ export default function GlobeSection() {
           />
         </div>
 
-        {/* ── Stats callout (Cloudflare-style, bottom-left) ────────── */}
+        {/* ── Stats callout (frosted glass, bottom-left) ─────────── */}
         <div
           className="globe-stats-callout"
           style={{
             position: "absolute",
-            bottom: "12%",
+            bottom: "14%",
             left: "6%",
-            border: `1px solid rgba(255,255,255,0.12)`,
-            borderRadius: 16,
-            padding: "16px 20px",
-            maxWidth: 220,
+            border: `1px solid rgba(255,255,255,0.06)`,
+            borderRadius: 14,
+            padding: "14px 16px",
+            width: 155,
             zIndex: 10,
-            background: "rgba(24,29,31,0.45)",
-            backdropFilter: "blur(20px) saturate(1.4)",
-            WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+            background: "rgba(255,255,255,0.04)",
+            backdropFilter: "blur(24px) saturate(1.2)",
+            WebkitBackdropFilter: "blur(24px) saturate(1.2)",
             boxShadow:
-              "0 8px 32px rgba(0,0,0,0.3), inset 0 0.5px 0 rgba(255,255,255,0.08)",
+              "0 4px 24px rgba(0,0,0,0.15), inset 0 0.5px 0 rgba(255,255,255,0.04)",
           }}
         >
           <div
             style={{
-              fontSize: "clamp(24px, 3vw, 36px)",
-              fontWeight: 800,
-              color: mkt.accent,
-              lineHeight: 1.1,
+              fontSize: 20,
+              fontWeight: 500,
+              color: "rgba(255,255,255,0.8)",
+              lineHeight: 1.2,
               marginBottom: 6,
               fontFamily: typography.fontFamily,
+              letterSpacing: "-0.01em",
             }}
           >
             2,400+
           </div>
           <div
             style={{
-              fontSize: 13,
-              color: mkt.textMuted,
-              lineHeight: 1.45,
+              fontSize: 11,
+              color: "rgba(255,255,255,0.35)",
+              lineHeight: 1.4,
+              fontWeight: 400,
               fontFamily: typography.fontFamily,
+              letterSpacing: "0.01em",
             }}
           >
-            Quotes generated for trades businesses this month. Growing{" "}
-            <span style={{ color: mkt.accent, fontWeight: 600 }}>42%</span>{" "}
-            month over month.
+            Quotes generated this month.{" "}
+            <span style={{ color: "rgba(102,232,250,0.6)" }}>+42%</span>
           </div>
         </div>
 
-        {/* ── Active marker card (right side) ──────────────────────── */}
+        {/* ── Active marker card (right side, frosted glass) ────────── */}
         {activeMarker && (
           <div
             className="globe-active-card"
@@ -179,37 +181,38 @@ export default function GlobeSection() {
               position: "absolute",
               bottom: "18%",
               right: "6%",
-              background: "rgba(34,40,42,0.40)",
-              backdropFilter: "blur(20px) saturate(1.4)",
-              WebkitBackdropFilter: "blur(20px) saturate(1.4)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 16,
-              padding: "14px 18px",
-              minWidth: 180,
-              maxWidth: 230,
+              background: "rgba(255,255,255,0.04)",
+              backdropFilter: "blur(24px) saturate(1.2)",
+              WebkitBackdropFilter: "blur(24px) saturate(1.2)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 14,
+              padding: "14px 16px",
+              width: 170,
               boxShadow:
-                "0 8px 32px rgba(0,0,0,0.3), inset 0 0.5px 0 rgba(255,255,255,0.08)",
+                "0 4px 24px rgba(0,0,0,0.15), inset 0 0.5px 0 rgba(255,255,255,0.04)",
               zIndex: 10,
               animation: "globeCardIn 0.4s ease both",
             }}
           >
             <div
               style={{
-                fontSize: 14,
-                fontWeight: 700,
-                color: "#fff",
-                lineHeight: 1.3,
-                marginBottom: 4,
+                fontSize: 12,
+                fontWeight: 400,
+                color: "rgba(255,255,255,0.75)",
+                lineHeight: 1.35,
+                marginBottom: 5,
+                letterSpacing: "0.01em",
               }}
             >
               {activeMarker.stat}
             </div>
             <div
               style={{
-                fontSize: 11,
-                fontWeight: 500,
-                color: "rgba(255,255,255,0.45)",
+                fontSize: 10,
+                fontWeight: 400,
+                color: "rgba(255,255,255,0.3)",
                 lineHeight: 1.3,
+                letterSpacing: "0.02em",
               }}
             >
               {activeMarker.label}
@@ -362,31 +365,30 @@ export default function GlobeSection() {
             height: clamp(340px, 70vw, 500px) !important;
           }
           .globe-stats-callout {
-            bottom: 6% !important;
+            bottom: 8% !important;
             left: 4% !important;
-            max-width: 170px !important;
+            width: 135px !important;
             padding: 10px 12px !important;
             border-radius: 12px !important;
           }
           .globe-stats-callout > div:first-child {
-            font-size: 20px !important;
+            font-size: 17px !important;
           }
           .globe-stats-callout > div:last-child {
-            font-size: 10px !important;
+            font-size: 9.5px !important;
           }
           .globe-active-card {
             right: 4% !important;
-            bottom: 10% !important;
-            min-width: 140px !important;
-            max-width: 175px !important;
+            bottom: 12% !important;
+            width: 150px !important;
             padding: 10px 12px !important;
             border-radius: 12px !important;
           }
           .globe-active-card > div:first-child {
-            font-size: 12px !important;
+            font-size: 11px !important;
           }
           .globe-active-card > div:last-child {
-            font-size: 10px !important;
+            font-size: 9.5px !important;
           }
           .globe-cta-wrap .cta-arrow-btn {
             width: 100% !important;
@@ -405,9 +407,8 @@ export default function GlobeSection() {
             right: auto !important;
             left: 50% !important;
             transform: translateX(-50%);
-            bottom: 4% !important;
-            min-width: 160px !important;
-            max-width: 200px !important;
+            bottom: 6% !important;
+            width: 155px !important;
           }
           .globe-stats-row {
             gap: 20px !important;
