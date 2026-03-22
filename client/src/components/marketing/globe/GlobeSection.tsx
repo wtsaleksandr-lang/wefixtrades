@@ -1,8 +1,39 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Component } from "react";
+import type { ReactNode } from "react";
 import { Link } from "wouter";
 import { mkt, typography } from "@/theme/tokens";
 import { GLOBE_MARKERS } from "./globeData";
 import GlobeCanvas from "./GlobeCanvas";
+
+class GlobeErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "transparent",
+          }}
+        />
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const CYCLE_INTERVAL = 4000;
 
@@ -117,12 +148,14 @@ export default function GlobeSection() {
             width: "100%",
           }}
         >
-          <GlobeCanvas
-            markers={GLOBE_MARKERS}
-            size={900}
-            activeMarkerIndex={activeIndex}
-            onMarkerClick={handleMarkerClick}
-          />
+          <GlobeErrorBoundary>
+            <GlobeCanvas
+              markers={GLOBE_MARKERS}
+              size={900}
+              activeMarkerIndex={activeIndex}
+              onMarkerClick={handleMarkerClick}
+            />
+          </GlobeErrorBoundary>
         </div>
 
         {/* ── Stats callout (Cloudflare-style, bottom-left) ────────── */}
