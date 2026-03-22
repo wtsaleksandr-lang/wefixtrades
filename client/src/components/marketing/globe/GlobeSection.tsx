@@ -38,11 +38,6 @@ export default function GlobeSection() {
     [startCycle],
   );
 
-  const activeMarker =
-    activeIndex >= 0 && activeIndex < GLOBE_MARKERS.length
-      ? GLOBE_MARKERS[activeIndex]
-      : null;
-
   return (
     <section
       data-testid="globe-section"
@@ -104,7 +99,7 @@ export default function GlobeSection() {
           maxWidth: 1200,
           margin: "-8px auto 0",
           overflow: "hidden",
-          height: "clamp(380px, 50vw, 620px)",
+          height: "clamp(456px, 60vw, 744px)",
         }}
       >
         {/* Globe container — pulled up to minimize dead space */}
@@ -113,7 +108,7 @@ export default function GlobeSection() {
           style={{
             position: "absolute",
             left: "50%",
-            top: "clamp(-180px, -18vw, -80px)",
+            top: "clamp(-220px, -22vw, -100px)",
             transform: "translateX(-50%)",
           }}
         >
@@ -171,54 +166,6 @@ export default function GlobeSection() {
             <span style={{ color: "rgba(102,232,250,0.6)" }}>+42%</span>
           </div>
         </div>
-
-        {/* ── Active marker card (right side, frosted glass) ────────── */}
-        {activeMarker && (
-          <div
-            className="globe-active-card"
-            key={activeMarker.id}
-            style={{
-              position: "absolute",
-              bottom: "18%",
-              right: "6%",
-              background: "rgba(255,255,255,0.04)",
-              backdropFilter: "blur(24px) saturate(1.2)",
-              WebkitBackdropFilter: "blur(24px) saturate(1.2)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 14,
-              padding: "14px 16px",
-              width: 170,
-              boxShadow:
-                "0 4px 24px rgba(0,0,0,0.15), inset 0 0.5px 0 rgba(255,255,255,0.04)",
-              zIndex: 10,
-              animation: "globeCardIn 0.4s ease both",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: 400,
-                color: "rgba(255,255,255,0.75)",
-                lineHeight: 1.35,
-                marginBottom: 5,
-                letterSpacing: "0.01em",
-              }}
-            >
-              {activeMarker.stat}
-            </div>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 400,
-                color: "rgba(255,255,255,0.3)",
-                lineHeight: 1.3,
-                letterSpacing: "0.02em",
-              }}
-            >
-              {activeMarker.label}
-            </div>
-          </div>
-        )}
 
         {/* Bottom fade */}
         <div
@@ -352,17 +299,13 @@ export default function GlobeSection() {
 
       {/* ── Responsive CSS ─────────────────────────────────────────── */}
       <style>{`
-        @keyframes globeCardIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
         .globe-viewport canvas {
           display: block;
           margin: 0 auto;
         }
         @media (max-width: 900px) {
           .globe-viewport {
-            height: clamp(340px, 70vw, 500px) !important;
+            height: clamp(408px, 84vw, 600px) !important;
           }
           .globe-stats-callout {
             bottom: 8% !important;
@@ -377,19 +320,6 @@ export default function GlobeSection() {
           .globe-stats-callout > div:last-child {
             font-size: 9.5px !important;
           }
-          .globe-active-card {
-            right: 4% !important;
-            bottom: 12% !important;
-            width: 150px !important;
-            padding: 10px 12px !important;
-            border-radius: 12px !important;
-          }
-          .globe-active-card > div:first-child {
-            font-size: 11px !important;
-          }
-          .globe-active-card > div:last-child {
-            font-size: 9.5px !important;
-          }
           .globe-cta-wrap .cta-arrow-btn {
             width: 100% !important;
             max-width: 340px;
@@ -398,17 +328,10 @@ export default function GlobeSection() {
         }
         @media (max-width: 640px) {
           .globe-viewport {
-            height: clamp(300px, 80vw, 400px) !important;
+            height: clamp(360px, 96vw, 480px) !important;
           }
           .globe-stats-callout {
             display: none !important;
-          }
-          .globe-active-card {
-            right: auto !important;
-            left: 50% !important;
-            transform: translateX(-50%);
-            bottom: 6% !important;
-            width: 155px !important;
           }
           .globe-stats-row {
             gap: 20px !important;

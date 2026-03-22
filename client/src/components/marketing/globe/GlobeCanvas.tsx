@@ -222,6 +222,10 @@ export default function GlobeCanvas({
         el.className = "globe-marker";
         el.dataset.markerIdx = String(idx);
         el.innerHTML = `
+          <div class="globe-marker-card" data-idx="${idx}">
+            <div class="globe-marker-card__stat">${d.stat}</div>
+            <div class="globe-marker-card__label">${d.label}</div>
+          </div>
           <div class="globe-marker-circle" data-idx="${idx}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                  stroke="${ACCENT}" stroke-width="2"
@@ -263,10 +267,14 @@ export default function GlobeCanvas({
       globe.ringsData([]);
     }
 
-    // Toggle active class on marker DOM elements
+    // Toggle active class on marker DOM elements + cards
     const container = containerRef.current;
     if (!container) return;
     container.querySelectorAll(".globe-marker-circle").forEach((el) => {
+      const idx = Number((el as HTMLElement).dataset.idx);
+      el.classList.toggle("active", idx === activeMarkerIndex);
+    });
+    container.querySelectorAll(".globe-marker-card").forEach((el) => {
       const idx = Number((el as HTMLElement).dataset.idx);
       el.classList.toggle("active", idx === activeMarkerIndex);
     });
@@ -324,6 +332,54 @@ export default function GlobeCanvas({
           100% { transform: scale(1.8); opacity: 0; }
         }
 
+        /* ── Floating card above marker ──────────────────────── */
+        .globe-marker {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          position: relative;
+        }
+        .globe-marker-card {
+          position: absolute;
+          bottom: calc(100% + 8px);
+          left: 50%;
+          transform: translateX(-50%) translateY(6px);
+          background: rgba(255,255,255,0.04);
+          backdrop-filter: blur(24px) saturate(1.2);
+          -webkit-backdrop-filter: blur(24px) saturate(1.2);
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 12px;
+          padding: 10px 12px;
+          width: max-content;
+          max-width: 170px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.2), inset 0 0.5px 0 rgba(255,255,255,0.04);
+          pointer-events: none;
+          opacity: 0;
+          transition: opacity 0.35s ease, transform 0.35s ease;
+          white-space: nowrap;
+          z-index: 20;
+        }
+        .globe-marker-card.active {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+        .globe-marker-card__stat {
+          font-size: 11.5px;
+          font-weight: 400;
+          color: rgba(255,255,255,0.78);
+          line-height: 1.35;
+          margin-bottom: 3px;
+          letter-spacing: 0.01em;
+          white-space: normal;
+        }
+        .globe-marker-card__label {
+          font-size: 9.5px;
+          font-weight: 400;
+          color: rgba(255,255,255,0.3);
+          line-height: 1.3;
+          letter-spacing: 0.02em;
+        }
+
         @media (max-width: 768px) {
           .globe-marker-circle {
             width: 32px;
@@ -332,6 +388,17 @@ export default function GlobeCanvas({
           .globe-marker-circle svg {
             width: 13px;
             height: 13px;
+          }
+          .globe-marker-card {
+            max-width: 145px;
+            padding: 8px 10px;
+            border-radius: 10px;
+          }
+          .globe-marker-card__stat {
+            font-size: 10.5px;
+          }
+          .globe-marker-card__label {
+            font-size: 9px;
           }
         }
       `}</style>
