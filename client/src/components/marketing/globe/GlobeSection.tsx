@@ -107,14 +107,14 @@ export default function GlobeSection() {
           height: "clamp(380px, 50vw, 620px)",
         }}
       >
-        {/* Globe container — centered, extends below viewport */}
+        {/* Globe container — absolutely centered, overflows viewport edges */}
         <div
           className="globe-center"
           style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "flex-start",
-            width: "100%",
+            position: "absolute",
+            left: "50%",
+            top: 0,
+            transform: "translateX(-50%)",
           }}
         >
           <GlobeCanvas
