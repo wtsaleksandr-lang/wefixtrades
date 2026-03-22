@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import gsap from "gsap";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
@@ -294,6 +294,10 @@ const RESPONSIVE_CSS = `
 export default function HomePage() {
   useScrollReveal();
   const heroRef = useRef<HTMLDivElement>(null);
+  const [hasWebGL] = useState<boolean>(() => {
+    const canvas = document.createElement("canvas");
+    return !!(canvas.getContext("webgl") ?? canvas.getContext("experimental-webgl"));
+  });
 
   useEffect(() => {
     document.title = "WeFixTrades — More Booked Jobs, Automatically";
@@ -576,7 +580,7 @@ export default function HomePage() {
       <StickyStackCards />
       <PillarAnimation />
       <FeatureCards />
-      <GlobeSection />
+      {hasWebGL && <GlobeSection />}
       <SurfaceSection overlap className="py-4">
         <ReviewsSection />
       </SurfaceSection>

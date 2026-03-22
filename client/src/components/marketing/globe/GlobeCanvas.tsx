@@ -139,9 +139,7 @@ export default function GlobeCanvas({
     // Clear any previous content
     containerRef.current.innerHTML = "";
 
-    let globe: any;
-    try {
-    globe = new Globe(containerRef.current)
+    const globe = new Globe(containerRef.current)
       .backgroundColor("rgba(0,0,0,0)")
       .showGlobe(true)
       .showAtmosphere(false)
@@ -245,12 +243,9 @@ export default function GlobeCanvas({
     setTimeout(() => {
       if (containerRef.current) containerRef.current.style.opacity = "1";
     }, 400);
-    } catch (_e) {
-      return;
-    }
 
     return () => {
-      if (globe) globe._destructor();
+      globe._destructor();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [markers, size]);
