@@ -242,7 +242,7 @@ function DiagramNode({ data }: { data: FlowNodeData }) {
           borderRadius: 4,
           padding: 10,
           background: "transparent",
-          cursor: "pointer",
+          cursor: "default",
           transition: "box-shadow 0.3s ease",
         }}
         onMouseEnter={(e) => {
@@ -373,7 +373,7 @@ function buildTabData(
         colorIdx: item.colorIdx,
         groupLabel: item.groupLabel,
       },
-      draggable: true,
+      draggable: false,
       width: nodeWidth,
     };
   });
@@ -602,11 +602,12 @@ export default function AutomationDiagram() {
           nodeTypes={nodeTypes}
           onNodeClick={onNodeClick}
           defaultViewport={defaultViewport}
+          nodesDraggable={false}
           panOnDrag
           zoomOnScroll
           zoomOnPinch
           zoomOnDoubleClick={false}
-          preventScrolling={false}
+          preventScrolling
           minZoom={0.35}
           maxZoom={2.5}
           fitView={false}
