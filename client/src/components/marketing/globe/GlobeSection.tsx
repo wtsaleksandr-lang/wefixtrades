@@ -132,13 +132,16 @@ export default function GlobeSection() {
             position: "absolute",
             bottom: "12%",
             left: "6%",
-            border: `1px solid rgba(102,232,250,0.25)`,
+            border: `1px solid rgba(255,255,255,0.12)`,
+            borderRadius: 16,
             padding: "16px 20px",
             maxWidth: 220,
             zIndex: 10,
-            background: "rgba(24,29,31,0.65)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
+            background: "rgba(24,29,31,0.45)",
+            backdropFilter: "blur(20px) saturate(1.4)",
+            WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+            boxShadow:
+              "0 8px 32px rgba(0,0,0,0.3), inset 0 0.5px 0 rgba(255,255,255,0.08)",
           }}
         >
           <div
@@ -176,15 +179,16 @@ export default function GlobeSection() {
               position: "absolute",
               bottom: "18%",
               right: "6%",
-              background: "rgba(34,40,42,0.82)",
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 14,
+              background: "rgba(34,40,42,0.40)",
+              backdropFilter: "blur(20px) saturate(1.4)",
+              WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 16,
               padding: "14px 18px",
               minWidth: 180,
               maxWidth: 230,
-              boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+              boxShadow:
+                "0 8px 32px rgba(0,0,0,0.3), inset 0 0.5px 0 rgba(255,255,255,0.08)",
               zIndex: 10,
               animation: "globeCardIn 0.4s ease both",
             }}
@@ -355,26 +359,34 @@ export default function GlobeSection() {
         }
         @media (max-width: 900px) {
           .globe-viewport {
-            height: clamp(300px, 60vw, 450px) !important;
+            height: clamp(340px, 70vw, 500px) !important;
           }
           .globe-stats-callout {
             bottom: 6% !important;
             left: 4% !important;
-            max-width: 180px !important;
-            padding: 12px 14px !important;
+            max-width: 170px !important;
+            padding: 10px 12px !important;
+            border-radius: 12px !important;
           }
           .globe-stats-callout > div:first-child {
-            font-size: 22px !important;
+            font-size: 20px !important;
           }
           .globe-stats-callout > div:last-child {
-            font-size: 11px !important;
+            font-size: 10px !important;
           }
           .globe-active-card {
             right: 4% !important;
             bottom: 10% !important;
-            min-width: 150px !important;
-            max-width: 190px !important;
-            padding: 10px 14px !important;
+            min-width: 140px !important;
+            max-width: 175px !important;
+            padding: 10px 12px !important;
+            border-radius: 12px !important;
+          }
+          .globe-active-card > div:first-child {
+            font-size: 12px !important;
+          }
+          .globe-active-card > div:last-child {
+            font-size: 10px !important;
           }
           .globe-cta-wrap .cta-arrow-btn {
             width: 100% !important;
@@ -384,7 +396,7 @@ export default function GlobeSection() {
         }
         @media (max-width: 640px) {
           .globe-viewport {
-            height: clamp(260px, 70vw, 340px) !important;
+            height: clamp(300px, 80vw, 400px) !important;
           }
           .globe-stats-callout {
             display: none !important;
@@ -394,6 +406,8 @@ export default function GlobeSection() {
             left: 50% !important;
             transform: translateX(-50%);
             bottom: 4% !important;
+            min-width: 160px !important;
+            max-width: 200px !important;
           }
           .globe-stats-row {
             gap: 20px !important;

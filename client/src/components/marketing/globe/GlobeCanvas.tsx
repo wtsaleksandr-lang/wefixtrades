@@ -15,8 +15,8 @@ const SITE_BG = "#181D1F";
 // Dot texture settings
 const TEX_W = 2048;
 const TEX_H = 1024;
-const DOT_GAP = 10; // px between dot centers
-const DOT_R = 2.2; // dot radius in px
+const DOT_GAP = 7; // px between dot centers (denser like Cloudflare)
+const DOT_R = 1.2; // dot radius in px (finer dots)
 
 /* ── SVG icon paths (Lucide-compatible) ─────────────────────────────── */
 
@@ -78,9 +78,9 @@ function createDottedEarthCanvas(
 
   const maskData = mCtx.getImageData(0, 0, TEX_W, TEX_H);
 
-  // Draw faint grid lines (graticules)
-  ctx.strokeStyle = `rgba(${ACCENT_RGB}, 0.06)`;
-  ctx.lineWidth = 1;
+  // Draw graticule grid lines (more visible, like Cloudflare)
+  ctx.strokeStyle = `rgba(${ACCENT_RGB}, 0.12)`;
+  ctx.lineWidth = 0.8;
   for (let lng = -180; lng <= 180; lng += 30) {
     const x = ((lng + 180) / 360) * TEX_W;
     ctx.beginPath();
@@ -158,8 +158,8 @@ export default function GlobeCanvas({
     controls.dampingFactor = 0.15;
     controls.enableDamping = true;
 
-    // Initial view — centered on North America
-    globe.pointOfView({ lat: 32, lng: -95, altitude: 2.2 });
+    // Initial view — centered on North America, zoomed out to show ~half globe
+    globe.pointOfView({ lat: 32, lng: -95, altitude: 2.8 });
 
     // ── Load land data → dotted texture ─────────────────────────────
     fetch(LAND_DATA_URL)
