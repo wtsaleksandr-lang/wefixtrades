@@ -11,7 +11,7 @@ const REVIEWS = [
     stars: 5,
     text: "We were missing calls constantly before. Now every call gets answered and we get a text summary. Honestly feels like having a receptionist that never sleeps.",
     time: "2 weeks ago",
-    avatar: "https://i.pravatar.cc/150?img=12",
+    avatar: "https://i.pravatar.cc/150?img=11",
   },
   {
     name: "Sarah M.",
@@ -21,7 +21,7 @@ const REVIEWS = [
     stars: 5,
     text: "The chat on the website surprised me. Customers actually use it and we started getting quote requests late at night.",
     time: "1 month ago",
-    avatar: "https://i.pravatar.cc/150?img=23",
+    avatar: "https://i.pravatar.cc/150?img=5",
   },
   {
     name: "Kevin R.",
@@ -31,7 +31,7 @@ const REVIEWS = [
     stars: 4,
     text: "Setup was easier than expected. We mainly use the call answering and review follow-ups. Reviews increased pretty quickly.",
     time: "3 weeks ago",
-    avatar: "https://i.pravatar.cc/150?img=36",
+    avatar: "https://i.pravatar.cc/150?img=53",
   },
   {
     name: "Jason L.",
@@ -41,7 +41,7 @@ const REVIEWS = [
     stars: 5,
     text: "Customers stopped saying 'no one answered the phone'. The system handles it automatically and sends us the details.",
     time: "2 months ago",
-    avatar: "https://i.pravatar.cc/150?img=44",
+    avatar: "https://i.pravatar.cc/150?img=59",
   },
   {
     name: "Andre P.",
@@ -51,7 +51,7 @@ const REVIEWS = [
     stars: 5,
     text: "The review automation alone paid for it. We went from barely asking customers to getting reviews consistently.",
     time: "1 month ago",
-    avatar: "https://i.pravatar.cc/150?img=52",
+    avatar: "https://i.pravatar.cc/150?img=61",
   },
   {
     name: "Daniel S.",
@@ -107,11 +107,11 @@ export default function ReviewsSection() {
     <section
       data-testid="reviews-section"
       style={{
-        padding: "32px 20px 28px",
+        padding: "clamp(20px, 4vw, 32px) clamp(12px, 3vw, 20px) clamp(20px, 4vw, 28px)",
       }}
     >
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <div className="text-center mb-5 sm:mb-6">
+        <div className="text-center mb-3 sm:mb-5">
           <div className="flex justify-center mb-2">
             <span className="inline-flex items-center gap-2 text-xs font-semibold" style={{ color: mkt.textMuted }}>
               <span className="w-2 h-2 rounded-full" style={{ background: mkt.accent }} />
@@ -121,32 +121,30 @@ export default function ReviewsSection() {
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight" style={{ color: mkt.text }}>
             Trusted by trades across North America
           </h2>
-          <p className="mt-2 text-sm sm:text-base max-w-xl mx-auto leading-relaxed" style={{ color: mkt.textMuted }}>
-            Real feedback from service businesses using WeFixTrades to capture leads,
-            respond faster, and keep customers from slipping through the cracks.
-          </p>
         </div>
 
         <div
+          className="reviews-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-            gap: 16,
+            gap: "clamp(10px, 2vw, 16px)",
           }}
         >
           {REVIEWS.map((r) => (
             <div
               key={r.name}
               data-testid={`review-card-${r.name.replace(/\s+/g, "-").toLowerCase()}`}
+              className="review-card"
               style={{
-                borderRadius: 20,
+                borderRadius: "clamp(14px, 2vw, 20px)",
                 border: `1px solid ${mkt.cardBorder}`,
                 background: mkt.surface,
                 boxShadow: "0 10px 20px #33314833",
-                padding: "20px 20px 18px",
+                padding: "clamp(14px, 2.5vw, 20px)",
                 display: "flex",
                 flexDirection: "column",
-                gap: 14,
+                gap: "clamp(10px, 1.5vw, 14px)",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -198,7 +196,7 @@ export default function ReviewsSection() {
 
         <div
           style={{
-            marginTop: 28,
+            marginTop: "clamp(18px, 3vw, 28px)",
             display: "flex",
             flexWrap: "wrap",
             justifyContent: "center",
@@ -242,6 +240,15 @@ export default function ReviewsSection() {
           </Link>
         </div>
       </div>
+
+      <style>{`
+        @media (max-width: 640px) {
+          .reviews-grid {
+            grid-template-columns: 1fr !important;
+            gap: 10px !important;
+          }
+        }
+      `}</style>
     </section>
   );
 }
