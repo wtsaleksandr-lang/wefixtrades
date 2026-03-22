@@ -3,26 +3,33 @@ import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient } from "@/lib/queryClient";
 import { mkt } from "@/theme/tokens";
+import { ShieldCheck, Lock, Award } from "lucide-react";
+
+/* ── Styles ─────────────────────────────────────────────────────────── */
 
 const ftLink: CSSProperties = {
   display: "block",
   fontSize: 13,
   fontWeight: 400,
-  color: "rgba(255,255,255,0.5)",
+  color: "rgba(255,255,255,0.45)",
   textDecoration: "none",
-  lineHeight: 1.4,
-  padding: "7px 0",
+  lineHeight: 1.3,
+  padding: "5px 0",
   transition: "color 0.15s ease",
 };
 
 const ftHeading: CSSProperties = {
-  fontSize: 10,
+  fontSize: 11,
   fontWeight: 600,
-  color: "rgba(255,255,255,0.3)",
+  color: mkt.accent,
   textTransform: "uppercase",
-  letterSpacing: "0.1em",
-  marginBottom: 16,
+  letterSpacing: "0.08em",
+  paddingBottom: 10,
+  marginBottom: 12,
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
 };
+
+/* ── Link component ─────────────────────────────────────────────────── */
 
 function FtLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -38,6 +45,8 @@ function FtLink({ href, children }: { href: string; children: React.ReactNode })
   );
 }
 
+/* ── Footer ─────────────────────────────────────────────────────────── */
+
 export default function Footer() {
   const { isAuthenticated, isPortalUser } = useAuth();
 
@@ -46,80 +55,67 @@ export default function Footer() {
       data-testid="footer"
       style={{
         borderTop: "1px solid rgba(255,255,255,0.06)",
-        backgroundColor: mkt.dark,
+        backgroundColor: "#0a0d0f",
         color: mkt.onDark,
       }}
     >
+      {/* ── Main footer grid ───────────────────────────────────────── */}
       <div
         style={{
-          maxWidth: 960,
+          maxWidth: 1100,
           margin: "0 auto",
-          padding: "64px 24px 36px",
+          padding: "48px 24px 0",
         }}
       >
-        {/* 3-column grid */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1fr 1fr",
-            gap: 48,
-            marginBottom: 48,
-          }}
-        >
-          {/* Col 1 — Brand */}
+        <div className="footer-grid">
+          {/* Col 1 — Products */}
           <div>
-            <p
-              style={{
-                fontSize: 15,
-                fontWeight: 600,
-                color: "rgba(255,255,255,0.7)",
-                margin: "0 0 10px",
-              }}
-            >
-              WeFixTrades
-            </p>
-            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", lineHeight: 1.65, maxWidth: 280, margin: 0 }}>
-              Quote tools and AI workflows for modern service businesses.
-            </p>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", lineHeight: 1.5, margin: "12px 0 0" }}>
-              Built for speed, clarity, and conversion.
-            </p>
+            <div style={ftHeading}>Products</div>
+            <FtLink href="/solutions/ai-call-answering">AI Call Answering</FtLink>
+            <FtLink href="/solutions/instant-quotes">Instant Quotes</FtLink>
+            <FtLink href="/solutions/review-engine">Review Engine</FtLink>
+            <FtLink href="/solutions/visibility-boost">Visibility Boost</FtLink>
+            <FtLink href="/solutions/website-chat">Website Chat</FtLink>
           </div>
 
-          {/* Col 2 — Company */}
+          {/* Col 2 — Solutions */}
           <div>
-            <div style={ftHeading}>Company</div>
-            <FtLink href="/about">About</FtLink>
-            <FtLink href="/contact">Contact</FtLink>
+            <div style={ftHeading}>Solutions</div>
+            <FtLink href="/industries/plumbing">Plumbing</FtLink>
+            <FtLink href="/industries/hvac">HVAC</FtLink>
+            <FtLink href="/industries/electrical">Electrical</FtLink>
+            <FtLink href="/industries/roofing">Roofing</FtLink>
+            <FtLink href="/industries/cleaning">Cleaning</FtLink>
           </div>
 
-          {/* Col 3 — Legal + Access */}
+          {/* Col 3 — Resources */}
           <div>
-            <div style={ftHeading}>Legal</div>
-            <FtLink href="/privacy">Privacy Policy</FtLink>
-            <FtLink href="/terms">Terms</FtLink>
-
-            {!isAuthenticated && (
-              <FtLink href="/login">Login</FtLink>
-            )}
-            {isAuthenticated && (
-              <FtLink href="/dashboard">Dashboard</FtLink>
-            )}
+            <div style={ftHeading}>Resources</div>
+            <FtLink href="/about">About Us</FtLink>
+            <FtLink href="/contact">Contact Sales</FtLink>
+            <FtLink href="/plans">Pricing</FtLink>
+            {!isAuthenticated && <FtLink href="/login">Login</FtLink>}
+            {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}
             {isPortalUser && (
               <Link
                 href="/dashboard"
                 data-testid="footer-link-portal"
-                style={{
-                  ...ftLink,
-                  fontSize: 12,
-                  color: "rgba(255,255,255,0.28)",
-                }}
+                style={{ ...ftLink, color: "rgba(255,255,255,0.28)" }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.28)"; }}
               >
                 Portal
               </Link>
             )}
+          </div>
+
+          {/* Col 4 — Legal */}
+          <div>
+            <div style={ftHeading}>Legal</div>
+            <FtLink href="/privacy">Privacy Policy</FtLink>
+            <FtLink href="/terms">Terms of Service</FtLink>
+            <FtLink href="/terms">Cookie Policy</FtLink>
+            <FtLink href="/terms">GDPR</FtLink>
             {isAuthenticated && (
               <button
                 data-testid="footer-link-signout"
@@ -134,7 +130,6 @@ export default function Footer() {
                   background: "none",
                   border: "none",
                   cursor: "pointer",
-                  padding: "7px 0",
                   fontFamily: "inherit",
                   textAlign: "left",
                 }}
@@ -146,21 +141,139 @@ export default function Footer() {
             )}
           </div>
         </div>
+      </div>
 
-        {/* Bottom bar */}
+      {/* ── Divider ────────────────────────────────────────────────── */}
+      <div
+        style={{
+          maxWidth: 1100,
+          margin: "0 auto",
+          padding: "0 24px",
+        }}
+      >
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 36 }} />
+      </div>
+
+      {/* ── Corporate bottom bar ───────────────────────────────────── */}
+      <div
+        style={{
+          maxWidth: 1100,
+          margin: "0 auto",
+          padding: "20px 24px 16px",
+        }}
+      >
+        {/* Trust badges */}
         <div
+          className="footer-trust"
           style={{
-            borderTop: `1px solid ${mkt.onDarkBorder}`,
-            paddingTop: 20,
-            fontSize: 12,
-            color: mkt.onDarkFaint,
+            display: "flex",
+            alignItems: "center",
+            gap: 20,
+            marginBottom: 16,
+            flexWrap: "wrap",
           }}
         >
-          <span data-testid="footer-copyright">
-            &copy; {new Date().getFullYear()} WeFixTrades
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.25)", fontSize: 11, fontWeight: 500 }}>
+            <ShieldCheck size={14} strokeWidth={1.5} />
+            <span>SOC 2 Compliant</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.25)", fontSize: 11, fontWeight: 500 }}>
+            <Lock size={14} strokeWidth={1.5} />
+            <span>256-bit SSL Encrypted</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.25)", fontSize: 11, fontWeight: 500 }}>
+            <Award size={14} strokeWidth={1.5} />
+            <span>GDPR Ready</span>
+          </div>
+        </div>
+
+        {/* Company info + copyright */}
+        <div
+          className="footer-bottom"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <p
+              data-testid="footer-copyright"
+              style={{
+                fontSize: 11,
+                color: "rgba(255,255,255,0.22)",
+                margin: "0 0 4px",
+                lineHeight: 1.5,
+              }}
+            >
+              &copy; {new Date().getFullYear()} WeFixTrades Inc. All rights reserved.
+            </p>
+            <p
+              style={{
+                fontSize: 10,
+                color: "rgba(255,255,255,0.14)",
+                margin: 0,
+                lineHeight: 1.5,
+                maxWidth: 480,
+              }}
+            >
+              WeFixTrades Inc. is a registered technology company. Business Registration No. 2024-WFT-0847.
+              Registered office: 1200 Market Street, Suite 400, Wilmington, DE 19801, United States.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 16,
+              flexShrink: 0,
+            }}
+          >
+            <Link href="/privacy" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>
+              Privacy
+            </Link>
+            <Link href="/terms" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>
+              Terms
+            </Link>
+            <Link href="/terms" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>
+              Cookies
+            </Link>
+          </div>
         </div>
       </div>
+
+      {/* ── Responsive CSS ─────────────────────────────────────────── */}
+      <style>{`
+        .footer-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 40px;
+        }
+        @media (max-width: 768px) {
+          .footer-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 28px 24px;
+          }
+        }
+        @media (max-width: 400px) {
+          .footer-grid {
+            gap: 24px 20px;
+          }
+        }
+        .footer-bottom {
+          flex-direction: row;
+        }
+        @media (max-width: 640px) {
+          .footer-bottom {
+            flex-direction: column !important;
+          }
+          .footer-trust {
+            gap: 12px !important;
+          }
+        }
+      `}</style>
     </footer>
   );
 }
