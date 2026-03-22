@@ -692,7 +692,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!menuOpen) return;
-    const handler = () => setMenuOpen(false);
+    const scrollY0 = window.scrollY;
+    const handler = () => {
+      if (Math.abs(window.scrollY - scrollY0) > 50) setMenuOpen(false);
+    };
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
   }, [menuOpen]);
