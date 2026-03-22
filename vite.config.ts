@@ -46,6 +46,7 @@ export default defineConfig({
             "@radix-ui/react-tooltip",
             "@radix-ui/react-accordion",
           ],
+          "vendor-globe": ["three", "globe.gl", "topojson-client"],
         },
       },
     },

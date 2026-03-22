@@ -576,7 +576,7 @@ export default function HomePage() {
       <StickyStackCards />
       <PillarAnimation />
       <FeatureCards />
-      {/* <GlobeSection /> */}
+      <GlobeSection />
       <SurfaceSection overlap className="py-4">
         <ReviewsSection />
       </SurfaceSection>

@@ -1,6 +1,118 @@
-import { useEffect, useRef, useCallback } from "react";
-import createGlobe from "cobe";
+import { useEffect, useRef } from "react";
+import Globe from "globe.gl";
+import * as topojson from "topojson-client";
+import { MeshPhongMaterial, Color, CanvasTexture } from "three";
 import type { GlobeMarker } from "./globeData";
+import { GLOBE_ARCS } from "./globeData";
+
+/* ── Config ─────────────────────────────────────────────────────────── */
+
+const LAND_DATA_URL = "//cdn.jsdelivr.net/npm/world-atlas/land-110m.json";
+const ACCENT = "#66E8FA";
+const ACCENT_RGB = "102,232,250";
+const SITE_BG = "#181D1F";
+
+// Dot texture settings
+const TEX_W = 2048;
+const TEX_H = 1024;
+const DOT_GAP = 10; // px between dot centers
+const DOT_R = 2.2; // dot radius in px
+
+/* ── SVG icon paths (Lucide-compatible) ─────────────────────────────── */
+
+const ICON_PATHS: Record<string, string> = {
+  phone:
+    '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  wrench:
+    '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+  star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  "map-pin":
+    '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+  calculator:
+    '<rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="10" x2="8" y2="10.01"/><line x1="12" y1="10" x2="12" y2="10.01"/><line x1="16" y1="10" x2="16" y2="10.01"/><line x1="8" y1="14" x2="8" y2="14.01"/><line x1="12" y1="14" x2="12" y2="14.01"/><line x1="8" y1="18" x2="8" y2="18.01"/><line x1="12" y1="18" x2="12" y2="18.01"/>',
+  zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  briefcase:
+    '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+  calendar:
+    '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+};
+
+/* ── Dotted earth texture generator ─────────────────────────────────── */
+
+function createDottedEarthCanvas(
+  landFeatures: any[],
+): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = TEX_W;
+  canvas.height = TEX_H;
+  const ctx = canvas.getContext("2d")!;
+
+  // Black background (matches site bg for ocean)
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, TEX_W, TEX_H);
+
+  // Rasterize land mask onto a temp canvas
+  const mask = document.createElement("canvas");
+  mask.width = TEX_W;
+  mask.height = TEX_H;
+  const mCtx = mask.getContext("2d")!;
+  mCtx.fillStyle = "#fff";
+
+  landFeatures.forEach((feature: any) => {
+    const geom = feature.geometry;
+    const polys =
+      geom.type === "MultiPolygon" ? geom.coordinates : [geom.coordinates];
+    polys.forEach((polygon: number[][][]) => {
+      polygon.forEach((ring: number[][], ringIdx: number) => {
+        mCtx.beginPath();
+        ring.forEach(([lng, lat]: number[], j: number) => {
+          const x = ((lng + 180) / 360) * TEX_W;
+          const y = ((90 - lat) / 180) * TEX_H;
+          j === 0 ? mCtx.moveTo(x, y) : mCtx.lineTo(x, y);
+        });
+        mCtx.closePath();
+        if (ringIdx === 0) mCtx.fill();
+      });
+    });
+  });
+
+  const maskData = mCtx.getImageData(0, 0, TEX_W, TEX_H);
+
+  // Draw faint grid lines (graticules)
+  ctx.strokeStyle = `rgba(${ACCENT_RGB}, 0.06)`;
+  ctx.lineWidth = 1;
+  for (let lng = -180; lng <= 180; lng += 30) {
+    const x = ((lng + 180) / 360) * TEX_W;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, TEX_H);
+    ctx.stroke();
+  }
+  for (let lat = -90; lat <= 90; lat += 30) {
+    const y = ((90 - lat) / 180) * TEX_H;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(TEX_W, y);
+    ctx.stroke();
+  }
+
+  // Draw dots only where land mask is white
+  ctx.fillStyle = "#fff"; // white dots — emissive color tints them cyan
+  for (let y = DOT_GAP / 2; y < TEX_H; y += DOT_GAP) {
+    for (let x = DOT_GAP / 2; x < TEX_W; x += DOT_GAP) {
+      const idx = (Math.round(y) * TEX_W + Math.round(x)) * 4;
+      if (maskData.data[idx] > 128) {
+        ctx.beginPath();
+        ctx.arc(x, y, DOT_R, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  return canvas;
+}
+
+/* ── Component ──────────────────────────────────────────────────────── */
 
 interface GlobeCanvasProps {
   markers: GlobeMarker[];
@@ -9,359 +121,220 @@ interface GlobeCanvasProps {
   onMarkerClick?: (index: number) => void;
 }
 
-/* ── Eldora-UI–inspired config ─────────────────────────────────────── */
-
-// Globe orientation (North America center)
-const CENTER_PHI = 4.5;
-const CENTER_THETA = 0.45;
-const GLOBE_SCALE = 1.8;
-
-// Appearance (dark theme, cyan markers)
-const DARK = 1;
-const DIFFUSE = 0.8;
-const MAP_BRIGHTNESS = 6;
-const BASE_COLOR: [number, number, number] = [0.3, 0.3, 0.3];
-const MARKER_COLOR: [number, number, number] = [0.4, 0.91, 0.98];
-const GLOW_COLOR: [number, number, number] = [0.2, 0.2, 0.2];
-const OPACITY = 0.7;
-
-// Interaction
-const DRAG_SENSITIVITY = 0.004;
-const PHI_RANGE = 0.5;
-const THETA_RANGE = 0.3;
-const AUTO_DRIFT_SPEED = 0.005;
-const RESUME_DELAY = 3000;
-const CLICK_THRESHOLD = 5;
-const MARKER_HIT_RADIUS = 50;
-
-/** Project a lat/lon marker to screen coordinates given current globe rotation. */
-function projectToScreen(
-  lat: number,
-  lon: number,
-  phi: number,
-  theta: number,
-  displaySize: number,
-  scale: number,
-) {
-  const latR = (lat * Math.PI) / 180;
-  const lonR = (lon * Math.PI) / 180;
-
-  const cosLat = Math.cos(latR);
-  const sinLat = Math.sin(latR);
-  const dLon = lonR - phi;
-
-  const x1 = cosLat * Math.sin(dLon);
-  const y1 = -sinLat;
-  const z1 = cosLat * Math.cos(dLon);
-
-  const cosT = Math.cos(theta);
-  const sinT = Math.sin(theta);
-  const x2 = x1;
-  const y2 = y1 * cosT + z1 * sinT;
-  const z2 = -y1 * sinT + z1 * cosT;
-
-  const r = displaySize / 2;
-  return {
-    x: r + x2 * r * scale,
-    y: r + y2 * r * scale,
-    visible: z2 > 0,
-  };
-}
-
 export default function GlobeCanvas({
   markers,
   size = 900,
   activeMarkerIndex,
   onMarkerClick,
 }: GlobeCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef<number>(0);
-  const pausedRef = useRef(false);
-
-  // Drag state
-  const draggingRef = useRef(false);
-  const pxRef = useRef(0);
-  const pyRef = useRef(0);
-  const dragDistRef = useRef(0);
-
-  // Globe orientation
-  const phiRef = useRef(CENTER_PHI);
-  const thetaRef = useRef(CENTER_THETA);
-
-  // User interaction state (auto-draggable variant)
-  const userDraggingRef = useRef(false);
-  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Stable callback refs
+  const containerRef = useRef<HTMLDivElement>(null);
+  const globeRef = useRef<any>(null);
   const onClickRef = useRef(onMarkerClick);
+  onClickRef.current = onMarkerClick;
+
+  // ── Mount globe.gl instance ─────────────────────────────────────────
   useEffect(() => {
-    onClickRef.current = onMarkerClick;
-  }, [onMarkerClick]);
+    if (!containerRef.current) return;
 
-  // Card DOM ref for per-frame position updates
-  const cardElRef = useRef<HTMLDivElement>(null);
-  const activeIdxRef = useRef(activeMarkerIndex);
-  useEffect(() => {
-    activeIdxRef.current = activeMarkerIndex;
-  }, [activeMarkerIndex]);
+    // Clear any previous content
+    containerRef.current.innerHTML = "";
 
-  // ─── COBE lifecycle (Eldora UI pattern) ────────────────────────────
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const globe = new Globe(containerRef.current)
+      .backgroundColor("rgba(0,0,0,0)")
+      .showGlobe(true)
+      .showAtmosphere(false)
+      .width(size)
+      .height(size);
 
-    const isMobile = window.innerWidth < 768;
-    const dpr = isMobile ? 1 : Math.min(window.devicePixelRatio, 2);
+    globeRef.current = globe;
 
-    phiRef.current = CENTER_PHI;
-    thetaRef.current = CENTER_THETA;
+    // Camera controls
+    const controls = globe.controls();
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.35;
+    controls.enableZoom = false;
+    controls.enablePan = false;
+    controls.rotateSpeed = 0.6;
+    controls.dampingFactor = 0.15;
+    controls.enableDamping = true;
 
-    const cobeMarkers = markers.map((m) => ({
-      location: m.location,
-      size: m.size,
-    }));
+    // Initial view — centered on North America
+    globe.pointOfView({ lat: 32, lng: -95, altitude: 2.2 });
 
-    let width = canvas.offsetWidth;
+    // ── Load land data → dotted texture ─────────────────────────────
+    fetch(LAND_DATA_URL)
+      .then((res) => res.json())
+      .then((landTopo) => {
+        const land = topojson.feature(
+          landTopo,
+          landTopo.objects.land,
+        ) as any;
 
-    const onResize = () => {
-      if (canvas) width = canvas.offsetWidth;
-    };
-    window.addEventListener("resize", onResize);
+        const textureCanvas = createDottedEarthCanvas(land.features);
+        const texture = new CanvasTexture(textureCanvas);
 
-    const globe = createGlobe(canvas, {
-      devicePixelRatio: dpr,
-      width: size * 2,
-      height: size * 2,
-      phi: CENTER_PHI,
-      theta: CENTER_THETA,
-      dark: DARK,
-      diffuse: DIFFUSE,
-      mapSamples: isMobile ? 12000 : 20000,
-      mapBrightness: MAP_BRIGHTNESS,
-      baseColor: BASE_COLOR,
-      markerColor: MARKER_COLOR,
-      glowColor: GLOW_COLOR,
-      opacity: OPACITY,
-      scale: GLOBE_SCALE,
-      offset: [0, 0],
-      markers: cobeMarkers,
-    });
-
-    // Fade in
-    setTimeout(() => {
-      if (canvas) canvas.style.opacity = "1";
-    }, 100);
-
-    const tick = () => {
-      // Auto-rotate unless user is dragging
-      if (!pausedRef.current && !userDraggingRef.current) {
-        phiRef.current += AUTO_DRIFT_SPEED;
-      }
-
-      globe.update({ phi: phiRef.current, theta: thetaRef.current });
-
-      // Update card position via DOM (no React re-render)
-      const idx = activeIdxRef.current;
-      if (
-        cardElRef.current &&
-        idx !== null &&
-        idx >= 0 &&
-        idx < markers.length
-      ) {
-        const m = markers[idx];
-        const p = projectToScreen(
-          m.location[0],
-          m.location[1],
-          phiRef.current,
-          thetaRef.current,
-          size,
-          GLOBE_SCALE,
-        );
-        cardElRef.current.style.left = (p.x / size) * 100 + "%";
-        cardElRef.current.style.top = (p.y / size) * 100 + "%";
-        cardElRef.current.style.opacity = p.visible ? "1" : "0";
-      }
-
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        pausedRef.current = !entry.isIntersecting;
-      },
-      { threshold: 0.1 },
-    );
-    observer.observe(canvas);
-
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(rafRef.current);
-      globe.destroy();
-      window.removeEventListener("resize", onResize);
-      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
-    };
-  }, [markers, size]);
-
-  // ─── Pointer handlers (auto-draggable variant) ─────────────────────
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    draggingRef.current = true;
-    userDraggingRef.current = true;
-    pxRef.current = e.clientX;
-    pyRef.current = e.clientY;
-    dragDistRef.current = 0;
-    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  }, []);
-
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!draggingRef.current) return;
-
-    const dx = e.clientX - pxRef.current;
-    const dy = e.clientY - pyRef.current;
-    pxRef.current = e.clientX;
-    pyRef.current = e.clientY;
-    dragDistRef.current += Math.abs(dx) + Math.abs(dy);
-
-    phiRef.current -= dx * DRAG_SENSITIVITY;
-    thetaRef.current = Math.max(
-      CENTER_THETA - THETA_RANGE,
-      Math.min(
-        CENTER_THETA + THETA_RANGE,
-        thetaRef.current + dy * DRAG_SENSITIVITY,
-      ),
-    );
-  }, []);
-
-  const scheduleResume = useCallback(() => {
-    draggingRef.current = false;
-    resumeTimerRef.current = setTimeout(() => {
-      userDraggingRef.current = false;
-    }, RESUME_DELAY);
-  }, []);
-
-  const handlePointerUp = useCallback(
-    (e: React.PointerEvent) => {
-      const wasClick = dragDistRef.current < CLICK_THRESHOLD;
-      scheduleResume();
-
-      if (wasClick && onClickRef.current && canvasRef.current) {
-        const rect = canvasRef.current.getBoundingClientRect();
-        const scaleF = size / rect.width;
-        const cx = (e.clientX - rect.left) * scaleF;
-        const cy = (e.clientY - rect.top) * scaleF;
-
-        let bestIdx = -1;
-        let bestDist = MARKER_HIT_RADIUS;
-
-        markers.forEach((m, i) => {
-          const p = projectToScreen(
-            m.location[0],
-            m.location[1],
-            phiRef.current,
-            thetaRef.current,
-            size,
-            GLOBE_SCALE,
-          );
-          if (!p.visible) return;
-          const d = Math.hypot(p.x - cx, p.y - cy);
-          if (d < bestDist) {
-            bestDist = d;
-            bestIdx = i;
-          }
+        // Emissive material: dark globe with glowing cyan dots
+        const material = new MeshPhongMaterial({
+          color: new Color(SITE_BG),
+          emissive: new Color(ACCENT),
+          emissiveMap: texture,
+          emissiveIntensity: 0.9,
+          shininess: 5,
+          transparent: false,
         });
 
-        if (bestIdx >= 0) onClickRef.current(bestIdx);
-      }
-    },
-    [markers, size, scheduleResume],
-  );
+        globe.globeMaterial(material);
+      });
 
-  // ─── Render ─────────────────────────────────────────────────────────
-  const activeMarker =
-    activeMarkerIndex !== null && activeMarkerIndex >= 0
-      ? markers[activeMarkerIndex]
-      : null;
+    // ── Arcs ────────────────────────────────────────────────────────
+    const arcs = GLOBE_ARCS.map(([from, to]) => ({
+      startLat: markers[from].location[0],
+      startLng: markers[from].location[1],
+      endLat: markers[to].location[0],
+      endLng: markers[to].location[1],
+    }));
+
+    globe
+      .arcsData(arcs)
+      .arcColor(() => [`rgba(${ACCENT_RGB},0.5)`, `rgba(${ACCENT_RGB},0.15)`])
+      .arcDashLength(0.4)
+      .arcDashGap(0.25)
+      .arcDashAnimateTime(3000)
+      .arcStroke(0.5)
+      .arcsTransitionDuration(0);
+
+    // ── Rings (pulsing at active marker) ────────────────────────────
+    globe
+      .ringColor(() => (t: number) => `rgba(${ACCENT_RGB},${1 - t})`)
+      .ringMaxRadius(4)
+      .ringPropagationSpeed(3)
+      .ringRepeatPeriod(1200);
+
+    // ── HTML markers ────────────────────────────────────────────────
+    globe
+      .htmlElementsData(markers)
+      .htmlLat((d: any) => d.location[0])
+      .htmlLng((d: any) => d.location[1])
+      .htmlAltitude(0.02)
+      .htmlElement((d: any) => {
+        const idx = markers.indexOf(d);
+        const el = document.createElement("div");
+        el.className = "globe-marker";
+        el.dataset.markerIdx = String(idx);
+        el.innerHTML = `
+          <div class="globe-marker-circle" data-idx="${idx}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="${ACCENT}" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              ${ICON_PATHS[d.icon] || ICON_PATHS.zap}
+            </svg>
+          </div>
+        `;
+        el.style.cursor = "pointer";
+        el.style.pointerEvents = "auto";
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          onClickRef.current?.(idx);
+        });
+        return el;
+      });
+
+    // Fade-in
+    setTimeout(() => {
+      if (containerRef.current) containerRef.current.style.opacity = "1";
+    }, 400);
+
+    return () => {
+      globe._destructor();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markers, size]);
+
+  // ── Update active marker ring + highlight ───────────────────────────
+  useEffect(() => {
+    const globe = globeRef.current;
+    if (!globe) return;
+
+    // Pulse ring at active marker
+    if (activeMarkerIndex !== null && activeMarkerIndex >= 0) {
+      const m = markers[activeMarkerIndex];
+      globe.ringsData([{ lat: m.location[0], lng: m.location[1] }]);
+    } else {
+      globe.ringsData([]);
+    }
+
+    // Toggle active class on marker DOM elements
+    const container = containerRef.current;
+    if (!container) return;
+    container.querySelectorAll(".globe-marker-circle").forEach((el) => {
+      const idx = Number((el as HTMLElement).dataset.idx);
+      el.classList.toggle("active", idx === activeMarkerIndex);
+    });
+  }, [activeMarkerIndex, markers]);
 
   return (
-    <div
-      style={{
-        position: "relative",
-        width: size,
-        maxWidth: "100%",
-        aspectRatio: "1",
-      }}
-    >
-      <canvas
-        ref={canvasRef}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={scheduleResume}
+    <>
+      <div
+        ref={containerRef}
         style={{
-          width: "100%",
-          height: "100%",
-          display: "block",
-          cursor: "grab",
-          touchAction: "none",
+          width: size,
+          maxWidth: "100%",
+          height: size,
           opacity: 0,
           transition: "opacity 1s ease",
+          cursor: "grab",
         }}
       />
 
-      {/* Card overlay — positioned per-frame by the onRender callback */}
-      {activeMarker && (
-        <div
-          ref={cardElRef}
-          style={{
-            position: "absolute",
-            transform: "translate(-50%, -130%)",
-            pointerEvents: "none",
-            zIndex: 10,
-            opacity: 0,
-            transition: "opacity 0.4s ease",
-          }}
-        >
-          <div
-            className="globe-card"
-            style={{
-              background: "rgba(34,40,42,0.82)",
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 14,
-              padding: "12px 16px",
-              minWidth: 180,
-              maxWidth: 230,
-              boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-            }}
-          >
-            <div
-              className="globe-card-stat"
-              style={{
-                fontSize: 14,
-                fontWeight: 700,
-                color: "#fff",
-                lineHeight: 1.3,
-                marginBottom: 4,
-              }}
-            >
-              {activeMarker.stat}
-            </div>
-            <div
-              className="globe-card-label"
-              style={{
-                fontSize: 11,
-                fontWeight: 500,
-                color: "rgba(255,255,255,0.45)",
-                lineHeight: 1.3,
-              }}
-            >
-              {activeMarker.label}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      {/* Marker styles */}
+      <style>{`
+        .globe-marker-circle {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: rgba(${ACCENT_RGB}, 0.10);
+          border: 1.5px solid rgba(${ACCENT_RGB}, 0.45);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.35s ease;
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+          position: relative;
+        }
+        .globe-marker-circle::after {
+          content: "";
+          position: absolute;
+          inset: -4px;
+          border-radius: 50%;
+          border: 1px solid rgba(${ACCENT_RGB}, 0.12);
+        }
+        .globe-marker-circle.active {
+          background: rgba(${ACCENT_RGB}, 0.22);
+          border-color: ${ACCENT};
+          box-shadow: 0 0 20px rgba(${ACCENT_RGB}, 0.35);
+          transform: scale(1.15);
+        }
+        .globe-marker-circle.active::after {
+          border-color: rgba(${ACCENT_RGB}, 0.3);
+          animation: globe-marker-ping 2s ease-out infinite;
+        }
+        @keyframes globe-marker-ping {
+          0% { transform: scale(1); opacity: 1; }
+          100% { transform: scale(1.8); opacity: 0; }
+        }
+
+        @media (max-width: 768px) {
+          .globe-marker-circle {
+            width: 32px;
+            height: 32px;
+          }
+          .globe-marker-circle svg {
+            width: 13px;
+            height: 13px;
+          }
+        }
+      `}</style>
+    </>
   );
 }

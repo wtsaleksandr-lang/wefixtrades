@@ -33,10 +33,15 @@ export default function GlobeSection() {
   const handleMarkerClick = useCallback(
     (index: number) => {
       setActiveIndex(index);
-      startCycle(); // reset timer so it doesn't immediately switch
+      startCycle();
     },
     [startCycle],
   );
+
+  const activeMarker =
+    activeIndex >= 0 && activeIndex < GLOBE_MARKERS.length
+      ? GLOBE_MARKERS[activeIndex]
+      : null;
 
   return (
     <section
@@ -48,7 +53,7 @@ export default function GlobeSection() {
         paddingBottom: 0,
       }}
     >
-      {/* Centered header text */}
+      {/* ── Header ─────────────────────────────────────────────────── */}
       <div
         className="globe-header"
         style={{
@@ -56,6 +61,8 @@ export default function GlobeSection() {
           padding: "clamp(48px, 8vw, 100px) clamp(16px, 4vw, 28px) 0",
           maxWidth: 800,
           margin: "0 auto",
+          position: "relative",
+          zIndex: 10,
         }}
       >
         <h2
@@ -84,21 +91,20 @@ export default function GlobeSection() {
           }}
         >
           Trades businesses across the country are getting more calls, more
-          bookings, and better rankings — automatically.
+          bookings, and better rankings &mdash; automatically.
         </p>
       </div>
 
-      {/* Globe viewport — oversized globe, cropped at bottom */}
+      {/* ── Globe viewport ─────────────────────────────────────────── */}
       <div
         className="globe-viewport"
         style={{
           position: "relative",
           width: "100%",
           maxWidth: 1200,
-          margin: "40px auto 0",
+          margin: "24px auto 0",
           overflow: "hidden",
-          /* Show only top ~55% of the globe */
-          height: "clamp(340px, 42vw, 520px)",
+          height: "clamp(380px, 50vw, 620px)",
         }}
       >
         {/* Globe container — centered, extends below viewport */}
@@ -119,7 +125,95 @@ export default function GlobeSection() {
           />
         </div>
 
-        {/* Bottom fade — blends globe into section background */}
+        {/* ── Stats callout (Cloudflare-style, bottom-left) ────────── */}
+        <div
+          className="globe-stats-callout"
+          style={{
+            position: "absolute",
+            bottom: "12%",
+            left: "6%",
+            border: `1px solid rgba(102,232,250,0.25)`,
+            padding: "16px 20px",
+            maxWidth: 220,
+            zIndex: 10,
+            background: "rgba(24,29,31,0.65)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "clamp(24px, 3vw, 36px)",
+              fontWeight: 800,
+              color: mkt.accent,
+              lineHeight: 1.1,
+              marginBottom: 6,
+              fontFamily: typography.fontFamily,
+            }}
+          >
+            2,400+
+          </div>
+          <div
+            style={{
+              fontSize: 13,
+              color: mkt.textMuted,
+              lineHeight: 1.45,
+              fontFamily: typography.fontFamily,
+            }}
+          >
+            Quotes generated for trades businesses this month. Growing{" "}
+            <span style={{ color: mkt.accent, fontWeight: 600 }}>42%</span>{" "}
+            month over month.
+          </div>
+        </div>
+
+        {/* ── Active marker card (right side) ──────────────────────── */}
+        {activeMarker && (
+          <div
+            className="globe-active-card"
+            key={activeMarker.id}
+            style={{
+              position: "absolute",
+              bottom: "18%",
+              right: "6%",
+              background: "rgba(34,40,42,0.82)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 14,
+              padding: "14px 18px",
+              minWidth: 180,
+              maxWidth: 230,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+              zIndex: 10,
+              animation: "globeCardIn 0.4s ease both",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: "#fff",
+                lineHeight: 1.3,
+                marginBottom: 4,
+              }}
+            >
+              {activeMarker.stat}
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: "rgba(255,255,255,0.45)",
+                lineHeight: 1.3,
+              }}
+            >
+              {activeMarker.label}
+            </div>
+          </div>
+        )}
+
+        {/* Bottom fade */}
         <div
           aria-hidden="true"
           style={{
@@ -127,32 +221,32 @@ export default function GlobeSection() {
             bottom: 0,
             left: 0,
             right: 0,
-            height: "35%",
-            background: `linear-gradient(to top, ${mkt.bg} 0%, ${mkt.bg}cc 30%, transparent 100%)`,
+            height: "30%",
+            background: `linear-gradient(to top, ${mkt.bg} 0%, ${mkt.bg}cc 25%, transparent 100%)`,
             pointerEvents: "none",
             zIndex: 5,
           }}
         />
 
-        {/* Subtle ambient glow */}
+        {/* Subtle ambient glow behind globe */}
         <div
           aria-hidden="true"
           style={{
             position: "absolute",
-            top: "50%",
+            top: "40%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: "120%",
-            height: "120%",
+            width: "80%",
+            height: "80%",
             background:
-              "radial-gradient(circle, rgba(102,232,250,0.06) 0%, transparent 65%)",
+              "radial-gradient(circle, rgba(102,232,250,0.05) 0%, transparent 65%)",
             pointerEvents: "none",
             zIndex: 0,
           }}
         />
       </div>
 
-      {/* CTA below globe */}
+      {/* ── Bottom stats + CTA ─────────────────────────────────────── */}
       <div
         className="globe-cta-section"
         style={{
@@ -160,7 +254,6 @@ export default function GlobeSection() {
           padding: "32px clamp(16px, 4vw, 28px) clamp(48px, 8vw, 80px)",
         }}
       >
-        {/* Quick stats row */}
         <div
           className="globe-stats-row"
           style={{
@@ -172,9 +265,9 @@ export default function GlobeSection() {
           }}
         >
           {[
-            { value: "2,400+", text: "quotes generated" },
             { value: "96%", text: "calls answered by AI" },
-            { value: "4.8★", text: "avg review score" },
+            { value: "4.8\u2605", text: "avg review score" },
+            { value: "3x", text: "more leads in 30 days" },
           ].map(({ value, text }) => (
             <div
               key={text}
@@ -250,26 +343,38 @@ export default function GlobeSection() {
         </div>
       </div>
 
-      {/* Responsive CSS */}
+      {/* ── Responsive CSS ─────────────────────────────────────────── */}
       <style>{`
+        @keyframes globeCardIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
         .globe-viewport canvas {
           display: block;
           margin: 0 auto;
         }
         @media (max-width: 900px) {
           .globe-viewport {
-            height: clamp(280px, 55vw, 400px) !important;
+            height: clamp(300px, 60vw, 450px) !important;
           }
-          .globe-card {
-            min-width: 140px !important;
+          .globe-stats-callout {
+            bottom: 6% !important;
+            left: 4% !important;
             max-width: 180px !important;
-            padding: 8px 12px !important;
+            padding: 12px 14px !important;
           }
-          .globe-card .globe-card-stat {
-            font-size: 12px !important;
+          .globe-stats-callout > div:first-child {
+            font-size: 22px !important;
           }
-          .globe-card .globe-card-label {
-            font-size: 10px !important;
+          .globe-stats-callout > div:last-child {
+            font-size: 11px !important;
+          }
+          .globe-active-card {
+            right: 4% !important;
+            bottom: 10% !important;
+            min-width: 150px !important;
+            max-width: 190px !important;
+            padding: 10px 14px !important;
           }
           .globe-cta-wrap .cta-arrow-btn {
             width: 100% !important;
@@ -279,18 +384,16 @@ export default function GlobeSection() {
         }
         @media (max-width: 640px) {
           .globe-viewport {
-            height: clamp(220px, 60vw, 300px) !important;
+            height: clamp(260px, 70vw, 340px) !important;
           }
-          .globe-card {
-            min-width: 120px !important;
-            max-width: 160px !important;
-            padding: 6px 10px !important;
+          .globe-stats-callout {
+            display: none !important;
           }
-          .globe-card .globe-card-stat {
-            font-size: 11px !important;
-          }
-          .globe-card .globe-card-label {
-            font-size: 9px !important;
+          .globe-active-card {
+            right: auto !important;
+            left: 50% !important;
+            transform: translateX(-50%);
+            bottom: 4% !important;
           }
           .globe-stats-row {
             gap: 20px !important;
