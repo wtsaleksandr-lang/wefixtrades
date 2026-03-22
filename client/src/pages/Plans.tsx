@@ -19,13 +19,6 @@ function convertFromCAD(cad: number, currency: Currency) {
   return currency === "CAD" ? cad : cad * FX_CAD_TO_USD;
 }
 
-function scrollToId(id: string) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const y = el.getBoundingClientRect().top + window.scrollY - 120;
-  window.scrollTo({ top: y, behavior: "smooth" });
-}
-
 function TogglePill({
   left,
   right,
@@ -355,22 +348,16 @@ export default function Plans() {
     setLocation(`/plans?${p.toString()}`, { replace: true });
   }, [currency, billing]);
 
+  // Scroll to top of content when tab changes
   useEffect(() => {
-    const ids = ["bundles", "standalone", "setup", "addons", "faq"];
-    const onScroll = () => {
-      const y = window.scrollY + 140;
-      let current = "bundles";
-      for (const id of ids) {
-        const el = document.getElementById(id);
-        if (!el) continue;
-        if (el.offsetTop <= y) current = id;
+    const stickyBar = document.querySelector('[data-testid="plans-sticky-bar"]');
+    if (stickyBar) {
+      const y = stickyBar.getBoundingClientRect().top + window.scrollY - 20;
+      if (window.scrollY > y) {
+        window.scrollTo({ top: y, behavior: "smooth" });
       }
-      setActiveTab(current);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    }
+  }, [activeTab]);
 
   const showToast = () => {
     toast({ title: "Checkout coming next", description: "We're building this feature right now." });
@@ -466,12 +453,12 @@ export default function Plans() {
                   onChange={(v) => setBilling(v as Billing)}
                 />
               </div>
-              <SectionTabs activeId={activeTab} onPick={(id) => { setActiveTab(id); scrollToId(id); }} />
+              <SectionTabs activeId={activeTab} onPick={(id) => setActiveTab(id)} />
             </div>
           </div>
         </div>
 
-        <section id="bundles" style={{ marginTop: 40, scrollMarginTop: 128 }}>
+        {activeTab === "bundles" && <section id="bundles" style={{ marginTop: 40 }}>
           <h2 style={{ fontSize: "clamp(22px, 4vw, 30px)", fontWeight: 800, color: "rgba(0,0,0,0.90)", margin: 0 }}>Bundles</h2>
           <p style={{ marginTop: 8, fontSize: 14, color: "rgba(0,0,0,0.50)" }}>Best value. Everything works together.</p>
 
@@ -521,9 +508,9 @@ export default function Plans() {
               onCta={showToast}
             />
           </div>
-        </section>
+        </section>}
 
-        <section id="standalone" style={{ marginTop: 56, scrollMarginTop: 128 }}>
+        {activeTab === "standalone" && <section id="standalone" style={{ marginTop: 40 }}>
           <h2 style={{ fontSize: "clamp(22px, 4vw, 30px)", fontWeight: 800, color: "rgba(0,0,0,0.90)", margin: 0 }}>Standalone</h2>
           <p style={{ marginTop: 8, fontSize: 14, color: "rgba(0,0,0,0.50)" }}>Pick exactly what you need. Add more later.</p>
 
@@ -554,9 +541,9 @@ export default function Plans() {
 
             <SmallCard title="Fix & Optimize™" price={oneTime(399)} cadence="one-time" bullets={["Website + Google profile quick fixes", "Priority cleanup", "Fast turnaround"]} cta="Add to Plan" onCta={showToast} />
           </div>
-        </section>
+        </section>}
 
-        <section id="setup" style={{ marginTop: 56, scrollMarginTop: 128 }}>
+        {activeTab === "setup" && <section id="setup" style={{ marginTop: 40 }}>
           <h2 style={{ fontSize: "clamp(22px, 4vw, 30px)", fontWeight: 800, color: "rgba(0,0,0,0.90)", margin: 0 }}>Setup Fees</h2>
           <p style={{ marginTop: 8, fontSize: 14, color: "rgba(0,0,0,0.50)" }}>Clear one-time costs for transparency.</p>
 
@@ -594,9 +581,9 @@ export default function Plans() {
               ))}
             </div>
           </div>
-        </section>
+        </section>}
 
-        <section id="addons" style={{ marginTop: 56, scrollMarginTop: 128 }}>
+        {activeTab === "addons" && <section id="addons" style={{ marginTop: 40 }}>
           <h2 style={{ fontSize: "clamp(22px, 4vw, 30px)", fontWeight: 800, color: "rgba(0,0,0,0.90)", margin: 0 }}>Add-ons</h2>
           <p style={{ marginTop: 8, fontSize: 14, color: "rgba(0,0,0,0.50)" }}>Optional extras (pricing coming soon).</p>
 
@@ -635,9 +622,9 @@ export default function Plans() {
               </div>
             ))}
           </div>
-        </section>
+        </section>}
 
-        <section id="faq" style={{ marginTop: 56, scrollMarginTop: 128 }}>
+        {activeTab === "faq" && <section id="faq" style={{ marginTop: 40 }}>
           <h2 style={{ fontSize: "clamp(22px, 4vw, 30px)", fontWeight: 800, color: "rgba(0,0,0,0.90)", margin: 0 }}>FAQ</h2>
           <p style={{ marginTop: 8, fontSize: 14, color: "rgba(0,0,0,0.50)" }}>Quick answers. No surprises.</p>
 
@@ -653,7 +640,7 @@ export default function Plans() {
             <PlanAccordion q="What if I already have a website?" a="No problem. We can optimize or add modules without rebuilding from scratch." />
             <PlanAccordion q="Do you offer refunds?" a="Refund policy placeholder — will be finalized in Terms before launch." />
           </div>
-        </section>
+        </section>}
       </div>
     </MarketingLayout>
   );

@@ -8,23 +8,19 @@ export const TOP_NAV: NavItem[] = [
   {
     label: "Products",
     children: [
-      { label: "TradeLine™", href: "/products/tradeline", desc: "24/7 lead handling ecosystem.", icon: "workflow" },
-      { label: "AI ChatLine™", href: "/products/ai-chatline", desc: "Website + SMS AI chat handling.", icon: "message" },
-      { label: "AI CallLine™", href: "/products/ai-callline", desc: "24/7 AI voice answering.", icon: "phone" },
+      { label: "TradeLine™", href: "/products/assistants", desc: "24/7 lead handling ecosystem.", icon: "workflow" },
+      { label: "AI ChatLine™", href: "/products/ai-chat", desc: "Website + SMS AI chat handling.", icon: "message" },
+      { label: "AI CallLine™", href: "/products/ai-voice", desc: "24/7 AI voice answering.", icon: "phone" },
       { label: "TradeLine™ Complete", href: "/products/tradeline-complete", desc: "Chat + Voice + DMs.", icon: "layers" },
 
       { label: "MapGuard™", href: "/products/mapguard", desc: "Google Maps optimization.", icon: "map" },
-      { label: "MapGuard Setup", href: "/products/mapguard-setup", desc: "One-time optimization setup.", icon: "wrench" },
-      { label: "MapGuard Ongoing", href: "/products/mapguard-ongoing", desc: "Monthly maintenance & growth.", icon: "refresh" },
 
       { label: "ReputationShield™", href: "/products/reputationshield", desc: "Reviews + reputation automation.", icon: "shield" },
       { label: "SiteLaunch™", href: "/products/sitelaunch", desc: "High-converting website builds.", icon: "layout" },
       { label: "WebBoost™", href: "/products/webboost", desc: "Website speed + SEO optimization.", icon: "rocket" },
       { label: "Fix & Optimize™", href: "/products/fix-and-optimize", desc: "Quick improvements package.", icon: "sparkle" },
 
-      { label: "QuoteQuick Pro™", href: "/products/quotequick", desc: "Instant quotes on your site.", icon: "calculator" },
-      { label: "QuoteQuick Template", href: "/products/quotequick-template", desc: "Launch with templates fast.", icon: "file" },
-      { label: "QuoteQuick Custom", href: "/products/quotequick-custom", desc: "Custom calculator build.", icon: "code" },
+      { label: "QuoteQuick Pro™", href: "/products/quickquotepro", desc: "Instant quotes on your site.", icon: "calculator" },
 
       { label: "SocialSync™", href: "/products/socialsync", desc: "Social management automation.", icon: "share" },
     ],
@@ -62,14 +58,17 @@ export const DEMOS = [
 
 export const FOOTER_LINKS = {
   Product: [
-    { label: "TradeLine™", href: "/products/tradeline" },
-    { label: "QuoteQuick Pro™", href: "/products/quotequick" },
-    { label: "MapGuard™", href: "/products/mapguard" },
-    { label: "ReputationShield™", href: "/products/reputationshield" },
-    { label: "WebBoost™", href: "/products/webboost" },
-    { label: "SocialSync™", href: "/products/socialsync" },
-    { label: "SiteLaunch™", href: "/products/sitelaunch" },
-    { label: "Fix & Optimize™", href: "/products/fix-and-optimize" },
+    { label: "TradeLine\u2122", href: "/products/assistants" },
+    { label: "AI ChatLine\u2122", href: "/products/ai-chat" },
+    { label: "AI CallLine\u2122", href: "/products/ai-voice" },
+    { label: "TradeLine\u2122 Complete", href: "/products/tradeline-complete" },
+    { label: "QuoteQuick Pro\u2122", href: "/products/quickquotepro" },
+    { label: "MapGuard\u2122", href: "/products/mapguard" },
+    { label: "ReputationShield\u2122", href: "/products/reputationshield" },
+    { label: "WebBoost\u2122", href: "/products/webboost" },
+    { label: "SocialSync\u2122", href: "/products/socialsync" },
+    { label: "SiteLaunch\u2122", href: "/products/sitelaunch" },
+    { label: "Fix & Optimize\u2122", href: "/products/fix-and-optimize" },
   ],
   Solutions: [
     { label: "For Plumbers", href: "/solutions/for-plumbers" },

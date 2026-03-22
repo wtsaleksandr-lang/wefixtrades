@@ -1,5 +1,7 @@
 export type ProductCategory = "core" | "ai" | "growth";
 
+export type HeroVisualVariant = "calculator" | "chat" | "voice" | "dashboard" | "website" | "social" | "reviews";
+
 export interface ProductPage {
   slug: string;
   name: string;
@@ -7,6 +9,7 @@ export interface ProductPage {
   seoTitle: string;
   seoDescription: string;
   category: ProductCategory;
+  heroVisualType: HeroVisualVariant;
   primaryCTA: { label: string; href: string };
   secondaryCTA?: { label: string; href: string };
   highlights: string[];
@@ -15,7 +18,7 @@ export interface ProductPage {
   bestFor: string[];
   visuals: { title: string; desc: string; image?: string }[];
   faq: { q: string; a: string }[];
-  pricingSection?: { plans: { name: string; price: string; period: string; features: string[]; badge?: string; highlighted?: boolean }[]; note?: string };
+  pricingSection: { plans: { name: string; price: string; period: string; features: string[]; badge?: string; highlighted?: boolean }[]; note?: string };
   related: string[];
 }
 
@@ -27,6 +30,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoTitle: "QuickQuotePro — Instant Quote Calculator for Trades | WeFixTrades",
     seoDescription: "Embed an instant quote calculator on your website. Capture more leads, support 10 pricing formulas, custom branding, and go live in under 10 minutes.",
     category: "core",
+    heroVisualType: "calculator",
     primaryCTA: { label: "Try Free", href: "/Wizard" },
     secondaryCTA: { label: "Try Demo", href: "/demo" },
     highlights: [
@@ -76,6 +80,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoTitle: "24/7 Assistants — Automated Answering for Trades | WeFixTrades",
     seoDescription: "Never miss a lead again. Our 24/7 assistants answer calls and chats, provide instant estimates, book jobs, send follow-ups, and request reviews — automatically.",
     category: "ai",
+    heroVisualType: "chat",
     primaryCTA: { label: "Try Free", href: "/Wizard" },
     secondaryCTA: { label: "Try Demo", href: "/demo" },
     highlights: [
@@ -125,6 +130,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoTitle: "QuickQuotePro — Instant Quote Calculator for Trades | WeFixTrades",
     seoDescription: "Give website visitors instant estimates with QuickQuotePro. Embeddable quote calculator that captures leads, supports 10 pricing formulas, and integrates with booking.",
     category: "core",
+    heroVisualType: "calculator",
     primaryCTA: { label: "Start Free", href: "/Wizard" },
     secondaryCTA: { label: "View Demo", href: "/demo" },
     highlights: [
@@ -156,6 +162,14 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "What pricing formulas are supported?", a: "10 formula types including flat rate, per-unit, area-based, tiered, time-based, package, and more." },
       { q: "Is there a free plan?", a: "Yes. The free plan includes 1 calculator, 50 leads/month, and a hosted quote page." },
     ],
+    pricingSection: {
+      plans: [
+        { name: "Free", price: "$0", period: "/mo", features: ["1 calculator", "50 leads/month", "Hosted quote page", "Basic analytics"] },
+        { name: "Starter", price: "$99", period: "/mo", features: ["1 calculator", "Unlimited leads", "Custom branding", "Email follow-ups", "Embed on your site"] },
+        { name: "Pro", price: "$199", period: "/mo", features: ["3 calculators", "Unlimited leads", "24/7 assistant included", "SMS + WhatsApp follow-ups", "Custom CSS", "Priority support"], highlighted: true, badge: "Most Popular" },
+      ],
+      note: "Calls/SMS usage billed at cost (you control limits).",
+    },
     related: ["booking-addon", "ai-chat", "sitelaunch"],
   },
   {
@@ -165,6 +179,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoTitle: "Booking & Calendar Integration — Online Scheduling for Trades | WeFixTrades",
     seoDescription: "Let customers book and pay deposits directly from your quote calculator. Integrates with Stripe, prevents double-booking, sends automatic confirmations.",
     category: "core",
+    heroVisualType: "calculator",
     primaryCTA: { label: "Start Free", href: "/Wizard" },
     secondaryCTA: { label: "View Demo", href: "/demo" },
     highlights: [
@@ -195,6 +210,13 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Can I set different availability per day?", a: "Yes. You can set unique hours for each day of the week plus blackout dates for holidays." },
       { q: "What happens if I need to cancel a booking?", a: "You can cancel from the dashboard. The customer is notified automatically. Refund handling is managed through Stripe." },
     ],
+    pricingSection: {
+      plans: [
+        { name: "Starter", price: "$49", period: "/mo", features: ["Calendar integration", "Email confirmations", "5 bookings/month", "Basic availability"] },
+        { name: "Pro", price: "$99", period: "/mo", features: ["Unlimited bookings", "Stripe deposits", "SMS confirmations", "Buffer times", "Blackout dates"], highlighted: true, badge: "Most Popular" },
+      ],
+      note: "Stripe processing fees apply to deposits.",
+    },
     related: ["quickquotepro", "ai-chat", "webcare"],
   },
   {
@@ -204,6 +226,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoTitle: "AI Chat Employee — 24/7 Lead Qualification & Booking | WeFixTrades",
     seoDescription: "AI-powered chat assistant that engages website visitors, qualifies leads, generates estimates, and books jobs around the clock. No coding required.",
     category: "ai",
+    heroVisualType: "chat",
     primaryCTA: { label: "Start Free", href: "/Wizard" },
     secondaryCTA: { label: "View Demo", href: "/demo" },
     highlights: [
@@ -234,6 +257,13 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "What if the AI can't answer a question?", a: "It gracefully hands off to you via SMS or WhatsApp with full conversation context." },
       { q: "Does it work on mobile?", a: "Yes. The chat widget is fully responsive and works on all devices." },
     ],
+    pricingSection: {
+      plans: [
+        { name: "Starter", price: "$99", period: "/mo", features: ["Chat widget on your site", "50 conversations/month", "Email lead alerts", "Basic follow-ups"] },
+        { name: "Pro", price: "$199", period: "/mo", features: ["Unlimited conversations", "SMS + WhatsApp follow-ups", "Booking integration", "Lead qualification", "Priority support"], highlighted: true, badge: "Most Popular" },
+      ],
+      note: "Calls/SMS usage billed at cost (you control limits).",
+    },
     related: ["ai-voice", "quickquotepro", "booking-addon"],
   },
   {
@@ -243,6 +273,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoTitle: "AI Voice Employee — 24/7 Phone Answering for Trades | WeFixTrades",
     seoDescription: "AI voice assistant that answers calls, qualifies leads, generates estimates, and books appointments. Never miss a call again — even on the job site.",
     category: "ai",
+    heroVisualType: "voice",
     primaryCTA: { label: "Start Free", href: "/Wizard" },
     secondaryCTA: { label: "View Demo", href: "/demo" },
     highlights: [
@@ -273,6 +304,13 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Can it handle multiple calls at once?", a: "Yes. Unlike a human receptionist, AI Voice can handle unlimited simultaneous calls." },
       { q: "What if someone wants to speak to a real person?", a: "AI Voice can transfer urgent calls to your mobile immediately, with full context." },
     ],
+    pricingSection: {
+      plans: [
+        { name: "Starter", price: "$149", period: "/mo", features: ["24/7 call answering", "50 calls/month", "Call transcripts", "Email notifications", "Basic lead capture"] },
+        { name: "Pro", price: "$249", period: "/mo", features: ["Unlimited calls", "SMS + WhatsApp alerts", "Calendar booking", "Call recording", "Priority routing"], highlighted: true, badge: "Most Popular" },
+      ],
+      note: "Per-minute rates apply for calls exceeding plan limits.",
+    },
     related: ["ai-chat", "quickquotepro", "reputationshield"],
   },
   {
@@ -282,6 +320,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoTitle: "MapGuard — Google Maps & GBP Optimization for Trades | WeFixTrades",
     seoDescription: "Get found by local customers on Google Maps. GBP optimization, citation building, review strategy, and local ranking monitoring for trades businesses.",
     category: "growth",
+    heroVisualType: "dashboard",
     primaryCTA: { label: "Get Started", href: "/Wizard" },
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
@@ -312,6 +351,13 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do you manage my Google reviews?", a: "We set up automated review request campaigns and provide response templates. You approve responses before they go live." },
       { q: "What if I have multiple locations?", a: "Each location gets its own optimized profile. Multi-location packages are available at a discount." },
     ],
+    pricingSection: {
+      plans: [
+        { name: "Essentials", price: "$149", period: "/mo", features: ["GBP optimization", "20 citation submissions", "Monthly ranking report", "Review request templates"] },
+        { name: "Growth", price: "$299", period: "/mo", features: ["Full GBP management", "50+ citations", "Competitor analysis", "Review automation", "Bi-weekly reporting", "Priority support"], highlighted: true, badge: "Most Popular" },
+      ],
+      note: "3-month minimum commitment for best results.",
+    },
     related: ["webboost", "webcare", "reputationshield"],
   },
   {
@@ -321,6 +367,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoTitle: "WebBoost — Website SEO & Speed Optimization for Trades | WeFixTrades",
     seoDescription: "Rank higher on Google with fast-loading, optimized pages. Technical SEO audits, speed optimization, keyword targeting, and monthly performance reports.",
     category: "growth",
+    heroVisualType: "dashboard",
     primaryCTA: { label: "Get Started", href: "/Wizard" },
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
@@ -351,6 +398,13 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "How is this different from MapGuard?", a: "WebBoost focuses on your website's organic search rankings. MapGuard focuses on Google Maps/GBP visibility. They work best together." },
       { q: "Will I see ranking improvements?", a: "Most clients see measurable ranking improvements within 60-90 days. SEO is a long-term strategy that compounds." },
     ],
+    pricingSection: {
+      plans: [
+        { name: "Starter", price: "$199", period: "/mo", features: ["Technical SEO audit", "Speed optimization", "5 keyword targets", "Monthly report"] },
+        { name: "Pro", price: "$399", period: "/mo", features: ["Full SEO management", "Core Web Vitals", "15 keyword targets", "Schema markup", "Content optimization", "Bi-weekly reports"], highlighted: true, badge: "Most Popular" },
+      ],
+      note: "Results typically visible within 60-90 days.",
+    },
     related: ["mapguard", "sitelaunch", "webcare"],
   },
   {
@@ -360,6 +414,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoTitle: "WebCare — Website & Google Maps Maintenance for Trades | WeFixTrades",
     seoDescription: "Keep your website and Google Business Profile updated, secure, and performing. Monthly maintenance, content updates, uptime monitoring, and security patches.",
     category: "growth",
+    heroVisualType: "dashboard",
     primaryCTA: { label: "Get Started", href: "/Wizard" },
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
@@ -390,6 +445,13 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do you host my website?", a: "We maintain whatever hosting you're on. If you need hosting recommendations, we can help with that too." },
       { q: "Can I request urgent changes?", a: "Yes. Priority support means urgent requests are handled within 24 hours." },
     ],
+    pricingSection: {
+      plans: [
+        { name: "Basic", price: "$99", period: "/mo", features: ["Monthly content update", "Security patches", "Uptime monitoring", "Email support"] },
+        { name: "Pro", price: "$199", period: "/mo", features: ["2 content updates/month", "GBP maintenance", "Speed monitoring", "Priority support", "Plugin updates"], highlighted: true, badge: "Most Popular" },
+      ],
+      note: "Additional content changes available at $25/each.",
+    },
     related: ["webboost", "mapguard", "sitelaunch"],
   },
   {
@@ -399,6 +461,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoTitle: "SiteLaunch — Professional Trade Website in 5 Days | WeFixTrades",
     seoDescription: "Get a professional, mobile-responsive trade website with your QuickQuote calculator built in. Custom design, SEO-ready, delivered in 5 business days.",
     category: "core",
+    heroVisualType: "website",
     primaryCTA: { label: "Get Started", href: "/Wizard" },
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
@@ -429,6 +492,13 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Can I edit the site after launch?", a: "Yes. We build on platforms you can manage, or you can add WebCare for ongoing maintenance." },
       { q: "Is hosting included?", a: "We recommend hosting options and can set it up for you. Hosting costs are separate and typically $10-20/month." },
     ],
+    pricingSection: {
+      plans: [
+        { name: "Starter", price: "$999", period: " one-time", features: ["5-page custom website", "Mobile responsive", "QuickQuote integration", "Basic SEO setup", "5 business day delivery"] },
+        { name: "Pro", price: "$1,999", period: " one-time", features: ["10-page custom website", "Advanced animations", "Full SEO setup", "Blog integration", "Contact forms", "Priority delivery"], highlighted: true, badge: "Most Popular" },
+      ],
+      note: "Hosting not included. Typically $10-20/month.",
+    },
     related: ["quickquotepro", "webboost", "webcare"],
   },
   {
@@ -438,6 +508,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoTitle: "SocialSync — Social Media Management for Trades | WeFixTrades",
     seoDescription: "Consistent posting, branded content, and lead-gen campaigns on Facebook and Instagram. Social media management designed for trades businesses.",
     category: "growth",
+    heroVisualType: "social",
     primaryCTA: { label: "Get Started", href: "/Wizard" },
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
@@ -468,6 +539,13 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do I need to provide content?", a: "Photos of your work help, but we can create content using stock images and your branding if needed." },
       { q: "How many posts per month?", a: "Standard plans include 12-16 posts per month across platforms, plus stories and engagement." },
     ],
+    pricingSection: {
+      plans: [
+        { name: "Starter", price: "$199", period: "/mo", features: ["8 posts/month", "1 platform", "Branded templates", "Monthly report"] },
+        { name: "Pro", price: "$399", period: "/mo", features: ["16 posts/month", "2 platforms", "Lead-gen campaigns", "Stories + Reels", "Engagement management", "Bi-weekly reports"], highlighted: true, badge: "Most Popular" },
+      ],
+      note: "Ad spend for campaigns is billed separately.",
+    },
     related: ["reputationshield", "mapguard", "webboost"],
   },
   {
@@ -477,6 +555,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoTitle: "ReputationShield — Review & Reputation Management for Trades | WeFixTrades",
     seoDescription: "Automated review requests, response templates, reputation monitoring, and negative review alerts. Protect and grow your online reputation.",
     category: "growth",
+    heroVisualType: "reviews",
     primaryCTA: { label: "Get Started", href: "/Wizard" },
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
@@ -507,7 +586,111 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Which review platforms do you monitor?", a: "Google, Facebook, Yelp, and HomeStars. Additional platforms can be added on request." },
       { q: "How are review requests sent?", a: "Via email or SMS after a job is completed. You can customize the timing and message." },
     ],
+    pricingSection: {
+      plans: [
+        { name: "Starter", price: "$99", period: "/mo", features: ["Review monitoring", "Google + Facebook", "Review request emails", "Monthly report"] },
+        { name: "Pro", price: "$199", period: "/mo", features: ["All platforms", "SMS + email requests", "AI response templates", "Negative review alerts", "Website review widget", "Priority support"], highlighted: true, badge: "Most Popular" },
+      ],
+      note: "Works with Google, Facebook, Yelp, and HomeStars.",
+    },
     related: ["mapguard", "socialsync", "ai-chat"],
+  },
+  {
+    slug: "tradeline-complete",
+    name: "TradeLine\u2122 Complete",
+    shortTagline: "Chat + Voice + DMs",
+    seoTitle: "TradeLine Complete — Chat, Voice & DM Answering for Trades | WeFixTrades",
+    seoDescription: "The full 24/7 lead handling system. AI answers website chats, phone calls, and social media DMs — so you never miss a lead, even off the clock.",
+    category: "ai",
+    heroVisualType: "chat",
+    primaryCTA: { label: "Get Started", href: "/Wizard" },
+    secondaryCTA: { label: "See Demo", href: "/demo" },
+    highlights: [
+      "24/7 website chat answering with AI",
+      "24/7 voice call answering with natural AI",
+      "Facebook and Instagram DM handling",
+      "Unified lead dashboard for all channels",
+      "Auto follow-ups via SMS, email, and WhatsApp",
+      "Booking integration and calendar sync",
+    ],
+    outcomes: [
+      { title: "Never Miss a Lead", desc: "Every chat, call, and DM is answered instantly — 24/7, across every channel." },
+      { title: "One Dashboard", desc: "All conversations from chat, phone, and social in one place. No tab switching." },
+      { title: "More Booked Jobs", desc: "Automated follow-ups and booking keep leads warm and convert more enquiries into jobs." },
+    ],
+    howItWorks: [
+      { title: "Connect Channels", desc: "Add the chat widget, forward your phone number, and link your social accounts." },
+      { title: "Train Your AI", desc: "Tell the AI about your services, pricing, and service area. It learns in minutes." },
+      { title: "Watch Leads Roll In", desc: "AI handles conversations across all channels. You review leads and booked jobs in your dashboard." },
+    ],
+    bestFor: ["Busy trades teams", "Multi-channel businesses", "After-hours coverage", "High-volume enquiries"],
+    visuals: [
+      { title: "Unified Inbox", desc: "See chats, calls, and DMs in one timeline view." },
+      { title: "AI Conversations", desc: "Natural AI responses across chat, voice, and social." },
+      { title: "Lead Pipeline", desc: "Track every lead from first contact to booked job." },
+    ],
+    faq: [
+      { q: "What channels does TradeLine Complete cover?", a: "Website chat, phone calls, Facebook Messenger, and Instagram DMs — all from one dashboard." },
+      { q: "Can the AI handle all channels simultaneously?", a: "Yes. Unlike a human receptionist, the AI handles unlimited simultaneous conversations across all channels." },
+      { q: "Is this different from buying ChatLine and CallLine separately?", a: "TradeLine Complete includes both plus social DM handling and a unified dashboard. It's also more cost-effective than buying each separately." },
+    ],
+    pricingSection: {
+      plans: [
+        { name: "Starter", price: "$249", period: "/mo", features: ["Chat + Voice answering", "100 conversations/month", "Lead dashboard", "Email notifications", "Basic follow-ups"] },
+        { name: "Pro", price: "$399", period: "/mo", features: ["All channels (Chat + Voice + DMs)", "Unlimited conversations", "SMS + WhatsApp follow-ups", "Calendar booking", "Priority support"], highlighted: true, badge: "Most Popular" },
+      ],
+      note: "Per-minute call rates apply. Social DM channels require connected accounts.",
+    },
+    related: ["ai-chat", "ai-voice", "quickquotepro"],
+  },
+  {
+    slug: "fix-and-optimize",
+    name: "Fix & Optimize\u2122",
+    shortTagline: "Quick Improvements Package",
+    seoTitle: "Fix & Optimize — Website & Google Profile Cleanup for Trades | WeFixTrades",
+    seoDescription: "Fast, one-time cleanup of your website and Google Business Profile. Fix speed issues, broken pages, outdated info, and SEO basics — done in days, not months.",
+    category: "growth",
+    heroVisualType: "dashboard",
+    primaryCTA: { label: "Get Started", href: "/Wizard" },
+    secondaryCTA: { label: "See What's Included", href: "#capabilities" },
+    highlights: [
+      "Website speed optimization and cleanup",
+      "Google Business Profile audit and fixes",
+      "Broken links and page error repair",
+      "Basic on-page SEO corrections",
+      "Mobile responsiveness fixes",
+      "Fast turnaround — typically 3-5 business days",
+    ],
+    outcomes: [
+      { title: "Faster Website", desc: "Speed improvements that directly impact your Google ranking and visitor experience." },
+      { title: "Accurate Listings", desc: "Your Google profile shows the right hours, services, and contact info — no more outdated data." },
+      { title: "Quick Wins", desc: "Get measurable improvements without a long-term commitment or ongoing costs." },
+    ],
+    howItWorks: [
+      { title: "We Audit", desc: "We scan your website and Google profile for issues — speed, SEO, accuracy, and mobile problems." },
+      { title: "We Fix", desc: "Our team resolves the critical issues identified in the audit. No fluff, just fixes." },
+      { title: "We Report", desc: "You get a before/after report showing exactly what was fixed and the measurable improvements." },
+    ],
+    bestFor: ["Trades with existing websites", "Businesses with outdated Google profiles", "Anyone wanting quick results", "Pre-launch cleanup"],
+    visuals: [
+      { title: "Audit Report", desc: "Detailed breakdown of issues found and fixes applied." },
+      { title: "Speed Improvement", desc: "Before and after page speed scores." },
+      { title: "Google Profile", desc: "Optimized business profile with accurate information." },
+    ],
+    faq: [
+      { q: "Is this a one-time service?", a: "Yes. Fix & Optimize is a one-time cleanup. For ongoing maintenance, check out WebCare." },
+      { q: "How long does it take?", a: "Most projects are completed within 3-5 business days." },
+      { q: "Do I need to provide access?", a: "Yes. We'll need access to your website admin panel and Google Business Profile." },
+      { q: "What if I need ongoing help after?", a: "We recommend WebCare for monthly maintenance or WebBoost for ongoing SEO work." },
+    ],
+    pricingSection: {
+      plans: [
+        { name: "Standard", price: "$399", period: " one-time", features: ["Website speed audit + fixes", "Google Business Profile cleanup", "Broken link repair", "Basic SEO corrections", "Before/after report"] },
+        { name: "Pro", price: "$699", period: " one-time", features: ["Everything in Standard", "Mobile optimization", "Schema markup setup", "Content review", "Priority turnaround (2-3 days)", "30-min strategy call"], highlighted: true, badge: "Best Value" },
+      ],
+      note: "One-time payment. No recurring fees.",
+    },
+    related: ["webboost", "webcare", "mapguard"],
   },
 ];
 
