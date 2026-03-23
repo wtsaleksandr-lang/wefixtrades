@@ -16,6 +16,7 @@ import PillarAnimation from "@/components/sections/PillarAnimation";
 import CTASection from "@/components/marketing/CTASection";
 import TrustSection from "@/components/marketing/TrustSection";
 import GlobeSection from "@/components/marketing/globe/GlobeSection";
+import ServiceCards from "@/components/marketing/ServiceCards";
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
 import BuiltForRotator from "@/components/marketing/BuiltForRotator";
 import AutomationDiagram from "@/components/marketing/AutomationDiagram";
@@ -581,6 +582,7 @@ export default function HomePage() {
       <PillarAnimation />
       <FeatureCards />
       {hasWebGL && <GlobeSection />}
+      <ServiceCards />
       <SurfaceSection overlap className="py-4">
         <ReviewsSection />
       </SurfaceSection>
