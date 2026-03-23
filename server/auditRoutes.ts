@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import express from "express";
 import { storage } from "./storage";
+import OpenAI from "openai";
 
 const router = express.Router();
 
@@ -366,7 +367,7 @@ router.post("/generate", async (req: Request, res: Response) => {
       },
     ];
 
-    const report_json = {
+    const report_json: Record<string, any> = {
       business: {
         name: business.name || "",
         address: business.formattedAddress || "",
@@ -385,6 +386,58 @@ router.post("/generate", async (req: Request, res: Response) => {
       actionPlan: { next7Days, next30Days },
       recommendedServices,
     };
+
+    // Stage 2: AI-powered narrative report
+    try {
+      const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+      if (apiKey) {
+        const openai = new OpenAI({
+          apiKey,
+          baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+        });
+
+        const systemPrompt = `You are an expert digital marketing auditor writing a professional audit report for a local trades business owner (plumber, electrician, cleaner, etc.). The business owner is NOT technical — write in plain, friendly English.
+
+Your job: turn the structured audit data into a clear, compelling, and actionable narrative report. Be specific to THIS business — use their name, their actual numbers, and their specific issues.
+
+Return valid JSON with exactly these 3 fields:
+{
+  "summary": "2-3 sentence executive summary of their online presence health. Lead with the most important finding. Include their local visibility score.",
+  "analysis": "Detailed paragraph (4-8 sentences) analyzing each issue found. Explain WHY each problem matters in terms of lost customers and revenue. Use their actual data (review count, rating, speed scores) to make it concrete.",
+  "recommendations": "Actionable paragraph (4-8 sentences) with prioritized steps they should take. Start with quick wins, then longer-term improvements. End with a brief, non-pushy mention of how professional help could accelerate results."
+}
+
+Rules:
+- Be honest but constructive — never condescending
+- Use specific numbers from the data, not vague statements
+- Focus on business impact (lost leads, missed calls, lower rankings)
+- Keep it under 800 words total
+- Return ONLY the JSON object, no markdown fences`;
+
+        const userPrompt = `Here is the structured audit data for this business:\n\n${JSON.stringify(report_json, null, 2)}`;
+
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 1200,
+        });
+
+        const raw = completion.choices?.[0]?.message?.content || "";
+        try {
+          const cleaned = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
+          report_json.narrative = JSON.parse(cleaned);
+        } catch {
+          report_json.narrative = { summary: raw, analysis: "", recommendations: "" };
+        }
+      }
+    } catch (aiErr: any) {
+      console.error("AI narrative generation failed (falling back to structured report):", aiErr?.message);
+      // Graceful fallback — structured report still returned without narrative
+    }
 
     return res.json({ ok: true, report_json });
   } catch (e: any) {
