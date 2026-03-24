@@ -40,6 +40,7 @@ import FreeAudit from "@/pages/marketing/FreeAudit";
 import MissedCallCalculator from "@/pages/marketing/missed-call-calculator";
 import QuoteCalculatorDemo from "@/pages/marketing/quote-calculator-demo";
 import NewProductPage from "@/pages/products/ProductPage";
+import MapGuardPage from "@/pages/products/mapguard";
 import SolutionPage from "@/pages/solutions/SolutionPage";
 import DemoCenter from "@/pages/demos/DemoCenter";
 import DemoPage from "@/pages/demos/DemoPage";
@@ -58,6 +59,7 @@ function Router() {
     <Switch>
       <Route path="/" component={MarketingHome} />
 
+      <Route path="/products/mapguard" component={MapGuardPage} />
       <Route path="/products/:slug" component={NewProductPage} />
 
       <Route path="/solutions/visibility" component={SolutionsVisibility} />
