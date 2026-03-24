@@ -607,54 +607,58 @@ export default function FreeAudit() {
 
       <div className="audit-page">
         <div className="audit-container">
-          {!reportReady && (
-            <>
-              <div style={{ textAlign: "center", marginBottom: 36 }}>
-                <h1
-                  data-testid="text-audit-title"
-                  style={{
-                    fontSize: "clamp(30px, 5vw, 40px)",
-                    fontWeight: 900,
-                    letterSpacing: "-0.02em",
-                    color: "#111827",
-                    marginBottom: 12,
-                    lineHeight: 1.05,
-                  }}
-                >
-                  Free Google Maps &amp; Website Audit
-                </h1>
-                <p
-                  style={{
-                    fontSize: 16,
-                    color: "rgba(0,0,0,0.62)",
-                    maxWidth: "58ch",
-                    margin: "0 auto 14px",
-                    lineHeight: 1.55,
-                  }}
-                >
-                  Search your business and get an instant report on your Google
-                  Business Profile health and website speed.
-                </p>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 6,
-                    fontSize: 13,
-                    fontWeight: 500,
-                    color: "rgba(0,0,0,0.48)",
-                  }}
-                >
-                  <span>Instant report</span>
-                  <span style={{ opacity: 0.4 }}>{"\u00b7"}</span>
-                  <span>No signup</span>
-                  <span style={{ opacity: 0.4 }}>{"\u00b7"}</span>
-                  <span>Takes ~30 seconds</span>
-                </div>
+          {/* ─── Header + Search (always visible) ─── */}
+          <div style={{ textAlign: "center", marginBottom: reportReady ? 20 : 36 }}>
+            <h1
+              data-testid="text-audit-title"
+              style={{
+                fontSize: reportReady ? "clamp(22px, 4vw, 28px)" : "clamp(30px, 5vw, 40px)",
+                fontWeight: 900,
+                letterSpacing: "-0.02em",
+                color: "#111827",
+                marginBottom: reportReady ? 8 : 12,
+                lineHeight: 1.05,
+                transition: "font-size 0.3s",
+              }}
+            >
+              Free Google Maps &amp; Website Audit
+            </h1>
+            {!reportReady && (
+              <p
+                style={{
+                  fontSize: 16,
+                  color: "rgba(0,0,0,0.62)",
+                  maxWidth: "58ch",
+                  margin: "0 auto 14px",
+                  lineHeight: 1.55,
+                }}
+              >
+                Search your business and get an instant report on your Google
+                Business Profile health and website speed.
+              </p>
+            )}
+            {!reportReady && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "rgba(0,0,0,0.48)",
+                }}
+              >
+                <span>Instant report</span>
+                <span style={{ opacity: 0.4 }}>{"\u00b7"}</span>
+                <span>No signup</span>
+                <span style={{ opacity: 0.4 }}>{"\u00b7"}</span>
+                <span>Takes ~30 seconds</span>
               </div>
+            )}
+          </div>
 
-              {!busy && (
+          {!busy && (
                 <div
                   style={{
                     background: "rgba(255,255,255,0.78)",
@@ -892,8 +896,6 @@ export default function FreeAudit() {
                     })}
                   </div>
                 </div>
-              )}
-            </>
           )}
 
           {reportReady && (
