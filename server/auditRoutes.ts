@@ -165,6 +165,8 @@ router.post("/place-details", async (req: Request, res: Response) => {
       "place_id",
       "name",
       "formatted_address",
+      "address_components",
+      "types",
       "rating",
       "user_ratings_total",
       "website",
@@ -199,6 +201,8 @@ router.post("/place-details", async (req: Request, res: Response) => {
       placeId: result.place_id || placeId,
       name: result.name || "",
       formattedAddress: result.formatted_address || "",
+      addressComponents: Array.isArray(result.address_components) ? result.address_components : [],
+      types: Array.isArray(result.types) ? result.types : [],
       rating: typeof result.rating === "number" ? result.rating : null,
       reviewsCount:
         typeof result.user_ratings_total === "number"
@@ -288,14 +292,36 @@ function buildSeedKeywords(trade: string, city: string): string[] {
 /* ─── E1: Outscraper Competitor Data ─── */
 async function fetchOutscraperCompetitors(trade: string, city: string, businessName: string) {
   const apiKey = process.env.OUTSCRAPER_API_KEY;
-  if (!apiKey) return null;
-  const r = await fetch("https://api.app.outscraper.com/maps/search-v3", {
-    method: "POST",
-    headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ query: `${trade} near ${city}`, limit: 8, language: "en", region: "CA" }),
-  });
-  const data = await r.json();
+  if (!apiKey) {
+    console.warn("[E1 Outscraper competitors] OUTSCRAPER_API_KEY not set, skipping");
+    return null;
+  }
+  const requestBody = { query: `${trade} near ${city}`, limit: 8, language: "en", region: "CA" };
+  const requestUrl = "https://api.app.outscraper.com/maps/search-v3";
+  console.log("[E1 Outscraper competitors] Request URL:", requestUrl);
+  console.log("[E1 Outscraper competitors] Request body:", JSON.stringify(requestBody));
+  let r: globalThis.Response;
+  let rawText: string;
+  try {
+    r = await fetch(requestUrl, {
+      method: "POST",
+      headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    });
+    rawText = await r.text();
+    console.log("[E1 Outscraper competitors] HTTP status:", r.status);
+    console.log("[E1 Outscraper competitors] Raw response:", rawText.slice(0, 2000));
+  } catch (fetchErr: any) {
+    console.error("[E1 Outscraper competitors] Fetch error:", fetchErr?.message);
+    throw fetchErr;
+  }
+  let data: any;
+  try { data = JSON.parse(rawText); } catch { data = null; }
+  if (!r.ok) {
+    console.error("[E1 Outscraper competitors] Non-OK response:", r.status, rawText.slice(0, 500));
+  }
   const results = Array.isArray(data?.data) ? data.data.flat() : Array.isArray(data) ? data.flat() : [];
+  console.log("[E1 Outscraper competitors] Parsed results count:", results.length);
   const competitors = results
     .filter((b: any) => {
       const n = (b.name || "").toLowerCase();
@@ -334,14 +360,36 @@ async function fetchOutscraperCompetitors(trade: string, city: string, businessN
 /* ─── E2: Outscraper Reviews Intelligence ─── */
 async function fetchOutscraperReviews(placeId: string) {
   const apiKey = process.env.OUTSCRAPER_API_KEY;
-  if (!apiKey || !placeId) return null;
-  const r = await fetch("https://api.app.outscraper.com/maps/reviews-v3", {
-    method: "POST",
-    headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ query: placeId, reviewsLimit: 50, sort: "newest" }),
-  });
-  const data = await r.json();
+  if (!apiKey || !placeId) {
+    console.warn("[E2 Outscraper reviews] Missing apiKey or placeId, skipping");
+    return null;
+  }
+  const requestBody = { query: placeId, reviewsLimit: 50, sort: "newest" };
+  const requestUrl = "https://api.app.outscraper.com/maps/reviews-v3";
+  console.log("[E2 Outscraper reviews] Request URL:", requestUrl);
+  console.log("[E2 Outscraper reviews] Request body:", JSON.stringify(requestBody));
+  let r: globalThis.Response;
+  let rawText: string;
+  try {
+    r = await fetch(requestUrl, {
+      method: "POST",
+      headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    });
+    rawText = await r.text();
+    console.log("[E2 Outscraper reviews] HTTP status:", r.status);
+    console.log("[E2 Outscraper reviews] Raw response:", rawText.slice(0, 2000));
+  } catch (fetchErr: any) {
+    console.error("[E2 Outscraper reviews] Fetch error:", fetchErr?.message);
+    throw fetchErr;
+  }
+  let data: any;
+  try { data = JSON.parse(rawText); } catch { data = null; }
+  if (!r.ok) {
+    console.error("[E2 Outscraper reviews] Non-OK response:", r.status, rawText.slice(0, 500));
+  }
   const reviews = Array.isArray(data?.data) ? data.data.flat() : Array.isArray(data) ? data.flat() : [];
+  console.log("[E2 Outscraper reviews] Parsed reviews count:", reviews.length);
   const reviewTexts: string[] = [];
   const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
   let ownerReplies = 0;
@@ -457,34 +505,10 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
 async function calculateDemandGaps(
   topKeyword: string, businessHours: string[], trade: string, totalMonthlySearchVolume: number
 ) {
-  let weekdayBusiness = 38, weekdayEvening = 31, weekends = 31;
-  try {
-    const googleTrends = require("google-trends-api");
-    const trendsData = await googleTrends.interestOverTime({
-      keyword: topKeyword,
-      startTime: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
-    });
-    const parsed = JSON.parse(trendsData);
-    const timeline = parsed?.default?.timelineData || [];
-    if (timeline.length > 0) {
-      let wdBiz = 0, wdEve = 0, wknd = 0, total = 0;
-      for (const point of timeline) {
-        const val = point.value?.[0] || 0;
-        const date = new Date(point.time * 1000);
-        const day = date.getDay();
-        if (day === 0 || day === 6) wknd += val;
-        else wdBiz += val; // simplified — trends doesn't give hourly
-        total += val;
-      }
-      if (total > 0) {
-        weekdayBusiness = Math.round((wdBiz / total) * 100 * 0.55); // ~55% during business hours
-        weekdayEvening = Math.round((wdBiz / total) * 100 * 0.45);  // ~45% evenings
-        weekends = Math.round((wknd / total) * 100);
-      }
-    }
-  } catch (err: any) {
-    console.error("Google Trends failed, using defaults:", err?.message);
-  }
+  // google-trends-api is CJS-only and incompatible with the CJS bundle output
+  // (import.meta.url gets erased by the bundler). Use hardcoded defaults.
+  const weekdayBusiness = 38, weekdayEvening = 31, weekends = 31;
+  console.log("[audit] Using default demand distribution");
 
   const hoursStr = (businessHours || []).join(" ").toLowerCase();
   const isOpenEvenings = /([6-9]|1[0-1]):\d{2}\s*(pm|$)/.test(hoursStr) || hoursStr.includes("18:") || hoursStr.includes("19:") || hoursStr.includes("20:");
@@ -636,17 +660,82 @@ function calculateScores(auditData: any) {
   };
 }
 
+/* ─── City Extraction ─── */
+function extractCity(business: any): string {
+  // Try address_components first (most reliable)
+  const components = Array.isArray(business.addressComponents) ? business.addressComponents : [];
+  for (const comp of components) {
+    const types = Array.isArray(comp.types) ? comp.types : [];
+    if (types.includes("locality")) return comp.long_name || "";
+  }
+  // Fallback: sublocality
+  for (const comp of components) {
+    const types = Array.isArray(comp.types) ? comp.types : [];
+    if (types.includes("sublocality") || types.includes("sublocality_level_1")) return comp.long_name || "";
+  }
+  // Fallback: parse formatted_address — take the part before province/state code
+  const addr = business.formattedAddress || business.address || "";
+  // Pattern: "..., City, XX POSTAL, Country" or "..., City, Province, Country"
+  const parts = addr.split(",").map((s: string) => s.trim());
+  if (parts.length >= 3) {
+    // The city is usually the second-to-last part before the postal/province segment
+    // e.g. "923 Oxford St, Etobicoke, ON M8Z 5T3, Canada"
+    //       parts[0]="923 Oxford St" parts[1]="Etobicoke" parts[2]="ON M8Z 5T3" parts[3]="Canada"
+    for (let i = 1; i < parts.length - 1; i++) {
+      const part = parts[i];
+      // Skip if it looks like a province/state code + postal
+      if (/^[A-Z]{2}\s/.test(part) || /^\d{5}/.test(part)) continue;
+      // Skip country names
+      if (/^(canada|united states|usa|us)$/i.test(part)) continue;
+      return part;
+    }
+  }
+  return "";
+}
+
+/* ─── Trade Detection ─── */
+const TRADE_PATTERNS: Array<{ pattern: RegExp; trade: string }> = [
+  { pattern: /plumb|drain|rooter|pipe/i, trade: "plumbing" },
+  { pattern: /hvac|heating|cooling|air.?condition|furnace/i, trade: "hvac" },
+  { pattern: /electr/i, trade: "electrical" },
+  { pattern: /clean|maid|janitorial/i, trade: "cleaning" },
+  { pattern: /landscape|lawn|garden/i, trade: "landscaping" },
+  { pattern: /roof/i, trade: "roofing" },
+  { pattern: /lock/i, trade: "locksmith" },
+];
+
+function detectTrade(businessName: string, types: string[]): string {
+  const haystack = [businessName, ...types].join(" ");
+  for (const { pattern, trade } of TRADE_PATTERNS) {
+    if (pattern.test(haystack)) {
+      console.log(`[audit] Detected trade: ${trade} from business name: ${businessName}`);
+      return trade;
+    }
+  }
+  console.log(`[audit] Detected trade: general from business name: ${businessName}`);
+  return "general";
+}
+
 /* ═══════════════════════════════════════════════════════ */
 router.post("/generate", async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const business = req.body?.business;
     const speedData = req.body?.speedData || null;
-    const trade = String(req.body?.trade || "general").trim();
-    const city = String(req.body?.city || "").trim();
 
     if (!business || !business.name)
       return safeJsonError(res, 400, "business required");
+
+    // Extract city from place details if not provided by client
+    const city = String(req.body?.city || "").trim() || extractCity(business);
+    console.log("[audit] Resolved city:", JSON.stringify(city));
+
+    // Detect trade from business name + types if not provided by client
+    const clientTrade = String(req.body?.trade || "").trim();
+    const trade = clientTrade && clientTrade !== "general"
+      ? clientTrade
+      : detectTrade(business.name || "", Array.isArray(business.types) ? business.types : []);
+    console.log("[audit] Resolved trade:", JSON.stringify(trade));
 
     const rating = typeof business.rating === "number" ? business.rating : null;
     const reviewsCount = typeof business.reviewsCount === "number" ? business.reviewsCount : 0;
@@ -873,7 +962,7 @@ Business audit data:
 ${JSON.stringify(auditData, null, 2)}`;
 
         const message = await anthropic.messages.create({
-          model: "claude-sonnet-4-5-20250514",
+          model: "claude-sonnet-4-5",
           max_tokens: 2000,
           system: systemPrompt,
           messages: [{ role: "user", content: userPrompt }],
