@@ -114,7 +114,26 @@ router.post("/search-places", async (req: Request, res: Response) => {
       return safeJsonError(res, 502, `Google API returned HTTP ${r.status}`);
     }
 
-    const results = Array.isArray(data?.results) ? data.results : [];
+    let results = Array.isArray(data?.results) ? data.results : [];
+
+    // Fallback: if Text Search found nothing, try Find Place API (different matching logic)
+    if (results.length === 0) {
+      console.log("[search-places] Text Search returned 0 results, trying Find Place fallback…");
+      const fpUrl =
+        `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?` +
+        `input=${encodeURIComponent(query)}&inputtype=textquery` +
+        `&fields=${encodeURIComponent("place_id,name,formatted_address,rating,user_ratings_total,photos")}` +
+        `&key=${encodeURIComponent(key)}`;
+      try {
+        const fpData = await fetchJson(fpUrl);
+        const candidates = Array.isArray(fpData?.candidates) ? fpData.candidates : [];
+        console.log("[search-places] Find Place returned", candidates.length, "candidates");
+        results = candidates;
+      } catch (fpErr: any) {
+        console.error("[search-places] Find Place fallback failed:", fpErr?.message);
+      }
+    }
+
     const predictions = results.slice(0, 5).map((r: any) => ({
       place_id: r.place_id,
       name: r.name,
