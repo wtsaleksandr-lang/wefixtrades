@@ -683,7 +683,7 @@ export default function FreeAudit() {
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       onFocus={() => { if (predictions.length > 0 || (searchDone && predictions.length === 0)) setDropdownOpen(true); }}
-                      placeholder="Type your business name + city\u2026"
+                      placeholder="Type your business name + city…"
                       style={{
                         width: "100%",
                         height: 46,
@@ -837,7 +837,7 @@ export default function FreeAudit() {
                       marginBottom: 14,
                     }}
                   >
-                    Running your audit\u2026 (step {currentStep} of 3)
+                    Running your audit… (step {currentStep} of 3)
                   </div>
                   <div className="audit-shimmer" style={{ marginBottom: 16 }} />
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
