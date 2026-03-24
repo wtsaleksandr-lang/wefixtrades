@@ -134,9 +134,13 @@ router.post("/search-places", async (req: Request, res: Response) => {
 
 router.post("/place-details", async (req: Request, res: Response) => {
   try {
+    console.log("[place-details] Called with body keys:", Object.keys(req.body || {}));
     const key = requireEnv("GOOGLE_MAPS_API_KEY");
     const placeId = String(req.body?.placeId || "").trim();
-    if (!placeId) return safeJsonError(res, 400, "placeId required");
+    if (!placeId) {
+      console.error("[place-details] ERROR: placeId missing. Full body:", JSON.stringify(req.body));
+      return safeJsonError(res, 400, "placeId required");
+    }
 
     const fields = [
       "place_id",

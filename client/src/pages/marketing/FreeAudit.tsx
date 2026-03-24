@@ -421,6 +421,7 @@ export default function FreeAudit() {
 
   // Autocomplete search: fires after 3+ chars with 400ms debounce
   useEffect(() => {
+    setError(null); // Clear any previous errors on new input
     const q = debounced.trim();
     if (q.length < 3) {
       setPredictions([]);
@@ -481,6 +482,11 @@ export default function FreeAudit() {
   }, [dropdownOpen]);
 
   async function runAudit(placeId: string) {
+    if (!placeId) {
+      console.error("[Audit] runAudit called with empty placeId — ignoring");
+      setError("Please select a business from the dropdown.");
+      return;
+    }
     try {
       setError(null);
       setBusy("Fetching business details\u2026");
