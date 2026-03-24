@@ -16,6 +16,8 @@ type Business = {
   placeId: string;
   name: string;
   formattedAddress: string;
+  addressComponents: Array<{ long_name: string; short_name: string; types: string[] }>;
+  types: string[];
   rating: number | null;
   reviewsCount: number;
   website: string;

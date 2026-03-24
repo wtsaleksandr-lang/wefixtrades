@@ -505,10 +505,8 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
 async function calculateDemandGaps(
   topKeyword: string, businessHours: string[], trade: string, totalMonthlySearchVolume: number
 ) {
-  // google-trends-api is CJS-only and incompatible with the CJS bundle output
-  // (import.meta.url gets erased by the bundler). Use hardcoded defaults.
   const weekdayBusiness = 38, weekdayEvening = 31, weekends = 31;
-  console.log("[audit] Using default demand distribution");
+  console.log("[audit] Using hardcoded demand distribution");
 
   const hoursStr = (businessHours || []).join(" ").toLowerCase();
   const isOpenEvenings = /([6-9]|1[0-1]):\d{2}\s*(pm|$)/.test(hoursStr) || hoursStr.includes("18:") || hoursStr.includes("19:") || hoursStr.includes("20:");
@@ -662,50 +660,60 @@ function calculateScores(auditData: any) {
 
 /* ─── City Extraction ─── */
 function extractCity(business: any): string {
+  console.log("[extractCity] addressComponents:", JSON.stringify(business.addressComponents)?.slice(0, 500));
+  console.log("[extractCity] formattedAddress:", business.formattedAddress || business.address || "(empty)");
+
   // Try address_components first (most reliable)
   const components = Array.isArray(business.addressComponents) ? business.addressComponents : [];
   for (const comp of components) {
     const types = Array.isArray(comp.types) ? comp.types : [];
-    if (types.includes("locality")) return comp.long_name || "";
+    if (types.includes("locality")) {
+      console.log("[extractCity] Found locality from addressComponents:", comp.long_name);
+      return comp.long_name || "";
+    }
   }
   // Fallback: sublocality
   for (const comp of components) {
     const types = Array.isArray(comp.types) ? comp.types : [];
-    if (types.includes("sublocality") || types.includes("sublocality_level_1")) return comp.long_name || "";
+    if (types.includes("sublocality") || types.includes("sublocality_level_1")) {
+      console.log("[extractCity] Found sublocality from addressComponents:", comp.long_name);
+      return comp.long_name || "";
+    }
   }
   // Fallback: parse formatted_address — take the part before province/state code
   const addr = business.formattedAddress || business.address || "";
   // Pattern: "..., City, XX POSTAL, Country" or "..., City, Province, Country"
   const parts = addr.split(",").map((s: string) => s.trim());
+  console.log("[extractCity] Address parts:", JSON.stringify(parts));
   if (parts.length >= 3) {
-    // The city is usually the second-to-last part before the postal/province segment
-    // e.g. "923 Oxford St, Etobicoke, ON M8Z 5T3, Canada"
-    //       parts[0]="923 Oxford St" parts[1]="Etobicoke" parts[2]="ON M8Z 5T3" parts[3]="Canada"
     for (let i = 1; i < parts.length - 1; i++) {
       const part = parts[i];
       // Skip if it looks like a province/state code + postal
       if (/^[A-Z]{2}\s/.test(part) || /^\d{5}/.test(part)) continue;
       // Skip country names
       if (/^(canada|united states|usa|us)$/i.test(part)) continue;
+      console.log("[extractCity] Extracted city from address string:", part);
       return part;
     }
   }
+  console.log("[extractCity] Could not extract city");
   return "";
 }
 
 /* ─── Trade Detection ─── */
 const TRADE_PATTERNS: Array<{ pattern: RegExp; trade: string }> = [
-  { pattern: /plumb|drain|rooter|pipe/i, trade: "plumbing" },
-  { pattern: /hvac|heating|cooling|air.?condition|furnace/i, trade: "hvac" },
+  { pattern: /plumb|plomb|drain|rooter|pipe|tuyau/i, trade: "plumbing" },
+  { pattern: /hvac|heating|cooling|air.?condition|furnace|chauffage|climatisation/i, trade: "hvac" },
   { pattern: /electr/i, trade: "electrical" },
-  { pattern: /clean|maid|janitorial/i, trade: "cleaning" },
-  { pattern: /landscape|lawn|garden/i, trade: "landscaping" },
-  { pattern: /roof/i, trade: "roofing" },
-  { pattern: /lock/i, trade: "locksmith" },
+  { pattern: /clean|maid|janitorial|nettoy/i, trade: "cleaning" },
+  { pattern: /landscape|lawn|garden|gazon|jardin/i, trade: "landscaping" },
+  { pattern: /roof|toit|couvreur/i, trade: "roofing" },
+  { pattern: /lock|serrurier/i, trade: "locksmith" },
 ];
 
 function detectTrade(businessName: string, types: string[]): string {
   const haystack = [businessName, ...types].join(" ");
+  console.log(`[detectTrade] businessName: ${businessName}, types: ${JSON.stringify(types)}, haystack: ${haystack}`);
   for (const { pattern, trade } of TRADE_PATTERNS) {
     if (pattern.test(haystack)) {
       console.log(`[audit] Detected trade: ${trade} from business name: ${businessName}`);
