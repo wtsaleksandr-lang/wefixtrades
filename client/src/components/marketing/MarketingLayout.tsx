@@ -52,6 +52,7 @@ const NAV_LINKS: { label: string; href: string; children?: NavChild[] }[] = [
       { label: "For Cleaners", href: "/solutions/for-cleaners", description: "Get booked on autopilot.", icon: <Sparkles size={28} strokeWidth={1.6} /> },
     ],
   },
+  { label: "Free Audit", href: "/free-audit" },
   { label: "Templates", href: "/templates" },
   { label: "Plans", href: "/plans" },
   {
@@ -525,10 +526,17 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!menuOpen) return;
-    const handler = () => setMenuOpen(false);
+    // On mobile, Lenis fires synthetic scroll events on touch — only close
+    // the menu if the user actually scrolls significantly (>60px from where
+    // they opened it). On desktop, any scroll closes immediately.
+    const startY = window.scrollY;
+    const handler = () => {
+      if (isMobile && Math.abs(window.scrollY - startY) < 60) return;
+      setMenuOpen(false);
+    };
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
-  }, [menuOpen]);
+  }, [menuOpen, isMobile]);
 
   useEffect(() => {
     requestAnimationFrame(() => {
