@@ -97,18 +97,18 @@ export default function GlobeSection() {
           position: "relative",
           width: "100%",
           maxWidth: 1200,
-          margin: "-8px auto 0",
+          margin: "0 auto",
           overflow: "hidden",
-          height: "clamp(456px, 60vw, 744px)",
+          height: 560,
         }}
       >
-        {/* Globe container — pulled up to minimize dead space */}
+        {/* Globe container — centered */}
         <div
           className="globe-center"
           style={{
             position: "absolute",
             left: "50%",
-            top: "clamp(-220px, -22vw, -100px)",
+            top: -60,
             transform: "translateX(-50%)",
           }}
         >
@@ -305,7 +305,10 @@ export default function GlobeSection() {
         }
         @media (max-width: 900px) {
           .globe-viewport {
-            height: clamp(408px, 84vw, 600px) !important;
+            height: 480px !important;
+          }
+          .globe-center {
+            top: -120px !important;
           }
           .globe-stats-callout {
             bottom: 8% !important;
@@ -320,15 +323,13 @@ export default function GlobeSection() {
           .globe-stats-callout > div:last-child {
             font-size: 9.5px !important;
           }
-          .globe-cta-wrap .cta-arrow-btn {
-            width: 100% !important;
-            max-width: 340px;
-            justify-content: center;
-          }
         }
         @media (max-width: 640px) {
           .globe-viewport {
-            height: clamp(360px, 96vw, 480px) !important;
+            height: 400px !important;
+          }
+          .globe-center {
+            top: -160px !important;
           }
           .globe-stats-callout {
             display: none !important;
