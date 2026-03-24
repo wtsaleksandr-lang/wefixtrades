@@ -36,6 +36,7 @@ import DocsWebhooks from "@/pages/marketing/docs/webhooks";
 import DocsTroubleshooting from "@/pages/marketing/docs/troubleshooting";
 import SolutionsVisibility from "@/pages/marketing/solutions-visibility";
 import FreeAudit from "@/pages/marketing/FreeAudit";
+import SharedAuditReport from "@/pages/marketing/SharedAuditReport";
 import NewProductPage from "@/pages/products/ProductPage";
 import SolutionPage from "@/pages/solutions/SolutionPage";
 import DemoCenter from "@/pages/demos/DemoCenter";
@@ -97,6 +98,7 @@ function Router() {
       <Route path="/dev/primitives" component={PrimitivesPage} />
       <Route path="/dev/canvas" component={DemoCanvas} />
       <Route path="/free-audit" component={FreeAudit} />
+      <Route path="/audit/report/:id" component={SharedAuditReport} />
       <Route path="/Wizard" component={Wizard} />
       <Route path="/Calculator" component={Calculator} />
       <Route path="/EditCalculator" component={EditCalculator} />

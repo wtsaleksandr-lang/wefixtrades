@@ -1,6 +1,9 @@
 import type { Request, Response } from "express";
 import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
+import { db } from "./db";
+import { auditReports } from "@shared/schema";
+import { eq, sql } from "drizzle-orm";
 
 const router = express.Router();
 
@@ -990,12 +993,111 @@ ${JSON.stringify(auditData, null, 2)}`;
       console.error("AI narrative generation failed:", aiErr?.message);
     }
 
+    // ─── Save report to database ───
+    let reportId: string | null = null;
+    try {
+      const [saved] = await db.insert(auditReports).values({
+        business_name: business.name || "",
+        business_place_id: business.placeId || null,
+        audit_data: auditData,
+        ai_narrative: auditData.narrative || null,
+      }).returning({ id: auditReports.id });
+      reportId = saved.id;
+      console.log(`[audit] Report saved: ${reportId}`);
+    } catch (dbErr: any) {
+      console.error("[audit] Failed to save report:", dbErr?.message);
+    }
+
     const elapsed = Date.now() - startTime;
     console.log(`═══ AUDIT COMPLETE in ${elapsed}ms ═══`);
 
-    return res.json({ ok: true, report_json: auditData });
+    return res.json({ ok: true, report_json: auditData, reportId });
   } catch (e: any) {
     return safeJsonError(res, 500, e?.message || "generate failed");
+  }
+});
+
+/* ─── GET /report/:id — Shareable report ─── */
+router.get("/report/:id", async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return safeJsonError(res, 400, "Report ID required");
+
+    const rows = await db.select().from(auditReports).where(eq(auditReports.id, id)).limit(1);
+    if (rows.length === 0) return safeJsonError(res, 404, "Report not found");
+
+    // Increment view count
+    await db.update(auditReports).set({ view_count: sql`${auditReports.view_count} + 1` }).where(eq(auditReports.id, id));
+
+    const report = rows[0];
+    return res.json({
+      ok: true,
+      report: {
+        id: report.id,
+        createdAt: report.created_at,
+        businessName: report.business_name,
+        auditData: report.audit_data,
+        aiNarrative: report.ai_narrative,
+        viewCount: (report.view_count || 0) + 1,
+      },
+    });
+  } catch (e: any) {
+    return safeJsonError(res, 500, e?.message || "Failed to fetch report");
+  }
+});
+
+/* ─── POST /chat — AI Chat for report ─── */
+router.post("/chat", async (req: Request, res: Response) => {
+  try {
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (!anthropicKey) return safeJsonError(res, 500, "ANTHROPIC_API_KEY not set");
+
+    const { messages, auditContext } = req.body || {};
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return safeJsonError(res, 400, "messages[] required");
+    }
+
+    const ctx = auditContext || {};
+    const systemPrompt = `You are a friendly local SEO advisor for WeFixTrades. You are chatting with the owner of ${ctx.businessName || "a local business"}, a ${ctx.trade || "trade"} business in ${ctx.city || "their city"}. Their audit score is ${ctx.score ?? "N/A"}/100 (grade ${ctx.grade || "N/A"}).
+
+Their biggest issue is: ${ctx.topIssue || "unknown"}
+Estimated monthly revenue impact: $${ctx.estimatedLoss?.low ?? 0}–$${ctx.estimatedLoss?.high ?? 0}
+
+Answer their questions about their audit results in plain English. Be specific to their data — never give generic advice.
+Short responses only — max 3 sentences.
+Naturally mention WeFixTrades services where relevant, maximum once per conversation.
+Never make up data not in the audit.`;
+
+    const anthropic = new Anthropic({ apiKey: anthropicKey });
+
+    // Stream the response
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    const stream = anthropic.messages.stream({
+      model: "claude-haiku-4-5-20241022",
+      max_tokens: 300,
+      system: systemPrompt,
+      messages: messages.map((m: any) => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content: String(m.content || ""),
+      })),
+    });
+
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
+      }
+    }
+    res.write("data: [DONE]\n\n");
+    res.end();
+  } catch (e: any) {
+    console.error("[audit/chat] Error:", e?.message);
+    if (!res.headersSent) {
+      return safeJsonError(res, 500, e?.message || "Chat failed");
+    }
+    res.end();
   }
 });
 
