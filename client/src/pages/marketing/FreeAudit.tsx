@@ -331,7 +331,7 @@ function ReportView(props: {
                   );
                 })}
                 {(!mapsIssues || mapsIssues.length === 0) && (
-                  <div className={`${reportStyles.body} ${reportStyles.muted}`} style={{ padding: 8 }}>No issues detected \u2014 looking good!</div>
+                  <div className={`${reportStyles.body} ${reportStyles.muted}`} style={{ padding: 8 }}>No issues detected — looking good!</div>
                 )}
               </div>
             </div>
@@ -362,7 +362,7 @@ function ReportView(props: {
               />
               {!mobile?.score && !desktop?.score && (
                 <div className={`${reportStyles.body} ${reportStyles.muted}`} style={{ padding: 8, textAlign: "center" }}>
-                  No website linked \u2014 speed data unavailable.
+                  No website linked — speed data unavailable.
                 </div>
               )}
             </div>
@@ -373,7 +373,7 @@ function ReportView(props: {
             <div className={reportStyles.ctaSub}>Professional optimization for both Google Maps and your website.</div>
             <div className={reportStyles.ctaBtns}>
               <button type="button" className={reportStyles.btnPrimary} onClick={onFixClick} data-testid="button-cta-fix">
-                Fix This For Me &nbsp; \u2192
+                Fix This For Me &nbsp; →
               </button>
               <button type="button" className={reportStyles.btnSecondary} onClick={onEmailClick} data-testid="button-cta-email">
                 Email Me This Report
