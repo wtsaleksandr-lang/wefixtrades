@@ -49,7 +49,7 @@ function useBreakpoint() {
 /*  Cloudflare-inspired colour palette                                 */
 /* ------------------------------------------------------------------ */
 const C = {
-  bg: "#0e1214",
+  bg: "#0d1514",
   canvasBg: "#111618",
   nodeSurface: "rgba(14,18,20,0.96)",
   text: mkt.text,
@@ -486,10 +486,12 @@ export default function AutomationDiagram() {
       className="ad-diagram"
       style={{
         background: C.bg,
-        padding: isMobile ? "48px 0" : "80px 0",
+        padding: isMobile ? "64px 0" : "96px 0",
         position: "relative",
         overflow: "hidden",
-        zIndex: 5,
+        zIndex: 8,
+        borderRadius: "28px 28px 0 0",
+        marginTop: -28,
       }}
     >
       <style>{DIAGRAM_CSS}</style>
@@ -567,7 +569,7 @@ export default function AutomationDiagram() {
                   letterSpacing: "0.01em",
                   transition: "all 0.2s ease",
                   background: active ? C.accent : "transparent",
-                  color: active ? "#0e1214" : C.textMuted,
+                  color: active ? "#0d1514" : C.textMuted,
                   boxShadow: active ? `0 2px 16px ${C.accentGlow}` : "none",
                   whiteSpace: "nowrap",
                   flexShrink: 0,

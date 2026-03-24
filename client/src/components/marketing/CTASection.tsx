@@ -12,7 +12,7 @@ export default function CTASection() {
           border-radius: 20px;
           border: 2px solid transparent;
           padding: 40px 40px 0 40px;
-          max-width: 700px;
+          max-width: 900px;
           margin: 0 auto;
           cursor: pointer;
           position: relative;

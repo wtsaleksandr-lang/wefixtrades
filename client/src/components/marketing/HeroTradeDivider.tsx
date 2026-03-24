@@ -25,7 +25,7 @@ export default function HeroTradeDivider() {
         overflow: "hidden",
         position: "relative",
         zIndex: 1,
-        background: `linear-gradient(to bottom, ${mkt.bg} 0%, #2B3840 35%, #56656E 65%, #A7B6BF 100%)`,
+        background: mkt.darkBg,
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",

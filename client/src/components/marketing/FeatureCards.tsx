@@ -263,7 +263,7 @@ const RESPONSIVE_CSS = `
   }
   @media (max-width: 767px) {
     .fc-section {
-      padding: 72px 16px 100px !important;
+      padding: 64px 16px !important;
     }
     .fc-container {
       gap: 32px !important;
@@ -289,7 +289,7 @@ const RESPONSIVE_CSS = `
   }
   @media (min-width: 768px) and (max-width: 1023px) {
     .fc-section {
-      padding: 90px 20px 140px !important;
+      padding: 96px 28px !important;
     }
     .fc-card-pair {
       min-height: 380px !important;
@@ -333,12 +333,12 @@ export default function FeatureCards() {
 
   return (
     <section className="fc-section" style={{
-      background: "#22282A",
-      padding: "120px 28px 200px",
+      background: "#0d1514",
+      padding: "96px 28px",
       position: "relative",
       borderRadius: "28px 28px 0 0",
       marginTop: -28,
-      zIndex: 7,
+      zIndex: 4,
     }}>
       <style>{RESPONSIVE_CSS}</style>
       {/* Section header */}
@@ -372,7 +372,7 @@ export default function FeatureCards() {
             {/* Dim overlay — fades in as next card slides over this one */}
             <div className="fc-overlay" style={{
               position: "absolute", inset: 0, zIndex: 10,
-              background: "#22282A", opacity: 0,
+              background: "#0d1514", opacity: 0,
               borderRadius: 18, pointerEvents: "none",
             }} />
             <CardPair card={card} index={i} />

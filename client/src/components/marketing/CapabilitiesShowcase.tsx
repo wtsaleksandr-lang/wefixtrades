@@ -318,8 +318,8 @@ export default function CapabilitiesShowcase() {
     <section
       data-testid="capabilities-showcase"
       style={{
-        background: "#A7B6BF",
-        padding: isMobile ? "60px 16px 72px" : "112px 28px 88px",
+        background: "#dfe8e6",
+        padding: isMobile ? "64px 16px" : "96px 28px",
         borderRadius: "28px 28px 0 0",
         marginTop: -28,
         position: "relative",
@@ -392,7 +392,7 @@ export default function CapabilitiesShowcase() {
         }
       `}</style>
 
-      <div style={{ maxWidth: 960, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
         {/* ── heading ───────────────────────────────────────── */}
         <div style={{ textAlign: "center", marginBottom: 52 }}>

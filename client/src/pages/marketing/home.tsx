@@ -328,9 +328,9 @@ export default function HomePage() {
       <style>{RESPONSIVE_CSS}</style>
 
       {/* Outer page background behind hero shell */}
-      <div className="hero-shell-backdrop" style={{ background: mkt.bg, padding: "16px 16px 0", position: "relative" as const, zIndex: 1 }}>
+      <div className="hero-shell-backdrop" style={{ background: mkt.darkBg, padding: "16px 16px 0", position: "relative" as const, zIndex: 1 }}>
       {/* Shared grid zone — covers hero + trust marquee seamlessly */}
-      <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.surface, overflow: "hidden", display: "flex", flexDirection: "column", width: "100%", borderRadius: 24, border: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 20px 60px rgba(0,0,0,0.25), 0 4px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
+      <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.darkBg, overflow: "hidden", display: "flex", flexDirection: "column", width: "100%", borderRadius: 24, border: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 20px 60px rgba(0,0,0,0.25), 0 4px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
         {/* Subtle inner lighting overlay */}
         <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(0,0,0,0.2))", pointerEvents: "none", zIndex: 0, borderRadius: "inherit" }} />
         <HeroGridGlow className="hero-grid-glow" />
@@ -459,7 +459,7 @@ export default function HomePage() {
           }
         `}</style>
 
-        <div ref={heroRef} style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 2 }}>
+        <div ref={heroRef} style={{ maxWidth: 900, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 2 }}>
           <div
             data-testid="hero-headline"
             className="hero-enter"
@@ -581,11 +581,11 @@ export default function HomePage() {
       <PillarAnimation />
       <FeatureCards />
       {hasWebGL && <GlobeSection />}
-      <SurfaceSection overlap className="py-4">
+      <SurfaceSection>
         <ReviewsSection />
       </SurfaceSection>
 
-      <section data-testid="workflow-section" style={{ background: mkt.surfaceAlt, padding: "72px 28px 80px", borderRadius: "28px 28px 0 0", marginTop: -28, position: "relative", zIndex: 4 }}>
+      <section data-testid="workflow-section" style={{ background: mkt.darkBg, padding: "96px 28px", borderRadius: "28px 28px 0 0", marginTop: -28, position: "relative", zIndex: 7 }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <div data-reveal="fade-up" style={{ marginBottom: 48 }}>
             <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 16 }}>

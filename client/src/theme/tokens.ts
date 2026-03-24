@@ -183,6 +183,8 @@ export const mkt = {
   buttonBg: colors.effortel.a400,
   buttonText: colors.effortel.n800,
   buttonHoverBg: colors.effortel.a200,
+  darkBg: '#0d1514',
+  lightBg: '#dfe8e6',
 } as const;
 
 export const tokens = {

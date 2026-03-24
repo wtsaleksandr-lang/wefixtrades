@@ -122,7 +122,7 @@ const PILLAR_CSS = `
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #22282a;
+    color: rgba(255,255,255,0.85);
     font-family: 'Satoshi', sans-serif;
     line-height: 1.2;
   }
@@ -139,7 +139,7 @@ const PILLAR_CSS = `
   .pillar-headline {
     font-size: 22px;
     font-weight: 800;
-    color: #22282a;
+    color: rgba(255,255,255,0.9);
     letter-spacing: -0.02em;
     margin: 16px 0 0;
     line-height: 1.25;
@@ -148,7 +148,7 @@ const PILLAR_CSS = `
 
   .pillar-subtext {
     font-size: 14px;
-    color: rgba(34, 40, 42, 0.65);
+    color: rgba(255,255,255,0.5);
     line-height: 1.6;
     margin: 10px 0 0;
     font-family: 'Satoshi', sans-serif;
@@ -174,20 +174,23 @@ const PILLAR_CSS = `
   .pillar-content-name {
     font-size: 18px;
     font-weight: 800;
-    color: #22282a;
+    color: rgba(255,255,255,0.9);
     margin: 0 0 8px;
     font-family: 'Satoshi', sans-serif;
   }
 
   .pillar-content-pitch {
     font-size: 14px;
-    color: rgba(34, 40, 42, 0.7);
+    color: rgba(255,255,255,0.55);
     line-height: 1.65;
     margin: 0;
     font-family: 'Satoshi', sans-serif;
   }
 
   @media (max-width: 768px) {
+    .pillar-section {
+      padding: 64px 16px !important;
+    }
     .pillar-tabs-grid {
       grid-template-columns: repeat(2, 1fr);
     }
@@ -260,11 +263,16 @@ export default function PillarAnimation() {
 
   return (
     <section
+      className="pillar-section"
       style={{
         background: "#0d1514",
-        padding: "80px 24px",
+        padding: "96px 28px",
         width: "100%",
         boxSizing: "border-box",
+        borderRadius: "28px 28px 0 0",
+        marginTop: -28,
+        position: "relative",
+        zIndex: 3,
       }}
     >
       <style>{PILLAR_CSS}</style>
@@ -280,14 +288,14 @@ export default function PillarAnimation() {
         {/* ── Container 1: Top card ────────────────────────────────────────── */}
         <div
           style={{
-            background: "#92a6b0",
+            background: "rgba(255,255,255,0.06)",
             borderRadius: "20px 20px 0 0",
             padding: 32,
           }}
         >
           <div
             style={{
-              background: "#b1c5ce",
+              background: "rgba(255,255,255,0.04)",
               borderRadius: 14,
               padding: 28,
             }}
@@ -306,7 +314,7 @@ export default function PillarAnimation() {
         {/* ── Container 2: Pillar tabs ─────────────────────────────────────── */}
         <div
           style={{
-            background: "#92a6b0",
+            background: "rgba(255,255,255,0.06)",
             marginTop: 3,
             padding: 16,
           }}
@@ -349,7 +357,7 @@ export default function PillarAnimation() {
                   >
                     <TabIcon
                       size={22}
-                      color={isActive ? p.accent : "#22282a"}
+                      color={isActive ? p.accent : "rgba(255,255,255,0.5)"}
                       strokeWidth={1.6}
                     />
                   </div>
@@ -372,7 +380,7 @@ export default function PillarAnimation() {
         {/* ── Container 3: Bottom content card ────────────────────────────── */}
         <div
           style={{
-            background: "#92a6b0",
+            background: "rgba(255,255,255,0.06)",
             marginTop: 3,
             borderRadius: "0 0 20px 20px",
             padding: 32,
@@ -380,7 +388,7 @@ export default function PillarAnimation() {
         >
           <div
             style={{
-              background: "#b1c5ce",
+              background: "rgba(255,255,255,0.04)",
               borderRadius: 14,
               padding: 28,
             }}

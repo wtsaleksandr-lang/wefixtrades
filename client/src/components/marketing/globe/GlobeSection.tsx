@@ -42,10 +42,13 @@ export default function GlobeSection() {
     <section
       data-testid="globe-section"
       style={{
-        background: mkt.bg,
+        background: mkt.darkBg,
         position: "relative",
         overflow: "hidden",
         paddingBottom: 0,
+        borderRadius: "28px 28px 0 0",
+        marginTop: -28,
+        zIndex: 5,
       }}
     >
       {/* ── Header ─────────────────────────────────────────────────── */}
@@ -176,7 +179,7 @@ export default function GlobeSection() {
             left: 0,
             right: 0,
             height: "30%",
-            background: `linear-gradient(to top, ${mkt.bg} 0%, ${mkt.bg}cc 25%, transparent 100%)`,
+            background: `linear-gradient(to top, ${mkt.darkBg} 0%, ${mkt.darkBg}cc 25%, transparent 100%)`,
             pointerEvents: "none",
             zIndex: 5,
           }}

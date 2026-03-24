@@ -55,7 +55,7 @@ export default function TrustSection() {
             <div key={label} style={{
               background: "rgba(255,255,255,0.6)",
               border: "1px solid rgba(255,255,255,0.8)",
-              borderRadius: 14,
+              borderRadius: 20,
               padding: "24px 20px",
               textAlign: "center",
             }}>

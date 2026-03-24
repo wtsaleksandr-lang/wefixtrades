@@ -12,31 +12,47 @@ export function SurfaceSection({
   overlap?: boolean;
 }) {
   return (
-    <section className={"w-full " + className}>
+    <section
+      style={{
+        width: "100%",
+        background: mkt.darkBg,
+        borderRadius: "28px 28px 0 0",
+        marginTop: -28,
+        position: "relative",
+        zIndex: 6,
+      }}
+      className={className}
+    >
       <div
-        className={
-          "mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-8 " +
-          (overlap ? "-mt-5 sm:-mt-6" : "")
-        }
+        style={{
+          maxWidth: 1200,
+          margin: "0 auto",
+          padding: "0 20px",
+        }}
       >
         <div
-          className={
-            "relative rounded-[20px] sm:rounded-[24px] overflow-hidden wft-interactive " +
-            innerClassName
-          }
+          className={"wft-interactive " + innerClassName}
           style={{
+            position: "relative",
+            borderRadius: 20,
+            overflow: "hidden",
             background: mkt.surface,
             border: `1px solid ${mkt.cardBorder}`,
             boxShadow: "0 10px 20px #33314833",
           }}
         >
           <div
-            className="pointer-events-none absolute inset-x-0 top-0 h-10"
             style={{
-              background: `linear-gradient(to bottom, rgba(255,255,255,0.04), transparent)`,
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 40,
+              pointerEvents: "none",
+              background: "linear-gradient(to bottom, rgba(255,255,255,0.04), transparent)",
             }}
           />
-          <div className="p-6 sm:p-10">{children}</div>
+          <div style={{ padding: "24px 24px" }}>{children}</div>
         </div>
       </div>
     </section>

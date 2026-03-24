@@ -55,7 +55,7 @@ const CARDS_DATA = [
 ] as const;
 
 /* ── Effortel color tokens ───────────────────────────────────────────── */
-const BG = "#e4edf1";        // --color--background (section + overlay)
+const BG = "#dfe8e6";        // --color--background (section + overlay)
 const CARD_BG = "#f5fcff";   // --color--background-secondary (card)
 const TEXT = "#22282a";      // --swatch--n-800
 const TEXT_MUTED = "#5f6f77"; // --swatch--n-600
@@ -270,7 +270,7 @@ export default function StickyStackCards() {
       data-testid="sticky-stack-cards"
       style={{
         background: BG,
-        padding: mobile ? "72px 16px 80px" : "128px 28px 160px",
+        padding: mobile ? "64px 16px" : "96px 28px",
         borderRadius: "28px 28px 0 0",
         marginTop: -28,
         position: "relative",
@@ -293,7 +293,7 @@ export default function StickyStackCards() {
       {/* ── sticky card stack ───────────────────────────────────── */}
       <div
         style={{
-          maxWidth: 1120,
+          maxWidth: 1100,
           margin: "0 auto",
           display: "flex",
           flexDirection: "column",
