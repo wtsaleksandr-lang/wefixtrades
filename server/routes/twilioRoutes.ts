@@ -12,10 +12,16 @@ import {
 } from "../twilioClient";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    });
+  }
+  return _openai;
+}
 
 export function registerTwilioRoutes(app: Express): void {
   app.post("/api/twilio/inbound", async (req, res) => {
@@ -99,7 +105,7 @@ export function registerTwilioRoutes(app: Express): void {
 
       const chatMessages = [{ role: "user" as const, content: body }];
       const { reply } = await runChatCompletion(
-        openai,
+        getOpenAI(),
         "client_ai_employee",
         chatMessages,
         systemPrompt,
