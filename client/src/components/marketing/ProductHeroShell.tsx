@@ -99,7 +99,7 @@ export default function ProductHeroShell({
             }}
           />
 
-          <HeroGridGlow />
+          <HeroGridGlow showCrosshairs />
 
           {/* Hero content area */}
           <section

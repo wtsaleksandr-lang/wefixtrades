@@ -13,11 +13,13 @@ const CELL_TRANSITION = "background-color 0.7s ease, box-shadow 0.7s ease";
 interface HeroGridGlowProps {
   cellSize?: number;
   className?: string;
+  showCrosshairs?: boolean;
 }
 
 export default function HeroGridGlow({
   cellSize = 28,
   className = "",
+  showCrosshairs = false,
 }: HeroGridGlowProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -149,18 +151,57 @@ export default function HeroGridGlow({
             transform: "translate(-50%, -50%)",
           }}
         >
-          {Array.from({ length: grid.cols * grid.rows }, (_, i) => (
-            <div
-              key={i}
-              style={{
-                width: cellSize,
-                height: cellSize,
-                boxSizing: "border-box",
-                border: "1px solid rgba(255,255,255,0.04)",
-                transition: CELL_TRANSITION,
-              }}
-            />
-          ))}
+          {Array.from({ length: grid.cols * grid.rows }, (_, i) => {
+            const col = i % grid.cols;
+            const row = Math.floor(i / grid.cols);
+            const isCrosshair =
+              showCrosshairs && col % 3 === 0 && row % 3 === 0;
+            return (
+              <div
+                key={i}
+                style={{
+                  width: cellSize,
+                  height: cellSize,
+                  boxSizing: "border-box",
+                  border: "1px solid rgba(255,255,255,0.04)",
+                  transition: CELL_TRANSITION,
+                  position: "relative",
+                }}
+              >
+                {isCrosshair && (
+                  <svg
+                    width="8"
+                    height="8"
+                    viewBox="0 0 8 8"
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      opacity: 0.35,
+                    }}
+                  >
+                    <line
+                      x1="4"
+                      y1="1"
+                      x2="4"
+                      y2="7"
+                      stroke="rgba(255,255,255,0.15)"
+                      strokeWidth="0.8"
+                    />
+                    <line
+                      x1="1"
+                      y1="4"
+                      x2="7"
+                      y2="4"
+                      stroke="rgba(255,255,255,0.15)"
+                      strokeWidth="0.8"
+                    />
+                  </svg>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
