@@ -54,14 +54,17 @@ type ReportJson = {
 };
 
 async function postJSON<T>(url: string, body: any): Promise<T> {
+  console.log(`[Audit] POST ${url}`, body);
   const r = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   const data = await r.json().catch(() => ({}));
-  if (!r.ok || data?.ok === false)
+  if (!r.ok || data?.ok === false) {
+    console.error(`[Audit] ${url} failed:`, r.status, data);
     throw new Error(data?.error || `Request failed: ${r.status}`);
+  }
   return data as T;
 }
 
@@ -429,7 +432,7 @@ export default function FreeAudit() {
     setLoadingSearch(true);
     setSearchDone(false);
 
-    console.log("[Audit] Searching for:", q);
+    console.log("[Audit] Autocomplete → POST /api/audit/search-places", { query: q });
 
     postJSON<{ ok: true; predictions: Prediction[] }>(
       "/api/audit/search-places",
@@ -485,7 +488,7 @@ export default function FreeAudit() {
       setSpeedData(null);
       setPredictions([]);
       setDropdownOpen(false);
-      console.log("[Audit] Running audit for place_id:", placeId);
+      console.log("[Audit] User selected → POST /api/audit/place-details", { placeId });
 
       const details = await postJSON<{ ok: true; business: Business }>(
         "/api/audit/place-details",

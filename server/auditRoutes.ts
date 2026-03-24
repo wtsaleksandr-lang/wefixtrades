@@ -74,17 +74,45 @@ async function fetchJson(url: string) {
 
 router.post("/search-places", async (req: Request, res: Response) => {
   try {
+    // ─── Env var diagnostics ───
+    const rawKey = process.env.GOOGLE_MAPS_API_KEY;
+    console.log("[search-places] GOOGLE_MAPS_API_KEY present:", !!rawKey, "length:", rawKey?.length ?? 0, "starts with:", rawKey?.slice(0, 8) ?? "(unset)");
     const key = requireEnv("GOOGLE_MAPS_API_KEY");
+
     const query = String(req.body?.query || "").trim();
-    console.log("[search-places] query:", JSON.stringify(query), "key-length:", key.length);
+    console.log("[search-places] query:", JSON.stringify(query));
     if (query.length < 2) return safeJsonError(res, 400, "Query too short");
 
-    const url =
+    const apiUrl =
       `https://maps.googleapis.com/maps/api/place/textsearch/json?` +
       `query=${encodeURIComponent(query)}&key=${encodeURIComponent(key)}`;
 
-    const data = await fetchJson(url);
-    console.log("[search-places] Google returned", data?.results?.length ?? 0, "results, status:", data?.status);
+    // Log the full URL (with key masked)
+    const maskedUrl = apiUrl.replace(key, key.slice(0, 8) + "..." + key.slice(-4));
+    console.log("[search-places] Calling:", maskedUrl);
+
+    const r = await fetch(apiUrl);
+    const rawText = await r.text();
+
+    // Log raw response for diagnosis
+    let data: any = null;
+    try { data = JSON.parse(rawText); } catch {}
+    console.log("[search-places] HTTP status:", r.status);
+    console.log("[search-places] Google status:", data?.status);
+    console.log("[search-places] error_message:", data?.error_message || "(none)");
+    console.log("[search-places] results count:", data?.results?.length ?? 0);
+
+    // Check for Google API-level errors (200 with error status)
+    if (data?.status && data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+      const msg = data.error_message || `Google Places API: ${data.status}`;
+      console.error("[search-places] API ERROR:", msg);
+      return safeJsonError(res, 502, msg);
+    }
+
+    if (!r.ok) {
+      console.error("[search-places] HTTP error:", r.status, rawText.slice(0, 500));
+      return safeJsonError(res, 502, `Google API returned HTTP ${r.status}`);
+    }
 
     const results = Array.isArray(data?.results) ? data.results : [];
     const predictions = results.slice(0, 5).map((r: any) => ({
@@ -96,9 +124,10 @@ router.post("/search-places", async (req: Request, res: Response) => {
       photoUrl: resolvePhotoUrl(r.photos?.[0]?.photo_reference, key, 400),
     }));
 
+    console.log("[search-places] Returning", predictions.length, "predictions:", predictions.map((p: any) => p.name));
     return res.json({ ok: true, predictions });
   } catch (e: any) {
-    console.error("[search-places] ERROR:", e?.message || e);
+    console.error("[search-places] EXCEPTION:", e?.message || e);
     return safeJsonError(res, 500, e?.message || "search-places failed");
   }
 });
