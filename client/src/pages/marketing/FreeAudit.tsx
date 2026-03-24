@@ -398,10 +398,14 @@ function busyStep(busy: string | null): number {
 
 export default function FreeAudit() {
   const [query, setQuery] = useState("");
-  const debounced = useDebouncedValue(query, 300);
+  const debounced = useDebouncedValue(query, 400);
 
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  const [searchDone, setSearchDone] = useState(false); // true after a search completes
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [speedData, setSpeedData] = useState<SpeedData | null>(null);
@@ -412,19 +416,20 @@ export default function FreeAudit() {
 
   const reportRef = useRef<HTMLDivElement>(null);
 
+  // Autocomplete search: fires after 3+ chars with 400ms debounce
   useEffect(() => {
-    setError(null);
-    setReport(null);
-    setBusiness(null);
-    setSpeedData(null);
-
     const q = debounced.trim();
-    if (q.length < 2) {
+    if (q.length < 3) {
       setPredictions([]);
+      setDropdownOpen(false);
+      setSearchDone(false);
       return;
     }
 
     setLoadingSearch(true);
+    setSearchDone(false);
+
+    console.log("[Audit] Searching for:", q);
 
     postJSON<{ ok: true; predictions: Prediction[] }>(
       "/api/audit/search-places",
@@ -432,15 +437,45 @@ export default function FreeAudit() {
     )
       .then((d) => {
         const preds = d.predictions || [];
+        console.log("[Audit] Got", preds.length, "results:", preds.map(p => p.name));
         setPredictions(preds);
-        // Auto-select if only one result
-        if (preds.length === 1) {
-          runAudit(preds[0].place_id);
-        }
+        setSearchDone(true);
+        setDropdownOpen(true);
       })
-      .catch((e) => setError(e.message || "Search failed"))
+      .catch((e) => {
+        console.error("[Audit] Search failed:", e);
+        setError(e.message || "Search failed");
+        setPredictions([]);
+        setSearchDone(true);
+        setDropdownOpen(true);
+      })
       .finally(() => setLoadingSearch(false));
-  }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [debounced]);
+
+  // Dismiss dropdown on outside click
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+        inputRef.current && !inputRef.current.contains(e.target as Node)
+      ) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [dropdownOpen]);
+
+  // Dismiss dropdown on Escape
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setDropdownOpen(false); inputRef.current?.blur(); }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [dropdownOpen]);
 
   async function runAudit(placeId: string) {
     try {
@@ -449,6 +484,8 @@ export default function FreeAudit() {
       setReport(null);
       setSpeedData(null);
       setPredictions([]);
+      setDropdownOpen(false);
+      console.log("[Audit] Running audit for place_id:", placeId);
 
       const details = await postJSON<{ ok: true; business: Business }>(
         "/api/audit/place-details",
@@ -529,6 +566,9 @@ export default function FreeAudit() {
         }
         .audit-suggestion:hover {
           background: rgba(47,107,255,0.06) !important;
+        }
+        .audit-suggestion:active {
+          background: rgba(47,107,255,0.10) !important;
         }
         .audit-shimmer {
           height: 4px;
@@ -611,6 +651,7 @@ export default function FreeAudit() {
                     borderRadius: 18,
                     boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
                     padding: 16,
+                    position: "relative",
                   }}
                 >
                   <div style={{ position: "relative" }}>
@@ -627,10 +668,12 @@ export default function FreeAudit() {
                       }}
                     />
                     <input
+                      ref={inputRef}
                       data-testid="input-audit-search"
                       className="audit-input"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
+                      onFocus={() => { if (predictions.length > 0 || (searchDone && predictions.length === 0)) setDropdownOpen(true); }}
                       placeholder="Type your business name + city\u2026"
                       style={{
                         width: "100%",
@@ -664,6 +707,89 @@ export default function FreeAudit() {
                     )}
                   </div>
 
+                  {/* Autocomplete dropdown */}
+                  {dropdownOpen && !loadingSearch && searchDone && (
+                    <div
+                      ref={dropdownRef}
+                      data-testid="list-suggestions"
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        right: 0,
+                        top: "100%",
+                        marginTop: 4,
+                        borderRadius: 14,
+                        background: "#fff",
+                        border: "1px solid rgba(0,0,0,0.10)",
+                        boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
+                        zIndex: 50,
+                        overflow: "hidden",
+                      }}
+                    >
+                      {predictions.length === 0 ? (
+                        <div style={{
+                          padding: "16px 18px",
+                          fontSize: 13,
+                          color: "rgba(0,0,0,0.50)",
+                          textAlign: "center",
+                        }}>
+                          No businesses found — try adding your city name
+                        </div>
+                      ) : (
+                        <div style={{ maxHeight: 320, overflowY: "auto" }}>
+                          {predictions.map((p, i) => (
+                            <button
+                              key={p.place_id}
+                              data-testid={`button-place-${p.place_id}`}
+                              className="audit-suggestion"
+                              onClick={() => runAudit(p.place_id)}
+                              style={{
+                                width: "100%",
+                                textAlign: "left",
+                                padding: "10px 16px",
+                                background: "transparent",
+                                border: "none",
+                                borderBottom: i < predictions.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                                transition: "background 0.1s",
+                              }}
+                            >
+                              {p.photoUrl ? (
+                                <img
+                                  src={p.photoUrl}
+                                  alt=""
+                                  style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                                />
+                              ) : (
+                                <div style={{
+                                  width: 36, height: 36, borderRadius: "50%",
+                                  background: "rgba(47,107,255,0.08)",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  flexShrink: 0, fontSize: 15, fontWeight: 700, color: "#2F6BFF",
+                                }}>
+                                  {p.name?.charAt(0) || "?"}
+                                </div>
+                              )}
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <div style={{ fontWeight: 600, fontSize: 14, color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  {p.name}
+                                </div>
+                                <div style={{ fontSize: 12, color: "rgba(0,0,0,0.45)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  {p.formatted_address}
+                                  {p.rating != null && <span style={{ marginLeft: 6 }}>{"\u2605"} {p.rating}</span>}
+                                  {p.user_ratings_total > 0 && <span> ({p.user_ratings_total})</span>}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {error && (
                     <div
                       data-testid="text-audit-error"
@@ -681,115 +807,6 @@ export default function FreeAudit() {
                       {error}
                     </div>
                   )}
-                </div>
-              )}
-
-              {predictions.length > 1 && !busy && (
-                <div
-                  data-testid="list-suggestions"
-                  style={{
-                    marginTop: 12,
-                    borderRadius: 16,
-                    background: "rgba(255,255,255,0.92)",
-                    border: "1px solid rgba(0,0,0,0.10)",
-                    boxShadow: "0 18px 50px rgba(0,0,0,0.10)",
-                    padding: 16,
-                  }}
-                >
-                  <p style={{ fontSize: 14, fontWeight: 600, color: "#111827", margin: "0 0 12px" }}>
-                    We found {predictions.length} businesses matching your search. Which one is yours?
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 360, overflowY: "auto" }}>
-                    {predictions.map((p) => (
-                      <button
-                        key={p.place_id}
-                        data-testid={`button-place-${p.place_id}`}
-                        className="audit-suggestion"
-                        onClick={() => runAudit(p.place_id)}
-                        style={{
-                          width: "100%",
-                          textAlign: "left",
-                          padding: "12px 14px",
-                          background: "#fff",
-                          border: "1px solid rgba(0,0,0,0.08)",
-                          borderRadius: 12,
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 12,
-                          transition: "background 0.12s, border-color 0.12s",
-                        }}
-                      >
-                        {p.photoUrl ? (
-                          <img
-                            src={p.photoUrl}
-                            alt=""
-                            style={{
-                              width: 44,
-                              height: 44,
-                              borderRadius: "50%",
-                              objectFit: "cover",
-                              flexShrink: 0,
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: 44,
-                              height: 44,
-                              borderRadius: "50%",
-                              background: "rgba(47,107,255,0.08)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                              fontSize: 18,
-                              fontWeight: 700,
-                              color: "#2F6BFF",
-                            }}
-                          >
-                            {p.name?.charAt(0) || "?"}
-                          </div>
-                        )}
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div
-                            style={{
-                              fontWeight: 700,
-                              fontSize: 14,
-                              color: "#111827",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {p.name}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 13,
-                              color: "rgba(0,0,0,0.50)",
-                              marginTop: 2,
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {p.formatted_address}
-                          </div>
-                          {(p.rating != null || p.user_ratings_total > 0) && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
-                              {p.rating != null && (
-                                <span style={{ fontWeight: 600 }}>{"\u2605"} {p.rating}</span>
-                              )}
-                              {p.user_ratings_total > 0 && (
-                                <span>({p.user_ratings_total} reviews)</span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
                 </div>
               )}
 

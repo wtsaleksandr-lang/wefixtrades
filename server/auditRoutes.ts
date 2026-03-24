@@ -63,6 +63,12 @@ async function fetchJson(url: string) {
       data?.error_message || data?.error?.message || `HTTP ${r.status}`;
     throw new Error(msg);
   }
+  // Google APIs return HTTP 200 with error status in JSON body
+  if (data?.status && data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+    const msg = data.error_message || `Google API error: ${data.status}`;
+    console.error("[fetchJson] API status:", data.status, "message:", data.error_message);
+    throw new Error(msg);
+  }
   return data;
 }
 
@@ -70,6 +76,7 @@ router.post("/search-places", async (req: Request, res: Response) => {
   try {
     const key = requireEnv("GOOGLE_MAPS_API_KEY");
     const query = String(req.body?.query || "").trim();
+    console.log("[search-places] query:", JSON.stringify(query), "key-length:", key.length);
     if (query.length < 2) return safeJsonError(res, 400, "Query too short");
 
     const url =
@@ -77,6 +84,7 @@ router.post("/search-places", async (req: Request, res: Response) => {
       `query=${encodeURIComponent(query)}&key=${encodeURIComponent(key)}`;
 
     const data = await fetchJson(url);
+    console.log("[search-places] Google returned", data?.results?.length ?? 0, "results, status:", data?.status);
 
     const results = Array.isArray(data?.results) ? data.results : [];
     const predictions = results.slice(0, 5).map((r: any) => ({
@@ -90,6 +98,7 @@ router.post("/search-places", async (req: Request, res: Response) => {
 
     return res.json({ ok: true, predictions });
   } catch (e: any) {
+    console.error("[search-places] ERROR:", e?.message || e);
     return safeJsonError(res, 500, e?.message || "search-places failed");
   }
 });
