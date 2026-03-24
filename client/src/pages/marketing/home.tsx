@@ -256,7 +256,7 @@ const RESPONSIVE_CSS = `
   /* Backdrop responsive gaps */
   @media (max-width: 768px) {
     .hero-shell-backdrop {
-      padding: 10px 8px 0 !important;
+      padding: 6px 4px 0 !important;
     }
     .hero-first-screen-zone {
       border-radius: 20px !important;
@@ -264,7 +264,7 @@ const RESPONSIVE_CSS = `
   }
   @media (max-width: 430px) {
     .hero-shell-backdrop {
-      padding: 8px 6px 0 !important;
+      padding: 6px 3px 0 !important;
     }
     .hero-first-screen-zone {
       border-radius: 18px !important;
@@ -328,7 +328,7 @@ export default function HomePage() {
       <style>{RESPONSIVE_CSS}</style>
 
       {/* Outer page background behind hero shell */}
-      <div className="hero-shell-backdrop" style={{ background: mkt.darkBg, padding: "16px 16px 0", position: "relative" as const, zIndex: 1 }}>
+      <div className="hero-shell-backdrop" style={{ background: mkt.darkBg, padding: "6px 6px 0", position: "relative" as const, zIndex: 1 }}>
       {/* Shared grid zone — covers hero + trust marquee seamlessly */}
       <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.darkBg, overflow: "hidden", display: "flex", flexDirection: "column", width: "100%", borderRadius: 24, border: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 20px 60px rgba(0,0,0,0.25), 0 4px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
         {/* Subtle inner lighting overlay */}

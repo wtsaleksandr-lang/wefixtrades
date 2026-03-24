@@ -787,40 +787,37 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       >
         <div
           ref={navCardRef}
+          className="mkt-nav-bar"
           style={{
             outline: DEBUG_DROPDOWN ? "3px solid rgba(255,0,0,0.8)" : "none",
             height: isMobile ? 64 : DESKTOP_HEADER.cardHeight,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 24,
-            ...(isMobile
-              ? {
-                  width: "calc(100% - 16px)",
-                  margin: "10px auto 0",
-                  borderRadius: 20,
-                  padding: "0 16px",
-                  background: "rgba(34,40,42,0.55)",
-                  backdropFilter: "blur(12px) saturate(1.4)",
-                  WebkitBackdropFilter: "blur(12px) saturate(1.4)",
-                  willChange: "backdrop-filter",
-                  transform: "translateZ(0)",
-                  border: `1px solid ${mkt.border}`,
-                  boxShadow: "0 12px 32px rgba(0,0,0,0.25)",
-                }
-              : {
-                  width: "calc(100% - 32px)",
-                  margin: "16px auto 0",
-                  borderRadius: 24,
-                  padding: "0 18px",
-                  background: "rgba(34,40,42,0.55)",
-                  backdropFilter: "blur(12px) saturate(1.3)",
-                  WebkitBackdropFilter: "blur(12px) saturate(1.3)",
-                  border: `1px solid ${mkt.border}`,
-                  boxShadow: scrolled ? "0 14px 38px rgba(0,0,0,0.30)" : "0 12px 30px rgba(0,0,0,0.20)",
-                }),
+            width: "100%",
+            marginTop: isMobile ? 6 : 6,
+            borderRadius: 24,
+            background: "rgba(34,40,42,0.55)",
+            backdropFilter: "blur(12px) saturate(1.3)",
+            WebkitBackdropFilter: "blur(12px) saturate(1.3)",
+            border: `1px solid ${mkt.border}`,
+            boxShadow: scrolled ? "0 14px 38px rgba(0,0,0,0.30)" : "0 12px 30px rgba(0,0,0,0.20)",
+            ...(isMobile && {
+              willChange: "backdrop-filter",
+              transform: "translateZ(0)",
+            }),
           }}
         >
+          <div
+            style={{
+              maxWidth: 1280,
+              margin: "0 auto",
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 24,
+              padding: isMobile ? "0 16px" : "0 28px",
+            }}
+          >
           <Logo />
 
             {!isMobile && (
@@ -926,8 +923,21 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               </button>
             )}
           </div>
+          </div>{/* end nav content wrapper */}
         </div>
       </nav>
+      <style>{`
+        @media (max-width: 768px) {
+          .mkt-nav-bar {
+            border-radius: 20px !important;
+          }
+        }
+        @media (max-width: 430px) {
+          .mkt-nav-bar {
+            border-radius: 18px !important;
+          }
+        }
+      `}</style>
       {isMobile && (
         <div
           aria-hidden="true"
