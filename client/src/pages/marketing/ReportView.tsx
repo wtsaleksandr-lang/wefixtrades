@@ -556,8 +556,7 @@ export default function ReportView({ report, business, reportId }: {
       {/* SECTION 9 — SHARE */}
       <div style={{ background: DARK, borderRadius: 16, padding: '32px 24px', textAlign: 'center' }}>
         <div style={{ fontSize: 17, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Share This Report</div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 24 }}>Show your team or save for later</div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 8, justifyContent: 'center', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', padding: '0 4px' }}>
           {[
             { label: '📧 Email', onClick: () => { window.open(`mailto:?subject=My WeFixTrades Audit&body=View my free local business audit: ${shareUrl}`); } },
             { label: '💬 WhatsApp', onClick: () => { window.open(`https://wa.me/?text=Check out my business audit: ${shareUrl}`); } },
@@ -569,9 +568,9 @@ export default function ReportView({ report, business, reportId }: {
             },
           ].map((btn, i) => (
             <button key={i} onClick={btn.onClick} style={{
-              padding: '10px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)',
-              background: 'rgba(255,255,255,0.06)', color: WHITE, fontSize: 13, fontWeight: 500,
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
+              padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)',
+              background: 'rgba(255,255,255,0.06)', color: WHITE, fontSize: 12, fontWeight: 500,
+              cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0
             }}>
               {btn.label}
             </button>
