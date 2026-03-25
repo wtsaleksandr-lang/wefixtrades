@@ -64,6 +64,7 @@ export default function ReportView({ report, business, reportId }: {
   reportId?: string | null;
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
+  const [activeTab, setActiveTab] = useState<'maps' | 'website' | 'plan'>('maps');
 
   const ai = report?.narrative || {};
   const scores = report?.scores || {};
@@ -93,8 +94,23 @@ export default function ReportView({ report, business, reportId }: {
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', maxWidth: 780, margin: '0 auto', padding: '0 16px 48px' }}>
 
+      {/* TAB BAR */}
+      <div style={{ display:'flex', gap:4, background:'#F3F4F6', borderRadius:12, padding:4, marginBottom:20 }}>
+        {(['maps','website','plan'] as const).map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)} style={{
+            flex:1, padding:'10px 0', borderRadius:9, border:'none', cursor:'pointer',
+            fontWeight:600, fontSize:13,
+            background: activeTab===tab ? WHITE : 'transparent',
+            color: activeTab===tab ? DARK : GREY,
+            boxShadow: activeTab===tab ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+          }}>
+            {tab==='maps' ? 'Google Maps' : tab==='website' ? 'Website' : 'Action Plan'}
+          </button>
+        ))}
+      </div>
+
       {/* SECTION 1 — COVER */}
-      <div style={{ background: DARK, borderRadius: 16, padding: 28, marginBottom: 16 }}>
+      {activeTab === 'maps' && <div style={{ background: DARK, borderRadius: 16, padding: 28, marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             {business?.businessPhotoUrl ? (
@@ -139,10 +155,10 @@ export default function ReportView({ report, business, reportId }: {
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 12 }}>
           Generated {new Date().toLocaleDateString()} · Powered by WeFixTrades AI
         </div>
-      </div>
+      </div>}
 
       {/* SECTION 2 — SCORE BREAKDOWN */}
-      <div style={card()}>
+      {activeTab === 'maps' && <div style={card()}>
         <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 20 }}>Your Score Breakdown</div>
         {scoreRows.map((row, i) => (
           <div key={i} style={{ marginBottom: 16 }}>
@@ -159,10 +175,10 @@ export default function ReportView({ report, business, reportId }: {
             <div style={{ fontSize: 11, color: GREY, marginTop: 3, marginLeft: 28 }}>{row.note}</div>
           </div>
         ))}
-      </div>
+      </div>}
 
       {/* SECTION 3 — ACTION PLAN */}
-      {plan.length > 0 && (
+      {activeTab === 'maps' && plan.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ background: DARK, borderRadius: '16px 16px 0 0', padding: '18px 24px', fontSize: 17, fontWeight: 700, color: WHITE }}>
             What's Holding You Back
@@ -213,7 +229,7 @@ export default function ReportView({ report, business, reportId }: {
       )}
 
       {/* SECTION 4 — KEYWORDS */}
-      {keywords.some((k: any) => k.monthlySearches > 0) && (
+      {activeTab === 'website' && keywords.some((k: any) => k.monthlySearches > 0) && (
         <div style={card()}>
           <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 4 }}>What Customers Search For</div>
           <div style={{ fontSize: 12, color: GREY, marginBottom: 16 }}>Keywords relevant to your business in {report?.city}</div>
@@ -254,7 +270,7 @@ export default function ReportView({ report, business, reportId }: {
       )}
 
       {/* SECTION 5 — REVENUE */}
-      {(loss.high || 0) > 0 && (
+      {activeTab === 'maps' && (loss.high || 0) > 0 && (
         <div style={{ background: DARK, borderRadius: 16, padding: '40px 32px', marginBottom: 16, textAlign: 'center' }}>
           <div style={{ fontSize: 11, color: CYAN, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             Estimated Monthly Revenue Being Left On The Table
@@ -276,7 +292,7 @@ export default function ReportView({ report, business, reportId }: {
       )}
 
       {/* SECTION 6 — QUICK WIN */}
-      {ai.quickWin && (
+      {activeTab === 'maps' && ai.quickWin && (
         <div style={{ ...card(), border: `2px solid ${GREEN}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>⚡ Your Quick Win</span>
@@ -301,7 +317,7 @@ export default function ReportView({ report, business, reportId }: {
       )}
 
       {/* SECTION 7 — SPEED */}
-      {speed.mobile?.score != null ? (
+      {activeTab === 'website' && (speed.mobile?.score != null ? (
         <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
           {[{ label: '📱 Mobile', data: speed.mobile }, { label: '🖥 Desktop', data: speed.desktop }].map(({ label, data }) => (
             <div key={label} style={{ ...card({ flex: 1, minWidth: 200, marginBottom: 0 }) }}>
@@ -337,10 +353,10 @@ export default function ReportView({ report, business, reportId }: {
         <div style={{ textAlign: 'center', padding: 16, fontSize: 13, color: GREY, background: GREY_BG, borderRadius: 12, marginBottom: 16 }}>
           Website speed test unavailable for this report.
         </div>
-      )}
+      ))}
 
       {/* SECTION 8 — CONTENT GAPS */}
-      {gaps.length > 0 && (
+      {activeTab === 'website' && gaps.length > 0 && (
         <div style={card()}>
           <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 4 }}>Pages You Should Create</div>
           <div style={{ fontSize: 12, color: GREY, marginBottom: 16 }}>These missing pages are leaving search traffic on the table</div>
@@ -356,6 +372,12 @@ export default function ReportView({ report, business, reportId }: {
               <div style={{ fontSize: 13, color: GREY, lineHeight: 1.5 }}>{g.reason}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {activeTab === 'plan' && (
+        <div style={{ padding: '40px 16px', textAlign: 'center', color: GREY, fontSize: 14 }}>
+          Service recommendations coming soon.
         </div>
       )}
 

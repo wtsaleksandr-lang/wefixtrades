@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
+import { getServicesForIssues } from "./data/services";
 import { db } from "./db";
 import { auditReports } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
@@ -953,6 +954,23 @@ router.post("/generate", async (req: Request, res: Response) => {
     // ─── E6: New scoring engine ───
     const scores = calculateScores(auditData);
     auditData.scores = scores;
+
+    // ─── Issue detection → service recommendations ───
+    const detectedIssues: string[] = [];
+    if (scores.googleMaps.score < scores.googleMaps.max * 0.6) detectedIssues.push("not-in-maps-pack");
+    if (scores.searchVisibility.score < scores.searchVisibility.max * 0.6) detectedIssues.push("low-visibility");
+    if (scores.searchVisibility.score < scores.searchVisibility.max * 0.5) detectedIssues.push("low-search-ranking");
+    if (!auditData.business.description) detectedIssues.push("no-gbp-description");
+    if ((auditData.business.reviewsCount ?? 0) < 20) detectedIssues.push("low-reviews");
+    if (auditData.business.rating !== null && auditData.business.rating < 4.0) detectedIssues.push("bad-rating");
+    if (!auditData.isOpenEvenings || !auditData.isOpenWeekends) detectedIssues.push("no-after-hours");
+    if (scores.demandCoverage.score < scores.demandCoverage.max * 0.6) detectedIssues.push("low-demand-coverage");
+    if (!auditData.business.website) detectedIssues.push("no-website");
+    const mobileScoreVal = auditData.speedData?.mobile?.performanceScore ?? null;
+    if (mobileScoreVal !== null && mobileScoreVal < 50) detectedIssues.push("slow-website");
+    if (scores.websiteQuality.score < scores.websiteQuality.max * 0.5) detectedIssues.push("no-quote-tool");
+    auditData.detectedIssues = detectedIssues;
+    auditData.recommendedServices = getServicesForIssues(detectedIssues);
 
     // ─── Legacy fields for backward compatibility ───
     const issues: Array<{ title: string; severity: "High" | "Medium"; impact: string; fix: string }> = [];
