@@ -148,6 +148,11 @@ export default function ReportView({ report, business, reportId }: {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [chatExpanded, setChatExpanded] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  const [hovered, setHovered] = useState<string | null>(null);
+  const hoverProps = (id: string) => ({
+    onMouseEnter: () => setHovered(id),
+    onMouseLeave: () => setHovered(null),
+  });
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -254,10 +259,10 @@ export default function ReportView({ report, business, reportId }: {
       {/* TAB BAR */}
       <div style={{ display:'flex', gap:4, background:'#F3F4F6', borderRadius:12, padding:4, marginBottom:20 }}>
         {(['maps','website','plan'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} style={{
+          <button key={tab} onClick={() => setActiveTab(tab)} {...hoverProps(`tab-${tab}`)} style={{
             flex:1, padding:'10px 0', borderRadius:9, border:'none', cursor:'pointer',
-            fontWeight:600, fontSize:13,
-            background: activeTab===tab ? WHITE : 'transparent',
+            fontWeight:600, fontSize:13, transition:'all 0.15s ease',
+            background: activeTab===tab ? WHITE : hovered===`tab-${tab}` ? 'rgba(0,0,0,0.04)' : 'transparent',
             color: activeTab===tab ? DARK : GREY,
             boxShadow: activeTab===tab ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
           }}>
@@ -556,11 +561,14 @@ export default function ReportView({ report, business, reportId }: {
               </div>
               <button
                 onClick={() => toggleService(service.id)}
+                {...hoverProps(`service-${service.id}`)}
                 style={{
-                  marginTop: 16, width: '100%', padding: '10px 20px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
-                  border: selected.includes(service.id) ? 'none' : `1px solid ${BORDER}`,
-                  background: selected.includes(service.id) ? CYAN : WHITE,
-                  color: DARK,
+                  marginTop: 16, width: '100%', padding: '10px 20px', borderRadius: 8, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s ease',
+                  border: selected.includes(service.id) ? 'none' : hovered===`service-${service.id}` ? `1px solid ${CYAN}` : `1px solid ${BORDER}`,
+                  background: selected.includes(service.id)
+                    ? (hovered===`service-${service.id}` ? '#00BFB8' : CYAN)
+                    : (hovered===`service-${service.id}` ? '#F0FFFE' : WHITE),
+                  color: selected.includes(service.id) ? DARK : (hovered===`service-${service.id}` ? '#00897B' : DARK),
                   fontWeight: selected.includes(service.id) ? 700 : 400,
                 }}
               >
@@ -608,7 +616,7 @@ export default function ReportView({ report, business, reportId }: {
               <span style={{ fontSize: 13, fontWeight: 600, color: WHITE }}>
                 {selected.length} service{selected.length > 1 ? 's' : ''} selected · ${totalPrice}/mo
               </span>
-              <button style={{ background: CYAN, color: DARK, border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              <button {...hoverProps('getstarted')} style={{ background: hovered==='getstarted' ? '#00BFB8' : CYAN, color: DARK, border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s ease', transform: hovered==='getstarted' ? 'translateY(-1px)' : 'none' }}>
                 Get Started →
               </button>
             </div>
@@ -630,10 +638,13 @@ export default function ReportView({ report, business, reportId }: {
               onClick: () => { navigator.clipboard.writeText(shareUrl).then(() => { setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000); }); }
             },
           ].map((btn, i) => (
-            <button key={i} onClick={btn.onClick} style={{
-              padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)',
-              background: 'rgba(255,255,255,0.06)', color: WHITE, fontSize: 12, fontWeight: 500,
-              cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0
+            <button key={i} onClick={btn.onClick} {...hoverProps(`share-${i}`)} style={{
+              padding: '9px 14px', borderRadius: 10, transition: 'all 0.15s ease',
+              border: hovered===`share-${i}` ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.15)',
+              background: hovered===`share-${i}` ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
+              color: WHITE, fontSize: 12, fontWeight: 500,
+              cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+              transform: hovered===`share-${i}` ? 'translateY(-1px)' : 'none',
             }}>
               {btn.label}
             </button>
@@ -677,7 +688,7 @@ export default function ReportView({ report, business, reportId }: {
               placeholder="Ask anything..."
               style={{ flex:1, padding:'8px 12px', borderRadius:8, border:`1px solid ${BORDER}`, fontSize:13, outline:'none', fontFamily:'inherit' }}
             />
-            <button onClick={sendChat} style={{ background:CYAN, color:DARK, border:'none', borderRadius:8, padding:'8px 14px', fontWeight:700, fontSize:13, cursor:'pointer' }}>→</button>
+            <button onClick={sendChat} {...hoverProps('chatsend')} style={{ background: hovered==='chatsend' ? '#00BFB8' : CYAN, color:DARK, border:'none', borderRadius:8, padding:'8px 14px', fontWeight:700, fontSize:13, cursor:'pointer', transition:'background 0.15s ease' }}>→</button>
           </div>
         </div>
       )}
@@ -730,7 +741,7 @@ export default function ReportView({ report, business, reportId }: {
                 placeholder="Ask anything..."
                 style={{ flex:1, padding:'8px 12px', borderRadius:8, border:`1px solid ${BORDER}`, fontSize:13, outline:'none', fontFamily:'inherit' }}
               />
-              <button onClick={sendChat} style={{ background:CYAN, color:DARK, border:'none', borderRadius:8, padding:'8px 14px', fontWeight:700, fontSize:13, cursor:'pointer' }}>→</button>
+              <button onClick={sendChat} {...hoverProps('chatsend')} style={{ background: hovered==='chatsend' ? '#00BFB8' : CYAN, color:DARK, border:'none', borderRadius:8, padding:'8px 14px', fontWeight:700, fontSize:13, cursor:'pointer', transition:'background 0.15s ease' }}>→</button>
             </div>
           </div>
         )}
