@@ -83,6 +83,8 @@ export default function ReportView({ report, business, reportId }: {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatUnread, setChatUnread] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [chatExpanded, setChatExpanded] = useState(true);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -557,6 +559,47 @@ export default function ReportView({ report, business, reportId }: {
         </div>
       )}
 
+      {/* INLINE CHAT PANEL — desktop only */}
+      {!isMobile && (
+        <div style={{ background:WHITE, borderRadius:16, border:`1px solid ${BORDER}`, marginBottom:16, overflow:'hidden' }}>
+          <div
+            onClick={() => setChatExpanded(e => !e)}
+            style={{ background:DARK, padding:'16px 20px', display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}
+          >
+            <div>
+              <div style={{ fontSize:14, fontWeight:700, color:WHITE }}>We're here to help</div>
+              <div style={{ fontSize:11, color:'rgba(255,255,255,0.45)', marginTop:2 }}>Available 24/7 · Usually replies instantly</div>
+            </div>
+            <div style={{ color:'rgba(255,255,255,0.5)', fontSize:18, transform: chatExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.2s' }}>▼</div>
+          </div>
+          {chatExpanded && (
+            <div style={{ height:240, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:10 }}>
+              {chatMessages.map((msg, i) => (
+                <div key={i} style={{ alignSelf:msg.role==='ai'?'flex-start':'flex-end', background:msg.role==='ai'?GREY_BG:CYAN, borderRadius:msg.role==='ai'?'12px 12px 12px 4px':'12px 12px 4px 12px', padding:'10px 14px', fontSize:13, color:DARK, maxWidth:'85%', lineHeight:1.5 }}>
+                  {msg.text}
+                </div>
+              ))}
+              {chatLoading && (
+                <div style={{ alignSelf:'flex-start', background:GREY_BG, borderRadius:12, padding:'10px 14px', display:'flex', gap:4 }}>
+                  {[0,1,2].map(i => <div key={i} style={{ width:6, height:6, borderRadius:'50%', background:GREY }}/>)}
+                </div>
+              )}
+              <div ref={chatEndRef}/>
+            </div>
+          )}
+          <div style={{ background:WHITE, borderTop:`1px solid ${BORDER}`, padding:12, display:'flex', gap:8 }}>
+            <input
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              onKeyDown={e => e.key==='Enter' && sendChat()}
+              placeholder="Ask anything..."
+              style={{ flex:1, padding:'8px 12px', borderRadius:8, border:`1px solid ${BORDER}`, fontSize:13, outline:'none', fontFamily:'inherit' }}
+            />
+            <button onClick={sendChat} style={{ background:CYAN, color:DARK, border:'none', borderRadius:8, padding:'8px 14px', fontWeight:700, fontSize:13, cursor:'pointer' }}>→</button>
+          </div>
+        </div>
+      )}
+
       {/* SECTION 9 — SHARE */}
       <div style={{ background: DARK, borderRadius: 16, padding: '32px 24px', textAlign: 'center' }}>
         <div style={{ fontSize: 17, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Share This Report</div>
@@ -588,8 +631,8 @@ export default function ReportView({ report, business, reportId }: {
         )}
       </div>
 
-      {/* CHAT WIDGET */}
-      <>
+      {/* CHAT WIDGET — mobile only */}
+      {isMobile && <>
         {/* Bubble */}
         <div
           onClick={() => { setChatOpen(o => !o); setChatUnread(false); }}
@@ -640,7 +683,7 @@ export default function ReportView({ report, business, reportId }: {
             </div>
           </div>
         )}
-      </>
+      </>}
     </div>
   );
 }

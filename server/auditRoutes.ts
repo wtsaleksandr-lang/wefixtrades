@@ -573,7 +573,7 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
   const volumeMap: Record<string, { searchVolume: number; cpc: number; competition: string }> = {};
   for (const item of items) {
     const kw = item.keyword || "";
-    volumeMap[kw.toLowerCase()] = {
+    volumeMap[kw.toLowerCase().trim()] = {
       searchVolume: item.search_volume || 0,
       cpc: item.cpc || 0,
       competition: item.competition_level || "LOW",
@@ -874,7 +874,7 @@ router.post("/generate", async (req: Request, res: Response) => {
 
     if (volumeMap) {
       for (const kw of keywords) {
-        const vol = volumeMap[kw.keyword.toLowerCase()];
+        const vol = volumeMap[kw.keyword.toLowerCase().trim()];
         if (vol) {
           kw.monthlySearches = vol.searchVolume;
           kw.cpc = vol.cpc;
@@ -893,6 +893,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     keywords = keywords.filter((k: any, i: number, arr: any[]) =>
       arr.findIndex((x: any) => x.keyword === k.keyword) === i
     );
+    console.log('[audit] keyword sample:', keywords[0]);
     const averageCPC = keywords.length > 0 ? +(cpcSum / keywords.length).toFixed(2) : 0;
 
     // ─── Flag ad-running competitors ───
@@ -1124,6 +1125,8 @@ ${JSON.stringify(auditData, null, 2)}`;
     const elapsed = Date.now() - startTime;
     console.log(`═══ AUDIT COMPLETE in ${elapsed}ms ═══`);
 
+    console.log('[audit] FINAL detectedIssues:', detectedIssues);
+    console.log('[audit] FINAL recommended:', recommendedServices?.length || 0);
     return res.json({ ok: true, report_json: auditData, reportId });
   } catch (e: any) {
     return safeJsonError(res, 500, e?.message || "generate failed");
