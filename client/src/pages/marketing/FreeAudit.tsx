@@ -282,7 +282,7 @@ function ReportView(props: {
             {photos.length > 0 && (
               <div className={reportStyles.photos}>
                 {photos.slice(0, 4).map((src, i) => (
-                  <img key={i} className={reportStyles.photo} src={src} alt="" data-testid={`img-report-photo-${i}`} />
+                  <img key={i} className={reportStyles.photo} src={src} alt="" loading="lazy" data-testid={`img-report-photo-${i}`} />
                 ))}
               </div>
             )}
@@ -507,23 +507,16 @@ export default function FreeAudit() {
       );
       setBusiness(details.business);
 
-      let speed: SpeedData | null = null;
-      const site = (details.business.website || "").trim();
-      if (site) {
-        setBusy("Running website speed test\u2026");
-        const ps = await postJSON<{ ok: true; speedData: SpeedData }>(
-          "/api/audit/pagespeed",
-          { url: site }
-        );
-        speed = ps.speedData;
-        setSpeedData(speed);
-      }
-
+      // PageSpeed now runs server-side in parallel with other API calls
       setBusy("Generating report\u2026");
       const rep = await postJSON<{ ok: true; report_json: ReportJson }>(
         "/api/audit/generate",
-        { business: details.business, speedData: speed, trade: "", city: "" }
+        { business: details.business, speedData: null, trade: "", city: "" }
       );
+
+      // Extract speedData from server response
+      const speed = (rep.report_json as any)?.speedData || null;
+      if (speed) setSpeedData(speed as SpeedData);
 
       setReport(rep.report_json);
       setBusy(null);

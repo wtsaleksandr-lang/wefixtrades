@@ -249,32 +249,35 @@ router.post("/place-details", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/pagespeed", async (req: Request, res: Response) => {
-  try {
-    const key = requireEnv("PAGESPEED_API_KEY");
-    const urlRaw = String(req.body?.url || "");
-    const url = normalizeUrl(urlRaw);
-    if (!url) return safeJsonError(res, 400, "Invalid url");
+/* ─── PageSpeed helper with 15s timeout ─── */
+async function fetchPageSpeed(siteUrl: string): Promise<{ mobile: any; desktop: any } | null> {
+  const key = process.env.PAGESPEED_API_KEY;
+  if (!key) return null;
+  const url = normalizeUrl(siteUrl);
+  if (!url) return null;
 
-    const run = async (strategy: "mobile" | "desktop") => {
-      const endpoint =
-        `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?` +
-        `url=${encodeURIComponent(url)}` +
-        `&strategy=${strategy}` +
-        `&key=${encodeURIComponent(key)}`;
+  const run = async (strategy: "mobile" | "desktop") => {
+    const endpoint =
+      `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?` +
+      `url=${encodeURIComponent(url)}` +
+      `&strategy=${strategy}` +
+      `&key=${encodeURIComponent(key)}`;
 
-      const data = await fetchJson(endpoint);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const resp = await fetch(endpoint, { signal: controller.signal });
+      clearTimeout(timeout);
+      const text = await resp.text();
+      let data: any = null;
+      try { data = JSON.parse(text); } catch {}
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
       const lhr = data?.lighthouseResult;
       const score01 = lhr?.categories?.performance?.score;
-      const score =
-        typeof score01 === "number" ? Math.round(score01 * 100) : null;
-
+      const score = typeof score01 === "number" ? Math.round(score01 * 100) : null;
       const audits = lhr?.audits || {};
-      const numVal = (key: string) => {
-        const v = audits[key]?.numericValue;
-        return typeof v === "number" ? v : null;
-      };
-
+      const numVal = (k: string) => { const v = audits[k]?.numericValue; return typeof v === "number" ? v : null; };
       return {
         score,
         fcp: numVal("first-contentful-paint") !== null ? +(numVal("first-contentful-paint")! / 1000).toFixed(2) : null,
@@ -282,13 +285,27 @@ router.post("/pagespeed", async (req: Request, res: Response) => {
         tbt: numVal("total-blocking-time") !== null ? Math.round(numVal("total-blocking-time")!) : null,
         cls: audits["cumulative-layout-shift"]?.numericValue ?? null,
       };
+    } catch (err: any) {
+      clearTimeout(timeout);
+      if (err.name === "AbortError") {
+        console.log(`[pagespeed] ${strategy} timed out after 15s, using null scores`);
+      } else {
+        console.error(`[pagespeed] ${strategy} error:`, err.message);
+      }
+      return { score: null, fcp: null, lcp: null, tbt: null, cls: null };
     }
+  };
 
-    const [mobile, desktop] = await Promise.all([
-      run("mobile"),
-      run("desktop"),
-    ]);
-    return res.json({ ok: true, speedData: { mobile, desktop } });
+  const [mobile, desktop] = await Promise.all([run("mobile"), run("desktop")]);
+  return { mobile, desktop };
+}
+
+router.post("/pagespeed", async (req: Request, res: Response) => {
+  try {
+    const urlRaw = String(req.body?.url || "");
+    const speedData = await fetchPageSpeed(urlRaw);
+    if (!speedData) return safeJsonError(res, 400, "Invalid url or missing API key");
+    return res.json({ ok: true, speedData });
   } catch (e: any) {
     return safeJsonError(res, 500, e?.message || "pagespeed failed");
   }
@@ -324,17 +341,20 @@ async function fetchOutscraperCompetitors(trade: string, city: string, businessN
     console.warn("[E1 Outscraper competitors] OUTSCRAPER_API_KEY not set, skipping");
     return null;
   }
-  const requestBody = { query: `${trade} near ${city}`, limit: 8, language: "en", region: "CA" };
-  const requestUrl = "https://api.app.outscraper.com/maps/search-v3";
+  const params = new URLSearchParams({
+    query: `${trade} near ${city}`,
+    limit: "8",
+    language: "en",
+    region: "CA",
+  });
+  const requestUrl = `https://api.app.outscraper.com/maps/search-v3?${params}`;
   console.log("[E1 Outscraper competitors] Request URL:", requestUrl);
-  console.log("[E1 Outscraper competitors] Request body:", JSON.stringify(requestBody));
   let r: globalThis.Response;
   let rawText: string;
   try {
     r = await fetch(requestUrl, {
-      method: "POST",
-      headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody),
+      method: "GET",
+      headers: { "X-API-KEY": apiKey },
     });
     rawText = await r.text();
     console.log("[E1 Outscraper competitors] HTTP status:", r.status);
@@ -392,17 +412,19 @@ async function fetchOutscraperReviews(placeId: string) {
     console.warn("[E2 Outscraper reviews] Missing apiKey or placeId, skipping");
     return null;
   }
-  const requestBody = { query: placeId, reviewsLimit: 50, sort: "newest" };
-  const requestUrl = "https://api.app.outscraper.com/maps/reviews-v3";
+  const reviewParams = new URLSearchParams({
+    query: placeId,
+    reviewsLimit: "50",
+    sort: "newest",
+  });
+  const requestUrl = `https://api.app.outscraper.com/maps/reviews-v3?${reviewParams}`;
   console.log("[E2 Outscraper reviews] Request URL:", requestUrl);
-  console.log("[E2 Outscraper reviews] Request body:", JSON.stringify(requestBody));
   let r: globalThis.Response;
   let rawText: string;
   try {
     r = await fetch(requestUrl, {
-      method: "POST",
-      headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody),
+      method: "GET",
+      headers: { "X-API-KEY": apiKey },
     });
     rawText = await r.text();
     console.log("[E2 Outscraper reviews] HTTP status:", r.status);
@@ -777,18 +799,18 @@ router.post("/generate", async (req: Request, res: Response) => {
     const reviewsCount = typeof business.reviewsCount === "number" ? business.reviewsCount : 0;
     const website = String(business.website || "");
     const photosLen = Array.isArray(business.photos) ? business.photos.length : 0;
-    const mobileScore = typeof speedData?.mobile?.score === "number" ? speedData.mobile.score : null;
-    const desktopScore = typeof speedData?.desktop?.score === "number" ? speedData.desktop.score : null;
+    // mobileScore/desktopScore set after parallel fetch below
 
     // ─── Build seed keywords ───
     const seedKeywords = buildSeedKeywords(trade, city);
 
-    // ─── Run all external data fetches in parallel ───
-    const [compResult, reviewResult, serperResult, dataForSEOResult] = await Promise.allSettled([
+    // ─── Run ALL external data fetches in parallel (including PageSpeed) ───
+    const [compResult, reviewResult, serperResult, dataForSEOResult, pageSpeedResult] = await Promise.allSettled([
       fetchOutscraperCompetitors(trade, city, business.name),
       (business.placeId && reviewsCount > 0) ? fetchOutscraperReviews(business.placeId) : Promise.resolve(null),
       fetchSerperRankings(seedKeywords, website, business.name, city),
       fetchDataForSEOVolumes(seedKeywords),
+      website ? fetchPageSpeed(website) : Promise.resolve(speedData),
     ]);
 
     // ─── Extract results (null on failure) ───
@@ -803,6 +825,13 @@ router.post("/generate", async (req: Request, res: Response) => {
 
     const volumeMap = dataForSEOResult.status === "fulfilled" ? dataForSEOResult.value : null;
     if (dataForSEOResult.status === "rejected") console.error("E4 DataForSEO volumes failed:", (dataForSEOResult as any).reason?.message);
+
+    // Use server-side PageSpeed if available, otherwise fall back to client-provided speedData
+    const resolvedSpeedData = pageSpeedResult.status === "fulfilled" && pageSpeedResult.value ? pageSpeedResult.value : speedData;
+    if (pageSpeedResult.status === "rejected") console.error("PageSpeed failed:", (pageSpeedResult as any).reason?.message);
+
+    const mobileScore = typeof resolvedSpeedData?.mobile?.score === "number" ? resolvedSpeedData.mobile.score : null;
+    const desktopScore = typeof resolvedSpeedData?.desktop?.score === "number" ? resolvedSpeedData.desktop.score : null;
 
     // ─── Merge keyword data (E3 + E4) ───
     let keywords = serperData?.keywords || [];
@@ -867,7 +896,7 @@ router.post("/generate", async (req: Request, res: Response) => {
       },
       trade,
       city,
-      speedData: { mobile: speedData?.mobile || null, desktop: speedData?.desktop || null },
+      speedData: { mobile: resolvedSpeedData?.mobile || null, desktop: resolvedSpeedData?.desktop || null },
       competitors,
       areaAverageReviews: compData?.areaAverageReviews || 0,
       areaAverageRating: compData?.areaAverageRating || 0,

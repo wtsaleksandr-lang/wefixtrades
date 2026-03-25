@@ -141,7 +141,7 @@ export default function SharedAuditReport() {
           <div className={s.heroTop}>
             <div className={s.heroLeft}>
               {biz.businessPhotoUrl ? (
-                <img className={s.heroPhoto} src={biz.businessPhotoUrl} alt="" />
+                <img className={s.heroPhoto} src={biz.businessPhotoUrl} alt="" loading="lazy" />
               ) : (
                 <div className={s.heroPhotoPlaceholder}>{(biz.name || "?")[0]}</div>
               )}
@@ -281,7 +281,7 @@ export default function SharedAuditReport() {
                         <td>{i + 1}</td>
                         <td>
                           <div className={s.compName}>
-                            {c.photoUrl ? <img className={s.compPhoto} src={c.photoUrl} alt="" /> : <div className={s.compPhotoPlaceholder}>{(c.name || "?")[0]}</div>}
+                            {c.photoUrl ? <img className={s.compPhoto} src={c.photoUrl} alt="" loading="lazy" /> : <div className={s.compPhotoPlaceholder}>{(c.name || "?")[0]}</div>}
                             {c.name}
                           </div>
                         </td>
