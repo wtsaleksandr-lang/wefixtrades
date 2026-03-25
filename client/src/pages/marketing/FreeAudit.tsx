@@ -442,8 +442,10 @@ export default function FreeAudit() {
       { query: q }
     )
       .then((d) => {
-        const preds = d.predictions || [];
-        console.log("[Audit] Got", preds.length, "results:", preds.map(p => p.name));
+        const raw = d.predictions || [];
+        // Filter out any predictions missing place_id
+        const preds = raw.filter(p => !!p.place_id);
+        console.log("[Audit] Got", raw.length, "raw,", preds.length, "valid:", preds.map(p => ({ name: p.name, place_id: p.place_id })));
         setPredictions(preds);
         setSearchDone(true);
         setDropdownOpen(true);
@@ -484,9 +486,10 @@ export default function FreeAudit() {
   }, [dropdownOpen]);
 
   async function runAudit(placeId: string) {
+    console.log("[Audit] runAudit called with placeId:", JSON.stringify(placeId));
     if (!placeId) {
       console.error("[Audit] runAudit called with empty placeId — ignoring");
-      setError("Please select a business from the dropdown.");
+      setError("Something went wrong. Please try searching again.");
       return;
     }
     try {
@@ -757,7 +760,10 @@ export default function FreeAudit() {
                               key={p.place_id}
                               data-testid={`button-place-${p.place_id}`}
                               className="audit-suggestion"
-                              onClick={() => runAudit(p.place_id)}
+                              onClick={() => {
+                                console.log("[Audit] Clicked prediction:", p.name, "place_id:", p.place_id, "full:", JSON.stringify(p));
+                                runAudit(p.place_id);
+                              }}
                               style={{
                                 width: "100%",
                                 textAlign: "left",
