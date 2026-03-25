@@ -79,3 +79,61 @@ Background jobs (node-cron scheduler) also trigger notifications and follow-ups 
 - All DB access goes through the storage interface in `server/storage.ts`
 - Keep code modular and production-oriented
 - Test after changes — use dev server to verify visually if no test suite
+
+---
+
+## Single Source of Truth Files
+
+These files own their domain across the
+entire platform. Always update them first.
+Never hardcode their data elsewhere.
+
+### server/data/services.ts
+Owns: all service names, prices,
+descriptions, features, and issue mappings.
+Auto-syncs to:
+  - Audit report Tab 3 (action plan)
+  - Nav dropdown menu
+  - Pricing page
+  - AI chat widget context
+  - Bundle recommendations
+Update this file when:
+  - Any price changes
+  - Service added or removed
+  - Description or features change
+Never hardcode service names or prices
+in any other file.
+
+### shared/schemas/
+Owns: all database table definitions.
+Update here first when adding new fields.
+
+---
+
+## File Ownership Rules
+
+These rules prevent cross-file breakage.
+State which file you are working on
+before making any changes.
+
+  FreeAudit.tsx — data/logic ONLY
+    No UI components. No design tokens.
+
+  ReportView.tsx — UI/display ONLY
+    No API calls. No data fetching.
+
+  auditRoutes.ts — audit backend ONLY
+    No unrelated routes or logic.
+
+  services.ts — service data ONLY
+    No business logic. Pure data.
+
+---
+
+## Code Style Rules
+
+- New React components: inline styles only
+- No Tailwind in new components
+- All external API calls: Promise.allSettled
+  with graceful null fallback
+- Never crash the audit if one API fails
