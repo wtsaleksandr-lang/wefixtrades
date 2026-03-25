@@ -239,7 +239,21 @@ export const SERVICES: Service[] = [
 ];
 
 export function getServicesForIssues(issues: string[]): Service[] {
-  return SERVICES.filter((s) =>
-    s.fixesIssues.some((i) => issues.includes(i))
-  );
+  if (!issues.length) return [];
+  // Score each service by how many detected issues it fixes
+  const scored = SERVICES.map(service => ({
+    service,
+    matchCount: service.fixesIssues.filter(i => issues.includes(i)).length
+  }))
+  .filter(s => s.matchCount > 0)
+  .sort((a, b) => b.matchCount - a.matchCount);
+  // Deduplicate by category — only keep the highest-scoring service per category
+  const seenCategories = new Set<string>();
+  const deduplicated = scored.filter(({ service }) => {
+    if (seenCategories.has(service.category)) return false;
+    seenCategories.add(service.category);
+    return true;
+  });
+  // Return max 3 services
+  return deduplicated.slice(0, 3).map(s => s.service);
 }
