@@ -271,7 +271,7 @@ async function fetchPageSpeed(siteUrl: string): Promise<{ mobile: any; desktop: 
       `&key=${encodeURIComponent(key)}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 25000);
     try {
       const resp = await fetch(endpoint, { signal: controller.signal });
       clearTimeout(timeout);
@@ -295,7 +295,7 @@ async function fetchPageSpeed(siteUrl: string): Promise<{ mobile: any; desktop: 
     } catch (err: any) {
       clearTimeout(timeout);
       if (err.name === "AbortError") {
-        console.log(`[pagespeed] ${strategy} timed out after 15s, using null scores`);
+        console.log(`[pagespeed] ${strategy} timed out after 25s, using null scores`);
       } else {
         console.error(`[pagespeed] ${strategy} error:`, err.message);
       }
@@ -889,6 +889,10 @@ router.post("/generate", async (req: Request, res: Response) => {
         }
       }
     }
+    // Deduplicate keywords by keyword string
+    keywords = keywords.filter((k: any, i: number, arr: any[]) =>
+      arr.findIndex((x: any) => x.keyword === k.keyword) === i
+    );
     const averageCPC = keywords.length > 0 ? +(cpcSum / keywords.length).toFixed(2) : 0;
 
     // ─── Flag ad-running competitors ───
@@ -956,6 +960,13 @@ router.post("/generate", async (req: Request, res: Response) => {
     auditData.scores = scores;
 
     // ─── Issue detection → service recommendations ───
+    console.log('[audit] scores at detection:', JSON.stringify(scores, null, 2));
+    console.log('[audit] business at detection:', JSON.stringify({
+      website: auditData.business?.website,
+      reviewsCount: auditData.business?.reviewsCount,
+      rating: auditData.business?.rating,
+      description: auditData.business?.description
+    }));
     const detectedIssues: string[] = [];
     if (!auditData.business.website) detectedIssues.push("no-website");
     if (auditData.speedData?.mobile?.score !== null && (auditData.speedData?.mobile?.score ?? 101) < 50) detectedIssues.push("slow-website");
@@ -969,7 +980,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     const recommendedServices = getServicesForIssues(detectedIssues);
     auditData.detectedIssues = detectedIssues;
     auditData.recommendedServices = recommendedServices;
-    console.log('[audit] detectedIssues:', detectedIssues);
+    console.log('[audit] detectedIssues result:', detectedIssues);
     console.log('[audit] recommendedServices:', recommendedServices.map((s: any) => s.name));
 
     // ─── Legacy fields for backward compatibility ───
