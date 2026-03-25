@@ -213,7 +213,7 @@ function ReportView({ report, business, reportId }: {
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const ai = report?.aiNarrative || {};
+  const ai = report?.narrative || {};
   const scores = report?.scores || {};
   const keywords = report?.keywords || [];
   const loss = report?.estimatedRevenueLoss || {};
@@ -671,7 +671,7 @@ export default function FreeAudit() {
         "/api/audit/generate",
         {
           business: details.business,
-          speedData: speed,
+          speedData: null,
           trade: details.trade || "",
           city: details.city || ""
         }

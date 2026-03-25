@@ -54,6 +54,12 @@ function resolvePhotoUrl(photoRef: string | undefined | null, key: string, maxwi
   return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${maxwidth}&photo_reference=${encodeURIComponent(photoRef)}&key=${encodeURIComponent(key)}`;
 }
 
+function withSignal(ms: number): { signal: AbortSignal; clear: () => void } {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return { signal: controller.signal, clear: () => clearTimeout(timer) };
+}
+
 async function fetchJson(url: string) {
   const r = await fetch(url);
   const text = await r.text();
@@ -351,10 +357,12 @@ async function fetchOutscraperCompetitors(trade: string, city: string, businessN
   console.log("[E1 Outscraper competitors] Request URL:", requestUrl);
   let r: globalThis.Response;
   let rawText: string;
+  const { signal: e1Signal, clear: e1Clear } = withSignal(20000);
   try {
     r = await fetch(requestUrl, {
       method: "GET",
       headers: { "X-API-KEY": apiKey },
+      signal: e1Signal,
     });
     rawText = await r.text();
     console.log("[E1 Outscraper competitors] HTTP status:", r.status);
@@ -362,6 +370,8 @@ async function fetchOutscraperCompetitors(trade: string, city: string, businessN
   } catch (fetchErr: any) {
     console.error("[E1 Outscraper competitors] Fetch error:", fetchErr?.message);
     throw fetchErr;
+  } finally {
+    e1Clear();
   }
   let data: any;
   try { data = JSON.parse(rawText); } catch { data = null; }
@@ -421,10 +431,12 @@ async function fetchOutscraperReviews(placeId: string) {
   console.log("[E2 Outscraper reviews] Request URL:", requestUrl);
   let r: globalThis.Response;
   let rawText: string;
+  const { signal: e2Signal, clear: e2Clear } = withSignal(20000);
   try {
     r = await fetch(requestUrl, {
       method: "GET",
       headers: { "X-API-KEY": apiKey },
+      signal: e2Signal,
     });
     rawText = await r.text();
     console.log("[E2 Outscraper reviews] HTTP status:", r.status);
@@ -432,6 +444,8 @@ async function fetchOutscraperReviews(placeId: string) {
   } catch (fetchErr: any) {
     console.error("[E2 Outscraper reviews] Fetch error:", fetchErr?.message);
     throw fetchErr;
+  } finally {
+    e2Clear();
   }
   let data: any;
   try { data = JSON.parse(rawText); } catch { data = null; }
@@ -472,12 +486,18 @@ async function fetchSerperRankings(
   const nameLC = businessName.toLowerCase();
 
   const results = await Promise.allSettled(keywords.map(async (kw) => {
-    const r = await fetch("https://google.serper.dev/search", {
-      method: "POST",
-      headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ q: kw, location: `${city}, Canada`, gl: "ca", hl: "en", num: 20 }),
-    });
-    return { keyword: kw, data: await r.json() };
+    const { signal: sSignal, clear: sClear } = withSignal(12000);
+    try {
+      const r = await fetch("https://google.serper.dev/search", {
+        method: "POST",
+        headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ q: kw, location: `${city}, Canada`, gl: "ca", hl: "en", num: 20 }),
+        signal: sSignal,
+      });
+      return { keyword: kw, data: await r.json() };
+    } finally {
+      sClear();
+    }
   }));
 
   const keywordResults: any[] = [];
@@ -532,12 +552,22 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
   const password = process.env.DATAFORSEO_PASSWORD;
   if (!login || !password) return null;
   const auth = Buffer.from(`${login}:${password}`).toString("base64");
-  const r = await fetch("https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live", {
-    method: "POST",
-    headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
-    body: JSON.stringify([{ keywords, location_name: "Canada", language_name: "English" }]),
-  });
-  const data = await r.json();
+  const { signal: e4Signal, clear: e4Clear } = withSignal(15000);
+  let data: any;
+  try {
+    const r = await fetch("https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live", {
+      method: "POST",
+      headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
+      body: JSON.stringify([{ keywords, location_name: "Canada", language_name: "English" }]),
+      signal: e4Signal,
+    });
+    data = await r.json();
+  } catch (e: any) {
+    console.error("[E4 DataForSEO] Fetch error:", e?.message);
+    return null;
+  } finally {
+    e4Clear();
+  }
   const items = data?.tasks?.[0]?.result || [];
   const volumeMap: Record<string, { searchVolume: number; cpc: number; competition: string }> = {};
   for (const item of items) {
