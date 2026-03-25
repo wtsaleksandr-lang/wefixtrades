@@ -151,6 +151,15 @@ export default function ReportView({ report, business, reportId }: {
   const isTiny = typeof window !== 'undefined' && window.innerWidth <= 480;
   const r16 = isTiny ? 0 : 16;
   const [hovered, setHovered] = useState<string | null>(null);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const FAQS = [
+    { q: "Do I need to learn any software?", a: "None. Everything is set up and managed by our team. You get a simple dashboard to check your results, and a weekly summary sent to your phone. That's it." },
+    { q: "How long until I see results?", a: "Most clients see measurable improvements within the first 2–4 weeks — more profile views, more calls, more leads. SEO results compound over 60–90 days." },
+    { q: "Is there a contract or cancellation fee?", a: "No contracts. No cancellation fees. Cancel any time with 30 days notice. We keep clients by delivering results, not by locking them in." },
+    { q: "What makes you different from a regular marketing agency?", a: "We built this exclusively for trades businesses. The tools, the AI, the automations — all designed around how plumbers, locksmiths, and HVAC techs actually work." },
+    { q: "What happens after I select my services?", a: "Complete a quick 5-minute onboarding form. Our team sets everything up within 48 hours. You get a confirmation with your login details and next steps." },
+    { q: "Can I start with one service and add more later?", a: "Absolutely. Most clients start with one or two services, see the results, and expand from there. No pressure to buy everything at once." },
+  ];
   const hoverProps = (id: string) => ({
     onMouseEnter: () => setHovered(id),
     onMouseLeave: () => setHovered(null),
@@ -588,6 +597,25 @@ export default function ReportView({ report, business, reportId }: {
             </div>
           )}
 
+          {/* FAQ */}
+          <div style={{ marginTop: 32, marginBottom: 8 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 16 }}>Common Questions</div>
+            {FAQS.map((faq, i) => (
+              <div key={i} style={{ borderBottom: `1px solid ${BORDER}` }}>
+                <div
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 4px', cursor: 'pointer', userSelect: 'none' }}
+                >
+                  <span style={{ fontSize: 14, fontWeight: 600, color: DARK, lineHeight: 1.4, paddingRight: 16, flex: 1 }}>{faq.q}</span>
+                  <span style={{ fontSize: 20, color: GREY, fontWeight: 300, flexShrink: 0, display: 'inline-block', transform: openFaq === i ? 'rotate(45deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>+</span>
+                </div>
+                {openFaq === i && (
+                  <div style={{ padding: '0 4px 16px', fontSize: 13, color: GREY, lineHeight: 1.65, maxWidth: 540 }}>{faq.a}</div>
+                )}
+              </div>
+            ))}
+          </div>
+
           {/* D — TRUST BADGES */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 24, marginBottom: 16 }}>
             {[
@@ -633,21 +661,21 @@ export default function ReportView({ report, business, reportId }: {
         <div style={{ fontSize: 17, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Share This Report</div>
         <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 8, justifyContent: 'center', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', padding: '0 4px' }}>
           {[
-            { label: '📧 Email', onClick: () => { window.open(`mailto:?subject=My WeFixTrades Audit&body=View my free local business audit: ${shareUrl}`); } },
-            { label: '💬 WhatsApp', onClick: () => { window.open(`https://wa.me/?text=Check out my business audit: ${shareUrl}`); } },
-            { label: '📘 Facebook', onClick: () => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`); } },
-            { label: '🐦 Twitter', onClick: () => { window.open(`https://twitter.com/intent/tweet?text=Just got my free local business audit — scored ${scores.total}/100. Get yours free:&url=${encodeURIComponent(shareUrl)}`); } },
+            { label: '📧', onClick: () => { window.open(`mailto:?subject=My WeFixTrades Audit&body=View my free local business audit: ${shareUrl}`); } },
+            { label: '💬', onClick: () => { window.open(`https://wa.me/?text=Check out my business audit: ${shareUrl}`); } },
+            { label: '📘', onClick: () => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`); } },
+            { label: '🐦', onClick: () => { window.open(`https://twitter.com/intent/tweet?text=Just got my free local business audit — scored ${scores.total}/100. Get yours free:&url=${encodeURIComponent(shareUrl)}`); } },
             {
-              label: copiedLink ? '✓ Copied!' : '🔗 Copy Link',
+              label: copiedLink ? '✓' : '🔗',
               onClick: () => { navigator.clipboard.writeText(shareUrl).then(() => { setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000); }); }
             },
           ].map((btn, i) => (
             <button key={i} onClick={btn.onClick} {...hoverProps(`share-${i}`)} style={{
-              padding: '9px 14px', borderRadius: 10, transition: 'all 0.15s ease',
+              width: 44, height: 44, padding: 0, borderRadius: 10, transition: 'all 0.15s ease',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
               border: hovered===`share-${i}` ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.15)',
               background: hovered===`share-${i}` ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
-              color: WHITE, fontSize: 12, fontWeight: 500,
-              cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+              color: WHITE, fontWeight: 500, cursor: 'pointer', flexShrink: 0,
               transform: hovered===`share-${i}` ? 'translateY(-1px)' : 'none',
             }}>
               {btn.label}
