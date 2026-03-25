@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Wrench, FileX, BarChart3, Users, MessageCircle } from "lucide-react";
+import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList } from "lucide-react";
 import { SERVICES, getServicesForIssues } from '../../../../server/data/services';
 
 // ─── Design tokens ───────────────────
@@ -240,12 +240,12 @@ export default function ReportView({ report, business, reportId }: {
     : window.location.href;
 
   const scoreRows = [
-    { icon: '📍', label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
-    { icon: '🌐', label: 'Website Quality', score: scores.websiteQuality?.score || 0, max: 20, note: speed.mobile?.score == null ? 'Speed test unavailable' : 'How fast and professional your website is' },
-    { icon: '🔍', label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
-    { icon: '🏆', label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
-    { icon: '📢', label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'The paid search market in your area' },
-    { icon: '⏰', label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you're visible when customers search most" },
+    { icon: <MapPin size={18} color="#00D4C8" />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
+    { icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: scores.websiteQuality?.score || 0, max: 20, note: speed.mobile?.score == null ? 'Speed test unavailable' : 'How fast and professional your website is' },
+    { icon: <Search size={18} color="#00D4C8" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
+    { icon: <Trophy size={18} color="#00D4C8" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
+    { icon: <Megaphone size={18} color="#00D4C8" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'The paid search market in your area' },
+    { icon: <Clock size={18} color="#00D4C8" />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you're visible when customers search most" },
   ];
 
   const card = (extra?: any) => ({
@@ -324,13 +324,15 @@ export default function ReportView({ report, business, reportId }: {
         <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 20 }}>Your Score Breakdown</div>
         {scoreRows.map((row, i) => (
           <div key={i} style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 18 }}>{row.icon}</span>
-              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: DARK }}>{row.label}</span>
-              <div style={{ flex: 2, height: 8, borderRadius: 4, background: GREY_BG, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'rgba(0,212,200,0.08)', flexShrink: 0 }}>
+                {row.icon}
+              </span>
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: DARK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{row.label}</span>
+              <div style={{ width: 80, flexShrink: 0, height: 8, borderRadius: 4, background: GREY_BG, overflow: 'hidden' }}>
                 <div style={{ width: `${(row.score / row.max) * 100}%`, height: '100%', background: scoreColor(row.score, row.max), borderRadius: 4 }}/>
               </div>
-              <span style={{ width: 60, textAlign: 'right', fontSize: 13, fontWeight: 700, color: scoreColor(row.score, row.max) }}>
+              <span style={{ width: 48, flexShrink: 0, textAlign: 'right', fontSize: 13, fontWeight: 700, color: scoreColor(row.score, row.max) }}>
                 {row.score}/{row.max}
               </span>
             </div>
