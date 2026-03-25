@@ -261,21 +261,22 @@ export default function ReportView({ report, business, reportId }: {
 
   const card = (extra?: any) => ({
     background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`,
-    padding: 24, marginBottom: 16, ...extra
+    padding: 24, marginBottom: 10, ...extra
   });
 
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: 780, margin: '0 auto', padding: isTiny ? '0 0 48px' : '0 16px 48px', boxSizing: 'border-box' }}>
 
       {/* TAB BAR */}
-      <div style={{ display:'flex', gap:4, background:'#F3F4F6', borderRadius: isTiny ? 0 : 12, padding:4, marginBottom:20, width:'100%' }}>
+      <div style={{ display:'flex', background:WHITE, borderBottom:'2px solid #F3F4F6', padding:'0 16px', position:'sticky', top:0, zIndex:20, gap:0, width:'100%' }}>
         {(['maps','website','plan'] as const).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} {...hoverProps(`tab-${tab}`)} style={{
-            flex:1, padding:'10px 0', borderRadius:9, border:'none', cursor:'pointer',
-            fontWeight:600, fontSize:13, transition:'all 0.15s ease',
-            background: activeTab===tab ? WHITE : hovered===`tab-${tab}` ? 'rgba(0,0,0,0.04)' : 'transparent',
-            color: activeTab===tab ? DARK : GREY,
-            boxShadow: activeTab===tab ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+            padding:'14px 20px', fontSize:13, fontWeight: activeTab===tab ? 600 : 500,
+            color: activeTab===tab ? DARK : hovered===`tab-${tab}` ? '#4B5563' : '#9CA3AF',
+            border:'none', background: hovered===`tab-${tab}` && activeTab!==tab ? '#F9FAFB' : 'transparent',
+            borderBottom: activeTab===tab ? '2px solid #00D4C8' : '2px solid transparent',
+            marginBottom:-2, cursor:'pointer', whiteSpace:'nowrap',
+            display:'flex', alignItems:'center', gap:6, transition:'all 0.15s ease', letterSpacing:'0.01em',
           }}>
             {tab==='maps' ? 'Google Maps' : tab==='website' ? 'Website' : 'Action Plan'}
           </button>
@@ -283,19 +284,19 @@ export default function ReportView({ report, business, reportId }: {
       </div>
 
       {/* SECTION 1 — COVER */}
-      {activeTab === 'maps' && <div style={{ background: DARK, borderRadius: r16, padding: 28, marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      {activeTab === 'maps' && <div style={{ background: DARK, borderRadius: r16, padding: 20, marginBottom: 10 }}>
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             {business?.businessPhotoUrl ? (
               <img src={business.businessPhotoUrl} alt={business.name} style={{
                 width: 72, height: 72, borderRadius: '50%', objectFit: 'cover',
-                border: `3px solid ${CYAN}`, marginBottom: 12, display: 'block'
+                border: `3px solid ${CYAN}`, marginBottom: 8, display: 'block'
               }} />
             ) : (
               <div style={{
                 width: 72, height: 72, borderRadius: '50%', background: CYAN,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 24, fontWeight: 700, color: DARK, marginBottom: 12
+                fontSize: 24, fontWeight: 700, color: DARK, marginBottom: 8
               }}>
                 {(business?.name || 'B').charAt(0)}
               </div>
@@ -322,19 +323,16 @@ export default function ReportView({ report, business, reportId }: {
         {ai.executiveSummary && (
           <>
             <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '20px 0' }}/>
-            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 14, lineHeight: 1.65, margin: 0 }}>{ai.executiveSummary}</p>
+            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, lineHeight: 1.65, margin: 0 }}>{ai.executiveSummary}</p>
           </>
         )}
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 12 }}>
-          Generated {new Date().toLocaleDateString()} · Powered by WeFixTrades AI
-        </div>
       </div>}
 
       {/* SECTION 2 — SCORE BREAKDOWN */}
       {activeTab === 'maps' && <div style={card()}>
         <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 20 }}>Your Score Breakdown</div>
         {scoreRows.map((row, i) => (
-          <div key={i} style={{ marginBottom: 16 }}>
+          <div key={i} style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
               <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'rgba(0,212,200,0.08)', flexShrink: 0 }}>
                 {row.icon}
@@ -347,14 +345,14 @@ export default function ReportView({ report, business, reportId }: {
                 {row.score}/{row.max}
               </span>
             </div>
-            <div style={{ fontSize: 11, color: GREY, marginTop: 3, marginLeft: 28 }}>{row.note}</div>
+            <div style={{ fontSize: 11, color: GREY, marginTop: 2, marginLeft: 28 }}>{row.note}</div>
           </div>
         ))}
       </div>}
 
       {/* SECTION 3 — ACTION PLAN */}
       {activeTab === 'maps' && plan.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 10 }}>
           <div style={{ background: DARK, borderRadius: '16px 16px 0 0', padding: '18px 24px', fontSize: 17, fontWeight: 700, color: WHITE }}>
             What's Holding You Back
           </div>
@@ -409,24 +407,24 @@ export default function ReportView({ report, business, reportId }: {
           <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 4 }}>What Customers Search For</div>
           <div style={{ fontSize: 12, color: GREY, marginBottom: 16 }}>Keywords relevant to your business in {report?.city}</div>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: GREY_BG }}>
                   {['Keyword', 'Searches/mo', 'CPC', 'Your Rank', 'Status'].map(h => (
-                    <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{h}</th>
+                    <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {keywords.map((kw: any, i: number) => (
                   <tr key={i} style={{ background: i % 2 === 0 ? WHITE : '#FAFAFA', borderBottom: `1px solid ${BORDER}` }}>
-                    <td style={{ padding: '11px 12px', fontWeight: 500, color: DARK }}>{kw.keyword}</td>
-                    <td style={{ padding: '11px 12px', color: DARK }}>{kw.monthlySearches?.toLocaleString() || '—'}</td>
-                    <td style={{ padding: '11px 12px', color: GREY }}>{kw.cpc > 0 ? `$${kw.cpc.toFixed(2)}` : '—'}</td>
-                    <td style={{ padding: '11px 12px', fontWeight: 600, color: !kw.organicRank ? RED : kw.organicRank <= 3 ? GREEN : kw.organicRank <= 10 ? AMBER : RED }}>
+                    <td style={{ padding: '8px 10px', fontWeight: 500, color: DARK }}>{kw.keyword}</td>
+                    <td style={{ padding: '8px 10px', color: DARK }}>{kw.monthlySearches?.toLocaleString() || '—'}</td>
+                    <td style={{ padding: '8px 10px', color: GREY }}>{kw.cpc > 0 ? `$${kw.cpc.toFixed(2)}` : '—'}</td>
+                    <td style={{ padding: '8px 10px', fontWeight: 600, color: !kw.organicRank ? RED : kw.organicRank <= 3 ? GREEN : kw.organicRank <= 10 ? AMBER : RED }}>
                       {kw.organicRank ? `#${kw.organicRank}` : 'Not ranking'}
                     </td>
-                    <td style={{ padding: '11px 12px' }}>
+                    <td style={{ padding: '8px 10px' }}>
                       <span style={{ padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600, background: statusColor(kw.status) + '20', color: statusColor(kw.status) }}>
                         {kw.status?.replace('-', ' ')}
                       </span>
@@ -446,11 +444,11 @@ export default function ReportView({ report, business, reportId }: {
 
       {/* SECTION 5 — REVENUE */}
       {activeTab === 'maps' && (loss.high || 0) > 0 && (
-        <div style={{ background: DARK, borderRadius: r16, padding: '40px 32px', marginBottom: 16, textAlign: 'center' }}>
+        <div style={{ background: DARK, borderRadius: r16, padding: '28px 20px', marginBottom: 10, textAlign: 'center' }}>
           <div style={{ fontSize: 11, color: CYAN, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             Estimated Monthly Revenue Being Left On The Table
           </div>
-          <div style={{ fontSize: 48, fontWeight: 800, color: WHITE, marginTop: 12, lineHeight: 1 }}>
+          <div style={{ fontSize: isTiny ? 28 : 40, fontWeight: 800, color: WHITE, marginTop: 12, lineHeight: 1 }}>
             ${loss.low?.toLocaleString()} {' – '} ${loss.high?.toLocaleString()}
           </div>
           {ai.estimatedMonthlyRevenueLoss?.calculation && (
@@ -468,7 +466,7 @@ export default function ReportView({ report, business, reportId }: {
 
       {/* SECTION 6 — QUICK WIN */}
       {activeTab === 'maps' && ai.quickWin && (
-        <div style={{ ...card(), border: `2px solid ${GREEN}` }}>
+        <div style={{ ...card({ padding: 18 }), border: '1px solid #D1FAE5', boxShadow: '0 0 0 1px #D1FAE5' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>⚡ Your Quick Win</span>
             <span style={{ padding: '4px 12px', borderRadius: 20, background: GREEN_BG, color: GREEN, fontSize: 11, fontWeight: 700 }}>Free & Fast</span>
@@ -530,15 +528,15 @@ export default function ReportView({ report, business, reportId }: {
           <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 4 }}>Pages You Should Create</div>
           <div style={{ fontSize: 12, color: GREY, marginBottom: 16 }}>These missing pages are leaving search traffic on the table</div>
           {gaps.map((g: any, i: number) => (
-            <div key={i} style={{ background: GREY_BG, borderRadius: 10, padding: 16, marginBottom: 10 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: DARK, marginBottom: 8 }}>{g.pageTitle}</div>
+            <div key={i} style={{ background: GREY_BG, borderRadius: 10, padding: 12, marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: DARK, marginBottom: 8 }}>{g.pageTitle}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
                 <span style={{ padding: '2px 10px', borderRadius: 12, background: WHITE, border: `1px solid ${BORDER}`, fontSize: 12, color: GREY }}>{g.targetKeyword}</span>
                 {g.monthlySearches && (
                   <span style={{ fontSize: 12, color: CYAN, fontWeight: 600 }}>{g.monthlySearches?.toLocaleString()} searches/mo</span>
                 )}
               </div>
-              <div style={{ fontSize: 13, color: GREY, lineHeight: 1.5 }}>{g.reason}</div>
+              <div style={{ fontSize: 12, color: GREY, lineHeight: 1.5 }}>{g.reason}</div>
             </div>
           ))}
         </div>
@@ -553,7 +551,7 @@ export default function ReportView({ report, business, reportId }: {
 
           {/* B — SERVICE CARDS */}
           {recommendedServices.map((service: any) => (
-            <div key={service.id} style={{ background: WHITE, borderRadius: r16, border: `1px solid ${selected.includes(service.id) ? CYAN : BORDER}`, padding: 24, marginBottom: 12 }}>
+            <div key={service.id} style={{ background: WHITE, borderRadius: r16, border: `1px solid ${selected.includes(service.id) ? CYAN : BORDER}`, padding: 18, marginBottom: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: 16, fontWeight: 700, color: DARK }}>{service.name}</span>
                 <span style={{ fontSize: 14, fontWeight: 700, color: CYAN }}>{service.priceLabel}</span>
@@ -567,9 +565,9 @@ export default function ReportView({ report, business, reportId }: {
                 </span>
               </div>
               <div style={{ fontSize: 13, color: GREY, lineHeight: 1.55, marginTop: 12 }}>{service.description}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginTop: 12 }}>
                 {service.features.map((f: string, fi: number) => (
-                  <span key={fi} style={{ fontSize: 12, color: DARK }}>✓ {f}</span>
+                  <span key={fi} style={{ fontSize: 11, color: DARK }}>✓ {f}</span>
                 ))}
               </div>
               <button
@@ -689,16 +687,16 @@ export default function ReportView({ report, business, reportId }: {
         <div style={{ background:WHITE, borderRadius:r16, border:`1px solid ${BORDER}`, marginBottom:16, overflow:'hidden' }}>
           <div
             onClick={() => setChatExpanded(e => !e)}
-            style={{ background:DARK, padding:'16px 20px', display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}
+            style={{ background:DARK, padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}
           >
             <div>
-              <div style={{ fontSize:14, fontWeight:700, color:WHITE }}>We're here to help</div>
-              <div style={{ fontSize:11, color:'rgba(255,255,255,0.45)', marginTop:2 }}>Available 24/7 · Usually replies instantly</div>
+              <div style={{ fontSize:13, fontWeight:700, color:WHITE }}>We're here to help</div>
+              <div style={{ fontSize:10, color:'rgba(255,255,255,0.45)', marginTop:2 }}>Available 24/7 · Usually replies instantly</div>
             </div>
             <div style={{ color:'rgba(255,255,255,0.5)', fontSize:18, transform: chatExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.2s' }}>▼</div>
           </div>
           {chatExpanded && (
-            <div style={{ height:240, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:10 }}>
+            <div style={{ height:200, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:10 }}>
               {chatMessages.map((msg, i) => (
                 <div key={i} style={{ alignSelf:msg.role==='ai'?'flex-start':'flex-end', background:msg.role==='ai'?GREY_BG:CYAN, borderRadius:msg.role==='ai'?'12px 12px 12px 4px':'12px 12px 4px 12px', padding:'10px 14px', fontSize:13, color:DARK, maxWidth:'85%', lineHeight:1.5 }}>
                   {msg.text}
@@ -712,7 +710,7 @@ export default function ReportView({ report, business, reportId }: {
               <div ref={chatEndRef}/>
             </div>
           )}
-          <div style={{ background:WHITE, borderTop:`1px solid ${BORDER}`, padding:12, display:'flex', gap:8 }}>
+          <div style={{ background:WHITE, borderTop:`1px solid ${BORDER}`, padding:10, display:'flex', gap:8 }}>
             <input
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
@@ -765,7 +763,7 @@ export default function ReportView({ report, business, reportId }: {
               <div ref={chatEndRef}/>
             </div>
             {/* Input */}
-            <div style={{ background:WHITE, borderTop:`1px solid ${BORDER}`, padding:12, display:'flex', gap:8 }}>
+            <div style={{ background:WHITE, borderTop:`1px solid ${BORDER}`, padding:10, display:'flex', gap:8 }}>
               <input
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
