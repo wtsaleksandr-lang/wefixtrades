@@ -609,11 +609,15 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
   const volumeMap: Record<string, { searchVolume: number; cpc: number; competition: string }> = {};
   for (const item of items) {
     const kw = item.keyword || "";
-    volumeMap[kw.toLowerCase().trim()] = {
+    const val = {
       searchVolume: item.search_volume || 0,
       cpc: item.cpc || 0,
       competition: item.competition_level || "LOW",
     };
+    volumeMap[kw.toLowerCase().trim()] = val;
+    volumeMap[kw.trim()] = val;
+    const firstWord = kw.toLowerCase().trim().split(' ')[0];
+    if (firstWord) volumeMap[firstWord] = val;
   }
   console.log('[dataforseo] volumeMap keys:', Object.keys(volumeMap));
   return volumeMap;
@@ -918,7 +922,9 @@ router.post("/generate", async (req: Request, res: Response) => {
 
     if (volumeMap) {
       for (const kw of keywords) {
-        const vol = volumeMap[kw.keyword.toLowerCase().trim()];
+        const vol = volumeMap[kw.keyword.toLowerCase().trim()] ||
+          volumeMap[kw.keyword.trim()] ||
+          volumeMap[kw.keyword.toLowerCase().trim().split(' ')[0]];
         if (vol) {
           kw.monthlySearches = vol.searchVolume;
           kw.cpc = vol.cpc;
@@ -1017,20 +1023,22 @@ router.post("/generate", async (req: Request, res: Response) => {
       description: auditData.business?.description
     }));
     const detectedIssues: string[] = [];
-    if (!auditData.business.website) detectedIssues.push("no-website");
-    if (auditData.speedData?.mobile?.score !== null && (auditData.speedData?.mobile?.score ?? 101) < 50) detectedIssues.push("slow-website");
-    if ((auditData.business.reviewsCount || 0) < 50) detectedIssues.push("low-reviews");
-    if ((auditData.business.rating || 5) < 4.0) detectedIssues.push("bad-rating");
-    if (!auditData.business.description) detectedIssues.push("no-gbp-description");
-    if ((scores.searchVisibility?.score || 0) < 8) detectedIssues.push("low-visibility");
-    if ((scores.competitorPositioning?.score || 0) < 5) detectedIssues.push("not-in-maps-pack");
-    if ((scores.demandCoverage?.score || 0) < 8) detectedIssues.push("no-after-hours");
-    if (auditData.keywords?.length > 0 && auditData.keywords.every((k: any) => !k.organicRank)) detectedIssues.push("low-search-ranking");
-    const recommendedServices = getServicesForIssues(detectedIssues);
-    auditData.detectedIssues = detectedIssues;
+    if (!auditData.business?.website) detectedIssues.push("no-website");
+    if (auditData.speedData?.mobile?.score !== null && auditData.speedData?.mobile?.score !== undefined && auditData.speedData.mobile.score < 50) detectedIssues.push("slow-website");
+    if (auditData.speedData?.mobile?.score === null || auditData.speedData?.mobile?.score === undefined) detectedIssues.push("slow-website");
+    if (!auditData.business?.description) detectedIssues.push("no-gbp-description");
+    if ((auditData.business?.reviewsCount || 0) < 100) detectedIssues.push("low-reviews");
+    if ((auditData.business?.rating || 5) < 4.2) detectedIssues.push("bad-rating");
+    if ((auditData.scores?.searchVisibility?.score || 0) < 15) detectedIssues.push("low-visibility");
+    if ((auditData.scores?.competitorPositioning?.score || 0) < 8) detectedIssues.push("not-in-maps-pack");
+    if ((auditData.scores?.demandCoverage?.score || 0) < 8) detectedIssues.push("no-after-hours");
+    if ((auditData.scores?.websiteQuality?.score || 0) < 10) detectedIssues.push("slow-website");
+    if ((auditData.scores?.adOpportunity?.score || 0) < 5) detectedIssues.push("no-ads");
+    const recommendedServices = getServicesForIssues([...new Set(detectedIssues)]);
+    auditData.detectedIssues = [...new Set(detectedIssues)];
     auditData.recommendedServices = recommendedServices;
-    console.log('[audit] detectedIssues result:', detectedIssues);
-    console.log('[audit] recommendedServices:', recommendedServices.map((s: any) => s.name));
+    console.log('[audit] FINAL detectedIssues:', auditData.detectedIssues);
+    console.log('[audit] scores used:', JSON.stringify(auditData.scores));
 
     // ─── Legacy fields for backward compatibility ───
     const issues: Array<{ title: string; severity: "High" | "Medium"; impact: string; fix: string }> = [];

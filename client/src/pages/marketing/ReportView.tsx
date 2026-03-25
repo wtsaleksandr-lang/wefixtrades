@@ -401,12 +401,6 @@ export default function ReportView({ report, business, reportId }: {
           {ai.quickWin.expectedResult && (
             <div style={{ fontSize: 13, color: GREY, marginTop: 10, lineHeight: 1.5 }}>{ai.quickWin.expectedResult}</div>
           )}
-          <button onClick={() => { window.location.href = '/contact'; }} style={{
-            width: '100%', marginTop: 20, padding: '14px', background: CYAN, color: DARK,
-            fontWeight: 700, fontSize: 15, borderRadius: 10, border: 'none', cursor: 'pointer'
-          }}>
-            Book a Free Strategy Call →
-          </button>
         </div>
       )}
 
@@ -583,11 +577,6 @@ export default function ReportView({ report, business, reportId }: {
             </button>
           ))}
         </div>
-        {ai.reportDataQuality?.missingDataNote && (
-          <div style={{ marginTop: 20, fontSize: 12, color: GREY, background: GREY_BG, borderRadius: 8, padding: '10px 14px', textAlign: 'left' }}>
-            ℹ️ {ai.reportDataQuality.missingDataNote}
-          </div>
-        )}
       </div>
 
       {/* INLINE CHAT PANEL — desktop only */}
