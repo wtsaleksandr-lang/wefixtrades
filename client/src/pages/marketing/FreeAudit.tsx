@@ -496,28 +496,15 @@ export default function FreeAudit() {
 
       let details: { ok: true; business: Business };
 
-      if (placeId) {
-        console.log("[Audit] Using place_id:", placeId);
-        details = await postJSON<{ ok: true; business: Business }>(
-          "/api/audit/place-details",
-          { placeId }
-        );
-      } else {
-        // Fallback: search by name to get place_id first
-        console.log("[Audit] No place_id, searching by name:", pred.name);
-        const searchResult = await postJSON<{ ok: true; predictions: Prediction[] }>(
-          "/api/audit/search-places",
-          { query: `${pred.name} ${pred.formatted_address}` }
-        );
-        const found = searchResult.predictions?.find(p => p.place_id);
-        if (!found?.place_id) {
-          throw new Error("Could not find business details. Please try a different search.");
-        }
-        details = await postJSON<{ ok: true; business: Business }>(
-          "/api/audit/place-details",
-          { placeId: found.place_id }
-        );
-      }
+      // Send placeId if available, otherwise send query for server-side resolution
+      const body: any = placeId
+        ? { placeId }
+        : { query: `${pred.name} ${pred.formatted_address}`.trim() };
+      console.log("[Audit] Fetching details with:", body);
+      details = await postJSON<{ ok: true; business: Business }>(
+        "/api/audit/place-details",
+        body
+      );
       setBusiness(details.business);
 
       let speed: SpeedData | null = null;

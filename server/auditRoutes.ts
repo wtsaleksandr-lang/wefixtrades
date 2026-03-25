@@ -104,6 +104,8 @@ router.post("/search-places", async (req: Request, res: Response) => {
     console.log("[search-places] Google status:", data?.status);
     console.log("[search-places] error_message:", data?.error_message || "(none)");
     console.log("[search-places] results count:", data?.results?.length ?? 0);
+    // Log raw response (first 1000 chars) to debug
+    console.log("[search-places] Raw response (first 1000):", rawText.slice(0, 1000));
 
     // Check for Google API-level errors (200 with error status)
     if (data?.status && data.status !== "OK" && data.status !== "ZERO_RESULTS") {
@@ -137,10 +139,12 @@ router.post("/search-places", async (req: Request, res: Response) => {
       }
     }
 
-    // Log first result's keys to debug place_id availability
+    // Log first result to debug place_id availability
     if (results.length > 0) {
-      console.log("[search-places] First result keys:", Object.keys(results[0]));
-      console.log("[search-places] First result place_id:", results[0].place_id);
+      const first = results[0];
+      console.log("[search-places] First result keys:", Object.keys(first));
+      console.log("[search-places] First result place_id:", JSON.stringify(first.place_id));
+      console.log("[search-places] First result (truncated):", JSON.stringify(first).slice(0, 500));
     }
 
     const predictions = results.slice(0, 5).map((r: any) => ({
@@ -164,7 +168,22 @@ router.post("/place-details", async (req: Request, res: Response) => {
   try {
     console.log("[place-details] Called with body keys:", Object.keys(req.body || {}));
     const key = requireEnv("GOOGLE_MAPS_API_KEY");
-    const placeId = String(req.body?.placeId || "").trim();
+    let placeId = String(req.body?.placeId || "").trim();
+    const queryFallback = String(req.body?.query || "").trim();
+
+    // If no placeId provided, try Find Place to resolve it from a text query
+    if (!placeId && queryFallback) {
+      console.log("[place-details] No placeId, resolving via Find Place:", queryFallback);
+      const fpUrl =
+        `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?` +
+        `input=${encodeURIComponent(queryFallback)}&inputtype=textquery` +
+        `&fields=${encodeURIComponent("place_id")}` +
+        `&key=${encodeURIComponent(key)}`;
+      const fpData = await fetchJson(fpUrl);
+      placeId = fpData?.candidates?.[0]?.place_id || "";
+      console.log("[place-details] Resolved placeId:", placeId);
+    }
+
     if (!placeId) {
       console.error("[place-details] ERROR: placeId missing. Full body:", JSON.stringify(req.body));
       return safeJsonError(res, 400, "placeId required");
