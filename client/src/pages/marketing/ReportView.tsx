@@ -148,6 +148,8 @@ export default function ReportView({ report, business, reportId }: {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [chatExpanded, setChatExpanded] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  const isTiny = typeof window !== 'undefined' && window.innerWidth <= 480;
+  const r16 = isTiny ? 0 : 16;
   const [hovered, setHovered] = useState<string | null>(null);
   const hoverProps = (id: string) => ({
     onMouseEnter: () => setHovered(id),
@@ -249,15 +251,15 @@ export default function ReportView({ report, business, reportId }: {
   ];
 
   const card = (extra?: any) => ({
-    background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`,
+    background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`,
     padding: 24, marginBottom: 16, ...extra
   });
 
   return (
-    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', maxWidth: 780, margin: '0 auto', padding: '0 16px 48px' }}>
+    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: 780, margin: '0 auto', padding: isTiny ? '0 0 48px' : '0 16px 48px', boxSizing: 'border-box' }}>
 
       {/* TAB BAR */}
-      <div style={{ display:'flex', gap:4, background:'#F3F4F6', borderRadius:12, padding:4, marginBottom:20 }}>
+      <div style={{ display:'flex', gap:4, background:'#F3F4F6', borderRadius: isTiny ? 0 : 12, padding:4, marginBottom:20, width:'100%' }}>
         {(['maps','website','plan'] as const).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} {...hoverProps(`tab-${tab}`)} style={{
             flex:1, padding:'10px 0', borderRadius:9, border:'none', cursor:'pointer',
@@ -272,7 +274,7 @@ export default function ReportView({ report, business, reportId }: {
       </div>
 
       {/* SECTION 1 — COVER */}
-      {activeTab === 'maps' && <div style={{ background: DARK, borderRadius: 16, padding: 28, marginBottom: 16 }}>
+      {activeTab === 'maps' && <div style={{ background: DARK, borderRadius: r16, padding: 28, marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             {business?.businessPhotoUrl ? (
@@ -435,7 +437,7 @@ export default function ReportView({ report, business, reportId }: {
 
       {/* SECTION 5 — REVENUE */}
       {activeTab === 'maps' && (loss.high || 0) > 0 && (
-        <div style={{ background: DARK, borderRadius: 16, padding: '40px 32px', marginBottom: 16, textAlign: 'center' }}>
+        <div style={{ background: DARK, borderRadius: r16, padding: '40px 32px', marginBottom: 16, textAlign: 'center' }}>
           <div style={{ fontSize: 11, color: CYAN, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             Estimated Monthly Revenue Being Left On The Table
           </div>
@@ -542,7 +544,7 @@ export default function ReportView({ report, business, reportId }: {
 
           {/* B — SERVICE CARDS */}
           {recommendedServices.map((service: any) => (
-            <div key={service.id} style={{ background: WHITE, borderRadius: 16, border: `1px solid ${selected.includes(service.id) ? CYAN : BORDER}`, padding: 24, marginBottom: 12 }}>
+            <div key={service.id} style={{ background: WHITE, borderRadius: r16, border: `1px solid ${selected.includes(service.id) ? CYAN : BORDER}`, padding: 24, marginBottom: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: 16, fontWeight: 700, color: DARK }}>{service.name}</span>
                 <span style={{ fontSize: 14, fontWeight: 700, color: CYAN }}>{service.priceLabel}</span>
@@ -627,7 +629,7 @@ export default function ReportView({ report, business, reportId }: {
       )}
 
       {/* SECTION 9 — SHARE */}
-      <div style={{ background: DARK, borderRadius: 16, padding: '32px 24px', textAlign: 'center' }}>
+      <div style={{ background: DARK, borderRadius: r16, padding: '32px 24px', textAlign: 'center' }}>
         <div style={{ fontSize: 17, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Share This Report</div>
         <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 8, justifyContent: 'center', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', padding: '0 4px' }}>
           {[
@@ -656,7 +658,7 @@ export default function ReportView({ report, business, reportId }: {
 
       {/* INLINE CHAT PANEL — desktop only */}
       {!isMobile && (
-        <div style={{ background:WHITE, borderRadius:16, border:`1px solid ${BORDER}`, marginBottom:16, overflow:'hidden' }}>
+        <div style={{ background:WHITE, borderRadius:r16, border:`1px solid ${BORDER}`, marginBottom:16, overflow:'hidden' }}>
           <div
             onClick={() => setChatExpanded(e => !e)}
             style={{ background:DARK, padding:'16px 20px', display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}
