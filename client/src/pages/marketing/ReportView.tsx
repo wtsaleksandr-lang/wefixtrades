@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Wrench, FileX, BarChart3, Users } from "lucide-react";
+import { SERVICES, getServicesForIssues } from '../../../../server/data/services';
 
 // ─── Design tokens ───────────────────
 const DARK = '#0d1514';
@@ -65,6 +67,15 @@ export default function ReportView({ report, business, reportId }: {
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [activeTab, setActiveTab] = useState<'maps' | 'website' | 'plan'>('maps');
+  const [selected, setSelected] = useState<string[]>([]);
+  const toggleService = (id: string) =>
+    setSelected(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
+  const detectedIssues: string[] = report?.detectedIssues || [];
+  const recommendedServices: any[] = report?.recommendedServices || getServicesForIssues(detectedIssues);
+  const totalPrice = selected.reduce((sum, id) => {
+    const s = SERVICES.find(sv => sv.id === id);
+    return sum + (s?.price || 0);
+  }, 0);
 
   const ai = report?.narrative || {};
   const scores = report?.scores || {};
@@ -376,8 +387,92 @@ export default function ReportView({ report, business, reportId }: {
       )}
 
       {activeTab === 'plan' && (
-        <div style={{ padding: '40px 16px', textAlign: 'center', color: GREY, fontSize: 14 }}>
-          Service recommendations coming soon.
+        <div>
+          {/* A — DETECTED ISSUES HEADER */}
+          <div style={{ background: AMBER_BG, borderRadius: 12, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: AMBER, fontWeight: 600 }}>
+            ⚠ {detectedIssues.length} issues detected in your audit — here's what we'd fix
+          </div>
+
+          {/* B — SERVICE CARDS */}
+          {recommendedServices.map((service: any) => (
+            <div key={service.id} style={{ background: WHITE, borderRadius: 16, border: `1px solid ${selected.includes(service.id) ? CYAN : BORDER}`, padding: 24, marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: DARK }}>{service.name}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: CYAN }}>{service.priceLabel}</span>
+              </div>
+              {service.isPopular && (
+                <span style={{ display: 'inline-block', marginTop: 4, padding: '2px 10px', borderRadius: 12, background: CYAN + '22', color: CYAN, fontSize: 11, fontWeight: 700 }}>★ Popular</span>
+              )}
+              <div style={{ marginTop: 8 }}>
+                <span style={{ background: AMBER_BG, color: AMBER, padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>
+                  Fixes: {service.fixesIssues.slice(0, 2).join(', ').replace(/-/g, ' ')}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, color: GREY, lineHeight: 1.55, marginTop: 12 }}>{service.description}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 12 }}>
+                {service.features.map((f: string, fi: number) => (
+                  <span key={fi} style={{ fontSize: 12, color: DARK }}>✓ {f}</span>
+                ))}
+              </div>
+              <button
+                onClick={() => toggleService(service.id)}
+                style={{
+                  marginTop: 16, width: '100%', padding: '10px 20px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+                  border: selected.includes(service.id) ? 'none' : `1px solid ${BORDER}`,
+                  background: selected.includes(service.id) ? CYAN : WHITE,
+                  color: DARK,
+                  fontWeight: selected.includes(service.id) ? 700 : 400,
+                }}
+              >
+                {selected.includes(service.id) ? '✓ Selected' : 'Add to Selected Services'}
+              </button>
+            </div>
+          ))}
+
+          {/* Fallback when no services */}
+          {recommendedServices.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '32px 16px', fontSize: 13, color: GREY }}>
+              No specific issues detected — your profile looks strong!
+            </div>
+          )}
+
+          {/* D — TRUST BADGES */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 24, marginBottom: 16 }}>
+            {[
+              { Icon: Wrench, title: 'All Done For You', text: 'No software to learn. No team to hire.' },
+              { Icon: FileX, title: 'No Contracts', text: 'Cancel anytime. No cancellation fees.' },
+              { Icon: BarChart3, title: 'Weekly Reports', text: 'See exactly what improved every week.' },
+              { Icon: Users, title: 'Built for Trades', text: 'Designed for plumbers, HVAC, electricians and more.' },
+            ].map(({ Icon, title, text }) => (
+              <div key={title} style={{ background: GREY_BG, borderRadius: 12, padding: 16, textAlign: 'center' }}>
+                <Icon size={20} color={CYAN} style={{ marginBottom: 8 }} />
+                <div style={{ fontSize: 13, fontWeight: 700, color: DARK }}>{title}</div>
+                <div style={{ fontSize: 12, color: GREY, marginTop: 4 }}>{text}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* E — POWERED BY STRIP */}
+          <div style={{ textAlign: 'center', marginTop: 20 }}>
+            <div style={{ fontSize: 11, color: GREY, marginBottom: 8 }}>Powered by</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {['Google', 'Claude AI', 'Stripe', 'Zapier', 'Make.com', 'OpenAI'].map(tool => (
+                <span key={tool} style={{ padding: '3px 10px', borderRadius: 12, background: GREY_BG, color: GREY, fontSize: 11 }}>{tool}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* C — SELECTED SERVICES SUMMARY */}
+          {selected.length > 0 && (
+            <div style={{ position: 'sticky', bottom: 16, background: DARK, borderRadius: 12, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: WHITE }}>
+                {selected.length} service{selected.length > 1 ? 's' : ''} selected · ${totalPrice}/mo
+              </span>
+              <button style={{ background: CYAN, color: DARK, border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                Get Started →
+              </button>
+            </div>
+          )}
         </div>
       )}
 
