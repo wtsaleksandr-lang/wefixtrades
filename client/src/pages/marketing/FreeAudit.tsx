@@ -25,11 +25,6 @@ type Business = {
   hours: string[];
   photos: string[];
 };
-type SpeedData = {
-  mobile: { score: number | null; fcp?: number | null; lcp?: number | null; tbt?: number | null; cls?: number | null };
-  desktop: { score: number | null; fcp?: number | null; lcp?: number | null; tbt?: number | null; cls?: number | null };
-};
-
 async function postJSON<T>(url: string, body: any): Promise<T> {
   console.log(`[Audit] POST ${url}`, body);
   const r = await fetch(url, {
@@ -78,8 +73,6 @@ export default function FreeAudit() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [business, setBusiness] = useState<Business | null>(null);
-  const [speedData, setSpeedData] = useState<SpeedData | null>(null);
   const [report, setReport] = useState<any>(null);
   const [reportId, setReportId] = useState<string | null>(null);
 
@@ -157,7 +150,6 @@ export default function FreeAudit() {
       setError(null);
       setBusy("Fetching business details\u2026");
       setReport(null);
-      setSpeedData(null);
       setPredictions([]);
       setDropdownOpen(false);
 
@@ -171,8 +163,6 @@ export default function FreeAudit() {
         "/api/audit/place-details",
         body
       );
-      setBusiness(details.business);
-
       setBusy("Generating report\u2026");
       const rep = await postJSON<{
         ok: true;
@@ -204,10 +194,6 @@ export default function FreeAudit() {
 
   const currentStep = busyStep(busy);
   const reportReady = !!report;
-
-  // suppress unused-var warnings for state not used in this file's JSX
-  void business;
-  void speedData;
 
   return (
     <MarketingLayout>
