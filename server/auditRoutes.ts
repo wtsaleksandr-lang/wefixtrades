@@ -137,16 +137,22 @@ router.post("/search-places", async (req: Request, res: Response) => {
       }
     }
 
+    // Log first result's keys to debug place_id availability
+    if (results.length > 0) {
+      console.log("[search-places] First result keys:", Object.keys(results[0]));
+      console.log("[search-places] First result place_id:", results[0].place_id);
+    }
+
     const predictions = results.slice(0, 5).map((r: any) => ({
-      place_id: r.place_id,
-      name: r.name,
-      formatted_address: r.formatted_address,
+      place_id: r.place_id || "",
+      name: r.name || "",
+      formatted_address: r.formatted_address || "",
       rating: typeof r.rating === "number" ? r.rating : null,
       user_ratings_total: typeof r.user_ratings_total === "number" ? r.user_ratings_total : 0,
       photoUrl: resolvePhotoUrl(r.photos?.[0]?.photo_reference, key, 400),
     }));
 
-    console.log("[search-places] Returning", predictions.length, "predictions:", predictions.map((p: any) => p.name));
+    console.log("[search-places] Returning", predictions.length, "predictions:", predictions.map((p: any) => ({ name: p.name, place_id: p.place_id })));
     return res.json({ ok: true, predictions });
   } catch (e: any) {
     console.error("[search-places] EXCEPTION:", e?.message || e);

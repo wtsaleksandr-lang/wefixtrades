@@ -442,10 +442,8 @@ export default function FreeAudit() {
       { query: q }
     )
       .then((d) => {
-        const raw = d.predictions || [];
-        // Filter out any predictions missing place_id
-        const preds = raw.filter(p => !!p.place_id);
-        console.log("[Audit] Got", raw.length, "raw,", preds.length, "valid:", preds.map(p => ({ name: p.name, place_id: p.place_id })));
+        const preds = d.predictions || [];
+        console.log("[Audit] Got", preds.length, "predictions:", JSON.stringify(preds.map(p => ({ name: p.name, place_id: p.place_id }))));
         setPredictions(preds);
         setSearchDone(true);
         setDropdownOpen(true);
@@ -485,13 +483,9 @@ export default function FreeAudit() {
     return () => document.removeEventListener("keydown", handler);
   }, [dropdownOpen]);
 
-  async function runAudit(placeId: string) {
-    console.log("[Audit] runAudit called with placeId:", JSON.stringify(placeId));
-    if (!placeId) {
-      console.error("[Audit] runAudit called with empty placeId — ignoring");
-      setError("Something went wrong. Please try searching again.");
-      return;
-    }
+  async function runAudit(pred: Prediction) {
+    console.log("[Audit] runAudit called:", JSON.stringify({ name: pred.name, place_id: pred.place_id }));
+    const placeId = (pred.place_id || "").trim();
     try {
       setError(null);
       setBusy("Fetching business details\u2026");
@@ -499,12 +493,31 @@ export default function FreeAudit() {
       setSpeedData(null);
       setPredictions([]);
       setDropdownOpen(false);
-      console.log("[Audit] User selected → POST /api/audit/place-details", { placeId });
 
-      const details = await postJSON<{ ok: true; business: Business }>(
-        "/api/audit/place-details",
-        { placeId }
-      );
+      let details: { ok: true; business: Business };
+
+      if (placeId) {
+        console.log("[Audit] Using place_id:", placeId);
+        details = await postJSON<{ ok: true; business: Business }>(
+          "/api/audit/place-details",
+          { placeId }
+        );
+      } else {
+        // Fallback: search by name to get place_id first
+        console.log("[Audit] No place_id, searching by name:", pred.name);
+        const searchResult = await postJSON<{ ok: true; predictions: Prediction[] }>(
+          "/api/audit/search-places",
+          { query: `${pred.name} ${pred.formatted_address}` }
+        );
+        const found = searchResult.predictions?.find(p => p.place_id);
+        if (!found?.place_id) {
+          throw new Error("Could not find business details. Please try a different search.");
+        }
+        details = await postJSON<{ ok: true; business: Business }>(
+          "/api/audit/place-details",
+          { placeId: found.place_id }
+        );
+      }
       setBusiness(details.business);
 
       let speed: SpeedData | null = null;
@@ -760,10 +773,7 @@ export default function FreeAudit() {
                               key={p.place_id}
                               data-testid={`button-place-${p.place_id}`}
                               className="audit-suggestion"
-                              onClick={() => {
-                                console.log("[Audit] Clicked prediction:", p.name, "place_id:", p.place_id, "full:", JSON.stringify(p));
-                                runAudit(p.place_id);
-                              }}
+                              onClick={() => runAudit(p)}
                               style={{
                                 width: "100%",
                                 textAlign: "left",
