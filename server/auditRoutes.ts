@@ -341,6 +341,32 @@ function buildSeedKeywords(trade: string, city: string): string[] {
   ];
 }
 
+/* ─── Outscraper async polling ─── */
+async function pollOutscraper(
+  resultsUrl: string,
+  maxWaitMs = 20000,
+  intervalMs = 2000
+): Promise<any[]> {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    await new Promise(r => setTimeout(r, intervalMs));
+    try {
+      const res = await fetch(resultsUrl, {
+        headers: { 'X-API-KEY': process.env.OUTSCRAPER_API_KEY || '' }
+      });
+      const data = await res.json();
+      console.log('[outscraper] poll status:', data.status, 'results:', data.data?.length || 0);
+      if (data.status !== 'Pending' && data.data) {
+        return data.data;
+      }
+    } catch (e) {
+      console.error('[outscraper] poll error:', e);
+    }
+  }
+  console.log('[outscraper] timed out');
+  return [];
+}
+
 /* ─── E1: Outscraper Competitor Data ─── */
 async function fetchOutscraperCompetitors(trade: string, city: string, businessName: string) {
   const apiKey = process.env.OUTSCRAPER_API_KEY;
@@ -379,7 +405,12 @@ async function fetchOutscraperCompetitors(trade: string, city: string, businessN
   if (!r.ok) {
     console.error("[E1 Outscraper competitors] Non-OK response:", r.status, rawText.slice(0, 500));
   }
-  const results = Array.isArray(data?.data) ? data.data.flat() : Array.isArray(data) ? data.flat() : [];
+  let rawResults = data?.data;
+  if (data?.status === 'Pending' && data?.results_location) {
+    console.log('[E1 Outscraper competitors] Got 202 Pending, polling:', data.results_location);
+    rawResults = await pollOutscraper(data.results_location);
+  }
+  const results = Array.isArray(rawResults) ? rawResults.flat() : (Array.isArray(data) ? data.flat() : []);
   console.log("[E1 Outscraper competitors] Parsed results count:", results.length);
   const competitors = results
     .filter((b: any) => {
@@ -453,7 +484,12 @@ async function fetchOutscraperReviews(placeId: string) {
   if (!r.ok) {
     console.error("[E2 Outscraper reviews] Non-OK response:", r.status, rawText.slice(0, 500));
   }
-  const reviews = Array.isArray(data?.data) ? data.data.flat() : Array.isArray(data) ? data.flat() : [];
+  let rawReviews = data?.data;
+  if (data?.status === 'Pending' && data?.results_location) {
+    console.log('[E2 Outscraper reviews] Got 202 Pending, polling:', data.results_location);
+    rawReviews = await pollOutscraper(data.results_location);
+  }
+  const reviews = Array.isArray(rawReviews) ? rawReviews.flat() : (Array.isArray(data) ? data.flat() : []);
   console.log("[E2 Outscraper reviews] Parsed reviews count:", reviews.length);
   const reviewTexts: string[] = [];
   const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -579,6 +615,7 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
       competition: item.competition_level || "LOW",
     };
   }
+  console.log('[dataforseo] volumeMap keys:', Object.keys(volumeMap));
   return volumeMap;
 }
 
@@ -593,9 +630,16 @@ async function calculateDemandGaps(
   const isOpenEvenings = /([6-9]|1[0-1]):\d{2}\s*(pm|$)/.test(hoursStr) || hoursStr.includes("18:") || hoursStr.includes("19:") || hoursStr.includes("20:");
   const isOpenWeekends = hoursStr.includes("saturday") || hoursStr.includes("sunday");
 
+  const fallbackVolume: Record<string, number> = {
+    plumbing: 5000, hvac: 3000, electrical: 4000, cleaning: 6000,
+    landscaping: 4000, roofing: 2000, locksmith: 4000, general: 3000,
+  };
+  const effectiveVolume = totalMonthlySearchVolume > 0
+    ? totalMonthlySearchVolume
+    : (fallbackVolume[trade.toLowerCase()] || 3000);
   const clickRate = 0.05;
   const conversionRate = 0.15;
-  const monthlyLeads = totalMonthlySearchVolume * clickRate * conversionRate;
+  const monthlyLeads = effectiveVolume * clickRate * conversionRate;
   const jobValue = JOB_VALUES[trade.toLowerCase()] || 350;
 
   const gaps: any[] = [];
@@ -894,6 +938,10 @@ router.post("/generate", async (req: Request, res: Response) => {
       arr.findIndex((x: any) => x.keyword === k.keyword) === i
     );
     console.log('[audit] keyword sample:', keywords[0]);
+    if (keywords.length > 0 && volumeMap) {
+      console.log('[dataforseo] first keyword lookup attempt:', keywords[0]?.keyword,
+        '→', volumeMap[keywords[0]?.keyword?.toLowerCase()?.trim()]);
+    }
     const averageCPC = keywords.length > 0 ? +(cpcSum / keywords.length).toFixed(2) : 0;
 
     // ─── Flag ad-running competitors ───
