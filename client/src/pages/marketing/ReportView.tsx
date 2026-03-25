@@ -83,7 +83,7 @@ export default function ReportView({ report, business, reportId }: {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatUnread, setChatUnread] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const [chatExpanded, setChatExpanded] = useState(true);
+  const [chatExpanded, setChatExpanded] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
   useEffect(() => {
@@ -559,6 +559,37 @@ export default function ReportView({ report, business, reportId }: {
         </div>
       )}
 
+      {/* SECTION 9 — SHARE */}
+      <div style={{ background: DARK, borderRadius: 16, padding: '32px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: 17, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Share This Report</div>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 24 }}>Show your team or save for later</div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {[
+            { label: '📧 Email', onClick: () => { window.open(`mailto:?subject=My WeFixTrades Audit&body=View my free local business audit: ${shareUrl}`); } },
+            { label: '💬 WhatsApp', onClick: () => { window.open(`https://wa.me/?text=Check out my business audit: ${shareUrl}`); } },
+            { label: '📘 Facebook', onClick: () => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`); } },
+            { label: '🐦 Twitter', onClick: () => { window.open(`https://twitter.com/intent/tweet?text=Just got my free local business audit — scored ${scores.total}/100. Get yours free:&url=${encodeURIComponent(shareUrl)}`); } },
+            {
+              label: copiedLink ? '✓ Copied!' : '🔗 Copy Link',
+              onClick: () => { navigator.clipboard.writeText(shareUrl).then(() => { setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000); }); }
+            },
+          ].map((btn, i) => (
+            <button key={i} onClick={btn.onClick} style={{
+              padding: '10px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)',
+              background: 'rgba(255,255,255,0.06)', color: WHITE, fontSize: 13, fontWeight: 500,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
+            }}>
+              {btn.label}
+            </button>
+          ))}
+        </div>
+        {ai.reportDataQuality?.missingDataNote && (
+          <div style={{ marginTop: 20, fontSize: 12, color: GREY, background: GREY_BG, borderRadius: 8, padding: '10px 14px', textAlign: 'left' }}>
+            ℹ️ {ai.reportDataQuality.missingDataNote}
+          </div>
+        )}
+      </div>
+
       {/* INLINE CHAT PANEL — desktop only */}
       {!isMobile && (
         <div style={{ background:WHITE, borderRadius:16, border:`1px solid ${BORDER}`, marginBottom:16, overflow:'hidden' }}>
@@ -599,37 +630,6 @@ export default function ReportView({ report, business, reportId }: {
           </div>
         </div>
       )}
-
-      {/* SECTION 9 — SHARE */}
-      <div style={{ background: DARK, borderRadius: 16, padding: '32px 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 17, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Share This Report</div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 24 }}>Show your team or save for later</div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-          {[
-            { label: '📧 Email', onClick: () => { window.open(`mailto:?subject=My WeFixTrades Audit&body=View my free local business audit: ${shareUrl}`); } },
-            { label: '💬 WhatsApp', onClick: () => { window.open(`https://wa.me/?text=Check out my business audit: ${shareUrl}`); } },
-            { label: '📘 Facebook', onClick: () => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`); } },
-            { label: '🐦 Twitter', onClick: () => { window.open(`https://twitter.com/intent/tweet?text=Just got my free local business audit — scored ${scores.total}/100. Get yours free:&url=${encodeURIComponent(shareUrl)}`); } },
-            {
-              label: copiedLink ? '✓ Copied!' : '🔗 Copy Link',
-              onClick: () => { navigator.clipboard.writeText(shareUrl).then(() => { setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000); }); }
-            },
-          ].map((btn, i) => (
-            <button key={i} onClick={btn.onClick} style={{
-              padding: '10px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)',
-              background: 'rgba(255,255,255,0.06)', color: WHITE, fontSize: 13, fontWeight: 500,
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
-            }}>
-              {btn.label}
-            </button>
-          ))}
-        </div>
-        {ai.reportDataQuality?.missingDataNote && (
-          <div style={{ marginTop: 20, fontSize: 12, color: GREY, background: GREY_BG, borderRadius: 8, padding: '10px 14px', textAlign: 'left' }}>
-            ℹ️ {ai.reportDataQuality.missingDataNote}
-          </div>
-        )}
-      </div>
 
       {/* CHAT WIDGET — mobile only */}
       {isMobile && <>
