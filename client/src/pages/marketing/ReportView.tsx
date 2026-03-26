@@ -485,26 +485,45 @@ export default function ReportView({ report, business, reportId }: {
       )}
 
       {/* SECTION 5 — REVENUE */}
-      {activeTab === 'maps' && (loss.high || 0) > 0 && (
-        <div style={{ background: DARK, borderRadius: r16, padding: '28px 20px', marginBottom: 10, textAlign: 'center' }}>
-          <div style={{ fontSize: 11, color: CYAN, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            Estimated Monthly Revenue Being Left On The Table
-          </div>
-          <div style={{ fontSize: isTiny ? 28 : 40, fontWeight: 800, color: WHITE, marginTop: 12, lineHeight: 1 }}>
-            ${loss.low?.toLocaleString()} {' – '} ${loss.high?.toLocaleString()}
-          </div>
-          {ai.estimatedMonthlyRevenueLoss?.calculation && (
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginTop: 12 }}>
-              {ai.estimatedMonthlyRevenueLoss.calculation}
+      {activeTab === 'maps' && (() => {
+        const missedJobs = report?.demandGaps?.[0]?.estimatedMissedLeadsPerMonth || 0;
+        const revLow = loss.low || 0;
+        const revHigh = loss.high || 0;
+        return (
+          <div style={{ background: DARK, borderRadius: r16, padding: '28px 20px', marginBottom: 10, textAlign: 'center' }}>
+            <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
+              {/* LEFT — missed jobs */}
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  Potential Missed Jobs / Month
+                </div>
+                <div style={{ fontSize: 36, fontWeight: 800, color: WHITE, marginTop: 8, lineHeight: 1 }}>
+                  {missedJobs > 0 ? missedJobs : '5–15'}
+                </div>
+              </div>
+              {/* Divider */}
+              <div style={{ width: 1, height: 60, background: 'rgba(255,255,255,0.1)', alignSelf: 'center', flexShrink: 0 }}/>
+              {/* RIGHT — revenue range */}
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  Est. Monthly Revenue Opportunity
+                </div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: CYAN, marginTop: 8, lineHeight: 1 }}>
+                  {revHigh > 0 ? `$${revLow.toLocaleString()} – $${revHigh.toLocaleString()}` : '$800 – $2,400'}
+                </div>
+              </div>
             </div>
-          )}
-          {ai.demandGapInsight && (
-            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', marginTop: 20, maxWidth: 560, margin: '20px auto 0', lineHeight: 1.6 }}>
-              {ai.demandGapInsight}
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 12 }}>
+              Estimates based on average trade job values and local search demand. Actual results vary by market and business.
             </div>
-          )}
-        </div>
-      )}
+            {ai.demandGapInsight && (
+              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', marginTop: 20, maxWidth: 560, margin: '20px auto 0', lineHeight: 1.6 }}>
+                {ai.demandGapInsight}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* SECTION 6 — QUICK WIN */}
       {activeTab === 'maps' && ai.quickWin && (
