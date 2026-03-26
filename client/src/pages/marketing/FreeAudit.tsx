@@ -218,7 +218,8 @@ export default function FreeAudit() {
       <style>{`
         .audit-page {
           min-height: 100vh;
-          background: linear-gradient(180deg, rgba(236,242,244,1) 0%, rgba(248,250,252,1) 55%, rgba(236,242,244,1) 100%);
+          background: radial-gradient(circle, rgba(0,0,0,0.13) 1px, transparent 1px), linear-gradient(180deg, rgba(236,242,244,1) 0%, rgba(248,250,252,1) 55%, rgba(236,242,244,1) 100%);
+          background-size: 22px 22px, 100% 100%;
           position: relative;
         }
         .audit-page::before {
@@ -580,8 +581,6 @@ export default function FreeAudit() {
             return (
               <div ref={reportRef} style={{
                 minHeight: '100vh',
-                backgroundImage: isMobile ? 'none' : 'radial-gradient(circle, rgba(0,0,0,0.07) 1px, transparent 1px)',
-                backgroundSize: '24px 24px',
                 padding: isMobile ? '0 0 48px' : '32px 0 64px',
                 margin: '0 -16px',
               }}>
