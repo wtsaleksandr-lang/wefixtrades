@@ -962,6 +962,9 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 <div style={{ fontSize: 40, fontWeight: 800, color: data?.score != null ? scoreColor(data.score, 100) : GREY, lineHeight: 1 }}>
                   {data?.score != null ? data.score : speedLoading ? '...' : '—'}<span style={{ fontSize: 16, color: GREY, fontWeight: 400 }}>/100</span>
                 </div>
+                <div style={{ fontSize: 11, color: GREY, marginTop: 10, marginBottom: 2 }}>
+                  Tap a metric below to understand what it means
+                </div>
                 {[
                   { key: 'fcp', label: 'FCP', tip: 'First Contentful Paint', val: data?.fcp, unit: 's', good: 2.5, ok: 4 },
                   { key: 'lcp', label: 'LCP', tip: 'Largest Contentful Paint — key Google ranking factor', val: data?.lcp, unit: 's', good: 2.5, ok: 4 },
