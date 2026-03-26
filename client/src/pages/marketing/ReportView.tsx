@@ -635,6 +635,11 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             <div style={{ fontSize: 11, color: GREY, marginTop: 2, marginLeft: 38 }}>{row.note}</div>
           </div>
         ))}
+        {ai.gradeExplanation && (
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${BORDER}`, fontSize: 13, color: GREY, lineHeight: 1.6 }}>
+            {ai.gradeExplanation}
+          </div>
+        )}
       </div>}
 
       {/* SECTION 2b — COMPETITOR ANALYSIS */}
@@ -753,6 +758,20 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   <span style={{ fontSize: 11, color: GREY, fontWeight: 400, marginLeft: 4 }}>avg · you have {businessRating}</span>
                 </div>
               </div>
+            </div>
+          )}
+          {(ai.competitorWeakness || ai.reviewGap?.insight) && (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {ai.competitorWeakness && (
+                <div style={{ fontSize: 13, color: GREY, lineHeight: 1.6 }}>
+                  💡 {ai.competitorWeakness}
+                </div>
+              )}
+              {ai.reviewGap?.insight && (
+                <div style={{ fontSize: 13, color: GREY, lineHeight: 1.6 }}>
+                  ⭐ {ai.reviewGap.insight}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -994,6 +1013,11 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         ) : (
           <div style={{ textAlign: 'center', padding: 16, fontSize: 13, color: GREY, background: GREY_BG, borderRadius: 12, marginBottom: 16 }}>
             Website speed test unavailable for this report.
+          </div>
+        )}
+        {activeTab === 'website' && ai.websiteInsight && (
+          <div style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: '14px 18px', marginBottom: 10, fontSize: 13, color: GREY, lineHeight: 1.65 }}>
+            💡 {ai.websiteInsight}
           </div>
         )}
       </>)}

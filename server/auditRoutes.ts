@@ -1413,6 +1413,7 @@ STRICT RULES — NEVER VIOLATE:
     "expectedResult": string
   },
   "citationNote": string|null,
+  "websiteInsight": string|null,
   "reportDataQuality": {
     "keywordDataAvailable": boolean,
     "competitorDataAvailable": boolean,
@@ -1426,6 +1427,7 @@ STRICT RULES — NEVER VIOLATE:
 Rules for actionPlan: Exactly 3 items, HIGH to LOW. One must be free. Base each on a real gap.
 Rules for contentGaps: Exactly 3 items, ordered by search volume desc. Format pageTitle as "{Service} {City} — {Benefit}".
 Rules for executiveSummary: 2-3 sentences. S1: score, grade, one genuine strength with number. S2: single biggest gap with specific number. S3: what fixing it is worth in dollars.
+Rules for websiteInsight: 1-2 sentences. If speed data is available, state the mobile score and what it means for customers (e.g. slow load = they leave). If no speed data, set to null. Never mention WeFixTrades.
 
 Business hours: ${JSON.stringify(auditData.business?.hours || [])}
 isOpenEvenings (open past 9pm): ${auditData.isOpenEvenings ?? false}
