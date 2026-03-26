@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getServicesForIssues } from "./data/services";
 import { db } from "./db";
 import { auditReports } from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, gte, desc } from "drizzle-orm";
 
 const router = express.Router();
 
@@ -978,6 +978,25 @@ router.post("/generate", async (req: Request, res: Response) => {
 
     if (!business || !business.name)
       return safeJsonError(res, 400, "business required");
+
+    // ─── Check for recent cached report (24h TTL) ───
+    if (business.placeId) {
+      const REPORT_TTL_HOURS = 24;
+      const cutoff = new Date(Date.now() - REPORT_TTL_HOURS * 60 * 60 * 1000);
+      try {
+        const existing = await db.select().from(auditReports)
+          .where(and(eq(auditReports.business_place_id, business.placeId), gte(auditReports.created_at, cutoff)))
+          .orderBy(desc(auditReports.created_at)).limit(1);
+        if (existing.length > 0) {
+          const cached = existing[0];
+          const ageMin = Math.round((Date.now() - new Date(cached.created_at!).getTime()) / 60000);
+          console.log('[audit] returning cached report:', cached.id, 'age:', ageMin + 'min');
+          return res.json({ ok: true, report_json: cached.audit_data, reportId: cached.id, fromCache: true });
+        }
+      } catch (err) {
+        console.error('[audit] cache check failed:', err);
+      }
+    }
 
     // Extract city from place details if not provided by client
     const city = String(req.body?.city || "").trim() || extractCity(business);

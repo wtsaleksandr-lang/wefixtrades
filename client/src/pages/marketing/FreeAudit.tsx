@@ -75,6 +75,8 @@ export default function FreeAudit() {
 
   const [report, setReport] = useState<any>(null);
   const [reportId, setReportId] = useState<string | null>(null);
+  const [fromCache, setFromCache] = useState(false);
+  const lastPredRef = useRef<Prediction | null>(null);
   const [speedData, setSpeedData] = useState<any>(null);
   const [speedLoading, setSpeedLoading] = useState(false);
 
@@ -146,6 +148,7 @@ export default function FreeAudit() {
   }, [dropdownOpen]);
 
   async function runAudit(pred: Prediction) {
+    lastPredRef.current = pred;
     console.log("[Audit] runAudit called:", JSON.stringify({ name: pred.name, place_id: pred.place_id }));
     const placeId = (pred.place_id || "").trim();
     try {
@@ -170,6 +173,7 @@ export default function FreeAudit() {
         ok: true;
         report_json: any;
         reportId?: string;
+        fromCache?: boolean;
       }>(
         "/api/audit/generate",
         {
@@ -180,9 +184,8 @@ export default function FreeAudit() {
         }
       );
       setReport(rep.report_json);
-      if (rep.reportId) {
-        setReportId(rep.reportId);
-      }
+      if (rep.reportId) setReportId(rep.reportId);
+      setFromCache(rep.fromCache === true);
       setBusy(null);
 
       // Trigger background speed test after report is displayed
@@ -584,6 +587,17 @@ export default function FreeAudit() {
                 padding: isMobile ? '0 0 48px' : '32px 0 64px',
                 margin: '0 -16px',
               }}>
+                {fromCache && (
+                  <div style={{
+                    textAlign: 'center', padding: '6px 0 2px',
+                    fontSize: 12, color: '#6B7280',
+                  }}>
+                    Report generated earlier today — <span style={{ color: '#00D4C8', cursor: 'pointer' }}
+                      onClick={() => { if (lastPredRef.current) runAudit(lastPredRef.current); }}>
+                      Refresh for latest data
+                    </span>
+                  </div>
+                )}
                 <ReportView
                   report={report}
                   business={report.business}
