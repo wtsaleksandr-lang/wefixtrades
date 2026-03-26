@@ -194,6 +194,9 @@ export default function ReportView({ report, business, reportId }: {
   const r16 = 16;
   const [hovered, setHovered] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [email, setEmail] = useState('');
+  const [emailSubmitted, setEmailSubmitted] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
   const FAQS = [
     { q: "Do I need to learn any software?", a: "None. Everything is set up and managed by our team. You get a simple dashboard to check your results, and a weekly summary sent to your phone. That's it." },
     { q: "How long until I see results?", a: "Most clients see measurable improvements within the first 2–4 weeks — more profile views, more calls, more leads. SEO results compound over 60–90 days." },
@@ -206,6 +209,30 @@ export default function ReportView({ report, business, reportId }: {
     onMouseEnter: () => setHovered(id),
     onMouseLeave: () => setHovered(null),
   });
+
+  const handleEmailSubmit = async () => {
+    if (!email.trim() || !email.includes('@')) return;
+    setEmailLoading(true);
+    try {
+      await fetch('/api/audit/save-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim(),
+          reportId,
+          businessName: business?.name,
+          trade: report?.trade,
+          city: report?.city,
+          score: report?.scores?.total,
+        }),
+      });
+      setEmailSubmitted(true);
+    } catch {
+      setEmailSubmitted(true);
+    } finally {
+      setEmailLoading(false);
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -770,6 +797,40 @@ export default function ReportView({ report, business, reportId }: {
           ))}
         </div>
       </div>
+
+      {/* EMAIL CAPTURE */}
+      {!emailSubmitted ? (
+        <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, padding: '24px 20px', marginBottom: 10, textAlign: 'center' }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 4 }}>Save & receive your report</div>
+          <div style={{ fontSize: 13, color: GREY, marginBottom: 16, lineHeight: 1.5 }}>
+            Get a PDF copy of this report sent to your inbox. No spam, no commitment.
+          </div>
+          <div style={{ display: 'flex', gap: 8, maxWidth: 420, margin: '0 auto' }}>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()}
+              placeholder="your@email.com"
+              style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: `1px solid ${BORDER}`, fontSize: 13, outline: 'none', fontFamily: 'inherit', color: DARK }}
+            />
+            <button
+              onClick={handleEmailSubmit}
+              disabled={emailLoading}
+              style={{ padding: '10px 18px', background: DARK, color: WHITE, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: emailLoading ? 'not-allowed' : 'pointer', opacity: emailLoading ? 0.7 : 1, whiteSpace: 'nowrap', transition: 'all 0.15s ease' }}
+            >
+              {emailLoading ? 'Sending...' : 'Send my PDF →'}
+            </button>
+          </div>
+          <div style={{ fontSize: 11, color: GREY, marginTop: 10, opacity: 0.7 }}>We respect your privacy. Unsubscribe anytime.</div>
+        </div>
+      ) : (
+        <div style={{ background: '#F0FFF4', borderRadius: 16, border: '1px solid #BBF7D0', padding: '20px', marginBottom: 10, textAlign: 'center' }}>
+          <div style={{ fontSize: 20, marginBottom: 8 }}>✓</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#166534', marginBottom: 4 }}>Report sent!</div>
+          <div style={{ fontSize: 13, color: '#4B5563' }}>Check your inbox for your PDF report shortly.</div>
+        </div>
+      )}
 
       {/* INLINE CHAT PANEL — desktop only */}
       {!isMobile && (

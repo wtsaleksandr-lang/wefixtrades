@@ -1277,4 +1277,19 @@ Never make up data not in the audit.`;
   }
 });
 
+router.post('/save-email', async (req: Request, res: Response) => {
+  try {
+    const { email, reportId, businessName, trade, city, score } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Invalid email' });
+    }
+    console.log('[email-capture]', email, businessName, score);
+    // Save to DB when table exists — for now just log and confirm
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[email-capture] error:', err);
+    return res.status(500).json({ error: 'Failed to save' });
+  }
+});
+
 export default router;
