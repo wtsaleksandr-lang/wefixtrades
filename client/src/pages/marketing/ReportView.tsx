@@ -123,6 +123,48 @@ function Tooltip({ text }: { text: string }) {
   );
 }
 
+const ShareIcons = {
+  email: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="6" fill="#6B7280"/>
+      <path d="M4 8l8 5 8-5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+      <rect x="4" y="7" width="16" height="11" rx="2" stroke="white" strokeWidth="1.5" fill="none"/>
+    </svg>
+  ),
+  whatsapp: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="6" fill="#25D366"/>
+      <path d="M12 4C7.58 4 4 7.58 4 12c0 1.42.37 2.75 1.02 3.91L4 20l4.24-1.1A7.94 7.94 0 0012 20c4.42 0 8-3.58 8-8s-3.58-8-8-8z" fill="white"/>
+      <path d="M16 14.5c-.3-.15-1.76-.87-2.03-.97-.28-.1-.48-.15-.68.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.48-1.76-1.66-2.06-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.68-1.63-.93-2.23-.24-.59-.49-.5-.68-.51-.17-.01-.37-.01-.57-.01-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.87 1.22 3.07.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.08 1.76-.72 2.01-1.41.25-.69.25-1.28.17-1.41-.07-.13-.27-.2-.57-.35z" fill="#25D366"/>
+    </svg>
+  ),
+  facebook: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="6" fill="#1877F2"/>
+      <path d="M16 4h-2a4 4 0 00-4 4v2H8v3h2v7h3v-7h2l1-3h-3V8a1 1 0 011-1h2V4z" fill="white"/>
+    </svg>
+  ),
+  twitter: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="6" fill="#000000"/>
+      <path d="M18 5h-2.5l-3.5 4L8.5 5H4l5.5 7L4 19h2.5l3.8-4.5L14.5 19H19l-5.8-7.5L18 5z" fill="white"/>
+    </svg>
+  ),
+  copy: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="6" fill="#6B7280"/>
+      <rect x="9" y="9" width="10" height="10" rx="2" stroke="white" strokeWidth="1.5" fill="none"/>
+      <path d="M15 9V7a2 2 0 00-2-2H7a2 2 0 00-2 2v6a2 2 0 002 2h2" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  ),
+  copied: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="6" fill="#22C55E"/>
+      <path d="M7 12l4 4 6-7" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  ),
+};
+
 export default function ReportView({ report, business, reportId }: {
   report: any;
   business: any;
@@ -149,7 +191,7 @@ export default function ReportView({ report, business, reportId }: {
   const [chatExpanded, setChatExpanded] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const isTiny = typeof window !== 'undefined' && window.innerWidth <= 480;
-  const r16 = isTiny ? 0 : 16;
+  const r16 = 16;
   const [hovered, setHovered] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const FAQS = [
@@ -659,24 +701,23 @@ export default function ReportView({ report, business, reportId }: {
         <div style={{ fontSize: 17, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Share This Report</div>
         <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 8, justifyContent: 'center', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', padding: '0 4px' }}>
           {[
-            { label: '📧', onClick: () => { window.open(`mailto:?subject=My WeFixTrades Audit&body=View my free local business audit: ${shareUrl}`); } },
-            { label: '💬', onClick: () => { window.open(`https://wa.me/?text=Check out my business audit: ${shareUrl}`); } },
-            { label: '📘', onClick: () => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`); } },
-            { label: '🐦', onClick: () => { window.open(`https://twitter.com/intent/tweet?text=Just got my free local business audit — scored ${scores.total}/100. Get yours free:&url=${encodeURIComponent(shareUrl)}`); } },
+            { icon: ShareIcons.email, onClick: () => { window.open(`mailto:?subject=My WeFixTrades Audit&body=View my free local business audit: ${shareUrl}`); } },
+            { icon: ShareIcons.whatsapp, onClick: () => { window.open(`https://wa.me/?text=Check out my business audit: ${shareUrl}`); } },
+            { icon: ShareIcons.facebook, onClick: () => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`); } },
+            { icon: ShareIcons.twitter, onClick: () => { window.open(`https://twitter.com/intent/tweet?text=Just got my free local business audit — scored ${scores.total}/100. Get yours free:&url=${encodeURIComponent(shareUrl)}`); } },
             {
-              label: copiedLink ? '✓' : '🔗',
+              icon: copiedLink ? ShareIcons.copied : ShareIcons.copy,
               onClick: () => { navigator.clipboard.writeText(shareUrl).then(() => { setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000); }); }
             },
           ].map((btn, i) => (
             <button key={i} onClick={btn.onClick} {...hoverProps(`share-${i}`)} style={{
-              width: 44, height: 44, padding: 0, borderRadius: 10, transition: 'all 0.15s ease',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
-              border: hovered===`share-${i}` ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.15)',
-              background: hovered===`share-${i}` ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
-              color: WHITE, fontWeight: 500, cursor: 'pointer', flexShrink: 0,
-              transform: hovered===`share-${i}` ? 'translateY(-1px)' : 'none',
+              width: 44, height: 44, padding: 0, borderRadius: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: 'none', background: 'transparent', cursor: 'pointer', flexShrink: 0,
+              transition: 'transform 0.15s ease, opacity 0.15s ease',
+              transform: hovered===`share-${i}` ? 'scale(1.08)' : 'scale(1)',
             }}>
-              {btn.label}
+              {btn.icon}
             </button>
           ))}
         </div>
