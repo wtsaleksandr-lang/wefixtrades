@@ -320,6 +320,25 @@ router.post("/pagespeed", async (req: Request, res: Response) => {
   }
 });
 
+/* ─── Background speed test endpoint (called after report is shown) ─── */
+router.post("/speed", async (req: Request, res: Response) => {
+  try {
+    const { website } = req.body;
+    if (!website) return safeJsonError(res, 400, "No website provided");
+    console.log('[speed] Starting for:', website);
+    const cleanUrl = (url: string) => {
+      try { const u = new URL(url); return u.origin + u.pathname; } catch { return url; }
+    };
+    const speedData = await fetchPageSpeed(cleanUrl(String(website)));
+    console.log('[speed] mobile:', speedData?.mobile?.score ?? 'null');
+    console.log('[speed] desktop:', speedData?.desktop?.score ?? 'null');
+    return res.json({ ok: true, speedData: speedData || { mobile: null, desktop: null } });
+  } catch (e: any) {
+    console.error('[speed] error:', e);
+    return safeJsonError(res, 500, "Speed test failed");
+  }
+});
+
 /* ─── Specific Service Mapping ─── */
 const SPECIFIC_SERVICE_MAP: Record<string, string> = {
   plumbing: "drain cleaning", hvac: "ac repair", electrical: "electrician",
@@ -919,11 +938,10 @@ router.post("/generate", async (req: Request, res: Response) => {
     if (pageSpeedUrl !== website) console.log('[pagespeed] cleaned URL:', pageSpeedUrl);
 
     // ─── Run remaining external data fetches in parallel ───
-    const [compResult, reviewResult, dataForSEOResult, pageSpeedResult] = await Promise.allSettled([
+    const [compResult, reviewResult, dataForSEOResult] = await Promise.allSettled([
       fetchOutscraperCompetitors(trade, city, business.name),
       (business.placeId && reviewsCount > 0) ? fetchOutscraperReviews(business.placeId) : Promise.resolve(null),
       fetchDataForSEOVolumes(dataForSEOSeeds),
-      pageSpeedUrl ? fetchPageSpeed(pageSpeedUrl) : Promise.resolve(speedData),
     ]);
     console.log('[dataforseo] POST-ALLSETTLED status:', dataForSEOResult?.status, 'value type:', typeof (dataForSEOResult as any)?.value);
 
@@ -937,9 +955,8 @@ router.post("/generate", async (req: Request, res: Response) => {
     const volumeMap = dataForSEOResult.status === "fulfilled" ? dataForSEOResult.value : null;
     if (dataForSEOResult.status === "rejected") console.error("E4 DataForSEO volumes failed:", (dataForSEOResult as any).reason?.message);
 
-    // Use server-side PageSpeed if available, otherwise fall back to client-provided speedData
-    const resolvedSpeedData = pageSpeedResult.status === "fulfilled" && pageSpeedResult.value ? pageSpeedResult.value : speedData;
-    if (pageSpeedResult.status === "rejected") console.error("PageSpeed failed:", (pageSpeedResult as any).reason?.message);
+    // PageSpeed runs separately in /api/audit/speed after report is returned to client
+    const resolvedSpeedData: { mobile: any; desktop: any } = { mobile: null, desktop: null };
 
     const mobileScore = typeof resolvedSpeedData?.mobile?.score === "number" ? resolvedSpeedData.mobile.score : null;
     const desktopScore = typeof resolvedSpeedData?.desktop?.score === "number" ? resolvedSpeedData.desktop.score : null;

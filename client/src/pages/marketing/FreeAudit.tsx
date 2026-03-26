@@ -75,6 +75,8 @@ export default function FreeAudit() {
 
   const [report, setReport] = useState<any>(null);
   const [reportId, setReportId] = useState<string | null>(null);
+  const [speedData, setSpeedData] = useState<any>(null);
+  const [speedLoading, setSpeedLoading] = useState(false);
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -182,6 +184,22 @@ export default function FreeAudit() {
         setReportId(rep.reportId);
       }
       setBusy(null);
+
+      // Trigger background speed test after report is displayed
+      const siteUrl = rep.report_json?.business?.website;
+      if (siteUrl) {
+        setSpeedData(null);
+        setSpeedLoading(true);
+        fetch('/api/audit/speed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ website: siteUrl }),
+        })
+          .then(r => r.json())
+          .then(d => { if (d.speedData) setSpeedData(d.speedData); })
+          .catch(err => console.error('[speed] fetch failed:', err))
+          .finally(() => setSpeedLoading(false));
+      }
 
       setTimeout(() => {
         reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -572,6 +590,8 @@ export default function FreeAudit() {
                   report={report}
                   business={report.business}
                   reportId={reportId}
+                  liveSpeedData={speedData}
+                  speedLoading={speedLoading}
                 />
               </div>
             );

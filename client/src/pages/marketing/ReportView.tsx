@@ -165,10 +165,12 @@ const ShareIcons = {
   ),
 };
 
-export default function ReportView({ report, business, reportId }: {
+export default function ReportView({ report, business, reportId, liveSpeedData, speedLoading }: {
   report: any;
   business: any;
   reportId?: string | null;
+  liveSpeedData?: any;
+  speedLoading?: boolean;
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [activeTab, setActiveTab] = useState<'maps' | 'website' | 'plan'>('maps');
@@ -312,7 +314,7 @@ export default function ReportView({ report, business, reportId }: {
   const scores = report?.scores || {};
   const keywords = report?.keywords || [];
   const loss = report?.estimatedRevenueLoss || {};
-  const speed = report?.speedData || {};
+  const speed = liveSpeedData || report?.speedData || {};
   const gaps = report?.contentGaps || ai?.contentGaps || [];
   const plan = ai?.actionPlan || [];
   const shareUrl = reportId
@@ -321,7 +323,7 @@ export default function ReportView({ report, business, reportId }: {
 
   const scoreRows = [
     { icon: <MapPin size={18} color="#00D4C8" />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
-    { icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: scores.websiteQuality?.score || 0, max: 20, note: speed.mobile?.score == null ? 'Speed test unavailable' : 'How fast and professional your website is' },
+    { icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: scores.websiteQuality?.score || 0, max: 20, note: speedLoading ? 'Measuring speed...' : speed.mobile?.score == null ? 'Speed test unavailable' : 'How fast and professional your website is' },
     { icon: <Search size={18} color="#00D4C8" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
     { icon: <Trophy size={18} color="#00D4C8" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
     { icon: <Megaphone size={18} color="#00D4C8" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'The paid search market in your area' },
@@ -602,43 +604,52 @@ export default function ReportView({ report, business, reportId }: {
       )}
 
       {/* SECTION 7 — SPEED */}
-      {activeTab === 'website' && (speed.mobile?.score != null ? (
-        <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-          {[{ label: '📱 Mobile', data: speed.mobile }, { label: '🖥 Desktop', data: speed.desktop }].map(({ label, data }) => (
-            <div key={label} style={{ ...card({ flex: 1, minWidth: 200, marginBottom: 0 }) }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: DARK, marginBottom: 8 }}>{label}</div>
-              <div style={{ fontSize: 40, fontWeight: 800, color: scoreColor(data?.score || 0, 100), lineHeight: 1 }}>
-                {data?.score ?? '—'}<span style={{ fontSize: 16, color: GREY, fontWeight: 400 }}>/100</span>
-              </div>
-              {[
-                { key: 'fcp', label: 'FCP', tip: 'First Contentful Paint', val: data?.fcp, unit: 's', good: 2.5, ok: 4 },
-                { key: 'lcp', label: 'LCP', tip: 'Largest Contentful Paint — key Google ranking factor', val: data?.lcp, unit: 's', good: 2.5, ok: 4 },
-                { key: 'tbt', label: 'TBT', tip: 'Total Blocking Time — page responsiveness', val: data?.tbt, unit: 'ms', good: 200, ok: 600 },
-                { key: 'cls', label: 'CLS', tip: 'Cumulative Layout Shift — page stability', val: data?.cls, unit: '', good: 0.1, ok: 0.25 },
-              ].map(m => {
-                const isGood = (m.val || 0) <= m.good;
-                const isOk = (m.val || 0) <= m.ok;
-                const statusC = isGood ? GREEN : isOk ? AMBER : RED;
-                const statusT = isGood ? 'Good' : isOk ? 'Needs work' : 'Critical';
-                return (
-                  <div key={m.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
-                    <div>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: DARK }}>{m.label}</span>
-                      <span title={m.tip} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%', background: GREY_BG, color: GREY, fontSize: 9, cursor: 'help', marginLeft: 4 }}>?</span>
-                      <div style={{ fontSize: 12, color: GREY }}>{m.val != null ? `${m.val}${m.unit}` : '—'}</div>
+      {activeTab === 'website' && (<>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        {speedLoading && speed.mobile?.score == null ? (
+          <div style={{ textAlign: 'center', padding: '32px 16px', background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, marginBottom: 10 }}>
+            <div style={{ width: 32, height: 32, border: `3px solid ${BORDER}`, borderTop: `3px solid ${CYAN}`, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 1s linear infinite' }}/>
+            <div style={{ fontSize: 13, fontWeight: 600, color: DARK, marginBottom: 4 }}>Measuring website speed...</div>
+            <div style={{ fontSize: 12, color: GREY }}>This takes 30–45 seconds. Continue reading your report.</div>
+          </div>
+        ) : speed.mobile?.score != null ? (
+          <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+            {[{ label: '📱 Mobile', data: speed.mobile }, { label: '🖥 Desktop', data: speed.desktop }].map(({ label, data }) => (
+              <div key={label} style={{ ...card({ flex: 1, minWidth: 200, marginBottom: 0 }) }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: DARK, marginBottom: 8 }}>{label}</div>
+                <div style={{ fontSize: 40, fontWeight: 800, color: scoreColor(data?.score || 0, 100), lineHeight: 1 }}>
+                  {data?.score ?? '—'}<span style={{ fontSize: 16, color: GREY, fontWeight: 400 }}>/100</span>
+                </div>
+                {[
+                  { key: 'fcp', label: 'FCP', tip: 'First Contentful Paint', val: data?.fcp, unit: 's', good: 2.5, ok: 4 },
+                  { key: 'lcp', label: 'LCP', tip: 'Largest Contentful Paint — key Google ranking factor', val: data?.lcp, unit: 's', good: 2.5, ok: 4 },
+                  { key: 'tbt', label: 'TBT', tip: 'Total Blocking Time — page responsiveness', val: data?.tbt, unit: 'ms', good: 200, ok: 600 },
+                  { key: 'cls', label: 'CLS', tip: 'Cumulative Layout Shift — page stability', val: data?.cls, unit: '', good: 0.1, ok: 0.25 },
+                ].map(m => {
+                  const isGood = (m.val || 0) <= m.good;
+                  const isOk = (m.val || 0) <= m.ok;
+                  const statusC = isGood ? GREEN : isOk ? AMBER : RED;
+                  const statusT = isGood ? 'Good' : isOk ? 'Needs work' : 'Critical';
+                  return (
+                    <div key={m.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
+                      <div>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: DARK }}>{m.label}</span>
+                        <span title={m.tip} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%', background: GREY_BG, color: GREY, fontSize: 9, cursor: 'help', marginLeft: 4 }}>?</span>
+                        <div style={{ fontSize: 12, color: GREY }}>{m.val != null ? `${m.val}${m.unit}` : '—'}</div>
+                      </div>
+                      <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: statusC + '20', color: statusC }}>{statusT}</span>
                     </div>
-                    <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: statusC + '20', color: statusC }}>{statusT}</span>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div style={{ textAlign: 'center', padding: 16, fontSize: 13, color: GREY, background: GREY_BG, borderRadius: 12, marginBottom: 16 }}>
-          Website speed test unavailable for this report.
-        </div>
-      ))}
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: 16, fontSize: 13, color: GREY, background: GREY_BG, borderRadius: 12, marginBottom: 16 }}>
+            Website speed test unavailable for this report.
+          </div>
+        )}
+      </>)}
 
       {/* SECTION 8 — CONTENT GAPS */}
       {activeTab === 'website' && gaps.length > 0 && (
