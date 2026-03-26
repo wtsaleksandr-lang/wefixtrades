@@ -797,22 +797,57 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         );
       })()}
 
-      {/* SECTION 6 — QUICK WIN */}
+      {/* SECTION 6 — QUICK WIN (Tab 1, advisory only) */}
       {activeTab === 'maps' && ai.quickWin && (
-        <div style={{ ...card({ padding: 18 }), border: '1px solid #D1FAE5', boxShadow: '0 0 0 1px #D1FAE5' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-            <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>⚡ Your Quick Win</span>
-            <span style={{ padding: '4px 12px', borderRadius: 20, background: GREEN_BG, color: GREEN, fontSize: 11, fontWeight: 700 }}>Free & Fast</span>
+        <div style={{ background: WHITE, borderRadius: 14, border: `1px solid ${BORDER}`, padding: 20, marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: DARK }}>⚡ Your Quick Win</div>
+            <div style={{ fontSize: 11, background: '#F0FFF4', color: GREEN, padding: '3px 10px', borderRadius: 20, border: '1px solid #BBF7D0', fontWeight: 600 }}>Free & Fast</div>
           </div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: DARK, marginTop: 16, lineHeight: 1.5 }}>{ai.quickWin.action}</div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-            {ai.quickWin.timeRequired && (
-              <span style={{ padding: '4px 12px', borderRadius: 12, background: GREY_BG, color: GREY, fontSize: 12 }}>⏱ {ai.quickWin.timeRequired}</span>
-            )}
-          </div>
-          {ai.quickWin.expectedResult && (
-            <div style={{ fontSize: 13, color: GREY, marginTop: 10, lineHeight: 1.5 }}>{ai.quickWin.expectedResult}</div>
+          <div style={{ fontSize: 13, color: GREY, lineHeight: 1.6, marginBottom: 8 }}>{ai.quickWin.action}</div>
+          {ai.quickWin.timeRequired && (
+            <div style={{ fontSize: 12, color: GREY, marginBottom: 4 }}>⏱ {ai.quickWin.timeRequired}</div>
           )}
+          {ai.quickWin.expectedResult && (
+            <div style={{ fontSize: 12, color: GREY, opacity: 0.8 }}>Expected: {ai.quickWin.expectedResult}</div>
+          )}
+        </div>
+      )}
+
+      {/* SECTION 6b — DIAGNOSTIC ACTION PLAN (Tab 1, advisory only — no CTAs) */}
+      {activeTab === 'maps' && plan.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 4 }}>What's Holding You Back</div>
+          <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Your personalized improvement roadmap</div>
+          {plan.map((item: any, i: number) => (
+            <div key={i} style={{ background: WHITE, borderRadius: 14, border: `1px solid ${BORDER}`, padding: 20, marginBottom: 10 }}>
+              {/* Priority badge */}
+              <div style={{
+                display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700,
+                letterSpacing: '0.05em', marginBottom: 10,
+                background: item.priority === 'HIGH' ? '#FEF2F2' : '#FFF7ED',
+                color: item.priority === 'HIGH' ? RED : AMBER,
+                border: `1px solid ${item.priority === 'HIGH' ? '#FECACA' : '#FED7AA'}`,
+              }}>
+                {item.priority} PRIORITY
+              </div>
+              {/* Problem title */}
+              <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 8 }}>{item.title}</div>
+              {/* Explanation */}
+              <div style={{ fontSize: 13, color: GREY, lineHeight: 1.6, marginBottom: 12 }}>{item.detail}</div>
+              {/* Impact callout */}
+              {item.estimatedImpact && (
+                <div style={{ background: '#F0FFF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#166534', marginBottom: 10, lineHeight: 1.5 }}>
+                  💡 {item.estimatedImpact}
+                </div>
+              )}
+              {/* Cost + time row */}
+              <div style={{ display: 'flex', gap: 16, fontSize: 12, color: GREY, flexWrap: 'wrap' }}>
+                {item.estimatedCost && <span>💰 {item.estimatedCost}</span>}
+                {item.timeToResult && <span>⏱ {item.timeToResult}</span>}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
