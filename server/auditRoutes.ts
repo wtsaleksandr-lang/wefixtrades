@@ -591,11 +591,17 @@ async function fetchSerperRankings(
 async function fetchDataForSEOVolumes(keywords: string[]) {
   const login = process.env.DATAFORSEO_LOGIN;
   const password = process.env.DATAFORSEO_PASSWORD;
-  if (!login || !password) return null;
+  console.log('[dataforseo] login:', login ? 'SET' : 'MISSING');
+  console.log('[dataforseo] password:', password ? 'SET' : 'MISSING');
+  if (!login || !password) {
+    console.log('[dataforseo] SKIPPING — credentials not set');
+    return null;
+  }
   const auth = Buffer.from(`${login}:${password}`).toString("base64");
   const { signal: e4Signal, clear: e4Clear } = withSignal(15000);
   let data: any;
   try {
+    console.log('[dataforseo] STARTING call with', keywords.length, 'keywords');
     const r = await fetch("https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live", {
       method: "POST",
       headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
@@ -604,7 +610,7 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
     });
     data = await r.json();
   } catch (e: any) {
-    console.error("[E4 DataForSEO] Fetch error:", e?.message, e);
+    console.error('[dataforseo] CAUGHT ERROR:', e?.message || e);
     return null;
   } finally {
     e4Clear();
@@ -1051,7 +1057,6 @@ router.post("/generate", async (req: Request, res: Response) => {
     if ((auditData.scores?.searchVisibility?.score || 0) < 15) detectedIssues.push("low-visibility");
     if ((auditData.scores?.competitorPositioning?.score || 0) < 8) detectedIssues.push("not-in-maps-pack");
     if ((auditData.scores?.demandCoverage?.score || 0) < 8) detectedIssues.push("no-after-hours");
-    if ((auditData.scores?.websiteQuality?.score || 0) < 10) detectedIssues.push("slow-website");
     if ((auditData.scores?.adOpportunity?.score || 0) < 5) detectedIssues.push("no-ads");
     const dedupedIssues = [...new Set(detectedIssues)];
     const recommendedServices = getServicesForIssues(dedupedIssues);
