@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList } from "lucide-react";
 import { SERVICES, getServicesForIssues } from '../../../../server/data/services';
 
@@ -389,9 +389,44 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const lowRatingCount = competitors.filter((c: any) => (c.rating || 0) < 4.3).length;
   const maxReviews = Math.max(businessReviews, ...competitors.map((c: any) => c.reviewsCount || 0), 1);
 
+  const liveWebsiteScore = useMemo(() => {
+    const s = liveSpeedData || report?.speedData;
+    if (!s?.mobile?.score && !s?.desktop?.score) return null;
+    const mobile = s?.mobile?.score || 0;
+    const desktop = s?.desktop?.score || 0;
+    const avg = s?.mobile?.score && s?.desktop?.score
+      ? Math.round((mobile + desktop) / 2)
+      : s?.mobile?.score || s?.desktop?.score;
+    if (avg >= 90) return 20;
+    if (avg >= 70) return 14;
+    if (avg >= 50) return 8;
+    if (avg >= 30) return 4;
+    return 2;
+  }, [liveSpeedData, report?.speedData]);
+
+  const liveTotal = useMemo(() => {
+    if (liveWebsiteScore === null) return scores.total || 0;
+    const oldWebsite = scores.websiteQuality?.score || 0;
+    return (scores.total || 0) - oldWebsite + liveWebsiteScore;
+  }, [liveWebsiteScore, scores]);
+
+  const websiteScoreNote = (() => {
+    if (liveWebsiteScore !== null) {
+      const s = liveSpeedData || report?.speedData;
+      const mobile = s?.mobile?.score;
+      const desktop = s?.desktop?.score;
+      const parts = [];
+      if (mobile != null) parts.push(`Mobile ${mobile}/100`);
+      if (desktop != null) parts.push(`Desktop ${desktop}/100`);
+      return parts.join(' · ');
+    }
+    if (speedLoading) return 'Measuring speed...';
+    return 'Speed test unavailable';
+  })();
+
   const scoreRows = [
     { icon: <MapPin size={18} color="#00D4C8" />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
-    { icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: scores.websiteQuality?.score || 0, max: 20, note: speedLoading ? 'Measuring speed in background...' : speed.mobile?.score == null ? 'Speed test unavailable' : 'How fast and professional your website is' },
+    { icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote },
     { icon: <Search size={18} color="#00D4C8" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
     { icon: <Trophy size={18} color="#00D4C8" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
     { icon: <Megaphone size={18} color="#00D4C8" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'The paid search market in your area' },
@@ -518,7 +553,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               </a>
             )}
           </div>
-          <ScoreCircle score={scores.total || 0} grade={scores.grade || 'D'} onClick={() => setScoreModalOpen(true)} />
+          <ScoreCircle score={liveTotal} grade={scores.grade || 'D'} onClick={() => setScoreModalOpen(true)} />
         </div>
         {ai.executiveSummary && (
           <>
@@ -1309,7 +1344,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             {/* Header */}
             <div style={{ background: DARK, padding: '24px 24px 20px', textAlign: 'center', position: 'relative' }}>
               <button onClick={() => setScoreModalOpen(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-              <div style={{ fontSize: 64, fontWeight: 800, color: gradeColor(scores.grade || 'D'), lineHeight: 1 }}>{scores.total || 0}</div>
+              <div style={{ fontSize: 64, fontWeight: 800, color: gradeColor(scores.grade || 'D'), lineHeight: 1 }}>{liveTotal}</div>
               <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>out of 100</div>
               <div style={{ display: 'inline-block', marginTop: 12, padding: '6px 20px', borderRadius: 20, background: gradeColor(scores.grade || 'D') + '22', border: `1px solid ${gradeColor(scores.grade || 'D')}`, color: gradeColor(scores.grade || 'D'), fontSize: 14, fontWeight: 700 }}>
                 Grade {scores.grade || 'D'}
@@ -1319,13 +1354,13 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             <div style={{ padding: 24 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 8 }}>What this score means</div>
               <p style={{ fontSize: 13, color: GREY, lineHeight: 1.6, margin: '0 0 20px' }}>
-                {(scores.total || 0) >= 80
+                {liveTotal >= 80
                   ? `Your business has strong online visibility. You're ahead of most competitors in your area. Small improvements could push you to the top.`
-                  : (scores.total || 0) >= 60
+                  : liveTotal >= 60
                   ? `Your business has a decent foundation but significant gaps are costing you leads every day. Competitors with better scores are capturing customers searching for your services.`
-                  : (scores.total || 0) >= 40
-                  ? `Your score of ${scores.total}/100 means you're losing a significant number of potential customers before they ever find you. Businesses scoring above 70 typically get 2-3× more calls.`
-                  : `A score of ${scores.total}/100 means most customers searching for your services online can't find you. You're likely losing 60-70% of potential leads to competitors with better online presence.`
+                  : liveTotal >= 40
+                  ? `Your score of ${liveTotal}/100 means you're losing a significant number of potential customers before they ever find you. Businesses scoring above 70 typically get 2-3× more calls.`
+                  : `A score of ${liveTotal}/100 means most customers searching for your services online can't find you. You're likely losing 60-70% of potential leads to competitors with better online presence.`
                 }
               </p>
               {/* Mini breakdown */}
@@ -1333,7 +1368,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 <div style={{ fontSize: 12, fontWeight: 600, color: DARK, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score breakdown</div>
                 {[
                   { label: 'Google Maps', score: scores.googleMaps?.score, max: 25 },
-                  { label: 'Website', score: scores.websiteQuality?.score, max: 20 },
+                  { label: 'Website', score: liveWebsiteScore ?? scores.websiteQuality?.score, max: 20 },
                   { label: 'Search Visibility', score: scores.searchVisibility?.score, max: 20 },
                   { label: 'Competitors', score: scores.competitorPositioning?.score, max: 15 },
                   { label: 'Ads', score: scores.adOpportunity?.score, max: 10 },
