@@ -1418,10 +1418,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {/* SCORE MODAL */}
       {scoreModalOpen && (
         <>
-          <div onClick={() => setScoreModalOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200 }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 201, width: 'min(420px, calc(100vw - 32px))', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
-            {/* Header */}
-            <div style={{ background: DARK, padding: '24px 24px 20px', textAlign: 'center', position: 'relative' }}>
+          <div onClick={() => setScoreModalOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 201, width: 'min(420px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 80px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
+            {/* Header — always visible, never scrolls away */}
+            <div style={{ background: DARK, padding: '24px 24px 20px', textAlign: 'center', position: 'relative', flexShrink: 0 }}>
               <button onClick={() => setScoreModalOpen(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
               <div style={{ fontSize: 64, fontWeight: 800, color: gradeColor(scores.grade || 'D'), lineHeight: 1 }}>{liveTotal}</div>
               <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>out of 100</div>
@@ -1429,8 +1429,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 Grade {scores.grade || 'D'}
               </div>
             </div>
-            {/* Body */}
-            <div style={{ padding: 24 }}>
+            {/* Body — scrolls if content taller than viewport */}
+            <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 8 }}>What this score means</div>
               <p style={{ fontSize: 13, color: GREY, lineHeight: 1.6, margin: '0 0 20px' }}>
                 {liveTotal >= 80
@@ -1479,12 +1479,12 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         return (
           <>
             <div onClick={() => setMetricModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200 }} />
-            <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 201, width: 'min(400px, calc(100vw - 32px))', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
-              <div style={{ background: DARK, padding: '20px 24px', position: 'relative' }}>
+            <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 201, width: 'min(400px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 80px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ background: DARK, padding: '20px 24px', position: 'relative', flexShrink: 0 }}>
                 <button onClick={() => setMetricModal(null)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                 <div style={{ fontSize: 17, fontWeight: 700, color: WHITE }}>{exp.title}</div>
               </div>
-              <div style={{ padding: 24 }}>
+              <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it measures</div>
                 <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 20px' }}>{exp.what}</p>
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Why it matters</div>
