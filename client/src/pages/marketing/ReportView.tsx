@@ -664,8 +664,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
       )}
 
-      {/* SECTION 3 — ACTION PLAN */}
-      {activeTab === 'maps' && plan.length > 0 && (
+      {/* SECTION 3 — ACTION PLAN (Tab 3 only — sales content lives here) */}
+      {activeTab === 'plan' && plan.length > 0 && (
         <div style={{ marginBottom: 10 }}>
           <div style={{ background: DARK, borderRadius: '16px 16px 0 0', padding: '18px 24px', fontSize: 17, fontWeight: 700, color: WHITE }}>
             What's Holding You Back
