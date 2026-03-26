@@ -256,7 +256,7 @@ router.post("/place-details", async (req: Request, res: Response) => {
   }
 });
 
-/* ─── PageSpeed helper with 30s timeout ─── */
+/* ─── PageSpeed helper with 20s timeout ─── */
 async function fetchPageSpeed(siteUrl: string): Promise<{ mobile: any; desktop: any } | null> {
   const key = process.env.PAGESPEED_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
   if (!key) return null;
@@ -268,7 +268,7 @@ async function fetchPageSpeed(siteUrl: string): Promise<{ mobile: any; desktop: 
     const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${params}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+    const timeout = setTimeout(() => controller.abort(), 20000);
     try {
       const resp = await fetch(endpoint, { signal: controller.signal });
       clearTimeout(timeout);
@@ -293,7 +293,7 @@ async function fetchPageSpeed(siteUrl: string): Promise<{ mobile: any; desktop: 
     } catch (err: any) {
       clearTimeout(timeout);
       if (err.name === "AbortError") {
-        console.log(`[pagespeed] ${strategy} timed out after 30s`);
+        console.log(`[pagespeed] ${strategy} timed out after 20s`);
       } else {
         console.log(`[pagespeed] ${strategy} error:`, err.message);
       }
@@ -604,12 +604,14 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
     });
     data = await r.json();
   } catch (e: any) {
-    console.error("[E4 DataForSEO] Fetch error:", e?.message);
+    console.error("[E4 DataForSEO] Fetch error:", e?.message, e);
     return null;
   } finally {
     e4Clear();
   }
-  console.log('[dataforseo] raw response sample:', JSON.stringify(data?.tasks?.[0]?.result?.[0], null, 2)?.slice(0, 500));
+  console.log('[dataforseo] status:', data?.tasks?.[0]?.status_code);
+  console.log('[dataforseo] results count:', data?.tasks?.[0]?.result?.length);
+  console.log('[dataforseo] first result:', JSON.stringify(data?.tasks?.[0]?.result?.[0])?.slice(0, 300));
   const items = data?.tasks?.[0]?.result || [];
   const volumeMap: Record<string, { searchVolume: number; cpc: number; competition: string }> = {};
   for (const item of items) {
@@ -1041,8 +1043,8 @@ router.post("/generate", async (req: Request, res: Response) => {
     }));
     const detectedIssues: string[] = [];
     if (!auditData.business?.website) detectedIssues.push("no-website");
-    if (auditData.speedData?.mobile?.score !== null && auditData.speedData?.mobile?.score !== undefined && auditData.speedData.mobile.score < 50) detectedIssues.push("slow-website");
-    if (auditData.speedData?.mobile?.score === null || auditData.speedData?.mobile?.score === undefined) detectedIssues.push("slow-website");
+    const mobileSpeedScore = auditData.speedData?.mobile?.score;
+    if (mobileSpeedScore == null || mobileSpeedScore < 50) detectedIssues.push("slow-website");
     if (!auditData.business?.description) detectedIssues.push("no-gbp-description");
     if ((auditData.business?.reviewsCount || 0) < 100) detectedIssues.push("low-reviews");
     if ((auditData.business?.rating || 5) < 4.2) detectedIssues.push("bad-rating");
@@ -1051,8 +1053,9 @@ router.post("/generate", async (req: Request, res: Response) => {
     if ((auditData.scores?.demandCoverage?.score || 0) < 8) detectedIssues.push("no-after-hours");
     if ((auditData.scores?.websiteQuality?.score || 0) < 10) detectedIssues.push("slow-website");
     if ((auditData.scores?.adOpportunity?.score || 0) < 5) detectedIssues.push("no-ads");
-    const recommendedServices = getServicesForIssues([...new Set(detectedIssues)]);
-    auditData.detectedIssues = [...new Set(detectedIssues)];
+    const dedupedIssues = [...new Set(detectedIssues)];
+    const recommendedServices = getServicesForIssues(dedupedIssues);
+    auditData.detectedIssues = dedupedIssues;
     auditData.recommendedServices = recommendedServices;
     console.log('[audit] FINAL detectedIssues:', auditData.detectedIssues);
     console.log('[audit] scores used:', JSON.stringify(auditData.scores));
