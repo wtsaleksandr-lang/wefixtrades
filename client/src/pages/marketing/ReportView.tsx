@@ -373,7 +373,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
   const scoreRows = [
     { icon: <MapPin size={18} color="#00D4C8" />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
-    { icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: scores.websiteQuality?.score || 0, max: 20, note: speedLoading ? 'Measuring speed...' : speed.mobile?.score == null ? 'Speed test unavailable' : 'How fast and professional your website is' },
+    { icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: scores.websiteQuality?.score || 0, max: 20, note: speedLoading ? 'Measuring speed in background...' : speed.mobile?.score == null ? 'Speed test unavailable' : 'How fast and professional your website is' },
     { icon: <Search size={18} color="#00D4C8" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
     { icon: <Trophy size={18} color="#00D4C8" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
     { icon: <Megaphone size={18} color="#00D4C8" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'The paid search market in your area' },
@@ -693,13 +693,13 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             <div style={{ fontSize: 13, fontWeight: 600, color: DARK, marginBottom: 4 }}>Measuring website speed...</div>
             <div style={{ fontSize: 12, color: GREY }}>This takes 30–45 seconds. Continue reading your report.</div>
           </div>
-        ) : speed.mobile?.score != null ? (
+        ) : speed.mobile?.score != null || speed.desktop?.score != null ? (
           <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
             {[{ label: '📱 Mobile', data: speed.mobile }, { label: '🖥 Desktop', data: speed.desktop }].map(({ label, data }) => (
               <div key={label} style={{ ...card({ flex: 1, minWidth: 200, marginBottom: 0 }) }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: DARK, marginBottom: 8 }}>{label}</div>
-                <div style={{ fontSize: 40, fontWeight: 800, color: scoreColor(data?.score || 0, 100), lineHeight: 1 }}>
-                  {data?.score ?? '—'}<span style={{ fontSize: 16, color: GREY, fontWeight: 400 }}>/100</span>
+                <div style={{ fontSize: 40, fontWeight: 800, color: data?.score != null ? scoreColor(data.score, 100) : GREY, lineHeight: 1 }}>
+                  {data?.score != null ? data.score : speedLoading ? '...' : '—'}<span style={{ fontSize: 16, color: GREY, fontWeight: 400 }}>/100</span>
                 </div>
                 {[
                   { key: 'fcp', label: 'FCP', tip: 'First Contentful Paint', val: data?.fcp, unit: 's', good: 2.5, ok: 4 },
@@ -718,7 +718,9 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                         <span title={m.tip} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%', background: GREY_BG, color: GREY, fontSize: 9, cursor: 'help', marginLeft: 4 }}>?</span>
                         <div style={{ fontSize: 12, color: GREY }}>{m.val != null ? `${m.val}${m.unit}` : '—'}</div>
                       </div>
-                      <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: statusC + '20', color: statusC }}>{statusT}</span>
+                      {m.val != null && (
+                        <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: statusC + '20', color: statusC }}>{statusT}</span>
+                      )}
                     </div>
                   );
                 })}

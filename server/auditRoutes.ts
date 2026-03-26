@@ -256,24 +256,26 @@ router.post("/place-details", async (req: Request, res: Response) => {
   }
 });
 
-/* ─── PageSpeed helper with 20s timeout ─── */
-async function fetchPageSpeed(siteUrl: string): Promise<{ mobile: any; desktop: any } | null> {
+/* ─── PageSpeed helper with 45s timeout ─── */
+// When strategy is provided, returns just that strategy's result.
+// When omitted, returns { mobile, desktop }.
+async function fetchPageSpeed(siteUrl: string, strategy?: "mobile" | "desktop"): Promise<any> {
   const key = process.env.PAGESPEED_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
-  if (!key) return null;
+  if (!key) return strategy ? null : null;
   const url = normalizeUrl(siteUrl);
-  if (!url) return null;
+  if (!url) return strategy ? null : null;
 
-  const run = async (strategy: "mobile" | "desktop") => {
-    const params = new URLSearchParams({ url, strategy, key, category: 'performance' });
+  const run = async (s: "mobile" | "desktop") => {
+    const params = new URLSearchParams({ url, strategy: s, key, category: 'performance' });
     const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${params}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    const timeout = setTimeout(() => controller.abort(), 45000);
     try {
       const resp = await fetch(endpoint, { signal: controller.signal });
       clearTimeout(timeout);
       if (!resp.ok) {
-        console.log(`[pagespeed] ${strategy} HTTP ${resp.status}`);
+        console.log(`[pagespeed] ${s} HTTP ${resp.status}`);
         return null;
       }
       const data = await resp.json();
@@ -293,13 +295,15 @@ async function fetchPageSpeed(siteUrl: string): Promise<{ mobile: any; desktop: 
     } catch (err: any) {
       clearTimeout(timeout);
       if (err.name === "AbortError") {
-        console.log(`[pagespeed] ${strategy} timed out after 20s`);
+        console.log(`[pagespeed] ${s} timed out after 45s`);
       } else {
-        console.log(`[pagespeed] ${strategy} error:`, err.message);
+        console.log(`[pagespeed] ${s} error:`, err.message);
       }
       return null;
     }
   };
+
+  if (strategy) return run(strategy);
 
   const [mobileResult, desktopResult] = await Promise.allSettled([run("mobile"), run("desktop")]);
   const mobile = mobileResult.status === 'fulfilled' ? mobileResult.value : null;
@@ -329,10 +333,27 @@ router.post("/speed", async (req: Request, res: Response) => {
     const cleanUrl = (url: string) => {
       try { const u = new URL(url); return u.origin + u.pathname; } catch { return url; }
     };
-    const speedData = await fetchPageSpeed(cleanUrl(String(website)));
-    console.log('[speed] mobile:', speedData?.mobile?.score ?? 'null');
-    console.log('[speed] desktop:', speedData?.desktop?.score ?? 'null');
-    return res.json({ ok: true, speedData: speedData || { mobile: null, desktop: null } });
+    const pageSpeedUrl = cleanUrl(String(website));
+
+    const [mobileResult, desktopResult] = await Promise.allSettled([
+      fetchPageSpeed(pageSpeedUrl, 'mobile'),
+      fetchPageSpeed(pageSpeedUrl, 'desktop'),
+    ]);
+
+    let mobileScore = mobileResult.status === 'fulfilled' ? mobileResult.value : null;
+    if (!mobileScore) {
+      console.log('[speed] mobile null, retrying once...');
+      await new Promise(r => setTimeout(r, 3000));
+      mobileScore = await fetchPageSpeed(pageSpeedUrl, 'mobile');
+    }
+
+    const speedData = {
+      mobile: mobileScore,
+      desktop: desktopResult.status === 'fulfilled' ? desktopResult.value : null,
+    };
+    console.log('[speed] mobile:', speedData.mobile?.score ?? 'null');
+    console.log('[speed] desktop:', speedData.desktop?.score ?? 'null');
+    return res.json({ ok: true, speedData });
   } catch (e: any) {
     console.error('[speed] error:', e);
     return safeJsonError(res, 500, "Speed test failed");
