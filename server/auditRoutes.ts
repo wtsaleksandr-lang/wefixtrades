@@ -379,6 +379,22 @@ router.post("/pagespeed", async (req: Request, res: Response) => {
 });
 
 /* ─── Background speed test endpoint (called after report is shown) ─── */
+router.get("/speed-test", async (req: Request, res: Response) => {
+  res.setTimeout(120000);
+  console.log('[speed-test] starting...');
+  const start = Date.now();
+  try {
+    const result = await fetchPageSpeed('https://example.com', 'mobile');
+    const elapsed = Date.now() - start;
+    console.log('[speed-test] done in', elapsed + 'ms:', result?.score ?? 'null');
+    return res.json({ ok: true, elapsed, score: result?.score ?? null });
+  } catch (err: any) {
+    const elapsed = Date.now() - start;
+    console.log('[speed-test] error in', elapsed + 'ms:', err.message);
+    return res.json({ ok: false, elapsed, error: err.message });
+  }
+});
+
 router.post("/speed", async (req: Request, res: Response) => {
   const { website, reportId } = req.body;
   if (!website || !reportId) {
