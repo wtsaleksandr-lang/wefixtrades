@@ -256,33 +256,31 @@ router.post("/place-details", async (req: Request, res: Response) => {
   }
 });
 
-/* ─── PageSpeed helper with 15s timeout ─── */
+/* ─── PageSpeed helper with 30s timeout ─── */
 async function fetchPageSpeed(siteUrl: string): Promise<{ mobile: any; desktop: any } | null> {
-  const key = process.env.PAGESPEED_API_KEY;
+  const key = process.env.PAGESPEED_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
   if (!key) return null;
   const url = normalizeUrl(siteUrl);
   if (!url) return null;
 
   const run = async (strategy: "mobile" | "desktop") => {
-    const endpoint =
-      `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?` +
-      `url=${encodeURIComponent(url)}` +
-      `&strategy=${strategy}` +
-      `&key=${encodeURIComponent(key)}`;
+    const params = new URLSearchParams({ url, strategy, key, category: 'performance' });
+    const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${params}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000);
+    const timeout = setTimeout(() => controller.abort(), 30000);
     try {
       const resp = await fetch(endpoint, { signal: controller.signal });
       clearTimeout(timeout);
-      const text = await resp.text();
-      let data: any = null;
-      try { data = JSON.parse(text); } catch {}
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-
+      if (!resp.ok) {
+        console.log(`[pagespeed] ${strategy} HTTP ${resp.status}`);
+        return null;
+      }
+      const data = await resp.json();
       const lhr = data?.lighthouseResult;
       const score01 = lhr?.categories?.performance?.score;
-      const score = typeof score01 === "number" ? Math.round(score01 * 100) : null;
+      if (score01 == null) { console.log('[pagespeed] no performance data'); return null; }
+      const score = Math.round(score01 * 100);
       const audits = lhr?.audits || {};
       const numVal = (k: string) => { const v = audits[k]?.numericValue; return typeof v === "number" ? v : null; };
       return {
@@ -295,15 +293,19 @@ async function fetchPageSpeed(siteUrl: string): Promise<{ mobile: any; desktop: 
     } catch (err: any) {
       clearTimeout(timeout);
       if (err.name === "AbortError") {
-        console.log(`[pagespeed] ${strategy} timed out after 25s, using null scores`);
+        console.log(`[pagespeed] ${strategy} timed out after 30s`);
       } else {
-        console.error(`[pagespeed] ${strategy} error:`, err.message);
+        console.log(`[pagespeed] ${strategy} error:`, err.message);
       }
-      return { score: null, fcp: null, lcp: null, tbt: null, cls: null };
+      return null;
     }
   };
 
-  const [mobile, desktop] = await Promise.all([run("mobile"), run("desktop")]);
+  const [mobileResult, desktopResult] = await Promise.allSettled([run("mobile"), run("desktop")]);
+  const mobile = mobileResult.status === 'fulfilled' ? mobileResult.value : null;
+  const desktop = desktopResult.status === 'fulfilled' ? desktopResult.value : null;
+  console.log('[pagespeed] mobile score:', mobile?.score ?? 'null');
+  console.log('[pagespeed] desktop score:', desktop?.score ?? 'null');
   return { mobile, desktop };
 }
 
@@ -344,8 +346,8 @@ function buildSeedKeywords(trade: string, city: string): string[] {
 /* ─── Outscraper async polling ─── */
 async function pollOutscraper(
   resultsUrl: string,
-  maxWaitMs = 20000,
-  intervalMs = 2000
+  maxWaitMs = 30000,
+  intervalMs = 1500
 ): Promise<any[]> {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
@@ -374,8 +376,10 @@ async function fetchOutscraperCompetitors(trade: string, city: string, businessN
     console.warn("[E1 Outscraper competitors] OUTSCRAPER_API_KEY not set, skipping");
     return null;
   }
+  const competitorQuery = `${trade} near ${city}`;
+  console.log('[outscraper] query:', competitorQuery);
   const params = new URLSearchParams({
-    query: `${trade} near ${city}`,
+    query: competitorQuery,
     limit: "8",
     language: "en",
     region: "CA",
