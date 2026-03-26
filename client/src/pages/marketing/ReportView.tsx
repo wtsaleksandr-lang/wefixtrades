@@ -1453,9 +1453,9 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               </div>
             </div>
             {/* Body — scrolls if content taller than viewport */}
-            <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 8 }}>What this score means</div>
-              <p style={{ fontSize: 13, color: GREY, lineHeight: 1.6, margin: '0 0 20px' }}>
+            <div style={{ padding: '14px 18px 18px', overflowY: 'auto', flex: 1 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 4 }}>What this score means</div>
+              <p style={{ fontSize: 13, color: GREY, lineHeight: 1.6, margin: '0 0 12px' }}>
                 {liveTotal >= 80
                   ? `Your business has strong online visibility. You're ahead of most competitors in your area. Small improvements could push you to the top.`
                   : liveTotal >= 60
@@ -1466,8 +1466,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 }
               </p>
               {/* Mini breakdown */}
-              <div style={{ background: GREY_BG, borderRadius: 12, padding: 16, marginBottom: 20 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: DARK, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score breakdown</div>
+              <div style={{ background: GREY_BG, borderRadius: 12, padding: '12px 14px', marginBottom: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: DARK, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score breakdown</div>
                 {[
                   { label: 'Google Maps', score: scores.googleMaps?.score, max: 25 },
                   { label: 'Website', score: liveWebsiteScore ?? scores.websiteQuality?.score, max: 20 },
@@ -1476,7 +1476,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   { label: 'Ads', score: scores.adOpportunity?.score, max: 10 },
                   { label: 'Demand', score: scores.demandCoverage?.score, max: 10 },
                 ].map((item, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <span style={{ fontSize: 12, color: GREY, width: 110, flexShrink: 0 }}>{item.label}</span>
                     <div style={{ flex: 1, height: 6, borderRadius: 3, background: '#E5E7EB', overflow: 'hidden' }}>
                       <div style={{ width: `${((item.score || 0) / item.max) * 100}%`, height: '100%', background: scoreColor(item.score || 0, item.max), borderRadius: 3 }}/>
@@ -1485,7 +1485,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   </div>
                 ))}
               </div>
-              <div style={{ background: '#FFF7ED', borderRadius: 10, padding: '14px 16px', marginBottom: 16, borderLeft: '3px solid #F59E0B' }}>
+              <div style={{ background: '#FFF7ED', borderRadius: 10, padding: '12px 14px', marginBottom: 10, borderLeft: '3px solid #F59E0B' }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#92400E', marginBottom: 4 }}>Every point below 70 costs you jobs</div>
                 <div style={{ fontSize: 12, color: '#B45309', lineHeight: 1.5 }}>Businesses that improve their score to 70+ typically see 30-50% more calls within 60 days. See the Action Plan tab to see exactly what to fix.</div>
               </div>
