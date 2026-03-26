@@ -823,27 +823,36 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           </div>
 
           {/* E — POWERED BY STRIP */}
-          <div style={{ textAlign: 'center', marginTop: 16 }}>
-            <div style={{ fontSize: 11, color: GREY, marginBottom: 10 }}>Powered by</div>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
-              {[
-                { name: 'Google', url: 'https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png', height: 16 },
-                { name: 'OpenAI', url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/OpenAI_Logo.svg/200px-OpenAI_Logo.svg.png', height: 16 },
-                { name: 'Stripe', url: 'https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg', height: 18 },
-                { name: 'Zapier', url: 'https://cdn.worldvectorlogo.com/logos/zapier-1.svg', height: 16 },
-                { name: 'Make', url: 'https://cdn.worldvectorlogo.com/logos/make-seeklogo.svg', height: 16 },
-              ].map(brand => (
-                <img
-                  key={brand.name}
-                  src={brand.url}
-                  alt={brand.name}
-                  height={brand.height}
-                  style={{ opacity: 0.45, filter: 'grayscale(100%)', objectFit: 'contain' }}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              ))}
-            </div>
-          </div>
+          {(() => {
+            const BRAND_ICONS = [
+              { name: 'Google', src: 'https://www.google.com/favicon.ico', size: 20 },
+              { name: 'Claude AI', src: 'https://claude.ai/favicon.ico', size: 20 },
+              { name: 'OpenAI', src: 'https://openai.com/favicon.ico', size: 20 },
+              { name: 'Stripe', src: 'https://stripe.com/favicon.ico', size: 20 },
+              { name: 'Zapier', src: 'https://zapier.com/favicon.ico', size: 20 },
+              { name: 'Make.com', src: 'https://www.make.com/favicon.ico', size: 20 },
+            ];
+            return (
+              <div style={{ textAlign: 'center', marginTop: 16, marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: GREY, marginBottom: 12, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Powered by</div>
+                <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', gap: 20, justifyContent: 'center', alignItems: 'center' }}>
+                  {BRAND_ICONS.map(brand => (
+                    <div key={brand.name} title={brand.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                      <img
+                        src={brand.src}
+                        alt={brand.name}
+                        width={brand.size}
+                        height={brand.size}
+                        style={{ width: brand.size, height: brand.size, objectFit: 'contain', opacity: 0.55, filter: 'grayscale(30%)', display: 'block', flexShrink: 0 }}
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                      <span style={{ fontSize: 9, color: GREY, opacity: 0.7, whiteSpace: 'nowrap' }}>{brand.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* C — SELECTED SERVICES SUMMARY */}
           {selected.length > 0 && (
