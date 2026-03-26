@@ -307,7 +307,7 @@ export default function ReportView({ report, business, reportId }: {
   });
 
   return (
-    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: 780, margin: '0 auto', padding: isTiny ? '0 0 48px' : '0 16px 48px', boxSizing: 'border-box' }}>
+    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: window.innerWidth >= 1024 ? 960 : 780, margin: '0 auto', padding: isTiny ? '0 0 48px' : '0 16px 48px', boxSizing: 'border-box', position: 'relative' }}>
 
       {/* TAB BAR */}
       <div style={{ display:'flex', background:WHITE, borderBottom:'2px solid #F3F4F6', padding:'0 16px', position:'sticky', top:0, zIndex:20, gap:0, width:'100%' }}>

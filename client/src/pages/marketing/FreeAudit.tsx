@@ -216,7 +216,7 @@ export default function FreeAudit() {
         .audit-container {
           position: relative;
           z-index: 1;
-          max-width: 680px;
+          max-width: 960px;
           margin: 0 auto;
           padding: 110px 16px 80px;
         }
@@ -319,6 +319,10 @@ export default function FreeAudit() {
                 boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
                 padding: 16,
                 position: "relative",
+                maxWidth: 960,
+                margin: "0 auto",
+                width: "100%",
+                boxSizing: "border-box",
               }}
             >
               <div style={{ position: "relative" }}>
@@ -550,15 +554,25 @@ export default function FreeAudit() {
             </div>
           )}
 
-          {reportReady && report && (
-            <div ref={reportRef}>
-              <ReportView
-                report={report}
-                business={report.business}
-                reportId={reportId}
-              />
-            </div>
-          )}
+          {reportReady && report && (() => {
+            const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+            return (
+              <div ref={reportRef} style={{
+                minHeight: '100vh',
+                background: '#F8FAFB',
+                backgroundImage: isMobile ? 'none' : 'radial-gradient(circle, rgba(0,0,0,0.07) 1px, transparent 1px)',
+                backgroundSize: '24px 24px',
+                padding: isMobile ? '0 0 48px' : '32px 0 64px',
+                margin: '0 -16px',
+              }}>
+                <ReportView
+                  report={report}
+                  business={report.business}
+                  reportId={reportId}
+                />
+              </div>
+            );
+          })()}
         </div>
       </div>
     </MarketingLayout>
