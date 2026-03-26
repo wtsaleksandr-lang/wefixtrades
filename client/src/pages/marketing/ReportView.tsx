@@ -360,7 +360,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     }
   };
 
-  const ai = report?.narrative || {};
+  const ai = report?.narrative || report?.aiNarrative || {};
   const scores = report?.scores || {};
   const keywords = report?.keywords || [];
   const loss = report?.estimatedRevenueLoss || {};
