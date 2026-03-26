@@ -1214,7 +1214,24 @@ If competitor data is available, reference the market leader by name: "[marketLe
 GUARANTEE FRAMING:
 In the estimatedImpact field, include: "Businesses that fix this typically see measurable results within 30 days. This service pays for itself with [X] extra jobs per month."
 
-Tone: direct, warm, trusted advisor. Not alarming. Not salesy. Short sentences. Write for busy tradespeople.`;
+Tone: direct, warm, trusted advisor. Not alarming. Not salesy. Short sentences. Write for busy tradespeople.
+
+STRICT RULES — NEVER VIOLATE:
+
+1. NEVER suggest creating a page or service that the business likely already offers based on their trade and hours data.
+   Example: Do NOT suggest creating a "24/7 emergency service page" if the business hours show they are open 24 hours or until midnight.
+
+2. NEVER suggest adding after-hours coverage if isOpenEvenings is true or if hours show operation past 9pm.
+
+3. Content gap pages must target keywords the business is NOT currently ranking for.
+   Only suggest content gaps for keywords where organicRank is null.
+   Keywords where organicRank exists (even rank 7–10) should NOT be suggested as content gaps.
+
+4. Revenue loss must only reference demandGaps data. If demandGaps array is empty or missedLeads is 0, do NOT invent revenue loss numbers. Set estimatedMonthlyRevenueLoss to { low: 0, high: 0, calculation: "No demand gaps detected" }.
+
+5. All recommendations must be based ONLY on the data provided. Do NOT make assumptions about what the business does or doesn't have beyond what the data shows.
+
+6. NEVER suggest services for issues that don't exist in detectedIssues.`;
 
         const userPrompt = `Analyse this business audit data and return a JSON object with exactly this structure. Valid JSON only — no other text whatsoever.
 
@@ -1272,6 +1289,18 @@ Tone: direct, warm, trusted advisor. Not alarming. Not salesy. Short sentences. 
 Rules for actionPlan: Exactly 3 items, HIGH to LOW. One must be free. Base each on a real gap.
 Rules for contentGaps: Exactly 3 items, ordered by search volume desc. Format pageTitle as "{Service} {City} — {Benefit}".
 Rules for executiveSummary: 2-3 sentences. S1: score, grade, one genuine strength with number. S2: single biggest gap with specific number. S3: what fixing it is worth in dollars.
+
+Business hours: ${JSON.stringify(auditData.business?.hours || [])}
+isOpenEvenings (open past 9pm): ${auditData.isOpenEvenings ?? false}
+isOpenWeekends: ${auditData.isOpenWeekends ?? false}
+
+Keywords currently ranking (have organicRank):
+${keywords.filter((k: any) => k.organicRank).map((k: any) => `${k.keyword} (#${k.organicRank})`).join(', ') || 'None'}
+
+Keywords NOT ranking (no organicRank):
+${keywords.filter((k: any) => !k.organicRank).map((k: any) => k.keyword).join(', ') || 'None'}
+
+Content gaps should ONLY target: ${keywords.filter((k: any) => !k.organicRank).map((k: any) => k.keyword).join(', ') || 'None'}
 
 Keywords tracked:
 ${keywords.map((k: any) => `${k.keyword}: rank ${k.organicRank || 'not ranking'}, ${k.monthlySearches || 0} searches/mo, $${k.cpc || 0} CPC`).join('\n') || 'No keyword data available'}
