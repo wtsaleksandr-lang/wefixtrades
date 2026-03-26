@@ -188,20 +188,56 @@ export default function FreeAudit() {
       setFromCache(rep.fromCache === true);
       setBusy(null);
 
-      // Trigger background speed test after report is displayed
+      // Trigger background speed test then poll for result
       const siteUrl = rep.report_json?.business?.website;
-      if (siteUrl) {
+      const rId = rep.reportId;
+      if (siteUrl && rId) {
         setSpeedData(null);
         setSpeedLoading(true);
-        fetch('/api/audit/speed', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ website: siteUrl }),
-        })
-          .then(r => r.json())
-          .then(d => { if (d.speedData) setSpeedData(d.speedData); })
-          .catch(err => console.error('[speed] fetch failed:', err))
-          .finally(() => setSpeedLoading(false));
+
+        const fetchSpeedInBackground = async (website: string, reportId: string) => {
+          try {
+            // Fire the background job (returns immediately)
+            await fetch('/api/audit/speed', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ website, reportId }),
+            });
+
+            // Poll every 5s for up to 90s
+            let attempts = 0;
+            const maxAttempts = 18;
+            const poll = async () => {
+              if (attempts >= maxAttempts) {
+                console.log('[speed] polling timed out');
+                setSpeedLoading(false);
+                return;
+              }
+              attempts++;
+              try {
+                const r = await fetch(`/api/audit/speed/${reportId}`);
+                const data = await r.json();
+                if (data.ready && data.speedData) {
+                  console.log('[speed] data ready:', data.speedData);
+                  setSpeedData(data.speedData);
+                  setSpeedLoading(false);
+                  return;
+                }
+                setTimeout(poll, 5000);
+              } catch (err) {
+                console.error('[speed] poll error:', err);
+                setTimeout(poll, 5000);
+              }
+            };
+            // Wait 10s before first poll to give job time to start
+            setTimeout(poll, 10000);
+          } catch (err) {
+            console.error('[speed] trigger error:', err);
+            setSpeedLoading(false);
+          }
+        };
+
+        fetchSpeedInBackground(siteUrl, rId);
       }
 
       setTimeout(() => {

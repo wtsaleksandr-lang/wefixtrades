@@ -380,37 +380,65 @@ router.post("/pagespeed", async (req: Request, res: Response) => {
 
 /* ─── Background speed test endpoint (called after report is shown) ─── */
 router.post("/speed", async (req: Request, res: Response) => {
-  try {
-    const { website } = req.body;
-    if (!website) return safeJsonError(res, 400, "No website provided");
-    console.log('[speed] Starting for:', website);
-    const cleanUrl = (url: string) => {
-      try { const u = new URL(url); return u.origin + u.pathname; } catch { return url; }
-    };
-    const pageSpeedUrl = cleanUrl(String(website));
+  const { website, reportId } = req.body;
+  if (!website || !reportId) {
+    return safeJsonError(res, 400, "Missing website or reportId");
+  }
 
-    const [mobileResult, desktopResult] = await Promise.allSettled([
-      fetchPageSpeed(pageSpeedUrl, 'mobile'),
-      fetchPageSpeed(pageSpeedUrl, 'desktop'),
-    ]);
+  // Return immediately — don't wait for PageSpeed
+  res.json({ ok: true, status: 'processing', reportId });
 
-    let mobileScore = mobileResult.status === 'fulfilled' ? mobileResult.value : null;
-    if (!mobileScore) {
-      console.log('[speed] mobile null, retrying once...');
-      await new Promise(r => setTimeout(r, 3000));
-      mobileScore = await fetchPageSpeed(pageSpeedUrl, 'mobile');
+  // Continue processing in background after response is sent
+  (async () => {
+    try {
+      const cleanUrl = (url: string) => {
+        try { const u = new URL(url); return u.origin + u.pathname; } catch { return url; }
+      };
+      const pageSpeedUrl = cleanUrl(String(website));
+      console.log('[speed-bg] starting for:', pageSpeedUrl);
+
+      const [mob, desk] = await Promise.allSettled([
+        fetchPageSpeed(pageSpeedUrl, 'mobile'),
+        fetchPageSpeed(pageSpeedUrl, 'desktop'),
+      ]);
+
+      let mobileScore = mob.status === 'fulfilled' ? mob.value : null;
+      const desktopScore = desk.status === 'fulfilled' ? desk.value : null;
+
+      if (!mobileScore) {
+        console.log('[speed-bg] mobile null, retrying...');
+        await new Promise(r => setTimeout(r, 3000));
+        mobileScore = await fetchPageSpeed(pageSpeedUrl, 'mobile');
+      }
+
+      const speedData = { mobile: mobileScore, desktop: desktopScore };
+      console.log('[speed-bg] done — mobile:', mobileScore?.score ?? 'null', 'desktop:', desktopScore?.score ?? 'null');
+
+      // Merge speedData into audit_data jsonb using Postgres || operator
+      await db.update(auditReports)
+        .set({ audit_data: sql`${auditReports.audit_data} || ${JSON.stringify({ speedData })}::jsonb` })
+        .where(eq(auditReports.id, reportId));
+
+      console.log('[speed-bg] saved to DB:', reportId);
+    } catch (err) {
+      console.error('[speed-bg] error:', err);
     }
+  })();
+});
 
-    const speedData = {
-      mobile: mobileScore,
-      desktop: desktopResult.status === 'fulfilled' ? desktopResult.value : null,
-    };
-    console.log('[speed] mobile:', speedData.mobile?.score ?? 'null');
-    console.log('[speed] desktop:', speedData.desktop?.score ?? 'null');
-    return res.json({ ok: true, speedData });
-  } catch (e: any) {
-    console.error('[speed] error:', e);
-    return safeJsonError(res, 500, "Speed test failed");
+router.get("/speed/:reportId", async (req: Request, res: Response) => {
+  try {
+    const { reportId } = req.params;
+    const rows = await db.select().from(auditReports).where(eq(auditReports.id, reportId)).limit(1);
+    if (!rows.length) return safeJsonError(res, 404, "Report not found");
+
+    const speedData = (rows[0].audit_data as any)?.speedData || null;
+    const hasData = speedData?.mobile?.score != null || speedData?.desktop?.score != null;
+
+    return res.json({ ok: true, ready: hasData, speedData: hasData ? speedData : null });
+  } catch (err) {
+    console.error('[speed-poll] error:', err);
+    return safeJsonError(res, 500, "Failed to check speed");
   }
 });
 
