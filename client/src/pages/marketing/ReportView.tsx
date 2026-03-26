@@ -306,6 +306,36 @@ export default function ReportView({ report, business, reportId }: {
     padding: 24, marginBottom: 10, ...extra
   });
 
+  const SHARE_BUTTONS = [
+    {
+      id: 'email', label: 'Email', bg: '#6B7280',
+      icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2z" stroke="white" strokeWidth="1.5" fill="none"/><path d="M2 6l10 7 10-7" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>),
+      onClick: () => window.open(`mailto:?subject=My WeFixTrades Local Business Audit&body=View my free audit report: ${shareUrl}`)
+    },
+    {
+      id: 'whatsapp', label: 'WhatsApp', bg: '#25D366',
+      icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.556 4.112 1.523 5.836L.057 24l6.305-1.654A11.93 11.93 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.006-1.374l-.36-.214-3.732.978 1.001-3.65-.234-.374A9.818 9.818 0 012.182 12C2.182 6.58 6.58 2.182 12 2.182c5.42 0 9.818 4.398 9.818 9.818 0 5.42-4.398 9.818-9.818 9.818z"/></svg>),
+      onClick: () => window.open(`https://wa.me/?text=${encodeURIComponent(`Check out my business audit: ${shareUrl}`)}`)
+    },
+    {
+      id: 'facebook', label: 'Facebook', bg: '#1877F2',
+      icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.267h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>),
+      onClick: () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`)
+    },
+    {
+      id: 'twitter', label: 'X', bg: '#000000',
+      icon: (<svg width="18" height="18" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.91-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>),
+      onClick: () => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Just got my free local business audit — scored ${scores.total}/100. Get yours:`)}&url=${encodeURIComponent(shareUrl)}`)
+    },
+    {
+      id: 'copy', label: copiedLink ? 'Copied!' : 'Copy', bg: copiedLink ? '#22C55E' : '#374151',
+      icon: copiedLink
+        ? (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12l5 5L20 7"/></svg>)
+        : (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>),
+      onClick: () => { navigator.clipboard.writeText(shareUrl).then(() => { setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000); }); }
+    },
+  ];
+
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: window.innerWidth >= 1024 ? 960 : 780, margin: '0 auto', padding: isTiny ? '0 0 48px' : '0 16px 48px', boxSizing: 'border-box', position: 'relative' }}>
 
@@ -717,25 +747,24 @@ export default function ReportView({ report, business, reportId }: {
 
       {/* SECTION 9 — SHARE */}
       <div style={{ background: DARK, borderRadius: r16, padding: '32px 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 17, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Share This Report</div>
-        <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 8, justifyContent: 'center', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', padding: '0 4px' }}>
-          {[
-            { icon: ShareIcons.email, onClick: () => { window.open(`mailto:?subject=My WeFixTrades Audit&body=View my free local business audit: ${shareUrl}`); } },
-            { icon: ShareIcons.whatsapp, onClick: () => { window.open(`https://wa.me/?text=Check out my business audit: ${shareUrl}`); } },
-            { icon: ShareIcons.facebook, onClick: () => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`); } },
-            { icon: ShareIcons.twitter, onClick: () => { window.open(`https://twitter.com/intent/tweet?text=Just got my free local business audit — scored ${scores.total}/100. Get yours free:&url=${encodeURIComponent(shareUrl)}`); } },
-            {
-              icon: copiedLink ? ShareIcons.copied : ShareIcons.copy,
-              onClick: () => { navigator.clipboard.writeText(shareUrl).then(() => { setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000); }); }
-            },
-          ].map((btn, i) => (
-            <button key={i} onClick={btn.onClick} {...hoverProps(`share-${i}`)} style={{
-              width: 44, height: 44, padding: 0, borderRadius: 10,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: 'none', background: 'transparent', cursor: 'pointer', flexShrink: 0,
-              transition: 'transform 0.15s ease, opacity 0.15s ease',
-              transform: hovered===`share-${i}` ? 'scale(1.08)' : 'scale(1)',
-            }}>
+        <div style={{ fontSize: 17, fontWeight: 700, color: WHITE }}>Share This Report</div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'nowrap', marginTop: 20 }}>
+          {SHARE_BUTTONS.map(btn => (
+            <button
+              key={btn.id}
+              onClick={btn.onClick}
+              {...hoverProps('share-' + btn.id)}
+              title={btn.label}
+              style={{
+                width: 48, height: 48, padding: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                borderRadius: 12, border: 'none', background: btn.bg,
+                cursor: 'pointer', flexShrink: 0,
+                transform: hovered === 'share-' + btn.id ? 'translateY(-2px) scale(1.05)' : 'translateY(0) scale(1)',
+                boxShadow: hovered === 'share-' + btn.id ? '0 4px 12px rgba(0,0,0,0.25)' : '0 2px 4px rgba(0,0,0,0.15)',
+                transition: 'all 0.15s ease',
+              }}
+            >
               {btn.icon}
             </button>
           ))}
