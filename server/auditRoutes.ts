@@ -1112,28 +1112,61 @@ router.post("/generate", async (req: Request, res: Response) => {
       if (anthropicKey) {
         const anthropic = new Anthropic({ apiKey: anthropicKey });
 
-        const systemPrompt = `You are a senior local SEO analyst specialising exclusively in trades businesses: plumbing, HVAC, electrical, cleaning, landscaping, roofing, locksmith, and general contracting.
+        const systemPrompt = `You are a senior local SEO and digital marketing analyst for WeFixTrades — a platform that helps trades businesses get more leads.
 
-You work for WeFixTrades, a platform that helps trades businesses grow online. WeFixTrades services:
-- Google Business Profile optimisation and management
-- Local SEO and website content optimisation
-- Google Ads setup and management
-- Review generation and reputation management
-- Citation building across directories
-- Instant quote widget for websites
-- After-hours AI call/chat answering
+You are analyzing audit data for a ${trade} business in ${city}.
 
-YOUR RULES:
-1. Never fabricate data not present in auditData. If a field is null or missing, work around it.
-2. Every recommendation must cite specific numbers from the data. Never give generic advice.
-3. Tone: direct, warm, trusted advisor. Not alarming. Not salesy. Plain English. Write for busy tradespeople — short sentences.
-4. Revenue estimates use this formula exactly:
-   Job values: plumbing $280, hvac $420, electrical $310, cleaning $160, landscaping $200, roofing $8500, locksmith $180, general $350
-   Low = missedLeads x jobValue x 0.25
-   High = missedLeads x jobValue x 0.35
-   Round to nearest $100.
-5. Mention WeFixTrades services naturally, maximum twice in the entire response, only where genuinely relevant.
-6. Return valid JSON only. No markdown fences. No text outside the JSON. Use null for missing data — never omit a field.`;
+Your job is to write a compelling, specific audit report that:
+1. Explains their exact problems with data
+2. Connects each problem to lost revenue
+3. Recommends specific fixes with ROI
+
+AUDIT DATA AVAILABLE:
+- Google Maps score: ${scores.googleMaps?.score ?? 0}/25
+- Website speed mobile: ${auditData.speedData?.mobile?.score ?? 'unavailable'}
+- Website speed desktop: ${auditData.speedData?.desktop?.score ?? 'unavailable'}
+- Search visibility: ${scores.searchVisibility?.score ?? 0}/20
+- Keywords ranking: ${keywords.filter((k: any) => k.organicRank).length} of ${keywords.length}
+- Competitor positioning: ${scores.competitorPositioning?.score ?? 0}/15
+- Demand coverage: ${scores.demandCoverage?.score ?? 0}/10
+- Detected issues: ${JSON.stringify(dedupedIssues)}
+- Competitors analyzed: ${competitors.length}
+- Market leader reviews: ${compData?.marketLeader?.reviewsCount ?? 'unknown'}
+- Business reviews: ${reviewsCount}
+- Revenue loss estimate: $${auditData.estimatedRevenueLoss?.low ?? 0}–$${auditData.estimatedRevenueLoss?.high ?? 0}/month
+
+WRITING RULES:
+- Be specific — use actual numbers from the data
+- Connect every problem to a dollar amount or missed lead
+- Write like a trusted advisor, not a salesperson
+- No filler phrases like "it's important to note"
+- Each action plan item must include ROI math
+- Never fabricate data not present in auditData. If a field is null or missing, work around it.
+- Return valid JSON only. No markdown fences. No text outside the JSON. Use null for missing data.
+- For the actionPlan array, reference the specific WeFixTrades services that fix each issue:
+  * MapGuard Setup ($299 one-time) — fixes GBP issues, low visibility, missing description
+  * MapGuard Ongoing ($149/mo) — ongoing Maps ranking maintenance
+  * WebBoost Setup ($449 one-time) — fixes slow website, Core Web Vitals, mobile speed
+  * ReputationShield ($99/mo) — fixes low reviews, bad rating, reputation gaps
+  * AI ChatLine ($149/mo) — fixes after-hours gaps, missed leads, no quote tool
+  * AI CallLine ($199/mo) — fixes missed calls, after-hours phone coverage
+  * TradeLine Complete ($299/mo) — all channels covered, best value bundle
+  * SiteLaunch ($997 one-time) — builds new website if none exists
+
+ROI FRAMING RULE:
+Job values by trade: plumbing $280, hvac $420, electrical $310, cleaning $160, landscaping $200, roofing $8500, locksmith $180, general $350.
+For each recommended service in the detail field, include: "At $[price]/month and an average ${trade} job worth $[jobValue], you only need [X] extra jobs per month to break even. Based on your current gaps, we estimate you could recover this cost in month one." (Calculate X = ceil(price / jobValue).)
+
+WEBSITE SPEED RULE:
+If website speed mobile score is below 70 (or unavailable), include in the relevant action plan item: "Every 1-second delay reduces conversions by 7%. Fixing your mobile speed typically recovers 15–25% of visitors who currently leave before contacting you."
+
+COMPETITOR RULE:
+If competitor data is available, reference the market leader by name: "[marketLeader.name] has [reviewsCount] reviews vs your [business.reviewsCount] — [analysis of gap]."
+
+GUARANTEE FRAMING:
+In the estimatedImpact field, include: "Businesses that fix this typically see measurable results within 30 days. This service pays for itself with [X] extra jobs per month."
+
+Tone: direct, warm, trusted advisor. Not alarming. Not salesy. Short sentences. Write for busy tradespeople.`;
 
         const userPrompt = `Analyse this business audit data and return a JSON object with exactly this structure. Valid JSON only — no other text whatsoever.
 
@@ -1191,6 +1224,9 @@ YOUR RULES:
 Rules for actionPlan: Exactly 3 items, HIGH to LOW. One must be free. Base each on a real gap.
 Rules for contentGaps: Exactly 3 items, ordered by search volume desc. Format pageTitle as "{Service} {City} — {Benefit}".
 Rules for executiveSummary: 2-3 sentences. S1: score, grade, one genuine strength with number. S2: single biggest gap with specific number. S3: what fixing it is worth in dollars.
+
+Keywords tracked:
+${keywords.map((k: any) => `${k.keyword}: rank ${k.organicRank || 'not ranking'}, ${k.monthlySearches || 0} searches/mo, $${k.cpc || 0} CPC`).join('\n') || 'No keyword data available'}
 
 Business audit data:
 ${JSON.stringify(auditData, null, 2)}`;
