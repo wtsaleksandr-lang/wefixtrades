@@ -266,41 +266,50 @@ async function fetchPageSpeed(siteUrl: string, strategy?: "mobile" | "desktop"):
   if (!url) return strategy ? null : null;
 
   const run = async (s: "mobile" | "desktop") => {
-    const params = new URLSearchParams({ url, strategy: s, key, category: 'performance' });
-    const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${params}`;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
-    try {
-      const resp = await fetch(endpoint, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (!resp.ok) {
-        console.log(`[pagespeed] ${s} HTTP ${resp.status}`);
+    const attempt = async () => {
+      const params = new URLSearchParams({ url, strategy: s, key, category: 'performance' });
+      const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${params}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 45000);
+      try {
+        const resp = await fetch(endpoint, { signal: controller.signal });
+        clearTimeout(timeout);
+        if (!resp.ok) {
+          console.log(`[pagespeed] ${s} HTTP ${resp.status}`);
+          return null;
+        }
+        const data = await resp.json();
+        const lhr = data?.lighthouseResult;
+        const score01 = lhr?.categories?.performance?.score;
+        if (score01 == null) { console.log('[pagespeed] no performance data'); return null; }
+        const score = Math.round(score01 * 100);
+        const audits = lhr?.audits || {};
+        const numVal = (k: string) => { const v = audits[k]?.numericValue; return typeof v === "number" ? v : null; };
+        return {
+          score,
+          fcp: numVal("first-contentful-paint") !== null ? +(numVal("first-contentful-paint")! / 1000).toFixed(2) : null,
+          lcp: numVal("largest-contentful-paint") !== null ? +(numVal("largest-contentful-paint")! / 1000).toFixed(2) : null,
+          tbt: numVal("total-blocking-time") !== null ? Math.round(numVal("total-blocking-time")!) : null,
+          cls: audits["cumulative-layout-shift"]?.numericValue ?? null,
+        };
+      } catch (err: any) {
+        clearTimeout(timeout);
+        if (err.name === "AbortError") {
+          console.log(`[pagespeed] ${s} timed out after 45s`);
+        } else {
+          console.log(`[pagespeed] ${s} error:`, err.message);
+        }
         return null;
       }
-      const data = await resp.json();
-      const lhr = data?.lighthouseResult;
-      const score01 = lhr?.categories?.performance?.score;
-      if (score01 == null) { console.log('[pagespeed] no performance data'); return null; }
-      const score = Math.round(score01 * 100);
-      const audits = lhr?.audits || {};
-      const numVal = (k: string) => { const v = audits[k]?.numericValue; return typeof v === "number" ? v : null; };
-      return {
-        score,
-        fcp: numVal("first-contentful-paint") !== null ? +(numVal("first-contentful-paint")! / 1000).toFixed(2) : null,
-        lcp: numVal("largest-contentful-paint") !== null ? +(numVal("largest-contentful-paint")! / 1000).toFixed(2) : null,
-        tbt: numVal("total-blocking-time") !== null ? Math.round(numVal("total-blocking-time")!) : null,
-        cls: audits["cumulative-layout-shift"]?.numericValue ?? null,
-      };
-    } catch (err: any) {
-      clearTimeout(timeout);
-      if (err.name === "AbortError") {
-        console.log(`[pagespeed] ${s} timed out after 45s`);
-      } else {
-        console.log(`[pagespeed] ${s} error:`, err.message);
-      }
-      return null;
+    };
+
+    let result = await attempt();
+    if (!result) {
+      console.log(`[pagespeed] ${s} retrying after 2s...`);
+      await new Promise(r => setTimeout(r, 2000));
+      result = await attempt();
     }
+    return result;
   };
 
   if (strategy) return run(strategy);
