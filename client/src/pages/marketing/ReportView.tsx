@@ -249,6 +249,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [emailLoading, setEmailLoading] = useState(false);
   const [activeReview, setActiveReview] = useState(0);
   const [scoreModalOpen, setScoreModalOpen] = useState(false);
+  const [metricModal, setMetricModal] = useState<string | null>(null);
   const FAQS = [
     { q: "Do I need to learn any software?", a: "None. Everything is set up and managed by our team. You get a simple dashboard to check your results, and a weekly summary sent to your phone. That's it." },
     { q: "How long until I see results?", a: "Most clients see measurable improvements within the first 2–4 weeks — more profile views, more calls, more leads. SEO results compound over 60–90 days." },
@@ -396,6 +397,49 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const noWebsiteCount = competitors.filter((c: any) => !c.hasWebsite).length;
   const lowRatingCount = competitors.filter((c: any) => (c.rating || 0) < 4.3).length;
   const maxReviews = Math.max(businessReviews, ...competitors.map((c: any) => c.reviewsCount || 0), 1);
+
+  const METRIC_EXPLANATIONS: Record<string, { title: string; what: string; why: string; thresholds: { label: string; value: string; color: string }[] }> = {
+    fcp: {
+      title: 'First Contentful Paint (FCP)',
+      what: 'The time from when the page starts loading to when any text or image is first visible on screen.',
+      why: 'A fast FCP reassures visitors that the page is actually loading. Slow FCP causes users to bounce before your content appears.',
+      thresholds: [
+        { label: 'Good', value: '< 1.8s', color: GREEN },
+        { label: 'Needs work', value: '1.8s – 3s', color: AMBER },
+        { label: 'Critical', value: '> 3s', color: RED },
+      ],
+    },
+    lcp: {
+      title: 'Largest Contentful Paint (LCP)',
+      what: 'The time until the largest visible element (hero image, heading, etc.) fully loads on screen.',
+      why: 'LCP is a Core Web Vital and a direct Google ranking factor. A slow LCP pushes your site lower in search results and loses customers before they even read your offer.',
+      thresholds: [
+        { label: 'Good', value: '< 2.5s', color: GREEN },
+        { label: 'Needs work', value: '2.5s – 4s', color: AMBER },
+        { label: 'Critical', value: '> 4s', color: RED },
+      ],
+    },
+    tbt: {
+      title: 'Total Blocking Time (TBT)',
+      what: 'The total time the page is unresponsive to clicks and taps while JavaScript is running in the background.',
+      why: "High TBT makes your site feel frozen. Visitors who can't tap a button or scroll smoothly will leave — hurting both conversions and your Google ranking.",
+      thresholds: [
+        { label: 'Good', value: '< 200ms', color: GREEN },
+        { label: 'Needs work', value: '200ms – 600ms', color: AMBER },
+        { label: 'Critical', value: '> 600ms', color: RED },
+      ],
+    },
+    cls: {
+      title: 'Cumulative Layout Shift (CLS)',
+      what: "Measures how much page elements unexpectedly jump around while the page loads (e.g. a button moves just as you're about to tap it).",
+      why: 'CLS is a Core Web Vital. Unexpected layout shifts frustrate users and cause accidental clicks. Google penalises sites with poor CLS in search rankings.',
+      thresholds: [
+        { label: 'Good', value: '< 0.1', color: GREEN },
+        { label: 'Needs work', value: '0.1 – 0.25', color: AMBER },
+        { label: 'Critical', value: '> 0.25', color: RED },
+      ],
+    },
+  };
 
   const liveWebsiteScore = useMemo(() => {
     const s = liveSpeedData || report?.speedData;
@@ -929,10 +973,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   const statusC = isGood ? GREEN : isOk ? AMBER : RED;
                   const statusT = isGood ? 'Good' : isOk ? 'Needs work' : 'Critical';
                   return (
-                    <div key={m.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
+                    <div key={m.key} onClick={() => setMetricModal(m.key)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}`, cursor: 'pointer' }}>
                       <div>
                         <span style={{ fontSize: 12, fontWeight: 600, color: DARK }}>{m.label}</span>
-                        <span title={m.tip} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%', background: GREY_BG, color: GREY, fontSize: 9, cursor: 'help', marginLeft: 4 }}>?</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%', background: GREY_BG, color: GREY, fontSize: 9, marginLeft: 4 }}>?</span>
                         <div style={{ fontSize: 12, color: GREY }}>{m.val != null ? `${m.val}${m.unit}` : '—'}</div>
                       </div>
                       {m.val != null && (
@@ -1402,6 +1446,36 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           </div>
         </>
       )}
+
+      {metricModal && METRIC_EXPLANATIONS[metricModal] && (() => {
+        const exp = METRIC_EXPLANATIONS[metricModal];
+        return (
+          <>
+            <div onClick={() => setMetricModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200 }} />
+            <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 201, width: 'min(400px, calc(100vw - 32px))', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
+              <div style={{ background: DARK, padding: '20px 24px', position: 'relative' }}>
+                <button onClick={() => setMetricModal(null)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                <div style={{ fontSize: 17, fontWeight: 700, color: WHITE }}>{exp.title}</div>
+              </div>
+              <div style={{ padding: 24 }}>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it measures</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 20px' }}>{exp.what}</p>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Why it matters</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 20px' }}>{exp.why}</p>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Benchmarks</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {exp.thresholds.map(t => (
+                    <div key={t.label} style={{ flex: 1, minWidth: 80, background: t.color + '15', border: `1px solid ${t.color}40`, borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: t.color }}>{t.label}</div>
+                      <div style={{ fontSize: 12, color: DARK, marginTop: 2 }}>{t.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
