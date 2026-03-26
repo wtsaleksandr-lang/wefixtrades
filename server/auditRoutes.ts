@@ -608,7 +608,9 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
       body: JSON.stringify([{ keywords, location_name: "Canada", language_name: "English" }]),
       signal: e4Signal,
     });
-    data = await r.json();
+    const rawText = await r.text();
+    console.log('[dataforseo] raw response:', rawText.slice(0, 500));
+    data = JSON.parse(rawText);
   } catch (e: any) {
     console.error('[dataforseo] CAUGHT ERROR:', e?.message || e);
     return null;
@@ -616,23 +618,24 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
     e4Clear();
   }
   console.log('[dataforseo] status:', data?.tasks?.[0]?.status_code);
-  console.log('[dataforseo] results count:', data?.tasks?.[0]?.result?.length);
-  console.log('[dataforseo] first result:', JSON.stringify(data?.tasks?.[0]?.result?.[0])?.slice(0, 300));
-  const items = data?.tasks?.[0]?.result || [];
-  const volumeMap: Record<string, { searchVolume: number; cpc: number; competition: string }> = {};
-  for (const item of items) {
-    const kw = item.keyword || "";
+  const results = data?.tasks?.[0]?.result || [];
+  console.log('[dataforseo] parsed results count:', results.length);
+  const volumeMap: Record<string, { searchVolume: number; cpc: number; competition: number }> = {};
+  results.forEach((item: any) => {
+    const kw = item?.keyword;
+    const info = item?.keyword_info;
+    if (!kw || !info) return;
     const val = {
-      searchVolume: item.search_volume || 0,
-      cpc: item.cpc || 0,
-      competition: item.competition_level || "LOW",
+      searchVolume: info.search_volume || 0,
+      cpc: info.cpc || 0,
+      competition: info.competition || 0,
     };
     volumeMap[kw.toLowerCase().trim()] = val;
     volumeMap[kw.trim()] = val;
     const firstWord = kw.toLowerCase().trim().split(' ')[0];
     if (firstWord) volumeMap[firstWord] = val;
-  }
-  console.log('[dataforseo] volumeMap keys:', Object.keys(volumeMap));
+  });
+  console.log('[dataforseo] volumeMap keys after build:', Object.keys(volumeMap));
   return volumeMap;
 }
 
