@@ -609,6 +609,7 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
   } finally {
     e4Clear();
   }
+  console.log('[dataforseo] raw response sample:', JSON.stringify(data?.tasks?.[0]?.result?.[0], null, 2)?.slice(0, 500));
   const items = data?.tasks?.[0]?.result || [];
   const volumeMap: Record<string, { searchVolume: number; cpc: number; competition: string }> = {};
   for (const item of items) {
@@ -887,12 +888,22 @@ router.post("/generate", async (req: Request, res: Response) => {
     // ─── Build seed keywords ───
     const seedKeywords = buildSeedKeywords(trade, city);
 
-    // ─── Run ALL external data fetches in parallel (including PageSpeed) ───
-    const [compResult, reviewResult, serperResult, dataForSEOResult, pageSpeedResult] = await Promise.allSettled([
+    // ─── Run Serper first so we can use its returned keywords as DataForSEO seeds ───
+    let serperData: any = null;
+    try {
+      serperData = await fetchSerperRankings(seedKeywords, website, business.name, city);
+    } catch (e: any) {
+      console.error("E3 Serper rankings failed:", e?.message);
+    }
+    const serperKeywords = (serperData?.keywords || []).map((k: any) => k.keyword).filter(Boolean);
+    const dataForSEOSeeds = serperKeywords.length > 0 ? serperKeywords : seedKeywords;
+    console.log('[dataforseo] seeds from serper:', dataForSEOSeeds);
+
+    // ─── Run remaining external data fetches in parallel ───
+    const [compResult, reviewResult, dataForSEOResult, pageSpeedResult] = await Promise.allSettled([
       fetchOutscraperCompetitors(trade, city, business.name),
       (business.placeId && reviewsCount > 0) ? fetchOutscraperReviews(business.placeId) : Promise.resolve(null),
-      fetchSerperRankings(seedKeywords, website, business.name, city),
-      fetchDataForSEOVolumes(seedKeywords),
+      fetchDataForSEOVolumes(dataForSEOSeeds),
       website ? fetchPageSpeed(website) : Promise.resolve(speedData),
     ]);
 
@@ -902,9 +913,6 @@ router.post("/generate", async (req: Request, res: Response) => {
 
     const reviewData = reviewResult.status === "fulfilled" ? reviewResult.value : null;
     if (reviewResult.status === "rejected") console.error("E2 Outscraper reviews failed:", (reviewResult as any).reason?.message);
-
-    const serperData = serperResult.status === "fulfilled" ? serperResult.value : null;
-    if (serperResult.status === "rejected") console.error("E3 Serper rankings failed:", (serperResult as any).reason?.message);
 
     const volumeMap = dataForSEOResult.status === "fulfilled" ? dataForSEOResult.value : null;
     if (dataForSEOResult.status === "rejected") console.error("E4 DataForSEO volumes failed:", (dataForSEOResult as any).reason?.message);
@@ -944,10 +952,15 @@ router.post("/generate", async (req: Request, res: Response) => {
       }
     }
     // Deduplicate keywords by keyword string
-    keywords = keywords.filter((k: any, i: number, arr: any[]) =>
-      arr.findIndex((x: any) => x.keyword === k.keyword) === i
-    );
-    console.log('[audit] keyword sample:', keywords[0]);
+    const seenKeywords = new Set<string>();
+    const uniqueKeywords = keywords.filter((k: any) => {
+      const key = k.keyword?.toLowerCase().trim();
+      if (!key || seenKeywords.has(key)) return false;
+      seenKeywords.add(key);
+      return true;
+    });
+    keywords = uniqueKeywords;
+    console.log('[keywords] after dedup:', keywords.map((k: any) => k.keyword));
     if (keywords.length > 0 && volumeMap) {
       console.log('[dataforseo] first keyword lookup attempt:', keywords[0]?.keyword,
         '→', volumeMap[keywords[0]?.keyword?.toLowerCase()?.trim()]);
