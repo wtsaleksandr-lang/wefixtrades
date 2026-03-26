@@ -1420,13 +1420,36 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         <>
           <div onClick={() => setScoreModalOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} />
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 201, width: 'min(420px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 80px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
-            {/* Header — always visible, never scrolls away */}
-            <div style={{ background: DARK, padding: '24px 24px 20px', textAlign: 'center', position: 'relative', flexShrink: 0 }}>
-              <button onClick={() => setScoreModalOpen(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-              <div style={{ fontSize: 64, fontWeight: 800, color: gradeColor(scores.grade || 'D'), lineHeight: 1 }}>{liveTotal}</div>
-              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>out of 100</div>
-              <div style={{ display: 'inline-block', marginTop: 12, padding: '6px 20px', borderRadius: 20, background: gradeColor(scores.grade || 'D') + '22', border: `1px solid ${gradeColor(scores.grade || 'D')}`, color: gradeColor(scores.grade || 'D'), fontSize: 14, fontWeight: 700 }}>
-                Grade {scores.grade || 'D'}
+            {/* Header — compact horizontal: ring left, grade right */}
+            <div style={{ background: DARK, padding: '16px 20px', position: 'relative', flexShrink: 0 }}>
+              <button onClick={() => setScoreModalOpen(false)} style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 18, paddingRight: 36 }}>
+                {/* SVG score ring */}
+                {(() => {
+                  const r = 34, circ = 2 * Math.PI * r;
+                  const fill = (liveTotal / 100) * circ;
+                  const gc = gradeColor(scores.grade || 'D');
+                  return (
+                    <svg width="88" height="88" viewBox="0 0 88 88" style={{ flexShrink: 0 }}>
+                      <circle cx="44" cy="44" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7"/>
+                      <circle cx="44" cy="44" r={r} fill="none" stroke={gc} strokeWidth="7"
+                        strokeDasharray={`${fill} ${circ - fill}`}
+                        strokeLinecap="round" transform="rotate(-90 44 44)"/>
+                      <text x="44" y="40" textAnchor="middle" fill={gc} fontSize="20" fontWeight="800">{liveTotal}</text>
+                      <text x="44" y="54" textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize="10">/100</text>
+                    </svg>
+                  );
+                })()}
+                {/* Right: grade pill + status line */}
+                <div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Overall Score</div>
+                  <div style={{ display: 'inline-block', padding: '4px 14px', borderRadius: 20, background: gradeColor(scores.grade || 'D') + '22', border: `1px solid ${gradeColor(scores.grade || 'D')}`, color: gradeColor(scores.grade || 'D'), fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
+                    Grade {scores.grade || 'D'}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>
+                    {liveTotal >= 70 ? 'Above industry average' : liveTotal >= 50 ? 'Below industry average' : 'Critical — needs attention'}
+                  </div>
+                </div>
               </div>
             </div>
             {/* Body — scrolls if content taller than viewport */}
