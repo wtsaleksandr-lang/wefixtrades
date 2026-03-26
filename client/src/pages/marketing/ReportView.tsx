@@ -215,6 +215,29 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     const x = e.pageX - (reviewsRef.current?.offsetLeft || 0);
     if (reviewsRef.current) reviewsRef.current.scrollLeft = scrollLeft.current - (x - startX.current) * 1.5;
   };
+  useEffect(() => {
+    const el = reviewsRef.current;
+    if (!el) return;
+    const cardWidth = 292; // 280px card + 12px gap
+    el.scrollLeft = cardWidth * REVIEWS.length;
+    let animFrame: number;
+    let lastTime = 0;
+    const speed = 0.4; // px per ms
+    const animate = (time: number) => {
+      if (!isDragging.current) {
+        const delta = time - lastTime;
+        el.scrollLeft += speed * delta;
+        const maxScroll = cardWidth * REVIEWS.length * 2;
+        const minScroll = cardWidth * REVIEWS.length;
+        if (el.scrollLeft >= maxScroll) el.scrollLeft = minScroll;
+        if (el.scrollLeft <= cardWidth * (REVIEWS.length - 1)) el.scrollLeft = maxScroll - cardWidth;
+      }
+      lastTime = time;
+      animFrame = requestAnimationFrame(animate);
+    };
+    animFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animFrame);
+  }, []);
   const [chatExpanded, setChatExpanded] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const isTiny = typeof window !== 'undefined' && window.innerWidth <= 480;
@@ -399,6 +422,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     { platform: 'google', name: 'Dave M.', business: 'Metro Locksmith Pro', location: 'North York, ON', rating: 5, text: 'Was skeptical at first but the results speak for themselves. Went from invisible on Google Maps to showing up in the top 3 for locksmith searches in my area.', date: '3 months ago', avatar: 'DM' },
     { platform: 'facebook', name: 'Linda C.', business: 'Crystal Clean Services', location: 'Scarborough, ON', rating: 5, text: 'As a cleaning business owner I had no time to manage my online presence. WeFixTrades handles everything. My reviews went from 12 to 67 in 2 months.', date: '5 weeks ago', avatar: 'LC' },
   ];
+  const INFINITE_REVIEWS = [...REVIEWS, ...REVIEWS, ...REVIEWS];
 
   const PlatformIcon = ({ platform }: { platform: string }) => {
     if (platform === 'google') return (
@@ -786,8 +810,16 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           <div style={{ marginTop: 32, marginBottom: 8 }}>
             <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 4 }}>What Trades Businesses Say</div>
             <div style={{ fontSize: 12, color: GREY, marginBottom: 16 }}>Real results from real businesses</div>
-            <div ref={reviewsRef} onMouseDown={onReviewMouseDown} onMouseLeave={onReviewMouseLeave} onMouseUp={onReviewMouseUp} onMouseMove={onReviewMouseMove} style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 12, scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none', cursor: 'grab' } as any}>
-              {REVIEWS.map((review, i) => (
+            <div
+              ref={reviewsRef}
+              onMouseDown={onReviewMouseDown}
+              onMouseEnter={() => { isDragging.current = true; }}
+              onMouseLeave={() => { isDragging.current = false; if (reviewsRef.current) { reviewsRef.current.style.cursor = 'grab'; } }}
+              onMouseUp={onReviewMouseUp}
+              onMouseMove={onReviewMouseMove}
+              style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 12, scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none', cursor: 'grab' } as any}
+            >
+              {INFINITE_REVIEWS.map((review, i) => (
                 <div key={i} style={{ minWidth: 280, maxWidth: 280, background: WHITE, borderRadius: 14, border: `1px solid ${BORDER}`, padding: 18, flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -819,11 +851,6 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 8 }}>
-              {REVIEWS.map((_, i) => (
-                <div key={i} style={{ width: i === 0 ? 16 : 6, height: 6, borderRadius: 3, background: i === 0 ? CYAN : BORDER, transition: 'all 0.2s ease' }}/>
               ))}
             </div>
           </div>
