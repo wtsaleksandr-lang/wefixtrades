@@ -371,6 +371,24 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     ? `${window.location.origin}/audit/report/${reportId}`
     : window.location.href;
 
+  const competitors = report?.competitors || [];
+  const rankedCompetitors = [...competitors].sort((a: any, b: any) => (b.reviewsCount || 0) - (a.reviewsCount || 0)).slice(0, 5);
+  const businessReviews = business?.reviewsCount || 0;
+  const businessRating = business?.rating || 0;
+  const marketLeader = report?.marketLeader;
+  const areaAvgReviews = report?.areaAverageReviews || 0;
+  const areaAvgRating = report?.areaAverageRating || 0;
+  const businessRank = (() => {
+    const all = [...competitors, { reviewsCount: businessReviews, rating: businessRating, isYou: true }]
+      .sort((a: any, b: any) => (b.reviewsCount || 0) - (a.reviewsCount || 0));
+    return all.findIndex((c: any) => c.isYou) + 1;
+  })();
+  const totalInMarket = competitors.length + 1;
+  const reviewGap = marketLeader ? businessReviews - (marketLeader.reviewsCount || 0) : 0;
+  const noWebsiteCount = competitors.filter((c: any) => !c.hasWebsite).length;
+  const lowRatingCount = competitors.filter((c: any) => (c.rating || 0) < 4.3).length;
+  const maxReviews = Math.max(businessReviews, ...competitors.map((c: any) => c.reviewsCount || 0), 1);
+
   const scoreRows = [
     { icon: <MapPin size={18} color="#00D4C8" />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
     { icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: scores.websiteQuality?.score || 0, max: 20, note: speedLoading ? 'Measuring speed in background...' : speed.mobile?.score == null ? 'Speed test unavailable' : 'How fast and professional your website is' },
@@ -531,6 +549,120 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           </div>
         ))}
       </div>}
+
+      {/* SECTION 2b — COMPETITOR ANALYSIS */}
+      {activeTab === 'maps' && competitors.length > 0 && (
+        <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, padding: 24, marginBottom: 10 }}>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+            <div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 3 }}>Your Market Position</div>
+              <div style={{ fontSize: 12, color: GREY }}>vs {totalInMarket - 1} local competitors</div>
+            </div>
+            {/* Rank badge */}
+            <div style={{ textAlign: 'center', background: businessRank <= 3 ? '#DCFCE7' : '#FEF3C7', borderRadius: 12, padding: '8px 14px', border: `1px solid ${businessRank <= 3 ? '#22C55E' : '#F59E0B'}` }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: businessRank <= 3 ? GREEN : AMBER, lineHeight: 1 }}>#{businessRank}</div>
+              <div style={{ fontSize: 10, color: GREY, marginTop: 2 }}>of {totalInMarket}</div>
+            </div>
+          </div>
+
+          {/* Review gap callout */}
+          {marketLeader && (
+            <div style={{ background: reviewGap >= 0 ? '#F0FFF4' : '#FFF7ED', border: `1px solid ${reviewGap >= 0 ? '#BBF7D0' : '#FED7AA'}`, borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 13, color: reviewGap >= 0 ? '#166534' : '#92400E', lineHeight: 1.5 }}>
+              {reviewGap >= 0
+                ? `✓ You lead ${marketLeader.name} by ${reviewGap} reviews — your biggest competitive advantage.`
+                : `You're ${Math.abs(reviewGap)} reviews behind ${marketLeader.name}. Closing this gap would strengthen your market position.`}
+            </div>
+          )}
+
+          {/* Review comparison bars */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10, fontWeight: 600 }}>Review comparison</div>
+            {/* Your bar */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: CYAN, flexShrink: 0 }}/>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: DARK }}>{business?.name?.split(' ').slice(0, 3).join(' ')}</span>
+                  <span style={{ fontSize: 10, background: CYAN + '22', color: CYAN, padding: '1px 6px', borderRadius: 8, fontWeight: 600 }}>You</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 11, color: AMBER }}>{'★'.repeat(Math.round(businessRating))}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: DARK }}>{businessReviews.toLocaleString()}</span>
+                </div>
+              </div>
+              <div style={{ height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
+                <div style={{ width: `${(businessReviews / maxReviews) * 100}%`, height: '100%', background: CYAN, borderRadius: 4 }}/>
+              </div>
+            </div>
+            {/* Competitor bars */}
+            {rankedCompetitors.slice(0, 4).map((comp: any, i: number) => (
+              <div key={i} style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#D1D5DB', flexShrink: 0 }}/>
+                    <span style={{ fontSize: 12, color: GREY, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {comp.name?.split(' ').slice(0, 3).join(' ')}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 11, color: '#D1D5DB' }}>{'★'.repeat(Math.round(comp.rating || 0))}</span>
+                    <span style={{ fontSize: 12, color: GREY }}>{(comp.reviewsCount || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+                <div style={{ height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
+                  <div style={{ width: `${((comp.reviewsCount || 0) / maxReviews) * 100}%`, height: '100%', background: '#D1D5DB', borderRadius: 4 }}/>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Opportunity cards */}
+          {(noWebsiteCount > 0 || lowRatingCount > 0) && (
+            <div>
+              <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10, fontWeight: 600 }}>Opportunities in your market</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {noWebsiteCount > 0 && (
+                  <div style={{ background: '#F0FFF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#166534', flex: 1, minWidth: 140 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 2 }}>🌐 {noWebsiteCount} competitor{noWebsiteCount > 1 ? 's have' : ' has'} no website</div>
+                    <div style={{ opacity: 0.8 }}>Easy to outrank them online</div>
+                  </div>
+                )}
+                {lowRatingCount > 0 && (
+                  <div style={{ background: '#F0FFF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#166534', flex: 1, minWidth: 140 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 2 }}>⭐ {lowRatingCount} rival{lowRatingCount > 1 ? 's are' : ' is'} below 4.3 stars</div>
+                    <div style={{ opacity: 0.8 }}>Your rating is a key advantage</div>
+                  </div>
+                )}
+                <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#1E40AF', flex: 1, minWidth: 140 }}>
+                  <div style={{ fontWeight: 700, marginBottom: 2 }}>📢 0 competitors running ads</div>
+                  <div style={{ opacity: 0.8 }}>Paid search is wide open</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Area average comparison */}
+          {areaAvgReviews > 0 && (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${BORDER}`, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: GREY, marginBottom: 4 }}>Area avg reviews</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: businessReviews > areaAvgReviews ? GREEN : AMBER }}>
+                  {areaAvgReviews}
+                  <span style={{ fontSize: 11, color: GREY, fontWeight: 400, marginLeft: 4 }}>avg · you have {businessReviews}</span>
+                </div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: GREY, marginBottom: 4 }}>Area avg rating</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: businessRating >= areaAvgRating ? GREEN : AMBER }}>
+                  {areaAvgRating.toFixed(1)}
+                  <span style={{ fontSize: 11, color: GREY, fontWeight: 400, marginLeft: 4 }}>avg · you have {businessRating}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* SECTION 3 — ACTION PLAN */}
       {activeTab === 'maps' && plan.length > 0 && (
