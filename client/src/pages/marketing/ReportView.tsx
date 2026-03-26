@@ -1419,31 +1419,31 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {scoreModalOpen && (
         <>
           <div onClick={() => setScoreModalOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 201, width: 'min(420px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 80px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ position: 'fixed', top: 'clamp(72px, 8dvh, 100px)', left: '50%', transform: 'translateX(-50%)', zIndex: 201, width: 'min(420px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - clamp(72px, 8dvh, 100px) - 20px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
             {/* Header — compact horizontal: ring left, grade right */}
-            <div style={{ background: DARK, padding: '16px 20px', position: 'relative', flexShrink: 0 }}>
-              <button onClick={() => setScoreModalOpen(false)} style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 18, paddingRight: 36 }}>
+            <div style={{ background: DARK, padding: '20px 20px', position: 'relative', flexShrink: 0 }}>
+              <button onClick={() => setScoreModalOpen(false)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 20, paddingRight: 36 }}>
                 {/* SVG score ring */}
                 {(() => {
-                  const r = 34, circ = 2 * Math.PI * r;
+                  const r = 32, circ = 2 * Math.PI * r;
                   const fill = (liveTotal / 100) * circ;
                   const gc = gradeColor(scores.grade || 'D');
                   return (
-                    <svg width="88" height="88" viewBox="0 0 88 88" style={{ flexShrink: 0 }}>
-                      <circle cx="44" cy="44" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7"/>
-                      <circle cx="44" cy="44" r={r} fill="none" stroke={gc} strokeWidth="7"
+                    <svg width="80" height="80" viewBox="0 0 80 80" style={{ flexShrink: 0 }}>
+                      <circle cx="40" cy="40" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7"/>
+                      <circle cx="40" cy="40" r={r} fill="none" stroke={gc} strokeWidth="7"
                         strokeDasharray={`${fill} ${circ - fill}`}
-                        strokeLinecap="round" transform="rotate(-90 44 44)"/>
-                      <text x="44" y="40" textAnchor="middle" fill={gc} fontSize="20" fontWeight="800">{liveTotal}</text>
-                      <text x="44" y="54" textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize="10">/100</text>
+                        strokeLinecap="round" transform="rotate(-90 40 40)"/>
+                      <text x="40" y="36" textAnchor="middle" fill={gc} fontSize="19" fontWeight="800">{liveTotal}</text>
+                      <text x="40" y="50" textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize="10">/100</text>
                     </svg>
                   );
                 })()}
                 {/* Right: grade pill + status line */}
-                <div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Overall Score</div>
-                  <div style={{ display: 'inline-block', padding: '4px 14px', borderRadius: 20, background: gradeColor(scores.grade || 'D') + '22', border: `1px solid ${gradeColor(scores.grade || 'D')}`, color: gradeColor(scores.grade || 'D'), fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Overall Score</div>
+                  <div style={{ display: 'inline-block', padding: '4px 14px', borderRadius: 20, background: gradeColor(scores.grade || 'D') + '22', border: `1px solid ${gradeColor(scores.grade || 'D')}`, color: gradeColor(scores.grade || 'D'), fontSize: 15, fontWeight: 700 }}>
                     Grade {scores.grade || 'D'}
                   </div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>
@@ -1502,8 +1502,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         return (
           <>
             <div onClick={() => setMetricModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200 }} />
-            <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 201, width: 'min(400px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 80px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ background: DARK, padding: '20px 24px', position: 'relative', flexShrink: 0 }}>
+            <div style={{ position: 'fixed', top: 'clamp(72px, 8dvh, 100px)', left: '50%', transform: 'translateX(-50%)', zIndex: 201, width: 'min(400px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - clamp(72px, 8dvh, 100px) - 20px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ background: DARK, padding: '20px 20px', position: 'relative', flexShrink: 0 }}>
                 <button onClick={() => setMetricModal(null)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                 <div style={{ fontSize: 17, fontWeight: 700, color: WHITE }}>{exp.title}</div>
               </div>
