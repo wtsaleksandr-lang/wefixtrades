@@ -367,6 +367,11 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const speed = liveSpeedData || report?.speedData || {};
   const gaps = report?.contentGaps || ai?.contentGaps || [];
   const plan = ai?.actionPlan || [];
+  console.log('[debug] ai keys:', Object.keys(ai));
+  console.log('[debug] plan length:', plan.length);
+  console.log('[debug] report keys:', Object.keys(report || {}));
+  console.log('[debug] narrative:', !!report?.narrative);
+  console.log('[debug] aiNarrative:', !!report?.aiNarrative);
   const shareUrl = reportId
     ? `${window.location.origin}/audit/report/${reportId}`
     : window.location.href;
