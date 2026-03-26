@@ -575,72 +575,79 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             </div>
           )}
 
-          {/* Review comparison bars */}
+          {/* Competitor cards */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10, fontWeight: 600 }}>Review comparison</div>
-            {/* Your bar */}
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: CYAN, flexShrink: 0 }}/>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: DARK }}>{business?.name?.split(' ').slice(0, 3).join(' ')}</span>
-                  <span style={{ fontSize: 10, background: CYAN + '22', color: CYAN, padding: '1px 6px', borderRadius: 8, fontWeight: 600 }}>You</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 11, color: AMBER }}>{'★'.repeat(Math.round(businessRating))}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: DARK }}>{businessReviews.toLocaleString()}</span>
-                </div>
-              </div>
-              <div style={{ height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
-                <div style={{ width: `${(businessReviews / maxReviews) * 100}%`, height: '100%', background: CYAN, borderRadius: 4 }}/>
-              </div>
-            </div>
-            {/* Competitor bars */}
-            {rankedCompetitors.slice(0, 4).map((comp: any, i: number) => (
-              <div key={i} style={{ marginBottom: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#D1D5DB', flexShrink: 0 }}/>
-                    <span style={{ fontSize: 12, color: GREY, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {comp.name?.split(' ').slice(0, 3).join(' ')}
-                    </span>
+            <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12, fontWeight: 600 }}>Local competitors</div>
+            {rankedCompetitors.slice(0, 5).map((comp: any, i: number) => {
+              const isThreats = (comp.reviewsCount || 0) > businessReviews || (comp.rating || 0) > businessRating;
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: i < rankedCompetitors.slice(0, 5).length - 1 ? `1px solid ${BORDER}` : 'none' }}>
+                  {/* Rank number */}
+                  <div style={{ width: 20, fontSize: 11, color: GREY, fontWeight: 600, flexShrink: 0, textAlign: 'center' }}>
+                    #{i + (businessRank <= i + 1 ? 2 : 1)}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 11, color: '#D1D5DB' }}>{'★'.repeat(Math.round(comp.rating || 0))}</span>
-                    <span style={{ fontSize: 12, color: GREY }}>{(comp.reviewsCount || 0).toLocaleString()}</span>
+                  {/* Photo or avatar */}
+                  <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#F3F4F6' }}>
+                    {comp.photoUrl ? (
+                      <img src={comp.photoUrl} alt={comp.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}/>
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: GREY }}>🏢</div>
+                    )}
+                  </div>
+                  {/* Name + rating */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: DARK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{comp.name}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 11, color: AMBER }}>{'★'.repeat(Math.round(comp.rating || 0))}</span>
+                      <span style={{ fontSize: 11, color: GREY }}>{comp.rating} · {(comp.reviewsCount || 0).toLocaleString()} reviews</span>
+                    </div>
+                  </div>
+                  {/* Threat or opportunity badge */}
+                  <div style={{ fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, flexShrink: 0, background: isThreats ? '#FEF2F2' : '#F0FFF4', color: isThreats ? RED : GREEN, border: `1px solid ${isThreats ? '#FECACA' : '#BBF7D0'}` }}>
+                    {isThreats ? '⚠ Threat' : '✓ Beatable'}
                   </div>
                 </div>
-                <div style={{ height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
-                  <div style={{ width: `${((comp.reviewsCount || 0) / maxReviews) * 100}%`, height: '100%', background: '#D1D5DB', borderRadius: 4 }}/>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          {/* Opportunity cards */}
-          {(noWebsiteCount > 0 || lowRatingCount > 0) && (
-            <div>
-              <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10, fontWeight: 600 }}>Opportunities in your market</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {noWebsiteCount > 0 && (
-                  <div style={{ background: '#F0FFF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#166534', flex: 1, minWidth: 140 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 2 }}>🌐 {noWebsiteCount} competitor{noWebsiteCount > 1 ? 's have' : ' has'} no website</div>
-                    <div style={{ opacity: 0.8 }}>Easy to outrank them online</div>
-                  </div>
-                )}
-                {lowRatingCount > 0 && (
-                  <div style={{ background: '#F0FFF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#166534', flex: 1, minWidth: 140 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 2 }}>⭐ {lowRatingCount} rival{lowRatingCount > 1 ? 's are' : ' is'} below 4.3 stars</div>
-                    <div style={{ opacity: 0.8 }}>Your rating is a key advantage</div>
-                  </div>
-                )}
-                <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#1E40AF', flex: 1, minWidth: 140 }}>
-                  <div style={{ fontWeight: 700, marginBottom: 2 }}>📢 0 competitors running ads</div>
-                  <div style={{ opacity: 0.8 }}>Paid search is wide open</div>
-                </div>
+          {/* "You" row to show position */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: CYAN + '11', borderRadius: 10, border: `1px solid ${CYAN}44`, marginBottom: 16 }}>
+            <div style={{ width: 20, fontSize: 11, color: CYAN, fontWeight: 700, textAlign: 'center' }}>#{businessRank}</div>
+            <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: CYAN + '22' }}>
+              {business?.businessPhotoUrl ? (
+                <img src={business.businessPhotoUrl} alt={business?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>⭐</div>
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: DARK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{business?.name?.split(' ').slice(0, 4).join(' ')}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 11, color: AMBER }}>{'★'.repeat(Math.round(businessRating || 0))}</span>
+                <span style={{ fontSize: 11, color: GREY }}>{businessRating} · {businessReviews.toLocaleString()} reviews</span>
               </div>
             </div>
-          )}
+            <div style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: CYAN + '22', color: CYAN, border: `1px solid ${CYAN}`, flexShrink: 0 }}>You</div>
+          </div>
+
+          {/* Threats vs opportunities summary */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: RED }}>
+                {rankedCompetitors.filter((c: any) => (c.reviewsCount || 0) > businessReviews || (c.rating || 0) > businessRating).length}
+              </div>
+              <div style={{ fontSize: 11, color: RED, fontWeight: 600 }}>Stronger competitors</div>
+              <div style={{ fontSize: 10, color: GREY, marginTop: 2 }}>Higher reviews or rating</div>
+            </div>
+            <div style={{ background: '#F0FFF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: GREEN }}>
+                {rankedCompetitors.filter((c: any) => (c.reviewsCount || 0) <= businessReviews && (c.rating || 0) <= businessRating).length}
+              </div>
+              <div style={{ fontSize: 11, color: GREEN, fontWeight: 600 }}>Beatable competitors</div>
+              <div style={{ fontSize: 10, color: GREY, marginTop: 2 }}>Fewer reviews or lower rating</div>
+            </div>
+          </div>
 
           {/* Area average comparison */}
           {areaAvgReviews > 0 && (
