@@ -1,6 +1,8 @@
 import type { Request, Response } from "express";
 import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
+import fs from "fs";
+import path from "path";
 import { getServicesForIssues } from "./data/services";
 import { db } from "./db";
 import { auditReports } from "@shared/schema";
@@ -8,9 +10,48 @@ import { eq, sql, and, gte, desc } from "drizzle-orm";
 
 const router = express.Router();
 
-/* ─── In-memory keyword result cache (24h TTL) ─── */
-const keywordCache = new Map<string, { data: any; timestamp: number }>();
+/* ─── File-based keyword result cache (24h TTL, persists across restarts) ─── */
+const CACHE_FILE = path.join(process.cwd(), ".keyword-cache.json");
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in ms
+
+function loadCache(): Record<string, { data: any; timestamp: number }> {
+  try {
+    if (fs.existsSync(CACHE_FILE)) {
+      const raw = fs.readFileSync(CACHE_FILE, "utf-8");
+      return JSON.parse(raw);
+    }
+  } catch {
+    console.log("[cache] failed to load, starting fresh");
+  }
+  return {};
+}
+
+function saveCache(cache: Record<string, any>) {
+  try {
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2));
+  } catch (err) {
+    console.error("[cache] failed to save:", err);
+  }
+}
+
+function getCached(key: string) {
+  const cache = loadCache();
+  const entry = cache[key];
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > CACHE_TTL) {
+    delete cache[key];
+    saveCache(cache);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCached(key: string, data: any) {
+  const cache = loadCache();
+  cache[key] = { data, timestamp: Date.now() };
+  saveCache(cache);
+  console.log("[cache] saved:", key);
+}
 
 function requireEnv(name: string): string {
   const v = process.env[name];
@@ -581,10 +622,10 @@ async function fetchSerperRankings(
 
   const results = await Promise.allSettled(keywords.map(async (kw) => {
     const cacheKey = `serper:${kw.toLowerCase()}:${city.toLowerCase()}`;
-    const cached = keywordCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    const cachedData = getCached(cacheKey);
+    if (cachedData) {
       console.log('[serper] cache hit:', kw);
-      return { keyword: kw, data: cached.data };
+      return { keyword: kw, data: cachedData };
     }
 
     const { signal: sSignal, clear: sClear } = withSignal(12000);
@@ -596,14 +637,14 @@ async function fetchSerperRankings(
         signal: sSignal,
       });
       const data = await r.json();
-      keywordCache.set(cacheKey, { data, timestamp: Date.now() });
+      setCached(cacheKey, data);
       console.log('[serper] cached:', kw);
       return { keyword: kw, data };
     } finally {
       sClear();
     }
   }));
-  console.log('[serper] cache stats:', `${keywordCache.size} entries cached`);
+  console.log('[serper] cache stats:', Object.keys(loadCache()).length, 'entries cached');
 
   const keywordResults: any[] = [];
   const adCompetitors: any[] = [];
@@ -654,10 +695,10 @@ async function fetchSerperRankings(
 /* ─── E4: DataForSEO Keyword Volumes ─── */
 async function fetchDataForSEOVolumes(keywords: string[]) {
   const dfsKey = 'dfs:' + [...keywords].sort().join(',');
-  const dfsCached = keywordCache.get(dfsKey);
-  if (dfsCached && Date.now() - dfsCached.timestamp < CACHE_TTL) {
+  const dfsCached = getCached(dfsKey);
+  if (dfsCached) {
     console.log('[dataforseo] cache hit');
-    return dfsCached.data;
+    return dfsCached;
   }
 
   const login = process.env.DATAFORSEO_LOGIN;
@@ -707,7 +748,7 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
     if (firstWord) volumeMap[firstWord] = val;
   });
   console.log('[dataforseo] volumeMap keys after build:', Object.keys(volumeMap));
-  keywordCache.set(dfsKey, { data: volumeMap, timestamp: Date.now() });
+  setCached(dfsKey, volumeMap);
   console.log('[dataforseo] cached:', Object.keys(volumeMap).length, 'volume entries');
   return volumeMap;
 }
