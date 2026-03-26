@@ -580,7 +580,6 @@ export default function FreeAudit() {
             return (
               <div ref={reportRef} style={{
                 minHeight: '100vh',
-                background: '#F8FAFB',
                 backgroundImage: isMobile ? 'none' : 'radial-gradient(circle, rgba(0,0,0,0.07) 1px, transparent 1px)',
                 backgroundSize: '24px 24px',
                 padding: isMobile ? '0 0 48px' : '32px 0 64px',

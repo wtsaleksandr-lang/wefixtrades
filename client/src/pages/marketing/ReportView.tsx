@@ -34,13 +34,13 @@ function statusColor(status: string): string {
   return RED;
 }
 
-function ScoreCircle({ score, grade }: { score: number; grade: string }) {
+function ScoreCircle({ score, grade, onClick }: { score: number; grade: string; onClick?: () => void }) {
   const r = 45;
   const circ = 2 * Math.PI * r;
   const fill = (score / 100) * circ;
   const color = gradeColor(grade);
   return (
-    <div style={{ textAlign: 'center' }}>
+    <div style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }} onClick={onClick} title="Click to learn more">
       <svg width="120" height="120" viewBox="0 0 120 120">
         <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8"/>
         <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="8"
@@ -56,6 +56,7 @@ function ScoreCircle({ score, grade }: { score: number; grade: string }) {
       }}>
         Grade {grade}
       </div>
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>tap to explain</div>
     </div>
   );
 }
@@ -200,6 +201,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [emailSubmitted, setEmailSubmitted] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [activeReview, setActiveReview] = useState(0);
+  const [scoreModalOpen, setScoreModalOpen] = useState(false);
   const FAQS = [
     { q: "Do I need to learn any software?", a: "None. Everything is set up and managed by our team. You get a simple dashboard to check your results, and a weekly summary sent to your phone. That's it." },
     { q: "How long until I see results?", a: "Most clients see measurable improvements within the first 2–4 weeks — more profile views, more calls, more leads. SEO results compound over 60–90 days." },
@@ -339,7 +341,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const SHARE_BUTTONS = [
     {
       id: 'email', label: 'Email', bg: '#6B7280',
-      icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2z" stroke="white" strokeWidth="1.5" fill="none"/><path d="M2 6l10 7 10-7" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>),
+      icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#6B7280"/><path d="M4 8a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" stroke="white" strokeWidth="1.5" fill="none"/><path d="M4 8l8 6 8-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>),
       onClick: () => window.open(`mailto:?subject=My WeFixTrades Local Business Audit&body=View my free audit report: ${shareUrl}`)
     },
     {
@@ -353,15 +355,15 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       onClick: () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`)
     },
     {
-      id: 'twitter', label: 'X', bg: '#000000',
+      id: 'twitter', label: 'X', bg: '#2D2D2D',
       icon: (<svg width="18" height="18" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.91-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>),
       onClick: () => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Just got my free local business audit — scored ${scores.total}/100. Get yours:`)}&url=${encodeURIComponent(shareUrl)}`)
     },
     {
-      id: 'copy', label: copiedLink ? 'Copied!' : 'Copy', bg: copiedLink ? '#22C55E' : '#374151',
+      id: 'copy', label: copiedLink ? 'Copied!' : 'Copy', bg: copiedLink ? '#22C55E' : '#4B5563',
       icon: copiedLink
         ? (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12l5 5L20 7"/></svg>)
-        : (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>),
+        : (<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#4B5563"/><rect x="9" y="9" width="9" height="9" rx="2" stroke="white" strokeWidth="1.5" fill="none"/><path d="M15 9V7a2 2 0 00-2-2H7a2 2 0 00-2 2v6a2 2 0 002 2h2" stroke="white" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 12h3M12 15h3" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>),
       onClick: () => { navigator.clipboard.writeText(shareUrl).then(() => { setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000); }); }
     },
   ];
@@ -450,7 +452,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               </a>
             )}
           </div>
-          <ScoreCircle score={scores.total || 0} grade={scores.grade || 'D'} />
+          <ScoreCircle score={scores.total || 0} grade={scores.grade || 'D'} onClick={() => setScoreModalOpen(true)} />
         </div>
         {ai.executiveSummary && (
           <>
@@ -1041,6 +1043,65 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           </div>
         ))}
       </div>
+
+      {/* SCORE MODAL */}
+      {scoreModalOpen && (
+        <>
+          <div onClick={() => setScoreModalOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200 }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 201, width: 'min(420px, calc(100vw - 32px))', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
+            {/* Header */}
+            <div style={{ background: DARK, padding: '24px 24px 20px', textAlign: 'center', position: 'relative' }}>
+              <button onClick={() => setScoreModalOpen(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+              <div style={{ fontSize: 64, fontWeight: 800, color: gradeColor(scores.grade || 'D'), lineHeight: 1 }}>{scores.total || 0}</div>
+              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>out of 100</div>
+              <div style={{ display: 'inline-block', marginTop: 12, padding: '6px 20px', borderRadius: 20, background: gradeColor(scores.grade || 'D') + '22', border: `1px solid ${gradeColor(scores.grade || 'D')}`, color: gradeColor(scores.grade || 'D'), fontSize: 14, fontWeight: 700 }}>
+                Grade {scores.grade || 'D'}
+              </div>
+            </div>
+            {/* Body */}
+            <div style={{ padding: 24 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 8 }}>What this score means</div>
+              <p style={{ fontSize: 13, color: GREY, lineHeight: 1.6, margin: '0 0 20px' }}>
+                {(scores.total || 0) >= 80
+                  ? `Your business has strong online visibility. You're ahead of most competitors in your area. Small improvements could push you to the top.`
+                  : (scores.total || 0) >= 60
+                  ? `Your business has a decent foundation but significant gaps are costing you leads every day. Competitors with better scores are capturing customers searching for your services.`
+                  : (scores.total || 0) >= 40
+                  ? `Your score of ${scores.total}/100 means you're losing a significant number of potential customers before they ever find you. Businesses scoring above 70 typically get 2-3× more calls.`
+                  : `A score of ${scores.total}/100 means most customers searching for your services online can't find you. You're likely losing 60-70% of potential leads to competitors with better online presence.`
+                }
+              </p>
+              {/* Mini breakdown */}
+              <div style={{ background: GREY_BG, borderRadius: 12, padding: 16, marginBottom: 20 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: DARK, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score breakdown</div>
+                {[
+                  { label: 'Google Maps', score: scores.googleMaps?.score, max: 25 },
+                  { label: 'Website', score: scores.websiteQuality?.score, max: 20 },
+                  { label: 'Search Visibility', score: scores.searchVisibility?.score, max: 20 },
+                  { label: 'Competitors', score: scores.competitorPositioning?.score, max: 15 },
+                  { label: 'Ads', score: scores.adOpportunity?.score, max: 10 },
+                  { label: 'Demand', score: scores.demandCoverage?.score, max: 10 },
+                ].map((item, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, color: GREY, width: 110, flexShrink: 0 }}>{item.label}</span>
+                    <div style={{ flex: 1, height: 6, borderRadius: 3, background: '#E5E7EB', overflow: 'hidden' }}>
+                      <div style={{ width: `${((item.score || 0) / item.max) * 100}%`, height: '100%', background: scoreColor(item.score || 0, item.max), borderRadius: 3 }}/>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: scoreColor(item.score || 0, item.max), width: 36, textAlign: 'right', flexShrink: 0 }}>{item.score}/{item.max}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ background: '#FFF7ED', borderRadius: 10, padding: '14px 16px', marginBottom: 16, borderLeft: '3px solid #F59E0B' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#92400E', marginBottom: 4 }}>Every point below 70 costs you jobs</div>
+                <div style={{ fontSize: 12, color: '#B45309', lineHeight: 1.5 }}>Businesses that improve their score to 70+ typically see 30-50% more calls within 60 days. See the Action Plan tab to see exactly what to fix.</div>
+              </div>
+              <button onClick={() => setScoreModalOpen(false)} style={{ width: '100%', padding: '12px', background: DARK, color: WHITE, border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                See My Action Plan →
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
