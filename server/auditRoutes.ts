@@ -8,6 +8,10 @@ import { eq, sql } from "drizzle-orm";
 
 const router = express.Router();
 
+/* ─── In-memory keyword result cache (24h TTL) ─── */
+const keywordCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in ms
+
 function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Missing env var: ${name}`);
@@ -576,6 +580,13 @@ async function fetchSerperRankings(
   const nameLC = businessName.toLowerCase();
 
   const results = await Promise.allSettled(keywords.map(async (kw) => {
+    const cacheKey = `serper:${kw.toLowerCase()}:${city.toLowerCase()}`;
+    const cached = keywordCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log('[serper] cache hit:', kw);
+      return { keyword: kw, data: cached.data };
+    }
+
     const { signal: sSignal, clear: sClear } = withSignal(12000);
     try {
       const r = await fetch("https://google.serper.dev/search", {
@@ -584,11 +595,15 @@ async function fetchSerperRankings(
         body: JSON.stringify({ q: kw, location: `${city}, Canada`, gl: "ca", hl: "en", num: 20 }),
         signal: sSignal,
       });
-      return { keyword: kw, data: await r.json() };
+      const data = await r.json();
+      keywordCache.set(cacheKey, { data, timestamp: Date.now() });
+      console.log('[serper] cached:', kw);
+      return { keyword: kw, data };
     } finally {
       sClear();
     }
   }));
+  console.log('[serper] cache stats:', `${keywordCache.size} entries cached`);
 
   const keywordResults: any[] = [];
   const adCompetitors: any[] = [];
@@ -638,6 +653,13 @@ async function fetchSerperRankings(
 
 /* ─── E4: DataForSEO Keyword Volumes ─── */
 async function fetchDataForSEOVolumes(keywords: string[]) {
+  const dfsKey = 'dfs:' + [...keywords].sort().join(',');
+  const dfsCached = keywordCache.get(dfsKey);
+  if (dfsCached && Date.now() - dfsCached.timestamp < CACHE_TTL) {
+    console.log('[dataforseo] cache hit');
+    return dfsCached.data;
+  }
+
   const login = process.env.DATAFORSEO_LOGIN;
   const password = process.env.DATAFORSEO_PASSWORD;
   console.log('[dataforseo] login:', login ? 'SET' : 'MISSING');
@@ -685,6 +707,8 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
     if (firstWord) volumeMap[firstWord] = val;
   });
   console.log('[dataforseo] volumeMap keys after build:', Object.keys(volumeMap));
+  keywordCache.set(dfsKey, { data: volumeMap, timestamp: Date.now() });
+  console.log('[dataforseo] cached:', Object.keys(volumeMap).length, 'volume entries');
   return volumeMap;
 }
 
