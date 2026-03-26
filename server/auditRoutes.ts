@@ -906,14 +906,23 @@ router.post("/generate", async (req: Request, res: Response) => {
     const serperKeywords = (serperData?.keywords || []).map((k: any) => k.keyword).filter(Boolean);
     const dataForSEOSeeds = serperKeywords.length > 0 ? serperKeywords : seedKeywords;
     console.log('[dataforseo] seeds from serper:', dataForSEOSeeds);
+    console.log('[dataforseo] PRE-CALL seeds:', dataForSEOSeeds?.length, dataForSEOSeeds?.[0]);
+
+    // Strip query params from website URL before passing to PageSpeed
+    const cleanUrl = (url: string) => {
+      try { const u = new URL(url); return u.origin + u.pathname; } catch { return url; }
+    };
+    const pageSpeedUrl = website ? cleanUrl(website) : "";
+    if (pageSpeedUrl !== website) console.log('[pagespeed] cleaned URL:', pageSpeedUrl);
 
     // ─── Run remaining external data fetches in parallel ───
     const [compResult, reviewResult, dataForSEOResult, pageSpeedResult] = await Promise.allSettled([
       fetchOutscraperCompetitors(trade, city, business.name),
       (business.placeId && reviewsCount > 0) ? fetchOutscraperReviews(business.placeId) : Promise.resolve(null),
       fetchDataForSEOVolumes(dataForSEOSeeds),
-      website ? fetchPageSpeed(website) : Promise.resolve(speedData),
+      pageSpeedUrl ? fetchPageSpeed(pageSpeedUrl) : Promise.resolve(speedData),
     ]);
+    console.log('[dataforseo] POST-ALLSETTLED status:', dataForSEOResult?.status, 'value type:', typeof (dataForSEOResult as any)?.value);
 
     // ─── Extract results (null on failure) ───
     const compData = compResult.status === "fulfilled" ? compResult.value : null;
@@ -1049,8 +1058,6 @@ router.post("/generate", async (req: Request, res: Response) => {
     }));
     const detectedIssues: string[] = [];
     if (!auditData.business?.website) detectedIssues.push("no-website");
-    const mobileSpeedScore = auditData.speedData?.mobile?.score;
-    if (mobileSpeedScore == null || mobileSpeedScore < 50) detectedIssues.push("slow-website");
     if (!auditData.business?.description) detectedIssues.push("no-gbp-description");
     if ((auditData.business?.reviewsCount || 0) < 100) detectedIssues.push("low-reviews");
     if ((auditData.business?.rating || 5) < 4.2) detectedIssues.push("bad-rating");
@@ -1058,6 +1065,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     if ((auditData.scores?.competitorPositioning?.score || 0) < 8) detectedIssues.push("not-in-maps-pack");
     if ((auditData.scores?.demandCoverage?.score || 0) < 8) detectedIssues.push("no-after-hours");
     if ((auditData.scores?.adOpportunity?.score || 0) < 5) detectedIssues.push("no-ads");
+    if (!resolvedSpeedData?.mobile?.score || resolvedSpeedData.mobile.score < 50) detectedIssues.push("slow-website");
     const dedupedIssues = [...new Set(detectedIssues)];
     const recommendedServices = getServicesForIssues(dedupedIssues);
     auditData.detectedIssues = dedupedIssues;
