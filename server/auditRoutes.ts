@@ -687,7 +687,25 @@ async function calculateDemandGaps(
   console.log("[audit] Using hardcoded demand distribution");
 
   const hoursStr = (businessHours || []).join(" ").toLowerCase();
-  const isOpenEvenings = /([6-9]|1[0-1]):\d{2}\s*(pm|$)/.test(hoursStr) || hoursStr.includes("18:") || hoursStr.includes("19:") || hoursStr.includes("20:");
+  // isOpenEvenings: closing time >= 9:00 PM (21:00) on any listed day
+  // Parses closing time from "Day: H:MM AM/PM – H:MM AM/PM" format
+  const isOpenEvenings = (() => {
+    for (const line of (businessHours || [])) {
+      const lower = line.toLowerCase();
+      if (lower.includes('closed')) continue;
+      if (lower.includes('24 hours') || lower.includes('24hrs') || lower.includes('24/7')) return true;
+      // Match closing time after dash (handles – — -)
+      const closeMatch = line.match(/[–—\-]\s*(\d{1,2}):(\d{2})\s*(am|pm)/i);
+      if (!closeMatch) continue;
+      let closeHour = parseInt(closeMatch[1]);
+      const ampm = closeMatch[3].toLowerCase();
+      if (ampm === 'pm' && closeHour !== 12) closeHour += 12;      // e.g. 9pm → 21
+      else if (ampm === 'am' && closeHour === 12) closeHour = 24;   // midnight → 24
+      else if (ampm === 'am' && closeHour < 12) closeHour += 24;    // 1am, 2am → 25, 26
+      if (closeHour >= 21) return true;
+    }
+    return false;
+  })();
   const isOpenWeekends = hoursStr.includes("saturday") || hoursStr.includes("sunday");
 
   const fallbackVolume: Record<string, number> = {
@@ -769,7 +787,8 @@ function calculateScores(auditData: any) {
   const googleMapsScore = Math.min(gmRating + gmReviews + gmPhotos + gmDesc + gmWeb, 25);
 
   // Website Quality — 20pts
-  let webMobile = 0, webDesktop = 0;
+  const speedDataAvailable = typeof speedMobile === "number" || typeof speedDesktop === "number";
+  let webMobile: number | null = null, webDesktop: number | null = null;
   if (bd.website) {
     if (typeof speedMobile === "number") {
       if (speedMobile >= 90) webMobile = 12;
@@ -783,7 +802,12 @@ function calculateScores(auditData: any) {
       else webDesktop = 2;
     }
   }
-  const websiteScore = Math.min(webMobile + webDesktop, 20);
+  // If business has a website but speed data didn't load, score is null (excluded from total)
+  // If no website, score is 0 (correctly penalized)
+  const websiteScore: number | null = bd.website && !speedDataAvailable
+    ? null
+    : Math.min((webMobile ?? 0) + (webDesktop ?? 0), 20);
+  console.log('[scoring] websiteQuality:', websiteScore ?? 'null - excluded');
 
   // Search Visibility — 20pts
   let searchPts = 0;
@@ -824,7 +848,10 @@ function calculateScores(auditData: any) {
   if (auditData.isOpenWeekends) demandPts += 5;
   const demandScore = demandPts;
 
-  const total = googleMapsScore + websiteScore + searchVisibilityScore + competitorScore + adScore + demandScore;
+  const baseTotal = googleMapsScore + searchVisibilityScore + competitorScore + adScore + demandScore;
+  const total = websiteScore === null
+    ? Math.round((baseTotal / 80) * 100)
+    : baseTotal + websiteScore;
   let grade: string;
   if (total >= 85) grade = "A";
   else if (total >= 70) grade = "B";
@@ -833,7 +860,7 @@ function calculateScores(auditData: any) {
 
   return {
     googleMaps: { score: googleMapsScore, max: 25, breakdown: { rating: gmRating, reviews: gmReviews, photos: gmPhotos, description: gmDesc, website: gmWeb } },
-    websiteQuality: { score: websiteScore, max: 20, breakdown: { mobile: webMobile, desktop: webDesktop } },
+    websiteQuality: { score: websiteScore, max: websiteScore === null ? null : 20, breakdown: { mobile: webMobile, desktop: webDesktop } },
     searchVisibility: { score: searchVisibilityScore, max: 20, breakdown: { keywordPoints: Math.min(searchPts - (hasLocalPack ? 5 : 0), 12), localPackBonus: hasLocalPack ? 5 : 0 } },
     competitorPositioning: { score: competitorScore, max: 15, breakdown: {} },
     adOpportunity: { score: adScore, max: 10, breakdown: { topCPC, totalVol } },
