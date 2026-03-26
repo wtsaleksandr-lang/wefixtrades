@@ -191,6 +191,30 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [chatLoading, setChatLoading] = useState(false);
   const [chatUnread, setChatUnread] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const reviewsRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+  const onReviewMouseDown = (e: React.MouseEvent) => {
+    isDragging.current = true;
+    startX.current = e.pageX - (reviewsRef.current?.offsetLeft || 0);
+    scrollLeft.current = reviewsRef.current?.scrollLeft || 0;
+    if (reviewsRef.current) { reviewsRef.current.style.cursor = 'grabbing'; reviewsRef.current.style.userSelect = 'none'; }
+  };
+  const onReviewMouseLeave = () => {
+    isDragging.current = false;
+    if (reviewsRef.current) { reviewsRef.current.style.cursor = 'grab'; reviewsRef.current.style.userSelect = ''; }
+  };
+  const onReviewMouseUp = () => {
+    isDragging.current = false;
+    if (reviewsRef.current) { reviewsRef.current.style.cursor = 'grab'; reviewsRef.current.style.userSelect = ''; }
+  };
+  const onReviewMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging.current) return;
+    e.preventDefault();
+    const x = e.pageX - (reviewsRef.current?.offsetLeft || 0);
+    if (reviewsRef.current) reviewsRef.current.scrollLeft = scrollLeft.current - (x - startX.current) * 1.5;
+  };
   const [chatExpanded, setChatExpanded] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const isTiny = typeof window !== 'undefined' && window.innerWidth <= 480;
@@ -762,7 +786,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           <div style={{ marginTop: 32, marginBottom: 8 }}>
             <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 4 }}>What Trades Businesses Say</div>
             <div style={{ fontSize: 12, color: GREY, marginBottom: 16 }}>Real results from real businesses</div>
-            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 12, scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none' } as any}>
+            <div ref={reviewsRef} onMouseDown={onReviewMouseDown} onMouseLeave={onReviewMouseLeave} onMouseUp={onReviewMouseUp} onMouseMove={onReviewMouseMove} style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 12, scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none', cursor: 'grab' } as any}>
               {REVIEWS.map((review, i) => (
                 <div key={i} style={{ minWidth: 280, maxWidth: 280, background: WHITE, borderRadius: 14, border: `1px solid ${BORDER}`, padding: 18, flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -827,28 +851,58 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           {/* E — POWERED BY STRIP */}
           {(() => {
             const BRAND_ICONS = [
-              { name: 'Google', src: 'https://www.google.com/favicon.ico', size: 20 },
-              { name: 'Claude AI', src: 'https://claude.ai/favicon.ico', size: 20 },
-              { name: 'OpenAI', src: 'https://openai.com/favicon.ico', size: 20 },
-              { name: 'Stripe', src: 'https://stripe.com/favicon.ico', size: 20 },
-              { name: 'Zapier', src: 'https://zapier.com/favicon.ico', size: 20 },
-              { name: 'Make.com', src: 'https://www.make.com/favicon.ico', size: 20 },
+              { name: 'Google', element: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+              )},
+              { name: 'Claude AI', element: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <rect width="24" height="24" rx="6" fill="#D97757"/>
+                  <path d="M15.5 7.5c-1.2-1.2-2.8-1.2-3.5 0L7.5 12c-.7.7-.7 2 0 3 .7.7 1.5 1 2.5 1s2-.3 2.5-1l1-1" stroke="white" strokeWidth="1.6" strokeLinecap="round" fill="none"/>
+                  <path d="M8.5 16.5c1.2 1.2 2.8 1.2 3.5 0L16.5 12c.7-.7.7-2 0-3-.7-.7-1.5-1-2.5-1s-2 .3-2.5 1l-1 1" stroke="white" strokeWidth="1.6" strokeLinecap="round" fill="none"/>
+                </svg>
+              )},
+              { name: 'OpenAI', element: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <rect width="24" height="24" rx="6" fill="#1a1a1a"/>
+                  <path d="M20.2 9.6a5.1 5.1 0 00-.35-4.18 5.2 5.2 0 00-5.6-2.49A5.2 5.2 0 009.43 1a5.2 5.2 0 00-4.96 3.6 5.2 5.2 0 00-3.46 2.51 5.23 5.23 0 00.64 6.13 5.1 5.1 0 00.35 4.18 5.2 5.2 0 005.6 2.49A5.17 5.17 0 0012 21a5.2 5.2 0 004.97-3.6 5.2 5.2 0 003.46-2.51 5.23 5.23 0 00-.64-6.13l.41.84zM12 19.5a3.85 3.85 0 01-2.47-.9l.12-.07 4.12-2.38a.68.68 0 00.34-.59v-5.82l1.74 1a.07.07 0 01.04.05v4.81A3.87 3.87 0 0112 19.5zM4.48 16.1a3.85 3.85 0 01-.46-2.59l.12.07 4.12 2.38c.21.12.47.12.68 0l5.03-2.9v2a.07.07 0 01-.03.06l-4.16 2.4a3.87 3.87 0 01-5.3-1.42zM3.38 8.5a3.85 3.85 0 012.02-1.69v4.9c0 .24.13.46.34.59l5.03 2.9-1.74 1a.07.07 0 01-.07 0L4.8 13.8A3.87 3.87 0 013.38 8.5zm13.2 3.33l-5.03-2.9 1.74-1a.07.07 0 01.07 0l4.16 2.4a3.87 3.87 0 01-.6 6.99v-4.9a.68.68 0 00-.34-.59zm1.73-2.61l-.12-.07-4.12-2.38a.68.68 0 00-.68 0L8.36 9.67v-2a.07.07 0 01.03-.06l4.16-2.4a3.87 3.87 0 015.76 4.01zM7.47 12.86l-1.74-1a.07.07 0 01-.04-.05V7a3.87 3.87 0 016.36-2.97l-.12.07-4.12 2.38a.68.68 0 00-.34.59v5.79zm.95-2.05l2.24-1.29 2.24 1.29v2.58l-2.24 1.3-2.24-1.3V10.81z" fill="white"/>
+                </svg>
+              )},
+              { name: 'Stripe', element: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <rect width="24" height="24" rx="6" fill="#635BFF"/>
+                  <path d="M10.5 8.5c0-.8.7-1.1 1.8-1.1 1.6 0 3.6.5 5 1.3V5.2C15.9 4.4 14 4 12 4 8.7 4 6.5 5.7 6.5 8.7c0 4.6 6.3 3.9 6.3 5.9 0 .9-.8 1.2-1.9 1.2-1.7 0-3.8-.7-5.5-1.6V18c1.9.8 3.7 1.2 5.5 1.2 3.4 0 5.7-1.7 5.7-4.7 0-5-6.4-4.1-6.1-5.9v-.1z" fill="white"/>
+                </svg>
+              )},
+              { name: 'Zapier', element: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <rect width="24" height="24" rx="6" fill="#FF4A00"/>
+                  <path d="M12 2L14.4 9.6H22L16 14.4L18.4 22L12 17.2L5.6 22L8 14.4L2 9.6H9.6L12 2Z" fill="white"/>
+                </svg>
+              )},
+              { name: 'Make.com', element: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <rect width="24" height="24" rx="6" fill="#6D00CC"/>
+                  <circle cx="7" cy="12" r="2.5" fill="white"/>
+                  <circle cx="17" cy="12" r="2.5" fill="white"/>
+                  <path d="M9.5 12h5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M4.5 8c0 0 2.5-1 2.5 4s-2.5 4-2.5 4" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none"/>
+                  <path d="M19.5 8c0 0-2.5-1-2.5 4s2.5 4 2.5 4" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none"/>
+                </svg>
+              )},
             ];
             return (
               <div style={{ textAlign: 'center', marginTop: 16, marginBottom: 8 }}>
                 <div style={{ fontSize: 11, color: GREY, marginBottom: 12, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Powered by</div>
                 <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', gap: 20, justifyContent: 'center', alignItems: 'center' }}>
                   {BRAND_ICONS.map(brand => (
-                    <div key={brand.name} title={brand.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                      <img
-                        src={brand.src}
-                        alt={brand.name}
-                        width={brand.size}
-                        height={brand.size}
-                        style={{ width: brand.size, height: brand.size, objectFit: 'contain', opacity: 0.55, filter: 'grayscale(30%)', display: 'block', flexShrink: 0 }}
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                      />
-                      <span style={{ fontSize: 9, color: GREY, opacity: 0.7, whiteSpace: 'nowrap' }}>{brand.name}</span>
+                    <div key={brand.name} title={brand.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, opacity: 0.6 }}>
+                      {brand.element}
+                      <span style={{ fontSize: 9, color: GREY, whiteSpace: 'nowrap' }}>{brand.name}</span>
                     </div>
                   ))}
                 </div>
