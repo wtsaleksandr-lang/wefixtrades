@@ -366,12 +366,15 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const loss = report?.estimatedRevenueLoss || {};
   const speed = liveSpeedData || report?.speedData || {};
   const gaps = report?.contentGaps || ai?.contentGaps || [];
-  const plan = ai?.actionPlan || [];
-  console.log('[debug] ai keys:', Object.keys(ai));
-  console.log('[debug] plan length:', plan.length);
-  console.log('[debug] report keys:', Object.keys(report || {}));
-  console.log('[debug] narrative:', !!report?.narrative);
-  console.log('[debug] aiNarrative:', !!report?.aiNarrative);
+
+  // Handle both narrative structures (old: actionPlan/quickWin, new: recommendations/analysis)
+  const plan = ai?.actionPlan || ai?.recommendations || [];
+  const quickWin = ai?.quickWin || (ai?.analysis ? {
+    action: ai.analysis,
+    timeRequired: null,
+    expectedResult: null,
+  } : null);
+
   const shareUrl = reportId
     ? `${window.location.origin}/audit/report/${reportId}`
     : window.location.href;
@@ -845,18 +848,18 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       })()}
 
       {/* SECTION 6 — QUICK WIN (Tab 1, advisory only) */}
-      {activeTab === 'maps' && ai.quickWin && (
+      {activeTab === 'maps' && quickWin && (
         <div style={{ background: WHITE, borderRadius: 14, border: `1px solid ${BORDER}`, padding: 20, marginBottom: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: DARK }}>⚡ Your Quick Win</div>
             <div style={{ fontSize: 11, background: '#F0FFF4', color: GREEN, padding: '3px 10px', borderRadius: 20, border: '1px solid #BBF7D0', fontWeight: 600 }}>Free & Fast</div>
           </div>
-          <div style={{ fontSize: 13, color: GREY, lineHeight: 1.6, marginBottom: 8 }}>{ai.quickWin.action}</div>
-          {ai.quickWin.timeRequired && (
-            <div style={{ fontSize: 12, color: GREY, marginBottom: 4 }}>⏱ {ai.quickWin.timeRequired}</div>
+          <div style={{ fontSize: 13, color: GREY, lineHeight: 1.6, marginBottom: 8 }}>{quickWin.action}</div>
+          {quickWin.timeRequired && (
+            <div style={{ fontSize: 12, color: GREY, marginBottom: 4 }}>⏱ {quickWin.timeRequired}</div>
           )}
-          {ai.quickWin.expectedResult && (
-            <div style={{ fontSize: 12, color: GREY, opacity: 0.8 }}>Expected: {ai.quickWin.expectedResult}</div>
+          {quickWin.expectedResult && (
+            <div style={{ fontSize: 12, color: GREY, opacity: 0.8 }}>Expected: {quickWin.expectedResult}</div>
           )}
         </div>
       )}
