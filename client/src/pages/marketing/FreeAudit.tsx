@@ -220,6 +220,9 @@ export default function FreeAudit() {
           margin: 0 auto;
           padding: 110px 16px 80px;
         }
+        @media (max-width: 480px) {
+          .audit-container { padding: 110px 10px 80px; }
+        }
         @media (min-width: 768px) {
           .audit-container { padding: 120px 24px 80px; }
         }

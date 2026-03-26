@@ -364,7 +364,7 @@ export default function ReportView({ report, business, reportId }: {
   ];
 
   return (
-    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: window.innerWidth >= 1024 ? 960 : 780, margin: '0 auto', padding: isTiny ? '0 0 48px' : '0 16px 48px', boxSizing: 'border-box', position: 'relative' }}>
+    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: window.innerWidth >= 1024 ? 960 : 780, margin: '0 auto', padding: isTiny ? '0 10px 80px' : isMobile ? '0 16px 80px' : '0 16px 48px', boxSizing: 'border-box', position: 'relative' }}>
 
       {/* TAB BAR */}
       <div style={{ display:'flex', background:WHITE, borderBottom:'2px solid #F3F4F6', padding:'0 16px', position:'sticky', top:0, zIndex:20, gap:0, width:'100%' }}>
@@ -437,14 +437,14 @@ export default function ReportView({ report, business, reportId }: {
                 {row.icon}
               </span>
               <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: DARK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{row.label}</span>
-              <div style={{ width: 80, flexShrink: 0, height: 8, borderRadius: 4, background: GREY_BG, overflow: 'hidden' }}>
+              <div style={{ width: 80, flexShrink: 0, height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
                 <div style={{ width: `${(row.score / row.max) * 100}%`, height: '100%', background: scoreColor(row.score, row.max), borderRadius: 4 }}/>
               </div>
               <span style={{ width: 48, flexShrink: 0, textAlign: 'right', fontSize: 13, fontWeight: 700, color: scoreColor(row.score, row.max) }}>
                 {row.score}/{row.max}
               </span>
             </div>
-            <div style={{ fontSize: 11, color: GREY, marginTop: 2, marginLeft: 28 }}>{row.note}</div>
+            <div style={{ fontSize: 11, color: GREY, marginTop: 2, marginLeft: 38 }}>{row.note}</div>
           </div>
         ))}
       </div>}
@@ -733,27 +733,44 @@ export default function ReportView({ report, business, reportId }: {
           </div>
 
           {/* D — TRUST BADGES */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 24, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 20, marginBottom: 16 }}>
             {[
               { Icon: Wrench, title: 'All Done For You', text: 'No software to learn. No team to hire.' },
               { Icon: FileX, title: 'No Contracts', text: 'Cancel anytime. No cancellation fees.' },
               { Icon: BarChart3, title: 'Weekly Reports', text: 'See exactly what improved every week.' },
               { Icon: Users, title: 'Built for Trades', text: 'Designed for plumbers, HVAC, electricians and more.' },
             ].map(({ Icon, title, text }) => (
-              <div key={title} style={{ background: GREY_BG, borderRadius: 12, padding: 16, textAlign: 'center' }}>
-                <Icon size={20} color={CYAN} style={{ marginBottom: 8 }} />
-                <div style={{ fontSize: 13, fontWeight: 700, color: DARK }}>{title}</div>
-                <div style={{ fontSize: 12, color: GREY, marginTop: 4 }}>{text}</div>
+              <div key={title} style={{ background: GREY_BG, borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,212,200,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon size={16} color={CYAN} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: DARK, marginBottom: 2 }}>{title}</div>
+                  <div style={{ fontSize: 11, color: GREY, lineHeight: 1.4 }}>{text}</div>
+                </div>
               </div>
             ))}
           </div>
 
           {/* E — POWERED BY STRIP */}
-          <div style={{ textAlign: 'center', marginTop: 20 }}>
-            <div style={{ fontSize: 11, color: GREY, marginBottom: 8 }}>Powered by</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {['Google', 'Claude AI', 'Stripe', 'Zapier', 'Make.com', 'OpenAI'].map(tool => (
-                <span key={tool} style={{ padding: '3px 10px', borderRadius: 12, background: GREY_BG, color: GREY, fontSize: 11 }}>{tool}</span>
+          <div style={{ textAlign: 'center', marginTop: 16 }}>
+            <div style={{ fontSize: 11, color: GREY, marginBottom: 10 }}>Powered by</div>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+              {[
+                { name: 'Google', url: 'https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png', height: 16 },
+                { name: 'OpenAI', url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/OpenAI_Logo.svg/200px-OpenAI_Logo.svg.png', height: 16 },
+                { name: 'Stripe', url: 'https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg', height: 18 },
+                { name: 'Zapier', url: 'https://cdn.worldvectorlogo.com/logos/zapier-1.svg', height: 16 },
+                { name: 'Make', url: 'https://cdn.worldvectorlogo.com/logos/make-seeklogo.svg', height: 16 },
+              ].map(brand => (
+                <img
+                  key={brand.name}
+                  src={brand.url}
+                  alt={brand.name}
+                  height={brand.height}
+                  style={{ opacity: 0.45, filter: 'grayscale(100%)', objectFit: 'contain' }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
               ))}
             </div>
           </div>
@@ -878,7 +895,7 @@ export default function ReportView({ report, business, reportId }: {
         {/* Bubble */}
         <div
           onClick={() => { setChatOpen(o => !o); setChatUnread(false); }}
-          style={{ position:'fixed', bottom:24, right:24, width:52, height:52, borderRadius:'50%', background:DARK, border:`2px solid ${CYAN}`, cursor:'pointer', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 20px rgba(0,0,0,0.25)' }}
+          style={{ position:'fixed', bottom:16, right:12, width:52, height:52, borderRadius:'50%', background:DARK, border:`2px solid ${CYAN}`, cursor:'pointer', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 20px rgba(0,0,0,0.25)' }}
         >
           <MessageCircle size={22} color={CYAN} />
           {chatUnread && chatMessages.length > 0 && (
@@ -887,7 +904,7 @@ export default function ReportView({ report, business, reportId }: {
         </div>
         {/* Chat Window */}
         {chatOpen && (
-          <div style={{ position:'fixed', bottom:88, right:24, width:320, borderRadius:16, overflow:'hidden', boxShadow:'0 8px 40px rgba(0,0,0,0.18)', zIndex:1000, fontFamily:'Inter, system-ui, sans-serif' }}>
+          <div style={{ position:'fixed', bottom:72, right:12, width:320, borderRadius:16, overflow:'hidden', boxShadow:'0 8px 40px rgba(0,0,0,0.18)', zIndex:1000, fontFamily:'Inter, system-ui, sans-serif' }}>
             {/* Header */}
             <div style={{ background:DARK, padding:'16px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <div>
