@@ -508,13 +508,14 @@ async function pollOutscraper(
 }
 
 /* ─── E1: Outscraper Competitor Data ─── */
-async function fetchOutscraperCompetitors(trade: string, city: string, businessName: string) {
+async function fetchOutscraperCompetitors(trade: string, city: string, businessName: string, stateCode?: string) {
   const apiKey = process.env.OUTSCRAPER_API_KEY;
   if (!apiKey) {
     console.warn("[E1 Outscraper competitors] OUTSCRAPER_API_KEY not set, skipping");
     return null;
   }
-  const competitorQuery = `${trade} near ${city}`;
+  const locationLabel = stateCode ? `${city}, ${stateCode}` : city;
+  const competitorQuery = `${trade} near ${locationLabel}`;
   console.log('[outscraper] query:', competitorQuery);
   const params = new URLSearchParams({
     query: competitorQuery,
@@ -779,12 +780,13 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
   const volumeMap: Record<string, { searchVolume: number; cpc: number; competition: number }> = {};
   results.forEach((item: any) => {
     const kw = item?.keyword;
+    if (!kw) return;
+    // search_volume/live returns fields directly on item (not nested under keyword_info)
     const info = item?.keyword_info;
-    if (!kw || !info) return;
     const val = {
-      searchVolume: info.search_volume || 0,
-      cpc: info.cpc || 0,
-      competition: info.competition || 0,
+      searchVolume: item?.search_volume ?? info?.search_volume ?? 0,
+      cpc: item?.cpc ?? info?.cpc ?? 0,
+      competition: item?.competition_index ?? item?.competition ?? info?.competition ?? 0,
     };
     volumeMap[kw.toLowerCase().trim()] = val;
     volumeMap[kw.trim()] = val;
@@ -1086,6 +1088,12 @@ router.post("/generate", async (req: Request, res: Response) => {
     // Extract city from place details if not provided by client
     const city = String(req.body?.city || "").trim() || extractCity(business);
     console.log("[audit] Resolved city:", JSON.stringify(city));
+    // Extract state/province short code for more precise geo queries (e.g. "ON", "CA", "TX")
+    const stateCode = (() => {
+      const comps = Array.isArray(business.addressComponents) ? business.addressComponents : [];
+      const lvl1 = comps.find((c: any) => Array.isArray(c.types) && c.types.includes("administrative_area_level_1"));
+      return lvl1?.short_name || null;
+    })();
 
     // Detect trade from business name + types if not provided by client
     const clientTrade = String(req.body?.trade || "").trim();
@@ -1124,7 +1132,7 @@ router.post("/generate", async (req: Request, res: Response) => {
 
     // ─── Run remaining external data fetches in parallel ───
     const [compResult, reviewResult, dataForSEOResult] = await Promise.allSettled([
-      fetchOutscraperCompetitors(trade, city, business.name),
+      fetchOutscraperCompetitors(trade, city, business.name, stateCode || undefined),
       (business.placeId && reviewsCount > 0) ? fetchOutscraperReviews(business.placeId) : Promise.resolve(null),
       fetchDataForSEOVolumes(dataForSEOSeeds),
     ]);
