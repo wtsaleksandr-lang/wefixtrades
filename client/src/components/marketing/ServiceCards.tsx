@@ -27,7 +27,7 @@ const SERVICES: ServiceCard[] = [
     description:
       "Protect and boost your Google Maps ranking. Monitor your local presence, track competitors, and make sure customers find you first when they search for trades in your area.",
     icon: MapPin,
-    color: mkt.accent,     // #66E8FA
+    color: mkt.accent,
     features: [
       "Real-time Maps ranking tracker",
       "Competitor position monitoring",
@@ -42,7 +42,7 @@ const SERVICES: ServiceCard[] = [
     description:
       "Give customers instant estimates right on your website. Our smart calculator turns browsers into booked jobs — no phone tag, no delays, no missed revenue.",
     icon: Calculator,
-    color: mkt.orange,     // #F7B430
+    color: mkt.orange,
     features: [
       "Embeddable quote widget",
       "Custom pricing rules per trade",
@@ -57,7 +57,7 @@ const SERVICES: ServiceCard[] = [
     description:
       "Never miss a job call again. Our 24/7 answering service captures every enquiry, books appointments, and sends you the details — even at 3 am.",
     icon: Phone,
-    color: colors.status.success, // #10B981
+    color: colors.status.success,
     features: [
       "Round-the-clock call answering",
       "SMS & email lead notifications",
@@ -72,7 +72,7 @@ const SERVICES: ServiceCard[] = [
     description:
       "Automatically request reviews after every job, monitor your online reputation, and respond to feedback. Turn happy customers into 5-star advocates.",
     icon: Shield,
-    color: colors.accent.blue,   // #2F6BFF
+    color: colors.accent.blue,
     features: [
       "Automated review request campaigns",
       "Real-time sentiment alerts",
@@ -80,17 +80,6 @@ const SERVICES: ServiceCard[] = [
       "Reputation score dashboard",
     ],
   },
-];
-
-/* ── Layout modes ───────────────────────────────────────────────────── */
-
-type Layout = "grid" | "list" | "stripes" | "stack";
-
-const LAYOUTS: { id: Layout; label: string }[] = [
-  { id: "grid", label: "Grid" },
-  { id: "list", label: "List" },
-  { id: "stripes", label: "Stripes" },
-  { id: "stack", label: "Stack" },
 ];
 
 /* ── Mini-visual per card ───────────────────────────────────────────── */
@@ -115,7 +104,7 @@ function CardVisual({ card, compact }: { card: ServiceCard; compact?: boolean })
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: `radial-gradient(circle at 50% 60%, ${card.color}18 0%, transparent 70%)`,
+        background: "transparent",
         overflow: "hidden",
       }}
     >
@@ -125,7 +114,7 @@ function CardVisual({ card, compact }: { card: ServiceCard; compact?: boolean })
           position: "absolute",
           inset: 0,
           backgroundImage:
-            "radial-gradient(circle, rgba(255,255,255,0.04) 0.8px, transparent 0.8px)",
+            "radial-gradient(circle, rgba(255,255,255,0.03) 0.8px, transparent 0.8px)",
           backgroundSize: "14px 14px",
           pointerEvents: "none",
         }}
@@ -140,8 +129,8 @@ function CardVisual({ card, compact }: { card: ServiceCard; compact?: boolean })
           width: size * 1.8,
           height: size * 1.8,
           borderRadius: "50%",
-          background: `${card.color}1A`,
-          border: `1px solid ${card.color}33`,
+          background: `${card.color}0D`,
+          border: `1px solid ${card.color}1A`,
           position: "relative",
           zIndex: 1,
         }}
@@ -174,7 +163,7 @@ function CardVisual({ card, compact }: { card: ServiceCard; compact?: boolean })
                 zIndex: 1,
               }}
             >
-              <Sub size={14} strokeWidth={1.5} color={card.color} />
+              <Sub size={14} strokeWidth={1.5} color={`${card.color}99`} />
             </div>
           );
         })}
@@ -191,36 +180,50 @@ function CardOverlay({
   card: ServiceCard;
   onClose: () => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (ref.current) {
+    if (backdropRef.current) {
       gsap.fromTo(
-        ref.current,
-        { opacity: 0, y: 40, scale: 0.96 },
-        { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: "power3.out" }
+        backdropRef.current,
+        { opacity: 0 },
+        { opacity: 1, duration: 0.35, ease: "power2.out" }
+      );
+    }
+    if (panelRef.current) {
+      gsap.fromTo(
+        panelRef.current,
+        { opacity: 0, y: 60, scale: 0.92 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.55, ease: "power2.out", delay: 0.08 }
       );
     }
   }, []);
 
   const close = () => {
-    if (ref.current) {
-      gsap.to(ref.current, {
+    const tl = gsap.timeline({
+      onComplete: onClose,
+    });
+    if (panelRef.current) {
+      tl.to(panelRef.current, {
         opacity: 0,
         y: 30,
-        scale: 0.97,
-        duration: 0.25,
-        ease: "power2.in",
-        onComplete: onClose,
-      });
-    } else {
-      onClose();
+        scale: 0.96,
+        duration: 0.3,
+        ease: "power2.inOut",
+      }, 0);
+    }
+    if (backdropRef.current) {
+      tl.to(backdropRef.current, {
+        opacity: 0,
+        duration: 0.3,
+        ease: "power2.inOut",
+      }, 0.05);
     }
   };
 
   return (
     <div
-      onClick={close}
       style={{
         position: "fixed",
         inset: 0,
@@ -228,13 +231,25 @@ function CardOverlay({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "rgba(0,0,0,0.55)",
-        backdropFilter: "blur(6px)",
         padding: 24,
       }}
     >
+      {/* backdrop */}
       <div
-        ref={ref}
+        ref={backdropRef}
+        onClick={close}
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(0,0,0,0.55)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+        }}
+      />
+
+      {/* panel */}
+      <div
+        ref={panelRef}
         onClick={(e) => e.stopPropagation()}
         style={{
           position: "relative",
@@ -351,232 +366,81 @@ function CardOverlay({
 /* ── Main component ─────────────────────────────────────────────────── */
 
 export default function ServiceCards() {
-  const [layout, setLayout] = useState<Layout>("grid");
   const [openCard, setOpenCard] = useState<ServiceCard | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  /* animate layout transitions */
-  useEffect(() => {
-    if (!rootRef.current) return;
-    const cards = rootRef.current.querySelectorAll<HTMLElement>(".svc-card");
-    if (!cards.length) return;
-
-    if (layout === "stack") {
-      cards.forEach((el, i) => {
-        gsap.to(el, {
-          y: -(cards.length - 1 - i) * 10,
-          scale: 1 - (cards.length - 1 - i) * 0.03,
-          rotateZ: (i % 2 === 0 ? 1 : -1) * (cards.length - 1 - i) * 1.5,
-          duration: 0.45,
-          ease: "power3.out",
-          delay: i * 0.05,
-        });
-      });
-    } else {
-      cards.forEach((el, i) => {
-        gsap.to(el, {
-          y: 0,
-          scale: 1,
-          rotateZ: 0,
-          duration: 0.35,
-          ease: "power3.out",
-          delay: i * 0.04,
-        });
-      });
-    }
-  }, [layout]);
-
-  /* ── layout styles ─────────────────────────────────────────────── */
-
-  const containerStyle: React.CSSProperties =
-    layout === "grid"
-      ? {
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 20,
-        }
-      : layout === "list"
-      ? {
-          display: "flex",
-          flexDirection: "column",
-          gap: 14,
-          maxWidth: 640,
-        }
-      : layout === "stripes"
-      ? {
-          display: "flex",
-          flexDirection: "row",
-          gap: 0,
-          height: 420,
-        }
-      : /* stack */ {
-          display: "grid",
-          placeContent: "center",
-          height: 420,
-        };
-
-  const cardStyle = (card: ServiceCard, i: number): React.CSSProperties => {
-    const base: React.CSSProperties = {
-      position: "relative",
-      cursor: "pointer",
-      overflow: "hidden",
-      background: mkt.surface,
-      border: `1px solid ${mkt.border}`,
-      borderRadius: radius.lg,
-      fontFamily: typography.fontFamily,
-      transition: "transform 0.15s ease-out, box-shadow 0.2s ease, border-color 0.2s ease",
-      textDecoration: "none",
-      color: mkt.text,
-    };
-
-    if (layout === "grid") {
-      return {
-        ...base,
-        display: "flex",
-        flexDirection: "column",
-      };
-    }
-    if (layout === "list") {
-      return {
-        ...base,
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-      };
-    }
-    if (layout === "stripes") {
-      return {
-        ...base,
-        flex: 1,
-        borderRadius: 0,
-        borderLeft: i > 0 ? `1px solid ${mkt.border}` : undefined,
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-      };
-    }
-    /* stack */
-    return {
-      ...base,
-      gridArea: "1/1",
-      width: 300,
-      height: 320,
-      display: "flex",
-      flexDirection: "column",
-    };
-  };
 
   return (
     <section
       style={{
         width: "100%",
-        padding: "0",
+        maxWidth: 1200,
+        margin: "0 auto",
+        padding: "48px 24px 56px",
         fontFamily: typography.fontFamily,
       }}
     >
       <style>{`
         @media (max-width: 900px) {
-          .svc-grid-container[data-layout="grid"] {
+          .svc-grid-container {
             grid-template-columns: repeat(2, 1fr) !important;
-          }
-          .svc-grid-container[data-layout="stripes"] {
-            flex-direction: column !important;
-            height: auto !important;
           }
         }
         @media (max-width: 560px) {
-          .svc-grid-container[data-layout="grid"] {
+          .svc-grid-container {
             grid-template-columns: 1fr !important;
           }
         }
       `}</style>
-      {/* ── controls ──────────────────────────────────────────────── */}
+
+      {/* ── cards grid ──────────────────────────────────────────── */}
       <div
+        className="svc-grid-container"
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          marginBottom: 28,
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: 20,
         }}
       >
-        {LAYOUTS.map((l) => (
-          <button
-            key={l.id}
-            onClick={() => setLayout(l.id)}
-            style={{
-              padding: "7px 16px",
-              fontSize: 13,
-              fontWeight: 600,
-              fontFamily: typography.fontFamily,
-              letterSpacing: "0.02em",
-              textTransform: "uppercase",
-              border: `1px solid ${layout === l.id ? mkt.accent : mkt.border}`,
-              borderRadius: radius.sm,
-              background: layout === l.id ? `${mkt.accent}1A` : mkt.surface,
-              color: layout === l.id ? mkt.accent : mkt.textMuted,
-              cursor: "pointer",
-              transition: "all 0.15s ease-out",
-            }}
-          >
-            {l.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── cards ─────────────────────────────────────────────────── */}
-      <div ref={rootRef} className="svc-grid-container" data-layout={layout} style={containerStyle}>
-        {SERVICES.map((card, i) => (
+        {SERVICES.map((card) => (
           <div
             key={card.id}
             className="svc-card"
             onClick={() => setOpenCard(card)}
-            style={cardStyle(card, i)}
+            style={{
+              position: "relative",
+              cursor: "pointer",
+              overflow: "hidden",
+              background: mkt.surface,
+              border: `1px solid ${mkt.border}`,
+              borderRadius: radius.lg,
+              fontFamily: typography.fontFamily,
+              transition: "transform 0.2s ease, box-shadow 0.25s ease, border-color 0.25s ease",
+              textDecoration: "none",
+              color: mkt.text,
+              display: "flex",
+              flexDirection: "column",
+            }}
             onMouseEnter={(e) => {
-              if (layout !== "stripes") {
-                (e.currentTarget as HTMLElement).style.transform = layout === "stack" ? "" : "scale(1.025)";
-              } else {
-                (e.currentTarget as HTMLElement).style.transform = "translateY(-8px)";
-              }
-              (e.currentTarget as HTMLElement).style.borderColor = `${card.color}66`;
-              (e.currentTarget as HTMLElement).style.boxShadow = `0 12px 32px ${card.color}22`;
+              (e.currentTarget as HTMLElement).style.transform = "translateY(-4px)";
+              (e.currentTarget as HTMLElement).style.borderColor = `${card.color}44`;
+              (e.currentTarget as HTMLElement).style.boxShadow = `0 12px 32px ${card.color}15`;
             }}
             onMouseLeave={(e) => {
-              if (layout !== "stack") {
-                (e.currentTarget as HTMLElement).style.transform = "none";
-              }
+              (e.currentTarget as HTMLElement).style.transform = "none";
               (e.currentTarget as HTMLElement).style.borderColor = mkt.border;
               (e.currentTarget as HTMLElement).style.boxShadow = "none";
             }}
           >
             {/* visual */}
-            <div
-              style={
-                layout === "list"
-                  ? { width: 80, height: 80, flexShrink: 0 }
-                  : layout === "stripes"
-                  ? { flex: 1, width: "100%" }
-                  : { aspectRatio: "16 / 11", width: "100%" }
-              }
-            >
-              <CardVisual card={card} compact={layout === "list"} />
+            <div style={{ aspectRatio: "16 / 11", width: "100%" }}>
+              <CardVisual card={card} />
             </div>
 
             {/* text */}
-            <div
-              style={{
-                padding:
-                  layout === "list"
-                    ? "12px 16px"
-                    : layout === "stripes"
-                    ? "12px 14px"
-                    : "14px 18px 18px",
-                flex: layout === "list" ? 1 : undefined,
-              }}
-            >
+            <div style={{ padding: "14px 18px 18px" }}>
               <h3
                 style={{
                   margin: 0,
-                  fontSize: layout === "stripes" ? 14 : 18,
+                  fontSize: 18,
                   fontWeight: 700,
                   lineHeight: 1.25,
                   letterSpacing: "-0.01em",
@@ -586,38 +450,22 @@ export default function ServiceCards() {
                 {card.title}
               </h3>
 
-              {layout !== "stripes" && (
-                <span
-                  style={{
-                    display: "inline-block",
-                    marginTop: 6,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    color: card.color,
-                    background: `${card.color}1A`,
-                    padding: "2px 8px",
-                    borderRadius: 4,
-                  }}
-                >
-                  {card.tagline}
-                </span>
-              )}
-
-              {(layout === "list" || layout === "grid") && (
-                <p
-                  style={{
-                    margin: "8px 0 0",
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                    color: mkt.textMuted,
-                    display: layout === "grid" ? "none" : undefined,
-                  }}
-                >
-                  {card.description}
-                </p>
-              )}
+              <span
+                style={{
+                  display: "inline-block",
+                  marginTop: 6,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  color: card.color,
+                  background: `${card.color}1A`,
+                  padding: "2px 8px",
+                  borderRadius: 4,
+                }}
+              >
+                {card.tagline}
+              </span>
             </div>
           </div>
         ))}

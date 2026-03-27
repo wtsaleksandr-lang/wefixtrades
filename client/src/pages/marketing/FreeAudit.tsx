@@ -438,6 +438,7 @@ export default function FreeAudit() {
 
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  const [searchDone, setSearchDone] = useState(false);
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [speedData, setSpeedData] = useState<SpeedData | null>(null);
@@ -457,16 +458,22 @@ export default function FreeAudit() {
     const q = debounced.trim();
     if (q.length < 2) {
       setPredictions([]);
+      setSearchDone(false);
       return;
     }
 
     setLoadingSearch(true);
+    setSearchDone(false);
 
     postJSON<{ ok: true; predictions: Prediction[] }>(
       "/api/audit/search-places",
       { query: q }
     )
-      .then((d) => setPredictions(d.predictions || []))
+      .then((d) => {
+        const valid = (d.predictions || []).filter((p) => p.placeId);
+        setPredictions(valid);
+        setSearchDone(true);
+      })
       .catch((e) => setError(e.message || "Search failed"))
       .finally(() => setLoadingSearch(false));
   }, [debounced]);
@@ -701,6 +708,12 @@ export default function FreeAudit() {
                       className="audit-input"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (predictions.length === 1) runAudit(predictions[0].placeId);
+                        }
+                      }}
                       placeholder="Type your business name + city\u2026"
                       style={{
                         width: "100%",
@@ -827,6 +840,24 @@ export default function FreeAudit() {
                       </div>
                     </button>
                   ))}
+                </div>
+              )}
+
+              {searchDone && predictions.length === 0 && !busy && !loadingSearch && query.trim().length >= 2 && (
+                <div
+                  style={{
+                    marginTop: 6,
+                    borderRadius: 16,
+                    background: "rgba(255,255,255,0.92)",
+                    border: "1px solid rgba(0,0,0,0.08)",
+                    padding: "18px 16px",
+                    textAlign: "center",
+                    fontSize: 14,
+                    color: "rgba(0,0,0,0.45)",
+                    fontWeight: 500,
+                  }}
+                >
+                  No businesses found &mdash; try adding your city name
                 </div>
               )}
 

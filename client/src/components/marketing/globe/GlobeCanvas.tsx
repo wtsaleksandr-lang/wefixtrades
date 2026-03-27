@@ -173,14 +173,15 @@ export default function GlobeCanvas({
         const textureCanvas = createDottedEarthCanvas(land.features);
         const texture = new CanvasTexture(textureCanvas);
 
-        // Emissive material: dark globe with glowing cyan dots
+        // Emissive material: semi-transparent globe with cyan dots
         const material = new MeshPhongMaterial({
           color: new Color(SITE_BG),
           emissive: new Color(ACCENT),
           emissiveMap: texture,
           emissiveIntensity: 0.9,
           shininess: 5,
-          transparent: false,
+          transparent: true,
+          opacity: 0.82,
         });
 
         globe.globeMaterial(material);

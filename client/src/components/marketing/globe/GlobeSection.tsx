@@ -100,18 +100,18 @@ export default function GlobeSection() {
           position: "relative",
           width: "100%",
           maxWidth: 1200,
-          margin: "-8px auto 0",
+          margin: "0 auto",
           overflow: "hidden",
-          height: "clamp(456px, 60vw, 744px)",
+          height: 560,
         }}
       >
-        {/* Globe container — pulled up to minimize dead space */}
+        {/* Globe container — centered */}
         <div
           className="globe-center"
           style={{
             position: "absolute",
             left: "50%",
-            top: "clamp(-220px, -22vw, -100px)",
+            top: -60,
             transform: "translateX(-50%)",
           }}
         >
@@ -121,53 +121,6 @@ export default function GlobeSection() {
             activeMarkerIndex={activeIndex}
             onMarkerClick={handleMarkerClick}
           />
-        </div>
-
-        {/* ── Stats callout (frosted glass, bottom-left) ─────────── */}
-        <div
-          className="globe-stats-callout"
-          style={{
-            position: "absolute",
-            bottom: "14%",
-            left: "6%",
-            border: `1px solid rgba(255,255,255,0.06)`,
-            borderRadius: 14,
-            padding: "14px 16px",
-            width: 155,
-            zIndex: 10,
-            background: "rgba(255,255,255,0.04)",
-            backdropFilter: "blur(24px) saturate(1.2)",
-            WebkitBackdropFilter: "blur(24px) saturate(1.2)",
-            boxShadow:
-              "0 4px 24px rgba(0,0,0,0.15), inset 0 0.5px 0 rgba(255,255,255,0.04)",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 20,
-              fontWeight: 500,
-              color: "rgba(255,255,255,0.8)",
-              lineHeight: 1.2,
-              marginBottom: 6,
-              fontFamily: typography.fontFamily,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            2,400+
-          </div>
-          <div
-            style={{
-              fontSize: 11,
-              color: "rgba(255,255,255,0.35)",
-              lineHeight: 1.4,
-              fontWeight: 400,
-              fontFamily: typography.fontFamily,
-              letterSpacing: "0.01em",
-            }}
-          >
-            Quotes generated this month.{" "}
-            <span style={{ color: "rgba(102,232,250,0.6)" }}>+42%</span>
-          </div>
         </div>
 
         {/* Bottom fade */}
@@ -185,22 +138,6 @@ export default function GlobeSection() {
           }}
         />
 
-        {/* Subtle ambient glow behind globe */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: "40%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "80%",
-            height: "80%",
-            background:
-              "radial-gradient(circle, rgba(102,232,250,0.05) 0%, transparent 65%)",
-            pointerEvents: "none",
-            zIndex: 0,
-          }}
-        />
       </div>
 
       {/* ── Bottom stats + CTA ─────────────────────────────────────── */}
@@ -258,46 +195,29 @@ export default function GlobeSection() {
           ))}
         </div>
 
-        <div className="globe-cta-wrap">
-          <Link
-            href="/Wizard"
-            className="cta-arrow-btn cta-arrow-btn--primary"
-            style={{ textDecoration: "none", display: "inline-flex" }}
-          >
-            <span className="cta-arrow-btn__text">
-              See what we can do for you
-            </span>
-            <span className="cta-arrow-btn__square" />
-            <span className="cta-arrow-btn__arrow-out">
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 31 31"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M18.9493 17.8324L3.43262 17.8324L3.43262 12.2443L18.9493 12.2443L11.2915 4.5865L15.2429 0.63509L26.4851 11.8772C28.2309 13.6231 28.2309 16.4536 26.4851 18.1995L15.1423 29.5425L11.1909 25.5911L18.9493 17.8324Z"
-                />
-              </svg>
-            </span>
-            <span className="cta-arrow-btn__arrow-in">
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 31 31"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M18.9493 17.8324L3.43262 17.8324L3.43262 12.2443L18.9493 12.2443L11.2915 4.5865L15.2429 0.63509L26.4851 11.8772C28.2309 13.6231 28.2309 16.4536 26.4851 18.1995L15.1423 29.5425L11.1909 25.5911L18.9493 17.8324Z"
-                />
-              </svg>
-            </span>
-          </Link>
-        </div>
+        <Link
+          href="/Wizard"
+          className="mkt-btn-primary"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            height: 48,
+            padding: "0 32px",
+            fontSize: 14,
+            fontWeight: 600,
+            textDecoration: "none",
+            textTransform: "uppercase" as const,
+            letterSpacing: "0.04em",
+            whiteSpace: "nowrap" as const,
+          }}
+        >
+          See what we can do for you
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </Link>
       </div>
 
       {/* ── Responsive CSS ─────────────────────────────────────────── */}
@@ -308,33 +228,18 @@ export default function GlobeSection() {
         }
         @media (max-width: 900px) {
           .globe-viewport {
-            height: clamp(408px, 84vw, 600px) !important;
+            height: 480px !important;
           }
-          .globe-stats-callout {
-            bottom: 8% !important;
-            left: 4% !important;
-            width: 135px !important;
-            padding: 10px 12px !important;
-            border-radius: 12px !important;
-          }
-          .globe-stats-callout > div:first-child {
-            font-size: 17px !important;
-          }
-          .globe-stats-callout > div:last-child {
-            font-size: 9.5px !important;
-          }
-          .globe-cta-wrap .cta-arrow-btn {
-            width: 100% !important;
-            max-width: 340px;
-            justify-content: center;
+          .globe-center {
+            top: -120px !important;
           }
         }
         @media (max-width: 640px) {
           .globe-viewport {
-            height: clamp(360px, 96vw, 480px) !important;
+            height: 400px !important;
           }
-          .globe-stats-callout {
-            display: none !important;
+          .globe-center {
+            top: -160px !important;
           }
           .globe-stats-row {
             gap: 20px !important;
