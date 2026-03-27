@@ -49,8 +49,8 @@ function useBreakpoint() {
 /*  Cloudflare-inspired colour palette                                 */
 /* ------------------------------------------------------------------ */
 const C = {
-  bg: "#0d1514",
-  canvasBg: "#111618",
+  bg: "#0e1214",
+  canvasBg: "#0d1514",
   nodeSurface: "rgba(14,18,20,0.96)",
   text: mkt.text,
   textMuted: mkt.textMuted,
@@ -59,44 +59,44 @@ const C = {
   handleSize: 6,
   // Per-group accent palettes — muted, premium
   cyan: {
-    border: "rgba(102,232,250,0.40)",
-    borderMuted: "rgba(102,232,250,0.18)",
-    bg: "rgba(102,232,250,0.04)",
-    glow: "rgba(102,232,250,0.10)",
-    text: "#66E8FA",
-    edge: "rgba(102,232,250,0.35)",
-    inner: "rgba(102,232,250,0.08)",
-    innerBorder: "rgba(102,232,250,0.22)",
+    border: "#00D4C8",
+    borderMuted: "rgba(0,212,200,0.18)",
+    bg: "rgba(0,212,200,0.04)",
+    glow: "rgba(0,212,200,0.40)",
+    text: "#00D4C8",
+    edge: "rgba(0,212,200,0.35)",
+    inner: "rgba(0,212,200,0.08)",
+    innerBorder: "rgba(0,212,200,0.22)",
   },
   amber: {
-    border: "rgba(247,180,48,0.40)",
-    borderMuted: "rgba(247,180,48,0.18)",
-    bg: "rgba(247,180,48,0.04)",
-    glow: "rgba(247,180,48,0.10)",
-    text: "#F7B430",
-    edge: "rgba(247,180,48,0.35)",
-    inner: "rgba(247,180,48,0.08)",
-    innerBorder: "rgba(247,180,48,0.22)",
+    border: "#F59E0B",
+    borderMuted: "rgba(245,158,11,0.18)",
+    bg: "rgba(245,158,11,0.04)",
+    glow: "rgba(245,158,11,0.40)",
+    text: "#F59E0B",
+    edge: "rgba(245,158,11,0.35)",
+    inner: "rgba(245,158,11,0.08)",
+    innerBorder: "rgba(245,158,11,0.22)",
   },
   green: {
-    border: "rgba(74,222,128,0.40)",
-    borderMuted: "rgba(74,222,128,0.18)",
-    bg: "rgba(74,222,128,0.04)",
-    glow: "rgba(74,222,128,0.10)",
-    text: "#4ADE80",
-    edge: "rgba(74,222,128,0.35)",
-    inner: "rgba(74,222,128,0.08)",
-    innerBorder: "rgba(74,222,128,0.22)",
+    border: "#22C55E",
+    borderMuted: "rgba(34,197,94,0.18)",
+    bg: "rgba(34,197,94,0.04)",
+    glow: "rgba(34,197,94,0.40)",
+    text: "#22C55E",
+    edge: "rgba(34,197,94,0.35)",
+    inner: "rgba(34,197,94,0.08)",
+    innerBorder: "rgba(34,197,94,0.22)",
   },
   magenta: {
-    border: "rgba(192,132,252,0.40)",
-    borderMuted: "rgba(192,132,252,0.18)",
-    bg: "rgba(192,132,252,0.04)",
-    glow: "rgba(192,132,252,0.10)",
-    text: "#C084FC",
-    edge: "rgba(192,132,252,0.35)",
-    inner: "rgba(192,132,252,0.08)",
-    innerBorder: "rgba(192,132,252,0.22)",
+    border: "#A855F7",
+    borderMuted: "rgba(168,85,247,0.18)",
+    bg: "rgba(168,85,247,0.04)",
+    glow: "rgba(168,85,247,0.40)",
+    text: "#A855F7",
+    edge: "rgba(168,85,247,0.35)",
+    inner: "rgba(168,85,247,0.08)",
+    innerBorder: "rgba(168,85,247,0.22)",
   },
 };
 
@@ -152,7 +152,7 @@ const TABS: TabDef[] = [
 /* ------------------------------------------------------------------ */
 /*  Icon map — Lucide only                                             */
 /* ------------------------------------------------------------------ */
-const NI = { size: 28, strokeWidth: 1.4 } as const;
+const NI = { size: 31, strokeWidth: 1.4 } as const; // 10% larger icons
 
 const ICONS: Record<string, ReactNode> = {
   "missed-call":   <PhoneCall {...NI} />,
@@ -221,10 +221,10 @@ function DiagramNode({ data }: { data: FlowNodeData }) {
             left: 0,
             width: "100%",
             textAlign: "center",
-            fontSize: 11,
+            fontSize: 9,
             fontWeight: 600,
             fontFamily: "'DM Mono', monospace",
-            letterSpacing: "0.08em",
+            letterSpacing: "0.12em",
             textTransform: "uppercase",
             color: p.text,
             pointerEvents: "none",
@@ -238,18 +238,22 @@ function DiagramNode({ data }: { data: FlowNodeData }) {
       <div
         style={{
           position: "relative",
-          border: `1.5px solid ${p.border}`,
-          borderRadius: 4,
+          border: `1px solid ${p.border}`,
+          borderRadius: 8,
           padding: 10,
-          background: "transparent",
+          background: "rgba(255,255,255,0.03)",
           cursor: "default",
           transition: "box-shadow 0.3s ease",
+          boxShadow: `0 0 12px ${p.glow}, inset 0 0 8px ${p.glow}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.boxShadow = `0 0 24px ${p.glow}, 0 0 48px ${p.glow}`;
+          e.currentTarget.style.boxShadow = `0 0 24px ${p.glow}, 0 0 48px ${p.glow}, inset 0 0 12px ${p.glow}`;
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.boxShadow = "none";
+          e.currentTarget.style.boxShadow = `0 0 12px ${p.glow}, inset 0 0 8px ${p.glow}`;
         }}
       >
         {/* Corner handles */}
@@ -261,8 +265,8 @@ function DiagramNode({ data }: { data: FlowNodeData }) {
         {/* ── Inner dashed card with icon ── */}
         <div
           style={{
-            width: 64,
-            height: 64,
+            width: 70,
+            height: 70,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -270,6 +274,8 @@ function DiagramNode({ data }: { data: FlowNodeData }) {
             borderRadius: 8,
             background: p.inner,
             color: p.text,
+            margin: 0,
+            padding: 0,
           }}
         >
           {icon}
@@ -283,9 +289,10 @@ function DiagramNode({ data }: { data: FlowNodeData }) {
           textAlign: "center",
           fontSize: 11,
           fontWeight: 500,
-          color: C.textMuted,
+          color: "rgba(255,255,255,0.5)",
           fontFamily: "'DM Mono', monospace",
-          letterSpacing: "0.02em",
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
           whiteSpace: "nowrap",
         }}
       >
@@ -310,11 +317,10 @@ function makeEdge(
   id: string,
   source: string,
   target: string,
-  colorIdx: number,
+  _colorIdx: number,
   srcHandle?: string,
   tgtHandle?: string,
 ): Edge {
-  const p = PALETTE[colorIdx % PALETTE.length];
   return {
     id,
     source,
@@ -324,9 +330,9 @@ function makeEdge(
     type: "smoothstep",
     animated: true,
     style: {
-      stroke: p.edge,
-      strokeWidth: 2,
-      strokeDasharray: "8 6",
+      stroke: "rgba(255,255,255,0.3)",
+      strokeWidth: 1.5,
+      strokeDasharray: "6 4",
     },
   } as Edge;
 }
@@ -346,21 +352,29 @@ function buildTabData(
   items: NodeDef[],
   layout: "mobile" | "tablet" | "desktop",
 ): { nodes: Node[]; edges: Edge[] } {
-  const nodeWidth = 100;
+  const nodeWidth = 110; // 10% larger
 
   const nodes: Node[] = items.map((item, i) => {
     let x: number, y: number;
     if (layout === "mobile") {
-      // 2×2 grid with generous spacing
+      // 2×2 grid centered
       const col = i % 2;
       const row = Math.floor(i / 2);
-      x = col * 180;
-      y = row * 170;
+      x = col * 190 + 20;
+      y = row * 180 + 30;
     } else if (layout === "tablet") {
-      x = i * 220;
+      // 4 nodes centered in ~800px container
+      const gap = 60;
+      const totalWidth = 4 * nodeWidth + 3 * gap;
+      const startX = (800 - totalWidth) / 2;
+      x = startX + i * (nodeWidth + gap);
       y = 50;
     } else {
-      x = i * 300;
+      // Desktop: 4 nodes centered in ~1200px container
+      const gap = 100;
+      const totalWidth = 4 * nodeWidth + 3 * gap;
+      const startX = (1200 - totalWidth) / 2;
+      x = startX + i * (nodeWidth + gap);
       y = 50;
     }
     return {
@@ -430,7 +444,7 @@ const TAB_NODES: Record<TabKey, NodeDef[]> = {
 /* ------------------------------------------------------------------ */
 const DIAGRAM_CSS = `
 .ad-diagram .react-flow__edge path.react-flow__edge-path {
-  stroke-dasharray: 8 6 !important;
+  stroke-dasharray: 6 4 !important;
   animation: adDashFlow 1.6s linear infinite;
 }
 @keyframes adDashFlow {
@@ -473,13 +487,9 @@ export default function AutomationDiagram() {
     console.log("Node clicked:", node.id, node.data);
   }, []);
 
-  const defaultViewport = isMobile
-    ? { x: 30, y: 40, zoom: 0.82 }
-    : isTablet
-      ? { x: 40, y: 30, zoom: 0.82 }
-      : { x: 80, y: 20, zoom: 0.9 };
+  const defaultViewport = { x: 0, y: 0, zoom: 1.1 };
 
-  const canvasHeight = isMobile ? 420 : isTablet ? 320 : 320;
+  const canvasHeight = isMobile ? 460 : isTablet ? 420 : 420;
 
   return (
     <section
@@ -525,78 +535,81 @@ export default function AutomationDiagram() {
         </p>
       </div>
 
-      {/* ── Pill tab bar ── */}
-      <div
-        ref={tabScrollRef}
-        className="ad-tab-scroll"
-        style={{
-          display: "flex",
-          justifyContent: isMobile ? "flex-start" : "center",
-          marginBottom: 16,
-          padding: "0 16px",
-          opacity: 1,
-        }}
-      >
-        <div
-          style={{
-            display: "inline-flex",
-            gap: 2,
-            padding: 4,
-            borderRadius: 999,
-            border: `1px solid rgba(255,255,255,0.10)`,
-            background: "rgba(255,255,255,0.03)",
-            flexShrink: 0,
-          }}
-        >
-          {TABS.map((tab) => {
-            const active = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                data-active={active}
-                onClick={() => setActiveTab(tab.key)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 7,
-                  padding: isMobile ? "10px 16px" : "10px 24px",
-                  borderRadius: 999,
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  fontFamily: "'Space Grotesk', 'DM Sans', system-ui, sans-serif",
-                  letterSpacing: "0.01em",
-                  transition: "all 0.2s ease",
-                  background: active ? C.accent : "transparent",
-                  color: active ? "#0d1514" : C.textMuted,
-                  boxShadow: active ? `0 2px 16px ${C.accentGlow}` : "none",
-                  whiteSpace: "nowrap",
-                  flexShrink: 0,
-                }}
-              >
-                <span style={{ display: "flex", alignItems: "center" }}>{tab.tabIcon}</span>
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Canvas board ── */}
+      {/* ── Canvas board (with floating tab bar) ── */}
       <div
         style={{
           width: "calc(100% - 32px)",
           maxWidth: 1200,
+          minHeight: 420,
           height: canvasHeight,
           margin: "0 auto",
           borderRadius: 16,
           border: `1px solid rgba(255,255,255,0.08)`,
-          background: C.canvasBg,
+          background: "#0d1514",
           overflow: "hidden",
           position: "relative",
         }}
       >
+        {/* ── Floating pill tab bar ── */}
+        <div
+          ref={tabScrollRef}
+          className="ad-tab-scroll"
+          style={{
+            position: "absolute",
+            top: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 10,
+            maxWidth: "calc(100% - 48px)",
+          }}
+        >
+          <div
+            style={{
+              display: "inline-flex",
+              gap: 2,
+              padding: 4,
+              borderRadius: 999,
+              border: `1px solid rgba(255,255,255,0.10)`,
+              background: "rgba(13, 21, 20, 0.85)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              flexShrink: 0,
+            }}
+          >
+            {TABS.map((tab) => {
+              const active = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  data-active={active}
+                  onClick={() => setActiveTab(tab.key)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "8px 18px",
+                    borderRadius: 999,
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: active ? 600 : 500,
+                    fontFamily: "'Space Grotesk', 'DM Sans', system-ui, sans-serif",
+                    letterSpacing: "0.01em",
+                    transition: "all 0.2s ease",
+                    background: active ? "#00D4C8" : "transparent",
+                    color: active ? "#0d1514" : "rgba(255,255,255,0.5)",
+                    boxShadow: "none",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                  }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", fontSize: 14, verticalAlign: "middle" }}>{tab.tabIcon}</span>
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <ReactFlow
           key={`${activeTab}-${layout}`}
           nodes={nodes}
@@ -605,21 +618,23 @@ export default function AutomationDiagram() {
           onNodeClick={onNodeClick}
           defaultViewport={defaultViewport}
           nodesDraggable={false}
-          panOnDrag
-          zoomOnScroll
-          zoomOnPinch
+          panOnDrag={true}
+          panOnScroll={false}
+          zoomOnScroll={false}
+          zoomOnPinch={false}
           zoomOnDoubleClick={false}
-          preventScrolling
+          preventScrolling={false}
           minZoom={0.35}
           maxZoom={2.5}
-          fitView={false}
+          fitView={true}
+          fitViewOptions={{ padding: 0.15, includeHiddenNodes: false }}
           proOptions={{ hideAttribution: true }}
         >
           <Background
             variant={BackgroundVariant.Dots}
             gap={24}
             size={1.2}
-            color="rgba(102,232,250,0.06)"
+            color="rgba(255,255,255,0.15)"
           />
         </ReactFlow>
       </div>
