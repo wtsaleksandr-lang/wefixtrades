@@ -65,17 +65,11 @@ function busyStep(busy: string | null): number {
 const TRADE_OPTIONS = [
   { value: 'plumbing', label: 'Plumbing' },
   { value: 'electrical', label: 'Electrical' },
-  { value: 'hvac', label: 'HVAC / Heating & Cooling' },
+  { value: 'hvac', label: 'HVAC' },
+  { value: 'cleaning', label: 'Cleaning' },
   { value: 'roofing', label: 'Roofing' },
-  { value: 'cleaning', label: 'Cleaning / Window Cleaning' },
-  { value: 'landscaping', label: 'Landscaping / Lawn Care' },
-  { value: 'painting', label: 'Painting' },
-  { value: 'locksmith', label: 'Locksmith' },
-  { value: 'moving', label: 'Moving' },
-  { value: 'carpentry', label: 'Carpentry / Handyman' },
-  { value: 'pest', label: 'Pest Control' },
-  { value: 'garage', label: 'Garage Doors' },
-  { value: 'general', label: 'Other / General' },
+  { value: 'landscaping', label: 'Landscaping' },
+  { value: 'general', label: 'General Trades' },
 ];
 
 const TYPE_TO_TRADE: Record<string, string> = {
@@ -146,7 +140,7 @@ export default function FreeAudit() {
   const [pendingBusiness, setPendingBusiness] = useState<Prediction | null>(null);
   const [detectedTrade, setDetectedTrade] = useState<string>('');
   const [showTradeConfirm, setShowTradeConfirm] = useState(false);
-  const [confirmedTrade, setConfirmedTrade] = useState<string>('');
+  const [tradeOverride, setTradeOverride] = useState<string>('');
   const lastTradeRef = useRef<string>('');
 
   const [busy, setBusy] = useState<string | null>(null);
@@ -220,7 +214,7 @@ export default function FreeAudit() {
     lastPredRef.current = pred;
     if (tradeOverride) lastTradeRef.current = tradeOverride;
     setShowTradeConfirm(false);
-    setConfirmedTrade('');
+    setTradeOverride('');
     console.log("[Audit] runAudit called:", JSON.stringify({ name: pred.name, place_id: pred.place_id, tradeOverride }));
     const placeId = (pred.place_id || "").trim();
     try {
@@ -325,7 +319,7 @@ export default function FreeAudit() {
   async function handleBusinessSelect(prediction: Prediction) {
     setPendingBusiness(prediction);
     setShowTradeConfirm(false);
-    setConfirmedTrade('');
+    setTradeOverride('');
     setDropdownOpen(false);
     try {
       const res = await fetch('/api/audit/place-details', {
@@ -622,61 +616,68 @@ export default function FreeAudit() {
               {/* Trade confirmation step */}
               {showTradeConfirm && pendingBusiness && (
                 <div style={{
-                  background: '#fff',
-                  borderRadius: 14,
-                  border: '1px solid rgba(0,0,0,0.08)',
-                  padding: 20,
-                  marginTop: 8,
+                  backgroundColor: '#0d1514',
+                  border: '1px solid #1a2e2b',
+                  borderRadius: '12px',
+                  padding: '24px',
+                  marginTop: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
                 }}>
-                  <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.50)', marginBottom: 12 }}>
-                    Selected business:
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#111827', marginBottom: 16 }}>
-                    {pendingBusiness.name}
-                  </div>
-                  <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.50)', marginBottom: 8 }}>
-                    What service does this business offer?
-                  </div>
+                  <p style={{
+                    color: '#FFFFFF',
+                    fontSize: '15px',
+                    fontWeight: 500,
+                    margin: 0,
+                  }}>
+                    We detected this as a{' '}
+                    <span style={{ color: '#00D4C8' }}>
+                      {TRADE_OPTIONS.find(t => t.value === detectedTrade)?.label ?? 'General Trades'}
+                    </span>{' '}
+                    business. Is that correct?
+                  </p>
+
                   <select
-                    value={confirmedTrade || detectedTrade}
-                    onChange={(e) => setConfirmedTrade(e.target.value)}
+                    value={tradeOverride ?? detectedTrade ?? 'general'}
+                    onChange={(e) => setTradeOverride(e.target.value)}
                     style={{
+                      backgroundColor: '#111e1c',
+                      color: '#FFFFFF',
+                      border: '1px solid #1a2e2b',
+                      borderRadius: '8px',
+                      padding: '10px 14px',
+                      fontSize: '14px',
                       width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: 8,
-                      border: '1px solid rgba(0,0,0,0.10)',
-                      fontSize: 14,
-                      color: '#111827',
-                      background: '#fff',
-                      marginBottom: 16,
                       cursor: 'pointer',
                       outline: 'none',
                     }}
                   >
-                    {TRADE_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}{opt.value === detectedTrade ? ' (detected)' : ''}
+                    {TRADE_OPTIONS.map(t => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
                       </option>
                     ))}
                   </select>
+
                   <button
                     onClick={() => {
-                      const trade = confirmedTrade || detectedTrade || 'general';
-                      runAudit(pendingBusiness, trade);
+                      setShowTradeConfirm(false);
+                      runAudit(pendingBusiness, tradeOverride ?? detectedTrade ?? 'general');
                     }}
                     style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: '#111827',
-                      color: '#fff',
+                      backgroundColor: '#00D4C8',
+                      color: '#0d1514',
                       border: 'none',
-                      borderRadius: 10,
-                      fontSize: 14,
-                      fontWeight: 600,
+                      borderRadius: '8px',
+                      padding: '12px 24px',
+                      fontSize: '15px',
+                      fontWeight: 700,
                       cursor: 'pointer',
+                      width: '100%',
                     }}
                   >
-                    Generate My Free Report →
+                    Run My Free Audit →
                   </button>
                 </div>
               )}
