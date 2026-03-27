@@ -62,63 +62,6 @@ function busyStep(busy: string | null): number {
   return 1;
 }
 
-const TRADE_OPTIONS = [
-  { value: 'plumbing', label: 'Plumbing' },
-  { value: 'electrical', label: 'Electrical' },
-  { value: 'hvac', label: 'HVAC' },
-  { value: 'cleaning', label: 'Cleaning' },
-  { value: 'roofing', label: 'Roofing' },
-  { value: 'landscaping', label: 'Landscaping' },
-  { value: 'general', label: 'General Trades' },
-];
-
-const TYPE_TO_TRADE: Record<string, string> = {
-  'plumber': 'plumbing',
-  'electrician': 'electrical',
-  'hvac_contractor': 'hvac',
-  'roofing_contractor': 'roofing',
-  'cleaning_service': 'cleaning',
-  'window_cleaning_service': 'cleaning',
-  'landscaper': 'landscaping',
-  'painter': 'painting',
-  'locksmith': 'locksmith',
-  'moving_company': 'moving',
-  'general_contractor': 'general',
-};
-
-const NAME_TO_TRADE: Record<string, string> = {
-  'window': 'cleaning',
-  'clean': 'cleaning',
-  'wash': 'cleaning',
-  'plumb': 'plumbing',
-  'drain': 'plumbing',
-  'electric': 'electrical',
-  'hvac': 'hvac',
-  'heat': 'hvac',
-  'cool': 'hvac',
-  'roof': 'roofing',
-  'paint': 'painting',
-  'land': 'landscaping',
-  'lawn': 'landscaping',
-  'lock': 'locksmith',
-  'mov': 'moving',
-  'garage': 'garage',
-  'pest': 'pest',
-  'carpet': 'cleaning',
-  'gutter': 'cleaning',
-};
-
-function detectTrade(name: string, types: string[]): string {
-  for (const type of types) {
-    if (TYPE_TO_TRADE[type]) return TYPE_TO_TRADE[type];
-  }
-  const lower = name.toLowerCase();
-  for (const [word, trade] of Object.entries(NAME_TO_TRADE)) {
-    if (lower.includes(word)) return trade;
-  }
-  return 'general';
-}
-
 export default function FreeAudit() {
   const [query, setQuery] = useState("");
   const debounced = useDebouncedValue(query, 400);
@@ -137,10 +80,6 @@ export default function FreeAudit() {
   const [speedData, setSpeedData] = useState<any>(null);
   const [speedLoading, setSpeedLoading] = useState(false);
 
-  const [pendingBusiness, setPendingBusiness] = useState<Prediction | null>(null);
-  const [detectedTrade, setDetectedTrade] = useState<string>('');
-  const [showTradeConfirm, setShowTradeConfirm] = useState(false);
-  const [tradeOverride, setTradeOverride] = useState<string>('');
   const lastTradeRef = useRef<string>('');
 
   const [busy, setBusy] = useState<string | null>(null);
@@ -213,8 +152,6 @@ export default function FreeAudit() {
   async function runAudit(pred: Prediction, tradeOverride?: string) {
     lastPredRef.current = pred;
     if (tradeOverride) lastTradeRef.current = tradeOverride;
-    setShowTradeConfirm(false);
-    setTradeOverride('');
     console.log("[Audit] runAudit called:", JSON.stringify({ name: pred.name, place_id: pred.place_id, tradeOverride }));
     const placeId = (pred.place_id || "").trim();
     try {
@@ -313,30 +250,6 @@ export default function FreeAudit() {
     } catch (e: any) {
       setBusy(null);
       setError(e?.message || "Audit failed");
-    }
-  }
-
-  async function handleBusinessSelect(prediction: Prediction) {
-    setPendingBusiness(prediction);
-    setShowTradeConfirm(false);
-    setTradeOverride('');
-    setDropdownOpen(false);
-    try {
-      const res = await fetch('/api/audit/place-details', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ placeId: prediction.place_id }),
-      });
-      const details = await res.json();
-      const types: string[] = details?.types || (details?.business?.types) || [];
-      const detected = detectTrade(prediction.name || '', types);
-      setDetectedTrade(detected);
-      setShowTradeConfirm(true);
-    } catch {
-      // If place-details fails, fall back to direct audit with detected trade from name
-      const detected = detectTrade(prediction.name || '', []);
-      setDetectedTrade(detected);
-      setShowTradeConfirm(true);
     }
   }
 
@@ -565,7 +478,7 @@ export default function FreeAudit() {
                           key={p.place_id}
                           data-testid={`button-place-${p.place_id}`}
                           className="audit-suggestion"
-                          onClick={() => handleBusinessSelect(p)}
+                          onClick={() => runAudit(p)}
                           style={{
                             width: "100%",
                             textAlign: "left",
@@ -610,75 +523,6 @@ export default function FreeAudit() {
                       ))}
                     </div>
                   )}
-                </div>
-              )}
-
-              {/* Trade confirmation step */}
-              {showTradeConfirm && pendingBusiness && (
-                <div style={{
-                  backgroundColor: '#0d1514',
-                  border: '1px solid #1a2e2b',
-                  borderRadius: '12px',
-                  padding: '24px',
-                  marginTop: '16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '16px',
-                }}>
-                  <p style={{
-                    color: '#FFFFFF',
-                    fontSize: '15px',
-                    fontWeight: 500,
-                    margin: 0,
-                  }}>
-                    We detected this as a{' '}
-                    <span style={{ color: '#00D4C8' }}>
-                      {TRADE_OPTIONS.find(t => t.value === detectedTrade)?.label ?? 'General Trades'}
-                    </span>{' '}
-                    business. Is that correct?
-                  </p>
-
-                  <select
-                    value={tradeOverride ?? detectedTrade ?? 'general'}
-                    onChange={(e) => setTradeOverride(e.target.value)}
-                    style={{
-                      backgroundColor: '#111e1c',
-                      color: '#FFFFFF',
-                      border: '1px solid #1a2e2b',
-                      borderRadius: '8px',
-                      padding: '10px 14px',
-                      fontSize: '14px',
-                      width: '100%',
-                      cursor: 'pointer',
-                      outline: 'none',
-                    }}
-                  >
-                    {TRADE_OPTIONS.map(t => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button
-                    onClick={() => {
-                      setShowTradeConfirm(false);
-                      runAudit(pendingBusiness, tradeOverride ?? detectedTrade ?? 'general');
-                    }}
-                    style={{
-                      backgroundColor: '#00D4C8',
-                      color: '#0d1514',
-                      border: 'none',
-                      borderRadius: '8px',
-                      padding: '12px 24px',
-                      fontSize: '15px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      width: '100%',
-                    }}
-                  >
-                    Run My Free Audit →
-                  </button>
                 </div>
               )}
 
