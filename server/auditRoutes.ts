@@ -1114,9 +1114,15 @@ router.post("/generate", async (req: Request, res: Response) => {
 
     // Detect trade from business name + types if not provided by client
     const clientTrade = String(req.body?.trade || "").trim();
-    const trade = clientTrade && clientTrade !== "general"
+    let trade = clientTrade && clientTrade !== "general"
       ? clientTrade
       : detectTrade(business.name || "", Array.isArray(business.types) ? business.types : []);
+    // Apply user-confirmed trade override from frontend
+    const tradeOverride = String(req.body?.tradeOverride || "").trim();
+    if (tradeOverride && tradeOverride !== "general") {
+      trade = tradeOverride;
+      console.log('[trade] using override:', trade);
+    }
     console.log("[audit] Resolved trade:", JSON.stringify(trade));
 
     const rating = typeof business.rating === "number" ? business.rating : null;

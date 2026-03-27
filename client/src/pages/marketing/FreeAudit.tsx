@@ -62,6 +62,69 @@ function busyStep(busy: string | null): number {
   return 1;
 }
 
+const TRADE_OPTIONS = [
+  { value: 'plumbing', label: 'Plumbing' },
+  { value: 'electrical', label: 'Electrical' },
+  { value: 'hvac', label: 'HVAC / Heating & Cooling' },
+  { value: 'roofing', label: 'Roofing' },
+  { value: 'cleaning', label: 'Cleaning / Window Cleaning' },
+  { value: 'landscaping', label: 'Landscaping / Lawn Care' },
+  { value: 'painting', label: 'Painting' },
+  { value: 'locksmith', label: 'Locksmith' },
+  { value: 'moving', label: 'Moving' },
+  { value: 'carpentry', label: 'Carpentry / Handyman' },
+  { value: 'pest', label: 'Pest Control' },
+  { value: 'garage', label: 'Garage Doors' },
+  { value: 'general', label: 'Other / General' },
+];
+
+const TYPE_TO_TRADE: Record<string, string> = {
+  'plumber': 'plumbing',
+  'electrician': 'electrical',
+  'hvac_contractor': 'hvac',
+  'roofing_contractor': 'roofing',
+  'cleaning_service': 'cleaning',
+  'window_cleaning_service': 'cleaning',
+  'landscaper': 'landscaping',
+  'painter': 'painting',
+  'locksmith': 'locksmith',
+  'moving_company': 'moving',
+  'general_contractor': 'general',
+};
+
+const NAME_TO_TRADE: Record<string, string> = {
+  'window': 'cleaning',
+  'clean': 'cleaning',
+  'wash': 'cleaning',
+  'plumb': 'plumbing',
+  'drain': 'plumbing',
+  'electric': 'electrical',
+  'hvac': 'hvac',
+  'heat': 'hvac',
+  'cool': 'hvac',
+  'roof': 'roofing',
+  'paint': 'painting',
+  'land': 'landscaping',
+  'lawn': 'landscaping',
+  'lock': 'locksmith',
+  'mov': 'moving',
+  'garage': 'garage',
+  'pest': 'pest',
+  'carpet': 'cleaning',
+  'gutter': 'cleaning',
+};
+
+function detectTrade(name: string, types: string[]): string {
+  for (const type of types) {
+    if (TYPE_TO_TRADE[type]) return TYPE_TO_TRADE[type];
+  }
+  const lower = name.toLowerCase();
+  for (const [word, trade] of Object.entries(NAME_TO_TRADE)) {
+    if (lower.includes(word)) return trade;
+  }
+  return 'general';
+}
+
 export default function FreeAudit() {
   const [query, setQuery] = useState("");
   const debounced = useDebouncedValue(query, 400);
@@ -79,6 +142,12 @@ export default function FreeAudit() {
   const lastPredRef = useRef<Prediction | null>(null);
   const [speedData, setSpeedData] = useState<any>(null);
   const [speedLoading, setSpeedLoading] = useState(false);
+
+  const [pendingBusiness, setPendingBusiness] = useState<Prediction | null>(null);
+  const [detectedTrade, setDetectedTrade] = useState<string>('');
+  const [showTradeConfirm, setShowTradeConfirm] = useState(false);
+  const [confirmedTrade, setConfirmedTrade] = useState<string>('');
+  const lastTradeRef = useRef<string>('');
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -147,9 +216,12 @@ export default function FreeAudit() {
     return () => document.removeEventListener("keydown", handler);
   }, [dropdownOpen]);
 
-  async function runAudit(pred: Prediction) {
+  async function runAudit(pred: Prediction, tradeOverride?: string) {
     lastPredRef.current = pred;
-    console.log("[Audit] runAudit called:", JSON.stringify({ name: pred.name, place_id: pred.place_id }));
+    if (tradeOverride) lastTradeRef.current = tradeOverride;
+    setShowTradeConfirm(false);
+    setConfirmedTrade('');
+    console.log("[Audit] runAudit called:", JSON.stringify({ name: pred.name, place_id: pred.place_id, tradeOverride }));
     const placeId = (pred.place_id || "").trim();
     try {
       setError(null);
@@ -181,6 +253,7 @@ export default function FreeAudit() {
           speedData: null,
           trade: (details as any).trade || "",
           city: (details as any).city || "",
+          tradeOverride: tradeOverride || null,
         }
       );
       setReport(rep.report_json);
@@ -246,6 +319,30 @@ export default function FreeAudit() {
     } catch (e: any) {
       setBusy(null);
       setError(e?.message || "Audit failed");
+    }
+  }
+
+  async function handleBusinessSelect(prediction: Prediction) {
+    setPendingBusiness(prediction);
+    setShowTradeConfirm(false);
+    setConfirmedTrade('');
+    setDropdownOpen(false);
+    try {
+      const res = await fetch('/api/audit/place-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ placeId: prediction.place_id }),
+      });
+      const details = await res.json();
+      const types: string[] = details?.types || (details?.business?.types) || [];
+      const detected = detectTrade(prediction.name || '', types);
+      setDetectedTrade(detected);
+      setShowTradeConfirm(true);
+    } catch {
+      // If place-details fails, fall back to direct audit with detected trade from name
+      const detected = detectTrade(prediction.name || '', []);
+      setDetectedTrade(detected);
+      setShowTradeConfirm(true);
     }
   }
 
@@ -474,7 +571,7 @@ export default function FreeAudit() {
                           key={p.place_id}
                           data-testid={`button-place-${p.place_id}`}
                           className="audit-suggestion"
-                          onClick={() => runAudit(p)}
+                          onClick={() => handleBusinessSelect(p)}
                           style={{
                             width: "100%",
                             textAlign: "left",
@@ -519,6 +616,68 @@ export default function FreeAudit() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Trade confirmation step */}
+              {showTradeConfirm && pendingBusiness && (
+                <div style={{
+                  background: '#fff',
+                  borderRadius: 14,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  padding: 20,
+                  marginTop: 8,
+                }}>
+                  <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.50)', marginBottom: 12 }}>
+                    Selected business:
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#111827', marginBottom: 16 }}>
+                    {pendingBusiness.name}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.50)', marginBottom: 8 }}>
+                    What service does this business offer?
+                  </div>
+                  <select
+                    value={confirmedTrade || detectedTrade}
+                    onChange={(e) => setConfirmedTrade(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: 8,
+                      border: '1px solid rgba(0,0,0,0.10)',
+                      fontSize: 14,
+                      color: '#111827',
+                      background: '#fff',
+                      marginBottom: 16,
+                      cursor: 'pointer',
+                      outline: 'none',
+                    }}
+                  >
+                    {TRADE_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}{opt.value === detectedTrade ? ' (detected)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => {
+                      const trade = confirmedTrade || detectedTrade || 'general';
+                      runAudit(pendingBusiness, trade);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: '#111827',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 10,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Generate My Free Report →
+                  </button>
                 </div>
               )}
 
@@ -629,7 +788,7 @@ export default function FreeAudit() {
                     fontSize: 12, color: '#6B7280',
                   }}>
                     Report generated earlier today — <span style={{ color: '#00D4C8', cursor: 'pointer' }}
-                      onClick={() => { if (lastPredRef.current) runAudit(lastPredRef.current); }}>
+                      onClick={() => { if (lastPredRef.current) runAudit(lastPredRef.current, lastTradeRef.current || undefined); }}>
                       Refresh for latest data
                     </span>
                   </div>
