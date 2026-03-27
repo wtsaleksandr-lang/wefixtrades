@@ -3,7 +3,7 @@ import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
-import { getServicesForIssues } from "./data/services";
+import { getServicesForIssues } from "@shared/services";
 import { db } from "./db";
 import { auditReports } from "@shared/schema";
 import { eq, sql, and, gte, desc } from "drizzle-orm";

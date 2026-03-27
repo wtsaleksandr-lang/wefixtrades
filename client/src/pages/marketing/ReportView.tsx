@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList } from "lucide-react";
-import { SERVICES, getServicesForIssues } from '../../../../server/data/services';
+import { SERVICES, getServicesForIssues } from '@shared/services';
 
 // ─── Design tokens ───────────────────
 const DARK = '#0d1514';
