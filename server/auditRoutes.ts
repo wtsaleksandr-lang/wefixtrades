@@ -465,6 +465,49 @@ router.post("/speed", async (req: Request, res: Response) => {
       if (screenshotBase64) mergeData.websiteScreenshot = screenshotBase64.slice(0, 100) + "...(truncated)";
       if (websiteAIAnalysis) mergeData.websiteAIAnalysis = websiteAIAnalysis;
 
+      // Recalculate websiteQuality score with speed + AI data
+      const mobileVal = speedDataClean.mobile?.score;
+      const desktopVal = speedDataClean.desktop?.score;
+      let speedPts = 0;
+      const speedScore = typeof mobileVal === "number" ? mobileVal : (typeof desktopVal === "number" ? desktopVal : null);
+      if (speedScore !== null) {
+        if (speedScore >= 90) speedPts = 8;
+        else if (speedScore >= 70) speedPts = 6;
+        else if (speedScore >= 50) speedPts = 4;
+        else if (speedScore >= 30) speedPts = 2;
+        else speedPts = 1;
+      }
+
+      // Read existing QA score from report
+      const existingRows = await db.select().from(auditReports).where(eq(auditReports.id, reportId)).limit(1);
+      const existingData = existingRows[0]?.audit_data as any;
+      const qaScoreVal = typeof existingData?.websiteQualityCheckScore === "number" ? existingData.websiteQualityCheckScore : 0;
+      const qaPointsCalc = Math.round((qaScoreVal / 18) * 8);
+
+      let aiVisualPts = 0;
+      if (websiteAIAnalysis?.findings && Array.isArray(websiteAIAnalysis.findings)) {
+        const passCount = websiteAIAnalysis.findings.filter((f: any) => f.status === "pass").length;
+        const total = websiteAIAnalysis.findings.length || 1;
+        aiVisualPts = Math.round((passCount / total) * 4);
+      }
+
+      const newWebsiteScore = Math.min(speedPts + qaPointsCalc + aiVisualPts, 20);
+      const oldTotal = existingData?.scores?.total || 0;
+      const oldWebsiteScore = existingData?.scores?.websiteQuality?.score || 0;
+      const newTotal = oldTotal - oldWebsiteScore + newWebsiteScore;
+
+      // Update scores in merge data
+      mergeData.scores = {
+        ...(existingData?.scores || {}),
+        total: newTotal,
+        websiteQuality: {
+          score: newWebsiteScore,
+          max: 20,
+          breakdown: { speed: speedPts, htmlChecks: qaPointsCalc, aiVisual: aiVisualPts, mobile: mobileVal ?? null, desktop: desktopVal ?? null },
+        },
+      };
+      console.log('[speed-bg] recalculated websiteQuality:', newWebsiteScore, '(speed:', speedPts, 'qa:', qaPointsCalc, 'aiVisual:', aiVisualPts, ') total:', newTotal);
+
       await db.update(auditReports)
         .set({ audit_data: sql`${auditReports.audit_data} || ${JSON.stringify(mergeData)}::jsonb` })
         .where(eq(auditReports.id, reportId));
@@ -983,17 +1026,26 @@ function calculateScores(auditData: any) {
     else webDesktop = 1;
   }
 
-  // QA checks contribution (max 12)
+  // QA checks contribution (max 8)
   const qaScore = typeof auditData.websiteQualityCheckScore === "number" ? auditData.websiteQualityCheckScore : null;
   const qaMax = 18; // sum of all weights
-  const qaPoints = qaScore !== null ? Math.round((qaScore / qaMax) * 12) : 0;
+  const qaPoints = qaScore !== null ? Math.round((qaScore / qaMax) * 8) : 0;
+
+  // AI visual analysis contribution (max 4)
+  const aiAnalysis = auditData.websiteAIAnalysis;
+  let aiVisualPts = 0;
+  if (aiAnalysis?.findings && Array.isArray(aiAnalysis.findings)) {
+    const passCount = aiAnalysis.findings.filter((f: any) => f.status === "pass").length;
+    const total = aiAnalysis.findings.length || 1;
+    aiVisualPts = Math.round((passCount / total) * 4);
+  }
 
   const speedPts = webMobile ?? webDesktop ?? 0;
   // If business has a website but speed data didn't load, score is null (excluded from total)
   const websiteScore: number | null = bd.website && !speedDataAvailable && qaScore === null
     ? null
-    : Math.min(speedPts + qaPoints, 20);
-  console.log('[scoring] websiteQuality:', websiteScore ?? 'null - excluded', '(speed:', speedPts, 'qa:', qaPoints, ')');
+    : Math.min(speedPts + qaPoints + aiVisualPts, 20);
+  console.log('[scoring] websiteQuality:', websiteScore ?? 'null - excluded', '(speed:', speedPts, 'qa:', qaPoints, 'aiVisual:', aiVisualPts, ')');
 
   // Search Visibility — 20pts
   // Local pack pos 1=5, 2=4, 3=3, 4-10=2; Organic 1-3=3, 4-7=2, 8-10=1
@@ -1056,7 +1108,7 @@ function calculateScores(auditData: any) {
 
   return {
     googleMaps: { score: googleMapsScore, max: 25, breakdown: { rating: gmRating, reviews: gmReviews, photos: gmPhotos, description: gmDesc, website: gmWeb } },
-    websiteQuality: { score: websiteScore, max: websiteScore === null ? null : 20, breakdown: { mobile: webMobile, desktop: webDesktop } },
+    websiteQuality: { score: websiteScore, max: websiteScore === null ? null : 20, breakdown: { speed: speedPts, htmlChecks: qaPoints, aiVisual: aiVisualPts, mobile: webMobile, desktop: webDesktop } },
     searchVisibility: { score: searchVisibilityScore, max: 20, breakdown: { keywordPoints: organicPts, localPackBonus: localPackPts } },
     competitorPositioning: { score: competitorScore, max: 15, breakdown: {} },
     adOpportunity: { score: adScore, max: 10, breakdown: { topCPC, totalVol } },
@@ -1845,7 +1897,7 @@ STRICT RULES — NEVER VIOLATE:
       "reason": string
     }
   ],
-  "demandGapInsight": string|null,
+  "demandGapInsight": string,
   "estimatedMonthlyRevenueLoss": {
     "low": number,
     "high": number,
@@ -1871,6 +1923,7 @@ STRICT RULES — NEVER VIOLATE:
 Rules for actionPlan: Exactly 3 items, HIGH to LOW. One must be free. Base each on a real gap.
 Rules for contentGaps: Exactly 3 items, ordered by search volume desc. Format pageTitle as "{Service} {City} — {Benefit}".
 Rules for executiveSummary: 2-3 sentences. S1: score, grade, one genuine strength with number. S2: single biggest gap with specific number. S3: what fixing it is worth in dollars.
+Rules for demandGapInsight: Always provide a string (never null). If demand gaps exist, explain what they mean. If the business has full coverage (open 24hrs, evenings, weekends), say so positively — e.g. "Your 24/7 availability means you're capturing evening and weekend demand that competitors miss."
 Rules for websiteInsight: 1-2 sentences. If speed data is available, state the mobile score and what it means for customers (e.g. slow load = they leave). If no speed data, set to null. Never mention WeFixTrades.
 
 Business hours: ${JSON.stringify(auditData.business?.hours || [])}

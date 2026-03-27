@@ -471,13 +471,22 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     else if (speedVal >= 30) speedPoints = 2;
     else speedPoints = 1;
 
-    // QA checks contribution (max 12)
+    // QA checks contribution (max 8)
     const qaScore = report?.websiteQualityCheckScore ?? 0;
     const qaMax = 18;
-    const qaPoints = Math.round((qaScore / qaMax) * 12);
+    const qaPoints = Math.round((qaScore / qaMax) * 8);
 
-    return Math.min(20, speedPoints + qaPoints);
-  }, [liveSpeedData, report?.speedData, report?.websiteQualityCheckScore]);
+    // AI visual contribution (max 4) — from backend analysis
+    const aiAnalysis = report?.websiteAIAnalysis;
+    let aiVisualPts = 0;
+    if (aiAnalysis?.findings && Array.isArray(aiAnalysis.findings)) {
+      const passCount = aiAnalysis.findings.filter((f: any) => f.status === "pass").length;
+      const total = aiAnalysis.findings.length || 1;
+      aiVisualPts = Math.round((passCount / total) * 4);
+    }
+
+    return Math.min(20, speedPoints + qaPoints + aiVisualPts);
+  }, [liveSpeedData, report?.speedData, report?.websiteQualityCheckScore, report?.websiteAIAnalysis]);
 
   const liveTotal = useMemo(() => {
     if (liveWebsiteScore === null) return scores.total || 0;
