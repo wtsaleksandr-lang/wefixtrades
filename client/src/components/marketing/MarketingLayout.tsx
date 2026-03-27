@@ -115,6 +115,7 @@ function NavItemDesktopV2({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const trayRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasDropdown = !!(children && children.length > 0);
   const [rect, setRect] = useState<DOMRect | null>(null);
@@ -144,7 +145,9 @@ function NavItemDesktopV2({
     measure();
 
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const inNav = ref.current && ref.current.contains(e.target as Node);
+      const inTray = trayRef.current && trayRef.current.contains(e.target as Node);
+      if (!inNav && !inTray) setOpen(false);
     };
 
     const onKey = (e: KeyboardEvent) => {
@@ -217,6 +220,7 @@ function NavItemDesktopV2({
               onClick={() => setOpen(false)}
             />
             <div
+            ref={trayRef}
             className="mkt-dropdown-tray"
             onMouseEnter={cancelClose}
             onMouseLeave={scheduleClose}
