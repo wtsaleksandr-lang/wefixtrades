@@ -658,12 +658,16 @@ async function fetchOutscraperReviews(placeId: string) {
 
 /* ─── E3: Serper Keyword Rankings ─── */
 async function fetchSerperRankings(
-  keywords: string[], businessDomain: string, businessName: string, city: string
+  keywords: string[], businessDomain: string, businessName: string, city: string,
+  stateCode?: string, businessAddress?: string
 ) {
   const apiKey = process.env.SERPER_API_KEY;
   if (!apiKey) return null;
   const domain = businessDomain.replace(/^https?:\/\//, "").replace(/\/.*/, "").toLowerCase();
   const nameLC = businessName.toLowerCase();
+  const nameFirstWord = nameLC.split(' ')[0];
+  const streetNum = (businessAddress || "").toLowerCase().split(',')[0].trim();
+  const locationStr = stateCode ? `${city}, ${stateCode}, Canada` : `${city}, Canada`;
 
   const results = await Promise.allSettled(keywords.map(async (kw) => {
     const cacheKey = `serper:${kw.toLowerCase()}:${city.toLowerCase()}`;
@@ -678,7 +682,7 @@ async function fetchSerperRankings(
       const r = await fetch("https://google.serper.dev/search", {
         method: "POST",
         headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-        body: JSON.stringify({ q: kw, location: `${city}, Canada`, gl: "ca", hl: "en", num: 20 }),
+        body: JSON.stringify({ q: kw, location: locationStr, gl: "ca", hl: "en", num: 20 }),
         signal: sSignal,
       });
       const data = await r.json();
@@ -699,7 +703,8 @@ async function fetchSerperRankings(
     if (r.status !== "fulfilled") continue;
     const { keyword, data } = r.value;
     const organic = Array.isArray(data?.organic) ? data.organic : [];
-    const localPack = Array.isArray(data?.places) ? data.places : [];
+    const localResults = Array.isArray(data?.localResults) ? data.localResults
+      : Array.isArray(data?.places) ? data.places : [];
     const ads = Array.isArray(data?.ads) ? data.ads : [];
 
     let organicRank: number | null = null;
@@ -708,17 +713,20 @@ async function fetchSerperRankings(
       if (domain && link.includes(domain)) { organicRank = o.position || null; break; }
     }
 
-    let localPackPosition: number | null = null;
-    for (let i = 0; i < localPack.length; i++) {
-      const n = (localPack[i].title || "").toLowerCase();
-      if (n.includes(nameLC) || nameLC.includes(n)) { localPackPosition = i + 1; break; }
-    }
+    const localPackIdx = localResults.findIndex((r: any) => {
+      const title = (r.title || r.name || "").toLowerCase();
+      const addr = (r.address || "").toLowerCase();
+      return title.includes(nameFirstWord) || nameLC.includes(title) ||
+        (streetNum && addr.includes(streetNum));
+    });
+    const isInLocalPack = localPackIdx >= 0 && localPackIdx < 3;
+    const localPackPosition: number | null = isInLocalPack ? localPackIdx + 1 : null;
 
-    let status: string;
-    if ((organicRank && organicRank <= 3) || (localPackPosition && localPackPosition <= 2)) status = "strong";
-    else if ((organicRank && organicRank <= 10) || localPackPosition === 3) status = "good";
-    else if (organicRank && organicRank <= 20) status = "below-fold";
-    else status = "not-visible";
+    const status = isInLocalPack
+      ? (localPackIdx === 0 ? "dominant" : "strong")
+      : organicRank
+        ? (organicRank <= 3 ? "strong" : organicRank <= 7 ? "good" : "weak")
+        : "not-visible";
 
     for (const ad of ads) {
       const adName = ad.title || ad.displayedLink || "";
@@ -730,7 +738,7 @@ async function fetchSerperRankings(
 
     keywordResults.push({
       keyword, organicRank, localPackPosition, status,
-      isInLocalPack: localPackPosition !== null,
+      isInLocalPack,
     });
   }
 
@@ -930,14 +938,23 @@ function calculateScores(auditData: any) {
   console.log('[scoring] websiteQuality:', websiteScore ?? 'null - excluded');
 
   // Search Visibility — 20pts
+  // Local pack pos 1=6, 2=5, 3=4; Organic 1-3=3, 4-7=2, 8-10=1
   let searchPts = 0;
   let hasLocalPack = false;
+  let localPackPts = 0;
+  let organicPts = 0;
   for (const kw of kws) {
-    if (kw.status === "strong") searchPts += 4;
-    else if (kw.status === "good") searchPts += 2;
-    if (kw.isInLocalPack) hasLocalPack = true;
+    if (kw.isInLocalPack && kw.localPackPosition) {
+      const pts = kw.localPackPosition === 1 ? 6 : kw.localPackPosition === 2 ? 5 : 4;
+      searchPts += pts;
+      localPackPts += pts;
+      hasLocalPack = true;
+    } else if (kw.organicRank) {
+      const pts = kw.organicRank <= 3 ? 3 : kw.organicRank <= 7 ? 2 : kw.organicRank <= 10 ? 1 : 0;
+      searchPts += pts;
+      organicPts += pts;
+    }
   }
-  if (hasLocalPack) searchPts += 5;
   const searchVisibilityScore = Math.min(searchPts, 20);
 
   // Competitor Positioning — 15pts
@@ -981,7 +998,7 @@ function calculateScores(auditData: any) {
   return {
     googleMaps: { score: googleMapsScore, max: 25, breakdown: { rating: gmRating, reviews: gmReviews, photos: gmPhotos, description: gmDesc, website: gmWeb } },
     websiteQuality: { score: websiteScore, max: websiteScore === null ? null : 20, breakdown: { mobile: webMobile, desktop: webDesktop } },
-    searchVisibility: { score: searchVisibilityScore, max: 20, breakdown: { keywordPoints: Math.min(searchPts - (hasLocalPack ? 5 : 0), 12), localPackBonus: hasLocalPack ? 5 : 0 } },
+    searchVisibility: { score: searchVisibilityScore, max: 20, breakdown: { keywordPoints: organicPts, localPackBonus: localPackPts } },
     competitorPositioning: { score: competitorScore, max: 15, breakdown: {} },
     adOpportunity: { score: adScore, max: 10, breakdown: { topCPC, totalVol } },
     demandCoverage: { score: demandScore, max: 10, breakdown: { evenings: auditData.isOpenEvenings, weekends: auditData.isOpenWeekends } },
@@ -1114,7 +1131,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     // ─── Run Serper first so we can use its returned keywords as DataForSEO seeds ───
     let serperData: any = null;
     try {
-      serperData = await fetchSerperRankings(seedKeywords, website, business.name, city);
+      serperData = await fetchSerperRankings(seedKeywords, website, business.name, city, stateCode || undefined, business.formattedAddress || business.address || undefined);
     } catch (e: any) {
       console.error("E3 Serper rankings failed:", e?.message);
     }
@@ -1274,7 +1291,11 @@ router.post("/generate", async (req: Request, res: Response) => {
     if (!auditData.business?.description) detectedIssues.push("no-gbp-description");
     if ((auditData.business?.reviewsCount || 0) < 100) detectedIssues.push("low-reviews");
     if ((auditData.business?.rating || 5) < 4.2) detectedIssues.push("bad-rating");
-    if ((auditData.scores?.searchVisibility?.score || 0) < 15) detectedIssues.push("low-visibility");
+    const kwList: any[] = auditData.keywords || [];
+    const anyLocalPack = kwList.some((k: any) => k.isInLocalPack);
+    const majorityNotVisible = kwList.length === 0 ||
+      kwList.filter((k: any) => !k.organicRank || k.organicRank > 10).length > kwList.length / 2;
+    if (!anyLocalPack && majorityNotVisible) detectedIssues.push("low-visibility");
     if ((auditData.scores?.competitorPositioning?.score || 0) < 8) detectedIssues.push("not-in-maps-pack");
     if ((auditData.scores?.demandCoverage?.score || 0) < 8) detectedIssues.push("no-after-hours");
     if ((auditData.scores?.adOpportunity?.score || 0) < 5) detectedIssues.push("no-ads");
