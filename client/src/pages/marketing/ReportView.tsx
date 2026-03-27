@@ -443,18 +443,27 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
   const liveWebsiteScore = useMemo(() => {
     const s = liveSpeedData || report?.speedData;
-    if (!s?.mobile?.score && !s?.desktop?.score) return null;
-    const mobile = s?.mobile?.score || 0;
-    const desktop = s?.desktop?.score || 0;
-    const avg = s?.mobile?.score && s?.desktop?.score
-      ? Math.round((mobile + desktop) / 2)
-      : s?.mobile?.score || s?.desktop?.score;
-    if (avg >= 90) return 20;
-    if (avg >= 70) return 14;
-    if (avg >= 50) return 8;
-    if (avg >= 30) return 4;
-    return 2;
-  }, [liveSpeedData, report?.speedData]);
+    const mobileScore = s?.mobile?.score ?? null;
+    const desktopScore = s?.desktop?.score ?? null;
+
+    if (mobileScore === null && desktopScore === null) return null;
+
+    // Speed contribution (max 8)
+    const speedVal = mobileScore ?? desktopScore ?? 0;
+    let speedPoints = 0;
+    if (speedVal >= 90) speedPoints = 8;
+    else if (speedVal >= 70) speedPoints = 6;
+    else if (speedVal >= 50) speedPoints = 4;
+    else if (speedVal >= 30) speedPoints = 2;
+    else speedPoints = 1;
+
+    // QA checks contribution (max 12)
+    const qaScore = report?.websiteQualityCheckScore ?? 0;
+    const qaMax = 18;
+    const qaPoints = Math.round((qaScore / qaMax) * 12);
+
+    return Math.min(20, speedPoints + qaPoints);
+  }, [liveSpeedData, report?.speedData, report?.websiteQualityCheckScore]);
 
   const liveTotal = useMemo(() => {
     if (liveWebsiteScore === null) return scores.total || 0;
