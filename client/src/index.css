@@ -313,6 +313,7 @@
   background: rgba(0, 0, 0, 0.04);
   backdrop-filter: blur(2px);
   animation: modalFadeIn 0.2s ease-out both;
+  pointer-events: none;
 }
 
 @layer utilities {
