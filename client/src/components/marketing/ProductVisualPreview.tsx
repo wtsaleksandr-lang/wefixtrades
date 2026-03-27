@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { mkt, shadows } from "@/theme/tokens";
 
 export type VisualPreviewVariant =
@@ -744,6 +745,28 @@ export default function ProductVisualPreview({
   variant,
 }: ProductVisualPreviewProps) {
   const PreviewContent = VARIANT_COMPONENTS[variant];
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [tilt, setTilt] = useState({ rotateX: 0, rotateY: 0 });
+  const [isHovering, setIsHovering] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = frameRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({ rotateX: -y * 6, rotateY: x * 6 });
+  };
+
+  const handleMouseEnter = () => setIsHovering(true);
+  const handleMouseLeave = () => {
+    setIsHovering(false);
+    setTilt({ rotateX: 0, rotateY: 0 });
+  };
+
+  const tiltTransform = isHovering
+    ? `perspective(600px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg) translateY(-4px)`
+    : "perspective(600px) rotateX(0deg) rotateY(0deg) translateY(0px)";
 
   return (
     <>
@@ -754,10 +777,7 @@ export default function ProductVisualPreview({
         }
         .product-visual-frame {
           transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.35s ease;
-        }
-        .product-visual-frame:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(102,232,250,0.12);
+          will-change: transform;
         }
         @media (max-width: 640px) {
           .product-visual-frame {
@@ -765,18 +785,30 @@ export default function ProductVisualPreview({
             margin: 0 auto;
           }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .product-visual-frame {
+            transition: none !important;
+          }
+        }
       `}</style>
 
       <div
+        ref={frameRef}
         className="product-visual-frame hero-enter"
+        onMouseMove={handleMouseMove}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         style={{
           background: mkt.bg,
           borderRadius: 16,
           border: `1px solid ${mkt.border}`,
-          boxShadow: shadows.mega,
+          boxShadow: isHovering
+            ? `0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(102,232,250,0.12)`
+            : shadows.mega,
           overflow: "hidden",
           maxWidth: 420,
           margin: "0 auto",
+          transform: tiltTransform,
         }}
       >
         <BrowserDots />

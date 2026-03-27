@@ -50,39 +50,89 @@ export default function StepTimeline({ steps }: StepTimelineProps) {
         </div>
 
         <style>{`
+          @keyframes stepDashFlow {
+            to { stroke-dashoffset: -28; }
+          }
+          @keyframes stepParticle {
+            0% { offset-distance: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { offset-distance: 100%; opacity: 0; }
+          }
           .step-timeline-grid {
             display: grid;
             grid-template-columns: repeat(${steps.length}, 1fr);
             gap: 24px;
             position: relative;
           }
-          .step-timeline-grid::before {
-            content: "";
+          .step-timeline-connector {
             position: absolute;
             top: 28px;
             left: calc(100% / ${steps.length} / 2);
             right: calc(100% / ${steps.length} / 2);
             height: 2px;
-            background: linear-gradient(
-              90deg,
-              ${mkt.border} 0%,
-              ${mkt.accentTint} 50%,
-              ${mkt.border} 100%
-            );
             z-index: 0;
+            overflow: visible;
+          }
+          .step-timeline-connector svg {
+            width: 100%;
+            height: 12px;
+            position: absolute;
+            top: -5px;
+            overflow: visible;
           }
           @media (max-width: 700px) {
             .step-timeline-grid {
               grid-template-columns: 1fr !important;
               gap: 32px !important;
             }
-            .step-timeline-grid::before {
+            .step-timeline-connector {
               display: none;
+            }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .step-timeline-connector svg * {
+              animation: none !important;
             }
           }
         `}</style>
 
         <div className="step-timeline-grid">
+          {/* Animated dashed connector line */}
+          <div className="step-timeline-connector">
+            <svg viewBox="0 0 1000 12" preserveAspectRatio="none">
+              {/* Dashed animated line */}
+              <line
+                x1="0"
+                y1="6"
+                x2="1000"
+                y2="6"
+                stroke={mkt.accentTint}
+                strokeWidth="2"
+                strokeDasharray="8 6"
+                style={{
+                  animation: "stepDashFlow 1.6s linear infinite",
+                }}
+              />
+              {/* Traveling particles */}
+              {Array.from({ length: steps.length - 1 }, (_, i) => {
+                const segStart = (i * 1000) / (steps.length - 1);
+                const segEnd = ((i + 1) * 1000) / (steps.length - 1);
+                return (
+                  <circle
+                    key={i}
+                    r="3"
+                    fill={mkt.accent}
+                    opacity="0.55"
+                    style={{
+                      offsetPath: `path("M ${segStart} 6 L ${segEnd} 6")`,
+                      animation: `stepParticle ${2.4 + i * 0.3}s ease-in-out ${i * 0.6}s infinite`,
+                    }}
+                  />
+                );
+              })}
+            </svg>
+          </div>
           {steps.map((step, i) => (
             <div
               key={step.title}
