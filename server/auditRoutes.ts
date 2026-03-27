@@ -1104,6 +1104,15 @@ function extractCity(business: any): string {
       return part;
     }
   }
+  // Fallback for "City, ON" or "City, Province" format (2 parts)
+  if (parts.length === 2) {
+    const firstPart = parts[0];
+    // If first part doesn't look like a street address (no numbers at start), use it as city
+    if (firstPart && !/^\d/.test(firstPart)) {
+      console.log("[extractCity] Extracted city from 2-part address:", firstPart);
+      return firstPart;
+    }
+  }
   console.log("[extractCity] Could not extract city");
   return "";
 }
@@ -1138,6 +1147,8 @@ const TYPE_TRADE_MAP: Record<string, string> = {
 
 const NAME_TRADE_MAP: Record<string, string> = {
   window: "cleaning",
+  clean: "cleaning",
+  upkeep: "cleaning",
   wash: "cleaning",
   gutter: "cleaning",
   carpet: "cleaning",
@@ -1418,7 +1429,8 @@ router.post("/generate", async (req: Request, res: Response) => {
       return safeJsonError(res, 400, "business required");
 
     // ─── Check for recent cached report (24h TTL) ───
-    if (business.placeId) {
+    const forceRefresh = req.body?.forceRefresh === true;
+    if (business.placeId && !forceRefresh) {
       const REPORT_TTL_HOURS = 24;
       const cutoff = new Date(Date.now() - REPORT_TTL_HOURS * 60 * 60 * 1000);
       try {
@@ -1433,6 +1445,43 @@ router.post("/generate", async (req: Request, res: Response) => {
         }
       } catch (err) {
         console.error('[audit] cache check failed:', err);
+      }
+    }
+
+    // ─── Enrich business from Google Places if missing key fields ───
+    if (business.placeId && (!business.hours || !business.hours.length || !business.types || !business.types.length)) {
+      const gmKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (gmKey) {
+        try {
+          const detailFields = "opening_hours/weekday_text,types,formatted_address,address_components,formatted_phone_number,website,name,photos/photo_reference";
+          const detailUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(business.placeId)}&fields=${encodeURIComponent(detailFields)}&key=${encodeURIComponent(gmKey)}`;
+          const detailResp = await fetch(detailUrl);
+          const detailData = await detailResp.json();
+          const result = (detailData as any)?.result;
+          if (result) {
+            if (!business.hours || !business.hours.length) {
+              business.hours = result?.opening_hours?.weekday_text || [];
+            }
+            if (!business.types || !business.types.length) {
+              business.types = Array.isArray(result.types) ? result.types : [];
+            }
+            if (!business.formattedAddress && result.formatted_address) {
+              business.formattedAddress = result.formatted_address;
+            }
+            if (!business.addressComponents && result.address_components) {
+              business.addressComponents = result.address_components;
+            }
+            if (!business.phone && result.formatted_phone_number) {
+              business.phone = result.formatted_phone_number;
+            }
+            if (!business.description && result.editorial_summary?.text) {
+              business.description = result.editorial_summary.text;
+            }
+            console.log('[audit] enriched from Places API — hours:', business.hours?.length, 'types:', business.types?.length);
+          }
+        } catch (err: any) {
+          console.error('[audit] Places enrichment failed:', err?.message);
+        }
       }
     }
 
@@ -1844,7 +1893,7 @@ ${JSON.stringify(auditData, null, 2)}`;
 
         const message = await anthropic.messages.create({
           model: "claude-sonnet-4-5",
-          max_tokens: 2000,
+          max_tokens: 4096,
           system: systemPrompt,
           messages: [{ role: "user", content: userPrompt }],
         });
@@ -1853,10 +1902,49 @@ ${JSON.stringify(auditData, null, 2)}`;
         console.log("═══ CLAUDE RESPONSE ═══");
         console.log(raw);
         try {
-          const cleaned = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
-          auditData.narrative = JSON.parse(cleaned);
-        } catch {
-          auditData.narrative = { summary: raw, analysis: "", recommendations: "" };
+          // Strip markdown fences and any surrounding text, extract JSON object
+          let cleaned = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
+          // If cleaning didn't produce valid JSON start, extract from first { to last }
+          if (!cleaned.startsWith("{")) {
+            const firstBrace = cleaned.indexOf("{");
+            const lastBrace = cleaned.lastIndexOf("}");
+            if (firstBrace !== -1 && lastBrace > firstBrace) {
+              cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+            }
+          }
+          const parsed = JSON.parse(cleaned);
+          auditData.narrative = parsed;
+          console.log("[audit] narrative parsed OK, keys:", Object.keys(parsed));
+        } catch (parseErr: any) {
+          console.error("[audit] narrative JSON parse failed:", parseErr?.message);
+          // Try to salvage truncated JSON by closing open braces/brackets
+          try {
+            let salvaged = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
+            const firstBrace = salvaged.indexOf("{");
+            if (firstBrace !== -1) salvaged = salvaged.substring(firstBrace);
+            // Count open braces/brackets and close them
+            let openBraces = 0, openBrackets = 0;
+            let inString = false, escaped = false;
+            for (const ch of salvaged) {
+              if (escaped) { escaped = false; continue; }
+              if (ch === '\\') { escaped = true; continue; }
+              if (ch === '"') { inString = !inString; continue; }
+              if (inString) continue;
+              if (ch === '{') openBraces++;
+              if (ch === '}') openBraces--;
+              if (ch === '[') openBrackets++;
+              if (ch === ']') openBrackets--;
+            }
+            // Trim trailing incomplete values and close
+            salvaged = salvaged.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"{}[\]]*$/, "");
+            while (openBrackets > 0) { salvaged += "]"; openBrackets--; }
+            while (openBraces > 0) { salvaged += "}"; openBraces--; }
+            const parsed2 = JSON.parse(salvaged);
+            auditData.narrative = parsed2;
+            console.log("[audit] narrative salvaged OK, keys:", Object.keys(parsed2));
+          } catch {
+            auditData.narrative = { summary: raw, analysis: "", recommendations: "" };
+          }
         }
       }
     } catch (aiErr: any) {

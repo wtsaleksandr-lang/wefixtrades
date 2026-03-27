@@ -1,3 +1,80 @@
+CONTEXT: Some tasks from a previous
+session were partially completed.
+Before starting each task:
+1. Check if the code already exists
+2. Run the verification test for that task
+3. If it passes — mark as done and
+   move to next task
+4. If it fails — fix it properly
+
+The following was confirmed working
+in the last session:
+- max_tokens fixed to 4096 ✅
+- narrative JSON parsing fixed ✅
+- websiteQualityChecks returns 9 keys ✅
+- actionPlanCount returns 3 ✅
+- speedMobile returns real number ✅
+
+DO NOT re-do these unless a test
+shows they are broken.
+Start from Task 2 verification,
+then continue through all remaining
+tasks.
+
+═══════════════════════════════
+AUTONOMOUS WORK RULES — ALWAYS FOLLOW
+═══════════════════════════════
+
+TESTING LOOP — mandatory for every task:
+1. Make the change
+2. Run: npx tsc --noEmit
+3. Fix ALL TypeScript errors
+4. Restart server: npm run dev
+5. Test with curl against the
+   running server
+6. Read the response and verify
+   the specific field you just fixed
+7. Only move to next task when
+   verified working
+8. If a fix fails twice — try a
+   completely different approach
+9. Never skip verification
+10. Never assume it works without testing
+
+TEST BUSINESSES — use all three:
+Plumbing: Priority Plumbing & Drains
+  placeId: ChIJyb-b9z00K4gRe7gfm2znXTA
+  city: Toronto, ON
+  expected trade: plumbing
+
+Cleaning: Upkeep Home Services
+  placeId: ChIJOKT7vvV7K4gRbIpMEXnJH4o
+  city: Barrie, ON
+  expected trade: cleaning
+
+Electrical: (search Google Places for
+  an electrician in Hamilton ON and
+  use their placeId)
+  expected trade: electrical
+
+DESIGN RULES — never violate:
+- DO NOT change colors, layout,
+  spacing, fonts, or animations
+- DO NOT modify design tokens:
+  DARK, CYAN, GREEN, AMBER, RED,
+  GREY, WHITE, BORDER
+- Backend logic and data only
+  unless explicitly told otherwise
+
+COMMIT RULES:
+- Commit after each verified task
+- Message format: "fix: [task name]
+  — verified passing"
+- Never commit broken code
+- Never commit TypeScript errors
+
+═══════════════════════════════
+
 # Project Architecture
 
 ## Project Name
