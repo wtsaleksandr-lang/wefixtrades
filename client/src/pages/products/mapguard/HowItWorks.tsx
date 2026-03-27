@@ -74,7 +74,6 @@ export default function HowItWorks() {
                     style={{
                       width: 48,
                       height: 48,
-                      borderRadius: "50%",
                       ...GLASS,
                       borderRadius: "50%",
                       border: `2px solid ${mkt.accent}`,

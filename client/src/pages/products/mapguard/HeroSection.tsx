@@ -48,7 +48,6 @@ export default function HeroSection() {
               alignItems: "center",
               gap: 8,
               padding: "6px 14px",
-              borderRadius: 999,
               ...GLASS,
               borderRadius: 999,
               marginBottom: 24,

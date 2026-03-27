@@ -444,7 +444,7 @@ router.post("/speed", async (req: Request, res: Response) => {
 
 router.get("/speed/:reportId", async (req: Request, res: Response) => {
   try {
-    const { reportId } = req.params;
+    const reportId = req.params.reportId as string;
     const rows = await db.select().from(auditReports).where(eq(auditReports.id, reportId)).limit(1);
     if (!rows.length) return safeJsonError(res, 404, "Report not found");
 
@@ -1306,7 +1306,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     if ((auditData.scores?.demandCoverage?.score || 0) < 8) detectedIssues.push("no-after-hours");
     if ((auditData.scores?.adOpportunity?.score || 0) < 5) detectedIssues.push("no-ads");
     if (!resolvedSpeedData?.mobile?.score || resolvedSpeedData.mobile.score < 50) detectedIssues.push("slow-website");
-    const dedupedIssues = [...new Set(detectedIssues)];
+    const dedupedIssues = Array.from(new Set(detectedIssues));
     const recommendedServices = getServicesForIssues(dedupedIssues);
     auditData.detectedIssues = dedupedIssues;
     auditData.recommendedServices = recommendedServices;
