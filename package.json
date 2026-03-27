@@ -47,6 +47,7 @@
     "@types/nodemailer": "^7.0.11",
     "@types/topojson-client": "^3.1.5",
     "@xyflow/react": "^12.10.1",
+    "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
