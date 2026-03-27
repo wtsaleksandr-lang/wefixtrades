@@ -39,6 +39,7 @@ import SolutionsVisibility from "@/pages/marketing/solutions-visibility";
 import FreeAudit from "@/pages/marketing/FreeAudit";
 import MissedCallCalculator from "@/pages/marketing/missed-call-calculator";
 import QuoteCalculatorDemo from "@/pages/marketing/quote-calculator-demo";
+import SharedAuditReport from "@/pages/marketing/SharedAuditReport";
 import NewProductPage from "@/pages/products/ProductPage";
 import MapGuardPage from "@/pages/products/mapguard";
 import SolutionPage from "@/pages/solutions/SolutionPage";
@@ -109,6 +110,7 @@ function Router() {
       <Route path="/missed-call-calculator" component={MissedCallCalculator} />
       <Route path="/quote-demo" component={QuoteCalculatorDemo} />
       <Route path="/free-audit" component={FreeAudit} />
+      <Route path="/audit/report/:id" component={SharedAuditReport} />
       <Route path="/Wizard" component={Wizard} />
       <Route path="/wizard" component={Wizard} />
       <Route path="/Calculator" component={Calculator} />

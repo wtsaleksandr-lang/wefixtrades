@@ -736,13 +736,17 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!menuOpen) return;
-    const scrollY0 = window.scrollY;
+    // On mobile, Lenis fires synthetic scroll events on touch — only close
+    // the menu if the user actually scrolls significantly (>60px from where
+    // they opened it). On desktop, any scroll closes immediately.
+    const startY = window.scrollY;
     const handler = () => {
-      if (Math.abs(window.scrollY - scrollY0) > 50) setMenuOpen(false);
+      if (isMobile && Math.abs(window.scrollY - startY) < 60) return;
+      setMenuOpen(false);
     };
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
-  }, [menuOpen]);
+  }, [menuOpen, isMobile]);
 
   useEffect(() => {
     requestAnimationFrame(() => {

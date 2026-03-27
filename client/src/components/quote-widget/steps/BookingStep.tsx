@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { CalendarDays, Clock, Loader2, CheckCircle2 } from 'lucide-react';
 import { useWidgetState } from '../useWidgetState';
 import { eff, stepTitleStyle, stepSubtitleStyle, inputStyle, primaryButtonStyle, labelStyle } from '../designTokens';
@@ -19,6 +19,38 @@ export default function BookingStep({ step, accentColor }: BookingStepProps) {
   const { config, state, dispatch } = useWidgetState();
   const booking = state.booking;
   const { selectedDate, selectedTime, customer } = booking.data;
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleConfirmBooking = useCallback(async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          calculator_id: config.calculator.id,
+          customer_name: customer.name,
+          customer_email: customer.email || undefined,
+          customer_phone: customer.phone || undefined,
+          date: selectedDate,
+          time: selectedTime,
+          quote_amount: state.estimate?.total ?? undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data?.error || 'Booking failed. Please try again.');
+        return;
+      }
+      dispatch({ type: 'CONFIRM_BOOKING' });
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [config.calculator.id, customer, selectedDate, selectedTime, state.estimate, dispatch]);
 
   // Fetch available slots when date changes
   useEffect(() => {
@@ -169,18 +201,21 @@ export default function BookingStep({ step, accentColor }: BookingStepProps) {
             onFocus={(e) => { e.currentTarget.style.borderColor = eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
+          {error && (
+            <p style={{ fontSize: '13px', color: '#dc2626', margin: 0 }}>{error}</p>
+          )}
           <button
             type="button"
-            onClick={() => dispatch({ type: 'CONFIRM_BOOKING' })}
-            disabled={!customer.name.trim() || !customer.email.trim()}
+            onClick={handleConfirmBooking}
+            disabled={!customer.name.trim() || !customer.email.trim() || submitting}
             style={{
               ...primaryButtonStyle,
-              opacity: (!customer.name.trim() || !customer.email.trim()) ? 0.5 : 1,
+              opacity: (!customer.name.trim() || !customer.email.trim() || submitting) ? 0.5 : 1,
             }}
             onMouseEnter={(e) => { e.currentTarget.style.background = eff.buttonBgHover; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = eff.buttonBg; }}
           >
-            Confirm Booking
+            {submitting ? 'Booking...' : 'Confirm Booking'}
           </button>
         </div>
       )}

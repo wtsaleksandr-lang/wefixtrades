@@ -1,12 +1,23 @@
 import type { Express } from "express";
 import { z } from "zod";
 import { randomBytes } from "crypto";
+import OpenAI from "openai";
 import { storage } from "../storage";
 import { PRICING_TYPES, validatePricingConfig, FAMILY_LABELS, FAMILY_DESCRIPTIONS } from "@shared/pricingConfig";
 import { pricingIntakeSchema, sampleQuoteSchema, type PricingDraftJob } from "@shared/schema";
 import { generatePricingConfigDraft } from "../aiPricingAgent";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
-import { getOpenAI } from "../openaiClient";
+
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    });
+  }
+  return _openai;
+}
 
 const generatePricingBody = z.object({
   trade_type: z.string().min(1),

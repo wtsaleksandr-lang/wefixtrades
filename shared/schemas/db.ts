@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -302,3 +302,18 @@ export const insertAuditSubmissionSchema = createInsertSchema(auditSubmissions).
 });
 export type InsertAuditSubmission = z.infer<typeof insertAuditSubmissionSchema>;
 export type AuditSubmission = typeof auditSubmissions.$inferSelect;
+
+/* ─── Audit Reports ─── */
+export const auditReports = pgTable("audit_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  created_at: timestamp("created_at").defaultNow(),
+  business_name: text("business_name").notNull(),
+  business_place_id: text("business_place_id"),
+  audit_data: jsonb("audit_data").notNull(),
+  ai_narrative: jsonb("ai_narrative"),
+  view_count: integer("view_count").notNull().default(0),
+});
+
+export const insertAuditReportSchema = createInsertSchema(auditReports).omit({ id: true, created_at: true, view_count: true });
+export type InsertAuditReport = z.infer<typeof insertAuditReportSchema>;
+export type AuditReport = typeof auditReports.$inferSelect;
