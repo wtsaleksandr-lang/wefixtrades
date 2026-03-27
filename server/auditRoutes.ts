@@ -330,12 +330,20 @@ async function fetchPageSpeed(siteUrl: string, strategy?: "mobile" | "desktop"):
         const score = Math.round(score01 * 100);
         const audits = lhr?.audits || {};
         const numVal = (k: string) => { const v = audits[k]?.numericValue; return typeof v === "number" ? v : null; };
+        const screenshotData =
+          audits?.["final-screenshot"]?.details?.data ||
+          audits?.["screenshot-thumbnails"]?.details?.items?.[0]?.data ||
+          null;
+        if (screenshotData) {
+          console.log('[pagespeed] screenshot: extracted, length:', screenshotData.length);
+        }
         return {
           score,
           fcp: numVal("first-contentful-paint") !== null ? +(numVal("first-contentful-paint")! / 1000).toFixed(2) : null,
           lcp: numVal("largest-contentful-paint") !== null ? +(numVal("largest-contentful-paint")! / 1000).toFixed(2) : null,
           tbt: numVal("total-blocking-time") !== null ? Math.round(numVal("total-blocking-time")!) : null,
           cls: audits["cumulative-layout-shift"]?.numericValue ?? null,
+          screenshot: screenshotData,
         };
       } catch (err: any) {
         clearTimeout(timeout);
@@ -430,9 +438,35 @@ router.post("/speed", async (req: Request, res: Response) => {
       const speedData = { mobile: mobileScore, desktop: desktopScore };
       console.log('[speed-bg] done — mobile:', mobileScore?.score ?? 'null', 'desktop:', desktopScore?.score ?? 'null');
 
-      // Merge speedData into audit_data jsonb using Postgres || operator
+      // Extract screenshot and run AI analysis
+      const screenshotBase64: string | null = mobileScore?.screenshot || desktopScore?.screenshot || null;
+      let websiteAIAnalysis: any = null;
+      if (screenshotBase64) {
+        try {
+          // Need business name + trade from DB for AI analysis
+          const rows = await db.select().from(auditReports).where(eq(auditReports.id, reportId)).limit(1);
+          const reportData = rows[0]?.audit_data as any;
+          const businessName = reportData?.business?.name || "this business";
+          const trade = reportData?.trade || "general";
+          websiteAIAnalysis = await analyzeScreenshot(screenshotBase64, businessName, trade);
+        } catch (e: any) {
+          console.error('[speed-bg] screenshot AI failed:', e.message);
+        }
+      }
+
+      // Strip screenshot from speedData before saving (it can be large)
+      const speedDataClean = {
+        mobile: mobileScore ? { ...mobileScore, screenshot: undefined } : null,
+        desktop: desktopScore ? { ...desktopScore, screenshot: undefined } : null,
+      };
+
+      // Merge speedData + screenshot metadata into audit_data
+      const mergeData: Record<string, any> = { speedData: speedDataClean };
+      if (screenshotBase64) mergeData.websiteScreenshot = screenshotBase64.slice(0, 100) + "...(truncated)";
+      if (websiteAIAnalysis) mergeData.websiteAIAnalysis = websiteAIAnalysis;
+
       await db.update(auditReports)
-        .set({ audit_data: sql`${auditReports.audit_data} || ${JSON.stringify({ speedData })}::jsonb` })
+        .set({ audit_data: sql`${auditReports.audit_data} || ${JSON.stringify(mergeData)}::jsonb` })
         .where(eq(auditReports.id, reportId));
 
       console.log('[speed-bg] saved to DB:', reportId);
@@ -665,9 +699,11 @@ async function fetchSerperRankings(
   if (!apiKey) return null;
   const domain = businessDomain.replace(/^https?:\/\//, "").replace(/\/.*/, "").toLowerCase();
   const nameLC = businessName.toLowerCase();
+  const businessNameWords = nameLC.split(' ').filter((w: string) => w.length > 3);
   const nameFirstWord = nameLC.split(' ')[0];
   const streetNum = (businessAddress || "").toLowerCase().split(',')[0].trim();
   const locationStr = stateCode ? `${city}, ${stateCode}, Canada` : `${city}, Canada`;
+  console.log('[serper] location:', locationStr);
 
   const results = await Promise.allSettled(keywords.map(async (kw) => {
     const cacheKey = `serper:${kw.toLowerCase()}:${city.toLowerCase()}`;
@@ -716,11 +752,16 @@ async function fetchSerperRankings(
     const localPackIdx = localResults.findIndex((r: any) => {
       const title = (r.title || r.name || "").toLowerCase();
       const addr = (r.address || "").toLowerCase();
-      return title.includes(nameFirstWord) || nameLC.includes(title) ||
-        (streetNum && addr.includes(streetNum));
+      // Match by name words (any significant word)
+      const nameMatch = businessNameWords.some((w: string) => title.includes(w));
+      // Match by street number from address
+      const streetPart = (businessAddress || "").split(",")[0].toLowerCase();
+      const addressMatch = streetPart.length > 3 && addr.includes(streetPart.split(" ")[0]);
+      return nameMatch || nameLC.includes(title) || addressMatch;
     });
-    const isInLocalPack = localPackIdx >= 0 && localPackIdx < 3;
+    const isInLocalPack = localPackIdx >= 0 && localPackIdx < 10;
     const localPackPosition: number | null = isInLocalPack ? localPackIdx + 1 : null;
+    console.log('[serper] local pack:', isInLocalPack, 'position:', localPackPosition, 'of', localResults.length, 'results');
 
     const status = isInLocalPack
       ? (localPackIdx === 0 ? "dominant" : "strong")
@@ -807,6 +848,32 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
   return volumeMap;
 }
 
+/* ─── isOpenInEvenings helper ─── */
+function isOpenInEvenings(hours: string[]): boolean {
+  if (!hours || hours.length === 0) return false;
+  const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+
+  for (const hourStr of hours) {
+    const lower = hourStr.toLowerCase();
+    // Check if it's a weekday line
+    const isWeekday = weekdays.some(d => lower.includes(d));
+    if (!isWeekday) continue;
+    if (lower.includes('closed')) continue;
+    // Open 24 hours covers evenings
+    if (lower.includes('open 24 hours') || lower.includes('24/7') || lower.includes('24hrs')) return true;
+    // Parse closing time — format: "Monday: 9:00 AM – 10:00 PM"
+    const match = lower.match(/[–—\-]\s*(\d{1,2}):?(\d{0,2})\s*(am|pm)/);
+    if (!match) continue;
+    let hour = parseInt(match[1]);
+    const ampm = match[3];
+    if (ampm === 'pm' && hour !== 12) hour += 12;
+    if (ampm === 'am' && hour === 12) hour = 24; // midnight
+    if (ampm === 'am' && hour < 12) hour += 24;  // 1am, 2am → past midnight
+    if (hour >= 21) return true;
+  }
+  return false;
+}
+
 /* ─── E5: Demand Gap ─── */
 async function calculateDemandGaps(
   topKeyword: string, businessHours: string[], trade: string, totalMonthlySearchVolume: number
@@ -815,25 +882,7 @@ async function calculateDemandGaps(
   console.log("[audit] Using hardcoded demand distribution");
 
   const hoursStr = (businessHours || []).join(" ").toLowerCase();
-  // isOpenEvenings: closing time >= 9:00 PM (21:00) on any listed day
-  // Parses closing time from "Day: H:MM AM/PM – H:MM AM/PM" format
-  const isOpenEvenings = (() => {
-    for (const line of (businessHours || [])) {
-      const lower = line.toLowerCase();
-      if (lower.includes('closed')) continue;
-      if (lower.includes('24 hours') || lower.includes('24hrs') || lower.includes('24/7')) return true;
-      // Match closing time after dash (handles – — -)
-      const closeMatch = line.match(/[–—\-]\s*(\d{1,2}):(\d{2})\s*(am|pm)/i);
-      if (!closeMatch) continue;
-      let closeHour = parseInt(closeMatch[1]);
-      const ampm = closeMatch[3].toLowerCase();
-      if (ampm === 'pm' && closeHour !== 12) closeHour += 12;      // e.g. 9pm → 21
-      else if (ampm === 'am' && closeHour === 12) closeHour = 24;   // midnight → 24
-      else if (ampm === 'am' && closeHour < 12) closeHour += 24;    // 1am, 2am → 25, 26
-      if (closeHour >= 21) return true;
-    }
-    return false;
-  })();
+  const isOpenEvenings = isOpenInEvenings(businessHours || []);
   const isOpenWeekends = hoursStr.includes("saturday") || hoursStr.includes("sunday");
 
   const fallbackVolume: Record<string, number> = {
@@ -914,38 +963,48 @@ function calculateScores(auditData: any) {
   const gmWeb = bd.website ? 1 : 0;
   const googleMapsScore = Math.min(gmRating + gmReviews + gmPhotos + gmDesc + gmWeb, 25);
 
-  // Website Quality — 20pts
+  // Website Quality — 20pts (speed 8pts + QA checks 12pts)
   const speedDataAvailable = typeof speedMobile === "number" || typeof speedDesktop === "number";
   let webMobile: number | null = null, webDesktop: number | null = null;
-  if (bd.website) {
-    if (typeof speedMobile === "number") {
-      if (speedMobile >= 90) webMobile = 12;
-      else if (speedMobile >= 70) webMobile = 8;
-      else if (speedMobile >= 50) webMobile = 4;
-      else webMobile = 1;
-    }
-    if (typeof speedDesktop === "number") {
-      if (speedDesktop >= 90) webDesktop = 8;
-      else if (speedDesktop >= 70) webDesktop = 5;
-      else webDesktop = 2;
-    }
+
+  // Speed contribution (max 8)
+  if (bd.website && typeof speedMobile === "number") {
+    if (speedMobile >= 90) webMobile = 8;
+    else if (speedMobile >= 70) webMobile = 6;
+    else if (speedMobile >= 50) webMobile = 4;
+    else if (speedMobile >= 30) webMobile = 2;
+    else webMobile = 1;
   }
+  if (bd.website && typeof speedDesktop === "number" && webMobile === null) {
+    if (speedDesktop >= 90) webDesktop = 8;
+    else if (speedDesktop >= 70) webDesktop = 6;
+    else if (speedDesktop >= 50) webDesktop = 4;
+    else if (speedDesktop >= 30) webDesktop = 2;
+    else webDesktop = 1;
+  }
+
+  // QA checks contribution (max 12)
+  const qaScore = typeof auditData.websiteQualityCheckScore === "number" ? auditData.websiteQualityCheckScore : null;
+  const qaMax = 18; // sum of all weights
+  const qaPoints = qaScore !== null ? Math.round((qaScore / qaMax) * 12) : 0;
+
+  const speedPts = webMobile ?? webDesktop ?? 0;
   // If business has a website but speed data didn't load, score is null (excluded from total)
-  // If no website, score is 0 (correctly penalized)
-  const websiteScore: number | null = bd.website && !speedDataAvailable
+  const websiteScore: number | null = bd.website && !speedDataAvailable && qaScore === null
     ? null
-    : Math.min((webMobile ?? 0) + (webDesktop ?? 0), 20);
-  console.log('[scoring] websiteQuality:', websiteScore ?? 'null - excluded');
+    : Math.min(speedPts + qaPoints, 20);
+  console.log('[scoring] websiteQuality:', websiteScore ?? 'null - excluded', '(speed:', speedPts, 'qa:', qaPoints, ')');
 
   // Search Visibility — 20pts
-  // Local pack pos 1=6, 2=5, 3=4; Organic 1-3=3, 4-7=2, 8-10=1
+  // Local pack pos 1=5, 2=4, 3=3, 4-10=2; Organic 1-3=3, 4-7=2, 8-10=1
   let searchPts = 0;
   let hasLocalPack = false;
   let localPackPts = 0;
   let organicPts = 0;
   for (const kw of kws) {
     if (kw.isInLocalPack && kw.localPackPosition) {
-      const pts = kw.localPackPosition === 1 ? 6 : kw.localPackPosition === 2 ? 5 : 4;
+      const pos = kw.localPackPosition;
+      const pts = pos === 1 ? 5 : pos === 2 ? 4 : pos === 3 ? 3 : 2;
       searchPts += pts;
       localPackPts += pts;
       hasLocalPack = true;
@@ -1060,17 +1119,292 @@ const TRADE_PATTERNS: Array<{ pattern: RegExp; trade: string }> = [
   { pattern: /lock|serrurier/i, trade: "locksmith" },
 ];
 
+const TYPE_TRADE_MAP: Record<string, string> = {
+  electrician: "electrical",
+  plumber: "plumbing",
+  roofing_contractor: "roofing",
+  painter: "painting",
+  general_contractor: "general",
+  cleaning_service: "cleaning",
+  window_cleaning_service: "cleaning",
+  landscaper: "landscaping",
+  locksmith: "locksmith",
+  hvac_contractor: "hvac",
+  moving_company: "moving",
+  pest_control_service: "pest",
+  garage_door_service: "garage",
+  carpenter: "carpentry",
+};
+
+const NAME_TRADE_MAP: Record<string, string> = {
+  window: "cleaning",
+  wash: "cleaning",
+  gutter: "cleaning",
+  carpet: "cleaning",
+  maid: "cleaning",
+  janitorial: "cleaning",
+  plumb: "plumbing",
+  drain: "plumbing",
+  pipe: "plumbing",
+  electric: "electrical",
+  hvac: "hvac",
+  heating: "hvac",
+  cooling: "hvac",
+  furnace: "hvac",
+  "air condition": "hvac",
+  roof: "roofing",
+  shingle: "roofing",
+  eaves: "roofing",
+  paint: "painting",
+  landscap: "landscaping",
+  lawn: "landscaping",
+  snow: "landscaping",
+  lock: "locksmith",
+  key: "locksmith",
+  mov: "moving",
+  storage: "moving",
+  garage: "garage",
+  pest: "pest",
+  extermina: "pest",
+  handyman: "handyman",
+  renovation: "renovation",
+  remodel: "renovation",
+  construct: "construction",
+};
+
 function detectTrade(businessName: string, types: string[]): string {
   const haystack = [businessName, ...types].join(" ");
   console.log(`[detectTrade] businessName: ${businessName}, types: ${JSON.stringify(types)}, haystack: ${haystack}`);
+
+  // Step 1: pattern match on combined haystack (name + types)
   for (const { pattern, trade } of TRADE_PATTERNS) {
     if (pattern.test(haystack)) {
       console.log(`[audit] Detected trade: ${trade} from business name: ${businessName}`);
       return trade;
     }
   }
-  console.log(`[audit] Detected trade: general from business name: ${businessName}`);
-  return "general";
+
+  let trade = "general";
+
+  // Step 2: type-based fallback
+  for (const type of types) {
+    if (TYPE_TRADE_MAP[type]) {
+      trade = TYPE_TRADE_MAP[type];
+      break;
+    }
+  }
+
+  // Step 3: name word fallback
+  if (trade === "general") {
+    const nameLower = businessName.toLowerCase();
+    for (const [word, t] of Object.entries(NAME_TRADE_MAP)) {
+      if (nameLower.includes(word)) {
+        trade = t;
+        break;
+      }
+    }
+  }
+
+  console.log(`[trade] final: ${trade} for: ${businessName}`);
+  return trade;
+}
+
+/* ─── Screenshot AI Analysis ─── */
+async function analyzeScreenshot(
+  screenshotBase64: string,
+  businessName: string,
+  trade: string
+): Promise<{
+  findings: Array<{ label: string; status: "pass" | "warn" | "fail"; note: string }>;
+  summary: string;
+} | null> {
+  try {
+    const AnthropicSdk = (await import("@anthropic-ai/sdk")).default;
+    const client = new AnthropicSdk();
+    const imageData = screenshotBase64.replace(/^data:image\/\w+;base64,/, "");
+    const response = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 500,
+      messages: [{
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "base64", media_type: "image/jpeg", data: imageData },
+          },
+          {
+            type: "text",
+            text: `You are analyzing a screenshot of ${businessName}'s website (${trade} business).\n\nEvaluate ONLY what is visible in the screenshot. Respond in JSON only:\n{\n  "findings": [\n    {\n      "label": "Phone number visible",\n      "status": "pass|warn|fail",\n      "note": "one short sentence"\n    }\n  ],\n  "summary": "2 sentences max"\n}\n\nCheck these 5 things:\n1. Phone number visible above fold\n2. Clear call-to-action button\n3. Professional appearance\n4. Business name/logo visible\n5. Services mentioned\n\nStatus: pass=present and good, warn=present but could improve, fail=missing or poor`,
+          },
+        ],
+      }],
+    });
+    const textBlock = response.content.find((b) => b.type === "text");
+    const text = textBlock && textBlock.type === "text" ? textBlock.text : "";
+    const clean = text.replace(/```json|```/g, "").trim();
+    return JSON.parse(clean);
+  } catch (err: any) {
+    console.error("[screenshot-ai] error:", err.message);
+    return null;
+  }
+}
+
+/* ─── Website Quality Analysis (cheerio) ─── */
+async function analyzeWebsiteQuality(url: string): Promise<{
+  checks: Record<string, boolean>;
+  score: number;
+  maxScore: number;
+}> {
+  const checks: Record<string, boolean> = {
+    hasPhone: false,
+    hasEmail: false,
+    hasContactLink: false,
+    hasBookingForm: false,
+    hasReviewsSection: false,
+    hasLocalSchema: false,
+    hasMetaDescription: false,
+    hasSSL: false,
+    hasMobileViewport: false,
+  };
+
+  // SSL check (free, instant)
+  checks.hasSSL = url.startsWith("https");
+
+  try {
+    const cleanUrl = (u: string) => {
+      try { const p = new URL(u); return p.origin + p.pathname; } catch { return u; }
+    };
+    const fetchUrl = cleanUrl(url);
+    console.log("[website-qa] fetching:", fetchUrl);
+
+    const res = await fetch(fetchUrl, {
+      signal: AbortSignal.timeout(15000),
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; WeFixTrades Audit Bot/1.0)" },
+    });
+    const html = await res.text();
+    const { load } = await import("cheerio");
+    const $ = load(html);
+
+    // Phone number (Canadian/US)
+    const bodyText = $("body").text();
+    checks.hasPhone = /(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/.test(bodyText);
+
+    // Email
+    checks.hasEmail =
+      /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/.test(bodyText) ||
+      $('a[href^="mailto:"]').length > 0;
+
+    // Contact page link
+    const contactKeywords = ["contact", "reach us", "get in touch", "reach out", "contactez"];
+    checks.hasContactLink = $("a").toArray().some((el) => {
+      const text = $(el).text().toLowerCase();
+      const href = ($(el).attr("href") || "").toLowerCase();
+      return contactKeywords.some((k) => text.includes(k) || href.includes("contact"));
+    });
+
+    // Booking/quote form
+    const formKeywords = ["quote", "book", "schedule", "appointment", "estimate", "request", "reservation"];
+    const hasForms = $("form").length > 0;
+    const hasFormKeywords = formKeywords.some((k) => bodyText.toLowerCase().includes(k));
+    checks.hasBookingForm = hasForms && hasFormKeywords;
+
+    // Reviews/testimonials section
+    const reviewKeywords = ["review", "testimonial", "what our", "clients say", "customers say", "rated", "stars"];
+    checks.hasReviewsSection = reviewKeywords.some((k) => bodyText.toLowerCase().includes(k));
+
+    // LocalBusiness schema
+    const schemaScripts = $('script[type="application/ld+json"]').toArray();
+    checks.hasLocalSchema = schemaScripts.some((el) => {
+      const content = $(el).html() || "";
+      return content.includes("LocalBusiness") || content.includes("Organization");
+    });
+
+    // Meta description
+    const metaDesc = $('meta[name="description"]').attr("content") || "";
+    checks.hasMetaDescription = metaDesc.length > 10;
+
+    // Mobile viewport
+    checks.hasMobileViewport = $('meta[name="viewport"]').length > 0;
+
+    console.log("[website-qa] checks:", checks);
+  } catch (err: any) {
+    console.error("[website-qa] error:", err.message);
+  }
+
+  const weights: Record<string, number> = {
+    hasPhone: 3,
+    hasEmail: 1,
+    hasContactLink: 2,
+    hasBookingForm: 3,
+    hasReviewsSection: 2,
+    hasLocalSchema: 2,
+    hasMetaDescription: 1,
+    hasSSL: 2,
+    hasMobileViewport: 2,
+  };
+
+  let score = 0;
+  let maxScore = 0;
+  for (const [key, weight] of Object.entries(weights)) {
+    maxScore += weight;
+    if (checks[key]) score += weight;
+  }
+
+  return { checks, score, maxScore };
+}
+
+/* ─── Trade Context for AI ─── */
+function getTradeContext(trade: string, city: string): {
+  avgJobValue: number;
+  keyServices: string[];
+  seasonalNotes: string;
+  urgencyKeywords: string[];
+} {
+  const contexts: Record<string, any> = {
+    plumbing: {
+      avgJobValue: 280,
+      keyServices: ["drain cleaning", "emergency repairs", "water heater", "pipe repair", "sewer line"],
+      seasonalNotes: "Frozen pipe emergencies peak Jan-Feb.",
+      urgencyKeywords: ["emergency plumbing", "burst pipe", "24 hour plumber", "drain backup"],
+    },
+    electrical: {
+      avgJobValue: 320,
+      keyServices: ["panel upgrades", "outlet installation", "lighting", "EV charger", "emergency electrical"],
+      seasonalNotes: "Permit work peaks spring/fall.",
+      urgencyKeywords: ["emergency electrician", "power outage", "electrical repair"],
+    },
+    hvac: {
+      avgJobValue: 450,
+      keyServices: ["furnace repair", "AC installation", "heat pump", "duct cleaning", "maintenance contracts"],
+      seasonalNotes: "AC peaks June-Aug, heating peaks Oct-Dec.",
+      urgencyKeywords: ["emergency HVAC", "furnace repair", "no heat", "AC not working"],
+    },
+    cleaning: {
+      avgJobValue: 180,
+      keyServices: ["window cleaning", "pressure washing", "gutter cleaning", "commercial cleaning", "post-construction"],
+      seasonalNotes: "Spring cleaning peaks March-May.",
+      urgencyKeywords: ["window cleaning", "cleaning service", "commercial cleaner"],
+    },
+    roofing: {
+      avgJobValue: 8000,
+      keyServices: ["roof replacement", "leak repair", "shingle repair", "emergency tarping", "inspection"],
+      seasonalNotes: "Peak April-Oct. Storm damage drives urgency.",
+      urgencyKeywords: ["emergency roof repair", "roof leak", "storm damage"],
+    },
+    landscaping: {
+      avgJobValue: 250,
+      keyServices: ["lawn maintenance", "snow removal", "interlocking", "tree service", "spring cleanup"],
+      seasonalNotes: "Lawn April-Oct, snow Nov-March.",
+      urgencyKeywords: ["landscaping", "lawn care", "snow removal"],
+    },
+    general: {
+      avgJobValue: 350,
+      keyServices: ["repairs", "maintenance", "installations", "renovations"],
+      seasonalNotes: "Year-round demand.",
+      urgencyKeywords: ["handyman", "repairs", "home services"],
+    },
+  };
+  return contexts[trade] || contexts.general;
 }
 
 /* ═══════════════════════════════════════════════════════ */
@@ -1123,7 +1457,7 @@ router.post("/generate", async (req: Request, res: Response) => {
       trade = tradeOverride;
       console.log('[trade] using override:', trade);
     }
-    console.log("[audit] Resolved trade:", JSON.stringify(trade));
+    console.log("[trade] final:", trade, "for:", business.name);
 
     const rating = typeof business.rating === "number" ? business.rating : null;
     const reviewsCount = typeof business.reviewsCount === "number" ? business.reviewsCount : 0;
@@ -1154,10 +1488,11 @@ router.post("/generate", async (req: Request, res: Response) => {
     if (pageSpeedUrl !== website) console.log('[pagespeed] cleaned URL:', pageSpeedUrl);
 
     // ─── Run remaining external data fetches in parallel ───
-    const [compResult, reviewResult, dataForSEOResult] = await Promise.allSettled([
+    const [compResult, reviewResult, dataForSEOResult, websiteQaResult] = await Promise.allSettled([
       fetchOutscraperCompetitors(trade, city, business.name, stateCode || undefined),
       (business.placeId && reviewsCount > 0) ? fetchOutscraperReviews(business.placeId) : Promise.resolve(null),
       fetchDataForSEOVolumes(dataForSEOSeeds),
+      website ? analyzeWebsiteQuality(website) : Promise.resolve(null),
     ]);
     console.log('[dataforseo] POST-ALLSETTLED status:', dataForSEOResult?.status, 'value type:', typeof (dataForSEOResult as any)?.value);
 
@@ -1170,6 +1505,9 @@ router.post("/generate", async (req: Request, res: Response) => {
 
     const volumeMap = dataForSEOResult.status === "fulfilled" ? dataForSEOResult.value : null;
     if (dataForSEOResult.status === "rejected") console.error("E4 DataForSEO volumes failed:", (dataForSEOResult as any).reason?.message);
+
+    const websiteQaData = websiteQaResult.status === "fulfilled" ? websiteQaResult.value : null;
+    if (websiteQaResult.status === "rejected") console.error("Website QA failed:", (websiteQaResult as any).reason?.message);
 
     // PageSpeed runs separately in /api/audit/speed after report is returned to client
     const resolvedSpeedData: { mobile: any; desktop: any } = { mobile: null, desktop: null };
@@ -1278,6 +1616,8 @@ router.post("/generate", async (req: Request, res: Response) => {
       estimatedRevenueLoss: demandData?.estimatedRevenueLoss || null,
       isOpenEvenings: demandData?.isOpenEvenings ?? false,
       isOpenWeekends: demandData?.isOpenWeekends ?? false,
+      websiteQualityChecks: websiteQaData?.checks || null,
+      websiteQualityCheckScore: websiteQaData?.score ?? null,
     };
 
     // ─── E6: New scoring engine ───
@@ -1332,6 +1672,10 @@ router.post("/generate", async (req: Request, res: Response) => {
       if (anthropicKey) {
         const anthropic = new Anthropic({ apiKey: anthropicKey });
 
+        const tradeCtx = getTradeContext(trade, city);
+        const servicesList = recommendedServices?.map((s: any) => s.name || s.title || s).join(", ") || "";
+        const notRankingKeywords = keywords.filter((k: any) => !k.organicRank).map((k: any) => k.keyword).join(", ") || "None";
+
         const systemPrompt = `You are a senior local SEO and digital marketing analyst for WeFixTrades — a platform that helps trades businesses get more leads.
 
 You are analyzing audit data for a ${trade} business in ${city}.
@@ -1354,6 +1698,22 @@ AUDIT DATA AVAILABLE:
 - Market leader reviews: ${compData?.marketLeader?.reviewsCount ?? 'unknown'}
 - Business reviews: ${reviewsCount}
 - Revenue loss estimate: $${auditData.estimatedRevenueLoss?.low ?? 0}–$${auditData.estimatedRevenueLoss?.high ?? 0}/month
+
+TRADE CONTEXT:
+Trade: ${trade}
+Average job value: $${tradeCtx.avgJobValue}
+Key services: ${tradeCtx.keyServices.join(", ")}
+Seasonal notes: ${tradeCtx.seasonalNotes}
+High-intent keywords: ${tradeCtx.urgencyKeywords.join(", ")}
+
+HARD RULES:
+1. Only recommend services from this list: ${servicesList}
+2. Only suggest content pages for keywords NOT ranking: ${notRankingKeywords}
+3. Never suggest after-hours service if isOpenEvenings is true
+4. Revenue math: use $${tradeCtx.avgJobValue} as job value
+5. Every claim must reference data provided above
+6. Max 3 action plan items
+7. Each item must cite which detectedIssue it fixes
 
 WRITING RULES:
 - Be specific — use actual numbers from the data
