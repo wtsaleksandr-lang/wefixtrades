@@ -46,40 +46,50 @@ function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: 
   const circ = 2 * Math.PI * r;
   const fill = (shown / 100) * circ;
   const color = getScoreColor(shown);
-  const pulseStyle = pulsing ? { animation: 'pulse 2s ease-in-out infinite' } : {};
+  const isRefining = !!pulsing;
+  // Animated sweep segment: a short arc that travels around the ring
+  const sweepLen = circ * 0.18;
   return (
     <div style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }} onClick={onClick} title="Click to learn more">
       <style>{`
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        @keyframes scoreOrbit { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes scorePulse { 0%, 100% { opacity: 0.45; transform: scale(1); } 50% { opacity: 0.75; transform: scale(1.08); } }
+        @keyframes scoreSweep {
+          0% { stroke-dashoffset: 0; }
+          100% { stroke-dashoffset: ${-circ}; }
+        }
+        @keyframes scoreGlowPulse {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.55; }
+        }
         @media (prefers-reduced-motion: reduce) {
-          .score-orbit, .score-glow { animation: none !important; }
+          .score-sweep, .score-glow-ring { animation: none !important; }
         }
       `}</style>
       <div style={{ position: 'relative', width: 120, height: 120, margin: '0 auto' }}>
-        {/* Pulsing glow layer */}
-        <div className="score-glow" style={{
-          position: 'absolute', inset: 10, borderRadius: '50%',
-          background: color, filter: 'blur(16px)', opacity: 0.45,
-          animation: 'scorePulse 2s ease-in-out infinite',
-        }}/>
-        {/* Orbital accent dot */}
-        <div className="score-orbit" style={{
-          position: 'absolute', inset: 0, width: 120, height: 120,
-          animation: 'scoreOrbit 5s linear infinite',
-        }}>
-          <div style={{
-            position: 'absolute', top: 2, left: '50%', transform: 'translateX(-50%)',
-            width: 6, height: 6, borderRadius: '50%', background: color,
-            boxShadow: `0 0 6px ${color}`,
+        {/* Soft glow behind ring — only while refining */}
+        {isRefining && (
+          <div className="score-glow-ring" style={{
+            position: 'absolute', inset: 10, borderRadius: '50%',
+            background: color, filter: 'blur(14px)', opacity: 0.3,
+            animation: 'scoreGlowPulse 2s ease-in-out infinite',
           }}/>
-        </div>
+        )}
         <svg width="120" height="120" viewBox="0 0 120 120" style={{ position: 'relative', zIndex: 1 }}>
+          {/* Background track */}
           <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8"/>
+          {/* Score fill arc */}
           <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="8"
             strokeDasharray={`${fill} ${circ - fill}`}
-            strokeLinecap="round" transform="rotate(-90 60 60)" style={pulseStyle}/>
+            strokeLinecap="round" transform="rotate(-90 60 60)"/>
+          {/* Animated sweep overlay — only while refining */}
+          {isRefining && (
+            <circle className="score-sweep" cx="60" cy="60" r={r} fill="none"
+              stroke={color} strokeWidth="8" strokeLinecap="round"
+              strokeDasharray={`${sweepLen} ${circ - sweepLen}`}
+              transform="rotate(-90 60 60)"
+              opacity={0.35}
+              style={{ animation: 'scoreSweep 2s linear infinite' }}/>
+          )}
           <text x="60" y="55" textAnchor="middle" fill={color} fontSize="22" fontWeight="700">{shown}</text>
           <text x="60" y="70" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="11">/100</text>
         </svg>
@@ -91,7 +101,9 @@ function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: 
       }}>
         Grade {grade}
       </div>
-      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>Tap for details</div>
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>
+        {isRefining ? 'Progressing' : 'Tap for more'}
+      </div>
     </div>
   );
 }
