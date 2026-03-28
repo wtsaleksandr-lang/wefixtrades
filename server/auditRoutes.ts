@@ -764,17 +764,32 @@ async function fetchSerperRankings(
       return { keyword: kw, data: cachedData };
     }
 
-    const { signal: sSignal, clear: sClear } = withSignal(12000);
+    // Run /search (organic) and /maps (local pack) in parallel
+    const headers = { "X-API-KEY": apiKey, "Content-Type": "application/json" };
+    const body = { q: kw, location: locationStr, gl: "ca", hl: "en" };
+    const { signal: sSignal, clear: sClear } = withSignal(15000);
     try {
-      const r = await fetch("https://google.serper.dev/search", {
-        method: "POST",
-        headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-        body: JSON.stringify({ q: kw, location: locationStr, gl: "ca", hl: "en", num: 20 }),
-        signal: sSignal,
-      });
-      const data = await r.json();
+      const [searchResp, mapsResp] = await Promise.allSettled([
+        fetch("https://google.serper.dev/search", {
+          method: "POST", headers,
+          body: JSON.stringify({ ...body, num: 20 }),
+          signal: sSignal,
+        }).then(r => r.json()),
+        fetch("https://google.serper.dev/maps", {
+          method: "POST", headers,
+          body: JSON.stringify(body),
+          signal: sSignal,
+        }).then(r => r.json()),
+      ]);
+      const searchData = searchResp.status === "fulfilled" ? searchResp.value : {};
+      const mapsData = mapsResp.status === "fulfilled" ? mapsResp.value : {};
+      // Merge maps places into search data as localResults
+      const data = {
+        ...searchData,
+        localResults: Array.isArray(mapsData?.places) ? mapsData.places : [],
+      };
       setCached(cacheKey, data);
-      console.log('[serper] cached:', kw);
+      console.log('[serper] cached:', kw, '— organic:', (data.organic?.length || 0), 'local:', data.localResults.length);
       return { keyword: kw, data };
     } finally {
       sClear();
