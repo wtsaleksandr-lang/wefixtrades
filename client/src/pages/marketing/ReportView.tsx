@@ -471,7 +471,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     lcp: {
       title: 'Largest Contentful Paint (LCP)',
       what: 'How long until the main visual element — usually a hero image or heading — fully loads on screen.',
-      why: 'LCP is a direct Google ranking factor. A slow LCP pushes your site down in search results and loses customers before they read your offer.',
+      why: 'LCP is a Core Web Vital used by Google for ranking. A slow LCP hurts rankings and causes visitors to leave before the page feels ready.',
       diy: 'Optimize your hero image (compress, use WebP format), improve server response time, remove unused JavaScript, and use a CDN for static assets.',
       timeline: '2–5 days for image and server fixes; 2–4 weeks if hosting or CMS changes are needed.',
       thresholds: [
@@ -495,7 +495,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     cls: {
       title: 'Cumulative Layout Shift (CLS)',
       what: 'Measures how much visible elements jump around unexpectedly while the page loads — buttons shifting, text moving, images popping in.',
-      why: 'Layout shifts cause accidental clicks and frustrate visitors. Google penalizes sites with poor CLS in search rankings.',
+      why: 'Layout shifts frustrate visitors and cause accidental clicks. Google factors CLS into search rankings, so poor scores hurt visibility.',
       diy: 'Set explicit width and height on all images and videos, avoid inserting content above existing elements, and use CSS font-display to prevent text reflow.',
       timeline: '1–2 days for dimension fixes; 1–2 weeks if ad slots or dynamic content are involved.',
       thresholds: [
@@ -1870,6 +1870,22 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {/* ISSUE DETAIL MODAL */}
       {issueModal !== null && plan[issueModal] && (() => {
         const item = plan[issueModal];
+        // Generate specific DIY advice based on issue title keywords
+        const getDiyAdvice = (title: string): string => {
+          const t = title.toLowerCase();
+          if (t.includes('review')) return 'Ask your last 10 happy customers for a Google review. Send a direct link via text or email and respond to every review within 24 hours.';
+          if (t.includes('photo')) return 'Upload 10–15 high-quality photos to your Google profile: completed work, before/after shots, your team, your vehicle, and your storefront.';
+          if (t.includes('speed') || t.includes('slow') || t.includes('mobile')) return 'Compress hero images to under 200KB, convert to WebP format, defer non-critical scripts, and remove unused plugins.';
+          if (t.includes('website') && (t.includes('no') || t.includes('missing') || t.includes('link'))) return 'Create a simple one-page site with your services, service area, phone number, and a click-to-call button. Link it to your Google profile.';
+          if (t.includes('rating')) return 'Reply professionally to every negative review. Address recurring complaints in your operations and ask satisfied customers to share their experience.';
+          if (t.includes('keyword') || t.includes('seo') || t.includes('content') || t.includes('page')) return 'Create a dedicated service page for each core keyword. Include your city name, a clear service description, and a call-to-action with your phone number.';
+          if (t.includes('description') || t.includes('profile') || t.includes('categor')) return 'Write a 150–300 word description with your core services and service area. Add all relevant primary and secondary business categories.';
+          if (t.includes('hours') || t.includes('evening') || t.includes('weekend') || t.includes('demand')) return 'Update your Google Business hours to reflect evening and weekend availability. Create a landing page targeting emergency and after-hours searches.';
+          if (t.includes('ad') || t.includes('paid') || t.includes('ppc')) return 'Set up a Google Ads campaign targeting your top 5 local service keywords. Start with $10–20/day and track which keywords generate calls.';
+          if (t.includes('competitor') || t.includes('ranking') || t.includes('visibility')) return 'Audit your top 3 competitors\u2019 Google profiles. Match or exceed their photo count, review count, and posting frequency.';
+          if (t.includes('post') || t.includes('update') || t.includes('active') || t.includes('inactive')) return 'Post a Google Business update weekly: recent jobs, seasonal tips, or promotions. Consistent activity signals relevance to Google.';
+          return 'Identify the specific fix from the problem above, gather the right tools or access, apply the change, and verify the result is live.';
+        };
         const prioColor = item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN;
         const prioBg = item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG;
         return (
@@ -1898,8 +1914,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>DIY solution</div>
                 <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 6px' }}>
-                  {item.detail ? 'Research the issue, identify the right fix, implement changes, and verify results.' : 'Diagnose the root cause, apply the fix, and monitor for improvement.'}
-                  {item.estimatedCost ? ` Budget around ${item.estimatedCost}.` : ''}
+                  {getDiyAdvice(item.title)}{item.estimatedCost ? ` Budget around ${item.estimatedCost}.` : ''}
                 </p>
                 {(item.estimatedCost || item.timeToResult) && (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
@@ -2004,12 +2019,11 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 16px' }}>{exp.diy}</p>
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Timeline</div>
                 <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 16px' }}>{exp.timeline}</p>
-                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Benchmarks</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18, padding: '10px 0', borderTop: `1px solid ${BORDER}` }}>
                   {exp.thresholds.map(t => (
-                    <div key={t.label} style={{ flex: 1, minWidth: 80, background: t.color + '15', border: `1px solid ${t.color}40`, borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: t.color }}>{t.label}</div>
-                      <div style={{ fontSize: 12, color: DARK, marginTop: 2 }}>{t.value}</div>
+                    <div key={t.label} style={{ flex: 1, minWidth: 72, background: t.color + '10', borderRadius: 6, padding: '6px 10px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: t.color }}>{t.label}</div>
+                      <div style={{ fontSize: 11, color: DARK, marginTop: 1 }}>{t.value}</div>
                     </div>
                   ))}
                 </div>
