@@ -770,8 +770,16 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         MozOsxFontSmoothing: "grayscale",
         textRendering: "optimizeLegibility",
         background: mkt.bg,
+        position: "relative",
       }}
     >
+      {/* Dotted grid overlay — extends behind navbar so glass samples a consistent pattern */}
+      <div style={{
+        position: "fixed", top: 0, left: 0, right: 0, height: 120,
+        backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px)",
+        backgroundSize: "18px 18px",
+        pointerEvents: "none", zIndex: 0,
+      }}/>
       <nav
         className={`mkt-nav${scrolled ? " scrolled" : ""}`}
         data-testid="nav-marketing"
@@ -801,12 +809,12 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             height: isMobile ? 64 : DESKTOP_HEADER.cardHeight,
             width: "100%",
             marginTop: isMobile ? 6 : 6,
-            borderRadius: 24,
-            background: "rgba(34,40,42,0.55)",
-            backdropFilter: "blur(12px) saturate(1.3)",
-            WebkitBackdropFilter: "blur(12px) saturate(1.3)",
-            border: `1px solid ${mkt.border}`,
-            boxShadow: scrolled ? "0 14px 38px rgba(0,0,0,0.30)" : "0 12px 30px rgba(0,0,0,0.20)",
+            borderRadius: 16,
+            background: "rgba(34,40,42,0.72)",
+            backdropFilter: "blur(14px) saturate(1.2)",
+            WebkitBackdropFilter: "blur(14px) saturate(1.2)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            boxShadow: scrolled ? "0 8px 24px rgba(0,0,0,0.25)" : "0 6px 20px rgba(0,0,0,0.15)",
             ...(isMobile && {
               willChange: "backdrop-filter",
               transform: "translateZ(0)",
