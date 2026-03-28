@@ -770,16 +770,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         MozOsxFontSmoothing: "grayscale",
         textRendering: "optimizeLegibility",
         background: mkt.bg,
-        position: "relative",
       }}
     >
-      {/* Dotted grid overlay — extends behind navbar so glass samples a consistent pattern */}
-      <div style={{
-        position: "fixed", top: 0, left: 0, right: 0, height: 120,
-        backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px)",
-        backgroundSize: "18px 18px",
-        pointerEvents: "none", zIndex: 0,
-      }}/>
       <nav
         className={`mkt-nav${scrolled ? " scrolled" : ""}`}
         data-testid="nav-marketing"
