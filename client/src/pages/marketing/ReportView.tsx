@@ -49,15 +49,41 @@ function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: 
   const pulseStyle = pulsing ? { animation: 'pulse 2s ease-in-out infinite' } : {};
   return (
     <div style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }} onClick={onClick} title="Click to learn more">
-      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
-      <svg width="120" height="120" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8"/>
-        <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="8"
-          strokeDasharray={`${fill} ${circ - fill}`}
-          strokeLinecap="round" transform="rotate(-90 60 60)" style={pulseStyle}/>
-        <text x="60" y="55" textAnchor="middle" fill={color} fontSize="22" fontWeight="700">{shown}</text>
-        <text x="60" y="70" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="11">/100</text>
-      </svg>
+      <style>{`
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        @keyframes scoreOrbit { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes scorePulse { 0%, 100% { opacity: 0.45; transform: scale(1); } 50% { opacity: 0.75; transform: scale(1.08); } }
+        @media (prefers-reduced-motion: reduce) {
+          .score-orbit, .score-glow { animation: none !important; }
+        }
+      `}</style>
+      <div style={{ position: 'relative', width: 120, height: 120, margin: '0 auto' }}>
+        {/* Pulsing glow layer */}
+        <div className="score-glow" style={{
+          position: 'absolute', inset: 10, borderRadius: '50%',
+          background: color, filter: 'blur(16px)', opacity: 0.45,
+          animation: 'scorePulse 2s ease-in-out infinite',
+        }}/>
+        {/* Orbital accent dot */}
+        <div className="score-orbit" style={{
+          position: 'absolute', inset: 0, width: 120, height: 120,
+          animation: 'scoreOrbit 5s linear infinite',
+        }}>
+          <div style={{
+            position: 'absolute', top: 2, left: '50%', transform: 'translateX(-50%)',
+            width: 6, height: 6, borderRadius: '50%', background: color,
+            boxShadow: `0 0 6px ${color}`,
+          }}/>
+        </div>
+        <svg width="120" height="120" viewBox="0 0 120 120" style={{ position: 'relative', zIndex: 1 }}>
+          <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8"/>
+          <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="8"
+            strokeDasharray={`${fill} ${circ - fill}`}
+            strokeLinecap="round" transform="rotate(-90 60 60)" style={pulseStyle}/>
+          <text x="60" y="55" textAnchor="middle" fill={color} fontSize="22" fontWeight="700">{shown}</text>
+          <text x="60" y="70" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="11">/100</text>
+        </svg>
+      </div>
       <div style={{
         display: 'inline-block', padding: '3px 14px', borderRadius: 20,
         background: color + '22', border: `1px solid ${color}`,
@@ -65,7 +91,7 @@ function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: 
       }}>
         Grade {grade}
       </div>
-      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>tap to explain</div>
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>Tap for details</div>
     </div>
   );
 }
@@ -624,24 +650,32 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: window.innerWidth >= 1024 ? 960 : 780, margin: '0 auto', padding: isTiny ? '0 10px 80px' : isMobile ? '0 16px 80px' : '0 16px 48px', boxSizing: 'border-box', position: 'relative' }}>
 
       {/* TAB BAR */}
-      <div style={{ display:'flex', background:WHITE, borderBottom:'2px solid #F3F4F6', padding:'0 16px', position:'sticky', top:0, zIndex:20, gap:0, width:'100%' }}>
-        {(['maps','website','plan'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} {...hoverProps(`tab-${tab}`)} style={{
-            padding:'14px 20px', fontSize:13, fontWeight: activeTab===tab ? 600 : 500,
-            color: activeTab===tab ? DARK : hovered===`tab-${tab}` ? '#4B5563' : '#9CA3AF',
-            border:'none', background: hovered===`tab-${tab}` && activeTab!==tab ? '#F9FAFB' : 'transparent',
-            borderBottom: activeTab===tab ? '2px solid #00D4C8' : '2px solid transparent',
-            marginBottom:-2, cursor:'pointer', whiteSpace:'nowrap',
-            display:'flex', alignItems:'center', gap:6, transition:'all 0.15s ease', letterSpacing:'0.01em',
-          }}>
-            {tab==='maps' ? 'Google Maps' : tab==='website' ? 'Website' : 'Action Plan'}
-          </button>
-        ))}
+      <div style={{ display:'flex', justifyContent:'center', background:WHITE, padding:'10px 16px', position:'sticky', top:0, zIndex:20, width:'100%' }}>
+        <div style={{ display:'inline-flex', background:'#F3F4F6', borderRadius:24, padding:3, gap:2 }}>
+          {(['maps','website','plan'] as const).map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)} {...hoverProps(`tab-${tab}`)} style={{
+              padding:'8px 18px', fontSize:13, fontWeight: activeTab===tab ? 600 : 500,
+              color: activeTab===tab ? DARK : hovered===`tab-${tab}` ? '#4B5563' : '#9CA3AF',
+              border:'none', borderRadius:20, cursor:'pointer', whiteSpace:'nowrap',
+              background: activeTab===tab ? WHITE : hovered===`tab-${tab}` ? 'rgba(255,255,255,0.5)' : 'transparent',
+              boxShadow: activeTab===tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              display:'flex', alignItems:'center', gap:6, transition:'all 0.15s ease', letterSpacing:'0.01em',
+            }}>
+              {tab==='maps' ? 'Google Maps' : tab==='website' ? 'Website' : 'Action Plan'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* SECTION 1 — COVER */}
-      {activeTab === 'maps' && <div style={{ background: DARK, borderRadius: r16, padding: 20, marginBottom: 10 }}>
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      {activeTab === 'maps' && <div style={{ background: DARK, borderRadius: r16, padding: 20, marginBottom: 10, position: 'relative', overflow: 'hidden' }}>
+        {/* Dotted grid background */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px)',
+          backgroundSize: '18px 18px', opacity: 0.45, pointerEvents: 'none',
+        }}/>
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             {business?.businessPhotoUrl ? (
               <img src={business.businessPhotoUrl} alt={business.name} style={{
@@ -678,8 +712,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
         {ai.executiveSummary && (
           <>
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '20px 0' }}/>
-            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, lineHeight: 1.65, margin: 0 }}>{ai.executiveSummary}</p>
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '12px 0 14px', position: 'relative', zIndex: 1 }}/>
+            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, lineHeight: 1.65, margin: 0, position: 'relative', zIndex: 1 }}>{ai.executiveSummary}</p>
           </>
         )}
       </div>}
@@ -688,20 +722,23 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {activeTab === 'maps' && <div style={card()}>
         <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 20 }}>Your Score Breakdown</div>
         {scoreRows.map((row, i) => (
-          <div key={i} style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'rgba(0,212,200,0.08)', flexShrink: 0 }}>
-                {row.icon}
-              </span>
-              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: DARK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{row.label}</span>
-              <div style={{ width: 80, flexShrink: 0, height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
-                <div style={{ width: `${(row.score / row.max) * 100}%`, height: '100%', background: scoreColor(row.score, row.max), borderRadius: 4 }}/>
+          <div key={i}>
+            {i > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '12px 0 14px' }}/>}
+            <div style={{ marginBottom: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'rgba(0,212,200,0.08)', flexShrink: 0 }}>
+                  {row.icon}
+                </span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: DARK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{row.label}</span>
+                <div style={{ width: 80, flexShrink: 0, height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
+                  <div style={{ width: `${(row.score / row.max) * 100}%`, height: '100%', background: scoreColor(row.score, row.max), borderRadius: 4 }}/>
+                </div>
+                <span style={{ width: 48, flexShrink: 0, textAlign: 'right', fontSize: 13, fontWeight: 700, color: scoreColor(row.score, row.max) }}>
+                  {row.score}/{row.max}
+                </span>
               </div>
-              <span style={{ width: 48, flexShrink: 0, textAlign: 'right', fontSize: 13, fontWeight: 700, color: scoreColor(row.score, row.max) }}>
-                {row.score}/{row.max}
-              </span>
+              <div style={{ fontSize: 11, color: GREY, marginTop: 2, marginLeft: 38 }}>{row.note}</div>
             </div>
-            <div style={{ fontSize: 11, color: GREY, marginTop: 2, marginLeft: 38 }}>{row.note}</div>
           </div>
         ))}
         {ai.gradeExplanation && (
