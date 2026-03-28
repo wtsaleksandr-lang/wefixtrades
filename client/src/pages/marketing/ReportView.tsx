@@ -953,44 +953,48 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {/* SECTION 3 — ACTION PLAN (Tab 3 only — sales content lives here) */}
       {activeTab === 'plan' && plan.length > 0 && (
         <div style={card()}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
             <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What's Holding You Back</span>
             <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
           </div>
-          <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Tap any issue to see the full breakdown</div>
-          {plan.map((item: any, i: number) => (
-            <div key={i}>
-              {i > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '12px 0' }}/>}
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setIssueModal(i)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIssueModal(i); } }}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px', cursor: 'pointer', borderRadius: 8, transition: 'background 0.15s ease' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.025)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: DARK, lineHeight: 1.4 }}>{item.title}</span>
-                    {item.priority && (
-                      <span style={{
-                        padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', flexShrink: 0,
-                        background: item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG,
-                        color: item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN,
-                      }}>
-                        {item.priority}
-                      </span>
+          <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Tap each item to see how to fix it</div>
+          {plan.map((item: any, i: number) => {
+            const dotColor = item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : '#9CA3AF';
+            return (
+              <div key={i}>
+                {i > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '12px 0' }}/>}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setIssueModal(i)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIssueModal(i); } }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', cursor: 'pointer', borderRadius: 8, transition: 'background 0.15s ease' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.035)'; const chev = e.currentTarget.querySelector('.issue-chevron') as HTMLElement; if (chev) chev.style.transform = 'translateX(2px)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; const chev = e.currentTarget.querySelector('.issue-chevron') as HTMLElement; if (chev) chev.style.transform = 'translateX(0)'; }}
+                >
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 14, fontWeight: item.priority === 'HIGH' ? 700 : 600, color: DARK, lineHeight: 1.4 }}>{item.title}</span>
+                      {item.priority && (
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', flexShrink: 0,
+                          background: item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG,
+                          color: item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN,
+                        }}>
+                          {item.priority}
+                        </span>
+                      )}
+                    </div>
+                    {item.estimatedImpact && (
+                      <div style={{ fontSize: 12, color: GREY, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.estimatedImpact}</div>
                     )}
                   </div>
-                  {item.estimatedImpact && (
-                    <div style={{ fontSize: 12, color: GREY, marginTop: 2 }}>{item.estimatedImpact}</div>
-                  )}
+                  <ChevronRight className="issue-chevron" size={16} color={GREY} style={{ flexShrink: 0, opacity: 0.4, transition: 'transform 0.15s ease' }} />
                 </div>
-                <ChevronRight size={16} color={GREY} style={{ flexShrink: 0, opacity: 0.4 }} />
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -1100,40 +1104,44 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What's Holding You Back</span>
             <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
           </div>
-          <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Tap any issue for the full breakdown</div>
-          {plan.map((item: any, i: number) => (
-            <div key={i}>
-              {i > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '12px 0' }}/>}
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setIssueModal(i)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIssueModal(i); } }}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px', cursor: 'pointer', borderRadius: 8, transition: 'background 0.15s ease' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.025)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: DARK, lineHeight: 1.4 }}>{item.title}</span>
-                    {item.priority && (
-                      <span style={{
-                        padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', flexShrink: 0,
-                        background: item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG,
-                        color: item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN,
-                      }}>
-                        {item.priority}
-                      </span>
+          <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Tap each item to see how to fix it</div>
+          {plan.map((item: any, i: number) => {
+            const dotColor = item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : '#9CA3AF';
+            return (
+              <div key={i}>
+                {i > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '12px 0' }}/>}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setIssueModal(i)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIssueModal(i); } }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', cursor: 'pointer', borderRadius: 8, transition: 'background 0.15s ease' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.035)'; const chev = e.currentTarget.querySelector('.issue-chevron') as HTMLElement; if (chev) chev.style.transform = 'translateX(2px)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; const chev = e.currentTarget.querySelector('.issue-chevron') as HTMLElement; if (chev) chev.style.transform = 'translateX(0)'; }}
+                >
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 14, fontWeight: item.priority === 'HIGH' ? 700 : 600, color: DARK, lineHeight: 1.4 }}>{item.title}</span>
+                      {item.priority && (
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', flexShrink: 0,
+                          background: item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG,
+                          color: item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN,
+                        }}>
+                          {item.priority}
+                        </span>
+                      )}
+                    </div>
+                    {item.estimatedImpact && (
+                      <div style={{ fontSize: 12, color: GREY, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.estimatedImpact}</div>
                     )}
                   </div>
-                  {item.estimatedImpact && (
-                    <div style={{ fontSize: 12, color: GREY, marginTop: 2 }}>{item.estimatedImpact}</div>
-                  )}
+                  <ChevronRight className="issue-chevron" size={16} color={GREY} style={{ flexShrink: 0, opacity: 0.4, transition: 'transform 0.15s ease' }} />
                 </div>
-                <ChevronRight size={16} color={GREY} style={{ flexShrink: 0, opacity: 0.4 }} />
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -1801,19 +1809,25 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   </span>
                 )}
               </div>
-              <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
-                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>The problem</div>
-                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 20px' }}>{item.detail}</p>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it means</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{item.detail}</p>
+
                 {item.estimatedImpact && (
                   <>
                     <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Why it matters</div>
-                    <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 20px' }}>{item.estimatedImpact}</p>
+                    <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{item.estimatedImpact}</p>
                   </>
                 )}
+
                 {(item.estimatedCost || item.timeToResult) && (
                   <>
-                    <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>What it takes to fix</div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>DIY solution</div>
+                    <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 6px' }}>
+                      You can fix this yourself{item.estimatedCost ? ` for around ${item.estimatedCost}` : ''}.{' '}
+                      It requires research, setup, and ongoing monitoring.
+                    </p>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
                       {item.estimatedCost && (
                         <span style={{ padding: '4px 12px', borderRadius: 8, background: GREY_BG, color: GREY, fontSize: 12 }}>💰 {item.estimatedCost}</span>
                       )}
@@ -1823,12 +1837,27 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     </div>
                   </>
                 )}
-                {item.wefixtrades_can_help && (
-                  <div style={{ marginTop: 20, background: '#E0FAF9', borderRadius: 10, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 13, color: '#00897B', fontWeight: 600 }}>WeFixTrades handles this for you</span>
-                    <a href="/plans" style={{ fontSize: 13, color: CYAN, fontWeight: 600, textDecoration: 'none' }}>See how →</a>
-                  </div>
+
+                {item.timeToResult && (
+                  <>
+                    <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Timeline</div>
+                    <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{item.timeToResult} depending on execution</p>
+                  </>
                 )}
+
+                <button
+                  onClick={() => { setIssueModal(null); setActiveTab('plan'); }}
+                  style={{
+                    width: '100%', padding: '12px 20px', marginTop: 4,
+                    background: CYAN, color: DARK, border: 'none', borderRadius: 10,
+                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                    transition: 'background 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#00BFB8')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = CYAN)}
+                >
+                  Let WeFixTrades fix this →
+                </button>
               </div>
             </div>
           </>
