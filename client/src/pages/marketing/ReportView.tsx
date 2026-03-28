@@ -455,11 +455,13 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const lowRatingCount = competitors.filter((c: any) => (c.rating || 0) < 4.3).length;
   const maxReviews = Math.max(businessReviews, ...competitors.map((c: any) => c.reviewsCount || 0), 1);
 
-  const METRIC_EXPLANATIONS: Record<string, { title: string; what: string; why: string; thresholds: { label: string; value: string; color: string }[] }> = {
+  const METRIC_EXPLANATIONS: Record<string, { title: string; what: string; why: string; diy: string; timeline: string; thresholds: { label: string; value: string; color: string }[] }> = {
     fcp: {
       title: 'First Contentful Paint (FCP)',
-      what: 'The time from when the page starts loading to when any text or image is first visible on screen.',
-      why: 'A fast FCP reassures visitors that the page is actually loading. Slow FCP causes users to bounce before your content appears.',
+      what: 'How long until the first text or image appears on screen after a visitor opens your page.',
+      why: 'Slow FCP causes visitors to leave before seeing anything. Every extra second increases bounce rate and loses potential leads.',
+      diy: 'Compress and resize images, enable browser caching, preload critical fonts, and minimize render-blocking CSS in your page head.',
+      timeline: '1–3 days for image optimization; 1–2 weeks for full render-path cleanup.',
       thresholds: [
         { label: 'Good', value: '< 1.8s', color: GREEN },
         { label: 'Needs work', value: '1.8s – 3s', color: AMBER },
@@ -468,8 +470,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     },
     lcp: {
       title: 'Largest Contentful Paint (LCP)',
-      what: 'The time until the largest visible element (hero image, heading, etc.) fully loads on screen.',
-      why: 'LCP is a Core Web Vital and a direct Google ranking factor. A slow LCP pushes your site lower in search results and loses customers before they even read your offer.',
+      what: 'How long until the main visual element — usually a hero image or heading — fully loads on screen.',
+      why: 'LCP is a direct Google ranking factor. A slow LCP pushes your site down in search results and loses customers before they read your offer.',
+      diy: 'Optimize your hero image (compress, use WebP format), improve server response time, remove unused JavaScript, and use a CDN for static assets.',
+      timeline: '2–5 days for image and server fixes; 2–4 weeks if hosting or CMS changes are needed.',
       thresholds: [
         { label: 'Good', value: '< 2.5s', color: GREEN },
         { label: 'Needs work', value: '2.5s – 4s', color: AMBER },
@@ -478,8 +482,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     },
     tbt: {
       title: 'Total Blocking Time (TBT)',
-      what: 'The total time the page is unresponsive to clicks and taps while JavaScript is running in the background.',
-      why: "High TBT makes your site feel frozen. Visitors who can't tap a button or scroll smoothly will leave — hurting both conversions and your Google ranking.",
+      what: 'Total time your page is frozen and unresponsive to clicks or taps while JavaScript runs in the background.',
+      why: 'High TBT makes your site feel broken. Visitors who cannot tap buttons or scroll smoothly leave — costing you calls and conversions.',
+      diy: 'Defer non-critical JavaScript, remove unused plugins and tracking scripts, break up long-running tasks, and lazy-load third-party widgets.',
+      timeline: '1–3 days for quick script removal; 2–4 weeks for full JavaScript audit and cleanup.',
       thresholds: [
         { label: 'Good', value: '< 200ms', color: GREEN },
         { label: 'Needs work', value: '200ms – 600ms', color: AMBER },
@@ -488,8 +494,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     },
     cls: {
       title: 'Cumulative Layout Shift (CLS)',
-      what: "Measures how much page elements unexpectedly jump around while the page loads (e.g. a button moves just as you're about to tap it).",
-      why: 'CLS is a Core Web Vital. Unexpected layout shifts frustrate users and cause accidental clicks. Google penalises sites with poor CLS in search rankings.',
+      what: 'Measures how much visible elements jump around unexpectedly while the page loads — buttons shifting, text moving, images popping in.',
+      why: 'Layout shifts cause accidental clicks and frustrate visitors. Google penalizes sites with poor CLS in search rankings.',
+      diy: 'Set explicit width and height on all images and videos, avoid inserting content above existing elements, and use CSS font-display to prevent text reflow.',
+      timeline: '1–2 days for dimension fixes; 1–2 weeks if ad slots or dynamic content are involved.',
       thresholds: [
         { label: 'Good', value: '< 0.1', color: GREEN },
         { label: 'Needs work', value: '0.1 – 0.25', color: AMBER },
@@ -586,36 +594,48 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     return 'Speed test unavailable';
   })();
 
-  const BREAKDOWN_EXPLANATIONS: Record<string, { title: string; what: string; why: string }> = {
+  const BREAKDOWN_EXPLANATIONS: Record<string, { title: string; what: string; why: string; diy: string; timeline: string }> = {
     googleMaps: {
       title: 'Google Maps Profile',
-      what: 'This measures how complete, active, and trustworthy your Google Business Profile looks to Google and customers.',
-      why: 'A stronger profile improves local rankings, drives more calls, and helps more people choose your business.',
+      what: 'How complete, active, and trustworthy your Google Business Profile looks to both Google and potential customers.',
+      why: 'A stronger profile improves local rankings, drives more calls, and helps more people choose your business over competitors.',
+      diy: 'Add all business categories, upload 10+ quality photos, write a keyword-rich description, respond to every review, and post weekly updates.',
+      timeline: '1–2 weeks for a full profile overhaul; ongoing weekly maintenance to stay competitive.',
     },
     websiteQuality: {
       title: 'Website Quality',
-      what: 'This measures how well your website performs on speed, mobile experience, trust signals, and conversion elements.',
-      why: 'A weak website causes lost leads. A strong website turns more visitors into booked jobs.',
+      what: 'How well your website performs across speed, mobile experience, trust signals, and conversion elements like click-to-call.',
+      why: 'A weak website loses leads silently. A fast, mobile-friendly site turns more visitors into booked jobs.',
+      diy: 'Run PageSpeed Insights, compress all images, ensure mobile responsiveness, add click-to-call buttons, and fix broken links.',
+      timeline: '1–2 weeks for quick fixes; 4–8 weeks for a full performance and conversion overhaul.',
     },
     searchVisibility: {
       title: 'Search Visibility',
-      what: 'This shows how easily your business appears in Google search results for important local keywords.',
-      why: 'Low visibility causes missed traffic, missed calls, and missed revenue from people already searching for your services.',
+      what: 'How easily your business appears in Google search results when people search for your services locally.',
+      why: 'Low visibility means missed traffic, missed calls, and missed revenue from people already looking for what you offer.',
+      diy: 'Create service-specific pages for each keyword, add location content, build local backlinks, and keep your Google profile active.',
+      timeline: '2–4 weeks for content creation; 60–90 days for meaningful organic ranking improvements.',
     },
     competitorPosition: {
       title: 'Competitor Position',
-      what: 'This compares your visibility and positioning against nearby competitors in your market.',
-      why: 'This reveals where competitors are winning and where your business is losing rankings and jobs.',
+      what: 'How your visibility and positioning compares against nearby competitors in your local market.',
+      why: 'Where competitors outrank you, they capture the calls and jobs you are missing.',
+      diy: 'Audit competitor profiles, match or exceed their review count, create more location-specific content, and monitor ranking changes weekly.',
+      timeline: '2–4 weeks for initial competitive audit; ongoing monthly effort to close gaps.',
     },
     adOpportunity: {
       title: 'Ad Opportunity',
-      what: 'This measures whether paid search will help capture demand where organic visibility is weak.',
-      why: 'When organic reach is limited, ads put your business in front of ready-to-book customers faster.',
+      what: 'Whether paid search ads would help capture demand in areas where your organic visibility is weak.',
+      why: 'When organic reach is limited, ads place your business in front of ready-to-book customers immediately.',
+      diy: 'Set up a Google Ads account, research local keywords, create ad groups by service type, set a daily budget, and monitor cost-per-lead weekly.',
+      timeline: '1–2 weeks to launch a basic campaign; 30–60 days to optimize for cost-effective results.',
     },
     demandCoverage: {
       title: 'Demand Coverage',
-      what: 'This measures whether your business is visible when customers search during the times and situations that matter most.',
-      why: 'Coverage gaps cause missed leads during valuable demand windows, even when the business performs well overall.',
+      what: 'Whether your business appears when customers search during the times and situations that matter most — evenings, weekends, emergencies.',
+      why: 'Coverage gaps cause missed leads during high-value demand windows, even if your business performs well during normal hours.',
+      diy: 'Extend your listed business hours, create pages targeting emergency and after-hours searches, and schedule Google posts for peak demand periods.',
+      timeline: '1–2 weeks for hours and content updates; ongoing adjustment based on when leads come in.',
     },
   };
 
@@ -1873,35 +1893,30 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   </>
                 )}
 
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>DIY solution</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 6px' }}>
+                  {item.detail ? 'Research the issue, identify the right fix, implement changes, and verify results.' : 'Diagnose the root cause, apply the fix, and monitor for improvement.'}
+                  {item.estimatedCost ? ` Budget around ${item.estimatedCost}.` : ''}
+                </p>
                 {(item.estimatedCost || item.timeToResult) && (
-                  <>
-                    <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>DIY solution</div>
-                    <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 6px' }}>
-                      You can fix this yourself{item.estimatedCost ? ` for around ${item.estimatedCost}` : ''}.{' '}
-                      It requires research, setup, and ongoing monitoring.
-                    </p>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-                      {item.estimatedCost && (
-                        <span style={{ padding: '4px 12px', borderRadius: 8, background: GREY_BG, color: GREY, fontSize: 12 }}>💰 {item.estimatedCost}</span>
-                      )}
-                      {item.timeToResult && (
-                        <span style={{ padding: '4px 12px', borderRadius: 8, background: GREY_BG, color: GREY, fontSize: 12 }}>⏱ {item.timeToResult}</span>
-                      )}
-                    </div>
-                  </>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+                    {item.estimatedCost && (
+                      <span style={{ padding: '4px 12px', borderRadius: 8, background: GREY_BG, color: GREY, fontSize: 12 }}>💰 {item.estimatedCost}</span>
+                    )}
+                    {item.timeToResult && (
+                      <span style={{ padding: '4px 12px', borderRadius: 8, background: GREY_BG, color: GREY, fontSize: 12 }}>⏱ {item.timeToResult}</span>
+                    )}
+                  </div>
                 )}
 
-                {item.timeToResult && (
-                  <>
-                    <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Timeline</div>
-                    <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{item.timeToResult} depending on execution</p>
-                  </>
-                )}
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Timeline</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{item.timeToResult || '2–4 weeks'} depending on scope and execution.</p>
 
+                <div style={{ fontSize: 12, color: GREY, marginBottom: 8 }}>WeFixTrades can handle this for you</div>
                 <button
                   onClick={() => { setIssueModal(null); setActiveTab('plan'); }}
                   style={{
-                    width: '100%', padding: '12px 20px', marginTop: 4,
+                    width: '100%', padding: '12px 20px',
                     background: CYAN, color: DARK, border: 'none', borderRadius: 10,
                     fontSize: 14, fontWeight: 700, cursor: 'pointer',
                     transition: 'background 0.15s ease',
@@ -1938,11 +1953,29 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   </div>
                 )}
               </div>
-              <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it means</div>
-                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 20px' }}>{bd.what}</p>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{bd.what}</p>
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Why it matters</div>
-                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: 0 }}>{bd.why}</p>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{bd.why}</p>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>DIY solution</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{bd.diy}</p>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Timeline</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{bd.timeline}</p>
+                <div style={{ fontSize: 12, color: GREY, marginBottom: 8 }}>WeFixTrades can handle this for you</div>
+                <button
+                  onClick={() => { setBreakdownModal(null); setActiveTab('plan'); }}
+                  style={{
+                    width: '100%', padding: '12px 20px',
+                    background: CYAN, color: DARK, border: 'none', borderRadius: 10,
+                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                    transition: 'background 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#00BFB8')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = CYAN)}
+                >
+                  Let WeFixTrades fix this →
+                </button>
               </div>
             </div>
           </>
@@ -1959,13 +1992,17 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 <button onClick={() => setMetricModal(null)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                 <div style={{ fontSize: 17, fontWeight: 700, color: WHITE }}>{exp.title}</div>
               </div>
-              <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
-                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it measures</div>
-                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 20px' }}>{exp.what}</p>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it means</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 16px' }}>{exp.what}</p>
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Why it matters</div>
-                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 20px' }}>{exp.why}</p>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 16px' }}>{exp.why}</p>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>DIY solution</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 16px' }}>{exp.diy}</p>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Timeline</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 16px' }}>{exp.timeline}</p>
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Benchmarks</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
                   {exp.thresholds.map(t => (
                     <div key={t.label} style={{ flex: 1, minWidth: 80, background: t.color + '15', border: `1px solid ${t.color}40`, borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: t.color }}>{t.label}</div>
@@ -1973,6 +2010,20 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     </div>
                   ))}
                 </div>
+                <div style={{ fontSize: 12, color: GREY, marginBottom: 8 }}>WeFixTrades can handle this for you</div>
+                <button
+                  onClick={() => { setMetricModal(null); setActiveTab('plan'); }}
+                  style={{
+                    width: '100%', padding: '12px 20px',
+                    background: CYAN, color: DARK, border: 'none', borderRadius: 10,
+                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                    transition: 'background 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#00BFB8')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = CYAN)}
+                >
+                  Let WeFixTrades fix this →
+                </button>
               </div>
             </div>
           </>
