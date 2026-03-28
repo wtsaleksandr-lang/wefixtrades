@@ -525,10 +525,18 @@ router.get("/speed/:reportId", async (req: Request, res: Response) => {
     const rows = await db.select().from(auditReports).where(eq(auditReports.id, reportId)).limit(1);
     if (!rows.length) return safeJsonError(res, 404, "Report not found");
 
-    const speedData = (rows[0].audit_data as any)?.speedData || null;
+    const auditData = rows[0].audit_data as any;
+    const speedData = auditData?.speedData || null;
     const hasData = speedData?.mobile?.score != null || speedData?.desktop?.score != null;
 
-    return res.json({ ok: true, ready: hasData, speedData: hasData ? speedData : null });
+    return res.json({
+      ok: true,
+      ready: hasData,
+      speedData: hasData ? speedData : null,
+      websiteAIAnalysis: auditData?.websiteAIAnalysis || null,
+      websiteQualityChecks: auditData?.websiteQualityChecks || null,
+      websiteQualityCheckScore: auditData?.websiteQualityCheckScore ?? null,
+    });
   } catch (err) {
     console.error('[speed-poll] error:', err);
     return safeJsonError(res, 500, "Failed to check speed");
@@ -1272,6 +1280,16 @@ function detectTrade(businessName: string, types: string[]): string {
   return trade;
 }
 
+/* ─── Timeout helper for API calls ─── */
+function withApiTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) =>
+      setTimeout(() => { console.log(`[anthropic] timeout after ${ms}ms`); resolve(fallback); }, ms)
+    ),
+  ]);
+}
+
 /* ─── Screenshot AI Analysis ─── */
 async function analyzeScreenshot(
   screenshotBase64: string,
@@ -1285,24 +1303,29 @@ async function analyzeScreenshot(
     const AnthropicSdk = (await import("@anthropic-ai/sdk")).default;
     const client = new AnthropicSdk();
     const imageData = screenshotBase64.replace(/^data:image\/\w+;base64,/, "");
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 500,
-      messages: [{
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: { type: "base64", media_type: "image/jpeg", data: imageData },
-          },
-          {
-            type: "text",
-            text: `You are analyzing a screenshot of ${businessName}'s website (${trade} business).\n\nEvaluate ONLY what is visible in the screenshot. Respond in JSON only:\n{\n  "findings": [\n    {\n      "label": "Phone number visible",\n      "status": "pass|warn|fail",\n      "note": "one short sentence"\n    }\n  ],\n  "summary": "2 sentences max"\n}\n\nCheck these 5 things:\n1. Phone number visible above fold\n2. Clear call-to-action button\n3. Professional appearance\n4. Business name/logo visible\n5. Services mentioned\n\nStatus: pass=present and good, warn=present but could improve, fail=missing or poor`,
-          },
-        ],
-      }],
-    });
-    const textBlock = response.content.find((b) => b.type === "text");
+    const response = await withApiTimeout(
+      client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 500,
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: { type: "base64", media_type: "image/jpeg", data: imageData },
+            },
+            {
+              type: "text",
+              text: `You are analyzing a screenshot of ${businessName}'s website (${trade} business).\n\nEvaluate ONLY what is visible in the screenshot. Respond in JSON only:\n{\n  "findings": [\n    {\n      "label": "Phone number visible",\n      "status": "pass|warn|fail",\n      "note": "one short sentence"\n    }\n  ],\n  "summary": "2 sentences max"\n}\n\nCheck these 5 things:\n1. Phone number visible above fold\n2. Clear call-to-action button\n3. Professional appearance\n4. Business name/logo visible\n5. Services mentioned\n\nStatus: pass=present and good, warn=present but could improve, fail=missing or poor`,
+            },
+          ],
+        }],
+      }),
+      15000,
+      null as any
+    );
+    if (!response) return null;
+    const textBlock = response.content.find((b: any) => b.type === "text");
     const text = textBlock && textBlock.type === "text" ? textBlock.text : "";
     const clean = text.replace(/```json|```/g, "").trim();
     return JSON.parse(clean);
@@ -1944,12 +1967,20 @@ ${keywords.map((k: any) => `${k.keyword}: rank ${k.organicRank || 'not ranking'}
 Business audit data:
 ${JSON.stringify(auditData, null, 2)}`;
 
-        const message = await anthropic.messages.create({
-          model: "claude-sonnet-4-5",
-          max_tokens: 4096,
-          system: systemPrompt,
-          messages: [{ role: "user", content: userPrompt }],
-        });
+        const message = await withApiTimeout(
+          anthropic.messages.create({
+            model: "claude-sonnet-4-5",
+            max_tokens: 4096,
+            system: systemPrompt,
+            messages: [{ role: "user", content: userPrompt }],
+          }),
+          90000,
+          null as any
+        );
+        if (!message) {
+          console.error("[audit] narrative generation timed out after 90s");
+          auditData.narrative = { summary: "", analysis: "", recommendations: [], actionPlan: [], quickWin: null };
+        } else {
 
         const raw = message.content?.[0]?.type === "text" ? message.content[0].text : "";
         console.log("═══ CLAUDE RESPONSE ═══");
@@ -1999,9 +2030,24 @@ ${JSON.stringify(auditData, null, 2)}`;
             auditData.narrative = { summary: raw, analysis: "", recommendations: "" };
           }
         }
+        } // close else (message exists)
       }
     } catch (aiErr: any) {
       console.error("AI narrative generation failed:", aiErr?.message);
+    }
+
+    // ─── Inject DataForSEO volumes into contentGaps ───
+    if (auditData.narrative?.contentGaps && volumeMap) {
+      auditData.narrative.contentGaps = auditData.narrative.contentGaps.map((gap: any) => {
+        const kw = gap.targetKeyword?.toLowerCase()?.trim();
+        const vol = kw ? (volumeMap[kw] || volumeMap[kw?.split(' ')[0]]) : null;
+        return {
+          ...gap,
+          monthlySearches: gap.monthlySearches || vol?.searchVolume || null,
+          cpc: gap.cpc || vol?.cpc || null,
+        };
+      });
+      console.log('[audit] contentGaps enriched with volume data');
     }
 
     // ─── Save report to database ───

@@ -175,12 +175,14 @@ const ShareIcons = {
   ),
 };
 
-export default function ReportView({ report, business, reportId, liveSpeedData, speedLoading }: {
+export default function ReportView({ report, business, reportId, liveSpeedData, speedLoading, liveWebsiteAIAnalysis, liveWebsiteQualityCheckScore }: {
   report: any;
   business: any;
   reportId?: string | null;
   liveSpeedData?: any;
   speedLoading?: boolean;
+  liveWebsiteAIAnalysis?: any;
+  liveWebsiteQualityCheckScore?: number;
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [activeTab, setActiveTab] = useState<'maps' | 'website' | 'plan'>('maps');
@@ -471,13 +473,13 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     else if (speedVal >= 30) speedPoints = 2;
     else speedPoints = 1;
 
-    // QA checks contribution (max 8)
-    const qaScore = report?.websiteQualityCheckScore ?? 0;
+    // QA checks contribution (max 8) — prefer live polled value
+    const qaScore = liveWebsiteQualityCheckScore ?? report?.websiteQualityCheckScore ?? 0;
     const qaMax = 18;
     const qaPoints = Math.round((qaScore / qaMax) * 8);
 
-    // AI visual contribution (max 4) — from backend analysis
-    const aiAnalysis = report?.websiteAIAnalysis;
+    // AI visual contribution (max 4) — prefer live polled value
+    const aiAnalysis = liveWebsiteAIAnalysis || report?.websiteAIAnalysis;
     let aiVisualPts = 0;
     if (aiAnalysis?.findings && Array.isArray(aiAnalysis.findings)) {
       const passCount = aiAnalysis.findings.filter((f: any) => f.status === "pass").length;
@@ -486,7 +488,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     }
 
     return Math.min(20, speedPoints + qaPoints + aiVisualPts);
-  }, [liveSpeedData, report?.speedData, report?.websiteQualityCheckScore, report?.websiteAIAnalysis]);
+  }, [liveSpeedData, report?.speedData, liveWebsiteQualityCheckScore, report?.websiteQualityCheckScore, liveWebsiteAIAnalysis, report?.websiteAIAnalysis]);
 
   const liveTotal = useMemo(() => {
     if (liveWebsiteScore === null) return scores.total || 0;

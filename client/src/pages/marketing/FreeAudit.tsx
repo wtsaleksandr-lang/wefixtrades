@@ -79,6 +79,9 @@ export default function FreeAudit() {
   const lastPredRef = useRef<Prediction | null>(null);
   const [speedData, setSpeedData] = useState<any>(null);
   const [speedLoading, setSpeedLoading] = useState(false);
+  const [websiteAIAnalysis, setWebsiteAIAnalysis] = useState<any>(null);
+  const [websiteQualityChecks, setWebsiteQualityChecks] = useState<any>(null);
+  const [websiteQualityCheckScore, setWebsiteQualityCheckScore] = useState<number>(0);
 
   const lastTradeRef = useRef<string>('');
 
@@ -224,6 +227,9 @@ export default function FreeAudit() {
                 if (data.ready && data.speedData) {
                   console.log('[speed] data ready:', data.speedData);
                   setSpeedData(data.speedData);
+                  if (data.websiteAIAnalysis) setWebsiteAIAnalysis(data.websiteAIAnalysis);
+                  if (data.websiteQualityChecks) setWebsiteQualityChecks(data.websiteQualityChecks);
+                  if (data.websiteQualityCheckScore != null) setWebsiteQualityCheckScore(data.websiteQualityCheckScore);
                   setSpeedLoading(false);
                   return;
                 }
@@ -644,6 +650,8 @@ export default function FreeAudit() {
                   reportId={reportId}
                   liveSpeedData={speedData}
                   speedLoading={speedLoading}
+                  liveWebsiteAIAnalysis={websiteAIAnalysis}
+                  liveWebsiteQualityCheckScore={websiteQualityCheckScore}
                 />
               </div>
             );

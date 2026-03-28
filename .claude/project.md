@@ -48,7 +48,7 @@ Plumbing: Priority Plumbing & Drains
   expected trade: plumbing
 
 Cleaning: Upkeep Home Services
-  placeId: ChIJOKT7vvV7K4gRbIpMEXnJH4o
+  placeId: ChIJqw2hdImjKogRjfGgZXJMsyA
   city: Barrie, ON
   expected trade: cleaning
 
