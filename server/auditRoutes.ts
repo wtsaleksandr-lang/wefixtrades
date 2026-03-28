@@ -893,6 +893,7 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
   const results = data?.tasks?.[0]?.result || [];
   console.log('[dataforseo] parsed results count:', results.length);
   const volumeMap: Record<string, { searchVolume: number; cpc: number; competition: number }> = {};
+  const normalizeKw = (s: string) => s.toLowerCase().trim().replace(/\s+/g, ' ');
   results.forEach((item: any) => {
     const kw = item?.keyword;
     if (!kw) return;
@@ -903,9 +904,10 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
       cpc: item?.cpc ?? info?.cpc ?? 0,
       competition: item?.competition_index ?? item?.competition ?? info?.competition ?? 0,
     };
-    volumeMap[kw.toLowerCase().trim()] = val;
+    const norm = normalizeKw(kw);
+    volumeMap[norm] = val;
     volumeMap[kw.trim()] = val;
-    const firstWord = kw.toLowerCase().trim().split(' ')[0];
+    const firstWord = norm.split(' ')[0];
     if (firstWord) volumeMap[firstWord] = val;
   });
   console.log('[dataforseo] volumeMap keys after build:', Object.keys(volumeMap));
@@ -1662,11 +1664,13 @@ router.post("/generate", async (req: Request, res: Response) => {
     let highestVolumeKeyword = seedKeywords[0] || "";
     let highestVolume = 0;
 
+    const normalizeKw = (s: string) => s.toLowerCase().trim().replace(/\s+/g, ' ');
     if (volumeMap) {
       for (const kw of keywords) {
-        const vol = volumeMap[kw.keyword.toLowerCase().trim()] ||
+        const norm = normalizeKw(kw.keyword);
+        const vol = volumeMap[norm] ||
           volumeMap[kw.keyword.trim()] ||
-          volumeMap[kw.keyword.toLowerCase().trim().split(' ')[0]];
+          volumeMap[norm.split(' ')[0]];
         if (vol) {
           kw.monthlySearches = vol.searchVolume;
           kw.cpc = vol.cpc;

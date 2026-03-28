@@ -1006,14 +1006,15 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What Customers Search For</span>
             <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
           </div>
-          <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Keywords relevant to your business in {report?.city}</div>
+          <div style={{ fontSize: 12, color: GREY, marginBottom: 4 }}>Keywords relevant to your business in {report?.city}</div>
+          <div style={{ fontSize: 10, color: GREY, marginBottom: 12, opacity: 0.7 }}>Rank shows organic or <span style={{ color: CYAN }}>Local Pack</span> position · Visibility = overall presence</div>
           {/* Column headers */}
-          <div style={{ display: 'flex', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${BORDER}`, gap: 6 }}>
-            <span style={{ flex: 1, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, minWidth: 0 }}>Keyword</span>
-            <span style={{ width: 44, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>Vol.</span>
-            <span style={{ width: 40, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>CPC</span>
-            <span style={{ width: 44, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>Rank</span>
-            <span style={{ width: 62, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>Visibility</span>
+          <div style={{ display: 'flex', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${BORDER}`, gap: 4 }}>
+            <span style={{ flex: 1, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, minWidth: 0 }}>Keyword</span>
+            <span style={{ width: 40, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>Vol.</span>
+            <span style={{ width: 42, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>CPC</span>
+            <span style={{ width: 46, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>Rank</span>
+            <span style={{ width: 58, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>Visibility</span>
           </div>
           {/* Rows */}
           {keywords.map((kw: any, i: number) => {
@@ -1026,7 +1027,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               rankLabel = `#${kw.organicRank}`;
               rankColor = kw.organicRank <= 3 ? GREEN : kw.organicRank <= 10 ? AMBER : RED;
             } else if (hasLocalPack) {
-              rankLabel = `LP #${kw.localPackPosition}`;
+              rankLabel = `LP${kw.localPackPosition}`;
               rankColor = CYAN;
             } else {
               rankLabel = '—';
@@ -1035,25 +1036,22 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             // Visibility status — reflects overall presence
             const visLabel = kw.status?.replace('-', ' ') || '—';
             const visColor = statusColor(kw.status);
+            // CPC formatting: show 1 decimal when fractional, whole when not
+            const cpcDisplay = kw.cpc > 0 ? (kw.cpc % 1 === 0 ? `$${kw.cpc}` : `$${kw.cpc.toFixed(1)}`) : '—';
             return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${BORDER}`, gap: 6, background: i % 2 === 0 ? 'transparent' : '#FAFAFA' }}>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${BORDER}`, gap: 4, background: i % 2 === 0 ? 'transparent' : '#FAFAFA' }}>
                 <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: DARK, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kw.keyword}</span>
-                <span style={{ width: 44, fontSize: 12, color: DARK, textAlign: 'right', flexShrink: 0 }}>{kw.monthlySearches > 0 ? kw.monthlySearches.toLocaleString() : '—'}</span>
-                <span style={{ width: 40, fontSize: 12, color: GREY, textAlign: 'right', flexShrink: 0 }}>{kw.cpc > 0 ? `$${kw.cpc.toFixed(0)}` : '—'}</span>
-                <span style={{ width: 44, fontSize: 12, fontWeight: 600, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{rankLabel}</span>
-                <span style={{ width: 62, textAlign: 'right', flexShrink: 0 }}>
-                  <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 10, fontSize: 10, fontWeight: 600, background: visColor + '18', color: visColor, whiteSpace: 'nowrap' }}>
+                <span style={{ width: 40, fontSize: 11, color: DARK, textAlign: 'right', flexShrink: 0 }}>{kw.monthlySearches > 0 ? kw.monthlySearches.toLocaleString() : '—'}</span>
+                <span style={{ width: 42, fontSize: 11, color: GREY, textAlign: 'right', flexShrink: 0 }}>{cpcDisplay}</span>
+                <span style={{ width: 46, fontSize: 11, fontWeight: 600, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{rankLabel}</span>
+                <span style={{ width: 58, textAlign: 'right', flexShrink: 0 }}>
+                  <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: 10, fontSize: 10, fontWeight: 600, background: visColor + '18', color: visColor, whiteSpace: 'nowrap' }}>
                     {visLabel}
                   </span>
                 </span>
               </div>
             );
           })}
-          {/* Legend for rank types */}
-          <div style={{ display: 'flex', gap: 12, marginTop: 10, fontSize: 10, color: GREY, flexWrap: 'wrap' }}>
-            <span>Rank = organic position</span>
-            <span style={{ color: CYAN }}>LP = Local Pack position</span>
-          </div>
           {ai.keyStrength && (
             <div style={{ marginTop: 12, background: GREEN_BG, borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#166534' }}>
               ✓ {ai.keyStrength}
@@ -1180,7 +1178,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         ) : speed.mobile?.score != null || speed.desktop?.score != null ? (
           <div style={card({ marginBottom: 10 })}>
             {/* Device tab switcher */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>Website Speed</span>
                 <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
@@ -1188,9 +1186,9 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               <div style={{ display: 'inline-flex', background: '#F3F4F6', borderRadius: 20, padding: 2, gap: 2 }}>
                 {(['mobile', 'desktop'] as const).map(d => (
                   <button key={d} onClick={() => setSpeedDevice(d)} style={{
-                    padding: '5px 12px', fontSize: 12, fontWeight: speedDevice === d ? 600 : 500, border: 'none', borderRadius: 18, cursor: 'pointer',
-                    background: speedDevice === d ? WHITE : 'transparent', color: speedDevice === d ? DARK : GREY,
-                    boxShadow: speedDevice === d ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', transition: 'all 0.15s ease',
+                    padding: '5px 14px', fontSize: 12, fontWeight: speedDevice === d ? 700 : 500, border: 'none', borderRadius: 18, cursor: 'pointer',
+                    background: speedDevice === d ? WHITE : 'transparent', color: speedDevice === d ? DARK : '#9CA3AF',
+                    boxShadow: speedDevice === d ? '0 1px 4px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s ease',
                   }}>
                     {d === 'mobile' ? '📱 Mobile' : '🖥 Desktop'}
                   </button>
@@ -1202,13 +1200,13 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               const data = speedDevice === 'mobile' ? speed.mobile : speed.desktop;
               return (
                 <>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 8 }}>
-                    <span style={{ fontSize: 36, fontWeight: 800, color: data?.score != null ? scoreColor(data.score, 100) : GREY, lineHeight: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
+                    <span style={{ fontSize: 40, fontWeight: 800, color: data?.score != null ? scoreColor(data.score, 100) : GREY, lineHeight: 1 }}>
                       {data?.score != null ? data.score : speedLoading ? '...' : '—'}
                     </span>
                     <span style={{ fontSize: 16, color: GREY, fontWeight: 400 }}>/100</span>
                   </div>
-                  <div style={{ fontSize: 11, color: GREY, marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, color: GREY, marginBottom: 6 }}>
                     Tap a metric to learn what it means
                   </div>
                   {[
@@ -1222,14 +1220,19 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     const statusC = isGood ? GREEN : isOk ? AMBER : RED;
                     const statusT = isGood ? 'Good' : isOk ? 'Needs work' : 'Critical';
                     return (
-                      <div key={m.key} onClick={() => setMetricModal(m.key)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}`, cursor: 'pointer', borderRadius: 6, transition: 'background 0.12s ease' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.02)')}
+                      <div key={m.key} onClick={() => setMetricModal(m.key)}
+                        role="button" tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMetricModal(m.key); } }}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 4px', marginTop: 0, borderTop: `1px solid ${BORDER}`, cursor: 'pointer', borderRadius: 4, transition: 'background 0.12s ease' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.025)')}
                         onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                       >
                         <div>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: DARK }}>{m.label}</span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%', background: GREY_BG, color: GREY, fontSize: 9, marginLeft: 4, cursor: 'pointer' }}>?</span>
-                          <div style={{ fontSize: 12, color: GREY }}>{m.val != null ? `${m.val}${m.unit}` : '—'}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: DARK }}>{m.label}</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%', background: GREY_BG, color: GREY, fontSize: 9 }}>?</span>
+                          </div>
+                          <div style={{ fontSize: 12, color: GREY, marginTop: 1 }}>{m.val != null ? `${m.val}${m.unit}` : '—'}</div>
                         </div>
                         {m.val != null && (
                           <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: statusC + '20', color: statusC }}>{statusT}</span>
