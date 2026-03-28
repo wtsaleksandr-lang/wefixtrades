@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info } from "lucide-react";
+import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight } from "lucide-react";
 import { SERVICES, getServicesForIssues } from '@shared/services';
 
 // ─── Design tokens ───────────────────
@@ -300,18 +300,19 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [scoreModalOpen, setScoreModalOpen] = useState(false);
   const [metricModal, setMetricModal] = useState<string | null>(null);
   const [breakdownModal, setBreakdownModal] = useState<string | null>(null);
+  const [issueModal, setIssueModal] = useState<number | null>(null);
 
   // Score circle animation state
   const [displayScore, setDisplayScore] = useState(0);
   const [prevScore, setPrevScore] = useState(0);
   const animFrameRef = useRef<number>(0);
   const FAQS = [
-    { q: "Do I need to learn any software?", a: "None. Everything is set up and managed by our team. You get a simple dashboard to check your results, and a weekly summary sent to your phone. That's it." },
-    { q: "How long until I see results?", a: "Most clients see measurable improvements within the first 2–4 weeks — more profile views, more calls, more leads. SEO results compound over 60–90 days." },
-    { q: "Is there a contract or cancellation fee?", a: "No contracts. No cancellation fees. Cancel any time with 30 days notice. We keep clients by delivering results, not by locking them in." },
-    { q: "What makes you different from a regular marketing agency?", a: "We built this exclusively for trades businesses. The tools, the AI, the automations — all designed around how plumbers, locksmiths, and HVAC techs actually work." },
-    { q: "What happens after I select my services?", a: "Complete a quick 5-minute onboarding form. Our team sets everything up within 48 hours. You get a confirmation with your login details and next steps." },
-    { q: "Can I start with one service and add more later?", a: "Absolutely. Most clients start with one or two services, see the results, and expand from there. No pressure to buy everything at once." },
+    { q: "Do I need to learn any software?", a: "No. Our team handles everything. You get a simple dashboard and a weekly summary sent to your phone — no training, no software to install." },
+    { q: "How long until I see results?", a: "Most trades businesses see more calls and profile views within 2–4 weeks. SEO gains compound over 60–90 days and keep growing." },
+    { q: "Is there a contract or cancellation fee?", a: "No contracts, no cancellation fees. Cancel anytime with 30 days notice. We earn your business every month through results." },
+    { q: "What makes you different from a regular marketing agency?", a: "We only work with trades businesses. Every tool, automation, and strategy is built specifically for how plumbers, electricians, and HVAC techs get jobs." },
+    { q: "Who does the work for me?", a: "Our team does. From setup to optimization, we handle everything. You focus on running jobs — we handle getting them to ring your phone." },
+    { q: "What happens after I get this report?", a: "Pick the services that match your biggest gaps. Complete a 5-minute onboarding form. Our team sets everything up within 48 hours and you start seeing results." },
   ];
   const hoverProps = (id: string) => ({
     onMouseEnter: () => setHovered(id),
@@ -951,50 +952,43 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
       {/* SECTION 3 — ACTION PLAN (Tab 3 only — sales content lives here) */}
       {activeTab === 'plan' && plan.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ background: DARK, borderRadius: '16px 16px 0 0', padding: '18px 24px', fontSize: 17, fontWeight: 700, color: WHITE }}>
-            What's Holding You Back
+        <div style={card()}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16 }}>
+            <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What's Holding You Back</span>
+            <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
           </div>
+          <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Tap any issue to see the full breakdown</div>
           {plan.map((item: any, i: number) => (
-            <div key={i} style={{
-              background: WHITE, border: `1px solid ${BORDER}`, borderTop: 'none',
-              borderRadius: i === plan.length - 1 ? '0 0 16px 16px' : 0, padding: 24
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-                <span style={{
-                  padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em',
-                  background: item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG,
-                  color: item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN
-                }}>
-                  {item.priority} PRIORITY
-                </span>
-                <span style={{ padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: '#E0FAF9', color: '#00897B' }}>
-                  {item.estimatedImpact}
-                </span>
-              </div>
-              <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>❌ The Problem</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 4 }}>{item.title}</div>
-              <div style={{ fontSize: 13, color: GREY, lineHeight: 1.55 }}>{item.detail}</div>
-              <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>💸 What It's Costing You</div>
-                <div style={{ fontSize: 13, color: DARK }}>
-                  Every month this isn't fixed, you're missing an estimated <strong>{item.estimatedImpact}</strong> in potential jobs.
+            <div key={i}>
+              {i > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '12px 0' }}/>}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setIssueModal(i)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIssueModal(i); } }}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px', cursor: 'pointer', borderRadius: 8, transition: 'background 0.15s ease' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.025)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: DARK, lineHeight: 1.4 }}>{item.title}</span>
+                    {item.priority && (
+                      <span style={{
+                        padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', flexShrink: 0,
+                        background: item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG,
+                        color: item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN,
+                      }}>
+                        {item.priority}
+                      </span>
+                    )}
+                  </div>
+                  {item.estimatedImpact && (
+                    <div style={{ fontSize: 12, color: GREY, marginTop: 2 }}>{item.estimatedImpact}</div>
+                  )}
                 </div>
+                <ChevronRight size={16} color={GREY} style={{ flexShrink: 0, opacity: 0.4 }} />
               </div>
-              <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>✅ How To Fix It</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {[item.estimatedCost, item.timeToResult].filter(Boolean).map((v: string, j: number) => (
-                    <span key={j} style={{ padding: '3px 10px', borderRadius: 12, background: GREY_BG, color: GREY, fontSize: 12 }}>{v}</span>
-                  ))}
-                </div>
-              </div>
-              {item.wefixtrades_can_help && (
-                <div style={{ marginTop: 16, background: '#E0FAF9', borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: '#00897B', fontWeight: 600 }}>🔧 WeFixTrades can handle this for you</span>
-                  <a href="/plans" style={{ fontSize: 13, color: CYAN, fontWeight: 600, textDecoration: 'none' }}>See how →</a>
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -1101,35 +1095,42 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
       {/* SECTION 6b — DIAGNOSTIC ACTION PLAN (Tab 1, advisory only — no CTAs) */}
       {activeTab === 'maps' && plan.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 4 }}>What's Holding You Back</div>
-          <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Your personalized improvement roadmap</div>
+        <div style={card()}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What's Holding You Back</span>
+            <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
+          </div>
+          <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Tap any issue for the full breakdown</div>
           {plan.map((item: any, i: number) => (
-            <div key={i} style={{ background: WHITE, borderRadius: 14, border: `1px solid ${BORDER}`, padding: 20, marginBottom: 10 }}>
-              {/* Priority badge */}
-              <div style={{
-                display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700,
-                letterSpacing: '0.05em', marginBottom: 10,
-                background: item.priority === 'HIGH' ? '#FEF2F2' : '#FFF7ED',
-                color: item.priority === 'HIGH' ? RED : AMBER,
-                border: `1px solid ${item.priority === 'HIGH' ? '#FECACA' : '#FED7AA'}`,
-              }}>
-                {item.priority} PRIORITY
-              </div>
-              {/* Problem title */}
-              <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 8 }}>{item.title}</div>
-              {/* Explanation */}
-              <div style={{ fontSize: 13, color: GREY, lineHeight: 1.6, marginBottom: 12 }}>{item.detail}</div>
-              {/* Impact callout */}
-              {item.estimatedImpact && (
-                <div style={{ background: '#F0FFF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#166534', marginBottom: 10, lineHeight: 1.5 }}>
-                  💡 {item.estimatedImpact}
+            <div key={i}>
+              {i > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '12px 0' }}/>}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setIssueModal(i)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIssueModal(i); } }}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px', cursor: 'pointer', borderRadius: 8, transition: 'background 0.15s ease' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.025)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: DARK, lineHeight: 1.4 }}>{item.title}</span>
+                    {item.priority && (
+                      <span style={{
+                        padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', flexShrink: 0,
+                        background: item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG,
+                        color: item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN,
+                      }}>
+                        {item.priority}
+                      </span>
+                    )}
+                  </div>
+                  {item.estimatedImpact && (
+                    <div style={{ fontSize: 12, color: GREY, marginTop: 2 }}>{item.estimatedImpact}</div>
+                  )}
                 </div>
-              )}
-              {/* Cost + time row */}
-              <div style={{ display: 'flex', gap: 16, fontSize: 12, color: GREY, flexWrap: 'wrap' }}>
-                {item.estimatedCost && <span>💰 {item.estimatedCost}</span>}
-                {item.timeToResult && <span>⏱ {item.timeToResult}</span>}
+                <ChevronRight size={16} color={GREY} style={{ flexShrink: 0, opacity: 0.4 }} />
               </div>
             </div>
           ))}
@@ -1506,27 +1507,30 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       )}
 
       {/* SECTION 9 — SHARE */}
-      <div style={{ background: DARK, borderRadius: r16, padding: '32px 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 17, fontWeight: 700, color: WHITE }}>Share This Report</div>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'nowrap', marginTop: 20 }}>
+      <div style={{ background: DARK, borderRadius: r16, padding: '24px 20px', textAlign: 'center' }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Share This Report</div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 16 }}>Send your audit to a partner or colleague</div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'nowrap' }}>
           {SHARE_BUTTONS.map(btn => (
-            <button
-              key={btn.id}
-              onClick={btn.onClick}
-              {...hoverProps('share-' + btn.id)}
-              title={btn.label}
-              style={{
-                width: 48, height: 48, padding: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                borderRadius: 12, border: 'none', background: btn.bg,
-                cursor: 'pointer', flexShrink: 0,
-                transform: hovered === 'share-' + btn.id ? 'translateY(-2px) scale(1.05)' : 'translateY(0) scale(1)',
-                boxShadow: hovered === 'share-' + btn.id ? '0 4px 12px rgba(0,0,0,0.25)' : '0 2px 4px rgba(0,0,0,0.15)',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {btn.icon}
-            </button>
+            <div key={btn.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <button
+                onClick={btn.onClick}
+                {...hoverProps('share-' + btn.id)}
+                title={btn.label}
+                style={{
+                  width: 44, height: 44, padding: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', background: btn.bg,
+                  cursor: 'pointer', flexShrink: 0,
+                  transform: hovered === 'share-' + btn.id ? 'translateY(-2px)' : 'translateY(0)',
+                  boxShadow: hovered === 'share-' + btn.id ? '0 4px 12px rgba(0,0,0,0.3)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {btn.icon}
+              </button>
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', lineHeight: 1 }}>{btn.label}</span>
+            </div>
           ))}
         </div>
       </div>
@@ -1661,19 +1665,33 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       </>}
 
       {/* FAQ — bottom of all tabs */}
-      <div style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: 24, marginBottom: 10 }}>
-        <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 16 }}>Common Questions</div>
+      <div style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: '20px 20px', marginBottom: 10 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 12 }}>Common Questions</div>
         {FAQS.map((faq, i) => (
-          <div key={i} style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <div key={i} style={{ borderBottom: i < FAQS.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
             <div
+              role="button"
+              tabIndex={0}
               onClick={() => setOpenFaq(openFaq === i ? null : i)}
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 4px', cursor: 'pointer', userSelect: 'none' }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenFaq(openFaq === i ? null : i); } }}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 2px', cursor: 'pointer', userSelect: 'none', borderRadius: 6, transition: 'background 0.12s ease' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.02)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              <span style={{ fontSize: 14, fontWeight: 600, color: DARK, lineHeight: 1.4, paddingRight: 16, flex: 1 }}>{faq.q}</span>
-              <span style={{ fontSize: 20, color: GREY, fontWeight: 300, flexShrink: 0, display: 'inline-block', transform: openFaq === i ? 'rotate(45deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>+</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: DARK, lineHeight: 1.4, paddingRight: 12, flex: 1 }}>{faq.q}</span>
+              <span style={{
+                width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: openFaq === i ? DARK : '#F3F4F6',
+                color: openFaq === i ? WHITE : GREY,
+                fontSize: 14, fontWeight: 400, lineHeight: 1,
+                transition: 'all 0.2s ease',
+              }}>
+                <span style={{ display: 'block', transform: openFaq === i ? 'rotate(45deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>+</span>
+              </span>
             </div>
             {openFaq === i && (
-              <div style={{ padding: '0 4px 16px', fontSize: 13, color: GREY, lineHeight: 1.65, maxWidth: 540 }}>{faq.a}</div>
+              <div style={{ padding: '0 2px 14px', fontSize: 13, color: GREY, lineHeight: 1.6, maxWidth: 540 }}>{faq.a}</div>
             )}
           </div>
         ))}
@@ -1764,6 +1782,58 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           </div>
         </>
       )}
+
+      {/* ISSUE DETAIL MODAL */}
+      {issueModal !== null && plan[issueModal] && (() => {
+        const item = plan[issueModal];
+        const prioColor = item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN;
+        const prioBg = item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG;
+        return (
+          <>
+            <div onClick={() => setIssueModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200 }} />
+            <div style={{ position: 'fixed', top: 'clamp(72px, 8dvh, 100px)', left: '50%', transform: 'translateX(-50%)', zIndex: 201, width: 'min(400px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - clamp(72px, 8dvh, 100px) - 20px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ background: DARK, padding: '20px 20px', position: 'relative', flexShrink: 0 }}>
+                <button onClick={() => setIssueModal(null)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                <div style={{ fontSize: 17, fontWeight: 700, color: WHITE, paddingRight: 36, lineHeight: 1.3 }}>{item.title}</div>
+                {item.priority && (
+                  <span style={{ display: 'inline-block', marginTop: 10, padding: '3px 10px', borderRadius: 12, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', background: prioBg, color: prioColor }}>
+                    {item.priority} PRIORITY
+                  </span>
+                )}
+              </div>
+              <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>The problem</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 20px' }}>{item.detail}</p>
+                {item.estimatedImpact && (
+                  <>
+                    <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Why it matters</div>
+                    <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 20px' }}>{item.estimatedImpact}</p>
+                  </>
+                )}
+                {(item.estimatedCost || item.timeToResult) && (
+                  <>
+                    <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>What it takes to fix</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {item.estimatedCost && (
+                        <span style={{ padding: '4px 12px', borderRadius: 8, background: GREY_BG, color: GREY, fontSize: 12 }}>💰 {item.estimatedCost}</span>
+                      )}
+                      {item.timeToResult && (
+                        <span style={{ padding: '4px 12px', borderRadius: 8, background: GREY_BG, color: GREY, fontSize: 12 }}>⏱ {item.timeToResult}</span>
+                      )}
+                    </div>
+                  </>
+                )}
+                {item.wefixtrades_can_help && (
+                  <div style={{ marginTop: 20, background: '#E0FAF9', borderRadius: 10, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, color: '#00897B', fontWeight: 600 }}>WeFixTrades handles this for you</span>
+                    <a href="/plans" style={{ fontSize: 13, color: CYAN, fontWeight: 600, textDecoration: 'none' }}>See how →</a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {/* BREAKDOWN METRIC MODAL */}
       {breakdownModal && BREAKDOWN_EXPLANATIONS[breakdownModal] && (() => {
