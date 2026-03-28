@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList } from "lucide-react";
+import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info } from "lucide-react";
 import { SERVICES, getServicesForIssues } from '@shared/services';
 
 // ─── Design tokens ───────────────────
@@ -299,6 +299,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [activeReview, setActiveReview] = useState(0);
   const [scoreModalOpen, setScoreModalOpen] = useState(false);
   const [metricModal, setMetricModal] = useState<string | null>(null);
+  const [breakdownModal, setBreakdownModal] = useState<string | null>(null);
 
   // Score circle animation state
   const [displayScore, setDisplayScore] = useState(0);
@@ -583,13 +584,46 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     return 'Speed test unavailable';
   })();
 
+  const BREAKDOWN_EXPLANATIONS: Record<string, { title: string; what: string; why: string }> = {
+    googleMaps: {
+      title: 'Google Maps Profile',
+      what: 'This measures how complete, active, and trustworthy your Google Business Profile looks to Google and customers.',
+      why: 'A stronger profile improves local rankings, drives more calls, and helps more people choose your business.',
+    },
+    websiteQuality: {
+      title: 'Website Quality',
+      what: 'This measures how well your website performs on speed, mobile experience, trust signals, and conversion elements.',
+      why: 'A weak website causes lost leads. A strong website turns more visitors into booked jobs.',
+    },
+    searchVisibility: {
+      title: 'Search Visibility',
+      what: 'This shows how easily your business appears in Google search results for important local keywords.',
+      why: 'Low visibility causes missed traffic, missed calls, and missed revenue from people already searching for your services.',
+    },
+    competitorPosition: {
+      title: 'Competitor Position',
+      what: 'This compares your visibility and positioning against nearby competitors in your market.',
+      why: 'This reveals where competitors are winning and where your business is losing rankings and jobs.',
+    },
+    adOpportunity: {
+      title: 'Ad Opportunity',
+      what: 'This measures whether paid search will help capture demand where organic visibility is weak.',
+      why: 'When organic reach is limited, ads put your business in front of ready-to-book customers faster.',
+    },
+    demandCoverage: {
+      title: 'Demand Coverage',
+      what: 'This measures whether your business is visible when customers search during the times and situations that matter most.',
+      why: 'Coverage gaps cause missed leads during valuable demand windows, even when the business performs well overall.',
+    },
+  };
+
   const scoreRows = [
-    { icon: <MapPin size={18} color="#00D4C8" />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
-    { icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote },
-    { icon: <Search size={18} color="#00D4C8" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
-    { icon: <Trophy size={18} color="#00D4C8" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
-    { icon: <Megaphone size={18} color="#00D4C8" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'The paid search market in your area' },
-    { icon: <Clock size={18} color="#00D4C8" />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you're visible when customers search most" },
+    { key: 'googleMaps', icon: <MapPin size={18} color="#00D4C8" />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
+    { key: 'websiteQuality', icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote },
+    { key: 'searchVisibility', icon: <Search size={18} color="#00D4C8" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
+    { key: 'competitorPosition', icon: <Trophy size={18} color="#00D4C8" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
+    { key: 'adOpportunity', icon: <Megaphone size={18} color="#00D4C8" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'The paid search market in your area' },
+    { key: 'demandCoverage', icon: <Clock size={18} color="#00D4C8" />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you're visible when customers search most" },
   ];
 
   const card = (extra?: any) => ({
@@ -732,16 +766,36 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
       {/* SECTION 2 — SCORE BREAKDOWN */}
       {activeTab === 'maps' && <div style={card()}>
+        <style>{`
+          @keyframes infoNudge {
+            0%, 100% { opacity: 0.35; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.12); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .breakdown-info-icon { animation: none !important; }
+          }
+        `}</style>
         <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 20 }}>Your Score Breakdown</div>
         {scoreRows.map((row, i) => (
-          <div key={i}>
+          <div key={row.key}>
             {i > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '12px 0 14px' }}/>}
-            <div style={{ marginBottom: 4 }}>
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setBreakdownModal(row.key)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBreakdownModal(row.key); } }}
+              style={{ marginBottom: 4, cursor: 'pointer', borderRadius: 8, padding: '4px 4px', margin: '-4px -4px', transition: 'background 0.15s ease' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.025)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
                 <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'rgba(0,212,200,0.08)', flexShrink: 0 }}>
                   {row.icon}
                 </span>
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: DARK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{row.label}</span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: DARK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {row.label}
+                  <Info className="breakdown-info-icon" size={13} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
+                </span>
                 <div style={{ width: 80, flexShrink: 0, height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
                   <div style={{ width: `${(row.score / row.max) * 100}%`, height: '100%', background: scoreColor(row.score, row.max), borderRadius: 4 }}/>
                 </div>
@@ -1710,6 +1764,38 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           </div>
         </>
       )}
+
+      {/* BREAKDOWN METRIC MODAL */}
+      {breakdownModal && BREAKDOWN_EXPLANATIONS[breakdownModal] && (() => {
+        const bd = BREAKDOWN_EXPLANATIONS[breakdownModal];
+        const bdRow = scoreRows.find(r => r.key === breakdownModal);
+        const bdColor = bdRow ? scoreColor(bdRow.score, bdRow.max) : CYAN;
+        return (
+          <>
+            <div onClick={() => setBreakdownModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200 }} />
+            <div style={{ position: 'fixed', top: 'clamp(72px, 8dvh, 100px)', left: '50%', transform: 'translateX(-50%)', zIndex: 201, width: 'min(400px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - clamp(72px, 8dvh, 100px) - 20px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ background: DARK, padding: '20px 20px', position: 'relative', flexShrink: 0 }}>
+                <button onClick={() => setBreakdownModal(null)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                <div style={{ fontSize: 17, fontWeight: 700, color: WHITE }}>{bd.title}</div>
+                {bdRow && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                    <div style={{ width: 60, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                      <div style={{ width: `${(bdRow.score / bdRow.max) * 100}%`, height: '100%', background: bdColor, borderRadius: 3 }}/>
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: bdColor }}>{bdRow.score}/{bdRow.max}</span>
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it means</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 20px' }}>{bd.what}</p>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Why it matters</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: 0 }}>{bd.why}</p>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {metricModal && METRIC_EXPLANATIONS[metricModal] && (() => {
         const exp = METRIC_EXPLANATIONS[metricModal];
