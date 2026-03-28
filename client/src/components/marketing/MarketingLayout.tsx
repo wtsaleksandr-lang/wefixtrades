@@ -21,7 +21,7 @@ type NavChild = {
 
 const DESKTOP_HEADER = {
   navHeight: 68,
-  cardHeight: 48,
+  cardHeight: 50,
 };
 
 
@@ -798,7 +798,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           className="mkt-nav-bar"
           style={{
             outline: DEBUG_DROPDOWN ? "3px solid rgba(255,0,0,0.8)" : "none",
-            height: isMobile ? 64 : DESKTOP_HEADER.cardHeight,
+            height: isMobile ? 66 : DESKTOP_HEADER.cardHeight,
             width: "100%",
             marginTop: isMobile ? 4 : 4,
             borderRadius: 12,
