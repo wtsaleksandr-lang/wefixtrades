@@ -459,8 +459,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     fcp: {
       title: 'First Contentful Paint (FCP)',
       what: 'How long until the first text or image appears on screen after a visitor opens your page.',
-      why: 'Slow FCP causes visitors to leave before seeing anything. Every extra second increases bounce rate and loses potential leads.',
-      diy: 'Compress and resize images, enable browser caching, preload critical fonts, and minimize render-blocking CSS in your page head.',
+      why: 'Slow FCP makes visitors more likely to leave before seeing anything. Faster load times improve engagement and reduce bounces.',
+      diy: 'Compress and resize images. Enable browser caching. Preload critical fonts. Minimize render-blocking CSS.',
       timeline: '1–3 days for image optimization; 1–2 weeks for full render-path cleanup.',
       thresholds: [
         { label: 'Good', value: '< 1.8s', color: GREEN },
@@ -472,7 +472,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       title: 'Largest Contentful Paint (LCP)',
       what: 'How long until the main visual element — usually a hero image or heading — fully loads on screen.',
       why: 'LCP is a Core Web Vital used by Google for ranking. A slow LCP hurts rankings and causes visitors to leave before the page feels ready.',
-      diy: 'Optimize your hero image (compress, use WebP format), improve server response time, remove unused JavaScript, and use a CDN for static assets.',
+      diy: 'Compress and convert your hero image to WebP. Remove unused JavaScript. Improve server response time. Consider a CDN for static assets.',
       timeline: '2–5 days for image and server fixes; 2–4 weeks if hosting or CMS changes are needed.',
       thresholds: [
         { label: 'Good', value: '< 2.5s', color: GREEN },
@@ -483,8 +483,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     tbt: {
       title: 'Total Blocking Time (TBT)',
       what: 'Total time your page is frozen and unresponsive to clicks or taps while JavaScript runs in the background.',
-      why: 'High TBT makes your site feel broken. Visitors who cannot tap buttons or scroll smoothly leave — costing you calls and conversions.',
-      diy: 'Defer non-critical JavaScript, remove unused plugins and tracking scripts, break up long-running tasks, and lazy-load third-party widgets.',
+      why: 'High TBT makes your site feel unresponsive. Visitors who cannot tap buttons or scroll smoothly are more likely to leave.',
+      diy: 'Defer non-critical JavaScript. Remove unused plugins and tracking scripts. Break up long tasks. Lazy-load third-party widgets.',
       timeline: '1–3 days for quick script removal; 2–4 weeks for full JavaScript audit and cleanup.',
       thresholds: [
         { label: 'Good', value: '< 200ms', color: GREEN },
@@ -496,7 +496,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       title: 'Cumulative Layout Shift (CLS)',
       what: 'Measures how much visible elements jump around unexpectedly while the page loads — buttons shifting, text moving, images popping in.',
       why: 'Layout shifts frustrate visitors and cause accidental clicks. Google factors CLS into search rankings, so poor scores hurt visibility.',
-      diy: 'Set explicit width and height on all images and videos, avoid inserting content above existing elements, and use CSS font-display to prevent text reflow.',
+      diy: 'Set width and height on all images and videos. Avoid inserting content above existing elements. Use CSS font-display to prevent text reflow.',
       timeline: '1–2 days for dimension fixes; 1–2 weeks if ad slots or dynamic content are involved.',
       thresholds: [
         { label: 'Good', value: '< 0.1', color: GREEN },
@@ -599,42 +599,42 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       title: 'Google Maps Profile',
       what: 'How complete, active, and trustworthy your Google Business Profile looks to both Google and potential customers.',
       why: 'A stronger profile improves local rankings, drives more calls, and helps more people choose your business over competitors.',
-      diy: 'Add all business categories, upload 10+ quality photos, write a keyword-rich description, respond to every review, and post weekly updates.',
+      diy: 'Add all relevant business categories. Upload quality photos of your work, team, and location. Write a keyword-rich description. Respond to reviews and post updates regularly.',
       timeline: '1–2 weeks for a full profile overhaul; ongoing weekly maintenance to stay competitive.',
     },
     websiteQuality: {
       title: 'Website Quality',
       what: 'How well your website performs across speed, mobile experience, trust signals, and conversion elements like click-to-call.',
       why: 'A weak website loses leads silently. A fast, mobile-friendly site turns more visitors into booked jobs.',
-      diy: 'Run PageSpeed Insights, compress all images, ensure mobile responsiveness, add click-to-call buttons, and fix broken links.',
+      diy: 'Run PageSpeed Insights to find issues. Compress images. Ensure mobile responsiveness. Add click-to-call buttons. Fix broken links.',
       timeline: '1–2 weeks for quick fixes; 4–8 weeks for a full performance and conversion overhaul.',
     },
     searchVisibility: {
       title: 'Search Visibility',
       what: 'How easily your business appears in Google search results when people search for your services locally.',
       why: 'Low visibility means missed traffic, missed calls, and missed revenue from people already looking for what you offer.',
-      diy: 'Create service-specific pages for each keyword, add location content, build local backlinks, and keep your Google profile active.',
+      diy: 'Create service-specific pages for your core keywords. Add location content. Build local backlinks. Keep your Google profile active.',
       timeline: '2–4 weeks for content creation; 60–90 days for meaningful organic ranking improvements.',
     },
     competitorPosition: {
       title: 'Competitor Position',
       what: 'How your visibility and positioning compares against nearby competitors in your local market.',
       why: 'Where competitors outrank you, they capture the calls and jobs you are missing.',
-      diy: 'Audit competitor profiles, match or exceed their review count, create more location-specific content, and monitor ranking changes weekly.',
+      diy: 'Audit competitor profiles. Work toward matching their review count and photo count. Create more location-specific content. Monitor ranking changes regularly.',
       timeline: '2–4 weeks for initial competitive audit; ongoing monthly effort to close gaps.',
     },
     adOpportunity: {
       title: 'Ad Opportunity',
       what: 'Whether paid search ads would help capture demand in areas where your organic visibility is weak.',
       why: 'When organic reach is limited, ads place your business in front of ready-to-book customers immediately.',
-      diy: 'Set up a Google Ads account, research local keywords, create ad groups by service type, set a daily budget, and monitor cost-per-lead weekly.',
+      diy: 'Set up a Google Ads account. Research local service keywords. Create ad groups by service type. Set a daily budget and monitor cost-per-lead.',
       timeline: '1–2 weeks to launch a basic campaign; 30–60 days to optimize for cost-effective results.',
     },
     demandCoverage: {
       title: 'Demand Coverage',
       what: 'Whether your business appears when customers search during the times and situations that matter most — evenings, weekends, emergencies.',
       why: 'Coverage gaps cause missed leads during high-value demand windows, even if your business performs well during normal hours.',
-      diy: 'Extend your listed business hours, create pages targeting emergency and after-hours searches, and schedule Google posts for peak demand periods.',
+      diy: 'Extend your listed business hours. Create pages targeting emergency and after-hours searches. Schedule Google posts during peak demand periods.',
       timeline: '1–2 weeks for hours and content updates; ongoing adjustment based on when leads come in.',
     },
   };
@@ -1873,18 +1873,18 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         // Generate specific DIY advice based on issue title keywords
         const getDiyAdvice = (title: string): string => {
           const t = title.toLowerCase();
-          if (t.includes('review')) return 'Ask your last 10 happy customers for a Google review. Send a direct link via text or email and respond to every review within 24 hours.';
-          if (t.includes('photo')) return 'Upload 10–15 high-quality photos to your Google profile: completed work, before/after shots, your team, your vehicle, and your storefront.';
-          if (t.includes('speed') || t.includes('slow') || t.includes('mobile')) return 'Compress hero images to under 200KB, convert to WebP format, defer non-critical scripts, and remove unused plugins.';
-          if (t.includes('website') && (t.includes('no') || t.includes('missing') || t.includes('link'))) return 'Create a simple one-page site with your services, service area, phone number, and a click-to-call button. Link it to your Google profile.';
-          if (t.includes('rating')) return 'Reply professionally to every negative review. Address recurring complaints in your operations and ask satisfied customers to share their experience.';
-          if (t.includes('keyword') || t.includes('seo') || t.includes('content') || t.includes('page')) return 'Create a dedicated service page for each core keyword. Include your city name, a clear service description, and a call-to-action with your phone number.';
-          if (t.includes('description') || t.includes('profile') || t.includes('categor')) return 'Write a 150–300 word description with your core services and service area. Add all relevant primary and secondary business categories.';
+          if (t.includes('review')) return 'Ask recent happy customers for a Google review. Send a direct review link via text or email. Respond to every review — positive and negative.';
+          if (t.includes('photo')) return 'Upload high-quality photos to your Google profile: completed work, before/after shots, your team, and your storefront. More photos usually earns more trust and clicks.';
+          if (t.includes('speed') || t.includes('slow') || t.includes('mobile')) return 'Compress hero images and convert to WebP. Defer non-critical scripts. Remove unused plugins. Test with PageSpeed Insights.';
+          if (t.includes('website') && (t.includes('no') || t.includes('missing') || t.includes('link'))) return 'Create a simple site with your services, service area, phone number, and a click-to-call button. Link it to your Google profile.';
+          if (t.includes('rating')) return 'Reply professionally to every negative review. Address recurring complaints in your operations. Ask satisfied customers to share their experience.';
+          if (t.includes('keyword') || t.includes('seo') || t.includes('content') || t.includes('page')) return 'Create a dedicated service page for each core keyword. Include your city name, a clear service description, and a call-to-action.';
+          if (t.includes('description') || t.includes('profile') || t.includes('categor')) return 'Write a clear description with your core services and service area. Add all relevant primary and secondary business categories.';
           if (t.includes('hours') || t.includes('evening') || t.includes('weekend') || t.includes('demand')) return 'Update your Google Business hours to reflect evening and weekend availability. Create a landing page targeting emergency and after-hours searches.';
-          if (t.includes('ad') || t.includes('paid') || t.includes('ppc')) return 'Set up a Google Ads campaign targeting your top 5 local service keywords. Start with $10–20/day and track which keywords generate calls.';
-          if (t.includes('competitor') || t.includes('ranking') || t.includes('visibility')) return 'Audit your top 3 competitors\u2019 Google profiles. Match or exceed their photo count, review count, and posting frequency.';
-          if (t.includes('post') || t.includes('update') || t.includes('active') || t.includes('inactive')) return 'Post a Google Business update weekly: recent jobs, seasonal tips, or promotions. Consistent activity signals relevance to Google.';
-          return 'Identify the specific fix from the problem above, gather the right tools or access, apply the change, and verify the result is live.';
+          if (t.includes('ad') || t.includes('paid') || t.includes('ppc')) return 'Set up a Google Ads campaign targeting your top local service keywords. Start with a small daily budget and track which keywords generate calls.';
+          if (t.includes('competitor') || t.includes('ranking') || t.includes('visibility')) return 'Audit your top competitors\u2019 Google profiles. Work toward matching their photo count, review count, and posting frequency.';
+          if (t.includes('post') || t.includes('update') || t.includes('active') || t.includes('inactive')) return 'Post Google Business updates regularly: recent jobs, seasonal tips, or promotions. Consistent activity signals relevance to Google.';
+          return 'Identify the specific fix from the problem above. Gather the right tools or access. Apply the change and verify the result is live.';
         };
         const prioColor = item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN;
         const prioBg = item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG;
