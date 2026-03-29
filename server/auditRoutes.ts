@@ -1182,32 +1182,66 @@ function calculateScores(auditData: any) {
   console.log('[scoring] websiteQuality:', websiteScore ?? 'null - excluded', '(speed:', speedPts, 'qa:', qaPoints, 'aiVisual:', aiVisualPts, ')');
 
   // Search Visibility — 20pts
-  // Local pack pos 1=5, 2=4, 3=3, 4-10=2; Organic 1-3=3, 4-7=2, 8-10=1
+  // Local pack position-based scoring (stronger differentiation by position):
+  //   LP #1 = 8pts, LP #2 = 6pts, LP #3 = 5pts, LP #4-10 = 3pts
+  // Organic: rank 1-3 = 3pts, 4-7 = 2pts, 8-10 = 1pt
   // Relevance weighting: high=1.0, medium=0.7, low=0.3
   const RELEVANCE_WEIGHT: Record<string, number> = { high: 1.0, medium: 0.7, low: 0.3 };
   let searchPts = 0;
   let hasLocalPack = false;
+  let bestLocalPackPos = 99;
   let localPackPts = 0;
   let organicPts = 0;
+  let lowRelPts = 0;
+  let totalEarnedPts = 0;
   for (const kw of kws) {
-    const relWeight = RELEVANCE_WEIGHT[kw.relevance] ?? 1.0;
+    const relWeight = RELEVANCE_WEIGHT[kw.relevance] ?? 0.7; // unknown defaults to medium weight
     if (kw.isInLocalPack && kw.localPackPosition) {
       const pos = kw.localPackPosition;
-      const rawPts = pos === 1 ? 5 : pos === 2 ? 4 : pos === 3 ? 3 : 2;
+      const rawPts = pos === 1 ? 8 : pos === 2 ? 6 : pos === 3 ? 5 : 3;
       const pts = Math.round(rawPts * relWeight);
       searchPts += pts;
       localPackPts += pts;
+      totalEarnedPts += pts;
+      if (kw.relevance === 'low') lowRelPts += pts;
       hasLocalPack = true;
+      if (pos < bestLocalPackPos) bestLocalPackPos = pos;
     } else if (kw.organicRank) {
       const rawPts = kw.organicRank <= 3 ? 3 : kw.organicRank <= 7 ? 2 : kw.organicRank <= 10 ? 1 : 0;
       const pts = Math.round(rawPts * relWeight);
       searchPts += pts;
       organicPts += pts;
+      totalEarnedPts += pts;
+      if (kw.relevance === 'low') lowRelPts += pts;
     }
   }
-  // Ensure businesses with strong local pack presence get a reasonable floor
-  if (hasLocalPack && searchPts < 6) searchPts = 6;
+  // Position-based local pack floor (replaces flat floor of 6)
+  if (hasLocalPack) {
+    const posFloor = bestLocalPackPos === 1 ? 12 : bestLocalPackPos === 2 ? 10 : bestLocalPackPos === 3 ? 8 : 6;
+    if (searchPts < posFloor) searchPts = posFloor;
+  }
   const searchVisibilityScore = Math.min(searchPts, 20);
+
+  // ─── Keyword coverage metric ───
+  const relevantKws = kws.filter((k: any) => k.relevance === 'high' || k.relevance === 'medium');
+  const denomKws = relevantKws.length > 0 ? relevantKws : kws;
+  const rankingKws = denomKws.filter((k: any) => k.isInLocalPack || (k.organicRank && k.organicRank <= 20));
+  const coverageRatio = denomKws.length > 0 ? rankingKws.length / denomKws.length : 0;
+  const coveragePercent = Math.round(coverageRatio * 100);
+  const coverageLevel: 'strong' | 'partial' | 'weak' =
+    coverageRatio >= 0.7 ? 'strong' : coverageRatio >= 0.4 ? 'partial' : 'weak';
+
+  // ─── Misalignment quantification ───
+  const misalignmentPercent = totalEarnedPts > 0 ? Math.round((lowRelPts / totalEarnedPts) * 100) : 0;
+
+  // ─── Strong business presence detection ───
+  const strongLocalPack = hasLocalPack && bestLocalPackPos <= 3;
+  const strongReviews = (bd.reviewsCount || 0) >= 50;
+  const strongRating = (bd.rating || 0) >= 4.2;
+  const strongCoverage = coverageLevel === 'strong';
+  const strongSignals = [strongLocalPack, strongReviews, strongRating, strongCoverage, searchVisibilityScore >= 12].filter(Boolean).length;
+  const presenceLevel: 'strong' | 'moderate' | 'weak' =
+    strongSignals >= 3 ? 'strong' : strongSignals >= 2 ? 'moderate' : 'weak';
 
   // Competitor Positioning — 15pts
   let compPts = 2;
@@ -1250,12 +1284,15 @@ function calculateScores(auditData: any) {
   return {
     googleMaps: { score: googleMapsScore, max: 25, breakdown: { rating: gmRating, reviews: gmReviews, photos: gmPhotos, description: gmDesc, website: gmWeb } },
     websiteQuality: { score: websiteScore, max: websiteScore === null ? null : 20, breakdown: { speed: speedPts, htmlChecks: qaPoints, aiVisual: aiVisualPts, mobile: webMobile, desktop: webDesktop } },
-    searchVisibility: { score: searchVisibilityScore, max: 20, breakdown: { keywordPoints: organicPts, localPackBonus: localPackPts } },
+    searchVisibility: { score: searchVisibilityScore, max: 20, breakdown: { keywordPoints: organicPts, localPackBonus: localPackPts, bestLocalPackPos: hasLocalPack ? bestLocalPackPos : null } },
     competitorPositioning: { score: competitorScore, max: 15, breakdown: {} },
     adOpportunity: { score: adScore, max: 10, breakdown: { topCPC, totalVol } },
     demandCoverage: { score: demandScore, max: 10, breakdown: { evenings: auditData.isOpenEvenings, weekends: auditData.isOpenWeekends } },
     total,
     grade,
+    keywordCoverage: { ratio: coverageRatio, percent: coveragePercent, level: coverageLevel, ranked: rankingKws.length, tested: denomKws.length },
+    presenceLevel,
+    misalignmentPercent,
   };
 }
 
@@ -1904,6 +1941,7 @@ router.post("/generate", async (req: Request, res: Response) => {
       } : null,
       nicheAlignment: hasNicheMisalignment ? {
         misaligned: true,
+        misalignmentPercent: 0, // will be set after scoring
         insight: `Your business appears in searches for "${trade}", but your core offering is more closely aligned with ${businessNiche.primary}. You rank lower for your most relevant service keywords, which means you may be missing higher-intent customers searching for exactly what you offer.`,
       } : null,
     };
@@ -1911,6 +1949,22 @@ router.post("/generate", async (req: Request, res: Response) => {
     // ─── E6: New scoring engine ───
     const scores = calculateScores(auditData);
     auditData.scores = scores;
+
+    // Enrich nicheAlignment with quantified misalignment from scoring
+    if (auditData.nicheAlignment?.misaligned && scores.misalignmentPercent > 0) {
+      auditData.nicheAlignment.misalignmentPercent = scores.misalignmentPercent;
+      if (scores.misalignmentPercent >= 30) {
+        auditData.nicheAlignment.insight += ` About ${scores.misalignmentPercent}% of your current visibility comes from loosely related searches.`;
+      }
+    }
+    // Suppress misalignment insight if the percentage is too low to be meaningful
+    if (auditData.nicheAlignment?.misaligned && scores.misalignmentPercent < 15) {
+      auditData.nicheAlignment = null;
+    }
+
+    // Store presence level and coverage for AI context
+    auditData.presenceLevel = scores.presenceLevel;
+    auditData.keywordCoverage = scores.keywordCoverage;
 
     // ─── Issue detection → service recommendations ───
     console.log('[audit] scores at detection:', JSON.stringify(scores, null, 2));
@@ -1980,7 +2034,9 @@ AUDIT DATA AVAILABLE:
 - Search visibility: ${scores.searchVisibility?.score ?? 0}/20
 - Keywords ranking: ${keywords.filter((k: any) => k.organicRank).length} of ${keywords.length}
 - Local pack appearances: ${keywords.filter((k: any) => k.isInLocalPack).length} of ${keywords.length}
-- Business niche: ${businessNiche.primary || trade} (confidence: ${businessNiche.confidence})${hasNicheMisalignment ? '\n- ⚠ NICHE MISALIGNMENT DETECTED: Business ranks for broad trade terms but weaker for core niche keywords' : ''}
+- Business niche: ${businessNiche.primary || trade} (confidence: ${businessNiche.confidence})
+- Keyword coverage: ${scores.keywordCoverage?.percent ?? 0}% (${scores.keywordCoverage?.level ?? 'unknown'}) — ${scores.keywordCoverage?.ranked ?? 0} of ${scores.keywordCoverage?.tested ?? 0} relevant keywords
+- Business presence level: ${scores.presenceLevel ?? 'unknown'}${auditData.nicheAlignment?.misaligned ? `\n- ⚠ NICHE MISALIGNMENT: ${scores.misalignmentPercent}% of visibility from loosely related searches` : ''}${scores.presenceLevel === 'strong' ? '\n- ℹ STRONG PRESENCE: Focus recommendations on website conversion, lead capture, and booking friction rather than visibility' : ''}
 - Competitor positioning: ${scores.competitorPositioning?.score ?? 0}/15
 - Demand coverage: ${scores.demandCoverage?.score ?? 0}/10
 - Detected issues: ${JSON.stringify(dedupedIssues)}
