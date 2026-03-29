@@ -6,7 +6,8 @@ import type { NavItemChild } from "@/site/navigation";
 import { NavIcon } from "./NavIcon";
 import { mkt } from "@/theme/tokens";
 
-const EXIT_DURATION = 220;
+const EXIT_ANIM = 220; // CSS animation duration
+const EXIT_BUFFER = 240; // JS unmount delay (slightly longer to prevent flash)
 
 export function DesktopNavItem({
   label,
@@ -26,6 +27,7 @@ export function DesktopNavItem({
   const [exiting, setExiting] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const trayRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasDropdown = !!(children && children.length > 0);
@@ -40,13 +42,14 @@ export function DesktopNavItem({
     setVisible(true);
   };
 
-  const doClose = () => {
+  const doClose = (returnFocus = false) => {
     setOpen(false);
     setExiting(true);
     exitTimerRef.current = setTimeout(() => {
       setVisible(false);
       setExiting(false);
-    }, EXIT_DURATION);
+    }, EXIT_BUFFER);
+    if (returnFocus) triggerRef.current?.focus();
   };
 
   const scheduleClose = () => {
@@ -73,7 +76,7 @@ export function DesktopNavItem({
       if (!inNav && !inTray) doClose();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") doClose();
+      if (e.key === "Escape") doClose(true);
     };
     const onScroll = () => doClose();
     const onResize = () => measure();
@@ -144,8 +147,9 @@ export function DesktopNavItem({
                 WebkitBackdropFilter: "blur(6px)",
                 background: "rgba(0,0,0,0.28)",
                 animation: exiting
-                  ? `mktDropdownOverlayOut ${EXIT_DURATION}ms ease-out forwards`
+                  ? `mktDropdownOverlayOut ${EXIT_ANIM}ms ease-out forwards`
                   : "mktDropdownOverlayIn 0.2s ease-out forwards",
+                pointerEvents: exiting ? "none" : "auto",
               }}
               onClick={() => doClose()}
             />
@@ -169,7 +173,7 @@ export function DesktopNavItem({
                 gap: 8,
                 boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
                 ...(exiting && {
-                  animation: `mktDropdownOut ${EXIT_DURATION}ms cubic-bezier(0.22,1,0.36,1) forwards`,
+                  animation: `mktDropdownOut ${EXIT_ANIM}ms cubic-bezier(0.22,1,0.36,1) forwards`,
                 }),
               }}
             >
@@ -224,6 +228,7 @@ export function DesktopNavItem({
     <div ref={ref} style={{ position: "relative" }}>
       {hasDropdown ? (
         <button
+          ref={triggerRef}
           aria-expanded={open}
           aria-haspopup="true"
           onClick={() => (open ? doClose() : doOpen())}

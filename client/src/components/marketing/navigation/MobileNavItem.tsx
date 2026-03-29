@@ -100,6 +100,7 @@ export function MobileNavItem({
             />
           </button>
           <div
+            aria-hidden={!expanded}
             style={{
               maxHeight: expanded ? contentHeight : 0,
               overflow: "hidden",
