@@ -11,6 +11,16 @@ interface SliderFieldProps {
   showMinMaxLabels?: boolean;
   onChange: (value: number) => void;
   accentColor?: string;
+  /** Override track background for dark themes */
+  trackBg?: string;
+  /** Override label color for dark themes */
+  labelColor?: string;
+  /** Override min/max label color for dark themes */
+  minMaxColor?: string;
+  /** Custom value formatter — overrides default display logic */
+  formatValue?: (value: number) => string;
+  /** Custom min/max label formatter */
+  formatBound?: (value: number) => string;
 }
 
 export default function SliderField({
@@ -24,8 +34,14 @@ export default function SliderField({
   showMinMaxLabels = true,
   onChange,
   accentColor = '#0284C7',
+  trackBg,
+  labelColor,
+  minMaxColor,
+  formatValue,
+  formatBound,
 }: SliderFieldProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -42,9 +58,11 @@ export default function SliderField({
 
   const pct = Math.max(0, Math.min(100, ((localValue - min) / (max - min)) * 100));
 
-  const displayValue = step < 1
-    ? `${localValue.toFixed(step.toString().split('.')[1]?.length || 1)}${unitSuffix ? ` ${unitSuffix}` : ''}`
-    : `${localValue}${unitSuffix ? ` ${unitSuffix}` : ''}`;
+  const displayValue = formatValue
+    ? formatValue(localValue)
+    : step < 1
+      ? `${localValue.toFixed(step.toString().split('.')[1]?.length || 1)}${unitSuffix ? ` ${unitSuffix}` : ''}`
+      : `${localValue.toLocaleString()}${unitSuffix ? ` ${unitSuffix}` : ''}`;
 
   const r = parseInt(accentColor.slice(1, 3), 16) || 2;
   const g = parseInt(accentColor.slice(3, 5), 16) || 132;
@@ -53,7 +71,7 @@ export default function SliderField({
   return (
     <div data-testid={`slider-field-${label.toLowerCase().replace(/\s+/g, '-')}`} style={{ marginBottom: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-        <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748B' }}>{label}</span>
+        <span style={{ fontSize: '13px', fontWeight: 600, color: labelColor || '#64748B' }}>{label}</span>
         <span data-testid={`slider-value-${label.toLowerCase().replace(/\s+/g, '-')}`} style={{
           fontSize: '15px', fontWeight: 700, color: accentColor,
           background: `rgba(${r},${g},${b},0.08)`,
@@ -89,7 +107,7 @@ export default function SliderField({
         )}
         <div ref={trackRef} style={{
           position: 'relative', height: '6px', borderRadius: '3px',
-          background: '#E2E8F0',
+          background: trackBg || '#E2E8F0',
         }}>
           <div style={{
             position: 'absolute', left: 0, top: 0, height: '100%',
@@ -101,6 +119,11 @@ export default function SliderField({
         <input
           data-testid={`slider-input-${label.toLowerCase().replace(/\s+/g, '-')}`}
           type="range"
+          aria-label={label}
+          aria-valuemin={min}
+          aria-valuemax={max}
+          aria-valuenow={localValue}
+          aria-valuetext={displayValue}
           min={min}
           max={max}
           step={step}
@@ -110,6 +133,8 @@ export default function SliderField({
           onMouseUp={() => setIsDragging(false)}
           onTouchStart={() => setIsDragging(true)}
           onTouchEnd={() => setIsDragging(false)}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           style={{
             position: 'absolute',
             top: 0,
@@ -134,19 +159,21 @@ export default function SliderField({
           background: '#fff',
           border: `3px solid ${accentColor}`,
           boxShadow: isDragging
-            ? `0 0 0 6px rgba(${r},${g},${b},0.15), 0 2px 6px rgba(0,0,0,0.1)`
-            : `0 1px 4px rgba(0,0,0,0.12)`,
+            ? `0 0 0 6px rgba(${r},${g},${b},0.2), 0 2px 8px rgba(0,0,0,0.15)`
+            : isFocused
+              ? `0 0 0 3px rgba(${r},${g},${b},0.35), 0 1px 4px rgba(0,0,0,0.15)`
+              : `0 0 0 2px rgba(${r},${g},${b},0.08), 0 1px 4px rgba(0,0,0,0.15)`,
           transition: isDragging ? 'box-shadow 0.15s ease' : 'left 0.15s ease, box-shadow 0.15s ease',
           pointerEvents: 'none',
         }} />
       </div>
       {showMinMaxLabels && (
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-          <span style={{ fontSize: '11px', color: '#94A3B8' }}>
-            {min}{unitSuffix ? ` ${unitSuffix}` : ''}
+          <span style={{ fontSize: '11px', color: minMaxColor || '#94A3B8' }}>
+            {formatBound ? formatBound(min) : `${min.toLocaleString()}${unitSuffix ? ` ${unitSuffix}` : ''}`}
           </span>
-          <span style={{ fontSize: '11px', color: '#94A3B8' }}>
-            {max}{unitSuffix ? ` ${unitSuffix}` : ''}
+          <span style={{ fontSize: '11px', color: minMaxColor || '#94A3B8' }}>
+            {formatBound ? formatBound(max) : `${max.toLocaleString()}${unitSuffix ? ` ${unitSuffix}` : ''}`}
           </span>
         </div>
       )}
