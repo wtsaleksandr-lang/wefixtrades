@@ -163,12 +163,42 @@
       "purpose": "Duplicate a calculator (token renewal mechanism)",
       "request_body": { "token": "string" },
       "auth": "Edit token"
+    },
+    "GET /api/bookings/availability": {
+      "file": "server/routes/bookingRoutes.ts",
+      "purpose": "Fetch available time slots for a given date",
+      "request": {
+        "query": {
+          "calculator_id": "number (required)",
+          "date": "string (YYYY-MM-DD, required)"
+        }
+      },
+      "response_success": { "slots": "string[] (e.g. ['09:00', '10:00', '11:00'])" },
+      "auth": "None (public)",
+      "called_from": "client/src/components/quote-widget/steps/BookingStep.tsx (useEffect on date change)"
+    },
+    "POST /api/bookings": {
+      "file": "server/routes/bookingRoutes.ts",
+      "purpose": "Create a booking appointment",
+      "request_body": {
+        "calculator_id": "number (required)",
+        "customer_name": "string (required)",
+        "customer_email": "string",
+        "customer_phone": "string",
+        "date": "string (YYYY-MM-DD, required)",
+        "time": "string (HH:MM, required)",
+        "quote_amount": "number (optional)"
+      },
+      "response_success": { "booking": "Booking object" },
+      "side_effects_inferred": ["Sends booking confirmation email via bookingEmails.ts", "May create Stripe checkout for deposit if booking_settings.require_deposit"],
+      "auth": "None (public)",
+      "called_from": "client/src/components/quote-widget/steps/BookingStep.tsx"
     }
   },
   "notes": {
     "demo_page_no_api": "The /tools/quote-demo page uses NO API calls. All calculator data is hardcoded in TRADES array. The QuoteWidget renders entirely from the inline CalculatorData objects.",
     "production_page_api": "The /Calculator?slug=X page fetches real calculator data from GET /api/calculators/lookup and submits leads to POST /api/leads.",
-    "booking_endpoints": "Booking routes exist in server/routes/bookingRoutes.ts but are not directly used by the demo page.",
+    "booking_endpoints": "BookingStep calls GET /api/bookings/availability and POST /api/bookings. Not used on demo page (demo calculators have id=0).",
     "stripe_endpoints": "Stripe routes exist in server/routes/stripeRoutes.ts for deposit payments."
   }
 }

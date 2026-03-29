@@ -337,12 +337,17 @@ See `QUOTE_TOOL_SCHEMA_SUMMARY.json` for full details.
 4. **No loading/error states on demo page** — The demo page renders instantly from hardcoded data, which is fine. But the production calculator page has loading/error states only in the page wrapper, not within the QuoteWidget itself.
 5. **Token-based auth is fragile** — Edit tokens expire after 7 days. The only renewal mechanism is "duplicate your calculator." No user accounts required for basic usage.
 
+### Confirmed Details (from component trace)
+1. **BookingStep** — Calls `GET /api/bookings/availability?calculator_id={id}&date={date}` for slot fetching, `POST /api/bookings` for creation. Customer form requires name + email. Time slots rendered in 3-column grid.
+2. **LeadCaptureStep** — Validates: requires email or phone. Email regex: `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`. Phone: min 7 digits. Posts to `POST /api/leads`.
+3. **PriceRevealStep** — Three display modes: `ExactPriceBlock` (total + line-item breakdown), `RangeBlock` ($min–$max), `CallForQuoteBlock` (phone icon + CTA). Recalculates from `calculateEstimate()` on render.
+4. **ConfirmationStep** — Shows different content based on `leadSubmitted` and `bookingConfirmed` flags. Falls back through step.title → calculator.lead_thank_you_message → "You're all set!".
+
 ### Inferred (Not Directly Verified)
-1. **Booking step implementation** — BookingStep.tsx was not fully read; likely calls `/api/bookings/slots` for availability.
-2. **Stripe deposit flow** — stripeRoutes.ts exists but wasn't fully traced. Deposit collection is referenced in booking settings schema.
-3. **AI employee** — Full AI chat bubble implementation exists (AIChatBubble.tsx) but is only shown when ai_employee.enabled && subscription active/trial.
-4. **Webhook delivery** — notification_queue supports webhooks, but retry/timeout behavior wasn't traced.
-5. **SMS followup delivery** — followup_jobs with channel=sms exist, but actual Twilio sending logic in followupWorker wasn't traced.
+1. **Stripe deposit flow** — stripeRoutes.ts exists but wasn't fully traced. Deposit collection is referenced in booking settings schema.
+2. **AI employee** — Full AI chat bubble implementation exists (AIChatBubble.tsx) but is only shown when ai_employee.enabled && subscription active/trial.
+3. **Webhook delivery** — notification_queue supports webhooks, but retry/timeout behavior wasn't traced.
+4. **SMS followup delivery** — followup_jobs with channel=sms exist, but actual Twilio sending logic in followupWorker wasn't traced.
 
 ### Dead Code / Unused
 1. **FlowMapHero in home.tsx** — Desktop and mobile flow map sections have `display: "none"` — explicitly hidden.
