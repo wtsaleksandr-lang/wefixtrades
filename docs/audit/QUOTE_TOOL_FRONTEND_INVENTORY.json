@@ -1,0 +1,186 @@
+{
+  "meta": {
+    "generated": "2026-03-29",
+    "scope": "Quote tool and surrounding landing page as shown in screenshots",
+    "entry_route": "/tools/quote-demo (also /quote-demo legacy redirect)"
+  },
+  "pages": {
+    "quote_calculator_demo": {
+      "file": "client/src/pages/marketing/quote-calculator-demo.tsx",
+      "route": "/tools/quote-demo",
+      "purpose": "Main quote tool demo page shown in screenshots — trade selector chips, live QuoteWidget, benefits row, CTA card, missed call cross-link",
+      "layout": "MarketingLayout",
+      "state": {
+        "selectedTrade": { "type": "string", "default": "plumbing", "source": "TRADES[0].key" }
+      },
+      "hardcoded_data": {
+        "TRADES": [
+          { "key": "plumbing", "label": "Plumbing", "icon": "Wrench", "color": "#3B82F6", "business_name": "Metro Plumbing Co.", "tagline": "Fast & reliable plumbing quotes" },
+          { "key": "cleaning", "label": "Cleaning", "icon": "SprayCan", "color": "#10B981", "business_name": "Sparkle Cleaning", "tagline": "Instant cleaning estimates" },
+          { "key": "painting", "label": "Painting", "icon": "Paintbrush", "color": "#F59E0B", "business_name": "ProCoat Painters", "tagline": "Interior & exterior estimates" },
+          { "key": "electrical", "label": "Electrical", "icon": "Zap", "color": "#8B5CF6", "business_name": "Volt Electric", "tagline": "Licensed electrical quotes" },
+          { "key": "roofing", "label": "Roofing", "icon": "Home", "color": "#EF4444", "business_name": "Ridge Roofing", "tagline": "Transparent roofing pricing" }
+        ],
+        "BENEFITS": [
+          { "icon": "Clock", "text": "Quotes delivered in seconds" },
+          { "icon": "DollarSign", "text": "Collect deposits upfront" },
+          { "icon": "Smartphone", "text": "Works on any device" }
+        ],
+        "CTA": {
+          "heading": "Get this on your website",
+          "subtext": "Live in under 10 minutes — no code needed",
+          "links_to": "/demo"
+        },
+        "CROSSLINK": {
+          "heading": "Missed Call Revenue Calculator",
+          "subtext": "See how much missed calls are costing you",
+          "links_to": "/tools/missed-call-calculator"
+        }
+      },
+      "headline": {
+        "h1": "Let your customers get instant quotes on your website",
+        "subtitle": "Try it yourself — this is exactly what your customers will see."
+      }
+    },
+    "calculator_page": {
+      "file": "client/src/pages/calculator.tsx",
+      "route": "/Calculator?slug=<slug>&embed=true",
+      "purpose": "Production calculator page — loads real calculator from API by slug, renders QuoteWidget (v2) or legacy CalculatorWidget",
+      "notes": "Uses ?widget=v2 query param to opt in to new QuoteWidget. Default is frozen CalculatorWidget."
+    }
+  },
+  "components": {
+    "quote_widget": {
+      "QuoteWidget": {
+        "file": "client/src/components/quote-widget/QuoteWidget.tsx",
+        "purpose": "Schema-driven multi-step quote form — validates pricing, resolves template, builds wizard flow, wraps in WidgetProvider",
+        "props": { "calculator": "CalculatorData", "isEmbed": "boolean (default false)" },
+        "children": ["WidgetProvider", "WidgetCard"],
+        "key_logic": "useMemo builds WidgetConfig from calculator data via validatePricingConfig -> getTemplateById -> buildWidgetFlow"
+      },
+      "WidgetCard": {
+        "file": "client/src/components/quote-widget/QuoteWidget.tsx (inner component)",
+        "purpose": "Inner card rendering header, progress bar, current step, navigation buttons",
+        "state_from_context": ["currentStep", "currentStepIndex", "totalSteps", "nextStep", "prevStep", "isFirstStep", "isLastStep", "answers"],
+        "self_advancing_steps": ["lead_capture", "booking", "confirmation"],
+        "progress": "Shows 'Step N / M' label + progress bar when show_progress=true"
+      },
+      "WidgetContext": {
+        "file": "client/src/components/quote-widget/WidgetContext.tsx",
+        "purpose": "React context provider wrapping config + state for entire widget tree"
+      },
+      "useWidgetState": {
+        "file": "client/src/components/quote-widget/useWidgetState.ts",
+        "purpose": "Core state hook — manages answers, step navigation, visibility filtering, estimate calculation"
+      },
+      "StepRenderer": {
+        "file": "client/src/components/quote-widget/StepRenderer.tsx",
+        "purpose": "Routes step.type to corresponding step component",
+        "step_types_mapped": ["question->QuestionStep", "multi_question->MultiQuestionStep", "package_selection->PackageSelectionStep", "addon_selection->AddonSelectionStep", "info->InfoStep", "price_reveal->PriceRevealStep", "lead_capture->LeadCaptureStep", "booking->BookingStep", "confirmation->ConfirmationStep"]
+      },
+      "QuestionRenderer": {
+        "file": "client/src/components/quote-widget/QuestionRenderer.tsx",
+        "purpose": "Routes question.type to corresponding question input component",
+        "question_types_mapped": ["slider->SliderQuestion", "select->SelectQuestion", "toggle->ToggleQuestion", "text_input->TextInputQuestion", "number_input->NumberInputQuestion", "checkbox_group->CheckboxGroupQuestion", "radio_group->RadioGroupQuestion", "package_card->PackageCardQuestion", "info_display->InfoDisplay"]
+      },
+      "StepHelp": {
+        "file": "client/src/components/quote-widget/StepHelp.tsx",
+        "purpose": "Expandable help panel with FAQ items, shown via help icon"
+      },
+      "designTokens": {
+        "file": "client/src/components/quote-widget/designTokens.ts",
+        "purpose": "Visual-only design tokens for widget (colors, fonts, radii, shared CSS-in-JS styles)"
+      },
+      "visibility": {
+        "file": "client/src/components/quote-widget/visibility.ts",
+        "purpose": "Evaluates conditional visibility rules for steps/questions"
+      },
+      "types": {
+        "file": "client/src/components/quote-widget/types.ts",
+        "purpose": "TypeScript interfaces: CalculatorData, WidgetConfig"
+      }
+    },
+    "step_components": {
+      "QuestionStep": "client/src/components/quote-widget/steps/QuestionStep.tsx",
+      "MultiQuestionStep": "client/src/components/quote-widget/steps/MultiQuestionStep.tsx",
+      "PackageSelectionStep": "client/src/components/quote-widget/steps/PackageSelectionStep.tsx",
+      "AddonSelectionStep": "client/src/components/quote-widget/steps/AddonSelectionStep.tsx",
+      "InfoStep": "client/src/components/quote-widget/steps/InfoStep.tsx",
+      "PriceRevealStep": "client/src/components/quote-widget/steps/PriceRevealStep.tsx",
+      "LeadCaptureStep": "client/src/components/quote-widget/steps/LeadCaptureStep.tsx",
+      "BookingStep": "client/src/components/quote-widget/steps/BookingStep.tsx",
+      "ConfirmationStep": "client/src/components/quote-widget/steps/ConfirmationStep.tsx"
+    },
+    "question_components": {
+      "SliderQuestion": "client/src/components/quote-widget/questions/SliderQuestion.tsx",
+      "SelectQuestion": "client/src/components/quote-widget/questions/SelectQuestion.tsx",
+      "ToggleQuestion": "client/src/components/quote-widget/questions/ToggleQuestion.tsx",
+      "TextInputQuestion": "client/src/components/quote-widget/questions/TextInputQuestion.tsx",
+      "NumberInputQuestion": "client/src/components/quote-widget/questions/NumberInputQuestion.tsx",
+      "CheckboxGroupQuestion": "client/src/components/quote-widget/questions/CheckboxGroupQuestion.tsx",
+      "RadioGroupQuestion": "client/src/components/quote-widget/questions/RadioGroupQuestion.tsx",
+      "PackageCardQuestion": "client/src/components/quote-widget/questions/PackageCardQuestion.tsx",
+      "InfoDisplay": "client/src/components/quote-widget/questions/InfoDisplay.tsx"
+    },
+    "legacy_widget": {
+      "CalculatorWidget": {
+        "file": "client/src/components/calculator/CalculatorWidget.tsx",
+        "purpose": "FROZEN 2,284-line monolith — original calculator widget, scheduled for replacement",
+        "notes": "Still the default in production (/Calculator page). QuoteWidget is opt-in via ?widget=v2.",
+        "status": "legacy, frozen"
+      }
+    },
+    "marketing_shell": {
+      "MarketingLayout": {
+        "file": "client/src/components/marketing/MarketingLayout.tsx",
+        "purpose": "Top-level layout for all marketing pages — navbar, footer, mobile menu"
+      }
+    },
+    "embed_system": {
+      "embed_chat_js": {
+        "file": "client/public/embed-chat.js",
+        "purpose": "Vanilla JS embed script for external websites — creates floating bubble + iframe loading /Calculator?slug=X&embed=true",
+        "config_attributes": ["data-calculator-slug", "data-accent-color", "data-base-url"],
+        "dimensions": { "panel_width": 320, "panel_height": 480, "bubble_size": 56 }
+      }
+    }
+  },
+  "design_tokens": {
+    "widget_tokens_file": "client/src/components/quote-widget/designTokens.ts",
+    "widget_tokens": {
+      "bg": "#e4edf1",
+      "bgSecondary": "#f5fcff",
+      "text": "#22282a",
+      "textBody": "#5f6f77",
+      "accent": "#66e8fa",
+      "buttonBg": "#394247",
+      "buttonBgHover": "#171818",
+      "buttonBorder": "#d5e1e7",
+      "buttonText": "#e4edf1",
+      "font": "Satoshi Variable, system-ui, sans-serif",
+      "fontMono": "Et Mono, Impact, sans-serif",
+      "radiusSm": "0.5em",
+      "radiusMd": "0.75em",
+      "radiusLg": "1em",
+      "radiusXl": "1.5em",
+      "radius2xl": "2em"
+    },
+    "marketing_tokens_file": "client/src/theme/tokens.ts",
+    "marketing_tokens_key_values": {
+      "darkBg": "#0d1514",
+      "bg": "#181D1F",
+      "accent": "#66E8FA (effortel.a400)",
+      "text": "#D5E1E7 (effortel.n300)",
+      "textMuted": "#B1C5CE (effortel.n400)",
+      "border": "rgba(255,255,255,0.08)",
+      "font": "Satoshi, Inter, system-ui"
+    }
+  },
+  "icon_library": "lucide-react v0.453.0",
+  "ui_library": "Radix UI primitives (accordion, dialog, select, slider, tabs, toast, tooltip, etc.)",
+  "form_library": "react-hook-form v7.55.0 + @hookform/resolvers v3.10.0",
+  "state_management": "@tanstack/react-query v5.60.5",
+  "animation_libraries": ["gsap v3.14.2", "framer-motion v11.13.1", "lenis v1.3.18"],
+  "css_framework": "Tailwind CSS v3.4.17 + inline styles",
+  "routing": "wouter v3.3.5"
+}

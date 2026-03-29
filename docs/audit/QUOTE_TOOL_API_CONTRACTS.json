@@ -1,0 +1,174 @@
+{
+  "meta": {
+    "generated": "2026-03-29",
+    "scope": "All API endpoints used by the quote tool"
+  },
+  "endpoints": {
+    "GET /api/calculators/lookup": {
+      "file": "server/routes/calculatorRoutes.ts",
+      "purpose": "Fetch calculator config by slug or edit token",
+      "request": {
+        "query": {
+          "slug": "string (optional)",
+          "token": "string (optional)",
+          "notes": "One of slug or token is required"
+        }
+      },
+      "response_success": {
+        "calculator": {
+          "id": "number",
+          "slug": "string",
+          "business_name": "string",
+          "trade_type": "string",
+          "tagline": "string|null",
+          "logo_url": "string|null",
+          "owner_email": "string|null",
+          "owner_phone": "string|null",
+          "website_url": "string|null",
+          "primary_color": "string",
+          "cta_button_text": "string",
+          "lead_thank_you_message": "string",
+          "pricing_config": "PricingConfigV1 (JSON)",
+          "theme_overrides": "object|null",
+          "calculator_settings": "CalculatorSettings (JSON)",
+          "edit_token": "string",
+          "token_expires_at": "timestamp",
+          "is_duplicated": "boolean",
+          "total_views": "number",
+          "show_powered_by_badge": "boolean",
+          "plan_tier": "string",
+          "is_token_expired": "boolean (computed)"
+        }
+      },
+      "response_error": { "error": "string" },
+      "auth": "None (public for slug lookups), token-gated for edit access",
+      "called_from": "client/src/pages/calculator.tsx (useQuery)"
+    },
+    "POST /api/calculators": {
+      "file": "server/routes/calculatorRoutes.ts",
+      "purpose": "Create new calculator",
+      "request_body": {
+        "business_name": "string (required)",
+        "trade_type": "string (required)",
+        "tagline": "string|null",
+        "logo_url": "string|null",
+        "owner_email": "string|null",
+        "pricing_config": "object (required)",
+        "primary_color": "string",
+        "theme_overrides": "object|null",
+        "calculator_settings": "object|null"
+      },
+      "response_success": {
+        "success": true,
+        "calculator": "Calculator object",
+        "slug": "string",
+        "subdomain": "string",
+        "hosted_url": "string",
+        "edit_token": "string",
+        "edit_url": "string",
+        "calculator_url": "string",
+        "leads_url": "string",
+        "dashboard_url": "string"
+      },
+      "auth": "None",
+      "called_from": "Wizard flow"
+    },
+    "PATCH /api/calculators": {
+      "file": "server/routes/calculatorRoutes.ts",
+      "purpose": "Update calculator settings",
+      "request_body": {
+        "token": "string (required)",
+        "updates": {
+          "business_name": "string",
+          "pricing_config": "object",
+          "calculator_settings": "object",
+          "notes": "All fields optional"
+        }
+      },
+      "auth": "Edit token (checked + expiry validated)",
+      "called_from": "EditCalculator page"
+    },
+    "POST /api/calculators/track-view": {
+      "file": "server/routes/calculatorRoutes.ts",
+      "purpose": "Increment view count + fire analytics event",
+      "request_body": { "calculator_id": "number" },
+      "response": { "success": true },
+      "auth": "None",
+      "called_from": "client/src/pages/calculator.tsx (fire-and-forget on load)"
+    },
+    "POST /api/leads": {
+      "file": "server/routes/leadRoutes.ts",
+      "purpose": "Submit a lead from the quote widget",
+      "request_body": {
+        "calculator_id": "number (required)",
+        "name": "string|null",
+        "email": "string|null",
+        "phone": "string|null",
+        "company": "string|null",
+        "quote_amount": "number|null",
+        "answers": "object|null",
+        "sms_consent": "boolean",
+        "consent_timestamp": "string|null",
+        "consent_text_version": "string|null",
+        "coupon_code": "string|null"
+      },
+      "response_success": { "success": true, "lead": "Lead object" },
+      "side_effects": [
+        "Enqueues email notification to business owner",
+        "Enqueues webhook notification if configured",
+        "Enqueues followup email/SMS sequence (thank_you, reminder, last_call)",
+        "Fires analytics event (event_type: 'lead')",
+        "Increments coupon usage if coupon_code present"
+      ],
+      "auth": "None (public endpoint)",
+      "called_from": "LeadCaptureStep in QuoteWidget, CalculatorWidget lead form"
+    },
+    "GET /api/leads": {
+      "file": "server/routes/leadRoutes.ts",
+      "purpose": "Fetch all leads for a calculator (dashboard)",
+      "request": { "query": { "token": "string (required)" } },
+      "auth": "Edit token (checked + expiry validated)"
+    },
+    "POST /api/calculators/:slug/coupons/validate": {
+      "file": "server/routes/leadRoutes.ts",
+      "purpose": "Validate a coupon code for a calculator",
+      "request_body": { "code": "string (required)" },
+      "response_valid": {
+        "valid": true,
+        "coupon": { "id": "string", "code": "string", "type": "percentage|fixed", "value": "number", "applies_to": "estimate_total|deposit_only" }
+      },
+      "response_invalid": { "valid": false, "error": "not_found|inactive|expired|limit_reached" },
+      "auth": "None (public)"
+    },
+    "POST /api/ai/demo-chat": {
+      "file": "server/routes/aiRoutes.ts",
+      "purpose": "AI chat demo for the /demo page",
+      "request_body": {
+        "messages": "Message[] (role + content)",
+        "trade_category": "string"
+      },
+      "response": { "reply": "string" },
+      "auth": "None",
+      "called_from": "client/src/pages/marketing/demo.tsx ChatDemo component",
+      "notes": "Not used by quote-calculator-demo page"
+    },
+    "GET /api/calculators/check-slug": {
+      "file": "server/routes/calculatorRoutes.ts",
+      "purpose": "Check if a slug is available",
+      "request": { "query": { "slug": "string" } },
+      "response": { "available": "boolean", "slug": "string", "subdomain": "string" }
+    },
+    "POST /api/calculators/duplicate": {
+      "file": "server/routes/calculatorRoutes.ts",
+      "purpose": "Duplicate a calculator (token renewal mechanism)",
+      "request_body": { "token": "string" },
+      "auth": "Edit token"
+    }
+  },
+  "notes": {
+    "demo_page_no_api": "The /tools/quote-demo page uses NO API calls. All calculator data is hardcoded in TRADES array. The QuoteWidget renders entirely from the inline CalculatorData objects.",
+    "production_page_api": "The /Calculator?slug=X page fetches real calculator data from GET /api/calculators/lookup and submits leads to POST /api/leads.",
+    "booking_endpoints": "Booking routes exist in server/routes/bookingRoutes.ts but are not directly used by the demo page.",
+    "stripe_endpoints": "Stripe routes exist in server/routes/stripeRoutes.ts for deposit payments."
+  }
+}
