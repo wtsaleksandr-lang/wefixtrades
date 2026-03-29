@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight } from "lucide-react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight, ZoomIn, ZoomOut, X, Minus, Plus } from "lucide-react";
 import { SERVICES, getServicesForIssues } from '@shared/services';
 
 // ─── Design tokens ───────────────────
@@ -173,6 +173,147 @@ function Tooltip({ text }: { text: string }) {
   );
 }
 
+/* ─── Screenshot Lightbox with pinch-zoom & scroll-zoom ─── */
+function ScreenshotLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  const [scale, setScale] = useState(1);
+  const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const imgRef = useRef<HTMLDivElement>(null);
+  const lastDist = useRef(0);
+  const lastCenter = useRef({ x: 0, y: 0 });
+  const dragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const dragTranslate = useRef({ x: 0, y: 0 });
+
+  const clampScale = (s: number) => Math.min(Math.max(s, 0.5), 5);
+
+  // Mouse wheel zoom
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setScale(s => clampScale(s * delta));
+  }, []);
+
+  // Touch pinch zoom
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (lastDist.current > 0) {
+        const ratio = dist / lastDist.current;
+        setScale(s => clampScale(s * ratio));
+      }
+      lastDist.current = dist;
+      // Pan with two-finger center
+      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      if (lastCenter.current.x !== 0) {
+        setTranslate(t => ({ x: t.x + cx - lastCenter.current.x, y: t.y + cy - lastCenter.current.y }));
+      }
+      lastCenter.current = { x: cx, y: cy };
+    } else if (e.touches.length === 1 && dragging.current) {
+      const dx = e.touches[0].clientX - dragStart.current.x;
+      const dy = e.touches[0].clientY - dragStart.current.y;
+      setTranslate({ x: dragTranslate.current.x + dx, y: dragTranslate.current.y + dy });
+    }
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      dragging.current = true;
+      dragStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      dragTranslate.current = { ...translate };
+    }
+    if (e.touches.length === 2) { dragging.current = false; lastDist.current = 0; lastCenter.current = { x: 0, y: 0 }; }
+  }, [translate]);
+
+  const handleTouchEnd = useCallback(() => {
+    lastDist.current = 0;
+    lastCenter.current = { x: 0, y: 0 };
+    dragging.current = false;
+  }, []);
+
+  // Mouse drag to pan
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    dragging.current = true;
+    dragStart.current = { x: e.clientX, y: e.clientY };
+    dragTranslate.current = { ...translate };
+  }, [translate]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!dragging.current) return;
+    const dx = e.clientX - dragStart.current.x;
+    const dy = e.clientY - dragStart.current.y;
+    setTranslate({ x: dragTranslate.current.x + dx, y: dragTranslate.current.y + dy });
+  }, []);
+
+  const handleMouseUp = useCallback(() => { dragging.current = false; }, []);
+
+  // Double-tap/click to toggle zoom
+  const handleDoubleClick = useCallback(() => {
+    if (scale > 1.2) { setScale(1); setTranslate({ x: 0, y: 0 }); }
+    else { setScale(2.5); }
+  }, [scale]);
+
+  // Keyboard: Escape to close, +/- to zoom
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === '=' || e.key === '+') setScale(s => clampScale(s * 1.2));
+      if (e.key === '-') setScale(s => clampScale(s / 1.2));
+      if (e.key === '0') { setScale(1); setTranslate({ x: 0, y: 0 }); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column' }}>
+      {/* Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', flexShrink: 0, background: 'rgba(0,0,0,0.5)' }}>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>{Math.round(scale * 100)}%</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => setScale(s => clampScale(s / 1.3))} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ZoomOut size={18} /></button>
+          <button onClick={() => { setScale(1); setTranslate({ x: 0, y: 0 }); }} style={{ padding: '0 12px', height: 36, borderRadius: 18, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Reset</button>
+          <button onClick={() => setScale(s => clampScale(s * 1.3))} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ZoomIn size={18} /></button>
+          <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 4 }}><X size={18} /></button>
+        </div>
+      </div>
+      {/* Image area */}
+      <div
+        ref={imgRef}
+        style={{ flex: 1, overflow: 'hidden', cursor: scale > 1 ? 'grab' : 'zoom-in', touchAction: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onDoubleClick={handleDoubleClick}
+      >
+        <img
+          src={src} alt={alt} draggable={false}
+          style={{
+            maxWidth: '95%', maxHeight: '95%', objectFit: 'contain',
+            transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
+            transition: dragging.current ? 'none' : 'transform 0.15s ease-out',
+            borderRadius: 4, boxShadow: '0 4px 32px rgba(0,0,0,0.4)',
+            userSelect: 'none', WebkitUserSelect: 'none',
+          }}
+        />
+      </div>
+      {/* Hint */}
+      <div style={{ textAlign: 'center', padding: '8px 16px 14px', fontSize: 11, color: 'rgba(255,255,255,0.35)', flexShrink: 0 }}>
+        Pinch or scroll to zoom · Drag to pan · Double-tap to toggle · Press 0 to reset
+      </div>
+    </div>
+  );
+}
+
 const ShareIcons = {
   email: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -306,6 +447,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [issueModal, setIssueModal] = useState<number | null>(null);
   const [speedDevice, setSpeedDevice] = useState<'mobile' | 'desktop'>('mobile');
   const [visualAnalysisModal, setVisualAnalysisModal] = useState(false);
+  const [screenshotLightbox, setScreenshotLightbox] = useState(false);
+  const [reportZoom, setReportZoom] = useState(100);
 
   // Score circle animation state
   const [displayScore, setDisplayScore] = useState(0);
@@ -719,7 +862,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   };
 
   return (
-    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: window.innerWidth >= 1024 ? 960 : 780, margin: '0 auto', padding: isTiny ? '0 10px 80px' : isMobile ? '0 16px 80px' : '0 16px 48px', boxSizing: 'border-box', position: 'relative' }}>
+    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: window.innerWidth >= 1024 ? 960 : 780, margin: '0 auto', padding: isTiny ? '0 10px 80px' : isMobile ? '0 16px 80px' : '0 16px 48px', boxSizing: 'border-box', position: 'relative', transform: reportZoom !== 100 ? `scale(${reportZoom / 100})` : undefined, transformOrigin: 'top center' }}>
 
       {/* TAB BAR */}
       <div style={{ display:'flex', justifyContent:'center', background:WHITE, padding:'10px 16px', position:'sticky', top:0, zIndex:20, width:'100%' }}>
@@ -1333,19 +1476,24 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 0 }}>
               {/* Screenshot */}
               {screenshotSrc && (
-                <div style={{
-                  flex: isMobile ? 'none' : '0 0 45%',
-                  padding: 16,
-                  background: '#F3F4F6',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRight: isMobile ? 'none' : `1px solid ${BORDER}`,
-                  borderBottom: isMobile ? `1px solid ${BORDER}` : 'none',
-                  minHeight: isMobile ? 180 : 220,
-                  position: 'relative',
-                  overflow: 'hidden',
-                }}>
+                <div
+                  onClick={() => setScreenshotLightbox(true)}
+                  role="button" tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setScreenshotLightbox(true); } }}
+                  style={{
+                    flex: isMobile ? 'none' : '0 0 45%',
+                    padding: 16,
+                    background: '#F3F4F6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRight: isMobile ? 'none' : `1px solid ${BORDER}`,
+                    borderBottom: isMobile ? `1px solid ${BORDER}` : 'none',
+                    minHeight: isMobile ? 180 : 220,
+                    position: 'relative',
+                    overflow: 'hidden',
+                    cursor: 'zoom-in',
+                  }}>
                   <img
                     src={screenshotSrc}
                     alt={`${business?.name || 'Business'} website screenshot`}
@@ -1364,8 +1512,9 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     background: 'rgba(13,21,20,0.75)', backdropFilter: 'blur(8px)',
                     fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.8)',
                     letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                    display: 'flex', alignItems: 'center', gap: 4,
                   }}>
-                    PageSpeed Screenshot
+                    <ZoomIn size={10} /> Tap to zoom
                   </div>
                 </div>
               )}
@@ -2277,6 +2426,58 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           </>
         );
       })()}
+
+      {/* Screenshot Lightbox */}
+      {screenshotLightbox && (() => {
+        const screenshot = liveWebsiteScreenshot || report?.websiteScreenshot;
+        const src = screenshot
+          ? screenshot.startsWith('data:') ? screenshot : `data:image/jpeg;base64,${screenshot}`
+          : null;
+        return src ? <ScreenshotLightbox src={src} alt={`${business?.name || 'Business'} website screenshot`} onClose={() => setScreenshotLightbox(false)} /> : null;
+      })()}
+
+      {/* Global Zoom Controls */}
+      <div style={{
+        position: 'fixed',
+        bottom: isMobile ? 16 : 24,
+        right: isMobile ? 16 : 24,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 0,
+        background: WHITE,
+        borderRadius: 24,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+        border: `1px solid ${BORDER}`,
+        zIndex: 50,
+        overflow: 'hidden',
+      }}>
+        <button
+          onClick={() => setReportZoom(z => Math.max(80, z - 10))}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px 10px', display: 'flex', alignItems: 'center', color: reportZoom <= 80 ? '#D1D5DB' : DARK }}
+          disabled={reportZoom <= 80}
+          title="Zoom out"
+        >
+          <Minus size={16} />
+        </button>
+        <span style={{ fontSize: 11, fontWeight: 600, color: GREY, minWidth: 36, textAlign: 'center', userSelect: 'none' }}>{reportZoom}%</span>
+        <button
+          onClick={() => setReportZoom(z => Math.min(150, z + 10))}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px 10px', display: 'flex', alignItems: 'center', color: reportZoom >= 150 ? '#D1D5DB' : DARK }}
+          disabled={reportZoom >= 150}
+          title="Zoom in"
+        >
+          <Plus size={16} />
+        </button>
+        {reportZoom !== 100 && (
+          <button
+            onClick={() => setReportZoom(100)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px 10px', fontSize: 10, fontWeight: 600, color: CYAN, borderLeft: `1px solid ${BORDER}` }}
+            title="Reset zoom"
+          >
+            Reset
+          </button>
+        )}
+      </div>
     </div>
   );
 }
