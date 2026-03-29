@@ -101,6 +101,8 @@ function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: 
       }}>
         Grade {grade}
       </div>
+      {/* Hidden test anchor for score extraction */}
+      <span data-testid="score-value" data-score={shown} data-grade={grade} style={{ display: 'none' }} />
       <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>
         {isRefining ? 'Progressing' : 'Tap for more'}
       </div>
@@ -721,7 +723,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       <div style={{ display:'flex', justifyContent:'center', background:WHITE, padding:'10px 16px', position:'sticky', top:0, zIndex:20, width:'100%' }}>
         <div style={{ display:'inline-flex', background:'#F3F4F6', borderRadius:24, padding:3, gap:2 }}>
           {(['maps','website','plan'] as const).map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} {...hoverProps(`tab-${tab}`)} style={{
+            <button key={tab} data-testid={`tab-${tab}`} onClick={() => setActiveTab(tab)} {...hoverProps(`tab-${tab}`)} style={{
               padding:'8px 18px', fontSize:13, fontWeight: activeTab===tab ? 600 : 500,
               color: activeTab===tab ? DARK : hovered===`tab-${tab}` ? '#4B5563' : '#9CA3AF',
               border:'none', borderRadius:20, cursor:'pointer', whiteSpace:'nowrap',
@@ -797,9 +799,9 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             .breakdown-info-icon { animation: none !important; }
           }
         `}</style>
-        <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 20 }}>Your Score Breakdown</div>
+        <div data-testid="score-breakdown" style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 20 }}>Your Score Breakdown</div>
         {scoreRows.map((row, i) => (
-          <div key={row.key}>
+          <div key={row.key} data-testid={`breakdown-row-${row.key}`} data-score={row.score} data-max={row.max}>
             {i > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '12px 0 14px' }}/>}
             <div
               role="button"
@@ -1059,7 +1061,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             // CPC formatting: null/undefined → "—", whole → "$5", decimal → "$5.2"
             const cpcDisplay = !kw.cpc ? '—' : kw.cpc % 1 === 0 ? `$${kw.cpc}` : `$${kw.cpc.toFixed(1)}`;
             return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${BORDER}`, gap: 4, background: i % 2 === 0 ? 'transparent' : '#FAFAFA' }}>
+              <div key={i} data-testid="keyword-row" data-keyword={kw.keyword} data-rank={rankLabel} data-visibility={visLabel} data-cpc={cpcDisplay} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${BORDER}`, gap: 4, background: i % 2 === 0 ? 'transparent' : '#FAFAFA' }}>
                 <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: DARK, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kw.keyword}</span>
                 <span style={{ width: 40, fontSize: 11, color: DARK, textAlign: 'right', flexShrink: 0 }}>{kw.monthlySearches > 0 ? kw.monthlySearches.toLocaleString() : '—'}</span>
                 <span style={{ width: 42, fontSize: 11, color: GREY, textAlign: 'right', flexShrink: 0 }}>{cpcDisplay}</span>
