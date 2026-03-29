@@ -2,14 +2,16 @@ import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Search, ArrowRight, Briefcase } from 'lucide-react';
 import { mkt, colors, radius, shadows } from '@/theme/tokens';
-import { TRADE_PRESETS, GENERIC_PRESET, CATEGORY_LABELS } from '@/data/missedCallTradePresets';
+import { TRADE_PRESETS, GENERIC_PRESET, CATEGORY_LABELS, getPresetById } from '@/data/missedCallTradePresets';
 import type { TradePreset } from '@/data/missedCallTradePresets';
 
 interface TradeOnboardingProps {
   onSelect: (preset: TradePreset) => void;
+  /** If the user previously selected a trade, show a quick-continue option */
+  previousTradeId?: string | null;
 }
 
-export default function TradeOnboarding({ onSelect }: TradeOnboardingProps) {
+export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnboardingProps) {
   const [search, setSearch] = useState('');
 
   const allOptions = useMemo(() => [...TRADE_PRESETS, GENERIC_PRESET], []);
@@ -96,6 +98,46 @@ export default function TradeOnboarding({ onSelect }: TradeOnboardingProps) {
           We'll prefill typical numbers for your industry so you get relevant estimates.
         </motion.p>
       </div>
+
+      {/* Quick-continue for returning users */}
+      {previousTradeId && (() => {
+        const prev = getPresetById(previousTradeId);
+        if (prev.id !== previousTradeId) return null;
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.3 }}
+            style={{ marginBottom: 16 }}
+          >
+            <button
+              onClick={() => onSelect(prev)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '12px 16px',
+                background: mkt.accentTint,
+                border: `1px solid ${mkt.accent}33`,
+                borderRadius: radius.md,
+                cursor: 'pointer',
+                color: mkt.accent,
+                fontSize: 14,
+                fontWeight: 600,
+                textAlign: 'left',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = mkt.accentGlow; }}
+              onMouseLeave={e => { e.currentTarget.style.background = mkt.accentTint; }}
+            >
+              <ArrowRight size={14} />
+              <span style={{ flex: 1 }}>Continue with {prev.label}</span>
+              <span style={{ fontSize: 12, fontWeight: 400, color: mkt.textFaint }}>last used</span>
+            </button>
+          </motion.div>
+        );
+      })()}
 
       {/* Search */}
       <motion.div

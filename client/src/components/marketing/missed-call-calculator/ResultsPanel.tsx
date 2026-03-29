@@ -12,6 +12,7 @@ import ResultMetricCard from './ResultMetricCard';
 import AnimatedNumber from './AnimatedNumber';
 
 const SCENARIO_ID = 'response-scenario-panel';
+const METHODOLOGY_ID = 'methodology-panel';
 
 /** Detect prefers-reduced-motion */
 function usePrefersReducedMotion(): boolean {
@@ -37,6 +38,7 @@ interface ResultsPanelProps {
 export default function ResultsPanel({ inputs, tradeName }: ResultsPanelProps) {
   const range = useMemo(() => calculateRange(inputs), [inputs]);
   const [showScenario, setShowScenario] = useState(false);
+  const [showMethodology, setShowMethodology] = useState(false);
   const heroControls = useAnimationControls();
   const prevInputsRef = useRef(inputs);
   const reducedMotion = usePrefersReducedMotion();
@@ -274,33 +276,78 @@ export default function ResultsPanel({ inputs, tradeName }: ResultsPanelProps) {
         </motion.div>
       )}
 
-      {/* ── Assumptions + trust text ── */}
+      {/* ── Methodology disclosure ── */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: reducedMotion ? 0 : 0.45, duration: reducedMotion ? 0 : 0.4 }}
         style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 10,
-          padding: '14px 16px',
           background: mkt.cardBg,
           border: `1px solid ${mkt.cardBorder}`,
           borderRadius: radius.md,
+          overflow: 'hidden',
         }}
       >
-        <Info size={14} color={mkt.textFaint} style={{ flexShrink: 0, marginTop: 2 }} />
-        <div style={{ fontSize: 12, color: mkt.textFaint, lineHeight: 1.55 }}>
-          <p style={{ margin: '0 0 6px' }}>
-            <strong style={{ color: mkt.textMuted }}>How we estimate:</strong>{' '}
-            The conservative figure assumes 70% of missed calls were genuine leads.
-            The high estimate adds 20% for repeat and referral value.
-          </p>
-          <p style={{ margin: 0, opacity: 0.85 }}>
-            Based on aggregated service industry data across North America.
-            Your results depend on lead quality, seasonality, and local market conditions.
-          </p>
-        </div>
+        <button
+          onClick={() => setShowMethodology(s => !s)}
+          aria-expanded={showMethodology}
+          aria-controls={METHODOLOGY_ID}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '12px 16px',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: mkt.textFaint,
+            fontSize: 12,
+            fontWeight: 600,
+            textAlign: 'left',
+          }}
+        >
+          <Info size={13} style={{ flexShrink: 0 }} />
+          <span style={{ flex: 1 }}>How this is estimated</span>
+          <ChevronDown
+            size={12}
+            style={{
+              flexShrink: 0,
+              transform: showMethodology ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+            }}
+          />
+        </button>
+
+        {showMethodology && (
+          <motion.div
+            id={METHODOLOGY_ID}
+            role="region"
+            aria-label="Estimation methodology"
+            initial={reducedMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: reducedMotion ? 0 : 0.2 }}
+            style={{ padding: '0 16px 14px' }}
+          >
+            <ul style={{
+              margin: 0,
+              paddingLeft: 16,
+              fontSize: 12,
+              color: mkt.textFaint,
+              lineHeight: 1.65,
+              listStyleType: 'disc',
+            }}>
+              <li>Results are based on your inputs for missed calls, close rate, and average job value</li>
+              <li>The conservative figure assumes 70% of missed calls were genuine leads</li>
+              <li>The high estimate adds 20% for repeat and referral value</li>
+              <li>Trade presets use typical service-business ranges and are meant as starting points</li>
+              <li>Results are shown as ranges because real businesses vary by season, market, and lead quality</li>
+              <li style={{ marginTop: 4 }}>
+                <span style={{ color: mkt.textMuted }}>These estimates are directional, not guarantees</span>
+              </li>
+            </ul>
+          </motion.div>
+        )}
       </motion.div>
 
       {/* ── CTA ── */}

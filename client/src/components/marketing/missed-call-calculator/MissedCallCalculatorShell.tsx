@@ -1,24 +1,54 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Link } from 'wouter';
 import { Calculator, ArrowRight } from 'lucide-react';
 import { mkt, colors, radius } from '@/theme/tokens';
+import { getPresetById } from '@/data/missedCallTradePresets';
 import type { TradePreset } from '@/data/missedCallTradePresets';
 import TradeOnboarding from './TradeOnboarding';
 import CalculatorControls from './CalculatorControls';
 import type { SliderValues } from './CalculatorControls';
 import ResultsPanel from './ResultsPanel';
 
+const STORAGE_KEY = 'wft-calc-trade';
+
+function readStoredTradeId(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredTradeId(id: string): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, id);
+  } catch { /* quota / private browsing */ }
+}
+
 type Step = 'onboarding' | 'calculator';
 
 export default function MissedCallCalculatorShell() {
   const [step, setStep] = useState<Step>('onboarding');
   const [selectedPreset, setSelectedPreset] = useState<TradePreset | null>(null);
+  const [previousTradeId, setPreviousTradeId] = useState<string | null>(null);
   const [sliderValues, setSliderValues] = useState<SliderValues>({
     missedCallsPerWeek: 10,
     closeRatePercent: 30,
     avgJobValue: 500,
   });
+
+  // Restore previous trade on mount
+  useEffect(() => {
+    const stored = readStoredTradeId();
+    if (stored) {
+      const preset = getPresetById(stored);
+      // Only surface if it resolved to a real preset (not the generic fallback for unknown ids)
+      if (preset.id === stored) {
+        setPreviousTradeId(stored);
+      }
+    }
+  }, []);
 
   const handleTradeSelect = useCallback((preset: TradePreset) => {
     setSelectedPreset(preset);
@@ -27,6 +57,7 @@ export default function MissedCallCalculatorShell() {
       closeRatePercent: preset.defaultCloseRate,
       avgJobValue: preset.avgJobValueMid,
     });
+    writeStoredTradeId(preset.id);
     setStep('calculator');
   }, []);
 
@@ -38,7 +69,11 @@ export default function MissedCallCalculatorShell() {
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
       <AnimatePresence mode="wait">
         {step === 'onboarding' && (
-          <TradeOnboarding key="onboarding" onSelect={handleTradeSelect} />
+          <TradeOnboarding
+            key="onboarding"
+            onSelect={handleTradeSelect}
+            previousTradeId={previousTradeId}
+          />
         )}
 
         {step === 'calculator' && selectedPreset && (
