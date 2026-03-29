@@ -176,6 +176,69 @@
       "font": "Satoshi, Inter, system-ui"
     }
   },
+  "trade_registry": {
+    "file": "client/src/data/trades.ts",
+    "total_trades": 67,
+    "categories": ["cleaning", "reno", "driveway", "mechanical", "emergency", "auto", "pro", "custom"],
+    "category_icons": {
+      "cleaning": "Sparkles",
+      "reno": "Hammer",
+      "driveway": "Layers",
+      "mechanical": "Wrench",
+      "emergency": "AlertTriangle",
+      "auto": "Car",
+      "pro": "Briefcase",
+      "custom": "Plus"
+    },
+    "notes": "Demo page only uses 5 trades (plumbing, cleaning, painting, electrical, roofing). Full 67-trade registry used in Wizard onboarding."
+  },
+  "plan_gating": {
+    "file": "client/src/config/planGating.ts",
+    "tiers": ["free ($0)", "starter ($99/mo)", "pro ($199/mo)", "elite ($299/mo)"],
+    "feature_gates": {
+      "starter": ["remove_branding", "csv_export", "email_followups"],
+      "pro": ["booking_deposits", "sms_whatsapp", "custom_domain", "ai_employee_full"],
+      "elite": ["api_webhooks", "white_label"]
+    }
+  },
+  "saas_pricing": {
+    "file": "client/src/config/pricing.ts",
+    "currency": "CAD",
+    "yearly_discount": "15%",
+    "products": [
+      { "name": "QuickQuotePro", "price": "$129/mo + $399 setup", "category": "core" },
+      { "name": "Booking & Calendar", "price": "$59/mo", "category": "core" },
+      { "name": "AI Employee Chat", "price": "$179/mo", "category": "ai" },
+      { "name": "AI Employee Voice", "price": "$349/mo", "category": "ai" },
+      { "name": "MapGuard", "price": "$299/mo", "category": "growth" },
+      { "name": "WebBoost", "price": "$199/mo", "category": "growth" },
+      { "name": "WebCare", "price": "$149/mo", "category": "growth" },
+      { "name": "SiteLaunch", "price": "$2999 one-time", "category": "core" },
+      { "name": "SocialSync", "price": "$349/mo", "category": "growth" },
+      { "name": "ReputationShield", "price": "$229/mo", "category": "growth" }
+    ]
+  },
+  "marketing_layout": {
+    "file": "client/src/components/marketing/MarketingLayout.tsx",
+    "nav_height": 68,
+    "nav_links": ["Products", "Solutions", "Tools", "Templates", "Plans", "Resources"],
+    "nav_font": "DM Mono, monospace, 13px, uppercase",
+    "mobile_breakpoint": 900,
+    "footer_bg": "#0a0d0f",
+    "company_info": "WeFixTrades Inc., 1200 Market Street Suite 400 Wilmington DE 19801",
+    "trust_badges": ["SOC 2 Compliant", "256-bit SSL Encrypted", "GDPR Ready"]
+  },
+  "global_css": {
+    "file": "client/src/index.css",
+    "css_variables_root": {
+      "background": "210 17% 97%",
+      "foreground": "220 14% 10%",
+      "primary": "222 100% 59%",
+      "radius": "0.75rem"
+    },
+    "custom_animations": ["spin", "fadeIn", "fadeInUp", "fadeInDown", "scaleIn", "slideUp", "slideDown", "shimmer", "pulse-soft", "mktFloat", "mktBounce", "mktTicker"],
+    "marketing_button_classes": [".mkt-btn-primary (#66E8FA)", ".mkt-btn-secondary", ".mkt-btn-ghost", ".cta-arrow-btn"]
+  },
   "icon_library": "lucide-react v0.453.0",
   "ui_library": "Radix UI primitives (accordion, dialog, select, slider, tabs, toast, tooltip, etc.)",
   "form_library": "react-hook-form v7.55.0 + @hookform/resolvers v3.10.0",
