@@ -2543,4 +2543,36 @@ router.post("/report/:id/send-email", async (req: Request, res: Response) => {
   }
 });
 
+/* ─── GET /report/:id/pdf — Download PDF ─── */
+import { generateReportPdf } from "./lib/pdfGenerator";
+
+router.get("/report/:id/pdf", async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return safeJsonError(res, 400, "Report ID required");
+
+    const origin = `${req.protocol}://${req.get("host")}`;
+    const result = await generateReportPdf(id, origin);
+
+    if (!result.ok) {
+      const status = result.error === "Report not found" ? 404 : 500;
+      return safeJsonError(res, status, result.error);
+    }
+
+    const inline = req.query.inline === "true";
+    const disposition = inline ? "inline" : "attachment";
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `${disposition}; filename="${result.filename}"`,
+      "Content-Length": String(result.buffer.length),
+      "Cache-Control": "private, max-age=300",
+    });
+    return res.send(result.buffer);
+  } catch (err: any) {
+    console.error("[audit-pdf] Error:", err?.message);
+    return safeJsonError(res, 500, "PDF generation failed");
+  }
+});
+
 export default router;

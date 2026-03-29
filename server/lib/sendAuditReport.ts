@@ -3,6 +3,9 @@ import { auditReports } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildAuditReportEmail } from "./reportEmailTemplate";
+import { generateReportPdf } from "./pdfGenerator";
+
+const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function sendAuditReportEmail(opts: {
   reportId: string;
@@ -42,11 +45,31 @@ export async function sendAuditReportEmail(opts: {
     reportUrl,
   });
 
+  // Generate PDF attachment
+  let attachments: Array<{ filename: string; content: Buffer; contentType: string }> = [];
+  try {
+    const pdfResult = await generateReportPdf(opts.reportId, opts.origin);
+    if (pdfResult.ok && pdfResult.buffer.length <= MAX_ATTACHMENT_SIZE) {
+      attachments = [{
+        filename: pdfResult.filename,
+        content: pdfResult.buffer,
+        contentType: "application/pdf",
+      }];
+    } else if (pdfResult.ok) {
+      console.log(`[audit-email] PDF too large (${(pdfResult.buffer.length / 1024 / 1024).toFixed(1)}MB), sending link only`);
+    } else {
+      console.log(`[audit-email] PDF generation failed: ${pdfResult.error}, sending link only`);
+    }
+  } catch (err: any) {
+    console.log(`[audit-email] PDF generation error: ${err?.message}, sending link only`);
+  }
+
   await transporter.sendMail({
     from: getFromAddress(),
     to: opts.recipientEmail,
     subject,
     html,
+    attachments,
   });
 
   return { ok: true };

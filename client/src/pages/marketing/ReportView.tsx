@@ -1912,21 +1912,41 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           ))}
         </div>
 
-        {/* Download PDF */}
-        <button
-          onClick={() => window.print()}
-          {...hoverProps('download-pdf')}
-          style={{
-            marginTop: 16, padding: '10px 20px',
-            background: 'rgba(255,255,255,0.1)', color: WHITE,
-            border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8,
-            fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            transition: 'all 0.15s ease',
-            opacity: hovered === 'download-pdf' ? 1 : 0.85,
-          }}
-        >
-          Download PDF
-        </button>
+        {/* Download / Print */}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
+          {reportId && (
+            <a
+              href={`/api/audit/report/${reportId}/pdf`}
+              download
+              {...hoverProps('download-pdf')}
+              style={{
+                padding: '10px 20px', display: 'inline-block',
+                background: CYAN, color: DARK,
+                border: 'none', borderRadius: 8,
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                textDecoration: 'none',
+                transition: 'all 0.15s ease',
+                opacity: hovered === 'download-pdf' ? 0.9 : 1,
+              }}
+            >
+              Download PDF
+            </a>
+          )}
+          <button
+            onClick={() => window.print()}
+            {...hoverProps('print-pdf')}
+            style={{
+              padding: '10px 20px',
+              background: 'rgba(255,255,255,0.1)', color: WHITE,
+              border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8,
+              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              opacity: hovered === 'print-pdf' ? 1 : 0.85,
+            }}
+          >
+            Print / Save as PDF
+          </button>
+        </div>
       </div>
 
       {/* EMAIL CAPTURE */}
@@ -1950,7 +1970,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               disabled={emailLoading}
               style={{ padding: '10px 18px', background: DARK, color: WHITE, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: emailLoading ? 'not-allowed' : 'pointer', opacity: emailLoading ? 0.7 : 1, whiteSpace: 'nowrap', transition: 'all 0.15s ease' }}
             >
-              {emailLoading ? 'Sending...' : 'Send my PDF →'}
+              {emailLoading ? 'Generating PDF...' : 'Email me the PDF'}
             </button>
           </div>
           {emailError && (
