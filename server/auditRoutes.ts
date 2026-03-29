@@ -2551,13 +2551,17 @@ router.get("/report/:id/pdf", async (req: Request, res: Response) => {
     const id = String(req.params.id || "").trim();
     if (!id) return safeJsonError(res, 400, "Report ID required");
 
+    console.log(`[audit-pdf] Generating PDF for report ${id}`);
     const origin = `${req.protocol}://${req.get("host")}`;
     const result = await generateReportPdf(id, origin);
 
     if (!result.ok) {
+      console.error(`[audit-pdf] Generation failed for ${id}: ${result.error}`);
       const status = result.error === "Report not found" ? 404 : 500;
       return safeJsonError(res, status, result.error);
     }
+
+    console.log(`[audit-pdf] Success: ${result.buffer.length} bytes, file="${result.filename}"`);
 
     const inline = req.query.inline === "true";
     const disposition = inline ? "inline" : "attachment";
@@ -2570,7 +2574,7 @@ router.get("/report/:id/pdf", async (req: Request, res: Response) => {
     });
     return res.end(result.buffer);
   } catch (err: any) {
-    console.error("[audit-pdf] Error:", err?.message);
+    console.error("[audit-pdf] Unhandled error:", err?.message);
     return safeJsonError(res, 500, "PDF generation failed");
   }
 });

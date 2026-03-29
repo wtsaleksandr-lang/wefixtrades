@@ -468,6 +468,44 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   });
 
   const [emailError, setEmailError] = useState('');
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+
+  const handlePdfDownload = async () => {
+    if (!reportId || pdfDownloading) return;
+    setPdfDownloading(true);
+    try {
+      const resp = await fetch(`/api/audit/report/${reportId}/pdf`);
+      if (!resp.ok) {
+        const ct = resp.headers.get('content-type') || '';
+        if (ct.includes('json')) {
+          const data = await resp.json();
+          alert(data?.error || 'Failed to generate PDF. Please try again.');
+        } else {
+          alert('Failed to generate PDF. Please try again.');
+        }
+        return;
+      }
+      const ct = resp.headers.get('content-type') || '';
+      if (!ct.includes('application/pdf')) {
+        alert('Server returned an unexpected response. Please try again.');
+        return;
+      }
+      const blob = await resp.blob();
+      const safeName = (business?.name || 'Report').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 60);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `WeFixTrades-Audit-${safeName}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Something went wrong generating the PDF. Please try again.');
+    } finally {
+      setPdfDownloading(false);
+    }
+  };
 
   const handleEmailSubmit = async () => {
     if (!email.trim() || !email.includes('@')) return;
@@ -1920,22 +1958,23 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               {emailLoading ? 'Generating PDF...' : 'Email me the PDF'}
             </button>
             {reportId && (
-              <a
-                href={`/api/audit/report/${reportId}/pdf`}
-                download={`WeFixTrades-Audit-${(business?.name || 'Report').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 60)}.pdf`}
+              <button
+                onClick={handlePdfDownload}
+                disabled={pdfDownloading}
                 {...hoverProps('download-pdf')}
                 style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                   height: 40, padding: '0 16px',
                   background: DARK, color: WHITE, borderRadius: 8,
                   fontSize: 13, fontWeight: 600, lineHeight: 1,
-                  textDecoration: 'none', whiteSpace: 'nowrap',
-                  border: 'none', transition: 'all 0.2s ease',
-                  opacity: hovered === 'download-pdf' ? 0.85 : 1,
+                  whiteSpace: 'nowrap',
+                  border: 'none', cursor: pdfDownloading ? 'wait' : 'pointer',
+                  transition: 'all 0.2s ease',
+                  opacity: pdfDownloading ? 0.6 : hovered === 'download-pdf' ? 0.85 : 1,
                 }}
               >
-                Download PDF
-              </a>
+                {pdfDownloading ? 'Generating...' : 'Download PDF'}
+              </button>
             )}
           </div>
           {emailError && (
@@ -1949,13 +1988,13 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           <div style={{ fontSize: 14, fontWeight: 600, color: '#166534', marginBottom: 4 }}>Report sent!</div>
           <div style={{ fontSize: 13, color: '#4B5563' }}>Check your inbox — your PDF report is on the way.</div>
           {reportId && (
-            <a
-              href={`/api/audit/report/${reportId}/pdf`}
-              download={`WeFixTrades-Audit-${(business?.name || 'Report').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 60)}.pdf`}
-              style={{ display: 'inline-block', marginTop: 12, fontSize: 13, fontWeight: 600, color: DARK, textDecoration: 'underline' }}
+            <button
+              onClick={handlePdfDownload}
+              disabled={pdfDownloading}
+              style={{ display: 'inline-block', marginTop: 12, fontSize: 13, fontWeight: 600, color: DARK, textDecoration: 'underline', background: 'none', border: 'none', cursor: pdfDownloading ? 'wait' : 'pointer', padding: 0 }}
             >
-              Download PDF directly
-            </a>
+              {pdfDownloading ? 'Generating PDF...' : 'Download PDF directly'}
+            </button>
           )}
         </div>
       )}
