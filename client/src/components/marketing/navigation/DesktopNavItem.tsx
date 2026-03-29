@@ -6,8 +6,13 @@ import type { NavItemChild } from "@/site/navigation";
 import { NavIcon } from "./NavIcon";
 import { mkt } from "@/theme/tokens";
 
-const EXIT_ANIM = 220; // CSS animation duration
-const EXIT_BUFFER = 240; // JS unmount delay (slightly longer to prevent flash)
+const EXIT_ANIM = 220; // CSS animation duration (ms)
+const EXIT_BUFFER = 240; // JS unmount delay — slightly longer than CSS to prevent flash
+
+// Note on re-open during exit: if the user re-hovers while the tray is animating
+// out, the exit is cancelled and the tray snaps back to open. A smooth reverse
+// would require replacing the clip-path keyframe system with CSS transitions,
+// which is disproportionate to the rarity of this edge case.
 
 export function DesktopNavItem({
   label,

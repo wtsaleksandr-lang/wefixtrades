@@ -94,7 +94,9 @@ export function MarketingNav() {
     return () => window.removeEventListener("scroll", handler);
   }, [menuOpen, isMobile]);
 
-  // Mobile menu: set `inert` when closed to prevent keyboard/AT access
+  // Mobile menu accessibility: three effects below handle inert, focus, and
+  // focus-trap. The panel is always in the DOM (for CSS transitions), so
+  // `inert` is essential to prevent keyboard/AT access to invisible content.
   useEffect(() => {
     const el = menuPanelRef.current;
     if (!el) return;
