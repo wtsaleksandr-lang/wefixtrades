@@ -330,19 +330,18 @@ async function fetchPageSpeed(siteUrl: string, strategy?: "mobile" | "desktop"):
         const score = Math.round(score01 * 100);
         const audits = lhr?.audits || {};
         const numVal = (k: string) => { const v = audits[k]?.numericValue; return typeof v === "number" ? v : null; };
-        // Extract screenshot — try final-screenshot first, then thumbnails
+        // Extract screenshot — prefer full-page (higher res) over final-screenshot
         let screenshotData: string | null = null;
-        if (audits?.["final-screenshot"]?.details?.data) {
+        if (audits?.["full-page-screenshot"]?.details?.screenshot?.data) {
+          screenshotData = audits["full-page-screenshot"].details.screenshot.data;
+          console.log('[pagespeed] screenshot: from full-page-screenshot, size:', Math.round(screenshotData!.length / 1024), 'KB');
+        } else if (audits?.["final-screenshot"]?.details?.data) {
           screenshotData = audits["final-screenshot"].details.data;
-          console.log('[pagespeed] screenshot: from final-screenshot, length:', screenshotData!.length);
+          console.log('[pagespeed] screenshot: from final-screenshot, size:', Math.round(screenshotData!.length / 1024), 'KB');
         } else if (audits?.["screenshot-thumbnails"]?.details?.items?.length) {
-          // Use the last (largest) thumbnail
           const items = audits["screenshot-thumbnails"].details.items;
           screenshotData = items[items.length - 1]?.data || null;
-          if (screenshotData) console.log('[pagespeed] screenshot: from thumbnails, length:', screenshotData.length);
-        } else if (audits?.["full-page-screenshot"]?.details?.screenshot?.data) {
-          screenshotData = audits["full-page-screenshot"].details.screenshot.data;
-          console.log('[pagespeed] screenshot: from full-page-screenshot, length:', screenshotData!.length);
+          if (screenshotData) console.log('[pagespeed] screenshot: from thumbnails, size:', Math.round(screenshotData.length / 1024), 'KB');
         }
         if (!screenshotData) {
           console.log('[pagespeed] screenshot: not found in audit keys:', Object.keys(audits).filter(k => k.includes('screenshot')));
@@ -448,12 +447,21 @@ router.post("/speed", async (req: Request, res: Response) => {
       const speedData = { mobile: mobileScore, desktop: desktopScore };
       console.log('[speed-bg] done — mobile:', mobileScore?.score ?? 'null', 'desktop:', desktopScore?.score ?? 'null');
 
-      // Extract screenshot and run AI analysis
-      const screenshotBase64: string | null = mobileScore?.screenshot || desktopScore?.screenshot || null;
+      // Get best available screenshot — desktop full-page first, then from existing speed results
+      let screenshotBase64: string | null = desktopScore?.screenshot || mobileScore?.screenshot || null;
+      // Try a dedicated desktop screenshot fetch for higher resolution if we don't have full-page
+      if (!screenshotBase64 || screenshotBase64.length < 50000) {
+        console.log('[speed-bg] attempting high-res screenshot capture...');
+        const hqScreenshot = await captureWebsiteScreenshot(pageSpeedUrl);
+        if (hqScreenshot && hqScreenshot.length > (screenshotBase64?.length || 0)) {
+          screenshotBase64 = hqScreenshot;
+        }
+      }
+
+      // Run AI analysis on screenshot
       let websiteAIAnalysis: any = null;
       if (screenshotBase64) {
         try {
-          // Need business name + trade from DB for AI analysis
           const rows = await db.select().from(auditReports).where(eq(auditReports.id, reportId)).limit(1);
           const reportData = rows[0]?.audit_data as any;
           const businessName = reportData?.business?.name || "this business";
@@ -1469,6 +1477,45 @@ function withApiTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promis
       setTimeout(() => { console.log(`[anthropic] timeout after ${ms}ms`); resolve(fallback); }, ms)
     ),
   ]);
+}
+
+/* ─── High-quality website screenshot via dedicated PageSpeed call ─── */
+async function captureWebsiteScreenshot(url: string): Promise<string | null> {
+  const key = process.env.PAGESPEED_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
+  if (!key) return null;
+  try {
+    const params = new URLSearchParams({
+      url, strategy: "desktop", key,
+      category: "performance",
+    });
+    const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${params}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+    const resp = await fetch(endpoint, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!resp.ok) { console.log("[screenshot-hq] HTTP", resp.status); return null; }
+    const data = await resp.json();
+    const lhr = data?.lighthouseResult;
+    const audits = lhr?.audits || {};
+
+    // full-page-screenshot has much higher resolution than final-screenshot
+    if (audits?.["full-page-screenshot"]?.details?.screenshot?.data) {
+      const img = audits["full-page-screenshot"].details.screenshot.data as string;
+      console.log("[screenshot-hq] full-page-screenshot, size:", Math.round(img.length / 1024), "KB");
+      return img;
+    }
+    // final-screenshot is viewport-sized (better than thumbnails)
+    if (audits?.["final-screenshot"]?.details?.data) {
+      const img = audits["final-screenshot"].details.data as string;
+      console.log("[screenshot-hq] final-screenshot, size:", Math.round(img.length / 1024), "KB");
+      return img;
+    }
+    console.log("[screenshot-hq] no screenshot in response");
+    return null;
+  } catch (err: any) {
+    console.error("[screenshot-hq] failed:", err.message);
+    return null;
+  }
 }
 
 /* ─── Screenshot AI Analysis ─── */
