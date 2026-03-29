@@ -59,11 +59,12 @@ export default function ResultMetricCard({
       <div
         aria-live="polite"
         style={{
-          fontSize: isLarge ? 'clamp(26px, 5vw, 36px)' : 'clamp(20px, 3.5vw, 26px)',
+          fontSize: isLarge ? 'clamp(26px, 5vw, 36px)' : 'clamp(15px, 3vw, 22px)',
           fontWeight: 700,
           color: colors.effortel.n100,
           letterSpacing: '-0.02em',
-          lineHeight: 1.1,
+          lineHeight: 1.15,
+          overflowWrap: 'break-word',
         }}
       >
         {value}

@@ -9,7 +9,7 @@ interface AnimatedNumberProps {
 
 /**
  * Smoothly animates between number values using requestAnimationFrame.
- * Renders as formatted USD currency.
+ * Renders as formatted USD currency. Respects prefers-reduced-motion.
  */
 export default function AnimatedNumber({ value, duration = 500 }: AnimatedNumberProps) {
   const [display, setDisplay] = useState(value);
@@ -23,12 +23,18 @@ export default function AnimatedNumber({ value, duration = 500 }: AnimatedNumber
 
     if (from === to) return;
 
+    // Respect reduced motion preference
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) {
+      setDisplay(to);
+      return;
+    }
+
     const start = performance.now();
 
     function tick(now: number) {
       const elapsed = now - start;
       const t = Math.min(elapsed / duration, 1);
-      // Ease-out cubic
       const ease = 1 - Math.pow(1 - t, 3);
       setDisplay(Math.round(from + (to - from) * ease));
 

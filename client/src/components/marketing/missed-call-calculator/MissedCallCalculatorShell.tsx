@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Link } from 'wouter';
 import { Calculator, ArrowRight } from 'lucide-react';
-import { mkt, radius } from '@/theme/tokens';
+import { mkt, colors, radius } from '@/theme/tokens';
 import type { TradePreset } from '@/data/missedCallTradePresets';
 import TradeOnboarding from './TradeOnboarding';
 import CalculatorControls from './CalculatorControls';
@@ -43,6 +43,30 @@ export default function MissedCallCalculatorShell() {
 
         {step === 'calculator' && selectedPreset && (
           <div key="calculator">
+            <h2
+              style={{
+                fontSize: 'clamp(22px, 4vw, 30px)',
+                fontWeight: 700,
+                color: colors.effortel.n300,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.15,
+                margin: '0 0 20px',
+                textAlign: 'center',
+              }}
+            >
+              Missed-call cost estimate
+              <span style={{
+                display: 'block',
+                fontSize: 'clamp(14px, 2vw, 16px)',
+                fontWeight: 400,
+                color: mkt.textMuted,
+                letterSpacing: 0,
+                marginTop: 6,
+              }}>
+                for {selectedPreset.label.toLowerCase()} businesses
+              </span>
+            </h2>
+
             <CalculatorControls
               preset={selectedPreset}
               values={sliderValues}

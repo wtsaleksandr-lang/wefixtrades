@@ -41,6 +41,7 @@ export default function SliderField({
   formatBound,
 }: SliderFieldProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -132,6 +133,8 @@ export default function SliderField({
           onMouseUp={() => setIsDragging(false)}
           onTouchStart={() => setIsDragging(true)}
           onTouchEnd={() => setIsDragging(false)}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           style={{
             position: 'absolute',
             top: 0,
@@ -156,8 +159,10 @@ export default function SliderField({
           background: '#fff',
           border: `3px solid ${accentColor}`,
           boxShadow: isDragging
-            ? `0 0 0 6px rgba(${r},${g},${b},0.15), 0 2px 6px rgba(0,0,0,0.1)`
-            : `0 1px 4px rgba(0,0,0,0.12)`,
+            ? `0 0 0 6px rgba(${r},${g},${b},0.2), 0 2px 8px rgba(0,0,0,0.15)`
+            : isFocused
+              ? `0 0 0 3px rgba(${r},${g},${b},0.35), 0 1px 4px rgba(0,0,0,0.15)`
+              : `0 0 0 2px rgba(${r},${g},${b},0.08), 0 1px 4px rgba(0,0,0,0.15)`,
           transition: isDragging ? 'box-shadow 0.15s ease' : 'left 0.15s ease, box-shadow 0.15s ease',
           pointerEvents: 'none',
         }} />

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Search, ArrowRight, Briefcase } from 'lucide-react';
 import { mkt, colors, radius, shadows } from '@/theme/tokens';
 import { TRADE_PRESETS, GENERIC_PRESET, CATEGORY_LABELS } from '@/data/missedCallTradePresets';
@@ -93,7 +93,7 @@ export default function TradeOnboarding({ onSelect }: TradeOnboardingProps) {
             maxWidth: 420,
           }}
         >
-          We'll prefill realistic numbers for your industry so you get relevant estimates.
+          We'll prefill typical numbers for your industry so you get relevant estimates.
         </motion.p>
       </div>
 
