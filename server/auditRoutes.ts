@@ -1296,7 +1296,7 @@ async function analyzeWebsiteQuality(url: string): Promise<{
 
     // Contact page link
     const contactKeywords = ["contact", "reach us", "get in touch", "reach out", "contactez"];
-    checks.hasContactLink = $("a").toArray().some((el) => {
+    checks.hasContactLink = $("a").toArray().some((el: any) => {
       const text = $(el).text().toLowerCase();
       const href = ($(el).attr("href") || "").toLowerCase();
       return contactKeywords.some((k) => text.includes(k) || href.includes("contact"));
@@ -1314,7 +1314,7 @@ async function analyzeWebsiteQuality(url: string): Promise<{
 
     // LocalBusiness schema
     const schemaScripts = $('script[type="application/ld+json"]').toArray();
-    checks.hasLocalSchema = schemaScripts.some((el) => {
+    checks.hasLocalSchema = schemaScripts.some((el: any) => {
       const content = $(el).html() || "";
       return content.includes("LocalBusiness") || content.includes("Organization");
     });
