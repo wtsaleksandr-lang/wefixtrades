@@ -5,6 +5,7 @@ import viteConfig from "../vite.config";
 import fs from "fs";
 import path from "path";
 import { nanoid } from "nanoid";
+import { ogTagMiddleware } from "./lib/ogMiddleware";
 
 const viteLogger = createLogger();
 
@@ -30,6 +31,24 @@ export async function setupVite(server: Server, app: Express) {
   });
 
   app.use(vite.middlewares);
+
+  // Inject OG meta tags for shared audit report pages (dev mode)
+  const clientTemplate = path.resolve(
+    import.meta.dirname,
+    "..",
+    "client",
+    "index.html",
+  );
+  app.use(
+    ogTagMiddleware(async () => {
+      let template = await fs.promises.readFile(clientTemplate, "utf-8");
+      template = template.replace(
+        `src="/src/main.tsx"`,
+        `src="/src/main.tsx?v=${nanoid()}"`,
+      );
+      return await vite.transformIndexHtml("/", template);
+    })
+  );
 
   app.use("/{*path}", async (req, res, next) => {
     const url = req.originalUrl;

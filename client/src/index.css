@@ -1345,3 +1345,54 @@
   .mkt-btn-secondary:active,
   .mkt-btn-ghost:active { transform: none !important; }
 }
+
+/* ═══════════════════════════════════════════
+   PRINT STYLES — Audit Report
+   ═══════════════════════════════════════════ */
+@media print {
+  /* Hide non-printable elements */
+  [data-print-hide],
+  .no-print {
+    display: none !important;
+  }
+
+  /* Reset background/shadow for cards */
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Ensure score circle colors print */
+  svg circle,
+  svg text {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Avoid page breaks inside cards */
+  [style*="borderRadius: 16"],
+  [style*="border-radius: 16px"] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Clean up spacing */
+  [style*="padding: 16px"],
+  [style*="padding: 24px"] {
+    padding: 12px !important;
+  }
+
+  /* Remove sticky positioning */
+  [style*="position: sticky"],
+  [style*="position: fixed"] {
+    position: static !important;
+  }
+
+  /* Ensure dark backgrounds print */
+  [style*="background: #1A1A2E"],
+  [style*="background: rgb(26, 26, 46)"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

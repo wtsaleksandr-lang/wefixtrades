@@ -2484,4 +2484,63 @@ router.post('/save-email', async (req: Request, res: Response) => {
   }
 });
 
+/* ─── GET /report/:id/og-image — Social sharing preview image ─── */
+import { handleOgImage } from "./lib/ogImage";
+router.get("/report/:id/og-image", handleOgImage);
+
+/* ─── POST /report/:id/send-email — Email report to recipient ─── */
+import { sendAuditReportEmail } from "./lib/sendAuditReport";
+
+// Simple in-memory rate limiter: max 5 emails per IP per 10 minutes
+const emailRateMap = new Map<string, { count: number; resetAt: number }>();
+const EMAIL_RATE_WINDOW = 10 * 60 * 1000; // 10 minutes
+const EMAIL_RATE_MAX = 5;
+
+router.post("/report/:id/send-email", async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return safeJsonError(res, 400, "Report ID required");
+
+    const { recipientEmail } = req.body || {};
+    if (!recipientEmail || typeof recipientEmail !== "string") {
+      return safeJsonError(res, 400, "recipientEmail is required");
+    }
+    const emailTrimmed = recipientEmail.trim().toLowerCase();
+    // Basic email validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
+      return safeJsonError(res, 400, "Invalid email address");
+    }
+
+    // Rate limiting
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    const now = Date.now();
+    let entry = emailRateMap.get(ip);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 0, resetAt: now + EMAIL_RATE_WINDOW };
+      emailRateMap.set(ip, entry);
+    }
+    entry.count++;
+    if (entry.count > EMAIL_RATE_MAX) {
+      return safeJsonError(res, 429, "Too many emails sent. Please try again later.");
+    }
+
+    const origin = `${req.protocol}://${req.get("host")}`;
+    const result = await sendAuditReportEmail({
+      reportId: id,
+      recipientEmail: emailTrimmed,
+      origin,
+    });
+
+    if (!result.ok) {
+      return safeJsonError(res, result.error === "Report not found" ? 404 : 500, result.error || "Failed to send");
+    }
+
+    console.log(`[audit-email] Sent report ${id} to ${emailTrimmed}`);
+    return res.json({ ok: true });
+  } catch (err: any) {
+    console.error("[audit-email] Error:", err?.message);
+    return safeJsonError(res, 500, "Failed to send email");
+  }
+});
+
 export default router;

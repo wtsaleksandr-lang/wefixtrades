@@ -467,11 +467,15 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     onMouseLeave: () => setHovered(null),
   });
 
+  const [emailError, setEmailError] = useState('');
+
   const handleEmailSubmit = async () => {
     if (!email.trim() || !email.includes('@')) return;
     setEmailLoading(true);
+    setEmailError('');
     try {
-      await fetch('/api/audit/save-email', {
+      // Save email capture (fire-and-forget)
+      fetch('/api/audit/save-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -482,10 +486,25 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           city: report?.city,
           score: report?.scores?.total,
         }),
-      });
+      }).catch(() => {});
+
+      // Send actual email with report if we have a reportId
+      if (reportId) {
+        const resp = await fetch(`/api/audit/report/${reportId}/send-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recipientEmail: email.trim() }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          setEmailError(data?.message || 'Failed to send email. Please try again.');
+          setEmailLoading(false);
+          return;
+        }
+      }
       setEmailSubmitted(true);
     } catch {
-      setEmailSubmitted(true);
+      setEmailError('Something went wrong. Please try again.');
     } finally {
       setEmailLoading(false);
     }
@@ -1866,7 +1885,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       )}
 
       {/* SECTION 9 — SHARE */}
-      <div style={{ background: DARK, borderRadius: r16, padding: '24px 20px', textAlign: 'center' }}>
+      <div data-print-hide style={{ background: DARK, borderRadius: r16, padding: '24px 20px', textAlign: 'center' }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Share This Report</div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', marginBottom: 16 }}>Send your audit to a partner or colleague</div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'nowrap' }}>
@@ -1892,11 +1911,27 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             </div>
           ))}
         </div>
+
+        {/* Download PDF */}
+        <button
+          onClick={() => window.print()}
+          {...hoverProps('download-pdf')}
+          style={{
+            marginTop: 16, padding: '10px 20px',
+            background: 'rgba(255,255,255,0.1)', color: WHITE,
+            border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8,
+            fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            opacity: hovered === 'download-pdf' ? 1 : 0.85,
+          }}
+        >
+          Download PDF
+        </button>
       </div>
 
       {/* EMAIL CAPTURE */}
       {!emailSubmitted ? (
-        <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, padding: '24px 20px', marginBottom: 10, textAlign: 'center' }}>
+        <div data-print-hide style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, padding: '24px 20px', marginBottom: 10, textAlign: 'center' }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 4 }}>Save & receive your report</div>
           <div style={{ fontSize: 13, color: GREY, marginBottom: 16, lineHeight: 1.5 }}>
             Get a PDF copy of this report sent to your inbox. No spam, no commitment.
@@ -1918,19 +1953,22 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               {emailLoading ? 'Sending...' : 'Send my PDF →'}
             </button>
           </div>
+          {emailError && (
+            <div style={{ fontSize: 12, color: '#EF4444', marginTop: 8 }}>{emailError}</div>
+          )}
           <div style={{ fontSize: 11, color: GREY, marginTop: 10, opacity: 0.7 }}>We respect your privacy. Unsubscribe anytime.</div>
         </div>
       ) : (
-        <div style={{ background: '#F0FFF4', borderRadius: 16, border: '1px solid #BBF7D0', padding: '20px', marginBottom: 10, textAlign: 'center' }}>
+        <div data-print-hide style={{ background: '#F0FFF4', borderRadius: 16, border: '1px solid #BBF7D0', padding: '20px', marginBottom: 10, textAlign: 'center' }}>
           <div style={{ fontSize: 20, marginBottom: 8 }}>✓</div>
           <div style={{ fontSize: 14, fontWeight: 600, color: '#166534', marginBottom: 4 }}>Report sent!</div>
-          <div style={{ fontSize: 13, color: '#4B5563' }}>Check your inbox for your PDF report shortly.</div>
+          <div style={{ fontSize: 13, color: '#4B5563' }}>Check your inbox for your report shortly.</div>
         </div>
       )}
 
       {/* INLINE CHAT PANEL — desktop only */}
       {!isMobile && (
-        <div style={{ background:WHITE, borderRadius:r16, border:`1px solid ${BORDER}`, marginBottom:16, overflow:'hidden' }}>
+        <div data-print-hide style={{ background:WHITE, borderRadius:r16, border:`1px solid ${BORDER}`, marginBottom:16, overflow:'hidden' }}>
           <div
             onClick={() => setChatExpanded(e => !e)}
             style={{ background:DARK, padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}
@@ -2024,7 +2062,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       </>}
 
       {/* FAQ — bottom of all tabs */}
-      <div style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: '20px 20px', marginBottom: 10 }}>
+      <div data-print-hide style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: '20px 20px', marginBottom: 10 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 12 }}>Common Questions</div>
         {FAQS.map((faq, i) => (
           <div key={i} style={{ borderBottom: i < FAQS.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
@@ -2437,7 +2475,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       })()}
 
       {/* Global Zoom Controls */}
-      <div style={{
+      <div data-print-hide style={{
         position: 'fixed',
         bottom: isMobile ? 16 : 24,
         right: isMobile ? 16 : 24,
