@@ -2562,13 +2562,13 @@ router.get("/report/:id/pdf", async (req: Request, res: Response) => {
     const inline = req.query.inline === "true";
     const disposition = inline ? "inline" : "attachment";
 
-    res.set({
+    res.writeHead(200, {
       "Content-Type": "application/pdf",
       "Content-Disposition": `${disposition}; filename="${result.filename}"`,
-      "Content-Length": String(result.buffer.length),
+      "Content-Length": result.buffer.length,
       "Cache-Control": "private, max-age=300",
     });
-    return res.send(result.buffer);
+    return res.end(result.buffer);
   } catch (err: any) {
     console.error("[audit-pdf] Error:", err?.message);
     return safeJsonError(res, 500, "PDF generation failed");

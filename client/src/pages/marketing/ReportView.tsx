@@ -1903,14 +1903,18 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             <button
               onClick={handleEmailSubmit}
               disabled={emailLoading}
+              {...hoverProps('email-pdf')}
               style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 height: 40, padding: '0 18px',
-                background: CYAN, color: DARK, border: 'none', borderRadius: 8,
+                background: hovered === 'email-pdf' && !emailLoading ? '#00BFB8' : CYAN,
+                color: DARK, border: 'none', borderRadius: 8,
                 fontSize: 13, fontWeight: 700, lineHeight: 1,
                 cursor: emailLoading ? 'not-allowed' : 'pointer',
                 opacity: emailLoading ? 0.7 : 1,
-                whiteSpace: 'nowrap', transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s ease',
+                transform: hovered === 'email-pdf' && !emailLoading ? 'scale(1.02)' : 'scale(1)',
               }}
             >
               {emailLoading ? 'Generating PDF...' : 'Email me the PDF'}
@@ -1918,7 +1922,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             {reportId && (
               <a
                 href={`/api/audit/report/${reportId}/pdf`}
-                download
+                download={`WeFixTrades-Audit-${(business?.name || 'Report').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 60)}.pdf`}
                 {...hoverProps('download-pdf')}
                 style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -1926,7 +1930,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   background: DARK, color: WHITE, borderRadius: 8,
                   fontSize: 13, fontWeight: 600, lineHeight: 1,
                   textDecoration: 'none', whiteSpace: 'nowrap',
-                  border: 'none', transition: 'all 0.15s ease',
+                  border: 'none', transition: 'all 0.2s ease',
                   opacity: hovered === 'download-pdf' ? 0.85 : 1,
                 }}
               >
@@ -1937,7 +1941,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           {emailError && (
             <div style={{ fontSize: 12, color: '#EF4444', marginTop: 8 }}>{emailError}</div>
           )}
-          <div style={{ fontSize: 11, color: GREY, marginTop: 10, opacity: 0.7 }}>No spam. Your report stays private.</div>
+          <div style={{ fontSize: 11, color: GREY, marginTop: 10, opacity: 0.7 }}>We'll only email your report. No spam.</div>
         </div>
       ) : (
         <div data-print-hide style={{ background: '#F0FFF4', borderRadius: r16, border: '1px solid #BBF7D0', padding: '20px', marginBottom: 10, textAlign: 'center' }}>
@@ -1947,7 +1951,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           {reportId && (
             <a
               href={`/api/audit/report/${reportId}/pdf`}
-              download
+              download={`WeFixTrades-Audit-${(business?.name || 'Report').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 60)}.pdf`}
               style={{ display: 'inline-block', marginTop: 12, fontSize: 13, fontWeight: 600, color: DARK, textDecoration: 'underline' }}
             >
               Download PDF directly
