@@ -62,7 +62,6 @@ function busyStep(busy: string | null): number {
   return 1;
 }
 
-
 export default function FreeAudit() {
   const [query, setQuery] = useState("");
   const debounced = useDebouncedValue(query, 400);
@@ -80,7 +79,11 @@ export default function FreeAudit() {
   const lastPredRef = useRef<Prediction | null>(null);
   const [speedData, setSpeedData] = useState<any>(null);
   const [speedLoading, setSpeedLoading] = useState(false);
+  const [websiteAIAnalysis, setWebsiteAIAnalysis] = useState<any>(null);
+  const [websiteQualityChecks, setWebsiteQualityChecks] = useState<any>(null);
+  const [websiteQualityCheckScore, setWebsiteQualityCheckScore] = useState<number>(0);
 
+  const lastTradeRef = useRef<string>('');
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -149,9 +152,10 @@ export default function FreeAudit() {
     return () => document.removeEventListener("keydown", handler);
   }, [dropdownOpen]);
 
-  async function runAudit(pred: Prediction) {
+  async function runAudit(pred: Prediction, tradeOverride?: string) {
     lastPredRef.current = pred;
-    console.log("[Audit] runAudit called:", JSON.stringify({ name: pred.name, place_id: pred.place_id }));
+    if (tradeOverride) lastTradeRef.current = tradeOverride;
+    console.log("[Audit] runAudit called:", JSON.stringify({ name: pred.name, place_id: pred.place_id, tradeOverride }));
     const placeId = (pred.place_id || "").trim();
     try {
       setError(null);
@@ -183,6 +187,7 @@ export default function FreeAudit() {
           speedData: null,
           trade: (details as any).trade || "",
           city: (details as any).city || "",
+          tradeOverride: tradeOverride || null,
         }
       );
       setReport(rep.report_json);
@@ -222,6 +227,9 @@ export default function FreeAudit() {
                 if (data.ready && data.speedData) {
                   console.log('[speed] data ready:', data.speedData);
                   setSpeedData(data.speedData);
+                  if (data.websiteAIAnalysis) setWebsiteAIAnalysis(data.websiteAIAnalysis);
+                  if (data.websiteQualityChecks) setWebsiteQualityChecks(data.websiteQualityChecks);
+                  if (data.websiteQualityCheckScore != null) setWebsiteQualityCheckScore(data.websiteQualityCheckScore);
                   setSpeedLoading(false);
                   return;
                 }
@@ -249,11 +257,6 @@ export default function FreeAudit() {
       setBusy(null);
       setError(e?.message || "Audit failed");
     }
-  }
-
-  function handleBusinessSelect(prediction: Prediction) {
-    setDropdownOpen(false);
-    runAudit(prediction);
   }
 
   const currentStep = busyStep(busy);
@@ -481,7 +484,7 @@ export default function FreeAudit() {
                           key={p.place_id}
                           data-testid={`button-place-${p.place_id}`}
                           className="audit-suggestion"
-                          onClick={() => handleBusinessSelect(p)}
+                          onClick={() => runAudit(p)}
                           style={{
                             width: "100%",
                             textAlign: "left",
@@ -528,7 +531,6 @@ export default function FreeAudit() {
                   )}
                 </div>
               )}
-
 
               {error && (
                 <div
@@ -637,7 +639,7 @@ export default function FreeAudit() {
                     fontSize: 12, color: '#6B7280',
                   }}>
                     Report generated earlier today — <span style={{ color: '#00D4C8', cursor: 'pointer' }}
-                      onClick={() => { if (lastPredRef.current) runAudit(lastPredRef.current); }}>
+                      onClick={() => { if (lastPredRef.current) runAudit(lastPredRef.current, lastTradeRef.current || undefined); }}>
                       Refresh for latest data
                     </span>
                   </div>
@@ -648,6 +650,8 @@ export default function FreeAudit() {
                   reportId={reportId}
                   liveSpeedData={speedData}
                   speedLoading={speedLoading}
+                  liveWebsiteAIAnalysis={websiteAIAnalysis}
+                  liveWebsiteQualityCheckScore={websiteQualityCheckScore}
                 />
               </div>
             );

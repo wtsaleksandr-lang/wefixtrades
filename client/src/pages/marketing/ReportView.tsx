@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList } from "lucide-react";
-import { SERVICES, getServicesForIssues } from '../../../../server/data/services';
+import { SERVICES, getServicesForIssues } from '@shared/services';
 
 // ─── Design tokens ───────────────────
 const DARK = '#0d1514';
@@ -34,19 +34,28 @@ function statusColor(status: string): string {
   return RED;
 }
 
-function ScoreCircle({ score, grade, onClick }: { score: number; grade: string; onClick?: () => void }) {
+function getScoreColor(score: number): string {
+  if (score >= 75) return '#22C55E';
+  if (score >= 50) return '#F59E0B';
+  return '#EF4444';
+}
+
+function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: number; grade: string; onClick?: () => void; displayScore?: number; pulsing?: boolean }) {
+  const shown = displayScore ?? score;
   const r = 45;
   const circ = 2 * Math.PI * r;
-  const fill = (score / 100) * circ;
-  const color = gradeColor(grade);
+  const fill = (shown / 100) * circ;
+  const color = getScoreColor(shown);
+  const pulseStyle = pulsing ? { animation: 'pulse 2s ease-in-out infinite' } : {};
   return (
     <div style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }} onClick={onClick} title="Click to learn more">
+      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
       <svg width="120" height="120" viewBox="0 0 120 120">
         <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8"/>
         <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="8"
           strokeDasharray={`${fill} ${circ - fill}`}
-          strokeLinecap="round" transform="rotate(-90 60 60)"/>
-        <text x="60" y="55" textAnchor="middle" fill={WHITE} fontSize="22" fontWeight="700">{score}</text>
+          strokeLinecap="round" transform="rotate(-90 60 60)" style={pulseStyle}/>
+        <text x="60" y="55" textAnchor="middle" fill={color} fontSize="22" fontWeight="700">{shown}</text>
         <text x="60" y="70" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="11">/100</text>
       </svg>
       <div style={{
@@ -166,12 +175,14 @@ const ShareIcons = {
   ),
 };
 
-export default function ReportView({ report, business, reportId, liveSpeedData, speedLoading }: {
+export default function ReportView({ report, business, reportId, liveSpeedData, speedLoading, liveWebsiteAIAnalysis, liveWebsiteQualityCheckScore }: {
   report: any;
   business: any;
   reportId?: string | null;
   liveSpeedData?: any;
   speedLoading?: boolean;
+  liveWebsiteAIAnalysis?: any;
+  liveWebsiteQualityCheckScore?: number;
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [activeTab, setActiveTab] = useState<'maps' | 'website' | 'plan'>('maps');
@@ -250,6 +261,11 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [activeReview, setActiveReview] = useState(0);
   const [scoreModalOpen, setScoreModalOpen] = useState(false);
   const [metricModal, setMetricModal] = useState<string | null>(null);
+
+  // Score circle animation state
+  const [displayScore, setDisplayScore] = useState(0);
+  const [prevScore, setPrevScore] = useState(0);
+  const animFrameRef = useRef<number>(0);
   const FAQS = [
     { q: "Do I need to learn any software?", a: "None. Everything is set up and managed by our team. You get a simple dashboard to check your results, and a weekly summary sent to your phone. That's it." },
     { q: "How long until I see results?", a: "Most clients see measurable improvements within the first 2–4 weeks — more profile views, more calls, more leads. SEO results compound over 60–90 days." },
@@ -457,19 +473,63 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     else if (speedVal >= 30) speedPoints = 2;
     else speedPoints = 1;
 
-    // QA checks contribution (max 12)
-    const qaScore = report?.websiteQualityCheckScore ?? 0;
+    // QA checks contribution (max 8) — prefer live polled value
+    const qaScore = liveWebsiteQualityCheckScore ?? report?.websiteQualityCheckScore ?? 0;
     const qaMax = 18;
-    const qaPoints = Math.round((qaScore / qaMax) * 12);
+    const qaPoints = Math.round((qaScore / qaMax) * 8);
 
-    return Math.min(20, speedPoints + qaPoints);
-  }, [liveSpeedData, report?.speedData, report?.websiteQualityCheckScore]);
+    // AI visual contribution (max 4) — prefer live polled value
+    const aiAnalysis = liveWebsiteAIAnalysis || report?.websiteAIAnalysis;
+    let aiVisualPts = 0;
+    if (aiAnalysis?.findings && Array.isArray(aiAnalysis.findings)) {
+      const passCount = aiAnalysis.findings.filter((f: any) => f.status === "pass").length;
+      const total = aiAnalysis.findings.length || 1;
+      aiVisualPts = Math.round((passCount / total) * 4);
+    }
+
+    return Math.min(20, speedPoints + qaPoints + aiVisualPts);
+  }, [liveSpeedData, report?.speedData, liveWebsiteQualityCheckScore, report?.websiteQualityCheckScore, liveWebsiteAIAnalysis, report?.websiteAIAnalysis]);
 
   const liveTotal = useMemo(() => {
     if (liveWebsiteScore === null) return scores.total || 0;
     const oldWebsite = scores.websiteQuality?.score || 0;
     return (scores.total || 0) - oldWebsite + liveWebsiteScore;
   }, [liveWebsiteScore, scores]);
+
+  const animateScore = (from: number, to: number) => {
+    const duration = 1200;
+    const start = performance.now();
+    const step = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(from + (to - from) * eased);
+      setDisplayScore(current);
+      if (progress < 1) {
+        animFrameRef.current = requestAnimationFrame(step);
+      }
+    };
+    cancelAnimationFrame(animFrameRef.current);
+    requestAnimationFrame(step);
+  };
+
+  // Animate on mount
+  useEffect(() => {
+    animateScore(0, liveTotal || report?.scores?.total || 0);
+  }, []);
+
+  // Animate on speed arrival
+  useEffect(() => {
+    if (liveTotal && liveTotal !== prevScore) {
+      animateScore(prevScore, liveTotal);
+      setPrevScore(liveTotal);
+    }
+  }, [liveTotal]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => cancelAnimationFrame(animFrameRef.current);
+  }, []);
 
   const websiteScoreNote = (() => {
     if (liveWebsiteScore !== null) {
@@ -614,7 +674,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               </a>
             )}
           </div>
-          <ScoreCircle score={liveTotal} grade={scores.grade || 'D'} onClick={() => setScoreModalOpen(true)} />
+          <ScoreCircle score={liveTotal} grade={scores.grade || 'D'} onClick={() => setScoreModalOpen(true)} displayScore={displayScore} pulsing={liveWebsiteScore === null && !!speedLoading} />
         </div>
         {ai.executiveSummary && (
           <>
@@ -1051,6 +1111,98 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
       )}
 
+      {activeTab === 'website' && (
+        <div style={{ width: '100%', maxWidth: '600px', margin: '32px auto 0' }}>
+          <div style={{
+            backgroundColor: '#0d1514',
+            border: '1px solid #00D4C8',
+            borderRadius: '12px',
+            padding: '28px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '12px',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              backgroundColor: '#00D4C8',
+              color: '#0d1514',
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              padding: '4px 12px',
+              borderRadius: '999px'
+            }}>
+              One-Time Report
+            </div>
+            <h3 style={{
+              color: '#FFFFFF',
+              fontSize: '20px',
+              fontWeight: 700,
+              margin: 0
+            }}>
+              Get Your Full Website Audit
+            </h3>
+            <p style={{
+              color: '#6B7280',
+              fontSize: '14px',
+              margin: 0,
+              maxWidth: '420px',
+              lineHeight: '1.6'
+            }}>
+              See exactly what's breaking your website's performance — page-by-page analysis, SEO gaps, speed fixes, and a prioritized action list.
+            </p>
+            <div style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: '6px',
+              marginTop: '4px'
+            }}>
+              <span style={{
+                color: '#6B7280',
+                fontSize: '13px',
+                textDecoration: 'line-through'
+              }}>
+                $49
+              </span>
+              <span style={{
+                color: '#00D4C8',
+                fontSize: '32px',
+                fontWeight: 800
+              }}>
+                $9.80
+              </span>
+            </div>
+            <button
+              onClick={() => window.location.href = '/checkout?product=website-audit'}
+              style={{
+                backgroundColor: '#00D4C8',
+                color: '#0d1514',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '14px 32px',
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                width: '100%',
+                maxWidth: '320px',
+                marginTop: '4px'
+              }}
+            >
+              Get Full Website Audit — $9.80
+            </button>
+            <p style={{
+              color: '#6B7280',
+              fontSize: '12px',
+              margin: 0
+            }}>
+              Delivered within 24 hours. No subscription.
+            </p>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'plan' && (
         <div>
           {/* A — DETECTED ISSUES HEADER */}
@@ -1436,23 +1588,27 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 {/* SVG score ring */}
                 {(() => {
                   const r = 32, circ = 2 * Math.PI * r;
-                  const fill = (liveTotal / 100) * circ;
-                  const gc = gradeColor(scores.grade || 'D');
+                  const fill = (displayScore / 100) * circ;
+                  const sc = getScoreColor(displayScore);
+                  const modalPulse = (liveWebsiteScore === null && speedLoading) ? { animation: 'pulse 2s ease-in-out infinite' } : {};
                   return (
-                    <svg width="80" height="80" viewBox="0 0 80 80" style={{ flexShrink: 0 }}>
-                      <circle cx="40" cy="40" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7"/>
-                      <circle cx="40" cy="40" r={r} fill="none" stroke={gc} strokeWidth="7"
-                        strokeDasharray={`${fill} ${circ - fill}`}
-                        strokeLinecap="round" transform="rotate(-90 40 40)"/>
-                      <text x="40" y="36" textAnchor="middle" fill={gc} fontSize="19" fontWeight="800">{liveTotal}</text>
-                      <text x="40" y="50" textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize="10">/100</text>
-                    </svg>
+                    <>
+                      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
+                      <svg width="80" height="80" viewBox="0 0 80 80" style={{ flexShrink: 0 }}>
+                        <circle cx="40" cy="40" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7"/>
+                        <circle cx="40" cy="40" r={r} fill="none" stroke={sc} strokeWidth="7"
+                          strokeDasharray={`${fill} ${circ - fill}`}
+                          strokeLinecap="round" transform="rotate(-90 40 40)" style={modalPulse}/>
+                        <text x="40" y="36" textAnchor="middle" fill={sc} fontSize="19" fontWeight="800">{displayScore}</text>
+                        <text x="40" y="50" textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize="10">/100</text>
+                      </svg>
+                    </>
                   );
                 })()}
                 {/* Right: grade pill + status line */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Overall Score</div>
-                  <div style={{ display: 'inline-block', padding: '4px 14px', borderRadius: 20, background: gradeColor(scores.grade || 'D') + '22', border: `1px solid ${gradeColor(scores.grade || 'D')}`, color: gradeColor(scores.grade || 'D'), fontSize: 15, fontWeight: 700 }}>
+                  <div style={{ display: 'inline-block', padding: '4px 14px', borderRadius: 20, background: getScoreColor(displayScore) + '22', border: `1px solid ${getScoreColor(displayScore)}`, color: getScoreColor(displayScore), fontSize: 15, fontWeight: 700 }}>
                     Grade {scores.grade || 'D'}
                   </div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>

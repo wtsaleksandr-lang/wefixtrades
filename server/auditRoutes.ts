@@ -3,7 +3,7 @@ import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
-import { getServicesForIssues } from "./data/services";
+import { getServicesForIssues } from "@shared/services";
 import { db } from "./db";
 import { auditReports } from "@shared/schema";
 import { eq, sql, and, gte, desc } from "drizzle-orm";
@@ -465,6 +465,49 @@ router.post("/speed", async (req: Request, res: Response) => {
       if (screenshotBase64) mergeData.websiteScreenshot = screenshotBase64.slice(0, 100) + "...(truncated)";
       if (websiteAIAnalysis) mergeData.websiteAIAnalysis = websiteAIAnalysis;
 
+      // Recalculate websiteQuality score with speed + AI data
+      const mobileVal = speedDataClean.mobile?.score;
+      const desktopVal = speedDataClean.desktop?.score;
+      let speedPts = 0;
+      const speedScore = typeof mobileVal === "number" ? mobileVal : (typeof desktopVal === "number" ? desktopVal : null);
+      if (speedScore !== null) {
+        if (speedScore >= 90) speedPts = 8;
+        else if (speedScore >= 70) speedPts = 6;
+        else if (speedScore >= 50) speedPts = 4;
+        else if (speedScore >= 30) speedPts = 2;
+        else speedPts = 1;
+      }
+
+      // Read existing QA score from report
+      const existingRows = await db.select().from(auditReports).where(eq(auditReports.id, reportId)).limit(1);
+      const existingData = existingRows[0]?.audit_data as any;
+      const qaScoreVal = typeof existingData?.websiteQualityCheckScore === "number" ? existingData.websiteQualityCheckScore : 0;
+      const qaPointsCalc = Math.round((qaScoreVal / 18) * 8);
+
+      let aiVisualPts = 0;
+      if (websiteAIAnalysis?.findings && Array.isArray(websiteAIAnalysis.findings)) {
+        const passCount = websiteAIAnalysis.findings.filter((f: any) => f.status === "pass").length;
+        const total = websiteAIAnalysis.findings.length || 1;
+        aiVisualPts = Math.round((passCount / total) * 4);
+      }
+
+      const newWebsiteScore = Math.min(speedPts + qaPointsCalc + aiVisualPts, 20);
+      const oldTotal = existingData?.scores?.total || 0;
+      const oldWebsiteScore = existingData?.scores?.websiteQuality?.score || 0;
+      const newTotal = oldTotal - oldWebsiteScore + newWebsiteScore;
+
+      // Update scores in merge data
+      mergeData.scores = {
+        ...(existingData?.scores || {}),
+        total: newTotal,
+        websiteQuality: {
+          score: newWebsiteScore,
+          max: 20,
+          breakdown: { speed: speedPts, htmlChecks: qaPointsCalc, aiVisual: aiVisualPts, mobile: mobileVal ?? null, desktop: desktopVal ?? null },
+        },
+      };
+      console.log('[speed-bg] recalculated websiteQuality:', newWebsiteScore, '(speed:', speedPts, 'qa:', qaPointsCalc, 'aiVisual:', aiVisualPts, ') total:', newTotal);
+
       await db.update(auditReports)
         .set({ audit_data: sql`${auditReports.audit_data} || ${JSON.stringify(mergeData)}::jsonb` })
         .where(eq(auditReports.id, reportId));
@@ -482,10 +525,18 @@ router.get("/speed/:reportId", async (req: Request, res: Response) => {
     const rows = await db.select().from(auditReports).where(eq(auditReports.id, reportId)).limit(1);
     if (!rows.length) return safeJsonError(res, 404, "Report not found");
 
-    const speedData = (rows[0].audit_data as any)?.speedData || null;
+    const auditData = rows[0].audit_data as any;
+    const speedData = auditData?.speedData || null;
     const hasData = speedData?.mobile?.score != null || speedData?.desktop?.score != null;
 
-    return res.json({ ok: true, ready: hasData, speedData: hasData ? speedData : null });
+    return res.json({
+      ok: true,
+      ready: hasData,
+      speedData: hasData ? speedData : null,
+      websiteAIAnalysis: auditData?.websiteAIAnalysis || null,
+      websiteQualityChecks: auditData?.websiteQualityChecks || null,
+      websiteQualityCheckScore: auditData?.websiteQualityCheckScore ?? null,
+    });
   } catch (err) {
     console.error('[speed-poll] error:', err);
     return safeJsonError(res, 500, "Failed to check speed");
@@ -713,17 +764,32 @@ async function fetchSerperRankings(
       return { keyword: kw, data: cachedData };
     }
 
-    const { signal: sSignal, clear: sClear } = withSignal(12000);
+    // Run /search (organic) and /maps (local pack) in parallel
+    const headers = { "X-API-KEY": apiKey, "Content-Type": "application/json" };
+    const body = { q: kw, location: locationStr, gl: "ca", hl: "en" };
+    const { signal: sSignal, clear: sClear } = withSignal(15000);
     try {
-      const r = await fetch("https://google.serper.dev/search", {
-        method: "POST",
-        headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-        body: JSON.stringify({ q: kw, location: locationStr, gl: "ca", hl: "en", num: 20 }),
-        signal: sSignal,
-      });
-      const data = await r.json();
+      const [searchResp, mapsResp] = await Promise.allSettled([
+        fetch("https://google.serper.dev/search", {
+          method: "POST", headers,
+          body: JSON.stringify({ ...body, num: 20 }),
+          signal: sSignal,
+        }).then(r => r.json()),
+        fetch("https://google.serper.dev/maps", {
+          method: "POST", headers,
+          body: JSON.stringify(body),
+          signal: sSignal,
+        }).then(r => r.json()),
+      ]);
+      const searchData = searchResp.status === "fulfilled" ? searchResp.value : {};
+      const mapsData = mapsResp.status === "fulfilled" ? mapsResp.value : {};
+      // Merge maps places into search data as localResults
+      const data = {
+        ...searchData,
+        localResults: Array.isArray(mapsData?.places) ? mapsData.places : [],
+      };
       setCached(cacheKey, data);
-      console.log('[serper] cached:', kw);
+      console.log('[serper] cached:', kw, '— organic:', (data.organic?.length || 0), 'local:', data.localResults.length);
       return { keyword: kw, data };
     } finally {
       sClear();
@@ -983,17 +1049,26 @@ function calculateScores(auditData: any) {
     else webDesktop = 1;
   }
 
-  // QA checks contribution (max 12)
+  // QA checks contribution (max 8)
   const qaScore = typeof auditData.websiteQualityCheckScore === "number" ? auditData.websiteQualityCheckScore : null;
   const qaMax = 18; // sum of all weights
-  const qaPoints = qaScore !== null ? Math.round((qaScore / qaMax) * 12) : 0;
+  const qaPoints = qaScore !== null ? Math.round((qaScore / qaMax) * 8) : 0;
+
+  // AI visual analysis contribution (max 4)
+  const aiAnalysis = auditData.websiteAIAnalysis;
+  let aiVisualPts = 0;
+  if (aiAnalysis?.findings && Array.isArray(aiAnalysis.findings)) {
+    const passCount = aiAnalysis.findings.filter((f: any) => f.status === "pass").length;
+    const total = aiAnalysis.findings.length || 1;
+    aiVisualPts = Math.round((passCount / total) * 4);
+  }
 
   const speedPts = webMobile ?? webDesktop ?? 0;
   // If business has a website but speed data didn't load, score is null (excluded from total)
   const websiteScore: number | null = bd.website && !speedDataAvailable && qaScore === null
     ? null
-    : Math.min(speedPts + qaPoints, 20);
-  console.log('[scoring] websiteQuality:', websiteScore ?? 'null - excluded', '(speed:', speedPts, 'qa:', qaPoints, ')');
+    : Math.min(speedPts + qaPoints + aiVisualPts, 20);
+  console.log('[scoring] websiteQuality:', websiteScore ?? 'null - excluded', '(speed:', speedPts, 'qa:', qaPoints, 'aiVisual:', aiVisualPts, ')');
 
   // Search Visibility — 20pts
   // Local pack pos 1=5, 2=4, 3=3, 4-10=2; Organic 1-3=3, 4-7=2, 8-10=1
@@ -1056,7 +1131,7 @@ function calculateScores(auditData: any) {
 
   return {
     googleMaps: { score: googleMapsScore, max: 25, breakdown: { rating: gmRating, reviews: gmReviews, photos: gmPhotos, description: gmDesc, website: gmWeb } },
-    websiteQuality: { score: websiteScore, max: websiteScore === null ? null : 20, breakdown: { mobile: webMobile, desktop: webDesktop } },
+    websiteQuality: { score: websiteScore, max: websiteScore === null ? null : 20, breakdown: { speed: speedPts, htmlChecks: qaPoints, aiVisual: aiVisualPts, mobile: webMobile, desktop: webDesktop } },
     searchVisibility: { score: searchVisibilityScore, max: 20, breakdown: { keywordPoints: organicPts, localPackBonus: localPackPts } },
     competitorPositioning: { score: competitorScore, max: 15, breakdown: {} },
     adOpportunity: { score: adScore, max: 10, breakdown: { topCPC, totalVol } },
@@ -1104,6 +1179,15 @@ function extractCity(business: any): string {
       return part;
     }
   }
+  // Fallback for "City, ON" or "City, Province" format (2 parts)
+  if (parts.length === 2) {
+    const firstPart = parts[0];
+    // If first part doesn't look like a street address (no numbers at start), use it as city
+    if (firstPart && !/^\d/.test(firstPart)) {
+      console.log("[extractCity] Extracted city from 2-part address:", firstPart);
+      return firstPart;
+    }
+  }
   console.log("[extractCity] Could not extract city");
   return "";
 }
@@ -1138,6 +1222,8 @@ const TYPE_TRADE_MAP: Record<string, string> = {
 
 const NAME_TRADE_MAP: Record<string, string> = {
   window: "cleaning",
+  clean: "cleaning",
+  upkeep: "cleaning",
   wash: "cleaning",
   gutter: "cleaning",
   carpet: "cleaning",
@@ -1209,6 +1295,16 @@ function detectTrade(businessName: string, types: string[]): string {
   return trade;
 }
 
+/* ─── Timeout helper for API calls ─── */
+function withApiTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) =>
+      setTimeout(() => { console.log(`[anthropic] timeout after ${ms}ms`); resolve(fallback); }, ms)
+    ),
+  ]);
+}
+
 /* ─── Screenshot AI Analysis ─── */
 async function analyzeScreenshot(
   screenshotBase64: string,
@@ -1222,24 +1318,29 @@ async function analyzeScreenshot(
     const AnthropicSdk = (await import("@anthropic-ai/sdk")).default;
     const client = new AnthropicSdk();
     const imageData = screenshotBase64.replace(/^data:image\/\w+;base64,/, "");
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 500,
-      messages: [{
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: { type: "base64", media_type: "image/jpeg", data: imageData },
-          },
-          {
-            type: "text",
-            text: `You are analyzing a screenshot of ${businessName}'s website (${trade} business).\n\nEvaluate ONLY what is visible in the screenshot. Respond in JSON only:\n{\n  "findings": [\n    {\n      "label": "Phone number visible",\n      "status": "pass|warn|fail",\n      "note": "one short sentence"\n    }\n  ],\n  "summary": "2 sentences max"\n}\n\nCheck these 5 things:\n1. Phone number visible above fold\n2. Clear call-to-action button\n3. Professional appearance\n4. Business name/logo visible\n5. Services mentioned\n\nStatus: pass=present and good, warn=present but could improve, fail=missing or poor`,
-          },
-        ],
-      }],
-    });
-    const textBlock = response.content.find((b) => b.type === "text");
+    const response = await withApiTimeout(
+      client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 500,
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: { type: "base64", media_type: "image/jpeg", data: imageData },
+            },
+            {
+              type: "text",
+              text: `You are analyzing a screenshot of ${businessName}'s website (${trade} business).\n\nEvaluate ONLY what is visible in the screenshot. Respond in JSON only:\n{\n  "findings": [\n    {\n      "label": "Phone number visible",\n      "status": "pass|warn|fail",\n      "note": "one short sentence"\n    }\n  ],\n  "summary": "2 sentences max"\n}\n\nCheck these 5 things:\n1. Phone number visible above fold\n2. Clear call-to-action button\n3. Professional appearance\n4. Business name/logo visible\n5. Services mentioned\n\nStatus: pass=present and good, warn=present but could improve, fail=missing or poor`,
+            },
+          ],
+        }],
+      }),
+      15000,
+      null as any
+    );
+    if (!response) return null;
+    const textBlock = response.content.find((b: any) => b.type === "text");
     const text = textBlock && textBlock.type === "text" ? textBlock.text : "";
     const clean = text.replace(/```json|```/g, "").trim();
     return JSON.parse(clean);
@@ -1418,7 +1519,8 @@ router.post("/generate", async (req: Request, res: Response) => {
       return safeJsonError(res, 400, "business required");
 
     // ─── Check for recent cached report (24h TTL) ───
-    if (business.placeId) {
+    const forceRefresh = req.body?.forceRefresh === true;
+    if (business.placeId && !forceRefresh) {
       const REPORT_TTL_HOURS = 24;
       const cutoff = new Date(Date.now() - REPORT_TTL_HOURS * 60 * 60 * 1000);
       try {
@@ -1433,6 +1535,43 @@ router.post("/generate", async (req: Request, res: Response) => {
         }
       } catch (err) {
         console.error('[audit] cache check failed:', err);
+      }
+    }
+
+    // ─── Enrich business from Google Places if missing key fields ───
+    if (business.placeId && (!business.hours || !business.hours.length || !business.types || !business.types.length)) {
+      const gmKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (gmKey) {
+        try {
+          const detailFields = "opening_hours/weekday_text,types,formatted_address,address_components,formatted_phone_number,website,name,photos/photo_reference";
+          const detailUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(business.placeId)}&fields=${encodeURIComponent(detailFields)}&key=${encodeURIComponent(gmKey)}`;
+          const detailResp = await fetch(detailUrl);
+          const detailData = await detailResp.json();
+          const result = (detailData as any)?.result;
+          if (result) {
+            if (!business.hours || !business.hours.length) {
+              business.hours = result?.opening_hours?.weekday_text || [];
+            }
+            if (!business.types || !business.types.length) {
+              business.types = Array.isArray(result.types) ? result.types : [];
+            }
+            if (!business.formattedAddress && result.formatted_address) {
+              business.formattedAddress = result.formatted_address;
+            }
+            if (!business.addressComponents && result.address_components) {
+              business.addressComponents = result.address_components;
+            }
+            if (!business.phone && result.formatted_phone_number) {
+              business.phone = result.formatted_phone_number;
+            }
+            if (!business.description && result.editorial_summary?.text) {
+              business.description = result.editorial_summary.text;
+            }
+            console.log('[audit] enriched from Places API — hours:', business.hours?.length, 'types:', business.types?.length);
+          }
+        } catch (err: any) {
+          console.error('[audit] Places enrichment failed:', err?.message);
+        }
       }
     }
 
@@ -1796,7 +1935,7 @@ STRICT RULES — NEVER VIOLATE:
       "reason": string
     }
   ],
-  "demandGapInsight": string|null,
+  "demandGapInsight": string,
   "estimatedMonthlyRevenueLoss": {
     "low": number,
     "high": number,
@@ -1822,6 +1961,7 @@ STRICT RULES — NEVER VIOLATE:
 Rules for actionPlan: Exactly 3 items, HIGH to LOW. One must be free. Base each on a real gap.
 Rules for contentGaps: Exactly 3 items, ordered by search volume desc. Format pageTitle as "{Service} {City} — {Benefit}".
 Rules for executiveSummary: 2-3 sentences. S1: score, grade, one genuine strength with number. S2: single biggest gap with specific number. S3: what fixing it is worth in dollars.
+Rules for demandGapInsight: Always provide a string (never null). If demand gaps exist, explain what they mean. If the business has full coverage (open 24hrs, evenings, weekends), say so positively — e.g. "Your 24/7 availability means you're capturing evening and weekend demand that competitors miss."
 Rules for websiteInsight: 1-2 sentences. If speed data is available, state the mobile score and what it means for customers (e.g. slow load = they leave). If no speed data, set to null. Never mention WeFixTrades.
 
 Business hours: ${JSON.stringify(auditData.business?.hours || [])}
@@ -1842,25 +1982,87 @@ ${keywords.map((k: any) => `${k.keyword}: rank ${k.organicRank || 'not ranking'}
 Business audit data:
 ${JSON.stringify(auditData, null, 2)}`;
 
-        const message = await anthropic.messages.create({
-          model: "claude-sonnet-4-5",
-          max_tokens: 2000,
-          system: systemPrompt,
-          messages: [{ role: "user", content: userPrompt }],
-        });
+        const message = await withApiTimeout(
+          anthropic.messages.create({
+            model: "claude-sonnet-4-5",
+            max_tokens: 4096,
+            system: systemPrompt,
+            messages: [{ role: "user", content: userPrompt }],
+          }),
+          90000,
+          null as any
+        );
+        if (!message) {
+          console.error("[audit] narrative generation timed out after 90s");
+          auditData.narrative = { summary: "", analysis: "", recommendations: [], actionPlan: [], quickWin: null };
+        } else {
 
         const raw = message.content?.[0]?.type === "text" ? message.content[0].text : "";
         console.log("═══ CLAUDE RESPONSE ═══");
         console.log(raw);
         try {
-          const cleaned = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
-          auditData.narrative = JSON.parse(cleaned);
-        } catch {
-          auditData.narrative = { summary: raw, analysis: "", recommendations: "" };
+          // Strip markdown fences and any surrounding text, extract JSON object
+          let cleaned = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
+          // If cleaning didn't produce valid JSON start, extract from first { to last }
+          if (!cleaned.startsWith("{")) {
+            const firstBrace = cleaned.indexOf("{");
+            const lastBrace = cleaned.lastIndexOf("}");
+            if (firstBrace !== -1 && lastBrace > firstBrace) {
+              cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+            }
+          }
+          const parsed = JSON.parse(cleaned);
+          auditData.narrative = parsed;
+          console.log("[audit] narrative parsed OK, keys:", Object.keys(parsed));
+        } catch (parseErr: any) {
+          console.error("[audit] narrative JSON parse failed:", parseErr?.message);
+          // Try to salvage truncated JSON by closing open braces/brackets
+          try {
+            let salvaged = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
+            const firstBrace = salvaged.indexOf("{");
+            if (firstBrace !== -1) salvaged = salvaged.substring(firstBrace);
+            // Count open braces/brackets and close them
+            let openBraces = 0, openBrackets = 0;
+            let inString = false, escaped = false;
+            for (const ch of salvaged) {
+              if (escaped) { escaped = false; continue; }
+              if (ch === '\\') { escaped = true; continue; }
+              if (ch === '"') { inString = !inString; continue; }
+              if (inString) continue;
+              if (ch === '{') openBraces++;
+              if (ch === '}') openBraces--;
+              if (ch === '[') openBrackets++;
+              if (ch === ']') openBrackets--;
+            }
+            // Trim trailing incomplete values and close
+            salvaged = salvaged.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"{}[\]]*$/, "");
+            while (openBrackets > 0) { salvaged += "]"; openBrackets--; }
+            while (openBraces > 0) { salvaged += "}"; openBraces--; }
+            const parsed2 = JSON.parse(salvaged);
+            auditData.narrative = parsed2;
+            console.log("[audit] narrative salvaged OK, keys:", Object.keys(parsed2));
+          } catch {
+            auditData.narrative = { summary: raw, analysis: "", recommendations: "" };
+          }
         }
+        } // close else (message exists)
       }
     } catch (aiErr: any) {
       console.error("AI narrative generation failed:", aiErr?.message);
+    }
+
+    // ─── Inject DataForSEO volumes into contentGaps ───
+    if (auditData.narrative?.contentGaps && volumeMap) {
+      auditData.narrative.contentGaps = auditData.narrative.contentGaps.map((gap: any) => {
+        const kw = gap.targetKeyword?.toLowerCase()?.trim();
+        const vol = kw ? (volumeMap[kw] || volumeMap[kw?.split(' ')[0]]) : null;
+        return {
+          ...gap,
+          monthlySearches: gap.monthlySearches || vol?.searchVolume || null,
+          cpc: gap.cpc || vol?.cpc || null,
+        };
+      });
+      console.log('[audit] contentGaps enriched with volume data');
     }
 
     // ─── Save report to database ───
