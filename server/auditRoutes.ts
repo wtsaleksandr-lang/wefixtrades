@@ -330,12 +330,22 @@ async function fetchPageSpeed(siteUrl: string, strategy?: "mobile" | "desktop"):
         const score = Math.round(score01 * 100);
         const audits = lhr?.audits || {};
         const numVal = (k: string) => { const v = audits[k]?.numericValue; return typeof v === "number" ? v : null; };
-        const screenshotData =
-          audits?.["final-screenshot"]?.details?.data ||
-          audits?.["screenshot-thumbnails"]?.details?.items?.[0]?.data ||
-          null;
-        if (screenshotData) {
-          console.log('[pagespeed] screenshot: extracted, length:', screenshotData.length);
+        // Extract screenshot — try final-screenshot first, then thumbnails
+        let screenshotData: string | null = null;
+        if (audits?.["final-screenshot"]?.details?.data) {
+          screenshotData = audits["final-screenshot"].details.data;
+          console.log('[pagespeed] screenshot: from final-screenshot, length:', screenshotData!.length);
+        } else if (audits?.["screenshot-thumbnails"]?.details?.items?.length) {
+          // Use the last (largest) thumbnail
+          const items = audits["screenshot-thumbnails"].details.items;
+          screenshotData = items[items.length - 1]?.data || null;
+          if (screenshotData) console.log('[pagespeed] screenshot: from thumbnails, length:', screenshotData.length);
+        } else if (audits?.["full-page-screenshot"]?.details?.screenshot?.data) {
+          screenshotData = audits["full-page-screenshot"].details.screenshot.data;
+          console.log('[pagespeed] screenshot: from full-page-screenshot, length:', screenshotData!.length);
+        }
+        if (!screenshotData) {
+          console.log('[pagespeed] screenshot: not found in audit keys:', Object.keys(audits).filter(k => k.includes('screenshot')));
         }
         return {
           score,
@@ -1477,7 +1487,7 @@ async function analyzeScreenshot(
     const response = await withApiTimeout(
       client.messages.create({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 500,
+        max_tokens: 700,
         messages: [{
           role: "user",
           content: [
@@ -1487,7 +1497,7 @@ async function analyzeScreenshot(
             },
             {
               type: "text",
-              text: `You are analyzing a screenshot of ${businessName}'s website (${trade} business).\n\nEvaluate ONLY what is visible in the screenshot. Respond in JSON only:\n{\n  "findings": [\n    {\n      "label": "Phone number visible",\n      "status": "pass|warn|fail",\n      "note": "one short sentence"\n    }\n  ],\n  "summary": "2 sentences max"\n}\n\nCheck these 5 things:\n1. Phone number visible above fold\n2. Clear call-to-action button\n3. Professional appearance\n4. Business name/logo visible\n5. Services mentioned\n\nStatus: pass=present and good, warn=present but could improve, fail=missing or poor`,
+              text: `You are analyzing a screenshot of ${businessName}'s website (${trade} business).\n\nEvaluate ONLY what is visible in the screenshot. Respond in JSON only:\n{\n  "findings": [\n    {\n      "label": "Phone number visible",\n      "status": "pass|warn|fail",\n      "note": "one short sentence"\n    }\n  ],\n  "summary": "2 sentences max"\n}\n\nCheck these 7 things:\n1. Phone number visible above fold\n2. Clear call-to-action button\n3. Professional appearance\n4. Business name/logo visible\n5. Services mentioned\n6. Instant quote tool or calculator (look for quote forms, price calculators, cost estimators, "get a quote" widgets — NOT just a "request quote" contact form)\n7. Live chat or voice widget (look for chat bubbles, chat icons, "chat with us" widgets, AI assistants, voice call widgets in corners of the page)\n\nStatus: pass=present and good, warn=present but could improve, fail=missing or not visible`,
             },
           ],
         }],
@@ -1522,6 +1532,8 @@ async function analyzeWebsiteQuality(url: string): Promise<{
     hasMetaDescription: false,
     hasSSL: false,
     hasMobileViewport: false,
+    hasInstantQuoteTool: false,
+    hasLiveChatWidget: false,
   };
 
   // SSL check (free, instant)
@@ -1583,6 +1595,31 @@ async function analyzeWebsiteQuality(url: string): Promise<{
     // Mobile viewport
     checks.hasMobileViewport = $('meta[name="viewport"]').length > 0;
 
+    // Instant quote tool / calculator
+    const bodyLower = bodyText.toLowerCase();
+    const htmlLower = html.toLowerCase();
+    const quoteToolIndicators = [
+      // Interactive calculator elements
+      $('input[type="range"]').length > 0,
+      // Price/cost calculator keywords near form elements
+      $('[class*="calculator"], [id*="calculator"], [class*="quote-tool"], [id*="quote-tool"], [class*="estimat"], [id*="estimat"]').length > 0,
+      // Instant/online quote language (not just "request a quote" contact forms)
+      /instant\s+quote|online\s+quote|price\s+calculator|cost\s+calculator|cost\s+estimat|get\s+your\s+price|calculate\s+your|quote\s+calculator/i.test(bodyText),
+    ];
+    checks.hasInstantQuoteTool = quoteToolIndicators.some(Boolean);
+
+    // Live chat / voice widget
+    const chatWidgetIndicators = [
+      // Common chat widget scripts
+      /tawk\.to|livechat|intercom|drift|crisp|hubspot.*conversations|zendesk.*chat|tidio|olark|freshchat|smartsupp|chatwoot|jivochat/i.test(htmlLower),
+      // Chat widget DOM elements
+      $('[class*="chat-widget"], [class*="chatbot"], [class*="live-chat"], [id*="chat-widget"], [id*="livechat"], [class*="chat-bubble"], [id*="tawk"], [id*="intercom"], [class*="drift-"]').length > 0,
+      // Voice/call widgets
+      $('[class*="call-widget"], [class*="callback"], [id*="callbackwidget"], [class*="click-to-call"]').length > 0,
+      /chat\s+with\s+us|live\s+chat|chat\s+now|talk\s+to\s+(us|an?\s+agent)|ai\s+assistant/i.test(bodyText),
+    ];
+    checks.hasLiveChatWidget = chatWidgetIndicators.some(Boolean);
+
     console.log("[website-qa] checks:", checks);
   } catch (err: any) {
     console.error("[website-qa] error:", err.message);
@@ -1598,6 +1635,8 @@ async function analyzeWebsiteQuality(url: string): Promise<{
     hasMetaDescription: 1,
     hasSSL: 2,
     hasMobileViewport: 2,
+    hasInstantQuoteTool: 3,
+    hasLiveChatWidget: 3,
   };
 
   let score = 0;
