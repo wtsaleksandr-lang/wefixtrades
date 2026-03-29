@@ -1062,6 +1062,28 @@
   to   { opacity: 1; }
 }
 
+@keyframes mktDropdownOut {
+  from {
+    opacity: 1;
+    transform: translateX(-50%);
+    clip-path: inset(0 0 0% 0 round 20px);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%);
+    clip-path: inset(0 0 96% 0 round 20px);
+  }
+}
+
+@keyframes mktDropdownOverlayOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.mkt-dropdown-tray--exit {
+  pointer-events: none;
+}
+
 /* Individual dark card */
 .mkt-menu-card {
   background: #181d1c;
