@@ -1,52 +1,7 @@
-export type NavItem = {
-  label: string;
-  href?: string;
-  children?: { label: string; href: string; desc?: string; icon?: string }[];
-};
-
-export const TOP_NAV: NavItem[] = [
-  {
-    label: "Products",
-    children: [
-      { label: "TradeLine™", href: "/products/assistants", desc: "24/7 lead handling ecosystem.", icon: "workflow" },
-      { label: "AI ChatLine™", href: "/products/ai-chat", desc: "Website + SMS AI chat handling.", icon: "message" },
-      { label: "AI CallLine™", href: "/products/ai-voice", desc: "24/7 AI voice answering.", icon: "phone" },
-      { label: "TradeLine™ Complete", href: "/products/tradeline-complete", desc: "Chat + Voice + DMs.", icon: "layers" },
-
-      { label: "MapGuard™", href: "/products/mapguard", desc: "Google Maps optimization.", icon: "map" },
-
-      { label: "ReputationShield™", href: "/products/reputationshield", desc: "Reviews + reputation automation.", icon: "shield" },
-      { label: "SiteLaunch™", href: "/products/sitelaunch", desc: "High-converting website builds.", icon: "layout" },
-      { label: "WebBoost™", href: "/products/webboost", desc: "Website speed + SEO optimization.", icon: "rocket" },
-      { label: "Fix & Optimize™", href: "/products/fix-and-optimize", desc: "Quick improvements package.", icon: "sparkle" },
-
-      { label: "QuoteQuick Pro™", href: "/products/quickquotepro", desc: "Instant quotes on your site.", icon: "calculator" },
-
-      { label: "SocialSync™", href: "/products/socialsync", desc: "Social management automation.", icon: "share" },
-    ],
-  },
-  {
-    label: "Solutions",
-    children: [
-      { label: "For Plumbers", href: "/solutions/for-plumbers", desc: "Win more plumbing leads.", icon: "pipe" },
-      { label: "For HVAC", href: "/solutions/for-hvac", desc: "Book HVAC service calls.", icon: "fan" },
-      { label: "For Electricians", href: "/solutions/for-electricians", desc: "Automate quotes & follow-ups.", icon: "zap" },
-      { label: "For Roofers", href: "/solutions/for-roofers", desc: "Boost visibility & conversions.", icon: "home" },
-      { label: "For Cleaners", href: "/solutions/for-cleaners", desc: "Get booked on autopilot.", icon: "sparkles" },
-    ],
-  },
-  { label: "Templates", href: "/templates" },
-  { label: "Plans", href: "/plans" },
-  {
-    label: "Resources",
-    children: [
-      { label: "Demo Center", href: "/demos", desc: "Try live demos.", icon: "play" },
-      { label: "Docs", href: "/docs", desc: "Guides & references.", icon: "file" },
-      { label: "Blog", href: "/blog", desc: "Tips & updates.", icon: "pen" },
-      { label: "Case Studies", href: "/case-studies", desc: "Customer success stories.", icon: "trophy" },
-    ],
-  },
-];
+// Navigation types and data are defined in @/site/navigation.ts (single source of truth).
+// Re-export for any code that was importing NavItem from this file.
+export type { NavItem } from "./navigation";
+export { NAV_LINKS } from "./navigation";
 
 export const DEMOS = [
   { label: "Demo Center", href: "/demos" },

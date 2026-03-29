@@ -270,6 +270,9 @@ export default function FreeAudit() {
           background: radial-gradient(circle, rgba(0,0,0,0.13) 1px, transparent 1px), linear-gradient(180deg, rgba(236,242,244,1) 0%, rgba(248,250,252,1) 55%, rgba(236,242,244,1) 100%);
           background-size: 22px 22px, 100% 100%;
           position: relative;
+          margin-top: -92px;
+          padding-top: 92px;
+          box-sizing: border-box;
         }
         .audit-page::before {
           content: "";

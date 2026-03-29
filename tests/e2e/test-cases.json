@@ -1,0 +1,23 @@
+[
+  {
+    "id": "strong-local",
+    "query": "DrainWorks Plumbing Toronto",
+    "category": "strong-local",
+    "strict": true,
+    "notes": "Well-established plumbing business. Expected strong local pack presence and decent scores."
+  },
+  {
+    "id": "moderate-locksmith",
+    "query": "Mr. Locksmith Toronto",
+    "category": "moderate",
+    "strict": true,
+    "notes": "Locksmith trade. Expected to appear in local results."
+  },
+  {
+    "id": "niche-fob",
+    "query": "Toronto Key Fob Copy",
+    "category": "misaligned-niche",
+    "strict": false,
+    "notes": "Niche fob service. May trigger niche misalignment detection. Diagnostic only — query may not match a specific business."
+  }
+]

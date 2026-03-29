@@ -404,14 +404,14 @@
 /* Match nav card to hero shell at each breakpoint */
 @media (max-width: 768px) {
   .mkt-nav > div:first-child {
-    border-radius: 20px !important;
+    border-radius: 14px !important;
     margin-top: 10px !important;
     width: calc(100% - 16px) !important;
   }
 }
 @media (max-width: 430px) {
   .mkt-nav > div:first-child {
-    border-radius: 18px !important;
+    border-radius: 12px !important;
     margin-top: 8px !important;
     width: calc(100% - 12px) !important;
   }
@@ -1060,6 +1060,28 @@
 @keyframes mktDropdownOverlayIn {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+@keyframes mktDropdownOut {
+  from {
+    opacity: 1;
+    transform: translateX(-50%);
+    clip-path: inset(0 0 0% 0 round 20px);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%);
+    clip-path: inset(0 0 96% 0 round 20px);
+  }
+}
+
+@keyframes mktDropdownOverlayOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.mkt-dropdown-tray--exit {
+  pointer-events: none;
 }
 
 /* Individual dark card */

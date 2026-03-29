@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList } from "lucide-react";
+import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight } from "lucide-react";
 import { SERVICES, getServicesForIssues } from '@shared/services';
 
 // ─── Design tokens ───────────────────
@@ -46,18 +46,54 @@ function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: 
   const circ = 2 * Math.PI * r;
   const fill = (shown / 100) * circ;
   const color = getScoreColor(shown);
-  const pulseStyle = pulsing ? { animation: 'pulse 2s ease-in-out infinite' } : {};
+  const isRefining = !!pulsing;
+  // Animated sweep segment: a short arc that travels around the ring
+  const sweepLen = circ * 0.18;
   return (
     <div style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }} onClick={onClick} title="Click to learn more">
-      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
-      <svg width="120" height="120" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8"/>
-        <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="8"
-          strokeDasharray={`${fill} ${circ - fill}`}
-          strokeLinecap="round" transform="rotate(-90 60 60)" style={pulseStyle}/>
-        <text x="60" y="55" textAnchor="middle" fill={color} fontSize="22" fontWeight="700">{shown}</text>
-        <text x="60" y="70" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="11">/100</text>
-      </svg>
+      <style>{`
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        @keyframes scoreSweep {
+          0% { stroke-dashoffset: 0; }
+          100% { stroke-dashoffset: ${-circ}; }
+        }
+        @keyframes scoreGlowPulse {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.55; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .score-sweep, .score-glow-ring { animation: none !important; }
+        }
+      `}</style>
+      <div style={{ position: 'relative', width: 120, height: 120, margin: '0 auto' }}>
+        {/* Soft glow behind ring — only while refining */}
+        {isRefining && (
+          <div className="score-glow-ring" style={{
+            position: 'absolute', inset: 10, borderRadius: '50%',
+            background: color, filter: 'blur(14px)', opacity: 0.3,
+            animation: 'scoreGlowPulse 2s ease-in-out infinite',
+          }}/>
+        )}
+        <svg width="120" height="120" viewBox="0 0 120 120" style={{ position: 'relative', zIndex: 1 }}>
+          {/* Background track */}
+          <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8"/>
+          {/* Score fill arc */}
+          <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="8"
+            strokeDasharray={`${fill} ${circ - fill}`}
+            strokeLinecap="round" transform="rotate(-90 60 60)"/>
+          {/* Animated sweep overlay — only while refining */}
+          {isRefining && (
+            <circle className="score-sweep" cx="60" cy="60" r={r} fill="none"
+              stroke={color} strokeWidth="8" strokeLinecap="round"
+              strokeDasharray={`${sweepLen} ${circ - sweepLen}`}
+              transform="rotate(-90 60 60)"
+              opacity={0.35}
+              style={{ animation: 'scoreSweep 2s linear infinite' }}/>
+          )}
+          <text x="60" y="55" textAnchor="middle" fill={color} fontSize="22" fontWeight="700">{shown}</text>
+          <text x="60" y="70" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="11">/100</text>
+        </svg>
+      </div>
       <div style={{
         display: 'inline-block', padding: '3px 14px', borderRadius: 20,
         background: color + '22', border: `1px solid ${color}`,
@@ -65,7 +101,11 @@ function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: 
       }}>
         Grade {grade}
       </div>
-      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>tap to explain</div>
+      {/* Hidden test anchor for score extraction */}
+      <span data-testid="score-value" data-score={shown} data-grade={grade} style={{ display: 'none' }} />
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>
+        {isRefining ? 'Progressing' : 'Tap for more'}
+      </div>
     </div>
   );
 }
@@ -261,18 +301,21 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [activeReview, setActiveReview] = useState(0);
   const [scoreModalOpen, setScoreModalOpen] = useState(false);
   const [metricModal, setMetricModal] = useState<string | null>(null);
+  const [breakdownModal, setBreakdownModal] = useState<string | null>(null);
+  const [issueModal, setIssueModal] = useState<number | null>(null);
+  const [speedDevice, setSpeedDevice] = useState<'mobile' | 'desktop'>('mobile');
 
   // Score circle animation state
   const [displayScore, setDisplayScore] = useState(0);
   const [prevScore, setPrevScore] = useState(0);
   const animFrameRef = useRef<number>(0);
   const FAQS = [
-    { q: "Do I need to learn any software?", a: "None. Everything is set up and managed by our team. You get a simple dashboard to check your results, and a weekly summary sent to your phone. That's it." },
-    { q: "How long until I see results?", a: "Most clients see measurable improvements within the first 2–4 weeks — more profile views, more calls, more leads. SEO results compound over 60–90 days." },
-    { q: "Is there a contract or cancellation fee?", a: "No contracts. No cancellation fees. Cancel any time with 30 days notice. We keep clients by delivering results, not by locking them in." },
-    { q: "What makes you different from a regular marketing agency?", a: "We built this exclusively for trades businesses. The tools, the AI, the automations — all designed around how plumbers, locksmiths, and HVAC techs actually work." },
-    { q: "What happens after I select my services?", a: "Complete a quick 5-minute onboarding form. Our team sets everything up within 48 hours. You get a confirmation with your login details and next steps." },
-    { q: "Can I start with one service and add more later?", a: "Absolutely. Most clients start with one or two services, see the results, and expand from there. No pressure to buy everything at once." },
+    { q: "Do I need to learn any software?", a: "No. Our team handles everything. You get a simple dashboard and a weekly summary sent to your phone — no training, no software to install." },
+    { q: "How long until I see results?", a: "Most trades businesses see more calls and profile views within 2–4 weeks. SEO gains compound over 60–90 days and keep growing." },
+    { q: "Is there a contract or cancellation fee?", a: "No contracts, no cancellation fees. Cancel anytime with 30 days notice. We earn your business every month through results." },
+    { q: "What makes you different from a regular marketing agency?", a: "We only work with trades businesses. Every tool, automation, and strategy is built specifically for how plumbers, electricians, and HVAC techs get jobs." },
+    { q: "Who does the work for me?", a: "Our team does. From setup to optimization, we handle everything. You focus on running jobs — we handle getting them to ring your phone." },
+    { q: "What happens after I get this report?", a: "Pick the services that match your biggest gaps. Complete a 5-minute onboarding form. Our team sets everything up within 48 hours and you start seeing results." },
   ];
   const hoverProps = (id: string) => ({
     onMouseEnter: () => setHovered(id),
@@ -414,11 +457,13 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const lowRatingCount = competitors.filter((c: any) => (c.rating || 0) < 4.3).length;
   const maxReviews = Math.max(businessReviews, ...competitors.map((c: any) => c.reviewsCount || 0), 1);
 
-  const METRIC_EXPLANATIONS: Record<string, { title: string; what: string; why: string; thresholds: { label: string; value: string; color: string }[] }> = {
+  const METRIC_EXPLANATIONS: Record<string, { title: string; what: string; why: string; diy: string; timeline: string; thresholds: { label: string; value: string; color: string }[] }> = {
     fcp: {
       title: 'First Contentful Paint (FCP)',
-      what: 'The time from when the page starts loading to when any text or image is first visible on screen.',
-      why: 'A fast FCP reassures visitors that the page is actually loading. Slow FCP causes users to bounce before your content appears.',
+      what: 'How long until the first text or image appears on screen after a visitor opens your page.',
+      why: 'Slow FCP makes visitors more likely to leave before seeing anything. Faster load times improve engagement and reduce bounces.',
+      diy: 'Compress and resize images. Enable browser caching. Preload critical fonts. Minimize render-blocking CSS.',
+      timeline: '1–3 days for image optimization; 1–2 weeks for full render-path cleanup.',
       thresholds: [
         { label: 'Good', value: '< 1.8s', color: GREEN },
         { label: 'Needs work', value: '1.8s – 3s', color: AMBER },
@@ -427,8 +472,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     },
     lcp: {
       title: 'Largest Contentful Paint (LCP)',
-      what: 'The time until the largest visible element (hero image, heading, etc.) fully loads on screen.',
-      why: 'LCP is a Core Web Vital and a direct Google ranking factor. A slow LCP pushes your site lower in search results and loses customers before they even read your offer.',
+      what: 'How long until the main visual element — usually a hero image or heading — fully loads on screen.',
+      why: 'LCP is a Core Web Vital used by Google for ranking. A slow LCP hurts rankings and causes visitors to leave before the page feels ready.',
+      diy: 'Compress and convert your hero image to WebP. Remove unused JavaScript. Improve server response time. Consider a CDN for static assets.',
+      timeline: '2–5 days for image and server fixes; 2–4 weeks if hosting or CMS changes are needed.',
       thresholds: [
         { label: 'Good', value: '< 2.5s', color: GREEN },
         { label: 'Needs work', value: '2.5s – 4s', color: AMBER },
@@ -437,8 +484,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     },
     tbt: {
       title: 'Total Blocking Time (TBT)',
-      what: 'The total time the page is unresponsive to clicks and taps while JavaScript is running in the background.',
-      why: "High TBT makes your site feel frozen. Visitors who can't tap a button or scroll smoothly will leave — hurting both conversions and your Google ranking.",
+      what: 'Total time your page is frozen and unresponsive to clicks or taps while JavaScript runs in the background.',
+      why: 'High TBT makes your site feel unresponsive. Visitors who cannot tap buttons or scroll smoothly are more likely to leave.',
+      diy: 'Defer non-critical JavaScript. Remove unused plugins and tracking scripts. Break up long tasks. Lazy-load third-party widgets.',
+      timeline: '1–3 days for quick script removal; 2–4 weeks for full JavaScript audit and cleanup.',
       thresholds: [
         { label: 'Good', value: '< 200ms', color: GREEN },
         { label: 'Needs work', value: '200ms – 600ms', color: AMBER },
@@ -447,8 +496,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     },
     cls: {
       title: 'Cumulative Layout Shift (CLS)',
-      what: "Measures how much page elements unexpectedly jump around while the page loads (e.g. a button moves just as you're about to tap it).",
-      why: 'CLS is a Core Web Vital. Unexpected layout shifts frustrate users and cause accidental clicks. Google penalises sites with poor CLS in search rankings.',
+      what: 'Measures how much visible elements jump around unexpectedly while the page loads — buttons shifting, text moving, images popping in.',
+      why: 'Layout shifts frustrate visitors and cause accidental clicks. Google factors CLS into search rankings, so poor scores hurt visibility.',
+      diy: 'Set width and height on all images and videos. Avoid inserting content above existing elements. Use CSS font-display to prevent text reflow.',
+      timeline: '1–2 days for dimension fixes; 1–2 weeks if ad slots or dynamic content are involved.',
       thresholds: [
         { label: 'Good', value: '< 0.1', color: GREEN },
         { label: 'Needs work', value: '0.1 – 0.25', color: AMBER },
@@ -545,13 +596,58 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     return 'Speed test unavailable';
   })();
 
+  const BREAKDOWN_EXPLANATIONS: Record<string, { title: string; what: string; why: string; diy: string; timeline: string }> = {
+    googleMaps: {
+      title: 'Google Maps Profile',
+      what: 'How complete, active, and trustworthy your Google Business Profile looks to both Google and potential customers.',
+      why: 'A stronger profile improves local rankings, drives more calls, and helps more people choose your business over competitors.',
+      diy: 'Add all relevant business categories. Upload quality photos of your work, team, and location. Write a keyword-rich description. Respond to reviews and post updates regularly.',
+      timeline: '1–2 weeks for a full profile overhaul; ongoing weekly maintenance to stay competitive.',
+    },
+    websiteQuality: {
+      title: 'Website Quality',
+      what: 'How well your website performs across speed, mobile experience, trust signals, and conversion elements like click-to-call.',
+      why: 'A weak website loses leads silently. A fast, mobile-friendly site turns more visitors into booked jobs.',
+      diy: 'Run PageSpeed Insights to find issues. Compress images. Ensure mobile responsiveness. Add click-to-call buttons. Fix broken links.',
+      timeline: '1–2 weeks for quick fixes; 4–8 weeks for a full performance and conversion overhaul.',
+    },
+    searchVisibility: {
+      title: 'Search Visibility',
+      what: 'How easily your business appears in Google search results when people search for your services locally.',
+      why: 'Low visibility means missed traffic, missed calls, and missed revenue from people already looking for what you offer.',
+      diy: 'Create service-specific pages for your core keywords. Add location content. Build local backlinks. Keep your Google profile active.',
+      timeline: '2–4 weeks for content creation; 60–90 days for meaningful organic ranking improvements.',
+    },
+    competitorPosition: {
+      title: 'Competitor Position',
+      what: 'How your visibility and positioning compares against nearby competitors in your local market.',
+      why: 'Where competitors outrank you, they capture the calls and jobs you are missing.',
+      diy: 'Audit competitor profiles. Work toward matching their review count and photo count. Create more location-specific content. Monitor ranking changes regularly.',
+      timeline: '2–4 weeks for initial competitive audit; ongoing monthly effort to close gaps.',
+    },
+    adOpportunity: {
+      title: 'Ad Opportunity',
+      what: 'Whether paid search ads would help capture demand in areas where your organic visibility is weak.',
+      why: 'When organic reach is limited, ads place your business in front of ready-to-book customers immediately.',
+      diy: 'Set up a Google Ads account. Research local service keywords. Create ad groups by service type. Set a daily budget and monitor cost-per-lead.',
+      timeline: '1–2 weeks to launch a basic campaign; 30–60 days to optimize for cost-effective results.',
+    },
+    demandCoverage: {
+      title: 'Demand Coverage',
+      what: 'Whether your business appears when customers search during the times and situations that matter most — evenings, weekends, emergencies.',
+      why: 'Coverage gaps cause missed leads during high-value demand windows, even if your business performs well during normal hours.',
+      diy: 'Extend your listed business hours. Create pages targeting emergency and after-hours searches. Schedule Google posts during peak demand periods.',
+      timeline: '1–2 weeks for hours and content updates; ongoing adjustment based on when leads come in.',
+    },
+  };
+
   const scoreRows = [
-    { icon: <MapPin size={18} color="#00D4C8" />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
-    { icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote },
-    { icon: <Search size={18} color="#00D4C8" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
-    { icon: <Trophy size={18} color="#00D4C8" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
-    { icon: <Megaphone size={18} color="#00D4C8" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'The paid search market in your area' },
-    { icon: <Clock size={18} color="#00D4C8" />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you're visible when customers search most" },
+    { key: 'googleMaps', icon: <MapPin size={18} color="#00D4C8" />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
+    { key: 'websiteQuality', icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote },
+    { key: 'searchVisibility', icon: <Search size={18} color="#00D4C8" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
+    { key: 'competitorPosition', icon: <Trophy size={18} color="#00D4C8" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
+    { key: 'adOpportunity', icon: <Megaphone size={18} color="#00D4C8" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'The paid search market in your area' },
+    { key: 'demandCoverage', icon: <Clock size={18} color="#00D4C8" />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you're visible when customers search most" },
   ];
 
   const card = (extra?: any) => ({
@@ -624,24 +720,32 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: window.innerWidth >= 1024 ? 960 : 780, margin: '0 auto', padding: isTiny ? '0 10px 80px' : isMobile ? '0 16px 80px' : '0 16px 48px', boxSizing: 'border-box', position: 'relative' }}>
 
       {/* TAB BAR */}
-      <div style={{ display:'flex', background:WHITE, borderBottom:'2px solid #F3F4F6', padding:'0 16px', position:'sticky', top:0, zIndex:20, gap:0, width:'100%' }}>
-        {(['maps','website','plan'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} {...hoverProps(`tab-${tab}`)} style={{
-            padding:'14px 20px', fontSize:13, fontWeight: activeTab===tab ? 600 : 500,
-            color: activeTab===tab ? DARK : hovered===`tab-${tab}` ? '#4B5563' : '#9CA3AF',
-            border:'none', background: hovered===`tab-${tab}` && activeTab!==tab ? '#F9FAFB' : 'transparent',
-            borderBottom: activeTab===tab ? '2px solid #00D4C8' : '2px solid transparent',
-            marginBottom:-2, cursor:'pointer', whiteSpace:'nowrap',
-            display:'flex', alignItems:'center', gap:6, transition:'all 0.15s ease', letterSpacing:'0.01em',
-          }}>
-            {tab==='maps' ? 'Google Maps' : tab==='website' ? 'Website' : 'Action Plan'}
-          </button>
-        ))}
+      <div style={{ display:'flex', justifyContent:'center', background:WHITE, padding:'10px 16px', position:'sticky', top:0, zIndex:20, width:'100%' }}>
+        <div style={{ display:'inline-flex', background:'#F3F4F6', borderRadius:24, padding:3, gap:2 }}>
+          {(['maps','website','plan'] as const).map(tab => (
+            <button key={tab} data-testid={`tab-${tab}`} onClick={() => setActiveTab(tab)} {...hoverProps(`tab-${tab}`)} style={{
+              padding:'8px 18px', fontSize:13, fontWeight: activeTab===tab ? 600 : 500,
+              color: activeTab===tab ? DARK : hovered===`tab-${tab}` ? '#4B5563' : '#9CA3AF',
+              border:'none', borderRadius:20, cursor:'pointer', whiteSpace:'nowrap',
+              background: activeTab===tab ? WHITE : hovered===`tab-${tab}` ? 'rgba(255,255,255,0.5)' : 'transparent',
+              boxShadow: activeTab===tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              display:'flex', alignItems:'center', gap:6, transition:'all 0.15s ease', letterSpacing:'0.01em',
+            }}>
+              {tab==='maps' ? 'Google Maps' : tab==='website' ? 'Website' : 'Action Plan'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* SECTION 1 — COVER */}
-      {activeTab === 'maps' && <div style={{ background: DARK, borderRadius: r16, padding: 20, marginBottom: 10 }}>
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      {activeTab === 'maps' && <div style={{ background: DARK, borderRadius: r16, padding: 20, marginBottom: 10, position: 'relative', overflow: 'hidden' }}>
+        {/* Dotted grid background */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px)',
+          backgroundSize: '18px 18px', opacity: 0.45, pointerEvents: 'none',
+        }}/>
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             {business?.businessPhotoUrl ? (
               <img src={business.businessPhotoUrl} alt={business.name} style={{
@@ -678,30 +782,53 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
         {ai.executiveSummary && (
           <>
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '20px 0' }}/>
-            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, lineHeight: 1.65, margin: 0 }}>{ai.executiveSummary}</p>
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '12px 0 14px', position: 'relative', zIndex: 1 }}/>
+            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, lineHeight: 1.65, margin: 0, position: 'relative', zIndex: 1 }}>{ai.executiveSummary}</p>
           </>
         )}
       </div>}
 
       {/* SECTION 2 — SCORE BREAKDOWN */}
       {activeTab === 'maps' && <div style={card()}>
-        <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 20 }}>Your Score Breakdown</div>
+        <style>{`
+          @keyframes infoNudge {
+            0%, 100% { opacity: 0.35; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.12); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .breakdown-info-icon { animation: none !important; }
+          }
+        `}</style>
+        <div data-testid="score-breakdown" style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 20 }}>Your Score Breakdown</div>
         {scoreRows.map((row, i) => (
-          <div key={i} style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'rgba(0,212,200,0.08)', flexShrink: 0 }}>
-                {row.icon}
-              </span>
-              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: DARK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{row.label}</span>
-              <div style={{ width: 80, flexShrink: 0, height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
-                <div style={{ width: `${(row.score / row.max) * 100}%`, height: '100%', background: scoreColor(row.score, row.max), borderRadius: 4 }}/>
+          <div key={row.key} data-testid={`breakdown-row-${row.key}`} data-score={row.score} data-max={row.max}>
+            {i > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '12px 0 14px' }}/>}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setBreakdownModal(row.key)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBreakdownModal(row.key); } }}
+              style={{ marginBottom: 4, cursor: 'pointer', borderRadius: 8, padding: '4px 4px', margin: '-4px -4px', transition: 'background 0.15s ease' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.025)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'rgba(0,212,200,0.08)', flexShrink: 0 }}>
+                  {row.icon}
+                </span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: DARK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {row.label}
+                  <Info className="breakdown-info-icon" size={13} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
+                </span>
+                <div style={{ width: 80, flexShrink: 0, height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
+                  <div style={{ width: `${(row.score / row.max) * 100}%`, height: '100%', background: scoreColor(row.score, row.max), borderRadius: 4 }}/>
+                </div>
+                <span style={{ width: 48, flexShrink: 0, textAlign: 'right', fontSize: 13, fontWeight: 700, color: scoreColor(row.score, row.max) }}>
+                  {row.score}/{row.max}
+                </span>
               </div>
-              <span style={{ width: 48, flexShrink: 0, textAlign: 'right', fontSize: 13, fontWeight: 700, color: scoreColor(row.score, row.max) }}>
-                {row.score}/{row.max}
-              </span>
+              <div style={{ fontSize: 11, color: GREY, marginTop: 2, marginLeft: 38 }}>{row.note}</div>
             </div>
-            <div style={{ fontSize: 11, color: GREY, marginTop: 2, marginLeft: 38 }}>{row.note}</div>
           </div>
         ))}
         {ai.gradeExplanation && (
@@ -848,91 +975,113 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
       {/* SECTION 3 — ACTION PLAN (Tab 3 only — sales content lives here) */}
       {activeTab === 'plan' && plan.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ background: DARK, borderRadius: '16px 16px 0 0', padding: '18px 24px', fontSize: 17, fontWeight: 700, color: WHITE }}>
-            What's Holding You Back
+        <div style={card()}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What's Holding You Back</span>
+            <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
           </div>
-          {plan.map((item: any, i: number) => (
-            <div key={i} style={{
-              background: WHITE, border: `1px solid ${BORDER}`, borderTop: 'none',
-              borderRadius: i === plan.length - 1 ? '0 0 16px 16px' : 0, padding: 24
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-                <span style={{
-                  padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em',
-                  background: item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG,
-                  color: item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN
-                }}>
-                  {item.priority} PRIORITY
-                </span>
-                <span style={{ padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: '#E0FAF9', color: '#00897B' }}>
-                  {item.estimatedImpact}
-                </span>
-              </div>
-              <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>❌ The Problem</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 4 }}>{item.title}</div>
-              <div style={{ fontSize: 13, color: GREY, lineHeight: 1.55 }}>{item.detail}</div>
-              <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>💸 What It's Costing You</div>
-                <div style={{ fontSize: 13, color: DARK }}>
-                  Every month this isn't fixed, you're missing an estimated <strong>{item.estimatedImpact}</strong> in potential jobs.
+          <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Tap each item to see how to fix it</div>
+          {plan.map((item: any, i: number) => {
+            const dotColor = item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : '#9CA3AF';
+            return (
+              <div key={i}>
+                {i > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '12px 0' }}/>}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setIssueModal(i)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIssueModal(i); } }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', cursor: 'pointer', borderRadius: 8, transition: 'background 0.15s ease' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.035)'; const chev = e.currentTarget.querySelector('.issue-chevron') as HTMLElement; if (chev) chev.style.transform = 'translateX(2px)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; const chev = e.currentTarget.querySelector('.issue-chevron') as HTMLElement; if (chev) chev.style.transform = 'translateX(0)'; }}
+                >
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 14, fontWeight: item.priority === 'HIGH' ? 700 : 600, color: DARK, lineHeight: 1.4 }}>{item.title}</span>
+                      {item.priority && (
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', flexShrink: 0,
+                          background: item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG,
+                          color: item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN,
+                        }}>
+                          {item.priority}
+                        </span>
+                      )}
+                    </div>
+                    {item.estimatedImpact && (
+                      <div style={{ fontSize: 12, color: GREY, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.estimatedImpact}</div>
+                    )}
+                  </div>
+                  <ChevronRight className="issue-chevron" size={16} color={GREY} style={{ flexShrink: 0, opacity: 0.4, transition: 'transform 0.15s ease' }} />
                 </div>
               </div>
-              <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>✅ How To Fix It</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {[item.estimatedCost, item.timeToResult].filter(Boolean).map((v: string, j: number) => (
-                    <span key={j} style={{ padding: '3px 10px', borderRadius: 12, background: GREY_BG, color: GREY, fontSize: 12 }}>{v}</span>
-                  ))}
-                </div>
-              </div>
-              {item.wefixtrades_can_help && (
-                <div style={{ marginTop: 16, background: '#E0FAF9', borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: '#00897B', fontWeight: 600 }}>🔧 WeFixTrades can handle this for you</span>
-                  <a href="/plans" style={{ fontSize: 13, color: CYAN, fontWeight: 600, textDecoration: 'none' }}>See how →</a>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* SECTION 4 — KEYWORDS */}
       {activeTab === 'website' && keywords.some((k: any) => k.monthlySearches > 0) && (
         <div style={card()}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 4 }}>What Customers Search For</div>
-          <div style={{ fontSize: 12, color: GREY, marginBottom: 16 }}>Keywords relevant to your business in {report?.city}</div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-              <thead>
-                <tr style={{ background: GREY_BG }}>
-                  {['Keyword', 'Searches/mo', 'CPC', 'Your Rank', 'Status'].map(h => (
-                    <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {keywords.map((kw: any, i: number) => (
-                  <tr key={i} style={{ background: i % 2 === 0 ? WHITE : '#FAFAFA', borderBottom: `1px solid ${BORDER}` }}>
-                    <td style={{ padding: '8px 10px', fontWeight: 500, color: DARK }}>{kw.keyword}</td>
-                    <td style={{ padding: '8px 10px', color: DARK }}>{kw.monthlySearches?.toLocaleString() || '—'}</td>
-                    <td style={{ padding: '8px 10px', color: GREY }}>{kw.cpc > 0 ? `$${kw.cpc.toFixed(2)}` : '—'}</td>
-                    <td style={{ padding: '8px 10px', fontWeight: 600, color: !kw.organicRank ? RED : kw.organicRank <= 3 ? GREEN : kw.organicRank <= 10 ? AMBER : RED }}>
-                      {kw.organicRank ? `#${kw.organicRank}` : 'Not ranking'}
-                    </td>
-                    <td style={{ padding: '8px 10px' }}>
-                      <span style={{ padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600, background: statusColor(kw.status) + '20', color: statusColor(kw.status) }}>
-                        {kw.status?.replace('-', ' ')}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What Customers Search For</span>
+            <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
           </div>
+          <div style={{ fontSize: 12, color: GREY, marginBottom: 4 }}>Keywords relevant to your business in {report?.city}</div>
+          <div style={{ fontSize: 10, color: GREY, marginBottom: 12, opacity: 0.8 }}>Rank = Google position · <span style={{ color: CYAN }}>LP</span> = Maps position</div>
+          {/* Column headers */}
+          <div style={{ display: 'flex', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${BORDER}`, gap: 4 }}>
+            <span style={{ flex: 1, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, minWidth: 0 }}>Keyword</span>
+            <span style={{ width: 40, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>Vol.</span>
+            <span style={{ width: 42, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>CPC</span>
+            <span style={{ width: 48, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>Rank</span>
+            <span style={{ width: 58, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>Visibility</span>
+          </div>
+          {/* Rows */}
+          {keywords.map((kw: any, i: number) => {
+            // Determine rank display: show local pack position if present and no organic rank
+            const hasOrganic = !!kw.organicRank;
+            const hasLocalPack = !!kw.isInLocalPack;
+            let rankLabel: string;
+            let rankColor: string;
+            if (hasOrganic) {
+              rankLabel = `#${kw.organicRank}`;
+              rankColor = kw.organicRank <= 3 ? GREEN : kw.organicRank <= 10 ? AMBER : RED;
+            } else if (hasLocalPack) {
+              rankLabel = `LP #${kw.localPackPosition}`;
+              rankColor = CYAN;
+            } else {
+              rankLabel = '—';
+              rankColor = GREY;
+            }
+            // Visibility status — reflects overall presence
+            const visLabel = kw.status?.replace('-', ' ') || '—';
+            const visColor = statusColor(kw.status);
+            // CPC formatting: null/undefined → "—", whole → "$5", decimal → "$5.2"
+            const cpcDisplay = !kw.cpc ? '—' : kw.cpc % 1 === 0 ? `$${kw.cpc}` : `$${kw.cpc.toFixed(1)}`;
+            return (
+              <div key={i} data-testid="keyword-row" data-keyword={kw.keyword} data-rank={rankLabel} data-visibility={visLabel} data-cpc={cpcDisplay} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${BORDER}`, gap: 4, background: i % 2 === 0 ? 'transparent' : '#FAFAFA' }}>
+                <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: DARK, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kw.keyword}</span>
+                <span style={{ width: 40, fontSize: 11, color: DARK, textAlign: 'right', flexShrink: 0 }}>{kw.monthlySearches > 0 ? kw.monthlySearches.toLocaleString() : '—'}</span>
+                <span style={{ width: 42, fontSize: 11, color: GREY, textAlign: 'right', flexShrink: 0 }}>{cpcDisplay}</span>
+                <span style={{ width: 48, fontSize: 11, fontWeight: 600, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{rankLabel}</span>
+                <span style={{ width: 58, textAlign: 'right', flexShrink: 0 }}>
+                  <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: 10, fontSize: 10, fontWeight: 600, background: visColor + '18', color: visColor, whiteSpace: 'nowrap' }}>
+                    {visLabel}
+                  </span>
+                </span>
+              </div>
+            );
+          })}
           {ai.keyStrength && (
-            <div style={{ marginTop: 16, background: GREEN_BG, borderRadius: 8, padding: '12px 16px', fontSize: 13, color: '#166534' }}>
+            <div style={{ marginTop: 12, background: GREEN_BG, borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#166534' }}>
               ✓ {ai.keyStrength}
+            </div>
+          )}
+          {report?.nicheAlignment?.misaligned && (
+            <div style={{ marginTop: 12, background: AMBER_BG, borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#92400E', lineHeight: 1.55 }}>
+              ⚠ {report.nicheAlignment.insight}
             </div>
           )}
         </div>
@@ -998,38 +1147,49 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
       {/* SECTION 6b — DIAGNOSTIC ACTION PLAN (Tab 1, advisory only — no CTAs) */}
       {activeTab === 'maps' && plan.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 4 }}>What's Holding You Back</div>
-          <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Your personalized improvement roadmap</div>
-          {plan.map((item: any, i: number) => (
-            <div key={i} style={{ background: WHITE, borderRadius: 14, border: `1px solid ${BORDER}`, padding: 20, marginBottom: 10 }}>
-              {/* Priority badge */}
-              <div style={{
-                display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700,
-                letterSpacing: '0.05em', marginBottom: 10,
-                background: item.priority === 'HIGH' ? '#FEF2F2' : '#FFF7ED',
-                color: item.priority === 'HIGH' ? RED : AMBER,
-                border: `1px solid ${item.priority === 'HIGH' ? '#FECACA' : '#FED7AA'}`,
-              }}>
-                {item.priority} PRIORITY
-              </div>
-              {/* Problem title */}
-              <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 8 }}>{item.title}</div>
-              {/* Explanation */}
-              <div style={{ fontSize: 13, color: GREY, lineHeight: 1.6, marginBottom: 12 }}>{item.detail}</div>
-              {/* Impact callout */}
-              {item.estimatedImpact && (
-                <div style={{ background: '#F0FFF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#166534', marginBottom: 10, lineHeight: 1.5 }}>
-                  💡 {item.estimatedImpact}
+        <div style={card()}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What's Holding You Back</span>
+            <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
+          </div>
+          <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Tap each item to see how to fix it</div>
+          {plan.map((item: any, i: number) => {
+            const dotColor = item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : '#9CA3AF';
+            return (
+              <div key={i}>
+                {i > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '12px 0' }}/>}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setIssueModal(i)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIssueModal(i); } }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', cursor: 'pointer', borderRadius: 8, transition: 'background 0.15s ease' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.035)'; const chev = e.currentTarget.querySelector('.issue-chevron') as HTMLElement; if (chev) chev.style.transform = 'translateX(2px)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; const chev = e.currentTarget.querySelector('.issue-chevron') as HTMLElement; if (chev) chev.style.transform = 'translateX(0)'; }}
+                >
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 14, fontWeight: item.priority === 'HIGH' ? 700 : 600, color: DARK, lineHeight: 1.4 }}>{item.title}</span>
+                      {item.priority && (
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', flexShrink: 0,
+                          background: item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG,
+                          color: item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN,
+                        }}>
+                          {item.priority}
+                        </span>
+                      )}
+                    </div>
+                    {item.estimatedImpact && (
+                      <div style={{ fontSize: 12, color: GREY, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.estimatedImpact}</div>
+                    )}
+                  </div>
+                  <ChevronRight className="issue-chevron" size={16} color={GREY} style={{ flexShrink: 0, opacity: 0.4, transition: 'transform 0.15s ease' }} />
                 </div>
-              )}
-              {/* Cost + time row */}
-              <div style={{ display: 'flex', gap: 16, fontSize: 12, color: GREY, flexWrap: 'wrap' }}>
-                {item.estimatedCost && <span>💰 {item.estimatedCost}</span>}
-                {item.timeToResult && <span>⏱ {item.timeToResult}</span>}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -1043,41 +1203,76 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             <div style={{ fontSize: 12, color: GREY }}>This takes 30–45 seconds. Continue reading your report.</div>
           </div>
         ) : speed.mobile?.score != null || speed.desktop?.score != null ? (
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-            {[{ label: '📱 Mobile', data: speed.mobile }, { label: '🖥 Desktop', data: speed.desktop }].map(({ label, data }) => (
-              <div key={label} style={{ ...card({ flex: 1, minWidth: 200, marginBottom: 0 }) }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: DARK, marginBottom: 8 }}>{label}</div>
-                <div style={{ fontSize: 40, fontWeight: 800, color: data?.score != null ? scoreColor(data.score, 100) : GREY, lineHeight: 1 }}>
-                  {data?.score != null ? data.score : speedLoading ? '...' : '—'}<span style={{ fontSize: 16, color: GREY, fontWeight: 400 }}>/100</span>
-                </div>
-                <div style={{ fontSize: 11, color: GREY, marginTop: 10, marginBottom: 2 }}>
-                  Tap a metric below to understand what it means
-                </div>
-                {[
-                  { key: 'fcp', label: 'FCP', tip: 'First Contentful Paint', val: data?.fcp, unit: 's', good: 2.5, ok: 4 },
-                  { key: 'lcp', label: 'LCP', tip: 'Largest Contentful Paint — key Google ranking factor', val: data?.lcp, unit: 's', good: 2.5, ok: 4 },
-                  { key: 'tbt', label: 'TBT', tip: 'Total Blocking Time — page responsiveness', val: data?.tbt, unit: 'ms', good: 200, ok: 600 },
-                  { key: 'cls', label: 'CLS', tip: 'Cumulative Layout Shift — page stability', val: data?.cls, unit: '', good: 0.1, ok: 0.25 },
-                ].map(m => {
-                  const isGood = (m.val || 0) <= m.good;
-                  const isOk = (m.val || 0) <= m.ok;
-                  const statusC = isGood ? GREEN : isOk ? AMBER : RED;
-                  const statusT = isGood ? 'Good' : isOk ? 'Needs work' : 'Critical';
-                  return (
-                    <div key={m.key} onClick={() => setMetricModal(m.key)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}`, cursor: 'pointer' }}>
-                      <div>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: DARK }}>{m.label}</span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%', background: GREY_BG, color: GREY, fontSize: 9, marginLeft: 4 }}>?</span>
-                        <div style={{ fontSize: 12, color: GREY }}>{m.val != null ? `${m.val}${m.unit}` : '—'}</div>
-                      </div>
-                      {m.val != null && (
-                        <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: statusC + '20', color: statusC }}>{statusT}</span>
-                      )}
-                    </div>
-                  );
-                })}
+          <div style={card({ marginBottom: 10 })}>
+            {/* Device tab switcher */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>Website Speed</span>
+                <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
               </div>
-            ))}
+              <div style={{ display: 'inline-flex', background: '#F3F4F6', borderRadius: 20, padding: 2, gap: 2 }}>
+                {(['mobile', 'desktop'] as const).map(d => (
+                  <button key={d} onClick={() => setSpeedDevice(d)} style={{
+                    padding: '5px 14px', fontSize: 12, fontWeight: speedDevice === d ? 700 : 500, border: 'none', borderRadius: 18, cursor: 'pointer',
+                    background: speedDevice === d ? WHITE : 'transparent', color: speedDevice === d ? DARK : '#9CA3AF',
+                    boxShadow: speedDevice === d ? '0 1px 4px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s ease',
+                  }}>
+                    {d === 'mobile' ? '📱 Mobile' : '🖥 Desktop'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Active device content */}
+            {(() => {
+              const data = speedDevice === 'mobile' ? speed.mobile : speed.desktop;
+              return (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
+                    <span style={{ fontSize: 40, fontWeight: 800, color: data?.score != null ? scoreColor(data.score, 100) : GREY, lineHeight: 1 }}>
+                      {data?.score != null ? data.score : speedLoading ? '...' : '—'}
+                    </span>
+                    <span style={{ fontSize: 16, color: GREY, fontWeight: 400 }}>/100</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#4B5563', marginBottom: 6 }}>
+                    Tap a metric to see how to fix it
+                  </div>
+                  {[
+                    { key: 'fcp', label: 'FCP', tip: 'First Contentful Paint', val: data?.fcp, unit: 's', good: 2.5, ok: 4 },
+                    { key: 'lcp', label: 'LCP', tip: 'Largest Contentful Paint — key ranking factor', val: data?.lcp, unit: 's', good: 2.5, ok: 4 },
+                    { key: 'tbt', label: 'TBT', tip: 'Total Blocking Time — responsiveness', val: data?.tbt, unit: 'ms', good: 200, ok: 600 },
+                    { key: 'cls', label: 'CLS', tip: 'Cumulative Layout Shift — stability', val: data?.cls, unit: '', good: 0.1, ok: 0.25 },
+                  ].map(m => {
+                    const isGood = (m.val || 0) <= m.good;
+                    const isOk = (m.val || 0) <= m.ok;
+                    const statusC = isGood ? GREEN : isOk ? AMBER : RED;
+                    const statusT = isGood ? 'Good' : isOk ? 'Needs work' : 'Critical';
+                    return (
+                      <div key={m.key} onClick={() => setMetricModal(m.key)}
+                        role="button" tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMetricModal(m.key); } }}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 4px', marginTop: 0, borderTop: `1px solid ${BORDER}`, cursor: 'pointer', borderRadius: 4, transition: 'background 0.12s ease' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.035)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: DARK }}>{m.label}</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%', background: GREY_BG, color: GREY, fontSize: 9 }}>?</span>
+                          </div>
+                          <div style={{ fontSize: 12, color: GREY, marginTop: 1 }}>{m.val != null ? `${m.val}${m.unit}` : '—'}</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                          {m.val != null && (
+                            <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: statusC + '20', color: statusC }}>{statusT}</span>
+                          )}
+                          <ChevronRight size={14} color={GREY} style={{ opacity: 0.3 }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              );
+            })()}
           </div>
         ) : (
           <div style={{ textAlign: 'center', padding: 16, fontSize: 13, color: GREY, background: GREY_BG, borderRadius: 12, marginBottom: 16 }}>
@@ -1112,18 +1307,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       )}
 
       {activeTab === 'website' && (
-        <div style={{ width: '100%', maxWidth: '600px', margin: '32px auto 0' }}>
-          <div style={{
-            backgroundColor: '#0d1514',
-            border: '1px solid #00D4C8',
-            borderRadius: '12px',
-            padding: '28px 24px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '12px',
-            textAlign: 'center'
-          }}>
+        <div style={{ background: DARK, borderRadius: r16, padding: '28px 24px', marginBottom: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
             <div style={{
               backgroundColor: '#00D4C8',
               color: '#0d1514',
@@ -1145,7 +1329,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               Get Your Full Website Audit
             </h3>
             <p style={{
-              color: '#6B7280',
+              color: 'rgba(255,255,255,0.75)',
               fontSize: '14px',
               margin: 0,
               maxWidth: '420px',
@@ -1160,7 +1344,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               marginTop: '4px'
             }}>
               <span style={{
-                color: '#6B7280',
+                color: 'rgba(255,255,255,0.45)',
                 fontSize: '13px',
                 textDecoration: 'line-through'
               }}>
@@ -1176,30 +1360,33 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             </div>
             <button
               onClick={() => window.location.href = '/checkout?product=website-audit'}
+              {...hoverProps('website-audit-cta')}
               style={{
                 backgroundColor: '#00D4C8',
-                color: '#0d1514',
+                color: '#000000',
                 border: 'none',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 padding: '14px 32px',
                 fontSize: '15px',
                 fontWeight: 700,
                 cursor: 'pointer',
                 width: '100%',
                 maxWidth: '320px',
-                marginTop: '4px'
+                marginTop: '4px',
+                transition: 'all 0.2s ease',
+                transform: hovered === 'website-audit-cta' ? 'translateY(-1px)' : 'translateY(0)',
+                boxShadow: hovered === 'website-audit-cta' ? '0 6px 16px rgba(0,212,200,0.25)' : 'none',
               }}
             >
               Get Full Website Audit — $9.80
             </button>
             <p style={{
-              color: '#6B7280',
+              color: 'rgba(255,255,255,0.6)',
               fontSize: '12px',
               margin: 0
             }}>
               Delivered within 24 hours. No subscription.
             </p>
-          </div>
         </div>
       )}
 
@@ -1403,27 +1590,30 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       )}
 
       {/* SECTION 9 — SHARE */}
-      <div style={{ background: DARK, borderRadius: r16, padding: '32px 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 17, fontWeight: 700, color: WHITE }}>Share This Report</div>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'nowrap', marginTop: 20 }}>
+      <div style={{ background: DARK, borderRadius: r16, padding: '24px 20px', textAlign: 'center' }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Share This Report</div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', marginBottom: 16 }}>Send your audit to a partner or colleague</div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'nowrap' }}>
           {SHARE_BUTTONS.map(btn => (
-            <button
-              key={btn.id}
-              onClick={btn.onClick}
-              {...hoverProps('share-' + btn.id)}
-              title={btn.label}
-              style={{
-                width: 48, height: 48, padding: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                borderRadius: 12, border: 'none', background: btn.bg,
-                cursor: 'pointer', flexShrink: 0,
-                transform: hovered === 'share-' + btn.id ? 'translateY(-2px) scale(1.05)' : 'translateY(0) scale(1)',
-                boxShadow: hovered === 'share-' + btn.id ? '0 4px 12px rgba(0,0,0,0.25)' : '0 2px 4px rgba(0,0,0,0.15)',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {btn.icon}
-            </button>
+            <div key={btn.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <button
+                onClick={btn.onClick}
+                {...hoverProps('share-' + btn.id)}
+                title={btn.label}
+                style={{
+                  width: 44, height: 44, padding: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', background: btn.bg,
+                  cursor: 'pointer', flexShrink: 0,
+                  transform: hovered === 'share-' + btn.id ? 'translateY(-2px)' : 'translateY(0)',
+                  boxShadow: hovered === 'share-' + btn.id ? '0 4px 12px rgba(0,0,0,0.3)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {btn.icon}
+              </button>
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', lineHeight: 1 }}>{btn.label}</span>
+            </div>
           ))}
         </div>
       </div>
@@ -1558,19 +1748,33 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       </>}
 
       {/* FAQ — bottom of all tabs */}
-      <div style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: 24, marginBottom: 10 }}>
-        <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 16 }}>Common Questions</div>
+      <div style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: '20px 20px', marginBottom: 10 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 12 }}>Common Questions</div>
         {FAQS.map((faq, i) => (
-          <div key={i} style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <div key={i} style={{ borderBottom: i < FAQS.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
             <div
+              role="button"
+              tabIndex={0}
               onClick={() => setOpenFaq(openFaq === i ? null : i)}
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 4px', cursor: 'pointer', userSelect: 'none' }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenFaq(openFaq === i ? null : i); } }}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 2px', cursor: 'pointer', userSelect: 'none', borderRadius: 6, transition: 'background 0.12s ease' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.02)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              <span style={{ fontSize: 14, fontWeight: 600, color: DARK, lineHeight: 1.4, paddingRight: 16, flex: 1 }}>{faq.q}</span>
-              <span style={{ fontSize: 20, color: GREY, fontWeight: 300, flexShrink: 0, display: 'inline-block', transform: openFaq === i ? 'rotate(45deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>+</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: DARK, lineHeight: 1.4, paddingRight: 12, flex: 1 }}>{faq.q}</span>
+              <span style={{
+                width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: openFaq === i ? DARK : '#F3F4F6',
+                color: openFaq === i ? WHITE : GREY,
+                fontSize: 14, fontWeight: 400, lineHeight: 1,
+                transition: 'all 0.2s ease',
+              }}>
+                <span style={{ display: 'block', transform: openFaq === i ? 'rotate(45deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>+</span>
+              </span>
             </div>
             {openFaq === i && (
-              <div style={{ padding: '0 4px 16px', fontSize: 13, color: GREY, lineHeight: 1.65, maxWidth: 540 }}>{faq.a}</div>
+              <div style={{ padding: '0 2px 14px', fontSize: 13, color: GREY, lineHeight: 1.6, maxWidth: 540 }}>{faq.a}</div>
             )}
           </div>
         ))}
@@ -1662,6 +1866,139 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </>
       )}
 
+      {/* ISSUE DETAIL MODAL */}
+      {issueModal !== null && plan[issueModal] && (() => {
+        const item = plan[issueModal];
+        // Generate specific DIY advice based on issue title keywords
+        const getDiyAdvice = (title: string): string => {
+          const t = title.toLowerCase();
+          if (t.includes('review')) return 'Ask recent happy customers for a Google review. Send a direct review link via text or email. Respond to every review — positive and negative.';
+          if (t.includes('photo')) return 'Upload high-quality photos to your Google profile: completed work, before/after shots, your team, and your storefront. More photos usually earns more trust and clicks.';
+          if (t.includes('speed') || t.includes('slow') || t.includes('mobile')) return 'Compress hero images and convert to WebP. Defer non-critical scripts. Remove unused plugins. Test with PageSpeed Insights.';
+          if (t.includes('website') && (t.includes('no') || t.includes('missing') || t.includes('link'))) return 'Create a simple site with your services, service area, phone number, and a click-to-call button. Link it to your Google profile.';
+          if (t.includes('rating')) return 'Reply professionally to every negative review. Address recurring complaints in your operations. Ask satisfied customers to share their experience.';
+          if (t.includes('keyword') || t.includes('seo') || t.includes('content') || t.includes('page')) return 'Create a dedicated service page for each core keyword. Include your city name, a clear service description, and a call-to-action.';
+          if (t.includes('description') || t.includes('profile') || t.includes('categor')) return 'Write a clear description with your core services and service area. Add all relevant primary and secondary business categories.';
+          if (t.includes('hours') || t.includes('evening') || t.includes('weekend') || t.includes('demand')) return 'Update your Google Business hours to reflect evening and weekend availability. Create a landing page targeting emergency and after-hours searches.';
+          if (t.includes('ad') || t.includes('paid') || t.includes('ppc')) return 'Set up a Google Ads campaign targeting your top local service keywords. Start with a small daily budget and track which keywords generate calls.';
+          if (t.includes('competitor') || t.includes('ranking') || t.includes('visibility')) return 'Audit your top competitors\u2019 Google profiles. Work toward matching their photo count, review count, and posting frequency.';
+          if (t.includes('post') || t.includes('update') || t.includes('active') || t.includes('inactive')) return 'Post Google Business updates regularly: recent jobs, seasonal tips, or promotions. Consistent activity signals relevance to Google.';
+          return 'Identify the specific fix from the problem above. Gather the right tools or access. Apply the change and verify the result is live.';
+        };
+        const prioColor = item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN;
+        const prioBg = item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG;
+        return (
+          <>
+            <div onClick={() => setIssueModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200 }} />
+            <div style={{ position: 'fixed', top: 'clamp(72px, 8dvh, 100px)', left: '50%', transform: 'translateX(-50%)', zIndex: 201, width: 'min(400px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - clamp(72px, 8dvh, 100px) - 20px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ background: DARK, padding: '20px 20px', position: 'relative', flexShrink: 0 }}>
+                <button onClick={() => setIssueModal(null)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                <div style={{ fontSize: 17, fontWeight: 700, color: WHITE, paddingRight: 36, lineHeight: 1.3 }}>{item.title}</div>
+                {item.priority && (
+                  <span style={{ display: 'inline-block', marginTop: 10, padding: '3px 10px', borderRadius: 12, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', background: prioBg, color: prioColor }}>
+                    {item.priority} PRIORITY
+                  </span>
+                )}
+              </div>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it means</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{item.detail}</p>
+
+                {item.estimatedImpact && (
+                  <>
+                    <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Why it matters</div>
+                    <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{item.estimatedImpact}</p>
+                  </>
+                )}
+
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>DIY solution</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 6px' }}>
+                  {getDiyAdvice(item.title)}{item.estimatedCost ? ` Budget around ${item.estimatedCost}.` : ''}
+                </p>
+                {(item.estimatedCost || item.timeToResult) && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+                    {item.estimatedCost && (
+                      <span style={{ padding: '4px 12px', borderRadius: 8, background: GREY_BG, color: GREY, fontSize: 12 }}>💰 {item.estimatedCost}</span>
+                    )}
+                    {item.timeToResult && (
+                      <span style={{ padding: '4px 12px', borderRadius: 8, background: GREY_BG, color: GREY, fontSize: 12 }}>⏱ {item.timeToResult}</span>
+                    )}
+                  </div>
+                )}
+
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Timeline</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{item.timeToResult || '2–4 weeks'} depending on scope and execution.</p>
+
+                <div style={{ fontSize: 12, color: GREY, marginBottom: 8 }}>WeFixTrades can handle this for you</div>
+                <button
+                  onClick={() => { setIssueModal(null); setActiveTab('plan'); }}
+                  style={{
+                    width: '100%', padding: '12px 20px',
+                    background: CYAN, color: DARK, border: 'none', borderRadius: 10,
+                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                    transition: 'background 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#00BFB8')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = CYAN)}
+                >
+                  Let WeFixTrades fix this →
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* BREAKDOWN METRIC MODAL */}
+      {breakdownModal && BREAKDOWN_EXPLANATIONS[breakdownModal] && (() => {
+        const bd = BREAKDOWN_EXPLANATIONS[breakdownModal];
+        const bdRow = scoreRows.find(r => r.key === breakdownModal);
+        const bdColor = bdRow ? scoreColor(bdRow.score, bdRow.max) : CYAN;
+        return (
+          <>
+            <div onClick={() => setBreakdownModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200 }} />
+            <div style={{ position: 'fixed', top: 'clamp(72px, 8dvh, 100px)', left: '50%', transform: 'translateX(-50%)', zIndex: 201, width: 'min(400px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - clamp(72px, 8dvh, 100px) - 20px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ background: DARK, padding: '20px 20px', position: 'relative', flexShrink: 0 }}>
+                <button onClick={() => setBreakdownModal(null)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                <div style={{ fontSize: 17, fontWeight: 700, color: WHITE }}>{bd.title}</div>
+                {bdRow && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                    <div style={{ width: 60, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                      <div style={{ width: `${(bdRow.score / bdRow.max) * 100}%`, height: '100%', background: bdColor, borderRadius: 3 }}/>
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: bdColor }}>{bdRow.score}/{bdRow.max}</span>
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it means</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{bd.what}</p>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Why it matters</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{bd.why}</p>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>DIY solution</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{bd.diy}</p>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Timeline</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{bd.timeline}</p>
+                <div style={{ fontSize: 12, color: GREY, marginBottom: 8 }}>WeFixTrades can handle this for you</div>
+                <button
+                  onClick={() => { setBreakdownModal(null); setActiveTab('plan'); }}
+                  style={{
+                    width: '100%', padding: '12px 20px',
+                    background: CYAN, color: DARK, border: 'none', borderRadius: 10,
+                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                    transition: 'background 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#00BFB8')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = CYAN)}
+                >
+                  Let WeFixTrades fix this →
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
       {metricModal && METRIC_EXPLANATIONS[metricModal] && (() => {
         const exp = METRIC_EXPLANATIONS[metricModal];
         return (
@@ -1672,20 +2009,37 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 <button onClick={() => setMetricModal(null)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                 <div style={{ fontSize: 17, fontWeight: 700, color: WHITE }}>{exp.title}</div>
               </div>
-              <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
-                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it measures</div>
-                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 20px' }}>{exp.what}</p>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it means</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 16px' }}>{exp.what}</p>
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Why it matters</div>
-                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 20px' }}>{exp.why}</p>
-                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Benchmarks</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 16px' }}>{exp.why}</p>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>DIY solution</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 16px' }}>{exp.diy}</p>
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Timeline</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 16px' }}>{exp.timeline}</p>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18, padding: '10px 0', borderTop: `1px solid ${BORDER}` }}>
                   {exp.thresholds.map(t => (
-                    <div key={t.label} style={{ flex: 1, minWidth: 80, background: t.color + '15', border: `1px solid ${t.color}40`, borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: t.color }}>{t.label}</div>
-                      <div style={{ fontSize: 12, color: DARK, marginTop: 2 }}>{t.value}</div>
+                    <div key={t.label} style={{ flex: 1, minWidth: 72, background: t.color + '10', borderRadius: 6, padding: '6px 10px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: t.color }}>{t.label}</div>
+                      <div style={{ fontSize: 11, color: DARK, marginTop: 1 }}>{t.value}</div>
                     </div>
                   ))}
                 </div>
+                <div style={{ fontSize: 12, color: GREY, marginBottom: 8 }}>WeFixTrades can handle this for you</div>
+                <button
+                  onClick={() => { setMetricModal(null); setActiveTab('plan'); }}
+                  style={{
+                    width: '100%', padding: '12px 20px',
+                    background: CYAN, color: DARK, border: 'none', borderRadius: 10,
+                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                    transition: 'background 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#00BFB8')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = CYAN)}
+                >
+                  Let WeFixTrades fix this →
+                </button>
               </div>
             </div>
           </>
