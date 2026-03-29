@@ -1305,18 +1305,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       )}
 
       {activeTab === 'website' && (
-        <div style={{ width: '100%', maxWidth: '600px', margin: '32px auto 0' }}>
-          <div style={{
-            backgroundColor: '#0d1514',
-            border: '1px solid #00D4C8',
-            borderRadius: '12px',
-            padding: '28px 24px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '12px',
-            textAlign: 'center'
-          }}>
+        <div style={{ background: DARK, borderRadius: r16, padding: '28px 24px', marginBottom: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
             <div style={{
               backgroundColor: '#00D4C8',
               color: '#0d1514',
@@ -1338,7 +1327,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               Get Your Full Website Audit
             </h3>
             <p style={{
-              color: '#6B7280',
+              color: 'rgba(255,255,255,0.75)',
               fontSize: '14px',
               margin: 0,
               maxWidth: '420px',
@@ -1353,7 +1342,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               marginTop: '4px'
             }}>
               <span style={{
-                color: '#6B7280',
+                color: 'rgba(255,255,255,0.45)',
                 fontSize: '13px',
                 textDecoration: 'line-through'
               }}>
@@ -1369,30 +1358,33 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             </div>
             <button
               onClick={() => window.location.href = '/checkout?product=website-audit'}
+              {...hoverProps('website-audit-cta')}
               style={{
                 backgroundColor: '#00D4C8',
-                color: '#0d1514',
+                color: '#000000',
                 border: 'none',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 padding: '14px 32px',
                 fontSize: '15px',
                 fontWeight: 700,
                 cursor: 'pointer',
                 width: '100%',
                 maxWidth: '320px',
-                marginTop: '4px'
+                marginTop: '4px',
+                transition: 'all 0.2s ease',
+                transform: hovered === 'website-audit-cta' ? 'translateY(-1px)' : 'translateY(0)',
+                boxShadow: hovered === 'website-audit-cta' ? '0 6px 16px rgba(0,212,200,0.25)' : 'none',
               }}
             >
               Get Full Website Audit — $9.80
             </button>
             <p style={{
-              color: '#6B7280',
+              color: 'rgba(255,255,255,0.6)',
               fontSize: '12px',
               margin: 0
             }}>
               Delivered within 24 hours. No subscription.
             </p>
-          </div>
         </div>
       )}
 
@@ -1598,7 +1590,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {/* SECTION 9 — SHARE */}
       <div style={{ background: DARK, borderRadius: r16, padding: '24px 20px', textAlign: 'center' }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Share This Report</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 16 }}>Send your audit to a partner or colleague</div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', marginBottom: 16 }}>Send your audit to a partner or colleague</div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'nowrap' }}>
           {SHARE_BUTTONS.map(btn => (
             <div key={btn.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
@@ -1618,7 +1610,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               >
                 {btn.icon}
               </button>
-              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', lineHeight: 1 }}>{btn.label}</span>
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', lineHeight: 1 }}>{btn.label}</span>
             </div>
           ))}
         </div>
