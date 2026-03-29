@@ -462,7 +462,7 @@ router.post("/speed", async (req: Request, res: Response) => {
 
       // Merge speedData + screenshot metadata into audit_data
       const mergeData: Record<string, any> = { speedData: speedDataClean };
-      if (screenshotBase64) mergeData.websiteScreenshot = screenshotBase64.slice(0, 100) + "...(truncated)";
+      if (screenshotBase64) mergeData.websiteScreenshot = screenshotBase64;
       if (websiteAIAnalysis) mergeData.websiteAIAnalysis = websiteAIAnalysis;
 
       // Recalculate websiteQuality score with speed + AI data
@@ -534,6 +534,7 @@ router.get("/speed/:reportId", async (req: Request, res: Response) => {
       ready: hasData,
       speedData: hasData ? speedData : null,
       websiteAIAnalysis: auditData?.websiteAIAnalysis || null,
+      websiteScreenshot: auditData?.websiteScreenshot || null,
       websiteQualityChecks: auditData?.websiteQualityChecks || null,
       websiteQualityCheckScore: auditData?.websiteQualityCheckScore ?? null,
     });

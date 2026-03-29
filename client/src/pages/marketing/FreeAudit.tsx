@@ -80,6 +80,7 @@ export default function FreeAudit() {
   const [speedData, setSpeedData] = useState<any>(null);
   const [speedLoading, setSpeedLoading] = useState(false);
   const [websiteAIAnalysis, setWebsiteAIAnalysis] = useState<any>(null);
+  const [websiteScreenshot, setWebsiteScreenshot] = useState<string | null>(null);
   const [websiteQualityChecks, setWebsiteQualityChecks] = useState<any>(null);
   const [websiteQualityCheckScore, setWebsiteQualityCheckScore] = useState<number>(0);
 
@@ -228,6 +229,7 @@ export default function FreeAudit() {
                   console.log('[speed] data ready:', data.speedData);
                   setSpeedData(data.speedData);
                   if (data.websiteAIAnalysis) setWebsiteAIAnalysis(data.websiteAIAnalysis);
+                  if (data.websiteScreenshot) setWebsiteScreenshot(data.websiteScreenshot);
                   if (data.websiteQualityChecks) setWebsiteQualityChecks(data.websiteQualityChecks);
                   if (data.websiteQualityCheckScore != null) setWebsiteQualityCheckScore(data.websiteQualityCheckScore);
                   setSpeedLoading(false);
@@ -654,6 +656,7 @@ export default function FreeAudit() {
                   liveSpeedData={speedData}
                   speedLoading={speedLoading}
                   liveWebsiteAIAnalysis={websiteAIAnalysis}
+                  liveWebsiteScreenshot={websiteScreenshot}
                   liveWebsiteQualityCheckScore={websiteQualityCheckScore}
                 />
               </div>

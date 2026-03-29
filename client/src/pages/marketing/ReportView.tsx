@@ -215,13 +215,14 @@ const ShareIcons = {
   ),
 };
 
-export default function ReportView({ report, business, reportId, liveSpeedData, speedLoading, liveWebsiteAIAnalysis, liveWebsiteQualityCheckScore }: {
+export default function ReportView({ report, business, reportId, liveSpeedData, speedLoading, liveWebsiteAIAnalysis, liveWebsiteScreenshot, liveWebsiteQualityCheckScore }: {
   report: any;
   business: any;
   reportId?: string | null;
   liveSpeedData?: any;
   speedLoading?: boolean;
   liveWebsiteAIAnalysis?: any;
+  liveWebsiteScreenshot?: string | null;
   liveWebsiteQualityCheckScore?: number;
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
@@ -304,6 +305,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [breakdownModal, setBreakdownModal] = useState<string | null>(null);
   const [issueModal, setIssueModal] = useState<number | null>(null);
   const [speedDevice, setSpeedDevice] = useState<'mobile' | 'desktop'>('mobile');
+  const [visualAnalysisModal, setVisualAnalysisModal] = useState(false);
 
   // Score circle animation state
   const [displayScore, setDisplayScore] = useState(0);
@@ -1286,6 +1288,131 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         )}
       </>)}
 
+      {/* SECTION — WEBSITE VISUAL ANALYSIS (screenshot + AI findings) */}
+      {activeTab === 'website' && (() => {
+        const aiAnalysis = liveWebsiteAIAnalysis || report?.websiteAIAnalysis;
+        const screenshot = liveWebsiteScreenshot || report?.websiteScreenshot;
+        if (!aiAnalysis?.findings?.length && !screenshot) return null;
+        const findings: Array<{ label: string; status: string; note: string }> = aiAnalysis?.findings || [];
+        const passCount = findings.filter(f => f.status === 'pass').length;
+        const total = findings.length || 1;
+        const pct = Math.round((passCount / total) * 100);
+        const summaryColor = pct >= 70 ? GREEN : pct >= 40 ? AMBER : RED;
+        const statusIcon = (s: string) => s === 'pass' ? '✓' : s === 'warn' ? '!' : '✕';
+        const statusBg = (s: string) => s === 'pass' ? GREEN : s === 'warn' ? AMBER : RED;
+        // Show top 3 findings inline, rest in modal
+        const inlineFindings = findings.slice(0, 3);
+        const hasMore = findings.length > 3 || !!aiAnalysis?.summary;
+        // Ensure screenshot is a proper data URL
+        const screenshotSrc = screenshot
+          ? screenshot.startsWith('data:') ? screenshot : `data:image/jpeg;base64,${screenshot}`
+          : null;
+
+        return (
+          <div style={card({ marginBottom: 10, overflow: 'hidden', padding: 0 })}>
+            {/* Header */}
+            <div style={{ padding: '18px 24px 14px', borderBottom: `1px solid ${BORDER}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>Visual Analysis</span>
+                  <span style={{ padding: '2px 10px', borderRadius: 10, fontSize: 11, fontWeight: 700, background: summaryColor + '18', color: summaryColor }}>{passCount}/{total} passed</span>
+                </div>
+                {hasMore && (
+                  <button
+                    onClick={() => setVisualAnalysisModal(true)}
+                    style={{ fontSize: 12, fontWeight: 600, color: CYAN, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    View details <ChevronRight size={14} />
+                  </button>
+                )}
+              </div>
+              <div style={{ fontSize: 12, color: GREY, marginTop: 4 }}>AI-powered analysis of your website's first impression</div>
+            </div>
+
+            {/* Body — screenshot + findings side by side on desktop, stacked on mobile */}
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 0 }}>
+              {/* Screenshot */}
+              {screenshotSrc && (
+                <div style={{
+                  flex: isMobile ? 'none' : '0 0 45%',
+                  padding: 16,
+                  background: '#F3F4F6',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRight: isMobile ? 'none' : `1px solid ${BORDER}`,
+                  borderBottom: isMobile ? `1px solid ${BORDER}` : 'none',
+                  minHeight: isMobile ? 180 : 220,
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}>
+                  <img
+                    src={screenshotSrc}
+                    alt={`${business?.name || 'Business'} website screenshot`}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      borderRadius: 8,
+                      border: `1px solid ${BORDER}`,
+                      boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                    }}
+                  />
+                  <div style={{
+                    position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+                    padding: '4px 12px', borderRadius: 8,
+                    background: 'rgba(13,21,20,0.75)', backdropFilter: 'blur(8px)',
+                    fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.8)',
+                    letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                  }}>
+                    PageSpeed Screenshot
+                  </div>
+                </div>
+              )}
+
+              {/* Findings list */}
+              <div style={{ flex: 1, padding: '16px 20px' }}>
+                {inlineFindings.map((f, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 0',
+                    borderBottom: i < inlineFindings.length - 1 ? `1px solid ${BORDER}` : 'none',
+                  }}>
+                    <div style={{
+                      width: 22, height: 22, borderRadius: '50%', flexShrink: 0, marginTop: 1,
+                      background: statusBg(f.status) + '18',
+                      color: statusBg(f.status),
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 11, fontWeight: 800,
+                    }}>
+                      {statusIcon(f.status)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: DARK, lineHeight: 1.3 }}>{f.label}</div>
+                      <div style={{ fontSize: 12, color: GREY, marginTop: 2, lineHeight: 1.45 }}>{f.note}</div>
+                    </div>
+                  </div>
+                ))}
+                {hasMore && (
+                  <button
+                    onClick={() => setVisualAnalysisModal(true)}
+                    style={{
+                      marginTop: 12, width: '100%', padding: '10px 16px',
+                      background: GREY_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
+                      fontSize: 12, fontWeight: 600, color: DARK, cursor: 'pointer',
+                      transition: 'background 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#F0F0F0')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = GREY_BG)}
+                  >
+                    See full analysis ({findings.length} checks) →
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* SECTION 8 — CONTENT GAPS */}
       {activeTab === 'website' && gaps.length > 0 && (
         <div style={card()}>
@@ -2040,6 +2167,111 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 >
                   Let WeFixTrades fix this →
                 </button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* MODAL — VISUAL ANALYSIS DETAIL */}
+      {visualAnalysisModal && (() => {
+        const aiAnalysis = liveWebsiteAIAnalysis || report?.websiteAIAnalysis;
+        const screenshot = liveWebsiteScreenshot || report?.websiteScreenshot;
+        if (!aiAnalysis?.findings?.length) return null;
+        const findings: Array<{ label: string; status: string; note: string }> = aiAnalysis.findings;
+        const passCount = findings.filter(f => f.status === 'pass').length;
+        const total = findings.length;
+        const pct = Math.round((passCount / total) * 100);
+        const summaryColor = pct >= 70 ? GREEN : pct >= 40 ? AMBER : RED;
+        const statusIcon = (s: string) => s === 'pass' ? '✓' : s === 'warn' ? '!' : '✕';
+        const statusBg = (s: string) => s === 'pass' ? GREEN : s === 'warn' ? AMBER : RED;
+        const screenshotSrc = screenshot
+          ? screenshot.startsWith('data:') ? screenshot : `data:image/jpeg;base64,${screenshot}`
+          : null;
+
+        return (
+          <>
+            <div onClick={() => setVisualAnalysisModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200 }} />
+            <div style={{ position: 'fixed', top: 'clamp(48px, 5dvh, 80px)', left: '50%', transform: 'translateX(-50%)', zIndex: 201, width: 'min(520px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - clamp(48px, 5dvh, 80px) - 20px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
+              {/* Modal header */}
+              <div style={{ background: DARK, padding: '20px 24px', position: 'relative', flexShrink: 0 }}>
+                <button onClick={() => setVisualAnalysisModal(false)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                <div style={{ fontSize: 17, fontWeight: 700, color: WHITE }}>Website Visual Analysis</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+                  <div style={{ width: 80, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: summaryColor, borderRadius: 3 }}/>
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: summaryColor }}>{passCount}/{total} checks passed</span>
+                </div>
+              </div>
+
+              {/* Scrollable body */}
+              <div style={{ padding: '0', overflowY: 'auto', flex: 1 }}>
+                {/* Screenshot in modal */}
+                {screenshotSrc && (
+                  <div style={{ padding: '16px 24px 0', background: '#F9FAFB' }}>
+                    <img
+                      src={screenshotSrc}
+                      alt="Website screenshot"
+                      style={{ width: '100%', borderRadius: 10, border: `1px solid ${BORDER}`, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}
+                    />
+                  </div>
+                )}
+
+                {/* All findings */}
+                <div style={{ padding: '16px 24px' }}>
+                  {findings.map((f, i) => (
+                    <div key={i} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 0',
+                      borderBottom: i < findings.length - 1 ? `1px solid ${BORDER}` : 'none',
+                    }}>
+                      <div style={{
+                        width: 26, height: 26, borderRadius: '50%', flexShrink: 0, marginTop: 1,
+                        background: statusBg(f.status) + '18',
+                        color: statusBg(f.status),
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 12, fontWeight: 800,
+                      }}>
+                        {statusIcon(f.status)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 14, fontWeight: 600, color: DARK }}>{f.label}</span>
+                          <span style={{ padding: '1px 8px', borderRadius: 8, fontSize: 10, fontWeight: 700, background: statusBg(f.status) + '15', color: statusBg(f.status), textTransform: 'uppercase' }}>
+                            {f.status}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 13, color: GREY, marginTop: 4, lineHeight: 1.55 }}>{f.note}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* AI summary */}
+                {aiAnalysis.summary && (
+                  <div style={{ margin: '0 24px 20px', padding: '14px 18px', background: GREY_BG, borderRadius: 12, border: `1px solid ${BORDER}` }}>
+                    <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, fontWeight: 600 }}>AI Summary</div>
+                    <div style={{ fontSize: 13, color: DARK, lineHeight: 1.6 }}>{aiAnalysis.summary}</div>
+                  </div>
+                )}
+
+                {/* CTA */}
+                <div style={{ padding: '0 24px 20px' }}>
+                  <div style={{ fontSize: 12, color: GREY, marginBottom: 8 }}>Need help improving your website?</div>
+                  <button
+                    onClick={() => { setVisualAnalysisModal(false); setActiveTab('plan'); }}
+                    style={{
+                      width: '100%', padding: '12px 20px',
+                      background: CYAN, color: DARK, border: 'none', borderRadius: 10,
+                      fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                      transition: 'background 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#00BFB8')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = CYAN)}
+                  >
+                    Let WeFixTrades fix this →
+                  </button>
+                </div>
               </div>
             </div>
           </>
