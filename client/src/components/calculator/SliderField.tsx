@@ -11,6 +11,12 @@ interface SliderFieldProps {
   showMinMaxLabels?: boolean;
   onChange: (value: number) => void;
   accentColor?: string;
+  /** Override track background for dark themes */
+  trackBg?: string;
+  /** Override label color for dark themes */
+  labelColor?: string;
+  /** Override min/max label color for dark themes */
+  minMaxColor?: string;
 }
 
 export default function SliderField({
@@ -24,6 +30,9 @@ export default function SliderField({
   showMinMaxLabels = true,
   onChange,
   accentColor = '#0284C7',
+  trackBg,
+  labelColor,
+  minMaxColor,
 }: SliderFieldProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [localValue, setLocalValue] = useState(value);
@@ -53,7 +62,7 @@ export default function SliderField({
   return (
     <div data-testid={`slider-field-${label.toLowerCase().replace(/\s+/g, '-')}`} style={{ marginBottom: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-        <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748B' }}>{label}</span>
+        <span style={{ fontSize: '13px', fontWeight: 600, color: labelColor || '#64748B' }}>{label}</span>
         <span data-testid={`slider-value-${label.toLowerCase().replace(/\s+/g, '-')}`} style={{
           fontSize: '15px', fontWeight: 700, color: accentColor,
           background: `rgba(${r},${g},${b},0.08)`,
@@ -89,7 +98,7 @@ export default function SliderField({
         )}
         <div ref={trackRef} style={{
           position: 'relative', height: '6px', borderRadius: '3px',
-          background: '#E2E8F0',
+          background: trackBg || '#E2E8F0',
         }}>
           <div style={{
             position: 'absolute', left: 0, top: 0, height: '100%',
@@ -101,6 +110,11 @@ export default function SliderField({
         <input
           data-testid={`slider-input-${label.toLowerCase().replace(/\s+/g, '-')}`}
           type="range"
+          aria-label={label}
+          aria-valuemin={min}
+          aria-valuemax={max}
+          aria-valuenow={localValue}
+          aria-valuetext={displayValue}
           min={min}
           max={max}
           step={step}
@@ -142,10 +156,10 @@ export default function SliderField({
       </div>
       {showMinMaxLabels && (
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-          <span style={{ fontSize: '11px', color: '#94A3B8' }}>
+          <span style={{ fontSize: '11px', color: minMaxColor || '#94A3B8' }}>
             {min}{unitSuffix ? ` ${unitSuffix}` : ''}
           </span>
-          <span style={{ fontSize: '11px', color: '#94A3B8' }}>
+          <span style={{ fontSize: '11px', color: minMaxColor || '#94A3B8' }}>
             {max}{unitSuffix ? ` ${unitSuffix}` : ''}
           </span>
         </div>
