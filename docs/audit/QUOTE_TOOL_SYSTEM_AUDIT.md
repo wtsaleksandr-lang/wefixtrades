@@ -343,15 +343,22 @@ See `QUOTE_TOOL_SCHEMA_SUMMARY.json` for full details.
 3. **PriceRevealStep** — Three display modes: `ExactPriceBlock` (total + line-item breakdown), `RangeBlock` ($min–$max), `CallForQuoteBlock` (phone icon + CTA). Recalculates from `calculateEstimate()` on render.
 4. **ConfirmationStep** — Shows different content based on `leadSubmitted` and `bookingConfirmed` flags. Falls back through step.title → calculator.lead_thank_you_message → "You're all set!".
 
-### Inferred (Not Directly Verified)
-1. **Stripe deposit flow** — stripeRoutes.ts exists but wasn't fully traced. Deposit collection is referenced in booking settings schema.
-2. **AI employee** — Full AI chat bubble implementation exists (AIChatBubble.tsx) but is only shown when ai_employee.enabled && subscription active/trial.
-3. **Webhook delivery** — notification_queue supports webhooks, but retry/timeout behavior wasn't traced.
-4. **SMS followup delivery** — followup_jobs with channel=sms exist, but actual Twilio sending logic in followupWorker wasn't traced.
+### Confirmed Details (from backend trace)
+5. **Stripe Connect flow** — Full Express account onboarding (4 endpoints). Deposit checkout uses connected account with API version 2025-01-27.acacia. Zero platform fee.
+6. **Webhook delivery** — HTTPS required, SSRF protection (rejects private IPs), 5s timeout, 3 max retry attempts, 30/hr rate limit per calculator.
+7. **Followup delivery** — Template variable replacement for `{{name}}`, `{{quote_amount}}`, etc. Coupon integration on last_call step. Cancels if lead status changes from "new".
+8. **AI model** — Uses `gpt-5-mini` for all AI operations (pricing draft, demo chat, support chat, client chat).
+9. **AI pricing pipeline** — 3-tier: deterministic derivation from sample quotes → OpenAI generation → fallback config. Confidence <60 forces price_range_only or call_for_quote.
+10. **Storage layer** — 67 methods across 11 categories. Manual delete cascade for calculators.
+
+### Still Unverified
+1. **AI employee** — Full AI chat bubble implementation exists (AIChatBubble.tsx) but detailed rendering/interaction wasn't traced.
+2. **Session management** — Sessions stored in PostgreSQL via connect-pg-simple, 7-day cookie. Passport used for auth but auth flow details not fully traced.
 
 ### Dead Code / Unused
 1. **FlowMapHero in home.tsx** — Desktop and mobile flow map sections have `display: "none"` — explicitly hidden.
 2. **CalculatorWidget** — Marked as FROZEN but still the production default. Technically not dead code, but slated for removal.
+3. **server/data/services.ts** — Exact duplicate of `shared/services.ts`. Same 10 services, same function. Exists for server import convenience but should use the shared module.
 
 ### Potential Styling Inconsistencies
 1. **Two design token systems** — `eff` tokens (widget) use a light theme (bg: #e4edf1), while `mkt` tokens (marketing) use a dark theme (bg: #181D1F). The widget renders as a white card on the dark page, which is intentional.
