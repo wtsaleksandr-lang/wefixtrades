@@ -34,19 +34,11 @@ export async function sendAuditReportEmail(opts: {
   const row = rows[0];
   const audit: any = row.audit_data || {};
   const narrative: any = row.ai_narrative || {};
-
   const reportUrl = `${opts.origin}/audit/report/${opts.reportId}`;
-
-  const { subject, html } = buildAuditReportEmail({
-    businessName: row.business_name,
-    score: audit.scores?.total ?? null,
-    grade: audit.scores?.grade || narrative.grade || "N/A",
-    executiveSummary: narrative.executiveSummary || "",
-    reportUrl,
-  });
 
   // Generate PDF attachment
   let attachments: Array<{ filename: string; content: Buffer; contentType: string }> = [];
+  let hasPdf = false;
   try {
     const pdfResult = await generateReportPdf(opts.reportId, opts.origin);
     if (pdfResult.ok && pdfResult.buffer.length <= MAX_ATTACHMENT_SIZE) {
@@ -55,6 +47,7 @@ export async function sendAuditReportEmail(opts: {
         content: pdfResult.buffer,
         contentType: "application/pdf",
       }];
+      hasPdf = true;
     } else if (pdfResult.ok) {
       console.log(`[audit-email] PDF too large (${(pdfResult.buffer.length / 1024 / 1024).toFixed(1)}MB), sending link only`);
     } else {
@@ -63,6 +56,16 @@ export async function sendAuditReportEmail(opts: {
   } catch (err: any) {
     console.log(`[audit-email] PDF generation error: ${err?.message}, sending link only`);
   }
+
+  // Build email HTML (template adapts based on whether PDF is attached)
+  const { subject, html } = buildAuditReportEmail({
+    businessName: row.business_name,
+    score: audit.scores?.total ?? null,
+    grade: audit.scores?.grade || narrative.grade || "N/A",
+    executiveSummary: narrative.executiveSummary || "",
+    reportUrl,
+    hasPdfAttachment: hasPdf,
+  });
 
   await transporter.sendMail({
     from: getFromAddress(),

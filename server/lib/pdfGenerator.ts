@@ -3,9 +3,11 @@ import { auditReports } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { buildPdfHtml, type PdfReportData } from "./pdfTemplate";
 
+const PDF_TIMEOUT_MS = 30_000; // 30 seconds max for PDF generation
+
 /**
  * Generates a PDF buffer for an audit report.
- * Uses Playwright (already installed as devDep for e2e tests).
+ * Uses Playwright (already installed for e2e tests).
  */
 export async function generateReportPdf(
   reportId: string,
@@ -64,20 +66,31 @@ export async function generateReportPdf(
   // 3. Build HTML
   const html = buildPdfHtml(pdfData);
 
-  // 4. Render PDF with Playwright
+  // 4. Render PDF with Playwright (with timeout)
   let browser;
   try {
     const { chromium } = await import("playwright");
     browser = await chromium.launch({
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--single-process",
+      ],
     });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "load" });
+
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.setContent(html, { waitUntil: "load", timeout: PDF_TIMEOUT_MS });
+
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
       margin: { top: "0mm", bottom: "0mm", left: "0mm", right: "0mm" },
     });
+
+    await context.close();
 
     const safeName = row.business_name
       .replace(/[^a-zA-Z0-9\s-]/g, "")
@@ -87,7 +100,8 @@ export async function generateReportPdf(
 
     return { ok: true, buffer: Buffer.from(pdfBuffer), filename };
   } catch (err: any) {
-    console.error("[pdf-generator] Playwright error:", err?.message);
+    const msg = err?.message || "Unknown error";
+    console.error(`[pdf-generator] Failed for report ${reportId}: ${msg}`);
     return { ok: false, error: "PDF generation failed" };
   } finally {
     if (browser) {
