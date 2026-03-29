@@ -1,10 +1,16 @@
+import { useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { SlidersHorizontal, ChevronLeft } from 'lucide-react';
-import { mkt, colors, radius, shadows } from '@/theme/tokens';
+import { SlidersHorizontal, ChevronLeft, RotateCcw } from 'lucide-react';
+import { mkt, radius, shadows } from '@/theme/tokens';
 import SliderField from '@/components/calculator/SliderField';
 import type { TradePreset } from '@/data/missedCallTradePresets';
 
 const DARK_TRACK = 'rgba(255,255,255,0.08)';
+
+const fmtCurrency = (v: number) => `$${v.toLocaleString()}`;
+const fmtCurrencyBound = (v: number) =>
+  v >= 1000 ? `$${Math.round(v / 1000)}K` : `$${v.toLocaleString()}`;
+const fmtPct = (v: number) => `${v}%`;
 
 export interface SliderValues {
   missedCallsPerWeek: number;
@@ -26,6 +32,19 @@ export default function CalculatorControls({
   onChangeTrade,
 }: CalculatorControlsProps) {
   const { sliderBounds } = preset;
+
+  const isDefault =
+    values.missedCallsPerWeek === preset.defaultMissedCallsPerWeek &&
+    values.closeRatePercent === preset.defaultCloseRate &&
+    values.avgJobValue === preset.avgJobValueMid;
+
+  const handleReset = useCallback(() => {
+    onChange({
+      missedCallsPerWeek: preset.defaultMissedCallsPerWeek,
+      closeRatePercent: preset.defaultCloseRate,
+      avgJobValue: preset.avgJobValueMid,
+    });
+  }, [preset, onChange]);
 
   return (
     <motion.div
@@ -88,6 +107,17 @@ export default function CalculatorControls({
         padding: 'clamp(20px, 4vw, 32px)',
         boxShadow: shadows.card,
       }}>
+        {/* Context helper */}
+        <p style={{
+          fontSize: 13,
+          fontWeight: 500,
+          color: mkt.textMuted,
+          margin: '0 0 18px',
+          lineHeight: 1.4,
+        }}>
+          Using typical <span style={{ color: mkt.accent }}>{preset.label.toLowerCase()}</span> business ranges
+        </p>
+
         <SliderField
           label="Missed calls per week"
           value={values.missedCallsPerWeek}
@@ -108,7 +138,9 @@ export default function CalculatorControls({
           min={sliderBounds.closeRate.min}
           max={sliderBounds.closeRate.max}
           step={sliderBounds.closeRate.step}
-          unitSuffix="%"
+          unitSuffix=""
+          formatValue={fmtPct}
+          formatBound={fmtPct}
           onChange={v => onChange({ ...values, closeRatePercent: v })}
           accentColor={mkt.accent}
           trackBg={DARK_TRACK}
@@ -123,6 +155,8 @@ export default function CalculatorControls({
           max={sliderBounds.avgJobValue.max}
           step={sliderBounds.avgJobValue.step}
           unitSuffix=""
+          formatValue={fmtCurrency}
+          formatBound={fmtCurrencyBound}
           showMinMaxLabels
           onChange={v => onChange({ ...values, avgJobValue: v })}
           accentColor={mkt.accent}
@@ -131,18 +165,63 @@ export default function CalculatorControls({
           minMaxColor={mkt.textFaint}
         />
 
-        {/* Assumption context */}
-        <p style={{
-          fontSize: 12,
-          color: mkt.textFaint,
-          lineHeight: 1.5,
-          margin: '12px 0 0',
-          paddingTop: 12,
+        {/* Footer: reset + assumption note */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          paddingTop: 14,
+          marginTop: 14,
           borderTop: `1px solid ${mkt.border}`,
         }}>
-          Defaults are based on industry averages for {preset.label.toLowerCase()} businesses.
-          Adjust sliders to match your experience.
-        </p>
+          <p style={{
+            fontSize: 12,
+            color: mkt.textFaint,
+            lineHeight: 1.5,
+            margin: 0,
+            flex: 1,
+          }}>
+            Defaults based on industry averages. Adjust to match your business.
+          </p>
+
+          {!isDefault && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.2 }}
+              onClick={handleReset}
+              aria-label={`Reset to typical ${preset.label} values`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                fontSize: 12,
+                fontWeight: 600,
+                color: mkt.textFaint,
+                background: 'none',
+                border: `1px solid ${mkt.border}`,
+                borderRadius: radius.sm,
+                padding: '5px 10px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'color 0.15s, border-color 0.15s',
+                flexShrink: 0,
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.color = mkt.accent;
+                e.currentTarget.style.borderColor = mkt.accent + '44';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.color = mkt.textFaint;
+                e.currentTarget.style.borderColor = mkt.border;
+              }}
+            >
+              <RotateCcw size={11} />
+              Reset
+            </motion.button>
+          )}
+        </div>
       </div>
     </motion.div>
   );

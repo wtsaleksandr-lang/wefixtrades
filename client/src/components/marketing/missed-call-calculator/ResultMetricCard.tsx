@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { mkt, colors, shadows, radius } from '@/theme/tokens';
+import { colors, radius } from '@/theme/tokens';
 
 interface ResultMetricCardProps {
   label: string;

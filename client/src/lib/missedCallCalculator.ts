@@ -18,6 +18,8 @@ export interface CalcResult {
   lostPerMonth: number;
   /** Lost opportunity per year (monthly × 12) */
   lostPerYear: number;
+  /** Lost opportunity per day (yearly / 365) */
+  lostPerDay: number;
   /** Lost jobs per month */
   lostJobsPerMonth: number;
 }
@@ -40,11 +42,14 @@ export function calculate(inputs: CalcInputs): CalcResult {
   const lostPerYear = lostPerMonth * 12;
   const lostJobsPerMonth = lostJobsPerWeek * WEEKS_PER_MONTH;
 
+  const lostPerDay = lostPerYear / 365;
+
   return {
     lostJobsPerWeek: round2(lostJobsPerWeek),
     lostPerWeek: Math.round(lostPerWeek),
     lostPerMonth: Math.round(lostPerMonth),
     lostPerYear: Math.round(lostPerYear),
+    lostPerDay: Math.round(lostPerDay),
     lostJobsPerMonth: Math.round(lostJobsPerMonth),
   };
 }

@@ -17,6 +17,10 @@ interface SliderFieldProps {
   labelColor?: string;
   /** Override min/max label color for dark themes */
   minMaxColor?: string;
+  /** Custom value formatter — overrides default display logic */
+  formatValue?: (value: number) => string;
+  /** Custom min/max label formatter */
+  formatBound?: (value: number) => string;
 }
 
 export default function SliderField({
@@ -33,6 +37,8 @@ export default function SliderField({
   trackBg,
   labelColor,
   minMaxColor,
+  formatValue,
+  formatBound,
 }: SliderFieldProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [localValue, setLocalValue] = useState(value);
@@ -51,9 +57,11 @@ export default function SliderField({
 
   const pct = Math.max(0, Math.min(100, ((localValue - min) / (max - min)) * 100));
 
-  const displayValue = step < 1
-    ? `${localValue.toFixed(step.toString().split('.')[1]?.length || 1)}${unitSuffix ? ` ${unitSuffix}` : ''}`
-    : `${localValue}${unitSuffix ? ` ${unitSuffix}` : ''}`;
+  const displayValue = formatValue
+    ? formatValue(localValue)
+    : step < 1
+      ? `${localValue.toFixed(step.toString().split('.')[1]?.length || 1)}${unitSuffix ? ` ${unitSuffix}` : ''}`
+      : `${localValue.toLocaleString()}${unitSuffix ? ` ${unitSuffix}` : ''}`;
 
   const r = parseInt(accentColor.slice(1, 3), 16) || 2;
   const g = parseInt(accentColor.slice(3, 5), 16) || 132;
@@ -157,10 +165,10 @@ export default function SliderField({
       {showMinMaxLabels && (
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
           <span style={{ fontSize: '11px', color: minMaxColor || '#94A3B8' }}>
-            {min}{unitSuffix ? ` ${unitSuffix}` : ''}
+            {formatBound ? formatBound(min) : `${min.toLocaleString()}${unitSuffix ? ` ${unitSuffix}` : ''}`}
           </span>
           <span style={{ fontSize: '11px', color: minMaxColor || '#94A3B8' }}>
-            {max}{unitSuffix ? ` ${unitSuffix}` : ''}
+            {formatBound ? formatBound(max) : `${max.toLocaleString()}${unitSuffix ? ` ${unitSuffix}` : ''}`}
           </span>
         </div>
       )}

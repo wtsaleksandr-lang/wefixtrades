@@ -1,8 +1,11 @@
-import { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { useMemo, useState, useRef } from 'react';
+import { motion, useAnimationControls } from 'framer-motion';
 import { Link } from 'wouter';
-import { TrendingDown, Calendar, CalendarDays, Briefcase, ArrowRight, Info } from 'lucide-react';
-import { mkt, colors, radius, shadows } from '@/theme/tokens';
+import {
+  TrendingDown, Calendar, Briefcase, ArrowRight, Info,
+  Clock, ChevronDown, ChevronUp, Zap,
+} from 'lucide-react';
+import { mkt, colors, radius } from '@/theme/tokens';
 import { calculateRange, formatCurrencyFull } from '@/lib/missedCallCalculator';
 import type { RangeResult, CalcInputs } from '@/lib/missedCallCalculator';
 import ResultMetricCard from './ResultMetricCard';
@@ -15,8 +18,32 @@ interface ResultsPanelProps {
 
 export default function ResultsPanel({ inputs, tradeName }: ResultsPanelProps) {
   const range: RangeResult = useMemo(() => calculateRange(inputs), [inputs]);
+  const [showScenario, setShowScenario] = useState(false);
+  const heroControls = useAnimationControls();
+  const prevInputsRef = useRef(inputs);
+
+  // Micro-interaction: subtle pulse on value change
+  const inputsChanged =
+    prevInputsRef.current.missedCallsPerWeek !== inputs.missedCallsPerWeek ||
+    prevInputsRef.current.closeRatePercent !== inputs.closeRatePercent ||
+    prevInputsRef.current.avgJobValue !== inputs.avgJobValue;
+
+  if (inputsChanged) {
+    prevInputsRef.current = inputs;
+    heroControls.start({
+      scale: [1, 1.015, 1],
+      transition: { duration: 0.3, ease: 'easeOut' },
+    });
+  }
 
   const { conservative, typical, high } = range;
+
+  // Response improvement scenario: +10% close rate
+  const improvedRange = useMemo(() => {
+    const boost = Math.min(inputs.closeRatePercent + 10, 95);
+    return calculateRange({ ...inputs, closeRatePercent: boost });
+  }, [inputs]);
+  const scenarioDelta = improvedRange.typical.lostPerYear - typical.lostPerYear;
 
   return (
     <motion.div
@@ -25,11 +52,9 @@ export default function ResultsPanel({ inputs, tradeName }: ResultsPanelProps) {
       transition={{ duration: 0.45, delay: 0.1 }}
       style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}
     >
-      {/* Primary hero: yearly opportunity range */}
+      {/* ── Primary hero: yearly opportunity range ── */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.97 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5, delay: 0.15 }}
+        animate={heroControls}
         style={{
           background: 'rgba(239,68,68,0.06)',
           border: '1px solid rgba(239,68,68,0.15)',
@@ -75,7 +100,6 @@ export default function ResultsPanel({ inputs, tradeName }: ResultsPanelProps) {
           fontSize: 14,
           color: mkt.textMuted,
           lineHeight: 1.4,
-          marginBottom: 4,
         }}>
           Most likely: <strong style={{ color: colors.effortel.n200 }}>
             {formatCurrencyFull(typical.lostPerYear)}
@@ -83,8 +107,8 @@ export default function ResultsPanel({ inputs, tradeName }: ResultsPanelProps) {
         </div>
       </motion.div>
 
-      {/* Secondary breakdown */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      {/* ── Secondary: monthly + daily + jobs ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
         <ResultMetricCard
           label="Per month"
           value={`${formatCurrencyFull(conservative.lostPerMonth)} – ${formatCurrencyFull(high.lostPerMonth)}`}
@@ -94,16 +118,140 @@ export default function ResultsPanel({ inputs, tradeName }: ResultsPanelProps) {
           delay={0.25}
         />
         <ResultMetricCard
-          label="Jobs lost / mo"
+          label="Per day"
+          value={`${formatCurrencyFull(conservative.lostPerDay)} – ${formatCurrencyFull(high.lostPerDay)}`}
+          icon={<Clock size={14} />}
+          accent="#EF4444"
+          accentTint="rgba(239,68,68,0.06)"
+          delay={0.3}
+        />
+        <ResultMetricCard
+          label="Jobs / mo"
           value={`~${Math.round(conservative.lostJobsPerMonth)} – ${Math.round(high.lostJobsPerMonth)}`}
           icon={<Briefcase size={14} />}
           accent="#D97706"
           accentTint="rgba(217,119,6,0.08)"
-          delay={0.3}
+          delay={0.35}
         />
       </div>
 
-      {/* Assumptions transparency */}
+      {/* ── Daily loss context line with subtle pulse ── */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4, duration: 0.4 }}
+        style={{
+          textAlign: 'center',
+          padding: '10px 0',
+        }}
+      >
+        <motion.span
+          animate={{ opacity: [0.65, 1, 0.65] }}
+          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: '#EF4444',
+            letterSpacing: '0.01em',
+          }}
+        >
+          ≈ {formatCurrencyFull(conservative.lostPerDay)} – {formatCurrencyFull(high.lostPerDay)} per day in missed opportunities
+        </motion.span>
+      </motion.div>
+
+      {/* ── Response improvement scenario (collapsible) ── */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.48, duration: 0.35 }}
+      >
+        <button
+          onClick={() => setShowScenario(s => !s)}
+          aria-expanded={showScenario}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '12px 16px',
+            background: mkt.cardBg,
+            border: `1px solid ${mkt.cardBorder}`,
+            borderRadius: showScenario ? `${radius.md} ${radius.md} 0 0` : radius.md,
+            cursor: 'pointer',
+            transition: 'border-radius 0.2s',
+            color: mkt.textMuted,
+            fontSize: 13,
+            fontWeight: 600,
+            textAlign: 'left',
+          }}
+        >
+          <Zap size={14} color={mkt.accent} />
+          <span style={{ flex: 1 }}>
+            What if you improved response time?
+          </span>
+          {showScenario
+            ? <ChevronUp size={14} color={mkt.textFaint} />
+            : <ChevronDown size={14} color={mkt.textFaint} />
+          }
+        </button>
+
+        {showScenario && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25 }}
+            style={{
+              background: mkt.cardBg,
+              border: `1px solid ${mkt.cardBorder}`,
+              borderTop: 'none',
+              borderRadius: `0 0 ${radius.md} ${radius.md}`,
+              padding: '14px 16px',
+            }}
+          >
+            <p style={{
+              fontSize: 13,
+              color: mkt.textMuted,
+              lineHeight: 1.55,
+              margin: '0 0 10px',
+            }}>
+              Faster response times generally increase close rates. If your close rate
+              improved by ~10 points (from {inputs.closeRatePercent}% to{' '}
+              {Math.min(inputs.closeRatePercent + 10, 95)}%):
+            </p>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '10px 14px',
+              background: 'rgba(102,232,250,0.06)',
+              border: `1px solid ${mkt.accent}22`,
+              borderRadius: radius.sm,
+            }}>
+              <Zap size={16} color={mkt.accent} />
+              <div>
+                <div style={{
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: colors.effortel.n100,
+                  letterSpacing: '-0.01em',
+                }}>
+                  +{formatCurrencyFull(scenarioDelta)}/yr potential
+                </div>
+                <div style={{
+                  fontSize: 12,
+                  color: mkt.textFaint,
+                  marginTop: 2,
+                }}>
+                  Based on industry benchmarks — not a guarantee
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </motion.div>
+
+      {/* ── Assumptions + trust text ── */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -119,20 +267,20 @@ export default function ResultsPanel({ inputs, tradeName }: ResultsPanelProps) {
         }}
       >
         <Info size={14} color={mkt.textFaint} style={{ flexShrink: 0, marginTop: 2 }} />
-        <p style={{
-          fontSize: 12,
-          color: mkt.textFaint,
-          lineHeight: 1.55,
-          margin: 0,
-        }}>
-          <strong style={{ color: mkt.textMuted }}>How we estimate:</strong>{' '}
-          The conservative figure assumes 70% of missed calls were genuine leads.
-          The high estimate includes 20% for repeat and referral value.
-          Your actual opportunity depends on lead quality, seasonality, and market.
-        </p>
+        <div style={{ fontSize: 12, color: mkt.textFaint, lineHeight: 1.55 }}>
+          <p style={{ margin: '0 0 6px' }}>
+            <strong style={{ color: mkt.textMuted }}>How we estimate:</strong>{' '}
+            Conservative assumes 70% of missed calls were genuine leads.
+            High includes 20% for repeat and referral value.
+          </p>
+          <p style={{ margin: 0, opacity: 0.85 }}>
+            Estimates based on aggregated service industry data across North America.
+            Your results depend on lead quality, seasonality, and local market.
+          </p>
+        </div>
       </motion.div>
 
-      {/* CTA */}
+      {/* ── CTA ── */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
