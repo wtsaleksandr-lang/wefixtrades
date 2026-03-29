@@ -1,0 +1,228 @@
+{
+  "meta": {
+    "generated": "2026-03-29",
+    "scope": "All backend files involved in quote tool operation"
+  },
+  "server_entry": {
+    "file": "server/index.ts",
+    "framework": "Express 5",
+    "purpose": "Main server entry — registers all routes, sets up middleware, serves Vite in dev / static in prod"
+  },
+  "route_files": {
+    "calculatorRoutes": {
+      "file": "server/routes/calculatorRoutes.ts",
+      "endpoints": ["POST /api/calculators", "GET /api/calculators/lookup", "PATCH /api/calculators", "POST /api/calculators/duplicate", "POST /api/calculators/track-view", "GET /api/calculators/check-slug", "GET /api/calculators/slugify"],
+      "dependencies": ["storage", "validatePricingConfig", "calculatorSettingsSchema", "slugUtils"]
+    },
+    "leadRoutes": {
+      "file": "server/routes/leadRoutes.ts",
+      "endpoints": ["POST /api/leads", "GET /api/leads", "POST /api/calculators/:slug/coupons/validate"],
+      "dependencies": ["storage"],
+      "business_logic": "enqueueLeadNotificationsAndFollowups — schedules email/SMS/webhook notifications and followup sequences"
+    },
+    "bookingRoutes": {
+      "file": "server/routes/bookingRoutes.ts",
+      "endpoints": [
+        "GET /api/bookings/availability?calculator_id=X&date=YYYY-MM-DD",
+        "POST /api/bookings",
+        "POST /api/bookings/:id/checkout",
+        "GET /api/bookings/confirm?session_id=X",
+        "GET /api/dashboard/bookings?token=X",
+        "PATCH /api/dashboard/bookings/:id/status?token=X"
+      ],
+      "dependencies": ["storage", "bookingEmails", "stripe"],
+      "business_logic": {
+        "slot_generation": "Iterates start_time to end_time in duration+buffer increments, skips occupied slots",
+        "deposit_calc": "percentage of quote or fixed amount from booking_settings",
+        "conflict_check": "409 if slot already taken",
+        "stripe_checkout": "Stripe Connect Express with connected account, API version 2025-01-27.acacia"
+      }
+    },
+    "stripeRoutes": {
+      "file": "server/routes/stripeRoutes.ts",
+      "purpose": "Stripe Connect onboarding for business owners",
+      "endpoints": [
+        "POST /api/stripe/connect (create Express account + onboarding link)",
+        "GET /api/stripe/connect/callback (save account_id to settings)",
+        "GET /api/stripe/connect/refresh (re-generate onboarding link)",
+        "GET /api/stripe/connect/status (check connection status)"
+      ],
+      "dependencies": ["stripe", "storage"]
+    },
+    "aiRoutes": {
+      "file": "server/routes/aiRoutes.ts",
+      "purpose": "AI pricing generation, demo chat, support chat, client AI employee chat",
+      "endpoints": [
+        "POST /api/ai/generate-pricing",
+        "POST /api/ai/pricing-config-draft (async job pattern)",
+        "GET /api/ai/pricing-config-draft/:jobId",
+        "POST /api/ai/generate-pricing-draft (sync)",
+        "POST /api/ai/demo-chat",
+        "POST /api/ai/support-chat",
+        "POST /api/ai/client-chat",
+        "POST /api/ai/create-ticket"
+      ],
+      "dependencies": ["openaiClient", "aiChatEngine", "aiPricingAgent", "storage"],
+      "ai_model": "gpt-5-mini",
+      "ai_employee_trial": "14-day trial from trial_started_at, then 403 trial_expired"
+    },
+    "twilioRoutes": {
+      "file": "server/routes/twilioRoutes.ts",
+      "purpose": "Twilio SMS webhook handler for inbound messages"
+    },
+    "domainRoutes": {
+      "file": "server/routes/domainRoutes.ts",
+      "purpose": "Custom domain DNS verification and management"
+    },
+    "marketingRoutes": {
+      "file": "server/routes/marketingRoutes.ts",
+      "purpose": "Marketing-related API endpoints"
+    },
+    "dashboardRoutes": {
+      "file": "server/routes/dashboardRoutes.ts",
+      "purpose": "Dashboard data endpoints"
+    },
+    "authRoutes": {
+      "file": "server/routes/authRoutes.ts",
+      "purpose": "Authentication routes (login/register/session)"
+    }
+  },
+    "data_services_duplicate": {
+      "file": "server/data/services.ts",
+      "purpose": "EXACT DUPLICATE of shared/services.ts — same 10 services, same getServicesForIssues function",
+      "status": "dead_code_candidate — exists for server import path convenience but duplicates shared module"
+    }
+  },
+  "storage_layer": {
+    "file": "server/storage.ts",
+    "purpose": "Data access layer — 67 methods wrapping all Drizzle ORM queries via IStorage interface",
+    "method_categories": {
+      "calculator_crud": ["createCalculator", "getCalculatorById", "getCalculatorBySlug", "getCalculatorByToken", "updateCalculator", "duplicateCalculator", "deleteCalculator", "incrementViews"],
+      "leads": ["createLead", "getLeadsByCalculatorId", "searchLeads (ILIKE)", "deleteLead", "getLeadCountSince", "getLeadById", "updateLeadStatus"],
+      "analytics": ["trackEvent", "getEventCounts", "getWeeklyTrend (8-week)", "getAvgQuoteAmount", "getDailyEventCounts", "getBestDay"],
+      "notifications": ["enqueueNotification", "fetchDueNotifications (limit 20)", "updateNotification", "getNotificationLogs", "getRecentNotificationCount"],
+      "followups": ["enqueueFollowupJobs (bulk)", "fetchDueFollowups (limit 20)", "updateFollowupJob", "getFollowupLogs", "cancelFollowupsForLead"],
+      "bookings": ["createBooking", "getBookingsByCalculatorId", "getBookingById", "updateBookingStatus", "updateBooking", "getConfirmedBookingsForDate", "getBookingStats"],
+      "coupons": ["incrementCouponUsage (JSONB update)"],
+      "ai_support": ["createAiConversation", "updateAiConversation", "getAiConversationBySession", "createSupportTicket", "updateSupportTicket"],
+      "sms": ["getSmsThreads", "updateLeadAiPaused"],
+      "users": ["createUser", "getUserById", "getUserByEmail", "updateUser", "listUsers", "getUserCount", "getCalculatorsByUserId"],
+      "deployment": ["getDeploymentStatus", "upsertDeploymentStatus"],
+      "misc": ["getAllCalculatorsWithEmail", "createAuditSubmission", "listAuditSubmissions", "getAuditSubmissionCount"]
+    },
+    "delete_cascade": "deleteCalculator manually removes analytics_events, deployment_status, leads, then calculator"
+  },
+  "database": {
+    "file": "server/db.ts",
+    "orm": "Drizzle ORM v0.39.3",
+    "driver": "pg (node-postgres)",
+    "connection": "DATABASE_URL env var",
+    "migration_tool": "drizzle-kit push"
+  },
+  "background_jobs": {
+    "notificationWorker": {
+      "file": "server/jobs/notificationWorker.ts",
+      "purpose": "Processes notification_queue — sends emails and webhooks for new leads",
+      "rate_limiting": "30 notifications per calculator per 60-minute window",
+      "webhook_security": {
+        "https_required": true,
+        "ssrf_protection": "DNS lookup rejects private/loopback IPs (10.x, 192.168.x, 172.16-31.x, 127.x, ::1, etc.)",
+        "timeout": "5 seconds via AbortController"
+      },
+      "retry": "3 max attempts, marks failed when exceeded"
+    },
+    "followupWorker": {
+      "file": "server/jobs/followupWorker.ts",
+      "purpose": "Processes followup_jobs — sends scheduled thank_you, reminder, last_call emails/SMS",
+      "template_variables": ["{{name}}", "{{quote_amount}}", "{{business_name}}", "{{phone}}", "{{booking_link}}", "{{service_area}}", "{{discount_code}}", "{{discount_value}}"],
+      "cancellation_conditions": [
+        "Lead status not 'new'",
+        "Followup disabled in current settings",
+        "No email on lead (email channel)",
+        "No SMS consent (SMS channel)",
+        "No phone number",
+        "SMS rate limit exceeded"
+      ],
+      "coupon_integration": "last_call type looks up coupon from reminders.reminder_2_coupon_id",
+      "channels": ["SMTP email (nodemailer)", "Twilio SMS/WhatsApp"]
+    },
+    "aggregation": {
+      "file": "server/jobs/aggregation.ts",
+      "purpose": "Aggregates analytics data into calculator_analytics_summary table"
+    },
+    "weeklyReport": {
+      "file": "server/jobs/weeklyReport.ts",
+      "purpose": "Generates and sends weekly performance reports"
+    },
+    "scheduler": {
+      "file": "server/jobs/scheduler.ts",
+      "purpose": "node-cron based scheduler that triggers workers on intervals"
+    }
+  },
+  "external_integrations": {
+    "openai": {
+      "file": "server/openaiClient.ts",
+      "purpose": "OpenAI API client for AI chat and pricing agent",
+      "env_var": "AI_INTEGRATIONS_OPENAI_API_KEY"
+    },
+    "twilio": {
+      "file": "server/twilioClient.ts",
+      "purpose": "Twilio SMS sending client",
+      "env_vars_inferred": ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"]
+    },
+    "stripe": {
+      "package": "stripe v20.3.1",
+      "purpose": "Deposit payment processing via Checkout Sessions",
+      "env_vars_inferred": ["STRIPE_SECRET_KEY"]
+    },
+    "nodemailer": {
+      "file": "server/bookingEmails.ts",
+      "purpose": "Email sending for booking confirmations and lead notifications"
+    },
+    "google_maps": {
+      "purpose": "Business search for audit tool (not quote tool)",
+      "env_var": "GOOGLE_MAPS_API_KEY"
+    }
+  },
+  "shared_logic": {
+    "pricingConfig": {
+      "file": "shared/pricingConfig.ts",
+      "purpose": "Pricing type definitions, Zod validation, family labels. 10 pricing types supported.",
+      "pricing_types": ["hourly", "per_unit", "per_sqft", "per_linear_ft", "base_plus_rate", "tiered_packages", "tiered_ranges", "min_charge_plus_addons", "price_range_only", "call_for_quote_only"]
+    },
+    "calculateEstimate": {
+      "file": "shared/calculateEstimate.ts",
+      "purpose": "Pure function: (pricingConfig, inputs) => EstimateResult with breakdown",
+      "inputs": { "quantity": "number", "selectedTierIndex": "number", "selectedAddOnIds": "string[]", "selectedDifficultyId": "string", "isAfterHours": "boolean" },
+      "output": { "type": "exact|range|call_for_quote", "total": "number", "breakdown": "EstimateBreakdown[]", "callUs": "boolean" }
+    },
+    "templateLibrary": {
+      "file": "shared/templateLibrary.ts",
+      "purpose": "6 UI templates defining layout style, defaults, and optional wizard steps",
+      "templates": ["classic_single", "classic_two_column", "multi_step_progressive", "package_selector", "range_only_leadgate", "estimate_then_book"],
+      "trade_template_map": "Maps ~30 trade types to recommended templates"
+    },
+    "widgetFlowBuilder": {
+      "file": "shared/widgetFlowBuilder.ts",
+      "purpose": "Converts PricingConfig + Template + Settings into renderable WizardFlow with steps and questions"
+    },
+    "wizardSchema": {
+      "file": "shared/wizardSchema.ts",
+      "purpose": "Zod schema for WizardFlow, StepDefinition, QuestionDefinition — the schema-driven rendering contract",
+      "question_types": ["slider", "select", "toggle", "package_card", "text_input", "number_input", "checkbox_group", "radio_group", "info_display"],
+      "step_types": ["question", "multi_question", "package_selection", "addon_selection", "info", "price_reveal", "lead_capture", "booking", "confirmation"]
+    },
+    "sliderMappings": {
+      "file": "shared/sliderMappings.ts",
+      "purpose": "Maps unit names to slider min/max/step configs"
+    },
+    "slugUtils": {
+      "file": "shared/slugUtils.ts",
+      "purpose": "Slug generation, validation, subdomain building"
+    },
+    "services": {
+      "file": "shared/services.ts",
+      "purpose": "Service category definitions"
+    }
+  }
+}

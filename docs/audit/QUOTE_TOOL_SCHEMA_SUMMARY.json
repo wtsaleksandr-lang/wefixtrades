@@ -1,0 +1,236 @@
+{
+  "meta": {
+    "generated": "2026-03-29",
+    "orm": "Drizzle ORM with PostgreSQL",
+    "schema_file": "shared/schemas/db.ts",
+    "settings_schema_file": "shared/schemas/calculator.ts"
+  },
+  "tables": {
+    "users": {
+      "purpose": "Registered user accounts",
+      "columns": {
+        "id": { "type": "serial", "pk": true },
+        "email": { "type": "text", "required": true, "unique": true },
+        "password_hash": { "type": "text", "required": true },
+        "name": { "type": "text", "optional": true },
+        "role": { "type": "text", "default": "client" },
+        "created_at": { "type": "timestamp", "default": "now()" }
+      }
+    },
+    "calculators": {
+      "purpose": "Core entity — each calculator = one business's quote tool",
+      "columns": {
+        "id": { "type": "serial", "pk": true },
+        "user_id": { "type": "integer", "fk": "users.id", "optional": true },
+        "slug": { "type": "varchar(255)", "required": true, "unique": true },
+        "business_name": { "type": "text", "required": true },
+        "trade_type": { "type": "text", "required": true },
+        "tagline": { "type": "text", "optional": true },
+        "logo_url": { "type": "text", "optional": true },
+        "owner_email": { "type": "text", "optional": true },
+        "owner_phone": { "type": "text", "optional": true },
+        "website_url": { "type": "text", "optional": true },
+        "primary_color": { "type": "varchar(20)", "default": "#6366f1" },
+        "cta_button_text": { "type": "text", "default": "Get My Free Quote" },
+        "lead_thank_you_message": { "type": "text", "default": "Thanks! We'll be in touch soon." },
+        "pricing_config": { "type": "jsonb", "required": true, "schema": "PricingConfigV1" },
+        "theme_overrides": { "type": "jsonb", "optional": true },
+        "calculator_settings": { "type": "jsonb", "optional": true, "schema": "CalculatorSettings" },
+        "edit_token": { "type": "varchar(255)", "required": true },
+        "token_expires_at": { "type": "timestamp", "required": true },
+        "is_duplicated": { "type": "boolean", "default": false },
+        "total_views": { "type": "integer", "default": 0 },
+        "show_powered_by_badge": { "type": "boolean", "default": true },
+        "plan_tier": { "type": "text", "default": "free" },
+        "created_at": { "type": "timestamp", "default": "now()" }
+      },
+      "jsonb_schemas": {
+        "pricing_config": {
+          "schema_file": "shared/pricingConfig.ts",
+          "discriminator": "pricingType",
+          "variants": ["hourly", "per_unit", "per_sqft", "per_linear_ft", "base_plus_rate", "tiered_packages", "tiered_ranges", "min_charge_plus_addons", "price_range_only", "call_for_quote_only"],
+          "common_fields": ["baseFee", "minCharge", "travelFee", "afterHoursMult", "difficultyTiers", "addOns", "callUsThreshold"]
+        },
+        "calculator_settings": {
+          "schema_file": "shared/schemas/calculator.ts",
+          "top_level_sections": [
+            "calculator_type (estimate_only | estimate_plus_booking | booking_only)",
+            "booking_settings",
+            "ui_template",
+            "conversion_blocks",
+            "pricing_draft",
+            "pricing_intake",
+            "pricing_audit",
+            "appearance",
+            "layout",
+            "conversion",
+            "integrations",
+            "lead_form",
+            "publish",
+            "followup",
+            "promotions",
+            "quote_rules",
+            "ai_employee",
+            "test_history"
+          ]
+        }
+      }
+    },
+    "leads": {
+      "purpose": "Captured leads from quote forms",
+      "columns": {
+        "id": { "type": "serial", "pk": true },
+        "calculator_id": { "type": "integer", "fk": "calculators.id", "required": true },
+        "name": { "type": "text", "optional": true },
+        "email": { "type": "text", "optional": true },
+        "phone": { "type": "text", "optional": true },
+        "company": { "type": "text", "optional": true },
+        "quote_amount": { "type": "integer", "optional": true },
+        "answers": { "type": "jsonb", "optional": true },
+        "status": { "type": "varchar(20)", "default": "new" },
+        "sms_consent": { "type": "boolean", "default": false },
+        "consent_timestamp": { "type": "timestamp", "optional": true },
+        "consent_text_version": { "type": "varchar(50)", "optional": true },
+        "ai_paused": { "type": "boolean", "default": false },
+        "created_date": { "type": "timestamp", "default": "now()" }
+      }
+    },
+    "bookings": {
+      "purpose": "Appointment bookings linked to leads/calculators",
+      "columns": {
+        "id": { "type": "serial", "pk": true },
+        "calculator_id": { "type": "integer", "fk": "calculators.id", "required": true },
+        "lead_id": { "type": "integer", "fk": "leads.id", "optional": true },
+        "customer_name": { "type": "text", "required": true },
+        "customer_email": { "type": "text", "optional": true },
+        "customer_phone": { "type": "text", "optional": true },
+        "date": { "type": "varchar(10)", "required": true },
+        "time": { "type": "varchar(5)", "required": true },
+        "duration_minutes": { "type": "integer", "default": 60 },
+        "status": { "type": "varchar(20)", "default": "pending" },
+        "deposit_amount": { "type": "integer", "default": 0 },
+        "deposit_paid": { "type": "boolean", "default": false },
+        "stripe_payment_intent_id": { "type": "text", "optional": true },
+        "stripe_checkout_session_id": { "type": "text", "optional": true },
+        "quote_amount": { "type": "integer", "optional": true },
+        "notes": { "type": "text", "optional": true },
+        "created_at": { "type": "timestamp", "default": "now()" }
+      }
+    },
+    "notification_queue": {
+      "purpose": "Queue for async email/webhook notifications on new leads",
+      "columns": {
+        "id": { "type": "serial", "pk": true },
+        "calculator_id": { "type": "integer", "fk": "calculators.id" },
+        "lead_id": { "type": "integer", "fk": "leads.id" },
+        "type": { "type": "varchar(20)", "values": ["email", "webhook"] },
+        "status": { "type": "varchar(20)", "default": "pending", "values": ["pending", "sent", "failed"] },
+        "attempts": { "type": "integer", "default": 0 },
+        "max_attempts": { "type": "integer", "default": 3 },
+        "last_error": { "type": "text", "optional": true },
+        "payload": { "type": "jsonb" },
+        "created_at": { "type": "timestamp" },
+        "processed_at": { "type": "timestamp", "optional": true }
+      }
+    },
+    "followup_jobs": {
+      "purpose": "Scheduled followup messages (thank_you, reminder, last_call)",
+      "columns": {
+        "id": { "type": "serial", "pk": true },
+        "lead_id": { "type": "integer", "fk": "leads.id" },
+        "calculator_id": { "type": "integer", "fk": "calculators.id" },
+        "run_at": { "type": "timestamp", "required": true },
+        "type": { "type": "varchar(30)", "values": ["thank_you", "reminder", "last_call"] },
+        "channel": { "type": "varchar(20)", "default": "email", "values": ["email", "sms"] },
+        "status": { "type": "varchar(20)", "default": "pending" },
+        "attempts": { "type": "integer", "default": 0 },
+        "max_attempts": { "type": "integer", "default": 3 },
+        "payload": { "type": "jsonb" },
+        "created_at": { "type": "timestamp" },
+        "processed_at": { "type": "timestamp", "optional": true }
+      }
+    },
+    "analytics_events": {
+      "purpose": "Raw event stream (view, lead, etc.)",
+      "columns": {
+        "id": { "type": "serial", "pk": true },
+        "calculator_id": { "type": "integer", "fk": "calculators.id" },
+        "event_type": { "type": "varchar(50)", "values_seen": ["view", "lead"] },
+        "metadata": { "type": "jsonb" },
+        "created_at": { "type": "timestamp" }
+      }
+    },
+    "calculator_analytics_summary": {
+      "purpose": "Aggregated analytics per period",
+      "columns": {
+        "id": { "type": "serial", "pk": true },
+        "calculator_id": { "type": "integer", "fk": "calculators.id" },
+        "period_date": { "type": "timestamp" },
+        "total_views": { "type": "integer" },
+        "total_quotes": { "type": "integer" },
+        "total_leads": { "type": "integer" },
+        "conversion_rate": { "type": "integer" },
+        "avg_quote_value": { "type": "integer" },
+        "best_day": { "type": "text" },
+        "metadata": { "type": "jsonb" }
+      }
+    },
+    "deployment_status": {
+      "purpose": "Tracks publish state per calculator",
+      "columns": {
+        "id": { "type": "serial", "pk": true },
+        "calculator_id": { "type": "integer", "fk": "calculators.id", "unique": true },
+        "status": { "type": "varchar(20)", "default": "draft" },
+        "last_published_at": { "type": "timestamp" },
+        "auto_republish": { "type": "boolean", "default": true }
+      }
+    },
+    "ai_conversations": {
+      "purpose": "AI chat session history",
+      "columns": {
+        "id": { "type": "serial", "pk": true },
+        "agent_type": { "type": "varchar(30)" },
+        "calculator_id": { "type": "integer", "fk": "calculators.id" },
+        "session_id": { "type": "varchar(100)" },
+        "messages_json": { "type": "jsonb", "default": "[]" }
+      }
+    },
+    "sms_messages": {
+      "purpose": "SMS message log for Twilio integration",
+      "columns": {
+        "id": { "type": "serial", "pk": true },
+        "lead_id": { "type": "integer", "fk": "leads.id" },
+        "calculator_id": { "type": "integer", "fk": "calculators.id" },
+        "direction": { "type": "varchar(10)", "values": ["inbound", "outbound"] },
+        "channel": { "type": "varchar(15)", "default": "sms" },
+        "body": { "type": "text" },
+        "twilio_sid": { "type": "varchar(60)" },
+        "is_ai": { "type": "boolean", "default": true }
+      }
+    },
+    "support_tickets": {
+      "purpose": "Support tickets from AI escalation",
+      "note": "Related to AI employee feature, not core quote tool"
+    },
+    "job_logs": {
+      "purpose": "Background job execution logs"
+    },
+    "audit_submissions": {
+      "purpose": "Free audit tool submissions (separate feature)",
+      "note": "Not part of quote tool"
+    },
+    "audit_reports": {
+      "purpose": "Generated audit reports (separate feature)",
+      "note": "Not part of quote tool"
+    }
+  },
+  "relationships": {
+    "calculators -> users": "Many calculators per user (optional FK, most calculators are anonymous)",
+    "leads -> calculators": "Many leads per calculator",
+    "bookings -> calculators": "Many bookings per calculator",
+    "bookings -> leads": "Optional FK to leads",
+    "notification_queue -> leads, calculators": "References both",
+    "followup_jobs -> leads, calculators": "References both",
+    "analytics_events -> calculators": "Many events per calculator"
+  }
+}
