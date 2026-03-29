@@ -566,6 +566,115 @@ function buildSeedKeywords(trade: string, city: string): string[] {
   ];
 }
 
+/* ─── Niche Inference ─── */
+// Infer specific business niche from name, types, and description
+// Returns { primary, secondary[], nicheTerms[] }
+function inferBusinessNiche(businessName: string, types: string[], description?: string | null): {
+  primary: string;
+  secondary: string[];
+  nicheTerms: string[];
+  confidence: 'high' | 'medium' | 'low';
+} {
+  const haystack = [businessName, ...(types || []), description || ''].join(' ').toLowerCase();
+  const nicheTerms: string[] = [];
+  const secondary: string[] = [];
+
+  // Service-specific patterns — more granular than trade detection
+  const NICHE_PATTERNS: Array<{ pattern: RegExp; niche: string; trade: string }> = [
+    // Locksmith sub-niches
+    { pattern: /fob|key\s*(copy|cut|duplicat|program|replac)/i, niche: 'key & fob services', trade: 'locksmith' },
+    { pattern: /auto\s*lock|car\s*lock|car\s*key|vehicle\s*lock/i, niche: 'automotive locksmith', trade: 'locksmith' },
+    { pattern: /safe\s*(open|crack|install|repair)/i, niche: 'safe services', trade: 'locksmith' },
+    { pattern: /lock\s*(chang|rekey|install|repair)/i, niche: 'lock services', trade: 'locksmith' },
+    // Plumbing sub-niches
+    { pattern: /drain|sewer|rooter|clog/i, niche: 'drain & sewer services', trade: 'plumbing' },
+    { pattern: /water\s*heater|hot\s*water|tankless/i, niche: 'water heater services', trade: 'plumbing' },
+    { pattern: /bathroom|kitchen\s*plumb|renovation/i, niche: 'plumbing renovation', trade: 'plumbing' },
+    // HVAC sub-niches
+    { pattern: /furnace|heating\s*repair/i, niche: 'furnace & heating', trade: 'hvac' },
+    { pattern: /air\s*condition|ac\s*(repair|install|service)/i, niche: 'air conditioning', trade: 'hvac' },
+    { pattern: /duct\s*(clean|repair|install)/i, niche: 'ductwork services', trade: 'hvac' },
+    // Electrical sub-niches
+    { pattern: /panel|wiring|rewir/i, niche: 'electrical wiring', trade: 'electrical' },
+    { pattern: /ev\s*charg|electric\s*vehicle/i, niche: 'EV charger installation', trade: 'electrical' },
+    { pattern: /light|illumin/i, niche: 'lighting services', trade: 'electrical' },
+    // Cleaning sub-niches
+    { pattern: /carpet/i, niche: 'carpet cleaning', trade: 'cleaning' },
+    { pattern: /window\s*clean/i, niche: 'window cleaning', trade: 'cleaning' },
+    { pattern: /pressure\s*wash|power\s*wash/i, niche: 'pressure washing', trade: 'cleaning' },
+    { pattern: /commercial\s*clean|office\s*clean|janitorial/i, niche: 'commercial cleaning', trade: 'cleaning' },
+  ];
+
+  let primary = '';
+  for (const { pattern, niche } of NICHE_PATTERNS) {
+    if (pattern.test(haystack)) {
+      if (!primary) primary = niche;
+      else if (!secondary.includes(niche)) secondary.push(niche);
+      // Extract matching terms for keyword generation
+      const match = haystack.match(pattern);
+      if (match && match[0]) nicheTerms.push(match[0].trim());
+    }
+  }
+
+  // Confidence based on how much signal we found
+  const confidence = primary && nicheTerms.length >= 2 ? 'high'
+    : primary ? 'medium'
+    : 'low';
+
+  return { primary: primary || '', secondary, nicheTerms, confidence };
+}
+
+/* ─── Niche-Aware Keyword Generation ─── */
+function buildNicheKeywords(trade: string, city: string, niche: ReturnType<typeof inferBusinessNiche>, businessName: string): string[] {
+  const base = buildSeedKeywords(trade, city);
+  if (!niche.primary || niche.confidence === 'low') return base;
+
+  // Add niche-specific keywords
+  const nicheKws: string[] = [];
+  // Primary niche + city
+  nicheKws.push(`${niche.primary} ${city}`);
+  // Each detected niche term + city
+  for (const term of niche.nicheTerms.slice(0, 3)) {
+    const kw = `${term} ${city}`;
+    if (!nicheKws.includes(kw) && !base.includes(kw)) nicheKws.push(kw);
+  }
+  // Secondary niches
+  for (const sec of niche.secondary.slice(0, 2)) {
+    const kw = `${sec} ${city}`;
+    if (!nicheKws.includes(kw)) nicheKws.push(kw);
+  }
+  // Near-me variant for primary niche
+  nicheKws.push(`${niche.primary} near me`);
+
+  // Merge: niche keywords first (higher relevance), then base (broader)
+  const all = [...nicheKws, ...base];
+  // Deduplicate
+  const seen = new Set<string>();
+  return all.filter(kw => {
+    const key = kw.toLowerCase().trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 12); // Cap at 12 keywords for cost control
+}
+
+/* ─── Keyword Relevance Scoring ─── */
+function scoreKeywordRelevance(keyword: string, trade: string, niche: ReturnType<typeof inferBusinessNiche>): 'high' | 'medium' | 'low' {
+  const kw = keyword.toLowerCase();
+  // Check niche-specific terms first
+  if (niche.primary && kw.includes(niche.primary.toLowerCase().split(' ')[0])) return 'high';
+  for (const term of niche.nicheTerms) {
+    if (kw.includes(term.toLowerCase())) return 'high';
+  }
+  // Check trade-level match
+  const tradeLower = trade.toLowerCase();
+  if (kw.includes(tradeLower)) return niche.primary ? 'medium' : 'high';
+  // Check specific service map
+  const specific = SPECIFIC_SERVICE_MAP[tradeLower];
+  if (specific && kw.includes(specific.toLowerCase())) return 'medium';
+  return 'low';
+}
+
 /* ─── Outscraper async polling ─── */
 async function pollOutscraper(
   resultsUrl: string,
@@ -1074,23 +1183,30 @@ function calculateScores(auditData: any) {
 
   // Search Visibility — 20pts
   // Local pack pos 1=5, 2=4, 3=3, 4-10=2; Organic 1-3=3, 4-7=2, 8-10=1
+  // Relevance weighting: high=1.0, medium=0.7, low=0.3
+  const RELEVANCE_WEIGHT: Record<string, number> = { high: 1.0, medium: 0.7, low: 0.3 };
   let searchPts = 0;
   let hasLocalPack = false;
   let localPackPts = 0;
   let organicPts = 0;
   for (const kw of kws) {
+    const relWeight = RELEVANCE_WEIGHT[kw.relevance] ?? 1.0;
     if (kw.isInLocalPack && kw.localPackPosition) {
       const pos = kw.localPackPosition;
-      const pts = pos === 1 ? 5 : pos === 2 ? 4 : pos === 3 ? 3 : 2;
+      const rawPts = pos === 1 ? 5 : pos === 2 ? 4 : pos === 3 ? 3 : 2;
+      const pts = Math.round(rawPts * relWeight);
       searchPts += pts;
       localPackPts += pts;
       hasLocalPack = true;
     } else if (kw.organicRank) {
-      const pts = kw.organicRank <= 3 ? 3 : kw.organicRank <= 7 ? 2 : kw.organicRank <= 10 ? 1 : 0;
+      const rawPts = kw.organicRank <= 3 ? 3 : kw.organicRank <= 7 ? 2 : kw.organicRank <= 10 ? 1 : 0;
+      const pts = Math.round(rawPts * relWeight);
       searchPts += pts;
       organicPts += pts;
     }
   }
+  // Ensure businesses with strong local pack presence get a reasonable floor
+  if (hasLocalPack && searchPts < 6) searchPts = 6;
   const searchVisibilityScore = Math.min(searchPts, 20);
 
   // Competitor Positioning — 15pts
@@ -1606,8 +1722,17 @@ router.post("/generate", async (req: Request, res: Response) => {
     const photosLen = Array.isArray(business.photos) ? business.photos.length : 0;
     // mobileScore/desktopScore set after parallel fetch below
 
-    // ─── Build seed keywords ───
-    const seedKeywords = buildSeedKeywords(trade, city);
+    // ─── Infer business niche ───
+    const businessNiche = inferBusinessNiche(
+      business.name || '',
+      Array.isArray(business.types) ? business.types : [],
+      business.description || null,
+    );
+    console.log('[niche] inferred:', JSON.stringify(businessNiche));
+
+    // ─── Build seed keywords (niche-aware) ───
+    const seedKeywords = buildNicheKeywords(trade, city, businessNiche, business.name || '');
+    console.log('[keywords] niche-aware seeds:', seedKeywords);
 
     // ─── Run Serper first so we can use its returned keywords as DataForSEO seeds ───
     let serperData: any = null;
@@ -1694,12 +1819,23 @@ router.post("/generate", async (req: Request, res: Response) => {
       return true;
     });
     keywords = uniqueKeywords;
-    console.log('[keywords] after dedup:', keywords.map((k: any) => k.keyword));
+    // Score keyword relevance based on inferred niche
+    for (const kw of keywords) {
+      kw.relevance = scoreKeywordRelevance(kw.keyword, trade, businessNiche);
+    }
+    console.log('[keywords] after dedup + relevance:', keywords.map((k: any) => `${k.keyword} (${k.relevance})`));
     if (keywords.length > 0 && volumeMap) {
       console.log('[dataforseo] first keyword lookup attempt:', keywords[0]?.keyword,
         '→', volumeMap[keywords[0]?.keyword?.toLowerCase()?.trim()]);
     }
     const averageCPC = keywords.length > 0 ? +(cpcSum / keywords.length).toFixed(2) : 0;
+
+    // ─── Detect niche misalignment ───
+    const highRelevanceKws = keywords.filter((k: any) => k.relevance === 'high');
+    const lowRelevanceKws = keywords.filter((k: any) => k.relevance === 'low');
+    const hasNicheMisalignment = businessNiche.primary
+      && lowRelevanceKws.some((k: any) => k.isInLocalPack || (k.organicRank && k.organicRank <= 5))
+      && highRelevanceKws.some((k: any) => !k.isInLocalPack && (!k.organicRank || k.organicRank > 10));
 
     // ─── Flag ad-running competitors ───
     const competitors = compData?.competitors || [];
@@ -1761,6 +1897,15 @@ router.post("/generate", async (req: Request, res: Response) => {
       isOpenWeekends: demandData?.isOpenWeekends ?? false,
       websiteQualityChecks: websiteQaData?.checks || null,
       websiteQualityCheckScore: websiteQaData?.score ?? null,
+      businessNiche: businessNiche.primary ? {
+        primary: businessNiche.primary,
+        secondary: businessNiche.secondary,
+        confidence: businessNiche.confidence,
+      } : null,
+      nicheAlignment: hasNicheMisalignment ? {
+        misaligned: true,
+        insight: `Your business appears in searches for "${trade}", but your core offering is more closely aligned with ${businessNiche.primary}. You rank lower for your most relevant service keywords, which means you may be missing higher-intent customers searching for exactly what you offer.`,
+      } : null,
     };
 
     // ─── E6: New scoring engine ───
@@ -1834,6 +1979,8 @@ AUDIT DATA AVAILABLE:
 - Website speed desktop: ${auditData.speedData?.desktop?.score ?? 'unavailable'}
 - Search visibility: ${scores.searchVisibility?.score ?? 0}/20
 - Keywords ranking: ${keywords.filter((k: any) => k.organicRank).length} of ${keywords.length}
+- Local pack appearances: ${keywords.filter((k: any) => k.isInLocalPack).length} of ${keywords.length}
+- Business niche: ${businessNiche.primary || trade} (confidence: ${businessNiche.confidence})${hasNicheMisalignment ? '\n- ⚠ NICHE MISALIGNMENT DETECTED: Business ranks for broad trade terms but weaker for core niche keywords' : ''}
 - Competitor positioning: ${scores.competitorPositioning?.score ?? 0}/15
 - Demand coverage: ${scores.demandCoverage?.score ?? 0}/10
 - Detected issues: ${JSON.stringify(dedupedIssues)}
@@ -1981,7 +2128,7 @@ ${keywords.filter((k: any) => !k.organicRank).map((k: any) => k.keyword).join(',
 Content gaps should ONLY target: ${keywords.filter((k: any) => !k.organicRank).map((k: any) => k.keyword).join(', ') || 'None'}
 
 Keywords tracked:
-${keywords.map((k: any) => `${k.keyword}: rank ${k.organicRank || 'not ranking'}, ${k.monthlySearches || 0} searches/mo, $${k.cpc || 0} CPC`).join('\n') || 'No keyword data available'}
+${keywords.map((k: any) => `${k.keyword}: rank ${k.organicRank || 'not ranking'}, local pack ${k.isInLocalPack ? '#' + k.localPackPosition : 'no'}, relevance: ${k.relevance || 'unknown'}, ${k.monthlySearches || 0} searches/mo, $${k.cpc || 0} CPC`).join('\n') || 'No keyword data available'}
 
 Business audit data:
 ${JSON.stringify(auditData, null, 2)}`;

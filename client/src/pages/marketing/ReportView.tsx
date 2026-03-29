@@ -1077,6 +1077,11 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               ✓ {ai.keyStrength}
             </div>
           )}
+          {report?.nicheAlignment?.misaligned && (
+            <div style={{ marginTop: 12, background: AMBER_BG, borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#92400E', lineHeight: 1.55 }}>
+              ⚠ {report.nicheAlignment.insight}
+            </div>
+          )}
         </div>
       )}
 
