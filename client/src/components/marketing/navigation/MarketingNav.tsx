@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { Menu, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -39,8 +39,12 @@ export function useNavIsMobile() {
 
 export function MarketingNav() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuEpoch, setMenuEpoch] = useState(0);
   const navCardRef = useRef<HTMLDivElement>(null);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
   const [menuTop, setMenuTop] = useState<number>(92);
+  const prevMenuOpenRef = useRef(false);
 
   const [location] = useLocation();
   const isMobile = useNavIsMobile();
@@ -48,6 +52,11 @@ export function MarketingNav() {
   const { isAuthenticated } = useAuth();
 
   const isActive = (href: string) => location === href;
+
+  const toggleMenu = useCallback(() => {
+    if (!menuOpen) setMenuEpoch((e) => e + 1);
+    setMenuOpen((o) => !o);
+  }, [menuOpen]);
 
   // Body scroll lock on mobile when menu is open
   useEffect(() => {
@@ -83,6 +92,71 @@ export function MarketingNav() {
     };
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
+  }, [menuOpen, isMobile]);
+
+  // Mobile menu: set `inert` when closed to prevent keyboard/AT access
+  useEffect(() => {
+    const el = menuPanelRef.current;
+    if (!el) return;
+    if (menuOpen) {
+      el.removeAttribute("inert");
+    } else {
+      el.setAttribute("inert", "");
+    }
+  }, [menuOpen, isMobile]);
+
+  // Mobile menu: focus management on open/close
+  useEffect(() => {
+    if (!isMobile) return;
+    const wasOpen = prevMenuOpenRef.current;
+    prevMenuOpenRef.current = menuOpen;
+
+    if (menuOpen && !wasOpen) {
+      // Focus first interactive element after panel starts appearing
+      const timer = setTimeout(() => {
+        const first = menuPanelRef.current?.querySelector<HTMLElement>(
+          "button, a[href]",
+        );
+        first?.focus();
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+    if (!menuOpen && wasOpen) {
+      hamburgerRef.current?.focus();
+    }
+  }, [menuOpen, isMobile]);
+
+  // Mobile menu: focus trap + Escape to close
+  useEffect(() => {
+    if (!menuOpen || !isMobile) return;
+    const panel = menuPanelRef.current;
+    if (!panel) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+
+      const focusables = panel.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    panel.addEventListener("keydown", onKeyDown);
+    return () => panel.removeEventListener("keydown", onKeyDown);
   }, [menuOpen, isMobile]);
 
   return (
@@ -235,7 +309,8 @@ export function MarketingNav() {
               )}
               {isMobile && (
                 <button
-                  onClick={() => setMenuOpen((o) => !o)}
+                  ref={hamburgerRef}
+                  onClick={toggleMenu}
                   aria-label="Toggle menu"
                   aria-expanded={menuOpen}
                   data-testid="nav-hamburger"
@@ -305,6 +380,10 @@ export function MarketingNav() {
       {/* Mobile menu panel */}
       {isMobile && (
         <div
+          ref={menuPanelRef}
+          role={menuOpen ? "dialog" : undefined}
+          aria-modal={menuOpen ? "true" : undefined}
+          aria-label={menuOpen ? "Navigation menu" : undefined}
           onClick={(e) => e.stopPropagation()}
           data-testid="nav-mobile-menu"
           style={{
@@ -341,7 +420,7 @@ export function MarketingNav() {
           >
             {NAV_LINKS.map(({ label, href, children }) => (
               <MobileNavItem
-                key={href + label}
+                key={`${href}${label}-${menuEpoch}`}
                 label={label}
                 href={href}
                 children={children}
