@@ -60,7 +60,7 @@ RULES:
 - Never fabricate service names, prices, or features`;
 
 /* ─── Conversion guidance (shared) ─── */
-const CONVERSION_GUIDANCE = `CONVERSION GUIDANCE (use naturally, never force):
+const CONVERSION_GUIDANCE = `Use naturally, never force:
 - Rankings/visibility concerns → mention how MapGuard™ can help
 - Missed calls or after-hours → mention AI ChatLine™ or CallLine™
 - Website speed or SEO → mention WebBoost™
@@ -93,7 +93,7 @@ export function buildSystemPrompt(
   parts.push(buildSurfaceContext(surface, auditContext));
 
   // Conversion guidance
-  parts.push(`\n=== ${CONVERSION_GUIDANCE}`);
+  parts.push(`\n=== CONVERSION GUIDANCE ===\n${CONVERSION_GUIDANCE}`);
 
   return parts.join("\n");
 }

@@ -55,7 +55,7 @@ export async function readSSEStream(
       }
     }
   } finally {
-    reader.releaseLock();
+    try { reader.releaseLock(); } catch { /* noop */ }
   }
 
   return fullText;

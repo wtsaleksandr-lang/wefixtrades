@@ -43,7 +43,8 @@ export interface AssistantSyncResult {
 
 /* ─── Health check ─── */
 export function isReady(): { ready: boolean; error?: string } {
-  return validateConfig();
+  const config = validateConfig();
+  return { ready: config.valid, error: config.error };
 }
 
 /* ─── Build context (shared between stream and sync) ─── */
