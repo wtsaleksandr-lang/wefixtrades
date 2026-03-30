@@ -129,37 +129,29 @@ async function fetchJson(url: string) {
 
 router.post("/search-places", async (req: Request, res: Response) => {
   try {
-    // ─── Env var diagnostics ───
-    const rawKey = process.env.GOOGLE_MAPS_API_KEY;
-    console.log("[search-places] GOOGLE_MAPS_API_KEY present:", !!rawKey, "length:", rawKey?.length ?? 0, "starts with:", rawKey?.slice(0, 8) ?? "(unset)");
     const key = requireEnv("GOOGLE_MAPS_API_KEY");
 
     const query = String(req.body?.query || "").trim();
-    console.log("[search-places] query:", JSON.stringify(query));
     if (query.length < 2) return safeJsonError(res, 400, "Query too short");
 
-    const apiUrl =
-      `https://maps.googleapis.com/maps/api/place/textsearch/json?` +
-      `query=${encodeURIComponent(query)}&key=${encodeURIComponent(key)}`;
+    // Detect likely country from request for location biasing
+    const inferredCountry = inferCountryFromRequest(req);
 
-    // Log the full URL (with key masked)
-    const maskedUrl = apiUrl.replace(key, key.slice(0, 8) + "..." + key.slice(-4));
-    console.log("[search-places] Calling:", maskedUrl);
+    // Build Text Search URL with business-only type and region bias
+    const params = new URLSearchParams({
+      query,
+      key,
+      type: "establishment", // Only return actual businesses, not cities/regions
+      region: inferredCountry, // Bias results toward this country
+      language: "en",
+    });
+    const apiUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`;
 
     const r = await fetch(apiUrl);
     const rawText = await r.text();
-
-    // Log raw response for diagnosis
     let data: any = null;
     try { data = JSON.parse(rawText); } catch {}
-    console.log("[search-places] HTTP status:", r.status);
-    console.log("[search-places] Google status:", data?.status);
-    console.log("[search-places] error_message:", data?.error_message || "(none)");
-    console.log("[search-places] results count:", data?.results?.length ?? 0);
-    // Log raw response (first 1000 chars) to debug
-    console.log("[search-places] Raw response (first 1000):", rawText.slice(0, 1000));
 
-    // Check for Google API-level errors (200 with error status)
     if (data?.status && data.status !== "OK" && data.status !== "ZERO_RESULTS") {
       const msg = data.error_message || `Google Places API: ${data.status}`;
       console.error("[search-places] API ERROR:", msg);
@@ -167,36 +159,32 @@ router.post("/search-places", async (req: Request, res: Response) => {
     }
 
     if (!r.ok) {
-      console.error("[search-places] HTTP error:", r.status, rawText.slice(0, 500));
       return safeJsonError(res, 502, `Google API returned HTTP ${r.status}`);
     }
 
     let results = Array.isArray(data?.results) ? data.results : [];
 
-    // Fallback: if Text Search found nothing, try Find Place API (different matching logic)
+    // Filter out non-business results (cities, regions, countries, etc.)
+    results = filterToBusinesses(results);
+
+    // Fallback: if Text Search found nothing, try Find Place API
     if (results.length === 0) {
-      console.log("[search-places] Text Search returned 0 results, trying Find Place fallback…");
-      const fpUrl =
-        `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?` +
-        `input=${encodeURIComponent(query)}&inputtype=textquery` +
-        `&fields=${encodeURIComponent("place_id,name,formatted_address,rating,user_ratings_total,photos")}` +
-        `&key=${encodeURIComponent(key)}`;
+      const fpParams = new URLSearchParams({
+        input: query,
+        inputtype: "textquery",
+        fields: "place_id,name,formatted_address,rating,user_ratings_total,photos,types",
+        locationbias: `ipbias`, // Use Google's IP-based bias as fallback
+        key,
+      });
+      const fpUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?${fpParams}`;
       try {
         const fpData = await fetchJson(fpUrl);
-        const candidates = Array.isArray(fpData?.candidates) ? fpData.candidates : [];
-        console.log("[search-places] Find Place returned", candidates.length, "candidates");
+        let candidates = Array.isArray(fpData?.candidates) ? fpData.candidates : [];
+        candidates = filterToBusinesses(candidates);
         results = candidates;
       } catch (fpErr: any) {
         console.error("[search-places] Find Place fallback failed:", fpErr?.message);
       }
-    }
-
-    // Log first result to debug place_id availability
-    if (results.length > 0) {
-      const first = results[0];
-      console.log("[search-places] First result keys:", Object.keys(first));
-      console.log("[search-places] First result place_id:", JSON.stringify(first.place_id));
-      console.log("[search-places] First result (truncated):", JSON.stringify(first).slice(0, 500));
     }
 
     const predictions = results.slice(0, 5).map((r: any) => ({
@@ -208,13 +196,82 @@ router.post("/search-places", async (req: Request, res: Response) => {
       photoUrl: resolvePhotoUrl(r.photos?.[0]?.photo_reference, key, 400),
     }));
 
-    console.log("[search-places] Returning", predictions.length, "predictions:", predictions.map((p: any) => ({ name: p.name, place_id: p.place_id })));
-    return res.json({ ok: true, predictions });
+    return res.json({ ok: true, predictions, regionHint: inferredCountry.toUpperCase() });
   } catch (e: any) {
     console.error("[search-places] EXCEPTION:", e?.message || e);
     return safeJsonError(res, 500, e?.message || "search-places failed");
   }
 });
+
+/**
+ * Infer the user's country from request headers.
+ * Checks common CDN/proxy headers, falls back to "ca" (Canada — target market).
+ */
+function inferCountryFromRequest(req: Request): string {
+  // Cloudflare
+  const cfCountry = req.headers["cf-ipcountry"];
+  if (cfCountry && typeof cfCountry === "string" && cfCountry.length === 2) {
+    return cfCountry.toLowerCase();
+  }
+  // Vercel / generic
+  const xCountry = req.headers["x-vercel-ip-country"] || req.headers["x-country"];
+  if (xCountry && typeof xCountry === "string" && xCountry.length === 2) {
+    return xCountry.toLowerCase();
+  }
+  // AWS CloudFront
+  const awsCountry = req.headers["cloudfront-viewer-country"];
+  if (awsCountry && typeof awsCountry === "string" && awsCountry.length === 2) {
+    return awsCountry.toLowerCase();
+  }
+  // Default: Canada (target market)
+  return "ca";
+}
+
+/** Non-business Google Places types to filter out. */
+const NON_BUSINESS_TYPES = new Set([
+  "locality",
+  "sublocality",
+  "sublocality_level_1",
+  "sublocality_level_2",
+  "administrative_area_level_1",
+  "administrative_area_level_2",
+  "administrative_area_level_3",
+  "country",
+  "postal_code",
+  "neighborhood",
+  "colloquial_area",
+  "natural_feature",
+  "continent",
+  "archipelago",
+  "political",
+  "geocode",
+  "route",
+  "intersection",
+  "premise",
+  "subpremise",
+  "street_address",
+  "street_number",
+  "floor",
+  "room",
+  "post_box",
+  "postal_town",
+  "postal_code_prefix",
+  "postal_code_suffix",
+  "plus_code",
+]);
+
+/**
+ * Filters Google Places results to keep only actual businesses.
+ * A result is a business if its types list does NOT consist entirely of non-business types.
+ */
+function filterToBusinesses(results: any[]): any[] {
+  return results.filter((r) => {
+    const types: string[] = Array.isArray(r.types) ? r.types : [];
+    if (types.length === 0) return true; // No types = keep (ambiguous)
+    // Keep if at least one type is not in the non-business set
+    return types.some((t) => !NON_BUSINESS_TYPES.has(t));
+  });
+}
 
 router.post("/place-details", async (req: Request, res: Response) => {
   try {
@@ -226,11 +283,14 @@ router.post("/place-details", async (req: Request, res: Response) => {
     // If no placeId provided, try Find Place to resolve it from a text query
     if (!placeId && queryFallback) {
       console.log("[place-details] No placeId, resolving via Find Place:", queryFallback);
-      const fpUrl =
-        `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?` +
-        `input=${encodeURIComponent(queryFallback)}&inputtype=textquery` +
-        `&fields=${encodeURIComponent("place_id")}` +
-        `&key=${encodeURIComponent(key)}`;
+      const fpParams = new URLSearchParams({
+        input: queryFallback,
+        inputtype: "textquery",
+        fields: "place_id",
+        locationbias: "ipbias",
+        key,
+      });
+      const fpUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?${fpParams}`;
       const fpData = await fetchJson(fpUrl);
       placeId = fpData?.candidates?.[0]?.place_id || "";
       console.log("[place-details] Resolved placeId:", placeId);

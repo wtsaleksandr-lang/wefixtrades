@@ -105,16 +105,12 @@ export default function FreeAudit() {
     setLoadingSearch(true);
     setSearchDone(false);
 
-    console.log("[Audit] Autocomplete → POST /api/audit/search-places", { query: q });
-
     postJSON<{ ok: true; predictions: Prediction[] }>(
       "/api/audit/search-places",
       { query: q }
     )
       .then((d) => {
-        const preds = d.predictions || [];
-        console.log("[Audit] Got", preds.length, "predictions:", JSON.stringify(preds.map(p => ({ name: p.name, place_id: p.place_id }))));
-        setPredictions(preds);
+        setPredictions(d.predictions || []);
         setSearchDone(true);
         setDropdownOpen(true);
       })
