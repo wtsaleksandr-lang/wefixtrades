@@ -24,13 +24,27 @@ const KNOWLEDGE_SOURCES: KnowledgeSource[] = [
   { id: "reviews", label: "CUSTOMER TESTIMONIALS", compile: compileReviews },
 ];
 
+/* ─── Simple TTL cache for compiled knowledge ─── */
+// Knowledge sources are all static data (no DB calls). Caching avoids
+// re-concatenating ~3KB of text on every request. 5-minute TTL is short
+// enough that any code-level data changes take effect quickly.
+let _knowledgeCache: string | null = null;
+let _knowledgeCacheExpiry = 0;
+const KNOWLEDGE_CACHE_TTL_MS = 5 * 60_000; // 5 minutes
+
 /* ─── Public API ─── */
 
 /** Compile all knowledge into a single text block for the system prompt */
 export function compileKnowledge(): string {
-  return KNOWLEDGE_SOURCES.map(
+  const now = Date.now();
+  if (_knowledgeCache && now < _knowledgeCacheExpiry) {
+    return _knowledgeCache;
+  }
+  _knowledgeCache = KNOWLEDGE_SOURCES.map(
     (src) => `=== ${src.label} ===\n${src.compile()}`
   ).join("\n\n");
+  _knowledgeCacheExpiry = now + KNOWLEDGE_CACHE_TTL_MS;
+  return _knowledgeCache;
 }
 
 /** Recommended services for a set of detected issue IDs */

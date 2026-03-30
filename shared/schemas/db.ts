@@ -345,3 +345,27 @@ export const insertChatMemorySchema = createInsertSchema(chatMemory).omit({
 });
 export type InsertChatMemory = z.infer<typeof insertChatMemorySchema>;
 export type ChatMemory = typeof chatMemory.$inferSelect;
+
+/* ─── AI Usage Logs ─── */
+export const aiUsageLogs = pgTable("ai_usage_logs", {
+  id: serial("id").primaryKey(),
+  model: varchar("model", { length: 60 }).notNull(),
+  surface: varchar("surface", { length: 30 }).notNull(),
+  session_id: varchar("session_id", { length: 100 }),
+  user_id: integer("user_id").references(() => users.id),
+  report_id: uuid("report_id"),
+  input_tokens: integer("input_tokens"),
+  output_tokens: integer("output_tokens"),
+  latency_ms: integer("latency_ms"),
+  estimated_cost_usd: integer("estimated_cost_usd"),  // stored as micro-cents (× 1,000,000) for precision
+  success: boolean("success").notNull().default(true),
+  error_message: text("error_message"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertAiUsageLogSchema = createInsertSchema(aiUsageLogs).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertAiUsageLog = z.infer<typeof insertAiUsageLogSchema>;
+export type AiUsageLog = typeof aiUsageLogs.$inferSelect;

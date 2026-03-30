@@ -7,9 +7,10 @@
  * returning JSON, piping to Vapi, etc).
  */
 
-import { streamChat, chat, validateConfig, type ChatMessage, type ChatOptions } from "./aiService";
+import { streamChat, chat, validateConfig, getModel, type ChatMessage, type ChatOptions } from "./aiService";
 import { buildSystemPrompt, type ChatSurface, type AuditContext, type MemoryContext } from "./promptBuilder";
 import { getMemory, saveMemory, extractMemorySignals } from "./chatMemory";
+import { logUsage } from "./usageTracker";
 
 /* ─── Types ─── */
 export interface AssistantRequest {
@@ -32,7 +33,7 @@ export interface AssistantRequest {
 export interface AssistantStreamResult {
   /** The Anthropic stream object — caller iterates events */
   stream: ReturnType<typeof streamChat>;
-  /** Call after streaming is done to persist memory */
+  /** Call after streaming is done to persist memory and log usage */
   onComplete: (fullReply: string) => Promise<void>;
 }
 
@@ -51,18 +52,15 @@ async function buildContext(req: AssistantRequest): Promise<{
   chatMessages: ChatMessage[];
   memoryContext?: MemoryContext;
 }> {
-  // Load stored memory
   const stored = await getMemory(req.sessionId).catch(() => null);
   const memoryContext = stored?.memory;
 
-  // Build system prompt from surface + context + memory
   const systemPrompt = buildSystemPrompt(
     req.surface,
     req.auditContext,
     memoryContext,
   );
 
-  // Cap messages to prevent token overflow (keep recent turns)
   const chatMessages = req.messages.slice(-20);
 
   return { systemPrompt, chatMessages, memoryContext };
@@ -88,6 +86,7 @@ function createOnComplete(req: AssistantRequest, chatMessages: ChatMessage[]) {
 /* ─── Streaming response (for SSE, Vapi streaming, etc) ─── */
 export async function assistantStream(req: AssistantRequest): Promise<AssistantStreamResult> {
   const { systemPrompt, chatMessages } = await buildContext(req);
+  const startMs = Date.now();
 
   const stream = streamChat({
     system: systemPrompt,
@@ -95,24 +94,83 @@ export async function assistantStream(req: AssistantRequest): Promise<AssistantS
     maxTokens: req.maxTokens,
   });
 
-  return {
-    stream,
-    onComplete: createOnComplete(req, chatMessages),
+  const onComplete = async (fullReply: string) => {
+    const latencyMs = Date.now() - startMs;
+
+    // Persist memory
+    await createOnComplete(req, chatMessages)(fullReply);
+
+    // Log usage (stream finalMessage has token counts)
+    try {
+      const finalMessage = await stream.finalMessage();
+      logUsage({
+        model: getModel(),
+        surface: req.surface,
+        sessionId: req.sessionId,
+        userId: req.userId,
+        reportId: req.reportId,
+        inputTokens: finalMessage.usage?.input_tokens,
+        outputTokens: finalMessage.usage?.output_tokens,
+        latencyMs,
+        success: true,
+      });
+    } catch {
+      // If finalMessage fails, log what we can
+      logUsage({
+        model: getModel(),
+        surface: req.surface,
+        sessionId: req.sessionId,
+        userId: req.userId,
+        reportId: req.reportId,
+        latencyMs,
+        success: true,
+      });
+    }
   };
+
+  return { stream, onComplete };
 }
 
 /* ─── Synchronous response (for REST, Vapi sync, webhooks, etc) ─── */
 export async function assistantSync(req: AssistantRequest): Promise<AssistantSyncResult> {
   const { systemPrompt, chatMessages } = await buildContext(req);
+  const startMs = Date.now();
 
-  const reply = await chat({
-    system: systemPrompt,
-    messages: chatMessages,
-    maxTokens: req.maxTokens,
-  });
+  try {
+    const reply = await chat({
+      system: systemPrompt,
+      messages: chatMessages,
+      maxTokens: req.maxTokens,
+    });
+    const latencyMs = Date.now() - startMs;
 
-  // Persist memory
-  await createOnComplete(req, chatMessages)(reply);
+    // Persist memory
+    await createOnComplete(req, chatMessages)(reply);
 
-  return { reply };
+    // Log usage (non-streaming doesn't expose tokens easily, log latency)
+    logUsage({
+      model: getModel(),
+      surface: req.surface,
+      sessionId: req.sessionId,
+      userId: req.userId,
+      reportId: req.reportId,
+      latencyMs,
+      success: true,
+    });
+
+    return { reply };
+  } catch (err: any) {
+    const latencyMs = Date.now() - startMs;
+    logUsage({
+      model: getModel(),
+      surface: req.surface,
+      sessionId: req.sessionId,
+      userId: req.userId,
+      reportId: req.reportId,
+      latencyMs,
+      success: false,
+      errorMessage: err?.message?.slice(0, 200),
+    });
+    throw err;
+  }
 }

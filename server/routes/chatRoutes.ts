@@ -1,34 +1,11 @@
 import type { Express, Request, Response } from "express";
-import { assistantStream, isReady, type AssistantRequest } from "../services/assistant";
+import { assistantStream, assistantSync, isReady, type AssistantRequest } from "../services/assistant";
 import type { ChatSurface, AuditContext } from "../services/promptBuilder";
 import type { ChatMessage } from "../services/aiService";
+import { chatRateLimiter } from "../services/rateLimiter";
 import { db } from "../db";
 import { auditReports } from "@shared/schema";
 import { eq } from "drizzle-orm";
-
-/* ─── Rate limiter (in-memory, per-IP) ─── */
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT_MAX = 30;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return true;
-  }
-  entry.count++;
-  return entry.count <= RATE_LIMIT_MAX;
-}
-
-// Clean stale rate-limit entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, val] of rateLimitMap) {
-    if (now > val.resetAt) rateLimitMap.delete(key);
-  }
-}, 5 * 60_000);
 
 /* ─── Validation ─── */
 const VALID_SURFACES: ChatSurface[] = ["website", "audit", "dashboard", "admin", "vapi"];
@@ -71,7 +48,6 @@ async function loadAuditContext(reportId: string): Promise<AuditContext | null> 
     if (typeof data.overallScore === "number") ctx.score = data.overallScore;
     if (typeof data.scores?.overall === "number") ctx.score = data.scores.overall;
     if (data.grade || data.scores?.grade) ctx.grade = data.grade || data.scores.grade;
-
     if (data.estimatedRevenueLoss) ctx.estimatedRevenueLoss = data.estimatedRevenueLoss;
 
     const plan = data.narrative?.actionPlan || data.actionPlan;
@@ -97,6 +73,58 @@ async function loadAuditContext(reportId: string): Promise<AuditContext | null> 
   }
 }
 
+/* ─── Parse request body into AssistantRequest ─── */
+async function parseAssistantRequest(req: Request): Promise<
+  { ok: true; assistantReq: AssistantRequest } |
+  { ok: false; status: number; error: string }
+> {
+  const { surface: rawSurface, mode, messages, sessionId, reportId, auditContext: clientAuditCtx, userId } = req.body || {};
+
+  const surfaceStr = rawSurface || mode || "website";
+  const surface: ChatSurface = VALID_SURFACES.includes(surfaceStr) ? surfaceStr : "website";
+
+  if (!validateMessages(messages)) {
+    return { ok: false, status: 400, error: "Invalid messages format." };
+  }
+
+  const clientIp = getClientIp(req);
+  const sid = typeof sessionId === "string" && sessionId.length > 0 && sessionId.length <= 100
+    ? sessionId
+    : `anon-${clientIp}-${Date.now()}`;
+
+  let auditCtx: AuditContext | undefined;
+  if (surface === "audit") {
+    if (reportId && typeof reportId === "string") {
+      auditCtx = await loadAuditContext(reportId) || undefined;
+    }
+    if (!auditCtx && clientAuditCtx) {
+      auditCtx = {
+        businessName: clientAuditCtx.businessName,
+        trade: clientAuditCtx.trade,
+        city: clientAuditCtx.city,
+        score: clientAuditCtx.score,
+        grade: clientAuditCtx.grade,
+        topIssues: clientAuditCtx.topIssues,
+        estimatedRevenueLoss: clientAuditCtx.estimatedRevenueLoss,
+        actionPlan: clientAuditCtx.actionPlan,
+        detectedIssueIds: clientAuditCtx.detectedIssueIds,
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    assistantReq: {
+      surface,
+      messages: messages.slice(-20),
+      sessionId: sid,
+      userId: typeof userId === "number" ? userId : undefined,
+      auditContext: auditCtx,
+      reportId: typeof reportId === "string" ? reportId : undefined,
+    },
+  };
+}
+
 /* ─── Write SSE stream to response ─── */
 async function writeStream(res: Response, req: AssistantRequest): Promise<void> {
   const { stream, onComplete } = await assistantStream(req);
@@ -118,28 +146,20 @@ async function writeStream(res: Response, req: AssistantRequest): Promise<void> 
   res.write("data: [DONE]\n\n");
   res.end();
 
-  // Save memory in background
   onComplete(fullReply).catch(() => {});
 }
 
 /* ─── Register routes ─── */
 export function registerChatRoutes(app: Express): void {
+
   /**
    * POST /api/chat
-   * Unified chat endpoint for all surfaces.
-   *
-   * Body:
-   *   surface: "website" | "audit" | "dashboard" | "admin" | "vapi"
-   *   messages: ChatMessage[]
-   *   sessionId: string
-   *   reportId?: string
-   *   auditContext?: AuditContext (client-side fallback)
-   *   userId?: number (set by auth middleware in future)
+   * Streaming chat endpoint (SSE) for all surfaces.
    */
   app.post("/api/chat", async (req: Request, res: Response) => {
     try {
       const clientIp = getClientIp(req);
-      if (!checkRateLimit(clientIp)) {
+      if (!(await chatRateLimiter.check(clientIp))) {
         return res.status(429).json({ error: "Too many requests. Please wait a moment." });
       }
 
@@ -148,57 +168,50 @@ export function registerChatRoutes(app: Express): void {
         return res.status(503).json({ error: "Chat is temporarily unavailable." });
       }
 
-      const { surface: rawSurface, mode, messages, sessionId, reportId, auditContext: clientAuditCtx, userId } = req.body || {};
-
-      // Support both "surface" and legacy "mode" field
-      const surfaceStr = rawSurface || mode || "website";
-      const surface: ChatSurface = VALID_SURFACES.includes(surfaceStr) ? surfaceStr : "website";
-
-      if (!validateMessages(messages)) {
-        return res.status(400).json({ error: "Invalid messages format." });
+      const parsed = await parseAssistantRequest(req);
+      if (!parsed.ok) {
+        return res.status(parsed.status).json({ error: parsed.error });
       }
 
-      const sid = typeof sessionId === "string" && sessionId.length > 0 && sessionId.length <= 100
-        ? sessionId
-        : `anon-${clientIp}-${Date.now()}`;
-
-      // Build audit context if applicable
-      let auditCtx: AuditContext | undefined;
-      if (surface === "audit") {
-        if (reportId && typeof reportId === "string") {
-          auditCtx = await loadAuditContext(reportId) || undefined;
-        }
-        if (!auditCtx && clientAuditCtx) {
-          auditCtx = {
-            businessName: clientAuditCtx.businessName,
-            trade: clientAuditCtx.trade,
-            city: clientAuditCtx.city,
-            score: clientAuditCtx.score,
-            grade: clientAuditCtx.grade,
-            topIssues: clientAuditCtx.topIssues,
-            estimatedRevenueLoss: clientAuditCtx.estimatedRevenueLoss,
-            actionPlan: clientAuditCtx.actionPlan,
-            detectedIssueIds: clientAuditCtx.detectedIssueIds,
-          };
-        }
-      }
-
-      const assistantReq: AssistantRequest = {
-        surface,
-        messages: messages.slice(-20),
-        sessionId: sid,
-        userId: typeof userId === "number" ? userId : undefined,
-        auditContext: auditCtx,
-        reportId: typeof reportId === "string" ? reportId : undefined,
-      };
-
-      await writeStream(res, assistantReq);
+      await writeStream(res, parsed.assistantReq);
     } catch (err: any) {
       console.error("[chat] Error:", err?.message);
       if (!res.headersSent) {
         return res.status(500).json({ error: "Something went wrong. Please try again." });
       }
       res.end();
+    }
+  });
+
+  /**
+   * POST /api/chat/sync
+   * Non-streaming chat endpoint for Vapi webhooks, REST integrations,
+   * and any consumer that needs a simple JSON response.
+   *
+   * Returns: { reply: string }
+   */
+  app.post("/api/chat/sync", async (req: Request, res: Response) => {
+    try {
+      const clientIp = getClientIp(req);
+      if (!(await chatRateLimiter.check(clientIp))) {
+        return res.status(429).json({ error: "Too many requests. Please wait a moment." });
+      }
+
+      const readiness = isReady();
+      if (!readiness.ready) {
+        return res.status(503).json({ error: "Chat is temporarily unavailable." });
+      }
+
+      const parsed = await parseAssistantRequest(req);
+      if (!parsed.ok) {
+        return res.status(parsed.status).json({ error: parsed.error });
+      }
+
+      const result = await assistantSync(parsed.assistantReq);
+      return res.json({ reply: result.reply });
+    } catch (err: any) {
+      console.error("[chat/sync] Error:", err?.message);
+      return res.status(500).json({ error: "Something went wrong. Please try again." });
     }
   });
 }
