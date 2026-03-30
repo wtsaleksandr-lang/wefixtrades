@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { useEffect, lazy, Suspense, type CSSProperties, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { ShieldCheck, Lock, Award } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
@@ -7,6 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { queryClient } from "@/lib/queryClient";
 import { mkt } from "@/theme/tokens";
 import { MarketingNav, useNavIsMobile } from "./navigation/MarketingNav";
+
+const SiteChatWidget = lazy(() => import("@/components/SiteChatWidget"));
 
 /* ─── Footer ─── */
 
@@ -96,6 +98,16 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.28)"; }}
               >
                 Portal
+              </Link>
+            )}
+            {isPortalUser && (
+              <Link
+                href="/admin/ai"
+                style={{ ...ftLink, color: "rgba(255,255,255,0.18)", fontSize: 11 }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.18)"; }}
+              >
+                Ops
               </Link>
             )}
           </div>
@@ -237,6 +249,9 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
       <div style={{ height: 24, flexShrink: 0 }} />
       <main style={{ flex: 1 }}>{children}</main>
       <MarketingFooter isMobile={isMobile} />
+      <Suspense fallback={null}>
+        <SiteChatWidget />
+      </Suspense>
     </div>
   );
 }

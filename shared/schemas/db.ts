@@ -317,3 +317,84 @@ export const auditReports = pgTable("audit_reports", {
 export const insertAuditReportSchema = createInsertSchema(auditReports).omit({ id: true, created_at: true, view_count: true });
 export type InsertAuditReport = z.infer<typeof insertAuditReportSchema>;
 export type AuditReport = typeof auditReports.$inferSelect;
+
+/* ─── Chat Memory ─── */
+export const chatMemory = pgTable("chat_memory", {
+  id: serial("id").primaryKey(),
+  session_id: varchar("session_id", { length: 100 }).notNull(),
+  user_id: integer("user_id").references(() => users.id),
+  surface: varchar("surface", { length: 30 }).notNull().default("website"),
+  report_id: uuid("report_id"),
+  user_name: text("user_name"),
+  business_type: text("business_type"),
+  service_area: text("service_area"),
+  website_url: text("website_url"),
+  previous_topics: jsonb("previous_topics").default([]),
+  interested_in_pricing: boolean("interested_in_pricing").default(false),
+  interested_in_booking: boolean("interested_in_booking").default(false),
+  messages_json: jsonb("messages_json").notNull().default([]),
+  expires_at: timestamp("expires_at").notNull(),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const insertChatMemorySchema = createInsertSchema(chatMemory).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+export type InsertChatMemory = z.infer<typeof insertChatMemorySchema>;
+export type ChatMemory = typeof chatMemory.$inferSelect;
+
+/* ─── AI Usage Logs ─── */
+export const aiUsageLogs = pgTable("ai_usage_logs", {
+  id: serial("id").primaryKey(),
+  model: varchar("model", { length: 60 }).notNull(),
+  surface: varchar("surface", { length: 30 }).notNull(),
+  session_id: varchar("session_id", { length: 100 }),
+  user_id: integer("user_id").references(() => users.id),
+  report_id: uuid("report_id"),
+  input_tokens: integer("input_tokens"),
+  output_tokens: integer("output_tokens"),
+  latency_ms: integer("latency_ms"),
+  estimated_cost_usd: integer("estimated_cost_usd"),  // stored as micro-cents (× 1,000,000) for precision
+  success: boolean("success").notNull().default(true),
+  error_message: text("error_message"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertAiUsageLogSchema = createInsertSchema(aiUsageLogs).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertAiUsageLog = z.infer<typeof insertAiUsageLogSchema>;
+export type AiUsageLog = typeof aiUsageLogs.$inferSelect;
+
+/* ─── AI Conversation Archive (admin repository) ─── */
+export const aiConversationArchive = pgTable("ai_conversation_archive", {
+  id: serial("id").primaryKey(),
+  session_id: varchar("session_id", { length: 100 }).notNull(),
+  user_id: integer("user_id").references(() => users.id),
+  surface: varchar("surface", { length: 30 }).notNull(),
+  report_id: uuid("report_id"),
+  summary: text("summary").notNull(),
+  context_note: text("context_note"),
+  tags: jsonb("tags").default([]),
+  primary_intent: varchar("primary_intent", { length: 40 }).notNull().default("general"),
+  save_decision: varchar("save_decision", { length: 30 }).notNull().default("high_value"),
+  message_count: integer("message_count").notNull().default(0),
+  messages_json: jsonb("messages_json").default([]),
+  total_input_tokens: integer("total_input_tokens").default(0),
+  total_output_tokens: integer("total_output_tokens").default(0),
+  estimated_cost_usd: integer("estimated_cost_usd").default(0),
+  first_message_at: timestamp("first_message_at"),
+  last_message_at: timestamp("last_message_at"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertAiConversationArchiveSchema = createInsertSchema(aiConversationArchive).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertAiConversationArchive = z.infer<typeof insertAiConversationArchiveSchema>;
+export type AiConversationArchive = typeof aiConversationArchive.$inferSelect;

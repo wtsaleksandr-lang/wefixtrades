@@ -393,8 +393,42 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     return sum + (s?.price || 0);
   }, 0);
 
+  // ─── Shared chat state (synced via localStorage with SiteChatWidget) ───
+  const MESSAGES_KEY = 'wft_chat_messages';
+  const OPEN_KEY = 'wft_chat_open';
+
+  function loadSharedMessages(): {role:'user'|'ai', text:string}[] {
+    try {
+      const raw = localStorage.getItem(MESSAGES_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.map((m: any) => ({
+            role: m.role === 'assistant' ? 'ai' as const : 'user' as const,
+            text: m.content || m.text || '',
+          }));
+        }
+      }
+    } catch {}
+    return [];
+  }
+
+  function saveSharedMessages(msgs: {role:'user'|'ai', text:string}[]) {
+    try {
+      // Convert to shared format and save
+      const shared = msgs.slice(-40).map(m => ({
+        role: m.role === 'ai' ? 'assistant' : 'user',
+        content: m.text,
+      }));
+      localStorage.setItem(MESSAGES_KEY, JSON.stringify(shared));
+    } catch {}
+  }
+
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{role:'user'|'ai', text:string}[]>([]);
+  const [chatMessages, setChatMessages] = useState<{role:'user'|'ai', text:string}[]>(() => {
+    const saved = loadSharedMessages();
+    return saved.length > 0 ? saved : [];
+  });
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [chatUnread, setChatUnread] = useState(true);
@@ -447,6 +481,22 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     return () => cancelAnimationFrame(animFrame);
   }, []);
   const [chatExpanded, setChatExpanded] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  // Trap scroll inside chat messages area (native listener with passive:false)
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    function onWheel(e: WheelEvent) {
+      const { scrollTop, scrollHeight, clientHeight } = el!;
+      const atTop = scrollTop <= 0 && e.deltaY < 0;
+      const atBottom = scrollTop + clientHeight >= scrollHeight - 1 && e.deltaY > 0;
+      if (atTop || atBottom) e.preventDefault();
+      e.stopPropagation();
+    }
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [chatExpanded]);
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const isTiny = typeof window !== 'undefined' && window.innerWidth <= 480;
   const r16 = 16;
@@ -574,16 +624,41 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     }
   };
 
+  // Add greeting if no messages yet
   useEffect(() => {
+    if (chatMessages.length > 0) return;
     const timer = setTimeout(() => {
-      if (chatMessages.length === 0) {
-        setChatMessages([{
-          role: 'ai',
-          text: `Hi! I've reviewed the audit for ${business?.name || 'your business'}. You have ${report?.detectedIssues?.length || 0} issues detected. Any questions about what we found?`
-        }]);
-      }
+      const greeting = {
+        role: 'ai' as const,
+        text: `Hi! I've reviewed the audit for ${business?.name || 'your business'}. You have ${report?.detectedIssues?.length || 0} issues detected. Any questions about what we found?`
+      };
+      setChatMessages([greeting]);
     }, 6000);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Persist messages to shared localStorage on every change
+  useEffect(() => {
+    if (chatMessages.length > 0) saveSharedMessages(chatMessages);
+  }, [chatMessages]);
+
+  // Listen for changes from SiteChatWidget (other tab/same page)
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === MESSAGES_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setChatMessages(parsed.map((m: any) => ({
+              role: m.role === 'assistant' ? 'ai' as const : 'user' as const,
+              text: m.content || '',
+            })));
+          }
+        } catch {}
+      }
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   useEffect(() => {
@@ -596,12 +671,23 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     setChatInput('');
     setChatMessages(prev => [...prev, { role: 'user', text: userMsg }]);
     setChatLoading(true);
+    // Auto-expand the chat panel when user sends a message
+    setChatExpanded(true);
+    if (isMobile) setChatOpen(true);
     let reply = '';
     try {
-      const res = await fetch('/api/audit/chat', {
+      const sessionId = (() => {
+        const KEY = 'wft_chat_session';
+        let id = localStorage.getItem(KEY);
+        if (!id) { id = `s_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`; localStorage.setItem(KEY, id); }
+        return id;
+      })();
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          surface: 'audit',
+          sessionId,
           messages: [
             ...chatMessages.map(m => ({
               role: m.role === 'ai' ? 'assistant' : 'user',
@@ -615,11 +701,18 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             city: report?.city,
             score: report?.scores?.total,
             grade: report?.scores?.grade,
-            topIssue: report?.narrative?.actionPlan?.[0]?.title,
-            estimatedLoss: report?.estimatedRevenueLoss,
+            topIssues: report?.narrative?.actionPlan?.slice(0, 5)?.map((a: any) => ({ title: a.title, estimatedImpact: a.estimatedImpact })),
+            estimatedRevenueLoss: report?.estimatedRevenueLoss || report?.narrative?.estimatedMonthlyRevenueLoss,
+            detectedIssueIds: report?.detectedIssues,
           },
         }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setChatMessages(prev => [...prev, { role: 'ai', text: err.error || 'Sorry, something went wrong. Try again.' }]);
+        setChatLoading(false);
+        return;
+      }
       setChatMessages(prev => [...prev, { role: 'ai', text: '' }]);
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
@@ -632,13 +725,25 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           const data = line.slice(6);
           if (data === '[DONE]') break;
           try {
-            reply += JSON.parse(data).text;
-            setChatMessages(prev => {
-              const updated = [...prev];
-              updated[updated.length - 1] = { role: 'ai', text: reply };
-              return updated;
-            });
-          } catch {}
+            const parsed = JSON.parse(data);
+            if (parsed.error) throw new Error(parsed.error);
+            if (parsed.text) {
+              reply += parsed.text;
+              setChatMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: 'ai', text: reply };
+                return updated;
+              });
+            }
+          } catch (e) {
+            if (e instanceof Error && e.message !== 'Unexpected end of JSON input') {
+              setChatMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: 'ai', text: e.message || 'Something went wrong.' };
+                return updated;
+              });
+            }
+          }
         }
       }
     } catch {
@@ -2068,7 +2173,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             <div style={{ color:'rgba(255,255,255,0.5)', fontSize:18, transform: chatExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.2s' }}>▼</div>
           </div>
           {chatExpanded && (
-            <div style={{ height:200, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:10 }}>
+            <div ref={chatScrollRef} style={{ height:200, overflowY:'auto', overscrollBehavior:'contain', padding:16, display:'flex', flexDirection:'column', gap:10 }}>
               {chatMessages.map((msg, i) => (
                 <div key={i} style={{ alignSelf:msg.role==='ai'?'flex-start':'flex-end', background:msg.role==='ai'?GREY_BG:CYAN, borderRadius:msg.role==='ai'?'12px 12px 12px 4px':'12px 12px 4px 12px', padding:'10px 14px', fontSize:13, color:DARK, maxWidth:'85%', lineHeight:1.5 }}>
                   {msg.text}

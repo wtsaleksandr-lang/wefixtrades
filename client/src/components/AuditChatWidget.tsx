@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, X } from "lucide-react";
 import s from "../pages/marketing/FreeAuditReport.module.css";
-
-type ChatMessage = { role: "user" | "assistant"; content: string };
+import {
+  getSessionId, readSSEStream, sendChatMessage,
+  loadMessages, saveMessages, loadOpenState, saveOpenState,
+  type ChatMessage,
+} from "@/lib/chatHelpers";
 
 interface AuditChatWidgetProps {
   businessName: string;
@@ -12,122 +15,153 @@ interface AuditChatWidgetProps {
   grade: string;
   actionPlan: any[];
   estimatedRevenueLoss: any;
+  reportId?: string;
+  detectedIssueIds?: string[];
 }
 
 export default function AuditChatWidget(props: AuditChatWidgetProps) {
-  const { businessName, trade, city, score, grade, actionPlan, estimatedRevenueLoss } = props;
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const { businessName, trade, city, score, grade, actionPlan, estimatedRevenueLoss, reportId, detectedIssueIds } = props;
+
+  const greeting = useRef<ChatMessage>({
+    role: "assistant",
+    content: actionPlan?.[0]
+      ? `Hi! I've reviewed your audit for ${businessName}. Your most urgent issue is ${actionPlan[0].title} — this could be worth ${actionPlan[0].estimatedImpact || "significant revenue"} in additional leads. Want me to explain what's happening and how to fix it?`
+      : `Hi! I've reviewed your audit for ${businessName}. Your score is ${score}/100 (grade ${grade}). Ask me anything about your results!`,
+  }).current;
+
+  const [open, setOpen] = useState(() => loadOpenState());
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const saved = loadMessages();
+    return saved.length > 0 ? saved : [greeting];
+  });
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
-  const [hasOpened, setHasOpened] = useState(false);
-  const [showDot, setShowDot] = useState(true);
+  const [showDot, setShowDot] = useState(() => loadMessages().length <= 1);
   const [pulsing, setPulsing] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
+  const sessionId = useRef(getSessionId());
 
-  // Stop pulsing after 15 seconds
+  // Stop pulsing after 15s
   useEffect(() => {
     const t = setTimeout(() => setPulsing(false), 15000);
     return () => clearTimeout(t);
   }, []);
 
-  // Auto-open after 8 seconds with first message
+  // Auto-open after 8s on audit page
   useEffect(() => {
-    autoTimerRef.current = setTimeout(() => {
-      if (!hasOpened) {
-        openChat();
-      }
+    const t = setTimeout(() => {
+      setOpen(prev => {
+        if (!prev) {
+          setShowDot(false);
+          saveOpenState(true);
+          return true;
+        }
+        return prev;
+      });
     }, 8000);
-    return () => { if (autoTimerRef.current) clearTimeout(autoTimerRef.current); };
+    return () => clearTimeout(t);
   }, []);
 
-  // Scroll to bottom on new messages
+  // Persist messages and open state
+  useEffect(() => { saveMessages(messages); }, [messages]);
+  useEffect(() => { saveOpenState(open); }, [open]);
+
+  // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streaming]);
 
+  // Native wheel event listener with passive: false to allow preventDefault
+  useEffect(() => {
+    const el = chatMessagesRef.current;
+    if (!el) return;
+
+    function onWheel(e: WheelEvent) {
+      const { scrollTop, scrollHeight, clientHeight } = el!;
+      const atTop = scrollTop <= 0 && e.deltaY < 0;
+      const atBottom = scrollTop + clientHeight >= scrollHeight - 1 && e.deltaY > 0;
+      if (atTop || atBottom) {
+        e.preventDefault();
+      }
+      e.stopPropagation();
+    }
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [open]); // Re-attach when chat opens/closes
+
   function openChat() {
     setOpen(true);
-    setHasOpened(true);
     setShowDot(false);
-    if (messages.length === 0) {
-      const topIssue = actionPlan?.[0];
-      const firstMsg = topIssue
-        ? `Hi! I've reviewed your audit for ${businessName}. Your most urgent issue is ${topIssue.title} \u2014 this could be worth ${topIssue.estimatedImpact || "significant revenue"} in additional leads. Want me to explain what's happening and how to fix it?`
-        : `Hi! I've reviewed your audit for ${businessName}. Your score is ${score}/100 (grade ${grade}). Ask me anything about your results!`;
-      setMessages([{ role: "assistant", content: firstMsg }]);
-    }
   }
 
-  async function sendMessage() {
+  async function handleSend() {
     const text = input.trim();
     if (!text || streaming) return;
     setInput("");
+
+    // Auto-open if closed
+    if (!open) {
+      setOpen(true);
+      setShowDot(false);
+    }
 
     const newMessages: ChatMessage[] = [...messages, { role: "user", content: text }];
     setMessages(newMessages);
     setStreaming(true);
 
     try {
-      const res = await fetch("/api/audit/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: newMessages,
-          auditContext: {
-            businessName, trade, city, score, grade,
-            topIssue: actionPlan?.[0]?.title || "",
-            estimatedLoss: estimatedRevenueLoss,
-          },
-        }),
+      const res = await sendChatMessage({
+        surface: "audit",
+        messages: newMessages,
+        sessionId: sessionId.current,
+        reportId,
+        auditContext: {
+          businessName, trade, city, score, grade,
+          topIssues: actionPlan?.slice(0, 5)?.map((a: any) => ({
+            title: a.title,
+            estimatedImpact: a.estimatedImpact,
+            priority: a.priority,
+          })),
+          actionPlan: actionPlan?.slice(0, 5),
+          estimatedRevenueLoss,
+          detectedIssueIds,
+        },
       });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        setMessages(prev => [...prev, { role: "assistant", content: err.error || "Sorry, something went wrong. Try again." }]);
+        setMessages(prev => [...prev, { role: "assistant", content: err.error || "Sorry, something went wrong. Try again in a moment." }]);
         setStreaming(false);
         return;
       }
 
-      // Stream the response
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let assistantText = "";
       setMessages(prev => [...prev, { role: "assistant", content: "" }]);
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n").filter(l => l.startsWith("data: "));
-          for (const line of lines) {
-            const data = line.slice(6);
-            if (data === "[DONE]") break;
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.text) {
-                assistantText += parsed.text;
-                setMessages(prev => {
-                  const copy = [...prev];
-                  copy[copy.length - 1] = { role: "assistant", content: assistantText };
-                  return copy;
-                });
-              }
-            } catch {}
-          }
+      await readSSEStream(res, (fullText) => {
+        setMessages(prev => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: "assistant", content: fullText };
+          return copy;
+        });
+      });
+    } catch {
+      setMessages(prev => {
+        const copy = [...prev];
+        const last = copy[copy.length - 1];
+        if (last && last.role === "assistant" && !last.content) {
+          copy[copy.length - 1] = { role: "assistant", content: "Something went wrong. Please try again." };
+        } else {
+          copy.push({ role: "assistant", content: "Something went wrong. Please try again." });
         }
-      }
-    } catch (err) {
-      setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Please try again." }]);
+        return copy;
+      });
     }
     setStreaming(false);
   }
 
   return (
     <>
-      {/* Floating bubble */}
       {!open && (
         <button
           className={`${s.chatBubble} ${pulsing ? s.chatBubblePulse : ""}`}
@@ -141,9 +175,8 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
         </button>
       )}
 
-      {/* Chat window */}
       {open && (
-        <div className={s.chatWindow}>
+        <div className={s.chatWindow} onWheel={e => e.stopPropagation()}>
           <div className={s.chatHeader}>
             <div className={s.chatHeaderInfo}>
               <div className={s.chatHeaderTitle}>WeFixTrades AI Advisor</div>
@@ -156,7 +189,7 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
             </button>
           </div>
 
-          <div className={s.chatMessages}>
+          <div ref={chatMessagesRef} className={s.chatMessages}>
             {messages.map((msg, i) => (
               <div key={i} className={msg.role === "assistant" ? s.chatMsgAi : s.chatMsgUser}>
                 {msg.content || "\u00A0"}
@@ -175,11 +208,11 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
               className={s.chatInput}
               value={input}
               onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder="Ask anything..."
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              placeholder="Ask anything about your audit..."
               disabled={streaming}
             />
-            <button className={s.chatSend} onClick={sendMessage} disabled={streaming} aria-label="Send">
+            <button className={s.chatSend} onClick={handleSend} disabled={streaming} aria-label="Send">
               <Send size={18} />
             </button>
           </div>
