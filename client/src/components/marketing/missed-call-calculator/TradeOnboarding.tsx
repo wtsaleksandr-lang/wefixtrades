@@ -66,49 +66,14 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
     return () => document.removeEventListener('mousedown', handleClick);
   }, [isOpen]);
 
-  // Prevent page scroll while dropdown is open — only allow scroll inside the listbox
+  // Lock page scroll while dropdown is open
   useEffect(() => {
     if (!isOpen) return;
-
-    function isInsideList(target: EventTarget | null): boolean {
-      return !!listRef.current && listRef.current.contains(target as Node);
-    }
-
-    function onWheel(e: WheelEvent) {
-      if (!isInsideList(e.target)) {
-        e.preventDefault();
-        return;
-      }
-      // Inside the list — clamp at boundaries so it doesn't leak
-      const el = listRef.current!;
-      const atTop = el.scrollTop <= 0 && e.deltaY < 0;
-      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight && e.deltaY > 0;
-      if (atTop || atBottom) e.preventDefault();
-    }
-
-    let touchStartY = 0;
-    function onTouchStart(e: TouchEvent) {
-      touchStartY = e.touches[0].clientY;
-    }
-    function onTouchMove(e: TouchEvent) {
-      if (!isInsideList(e.target)) {
-        e.preventDefault();
-        return;
-      }
-      const el = listRef.current!;
-      const deltaY = touchStartY - e.touches[0].clientY;
-      const atTop = el.scrollTop <= 0 && deltaY < 0;
-      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight && deltaY > 0;
-      if (atTop || atBottom) e.preventDefault();
-    }
-
-    document.addEventListener('wheel', onWheel, { passive: false });
-    document.addEventListener('touchstart', onTouchStart, { passive: true });
-    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
     return () => {
-      document.removeEventListener('wheel', onWheel);
-      document.removeEventListener('touchstart', onTouchStart);
-      document.removeEventListener('touchmove', onTouchMove);
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
     };
   }, [isOpen]);
 
