@@ -139,15 +139,27 @@ router.post("/search-places", async (req: Request, res: Response) => {
     const query = String(req.body?.query || "").trim();
     if (query.length < 2) return safeJsonError(res, 400, "Query too short");
 
-    // Detect likely country from request for location biasing
+    // Detect user's likely country
     const inferredCountry = inferCountryFromRequest(req);
+
+    // Parse query into service + location tokens
+    const parsed = parseSearchQuery(query);
+
+    // Build an optimized query for Google:
+    // If user typed "hamilton plumber", send that as-is (Google handles it well).
+    // If user typed just "niagara" (location-only, no service), append "business"
+    // to push Google toward establishment results instead of geographic ones.
+    let searchQuery = query;
+    if (parsed.location && !parsed.service) {
+      searchQuery = `${query} business`;
+    }
 
     // Build Text Search URL with business-only type and region bias
     const params = new URLSearchParams({
-      query,
+      query: searchQuery,
       key,
-      type: "establishment", // Only return actual businesses, not cities/regions
-      region: inferredCountry, // Bias results toward this country
+      type: "establishment",
+      region: inferredCountry,
       language: "en",
     });
     const apiUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`;
@@ -169,7 +181,7 @@ router.post("/search-places", async (req: Request, res: Response) => {
 
     let results = Array.isArray(data?.results) ? data.results : [];
 
-    // Filter out non-business results (cities, regions, countries, etc.)
+    // Filter out non-business results
     results = filterToBusinesses(results);
 
     // Fallback: if Text Search found nothing, try Find Place API
@@ -178,7 +190,7 @@ router.post("/search-places", async (req: Request, res: Response) => {
         input: query,
         inputtype: "textquery",
         fields: "place_id,name,formatted_address,rating,user_ratings_total,photos,types",
-        locationbias: `ipbias`, // Use Google's IP-based bias as fallback
+        locationbias: "ipbias",
         key,
       });
       const fpUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?${fpParams}`;
@@ -192,6 +204,16 @@ router.post("/search-places", async (req: Request, res: Response) => {
       }
     }
 
+    // Re-rank results for relevance
+    results = rerankResults(results, {
+      inferredCountry,
+      parsedService: parsed.service,
+      parsedLocation: parsed.location,
+    });
+
+    // Build location hint for the frontend
+    const locationHint = buildLocationHint(results, parsed, inferredCountry);
+
     const predictions = results.slice(0, 5).map((r: any) => ({
       place_id: r.place_id || "",
       name: r.name || "",
@@ -201,79 +223,265 @@ router.post("/search-places", async (req: Request, res: Response) => {
       photoUrl: resolvePhotoUrl(r.photos?.[0]?.photo_reference, key, 400),
     }));
 
-    return res.json({ ok: true, predictions, regionHint: inferredCountry.toUpperCase() });
+    return res.json({ ok: true, predictions, locationHint });
   } catch (e: any) {
     console.error("[search-places] EXCEPTION:", e?.message || e);
     return safeJsonError(res, 500, e?.message || "search-places failed");
   }
 });
 
+/* ─────────────────────────────────────────────
+   Search helpers: parsing, ranking, filtering
+   ───────────────────────────────────────────── */
+
+/** Common trades/service terms this app targets. */
+const SERVICE_TERMS = new Set([
+  "plumber", "plumbing", "plumbers",
+  "electrician", "electrical", "electricians", "electric",
+  "hvac", "heating", "cooling", "furnace", "air conditioning",
+  "roofer", "roofing", "roofers",
+  "locksmith", "locksmiths",
+  "landscaper", "landscaping", "lawn", "lawn care",
+  "cleaner", "cleaning", "cleaners", "maid",
+  "painter", "painting", "painters",
+  "contractor", "contractors", "general contractor",
+  "carpenter", "carpentry",
+  "flooring", "tiler", "tiling",
+  "fencing", "fence",
+  "paving", "paver", "driveway",
+  "garage door", "garage doors",
+  "pest control", "exterminator",
+  "tree service", "tree removal", "arborist",
+  "handyman", "handymen",
+  "appliance repair",
+  "window", "windows", "glass",
+  "siding", "gutters", "gutter",
+  "deck", "decks", "deck builder",
+  "demolition", "excavation",
+  "concrete", "masonry", "mason",
+  "welder", "welding",
+  "septic", "drain", "drains", "sewer",
+  "insulation",
+  "solar", "solar panel",
+  "pool", "hot tub",
+  "business", "shop", "store", "company", "service", "services",
+]);
+
+/** Well-known Canadian city/region names that often clash with US/UK. */
+const KNOWN_CA_LOCATIONS: Record<string, string> = {
+  "hamilton": "ON", "london": "ON", "windsor": "ON", "cambridge": "ON",
+  "kingston": "ON", "barrie": "ON", "niagara": "ON", "niagara falls": "ON",
+  "st catharines": "ON", "st. catharines": "ON", "brantford": "ON",
+  "guelph": "ON", "kitchener": "ON", "waterloo": "ON", "oshawa": "ON",
+  "whitby": "ON", "ajax": "ON", "pickering": "ON", "markham": "ON",
+  "vaughan": "ON", "brampton": "ON", "mississauga": "ON", "oakville": "ON",
+  "burlington": "ON", "milton": "ON", "georgetown": "ON", "orangeville": "ON",
+  "newmarket": "ON", "aurora": "ON", "richmond hill": "ON",
+  "scarborough": "ON", "etobicoke": "ON", "north york": "ON",
+  "toronto": "ON", "ottawa": "ON", "thunder bay": "ON", "sudbury": "ON",
+  "sault ste marie": "ON", "peterborough": "ON", "belleville": "ON",
+  "cornwall": "ON", "sarnia": "ON", "chatham": "ON", "woodstock": "ON",
+  "stratford": "ON", "owen sound": "ON", "collingwood": "ON",
+  "orillia": "ON", "midland": "ON", "muskoka": "ON", "kawartha": "ON",
+  "vancouver": "BC", "victoria": "BC", "surrey": "BC", "burnaby": "BC",
+  "richmond": "BC", "kelowna": "BC", "kamloops": "BC", "nanaimo": "BC",
+  "abbotsford": "BC", "chilliwack": "BC", "prince george": "BC",
+  "calgary": "AB", "edmonton": "AB", "red deer": "AB", "lethbridge": "AB",
+  "medicine hat": "AB", "grande prairie": "AB", "fort mcmurray": "AB",
+  "winnipeg": "MB", "brandon": "MB",
+  "regina": "SK", "saskatoon": "SK",
+  "halifax": "NS", "dartmouth": "NS", "sydney": "NS",
+  "fredericton": "NB", "moncton": "NB", "saint john": "NB",
+  "st john's": "NL", "st. john's": "NL",
+  "charlottetown": "PE",
+};
+
+/**
+ * Parse a search query into service and location tokens.
+ * "hamilton plumber" => { service: "plumber", location: "hamilton" }
+ * "niagara" => { service: null, location: "niagara" }
+ * "acme plumbing" => { service: null, location: null } (business name)
+ */
+function parseSearchQuery(query: string): { service: string | null; location: string | null } {
+  const lower = query.toLowerCase().trim();
+  const words = lower.split(/\s+/);
+
+  let service: string | null = null;
+  let location: string | null = null;
+
+  // Check for multi-word service matches first (e.g., "pest control", "tree removal")
+  const serviceArr = Array.from(SERVICE_TERMS);
+  for (let i = 0; i < serviceArr.length; i++) {
+    const term = serviceArr[i];
+    if (term.includes(" ") && lower.includes(term)) {
+      service = term;
+      break;
+    }
+  }
+
+  // Check single words
+  if (!service) {
+    for (const word of words) {
+      if (SERVICE_TERMS.has(word)) {
+        service = word;
+        break;
+      }
+    }
+  }
+
+  // Check for known locations (multi-word first, then single-word)
+  const knownKeys = Object.keys(KNOWN_CA_LOCATIONS);
+  for (const loc of knownKeys) {
+    if (loc.includes(" ") && lower.includes(loc)) {
+      location = loc;
+      break;
+    }
+  }
+  if (!location) {
+    for (const word of words) {
+      if (KNOWN_CA_LOCATIONS[word]) {
+        location = word;
+        break;
+      }
+    }
+  }
+
+  return { service, location };
+}
+
 /**
  * Infer the user's country from request headers.
  * Checks common CDN/proxy headers, falls back to "ca" (Canada — target market).
  */
 function inferCountryFromRequest(req: Request): string {
-  // Cloudflare
   const cfCountry = req.headers["cf-ipcountry"];
   if (cfCountry && typeof cfCountry === "string" && cfCountry.length === 2) {
     return cfCountry.toLowerCase();
   }
-  // Vercel / generic
   const xCountry = req.headers["x-vercel-ip-country"] || req.headers["x-country"];
   if (xCountry && typeof xCountry === "string" && xCountry.length === 2) {
     return xCountry.toLowerCase();
   }
-  // AWS CloudFront
   const awsCountry = req.headers["cloudfront-viewer-country"];
   if (awsCountry && typeof awsCountry === "string" && awsCountry.length === 2) {
     return awsCountry.toLowerCase();
   }
-  // Default: Canada (target market)
   return "ca";
+}
+
+/**
+ * Re-rank Google results to prefer:
+ * 1. Results in the inferred country (by address matching)
+ * 2. Results matching the parsed location token
+ * 3. Results with stronger business metadata (reviews, rating)
+ * 4. Results with service-relevant types
+ */
+function rerankResults(
+  results: any[],
+  ctx: { inferredCountry: string; parsedService: string | null; parsedLocation: string | null },
+): any[] {
+  if (results.length <= 1) return results;
+
+  const { inferredCountry, parsedService, parsedLocation } = ctx;
+
+  // Country names/codes for address matching
+  const countryPatterns: Record<string, string[]> = {
+    ca: ["canada", ", on,", ", bc,", ", ab,", ", mb,", ", sk,", ", ns,", ", nb,", ", nl,", ", pe,", ", qc,",
+         ", on ", ", bc ", ", ab ", ", mb ", ", sk ", ", ns ", ", nb ", ", nl ", ", pe ", ", qc ",
+         "ontario", "british columbia", "alberta", "quebec", "manitoba", "saskatchewan",
+         "nova scotia", "new brunswick"],
+    us: ["united states", "usa", ", us"],
+    gb: ["united kingdom", ", uk"],
+  };
+  const preferredPatterns = countryPatterns[inferredCountry] || [];
+
+  // Province lookup for parsed location
+  const locationProvince = parsedLocation ? KNOWN_CA_LOCATIONS[parsedLocation] : null;
+
+  const scored = results.map((r) => {
+    const addr = (r.formatted_address || "").toLowerCase();
+    const name = (r.name || "").toLowerCase();
+    const types: string[] = Array.isArray(r.types) ? r.types : [];
+    let score = 0;
+
+    // +30: address matches inferred country
+    if (preferredPatterns.some((p) => addr.includes(p))) {
+      score += 30;
+    }
+
+    // +20: address matches the province of the parsed location
+    if (locationProvince) {
+      const provinceTag = `, ${locationProvince.toLowerCase()}`;
+      if (addr.includes(provinceTag) || addr.includes(provinceTag + " ")) {
+        score += 20;
+      }
+    }
+
+    // +15: address contains the parsed location token
+    if (parsedLocation && addr.includes(parsedLocation)) {
+      score += 15;
+    }
+
+    // +10: name or types contain the parsed service term
+    if (parsedService) {
+      if (name.includes(parsedService)) score += 10;
+      if (types.some((t) => t.includes(parsedService.replace(/s$/, "")))) score += 5;
+    }
+
+    // +5: has reviews (real business signal)
+    const reviews = r.user_ratings_total || 0;
+    if (reviews > 0) score += 5;
+    // +3: has more than 10 reviews
+    if (reviews > 10) score += 3;
+    // +2: has rating >= 4.0
+    if (typeof r.rating === "number" && r.rating >= 4.0) score += 2;
+
+    return { result: r, score };
+  });
+
+  // Sort by score descending, stable (preserves Google's order for ties)
+  scored.sort((a, b) => b.score - a.score);
+  return scored.map((s) => s.result);
+}
+
+/**
+ * Build a user-facing location hint like "Showing businesses near Hamilton, ON".
+ * Returns null if no useful hint can be constructed.
+ */
+function buildLocationHint(
+  results: any[],
+  parsed: { service: string | null; location: string | null },
+  inferredCountry: string,
+): string | null {
+  if (!parsed.location) return null;
+
+  const province = KNOWN_CA_LOCATIONS[parsed.location];
+  if (province && inferredCountry === "ca") {
+    const cityName = parsed.location.charAt(0).toUpperCase() + parsed.location.slice(1);
+    return `Showing businesses near ${cityName}, ${province}`;
+  }
+
+  return null;
 }
 
 /** Non-business Google Places types to filter out. */
 const NON_BUSINESS_TYPES = new Set([
-  "locality",
-  "sublocality",
-  "sublocality_level_1",
-  "sublocality_level_2",
-  "administrative_area_level_1",
-  "administrative_area_level_2",
-  "administrative_area_level_3",
-  "country",
-  "postal_code",
-  "neighborhood",
-  "colloquial_area",
-  "natural_feature",
-  "continent",
-  "archipelago",
-  "political",
-  "geocode",
-  "route",
-  "intersection",
-  "premise",
-  "subpremise",
-  "street_address",
-  "street_number",
-  "floor",
-  "room",
-  "post_box",
-  "postal_town",
-  "postal_code_prefix",
-  "postal_code_suffix",
-  "plus_code",
+  "locality", "sublocality", "sublocality_level_1", "sublocality_level_2",
+  "administrative_area_level_1", "administrative_area_level_2", "administrative_area_level_3",
+  "country", "postal_code", "neighborhood", "colloquial_area", "natural_feature",
+  "continent", "archipelago", "political", "geocode", "route", "intersection",
+  "premise", "subpremise", "street_address", "street_number",
+  "floor", "room", "post_box", "postal_town",
+  "postal_code_prefix", "postal_code_suffix", "plus_code",
 ]);
 
 /**
  * Filters Google Places results to keep only actual businesses.
- * A result is a business if its types list does NOT consist entirely of non-business types.
  */
 function filterToBusinesses(results: any[]): any[] {
   return results.filter((r) => {
     const types: string[] = Array.isArray(r.types) ? r.types : [];
-    if (types.length === 0) return true; // No types = keep (ambiguous)
-    // Keep if at least one type is not in the non-business set
+    if (types.length === 0) return true;
     return types.some((t) => !NON_BUSINESS_TYPES.has(t));
   });
 }

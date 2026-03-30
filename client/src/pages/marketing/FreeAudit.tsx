@@ -67,6 +67,7 @@ export default function FreeAudit() {
   const debounced = useDebouncedValue(query, 400);
 
   const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [locationHint, setLocationHint] = useState<string | null>(null);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [searchDone, setSearchDone] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -105,12 +106,13 @@ export default function FreeAudit() {
     setLoadingSearch(true);
     setSearchDone(false);
 
-    postJSON<{ ok: true; predictions: Prediction[] }>(
+    postJSON<{ ok: true; predictions: Prediction[]; locationHint?: string | null }>(
       "/api/audit/search-places",
       { query: q }
     )
       .then((d) => {
         setPredictions(d.predictions || []);
+        setLocationHint(d.locationHint || null);
         setSearchDone(true);
         setDropdownOpen(true);
       })
@@ -480,6 +482,20 @@ export default function FreeAudit() {
                     </div>
                   ) : (
                     <div style={{ maxHeight: 320, overflowY: "auto" }}>
+                      {locationHint && (
+                        <div style={{
+                          padding: "8px 16px",
+                          fontSize: 11,
+                          color: "rgba(0,0,0,0.40)",
+                          borderBottom: "1px solid rgba(0,0,0,0.05)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}>
+                          <span style={{ fontSize: 12 }}>📍</span>
+                          {locationHint}
+                        </div>
+                      )}
                       {predictions.map((p, i) => (
                         <button
                           key={p.place_id}
