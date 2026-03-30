@@ -139,82 +139,114 @@ router.post("/search-places", async (req: Request, res: Response) => {
     const query = String(req.body?.query || "").trim();
     if (query.length < 2) return safeJsonError(res, 400, "Query too short");
 
-    // Detect user's likely country
     const inferredCountry = inferCountryFromRequest(req);
 
-    // Parse query into service + location tokens
+    // PRIMARY: Place Autocomplete (New) API.
+    // Returns business-only predictions with built-in geographic bias.
+    // Cheaper ($2.83/1k sessions) than Text Search ($32/1k requests)
+    // and natively excludes cities/regions when types are restricted.
+    let predictions = await searchViaAutocomplete(query, key, inferredCountry);
+
+    // FALLBACK: Text Search (legacy) if Autocomplete returned nothing.
+    if (predictions.length === 0) {
+      predictions = await searchViaTextSearch(query, key, inferredCountry);
+    }
+
+    // Light reranking for ambiguous location queries
     const parsed = parseSearchQuery(query);
+    predictions = rerankPredictions(predictions, inferredCountry, parsed);
 
-    // Build an optimized query for Google:
-    // If user typed "hamilton plumber", send that as-is (Google handles it well).
-    // If user typed just "niagara" (location-only, no service), append "business"
-    // to push Google toward establishment results instead of geographic ones.
-    let searchQuery = query;
-    if (parsed.location && !parsed.service) {
-      searchQuery = `${query} business`;
-    }
+    const locationHint = buildLocationHint(predictions, parsed, inferredCountry);
 
-    // Build Text Search URL with business-only type and region bias
-    const params = new URLSearchParams({
-      query: searchQuery,
-      key,
-      type: "establishment",
-      region: inferredCountry,
-      language: "en",
+    return res.json({ ok: true, predictions: predictions.slice(0, 5), locationHint });
+  } catch (e: any) {
+    console.error("[search-places] EXCEPTION:", e?.message || e);
+    return safeJsonError(res, 500, e?.message || "search-places failed");
+  }
+});
+
+/** Prediction shape returned to the frontend. */
+interface SearchPrediction {
+  place_id: string;
+  name: string;
+  formatted_address: string;
+  rating: number | null;
+  user_ratings_total: number;
+  photoUrl: string | null;
+}
+
+/**
+ * PRIMARY: Google Place Autocomplete (New).
+ * Uses includedPrimaryTypes to return only businesses, regionCode for bias.
+ */
+async function searchViaAutocomplete(
+  query: string, key: string, regionCode: string,
+): Promise<SearchPrediction[]> {
+  try {
+    const body = {
+      input: query,
+      includedPrimaryTypes: ["establishment"],
+      languageCode: "en",
+      regionCode: regionCode.toUpperCase(),
+    };
+
+    const r = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Goog-Api-Key": key },
+      body: JSON.stringify(body),
     });
-    const apiUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`;
-
-    const r = await fetch(apiUrl);
-    const rawText = await r.text();
-    let data: any = null;
-    try { data = JSON.parse(rawText); } catch {}
-
-    if (data?.status && data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-      const msg = data.error_message || `Google Places API: ${data.status}`;
-      console.error("[search-places] API ERROR:", msg);
-      return safeJsonError(res, 502, msg);
-    }
 
     if (!r.ok) {
-      return safeJsonError(res, 502, `Google API returned HTTP ${r.status}`);
+      console.error("[search-places] Autocomplete HTTP", r.status);
+      return [];
     }
+
+    const data = await r.json();
+    const suggestions = Array.isArray(data?.suggestions) ? data.suggestions : [];
+
+    return suggestions
+      .filter((s: any) => s.placePrediction)
+      .slice(0, 5)
+      .map((s: any) => {
+        const p = s.placePrediction;
+        return {
+          place_id: p.placeId || "",
+          name: p.structuredFormat?.mainText?.text || p.text?.text || "",
+          formatted_address: p.structuredFormat?.secondaryText?.text || "",
+          rating: null,
+          user_ratings_total: 0,
+          photoUrl: null,
+        };
+      });
+  } catch (err: any) {
+    console.error("[search-places] Autocomplete error:", err?.message);
+    return [];
+  }
+}
+
+/**
+ * FALLBACK: Google Text Search (legacy).
+ * Used when Autocomplete returns no results.
+ */
+async function searchViaTextSearch(
+  query: string, key: string, regionCode: string,
+): Promise<SearchPrediction[]> {
+  try {
+    const params = new URLSearchParams({
+      query, key,
+      type: "establishment",
+      region: regionCode,
+      language: "en",
+    });
+    const r = await fetch(`https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`);
+    const data = await r.json();
+
+    if (data?.status !== "OK" && data?.status !== "ZERO_RESULTS") return [];
 
     let results = Array.isArray(data?.results) ? data.results : [];
-
-    // Filter out non-business results
     results = filterToBusinesses(results);
 
-    // Fallback: if Text Search found nothing, try Find Place API
-    if (results.length === 0) {
-      const fpParams = new URLSearchParams({
-        input: query,
-        inputtype: "textquery",
-        fields: "place_id,name,formatted_address,rating,user_ratings_total,photos,types",
-        locationbias: "ipbias",
-        key,
-      });
-      const fpUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?${fpParams}`;
-      try {
-        const fpData = await fetchJson(fpUrl);
-        let candidates = Array.isArray(fpData?.candidates) ? fpData.candidates : [];
-        candidates = filterToBusinesses(candidates);
-        results = candidates;
-      } catch (fpErr: any) {
-        console.error("[search-places] Find Place fallback failed:", fpErr?.message);
-      }
-    }
-
-    // Re-rank results for relevance
-    results = rerankResults(results, {
-      inferredCountry,
-      parsedService: parsed.service,
-      parsedLocation: parsed.location,
-    });
-
-    // Build location hint for the frontend
-    const locationHint = buildLocationHint(results, parsed, inferredCountry);
-
-    const predictions = results.slice(0, 5).map((r: any) => ({
+    return results.slice(0, 5).map((r: any) => ({
       place_id: r.place_id || "",
       name: r.name || "",
       formatted_address: r.formatted_address || "",
@@ -222,13 +254,11 @@ router.post("/search-places", async (req: Request, res: Response) => {
       user_ratings_total: typeof r.user_ratings_total === "number" ? r.user_ratings_total : 0,
       photoUrl: resolvePhotoUrl(r.photos?.[0]?.photo_reference, key, 400),
     }));
-
-    return res.json({ ok: true, predictions, locationHint });
-  } catch (e: any) {
-    console.error("[search-places] EXCEPTION:", e?.message || e);
-    return safeJsonError(res, 500, e?.message || "search-places failed");
+  } catch (err: any) {
+    console.error("[search-places] Text Search fallback error:", err?.message);
+    return [];
   }
-});
+}
 
 /* ─────────────────────────────────────────────
    Search helpers: parsing, ranking, filtering
@@ -264,46 +294,32 @@ const SERVICE_TERMS = new Set([
   "insulation",
   "solar", "solar panel",
   "pool", "hot tub",
-  "business", "shop", "store", "company", "service", "services",
 ]);
 
-/** Well-known Canadian city/region names that often clash with US/UK.
- *  Keys are stored in NORMALIZED form (see normalizeForMatch). */
-const KNOWN_CA_LOCATIONS: Record<string, string> = {};
-
-// Source data with readable names — inserted into lookup after normalization
-const _CA_CITIES: Array<[string, string]> = [
+/**
+ * Lightweight list of Canadian cities that clash with same-name cities
+ * in the US/UK. Used ONLY for the location hint and light reranking —
+ * not as a primary filter (Autocomplete API handles that via regionCode).
+ * Keys are in NORMALIZED form (see normalizeForMatch).
+ */
+const AMBIGUOUS_CA_CITIES: Record<string, string> = {};
+const _AMBIGUOUS_SRC: Array<[string, string]> = [
+  // Cities that share names with US/UK cities
   ["Hamilton", "ON"], ["London", "ON"], ["Windsor", "ON"], ["Cambridge", "ON"],
-  ["Kingston", "ON"], ["Barrie", "ON"], ["Niagara", "ON"], ["Niagara Falls", "ON"],
-  ["St. Catharines", "ON"], ["Saint Catharines", "ON"], ["Brantford", "ON"],
-  ["Guelph", "ON"], ["Kitchener", "ON"], ["Waterloo", "ON"], ["Oshawa", "ON"],
-  ["Whitby", "ON"], ["Ajax", "ON"], ["Pickering", "ON"], ["Markham", "ON"],
-  ["Vaughan", "ON"], ["Brampton", "ON"], ["Mississauga", "ON"], ["Oakville", "ON"],
-  ["Burlington", "ON"], ["Milton", "ON"], ["Georgetown", "ON"], ["Orangeville", "ON"],
-  ["Newmarket", "ON"], ["Aurora", "ON"], ["Richmond Hill", "ON"],
-  ["Scarborough", "ON"], ["Etobicoke", "ON"], ["North York", "ON"],
-  ["Toronto", "ON"], ["Ottawa", "ON"], ["Thunder Bay", "ON"], ["Sudbury", "ON"],
-  ["Sault Ste. Marie", "ON"], ["Sault Ste Marie", "ON"], ["Peterborough", "ON"], ["Belleville", "ON"],
-  ["Cornwall", "ON"], ["Sarnia", "ON"], ["Chatham", "ON"], ["Chatham-Kent", "ON"], ["Woodstock", "ON"],
-  ["Stratford", "ON"], ["Owen Sound", "ON"], ["Collingwood", "ON"],
-  ["Orillia", "ON"], ["Midland", "ON"], ["Muskoka", "ON"], ["Kawartha", "ON"],
-  ["Vancouver", "BC"], ["Victoria", "BC"], ["Surrey", "BC"], ["Burnaby", "BC"],
-  ["Richmond", "BC"], ["Kelowna", "BC"], ["Kamloops", "BC"], ["Nanaimo", "BC"],
-  ["Abbotsford", "BC"], ["Chilliwack", "BC"], ["Prince George", "BC"],
-  ["Calgary", "AB"], ["Edmonton", "AB"], ["Red Deer", "AB"], ["Lethbridge", "AB"],
-  ["Medicine Hat", "AB"], ["Grande Prairie", "AB"], ["Fort McMurray", "AB"],
-  ["Winnipeg", "MB"], ["Brandon", "MB"],
-  ["Regina", "SK"], ["Saskatoon", "SK"],
-  ["Halifax", "NS"], ["Dartmouth", "NS"], ["Sydney", "NS"],
-  ["Fredericton", "NB"], ["Moncton", "NB"], ["Saint John", "NB"],
-  ["St. John's", "NL"], ["Saint John's", "NL"],
-  ["Charlottetown", "PE"],
-  ["Québec", "QC"], ["Quebec", "QC"], ["Montréal", "QC"], ["Montreal", "QC"],
-  ["Laval", "QC"], ["Gatineau", "QC"], ["Sherbrooke", "QC"], ["Trois-Rivières", "QC"],
-  ["Trois Rivieres", "QC"], ["Lévis", "QC"], ["Levis", "QC"],
+  ["Kingston", "ON"], ["Cornwall", "ON"], ["Chatham", "ON"], ["Chatham-Kent", "ON"],
+  ["Richmond", "BC"], ["Richmond Hill", "ON"], ["Surrey", "BC"], ["Victoria", "BC"],
+  ["Sydney", "NS"], ["Brandon", "MB"], ["Stratford", "ON"], ["Woodstock", "ON"],
+  // Cities with tricky name variants (st/saint, accents, hyphens)
+  ["St. Catharines", "ON"], ["Saint Catharines", "ON"],
+  ["St. John's", "NL"], ["Saint John's", "NL"], ["Saint John", "NB"],
+  ["Sault Ste. Marie", "ON"],
+  ["Niagara", "ON"], ["Niagara Falls", "ON"],
+  ["Montréal", "QC"], ["Montreal", "QC"],
+  ["Québec", "QC"], ["Quebec", "QC"],
+  ["Trois-Rivières", "QC"], ["Lévis", "QC"],
 ];
-for (const [name, prov] of _CA_CITIES) {
-  KNOWN_CA_LOCATIONS[normalizeForMatch(name)] = prov;
+for (const [name, prov] of _AMBIGUOUS_SRC) {
+  AMBIGUOUS_CA_CITIES[normalizeForMatch(name)] = prov;
 }
 
 /**
@@ -360,7 +376,7 @@ function parseSearchQuery(query: string): { service: string | null; location: st
 
   // Check for known locations against the normalized query.
   // Multi-word locations first (niagara falls, richmond hill), then single-word.
-  const knownKeys = Object.keys(KNOWN_CA_LOCATIONS);
+  const knownKeys = Object.keys(AMBIGUOUS_CA_CITIES);
   // Sort longer keys first so "niagara falls" matches before "niagara"
   knownKeys.sort((a, b) => b.length - a.length);
 
@@ -372,7 +388,7 @@ function parseSearchQuery(query: string): { service: string | null; location: st
   }
   if (!location) {
     for (const word of normWords) {
-      if (KNOWN_CA_LOCATIONS[word]) {
+      if (AMBIGUOUS_CA_CITIES[word]) {
         location = word;
         break;
       }
@@ -403,89 +419,46 @@ function inferCountryFromRequest(req: Request): string {
 }
 
 /**
- * Re-rank Google results to prefer:
- * 1. Exact city match (dominant signal when user typed a city)
- * 2. Results in the inferred country
- * 3. Results with stronger business metadata
- * 4. Penalize same-country-different-city when city is clear
+ * Light reranking for predictions.
+ * Autocomplete already handles most relevance via regionCode + establishment type.
+ * This only kicks in when the query contains an ambiguous city name — to prefer
+ * the Canadian variant over US/UK matches in the rare case Autocomplete returns both.
  */
-function rerankResults(
-  results: any[],
-  ctx: { inferredCountry: string; parsedService: string | null; parsedLocation: string | null },
-): any[] {
-  if (results.length <= 1) return results;
+function rerankPredictions(
+  predictions: SearchPrediction[],
+  inferredCountry: string,
+  parsed: { service: string | null; location: string | null },
+): SearchPrediction[] {
+  // Only rerank if user typed a known ambiguous city
+  if (!parsed.location || predictions.length <= 1) return predictions;
 
-  const { inferredCountry, parsedService, parsedLocation } = ctx;
+  const province = AMBIGUOUS_CA_CITIES[parsed.location];
+  if (!province || inferredCountry !== "ca") return predictions;
 
-  // Country patterns for address matching
-  const countryPatterns: Record<string, string[]> = {
-    ca: ["canada", ", on,", ", bc,", ", ab,", ", mb,", ", sk,", ", ns,", ", nb,", ", nl,", ", pe,", ", qc,",
-         ", on ", ", bc ", ", ab ", ", mb ", ", sk ", ", ns ", ", nb ", ", nl ", ", pe ", ", qc ",
-         "ontario", "british columbia", "alberta", "quebec", "manitoba", "saskatchewan",
-         "nova scotia", "new brunswick"],
-    us: ["united states", "usa", ", us"],
-    gb: ["united kingdom", ", uk"],
-  };
-  const preferredPatterns = countryPatterns[inferredCountry] || [];
-
-  // Province lookup for parsed location
-  const locationProvince = parsedLocation ? KNOWN_CA_LOCATIONS[parsedLocation] : null;
-
-  const scored = results.map((r) => {
-    const addr = (r.formatted_address || "").toLowerCase();
-    const addrNorm = normalizeForMatch(r.formatted_address || "");
-    const name = (r.name || "").toLowerCase();
-    const types: string[] = Array.isArray(r.types) ? r.types : [];
+  const scored = predictions.map((p) => {
+    const addrNorm = normalizeForMatch(p.formatted_address);
     let score = 0;
 
-    const inPreferredCountry = preferredPatterns.some((p) => addr.includes(p));
+    // +40: address contains the typed city name
+    if (addrNorm.includes(parsed.location!)) score += 40;
 
-    // +30: address matches inferred country
-    if (inPreferredCountry) {
-      score += 30;
+    // +15: address contains the expected province
+    const provLower = province.toLowerCase();
+    if (addrNorm.includes(provLower) || p.formatted_address.toLowerCase().includes(`, ${provLower}`)) {
+      score += 15;
     }
 
-    // City-level scoring (only when user typed a recognizable city)
-    if (parsedLocation) {
-      // parsedLocation is already normalized (comes from KNOWN_CA_LOCATIONS keys)
-      const cityInAddr = addrNorm.includes(parsedLocation);
+    // +10: address contains "canada"
+    if (addrNorm.includes("canada")) score += 10;
 
-      // +40: exact city match in address — this is the strongest signal
-      if (cityInAddr) {
-        score += 40;
-      }
+    // +5: has reviews (indicates real business, not stub)
+    if (p.user_ratings_total > 0) score += 5;
 
-      // +15: address matches the province of the parsed city
-      if (locationProvince) {
-        const provinceTag = `, ${locationProvince.toLowerCase()}`;
-        if (addr.includes(provinceTag) || addr.includes(provinceTag + " ")) {
-          score += 15;
-        }
-      }
-
-      // -12: same country but different city (penalize wrong-city results)
-      if (!cityInAddr && inPreferredCountry) {
-        score -= 12;
-      }
-    }
-
-    // +10: name contains the parsed service term
-    if (parsedService) {
-      if (name.includes(parsedService)) score += 10;
-      if (types.some((t) => t.includes(parsedService.replace(/s$/, "")))) score += 5;
-    }
-
-    // Business quality signals
-    const reviews = r.user_ratings_total || 0;
-    if (reviews > 0) score += 5;
-    if (reviews > 10) score += 3;
-    if (typeof r.rating === "number" && r.rating >= 4.0) score += 2;
-
-    return { result: r, score };
+    return { prediction: p, score };
   });
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.map((s) => s.result);
+  return scored.map((s) => s.prediction);
 }
 
 /**
@@ -494,18 +467,18 @@ function rerankResults(
  * mixed locations (i.e., ambiguity actually exists).
  */
 function buildLocationHint(
-  results: any[],
+  results: SearchPrediction[],
   parsed: { service: string | null; location: string | null },
   inferredCountry: string,
 ): string | null {
   if (!parsed.location) return null;
 
-  const province = KNOWN_CA_LOCATIONS[parsed.location];
+  const province = AMBIGUOUS_CA_CITIES[parsed.location];
   if (!province || inferredCountry !== "ca") return null;
 
   // Only show hint if results contain addresses from different cities
   // (i.e., there's actual ambiguity to resolve)
-  const addrs = results.slice(0, 5).map((r) => normalizeForMatch(r.formatted_address || ""));
+  const addrs = results.slice(0, 5).map((r) => normalizeForMatch(r.formatted_address));
   const matchCount = addrs.filter((a) => a.includes(parsed.location!)).length;
 
   // If ALL results match the city, no hint needed — no ambiguity
