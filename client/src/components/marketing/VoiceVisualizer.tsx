@@ -189,7 +189,7 @@ export default function VoiceVisualizer({
 
 /**
  * HeroSoundBars — Full-width edge-to-edge animated pixelated bars
- * with mirror reflection beneath.
+ * with mirror reflection beneath and edge fade vignette.
  */
 export function HeroSoundBars({
   active = true,
@@ -201,9 +201,20 @@ export function HeroSoundBars({
   style?: React.CSSProperties;
 }) {
   return (
-    <div style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)", overflow: "hidden", ...style }}>
+    <div style={{
+      width: "100vw",
+      marginLeft: "calc(-50vw + 50%)",
+      position: "relative",
+      overflow: "hidden",
+      ...style,
+    }}>
+      {/* Edge fade vignette — fades bars into the background at both sides */}
+      <div style={{
+        position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none",
+        background: `linear-gradient(90deg, ${mkt.bg} 0%, transparent 12%, transparent 88%, ${mkt.bg} 100%)`,
+      }} />
       <VoiceVisualizer
-        barCount={120}
+        barCount={160}
         height={height}
         active={active}
         variant="hero"
