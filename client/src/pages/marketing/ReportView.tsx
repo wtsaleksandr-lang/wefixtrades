@@ -432,6 +432,22 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     return () => cancelAnimationFrame(animFrame);
   }, []);
   const [chatExpanded, setChatExpanded] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  // Trap scroll inside chat messages area (native listener with passive:false)
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    function onWheel(e: WheelEvent) {
+      const { scrollTop, scrollHeight, clientHeight } = el!;
+      const atTop = scrollTop <= 0 && e.deltaY < 0;
+      const atBottom = scrollTop + clientHeight >= scrollHeight - 1 && e.deltaY > 0;
+      if (atTop || atBottom) e.preventDefault();
+      e.stopPropagation();
+    }
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [chatExpanded]);
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const isTiny = typeof window !== 'undefined' && window.innerWidth <= 480;
   const r16 = 16;
@@ -513,12 +529,23 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     setChatInput('');
     setChatMessages(prev => [...prev, { role: 'user', text: userMsg }]);
     setChatLoading(true);
+    // Auto-expand the chat panel when user sends a message
+    setChatExpanded(true);
+    if (isMobile) setChatOpen(true);
     let reply = '';
     try {
-      const res = await fetch('/api/audit/chat', {
+      const sessionId = (() => {
+        const KEY = 'wft_chat_session';
+        let id = localStorage.getItem(KEY);
+        if (!id) { id = `s_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`; localStorage.setItem(KEY, id); }
+        return id;
+      })();
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          surface: 'audit',
+          sessionId,
           messages: [
             ...chatMessages.map(m => ({
               role: m.role === 'ai' ? 'assistant' : 'user',
@@ -532,11 +559,18 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             city: report?.city,
             score: report?.scores?.total,
             grade: report?.scores?.grade,
-            topIssue: report?.narrative?.actionPlan?.[0]?.title,
-            estimatedLoss: report?.estimatedRevenueLoss,
+            topIssues: report?.narrative?.actionPlan?.slice(0, 5)?.map((a: any) => ({ title: a.title, estimatedImpact: a.estimatedImpact })),
+            estimatedRevenueLoss: report?.estimatedRevenueLoss || report?.narrative?.estimatedMonthlyRevenueLoss,
+            detectedIssueIds: report?.detectedIssues,
           },
         }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setChatMessages(prev => [...prev, { role: 'ai', text: err.error || 'Sorry, something went wrong. Try again.' }]);
+        setChatLoading(false);
+        return;
+      }
       setChatMessages(prev => [...prev, { role: 'ai', text: '' }]);
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
@@ -549,13 +583,25 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           const data = line.slice(6);
           if (data === '[DONE]') break;
           try {
-            reply += JSON.parse(data).text;
-            setChatMessages(prev => {
-              const updated = [...prev];
-              updated[updated.length - 1] = { role: 'ai', text: reply };
-              return updated;
-            });
-          } catch {}
+            const parsed = JSON.parse(data);
+            if (parsed.error) throw new Error(parsed.error);
+            if (parsed.text) {
+              reply += parsed.text;
+              setChatMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: 'ai', text: reply };
+                return updated;
+              });
+            }
+          } catch (e) {
+            if (e instanceof Error && e.message !== 'Unexpected end of JSON input') {
+              setChatMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: 'ai', text: e.message || 'Something went wrong.' };
+                return updated;
+              });
+            }
+          }
         }
       }
     } catch {
@@ -1942,7 +1988,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             <div style={{ color:'rgba(255,255,255,0.5)', fontSize:18, transform: chatExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.2s' }}>▼</div>
           </div>
           {chatExpanded && (
-            <div style={{ height:200, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:10 }}>
+            <div ref={chatScrollRef} style={{ height:200, overflowY:'auto', overscrollBehavior:'contain', padding:16, display:'flex', flexDirection:'column', gap:10 }}>
               {chatMessages.map((msg, i) => (
                 <div key={i} style={{ alignSelf:msg.role==='ai'?'flex-start':'flex-end', background:msg.role==='ai'?GREY_BG:CYAN, borderRadius:msg.role==='ai'?'12px 12px 12px 4px':'12px 12px 4px 12px', padding:'10px 14px', fontSize:13, color:DARK, maxWidth:'85%', lineHeight:1.5 }}>
                   {msg.text}
