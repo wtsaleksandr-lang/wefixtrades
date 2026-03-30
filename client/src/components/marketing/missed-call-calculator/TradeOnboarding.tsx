@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, ChevronDown, ArrowRight, Briefcase } from 'lucide-react';
 import { mkt, colors, radius, shadows } from '@/theme/tokens';
@@ -24,12 +24,13 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
+  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
 
-  // Filter and group
+  // Filter
   const filtered = useMemo(() => {
     if (!query.trim()) return allOptions;
     const q = query.toLowerCase();
@@ -39,7 +40,6 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
     );
   }, [query, allOptions]);
 
-  // Flat list for keyboard navigation (skip category headers)
   const flatItems = filtered;
 
   // Reset highlight when filter changes
@@ -54,27 +54,11 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
     item?.scrollIntoView({ block: 'nearest' });
   }, [highlightIndex]);
 
-  // Close on outside click
-  useEffect(() => {
-    if (!isOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [isOpen]);
-
-  // Lock page scroll while dropdown is open
-  useEffect(() => {
-    if (!isOpen) return;
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.documentElement.style.overflow = '';
-      document.body.style.overflow = '';
-    };
+  // Position the fixed dropdown relative to the trigger
+  useLayoutEffect(() => {
+    if (!isOpen || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setDropdownRect({ top: rect.bottom, left: rect.left, width: rect.width });
   }, [isOpen]);
 
   const selectPreset = useCallback((preset: TradePreset) => {
@@ -82,6 +66,10 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
     setQuery('');
     onSelect(preset);
   }, [onSelect]);
+
+  const close = useCallback(() => {
+    setIsOpen(false);
+  }, []);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (!isOpen) {
@@ -117,12 +105,6 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
         break;
     }
   }, [isOpen, highlightIndex, flatItems, selectPreset]);
-
-  const openDropdown = () => {
-    setIsOpen(true);
-    // Focus input after dropdown opens
-    requestAnimationFrame(() => inputRef.current?.focus());
-  };
 
   // Previous trade shortcut
   const prevPreset = previousTradeId ? (() => {
@@ -229,16 +211,15 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
         </motion.div>
       )}
 
-      {/* Combobox */}
+      {/* Combobox trigger */}
       <motion.div
-        ref={containerRef}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.28, duration: 0.35 }}
         style={{ position: 'relative' }}
       >
-        {/* Trigger / input */}
         <div
+          ref={triggerRef}
           role="combobox"
           aria-expanded={isOpen}
           aria-haspopup="listbox"
@@ -299,21 +280,33 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
             }}
           />
         </div>
+      </motion.div>
 
-        {/* Dropdown */}
-        {isOpen && (
+      {/* Fixed overlay + dropdown when open */}
+      {isOpen && dropdownRect && (
+        <>
+          {/* Invisible backdrop — blocks page scroll and catches clicks to close */}
+          <div
+            onClick={close}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 49,
+            }}
+          />
+          {/* Dropdown list — fixed position, aligned to trigger */}
           <div
             id={LISTBOX_ID}
             role="listbox"
             aria-label="Trade options"
             ref={listRef}
             style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
+              position: 'fixed',
+              top: dropdownRect.top,
+              left: dropdownRect.left,
+              width: dropdownRect.width,
               zIndex: 50,
-              maxHeight: 'min(320px, 50vh)',
+              maxHeight: `min(320px, calc(100vh - ${dropdownRect.top + 16}px))`,
               overflowY: 'auto',
               overscrollBehavior: 'contain',
               background: mkt.surfaceAlt,
@@ -336,7 +329,6 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
             )}
 
             {filtered.length > 0 && (() => {
-              // Group for display, but track flat index for keyboard
               let flatIdx = 0;
               const grouped = new Map<string, TradePreset[]>();
               for (const preset of filtered) {
@@ -389,8 +381,8 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
               ));
             })()}
           </div>
-        )}
-      </motion.div>
+        </>
+      )}
 
       {/* Popular trades quick-picks */}
       {!isOpen && (
