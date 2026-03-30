@@ -514,6 +514,11 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [visualAnalysisModal, setVisualAnalysisModal] = useState(false);
   const [screenshotLightbox, setScreenshotLightbox] = useState(false);
   const [reportZoom, setReportZoom] = useState(100);
+  const [holdingBackPopover, setHoldingBackPopover] = useState(false);
+  const [revenueTooltip, setRevenueTooltip] = useState(false);
+  const [kwColTooltip, setKwColTooltip] = useState<string | null>(null);
+  const [exitPopup, setExitPopup] = useState(false);
+  const exitShownRef = useRef(false);
 
   // Lock body scroll when any modal is open
   const anyModalOpen = scoreModalOpen || metricModal !== null || breakdownModal !== null || issueModal !== null || visualAnalysisModal || screenshotLightbox;
@@ -525,6 +530,18 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     }
     return () => { document.body.style.overflow = ''; };
   }, [anyModalOpen]);
+
+  // Exit intent — show popup when mouse leaves viewport top (desktop) or beforeunload
+  useEffect(() => {
+    const handleMouseLeave = (e: MouseEvent) => {
+      if (e.clientY <= 5 && !exitShownRef.current && selected.length === 0) {
+        exitShownRef.current = true;
+        setExitPopup(true);
+      }
+    };
+    document.addEventListener('mouseleave', handleMouseLeave);
+    return () => document.removeEventListener('mouseleave', handleMouseLeave);
+  }, [selected.length]);
 
   // Score circle animation state
   const [displayScore, setDisplayScore] = useState(0);
@@ -992,7 +1009,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     {
       id: 'email', label: 'Email', bg: '#6B7280',
       icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#6B7280"/><path d="M4 8a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" stroke="white" strokeWidth="1.5" fill="none"/><path d="M4 8l8 6 8-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>),
-      onClick: () => window.open(`mailto:?subject=My WeFixTrades Local Business Audit&body=View my free audit report: ${shareUrl}`)
+      onClick: () => window.open(`mailto:?subject=${encodeURIComponent('Your WeFixTrades Audit Report')}&body=${encodeURIComponent(`Check out this free local business audit report:\n\n${shareUrl}`)}`)
     },
     {
       id: 'whatsapp', label: 'WhatsApp', bg: '#25D366',
@@ -1309,9 +1326,18 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {/* SECTION 3 — ACTION PLAN (Tab 3 only — sales content lives here) */}
       {activeTab === 'plan' && plan.length > 0 && (
         <div style={card()}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, position: 'relative' }}>
             <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What's Holding You Back</span>
-            <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
+            <span style={{ position: 'relative', display: 'inline-flex' }}>
+              <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setHoldingBackPopover(p => !p); }} />
+              {holdingBackPopover && (
+                <div style={{ position: 'absolute', top: 22, left: '50%', transform: 'translateX(-50%)', width: 260, background: DARK, color: WHITE, fontSize: 12, lineHeight: 1.55, padding: '12px 14px', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.25)', zIndex: 50 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>How this list works</div>
+                  These are the highest-impact actions for your business right now, ranked by how fast they typically generate new jobs.
+                  <button onClick={(e) => { e.stopPropagation(); setHoldingBackPopover(false); }} style={{ position: 'absolute', top: 6, right: 8, background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>×</button>
+                </div>
+              )}
+            </span>
           </div>
           <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Tap each item to see how to fix it</div>
           {plan.map((item: any, i: number) => {
@@ -1354,79 +1380,13 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
       )}
 
-      {/* SECTION 4 — KEYWORDS */}
-      {activeTab === 'website' && keywords.some((k: any) => k.monthlySearches > 0) && (
-        <div style={card()}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-            <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What Customers Search For</span>
-            <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
-          </div>
-          <div style={{ fontSize: 12, color: GREY, marginBottom: 4 }}>Keywords relevant to your business in {report?.city}</div>
-          <div style={{ fontSize: 10, color: GREY, marginBottom: 12, opacity: 0.8 }}>Rank = Google position · <span style={{ color: CYAN }}>LP</span> = Maps position</div>
-          {/* Column headers */}
-          <div style={{ display: 'flex', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${BORDER}`, gap: 4 }}>
-            <span style={{ flex: 1, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, minWidth: 0 }}>Keyword</span>
-            <span style={{ width: 40, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>Vol.</span>
-            <span style={{ width: 42, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>CPC</span>
-            <span style={{ width: 48, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>Rank</span>
-            <span style={{ width: 58, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0 }}>Visibility</span>
-          </div>
-          {/* Rows */}
-          {keywords.map((kw: any, i: number) => {
-            // Determine rank display: show local pack position if present and no organic rank
-            const hasOrganic = !!kw.organicRank;
-            const hasLocalPack = !!kw.isInLocalPack;
-            let rankLabel: string;
-            let rankColor: string;
-            if (hasOrganic) {
-              rankLabel = `#${kw.organicRank}`;
-              rankColor = kw.organicRank <= 3 ? GREEN : kw.organicRank <= 10 ? AMBER : RED;
-            } else if (hasLocalPack) {
-              rankLabel = `LP #${kw.localPackPosition}`;
-              rankColor = CYAN;
-            } else {
-              rankLabel = '—';
-              rankColor = GREY;
-            }
-            // Visibility status — reflects overall presence
-            const visLabel = kw.status?.replace('-', ' ') || '—';
-            const visColor = statusColor(kw.status);
-            // CPC formatting: null/undefined → "—", whole → "$5", decimal → "$5.2"
-            const cpcDisplay = !kw.cpc ? '—' : kw.cpc % 1 === 0 ? `$${kw.cpc}` : `$${kw.cpc.toFixed(1)}`;
-            return (
-              <div key={i} data-testid="keyword-row" data-keyword={kw.keyword} data-rank={rankLabel} data-visibility={visLabel} data-cpc={cpcDisplay} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${BORDER}`, gap: 4, background: i % 2 === 0 ? 'transparent' : '#FAFAFA' }}>
-                <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: DARK, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kw.keyword}</span>
-                <span style={{ width: 40, fontSize: 11, color: DARK, textAlign: 'right', flexShrink: 0 }}>{kw.monthlySearches > 0 ? kw.monthlySearches.toLocaleString() : '—'}</span>
-                <span style={{ width: 42, fontSize: 11, color: GREY, textAlign: 'right', flexShrink: 0 }}>{cpcDisplay}</span>
-                <span style={{ width: 48, fontSize: 11, fontWeight: 600, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{rankLabel}</span>
-                <span style={{ width: 58, textAlign: 'right', flexShrink: 0 }}>
-                  <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: 10, fontSize: 10, fontWeight: 600, background: visColor + '18', color: visColor, whiteSpace: 'nowrap' }}>
-                    {visLabel}
-                  </span>
-                </span>
-              </div>
-            );
-          })}
-          {ai.keyStrength && (
-            <div style={{ marginTop: 12, background: GREEN_BG, borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#166534' }}>
-              ✓ {ai.keyStrength}
-            </div>
-          )}
-          {report?.nicheAlignment?.misaligned && (
-            <div style={{ marginTop: 12, background: AMBER_BG, borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#92400E', lineHeight: 1.55 }}>
-              ⚠ {report.nicheAlignment.insight}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* SECTION 5 — REVENUE */}
       {activeTab === 'maps' && (() => {
         const missedJobs = report?.demandGaps?.[0]?.estimatedMissedLeadsPerMonth || 0;
         const revLow = loss.low || 0;
         const revHigh = loss.high || 0;
         return (
-          <div style={{ background: DARK, borderRadius: r16, padding: '28px 20px', marginBottom: 10, textAlign: 'center' }}>
+          <div style={{ background: DARK, borderRadius: r16, padding: '28px 20px', marginBottom: 10, textAlign: 'center', position: 'relative' }}>
             <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
               {/* LEFT — missed jobs */}
               <div style={{ textAlign: 'center' }}>
@@ -1434,7 +1394,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   Potential Missed Jobs / Month
                 </div>
                 <div style={{ fontSize: 36, fontWeight: 800, color: WHITE, marginTop: 8, lineHeight: 1 }}>
-                  {missedJobs > 0 ? missedJobs : '5–15'}
+                  {missedJobs > 0 ? missedJobs : '5\u201315'}
                 </div>
               </div>
               {/* Divider */}
@@ -1445,11 +1405,23 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   Est. Monthly Revenue Opportunity
                 </div>
                 <div style={{ fontSize: 28, fontWeight: 800, color: CYAN, marginTop: 8, lineHeight: 1 }}>
-                  {revHigh > 0 ? `$${revLow.toLocaleString()} – $${revHigh.toLocaleString()}` : '$800 – $2,400'}
+                  {revHigh > 0 ? `$${revLow.toLocaleString()} \u2013 $${revHigh.toLocaleString()}` : '$800 \u2013 $2,400'}
                 </div>
               </div>
             </div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 12 }}>
+            {/* Formula info icon */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', position: 'relative' }} onClick={() => setRevenueTooltip(t => !t)}>
+              <Info size={13} color="rgba(255,255,255,0.35)" />
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>How we calculate this</span>
+              {revenueTooltip && (
+                <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', width: 280, background: WHITE, color: DARK, fontSize: 12, lineHeight: 1.55, padding: '12px 14px', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.25)', zIndex: 50, textAlign: 'left' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4, color: DARK }}>Calculation method</div>
+                  Based on local search volume data and industry average job values for your trade. Missed jobs are estimated from your current local pack visibility score and search demand in your area.
+                  <button onClick={(e) => { e.stopPropagation(); setRevenueTooltip(false); }} style={{ position: 'absolute', top: 6, right: 8, background: 'none', border: 'none', color: GREY, cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>×</button>
+                </div>
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 8 }}>
               Estimates based on average trade job values and local search demand. Actual results vary by market and business.
             </div>
             {ai.demandGapInsight && (
@@ -1481,9 +1453,18 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {/* SECTION 6b — DIAGNOSTIC ACTION PLAN (Tab 1, advisory only — no CTAs) */}
       {activeTab === 'maps' && plan.length > 0 && (
         <div style={card()}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, position: 'relative' }}>
             <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What's Holding You Back</span>
-            <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
+            <span style={{ position: 'relative', display: 'inline-flex' }}>
+              <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setHoldingBackPopover(p => !p); }} />
+              {holdingBackPopover && (
+                <div style={{ position: 'absolute', top: 22, left: '50%', transform: 'translateX(-50%)', width: 260, background: DARK, color: WHITE, fontSize: 12, lineHeight: 1.55, padding: '12px 14px', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.25)', zIndex: 50 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>How this list works</div>
+                  These are the highest-impact actions for your business right now, ranked by how fast they typically generate new jobs.
+                  <button onClick={(e) => { e.stopPropagation(); setHoldingBackPopover(false); }} style={{ position: 'absolute', top: 6, right: 8, background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>×</button>
+                </div>
+              )}
+            </span>
           </div>
           <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Tap each item to see how to fix it</div>
           {plan.map((item: any, i: number) => {
@@ -1663,49 +1644,57 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             {/* Body — screenshot + findings side by side on desktop, stacked on mobile */}
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 0 }}>
               {/* Screenshot */}
-              {screenshotSrc && (
-                <div
-                  onClick={() => setScreenshotLightbox(true)}
-                  role="button" tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setScreenshotLightbox(true); } }}
-                  style={{
-                    flex: isMobile ? 'none' : '0 0 45%',
-                    padding: 16,
-                    background: '#F3F4F6',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRight: isMobile ? 'none' : `1px solid ${BORDER}`,
-                    borderBottom: isMobile ? `1px solid ${BORDER}` : 'none',
-                    minHeight: isMobile ? 180 : 220,
-                    position: 'relative',
-                    overflow: 'hidden',
-                    cursor: 'zoom-in',
-                  }}>
-                  <img
-                    src={screenshotSrc}
-                    alt={`${business?.name || 'Business'} website screenshot`}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      borderRadius: 8,
-                      border: `1px solid ${BORDER}`,
-                      boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-                    }}
-                  />
-                  <div style={{
-                    position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-                    padding: '4px 12px', borderRadius: 8,
-                    background: 'rgba(13,21,20,0.75)', backdropFilter: 'blur(8px)',
-                    fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.8)',
-                    letterSpacing: '0.04em', whiteSpace: 'nowrap',
-                    display: 'flex', alignItems: 'center', gap: 4,
-                  }}>
-                    <ZoomIn size={10} /> Tap to zoom
+              <div
+                onClick={() => screenshotSrc && setScreenshotLightbox(true)}
+                role={screenshotSrc ? "button" : undefined} tabIndex={screenshotSrc ? 0 : undefined}
+                onKeyDown={screenshotSrc ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setScreenshotLightbox(true); } } : undefined}
+                style={{
+                  flex: isMobile ? 'none' : '0 0 45%',
+                  padding: 16,
+                  background: '#F3F4F6',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRight: isMobile ? 'none' : `1px solid ${BORDER}`,
+                  borderBottom: isMobile ? `1px solid ${BORDER}` : 'none',
+                  minHeight: isMobile ? 180 : 220,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  cursor: screenshotSrc ? 'zoom-in' : 'default',
+                }}>
+                {screenshotSrc ? (
+                  <>
+                    <img
+                      src={screenshotSrc}
+                      alt={`${business?.name || 'Business'} website screenshot`}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: 8,
+                        border: `1px solid ${BORDER}`,
+                        boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                      }}
+                    />
+                    <div style={{
+                      position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+                      padding: '4px 12px', borderRadius: 8,
+                      background: 'rgba(13,21,20,0.75)', backdropFilter: 'blur(8px)',
+                      fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.8)',
+                      letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                      display: 'flex', alignItems: 'center', gap: 4,
+                    }}>
+                      <ZoomIn size={10} /> Tap to zoom
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: 20 }}>
+                    <Globe size={32} color={GREY} style={{ opacity: 0.3, marginBottom: 8 }} />
+                    <div style={{ fontSize: 12, color: GREY, opacity: 0.6 }}>Screenshot loading...</div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Findings list */}
               <div style={{ flex: 1, padding: '16px 20px' }}>
@@ -1750,6 +1739,82 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         );
       })()}
 
+      {/* SECTION — KEYWORDS (moved after speed + visual analysis for better flow) */}
+      {activeTab === 'website' && keywords.some((k: any) => k.monthlySearches > 0) && (
+        <div style={card()}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What Customers Search For</span>
+            <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
+          </div>
+          <div style={{ fontSize: 12, color: GREY, marginBottom: 4 }}>Keywords relevant to your business in {report?.city}</div>
+          <div style={{ fontSize: 10, color: GREY, marginBottom: 12, opacity: 0.8 }}>Rank = Google position · <span style={{ color: CYAN }}>LP</span> = Maps position</div>
+          {/* Column headers with info tooltips */}
+          <div style={{ display: 'flex', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${BORDER}`, gap: 4 }}>
+            <span style={{ flex: 1, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, minWidth: 0 }}>Keyword</span>
+            {([
+              { key: 'vol', label: 'Vol.', w: 40, tip: 'Monthly search volume — how many people search this term each month in your area.' },
+              { key: 'cpc', label: 'CPC', w: 42, tip: 'Cost Per Click — what advertisers pay per click for this keyword. Higher CPC = higher commercial intent.' },
+              { key: 'rank', label: 'Rank', w: 48, tip: 'Your Google search position for this keyword. Top 3 gets the most clicks; page 1 is positions 1–10.' },
+              { key: 'vis', label: 'Visibility', w: 58, tip: 'Overall search presence — combines organic rank and Google Maps (Local Pack) position.' },
+            ] as const).map(col => (
+              <span key={col.key} style={{ width: col.w, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0, position: 'relative', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}
+                onClick={() => setKwColTooltip(prev => prev === col.key ? null : col.key)}>
+                {col.label}
+                <Info size={9} color={GREY} style={{ opacity: 0.4, flexShrink: 0 }} />
+                {kwColTooltip === col.key && (
+                  <div style={{ position: 'absolute', top: 20, right: 0, width: 200, background: DARK, color: WHITE, fontSize: 11, lineHeight: 1.5, padding: '10px 12px', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,0.25)', zIndex: 30, textAlign: 'left', textTransform: 'none', letterSpacing: 'normal', fontWeight: 400 }}>
+                    {col.tip}
+                  </div>
+                )}
+              </span>
+            ))}
+          </div>
+          {/* Rows */}
+          {keywords.map((kw: any, i: number) => {
+            const hasOrganic = !!kw.organicRank;
+            const hasLocalPack = !!kw.isInLocalPack;
+            let rankLabel: string;
+            let rankColor: string;
+            if (hasOrganic) {
+              rankLabel = `#${kw.organicRank}`;
+              rankColor = kw.organicRank <= 3 ? GREEN : kw.organicRank <= 10 ? AMBER : RED;
+            } else if (hasLocalPack) {
+              rankLabel = `LP #${kw.localPackPosition}`;
+              rankColor = CYAN;
+            } else {
+              rankLabel = '\u2014';
+              rankColor = GREY;
+            }
+            const visLabel = kw.status?.replace('-', ' ') || '\u2014';
+            const visColor = statusColor(kw.status);
+            const cpcDisplay = !kw.cpc ? '\u2014' : kw.cpc % 1 === 0 ? `$${kw.cpc}` : `$${kw.cpc.toFixed(1)}`;
+            return (
+              <div key={i} data-testid="keyword-row" data-keyword={kw.keyword} data-rank={rankLabel} data-visibility={visLabel} data-cpc={cpcDisplay} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${BORDER}`, gap: 4, background: i % 2 === 0 ? 'transparent' : '#FAFAFA' }}>
+                <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: DARK, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kw.keyword}</span>
+                <span style={{ width: 40, fontSize: 11, color: DARK, textAlign: 'right', flexShrink: 0 }}>{kw.monthlySearches > 0 ? kw.monthlySearches.toLocaleString() : '\u2014'}</span>
+                <span style={{ width: 42, fontSize: 11, color: GREY, textAlign: 'right', flexShrink: 0 }}>{cpcDisplay}</span>
+                <span style={{ width: 48, fontSize: 11, fontWeight: 600, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{rankLabel}</span>
+                <span style={{ width: 58, textAlign: 'right', flexShrink: 0 }}>
+                  <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: 10, fontSize: 10, fontWeight: 600, background: visColor + '18', color: visColor, whiteSpace: 'nowrap' }}>
+                    {visLabel}
+                  </span>
+                </span>
+              </div>
+            );
+          })}
+          {ai.keyStrength && (
+            <div style={{ marginTop: 12, background: GREEN_BG, borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#166534' }}>
+              ✓ {ai.keyStrength}
+            </div>
+          )}
+          {report?.nicheAlignment?.misaligned && (
+            <div style={{ marginTop: 12, background: AMBER_BG, borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#92400E', lineHeight: 1.55 }}>
+              ⚠ {report.nicheAlignment.insight}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* SECTION 8 — CONTENT GAPS */}
       {activeTab === 'website' && gaps.length > 0 && (
         <div style={card()}>
@@ -1770,135 +1835,173 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
       )}
 
+      {/* CONTENT AUTOMATION CTA */}
       {activeTab === 'website' && (
-        <div style={{ background: DARK, borderRadius: r16, padding: '28px 24px', marginBottom: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
-            <div style={{
-              backgroundColor: '#00D4C8',
-              color: '#0d1514',
-              fontSize: '11px',
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              padding: '4px 12px',
-              borderRadius: '999px'
-            }}>
-              One-Time Report
+        <div style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: '20px 24px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: DARK, marginBottom: 4 }}>Automate Your Content Growth</div>
+            <div style={{ fontSize: 13, color: GREY, lineHeight: 1.55 }}>
+              WeFixTrades can automatically write and publish weekly blog posts and service pages to your website — improving your Google ranking on autopilot.
             </div>
-            <h3 style={{
-              color: '#FFFFFF',
-              fontSize: '20px',
-              fontWeight: 700,
-              margin: 0
-            }}>
-              Get Your Full Website Audit
-            </h3>
-            <p style={{
-              color: 'rgba(255,255,255,0.75)',
-              fontSize: '14px',
-              margin: 0,
-              maxWidth: '420px',
-              lineHeight: '1.6'
-            }}>
-              See exactly what's breaking your website's performance — page-by-page analysis, SEO gaps, speed fixes, and a prioritized action list.
-            </p>
-            <div style={{
-              display: 'flex',
-              alignItems: 'baseline',
-              gap: '6px',
-              marginTop: '4px'
-            }}>
-              <span style={{
-                color: 'rgba(255,255,255,0.45)',
-                fontSize: '13px',
-                textDecoration: 'line-through'
-              }}>
-                $49
-              </span>
-              <span style={{
-                color: '#00D4C8',
-                fontSize: '32px',
-                fontWeight: 800
-              }}>
-                $9.80
-              </span>
+          </div>
+          <button
+            onClick={() => setActiveTab('plan')}
+            style={{ padding: '10px 20px', background: CYAN + '18', color: CYAN, border: `1px solid ${CYAN}44`, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, transition: 'background 0.15s ease' }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = CYAN + '30')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = CYAN + '18')}
+          >
+            Learn More →
+          </button>
+        </div>
+      )}
+
+      {/* FULL WEBSITE AUDIT CTA — compact 2-column */}
+      {activeTab === 'website' && (
+        <div style={{ background: DARK, borderRadius: r16, padding: isMobile ? '24px 20px' : '24px 28px', marginBottom: 10 }}>
+          <div style={{ display: 'flex', gap: isMobile ? 20 : 28, flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'flex-start' }}>
+            {/* LEFT — what's included */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ background: CYAN, color: DARK, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '3px 10px', borderRadius: 999 }}>One-Time Report</span>
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: WHITE, marginBottom: 8 }}>Get Your Full Website Audit</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginBottom: 12 }}>Everything not covered in this free audit:</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px' }}>
+                {[
+                  'Broken link scan',
+                  'Duplicate content check',
+                  'Full backlink profile',
+                  'Competitor gap analysis',
+                  'Local citation audit',
+                  'Core Web Vitals deep dive',
+                  'Accessibility score',
+                ].map(item => (
+                  <div key={item} style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ color: CYAN, fontSize: 11, flexShrink: 0 }}>✓</span> {item}
+                  </div>
+                ))}
+              </div>
             </div>
-            <button
-              onClick={() => window.location.href = '/checkout?product=website-audit'}
-              {...hoverProps('website-audit-cta')}
-              style={{
-                backgroundColor: '#00D4C8',
-                color: '#000000',
-                border: 'none',
-                borderRadius: '10px',
-                padding: '14px 32px',
-                fontSize: '15px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                width: '100%',
-                maxWidth: '320px',
-                marginTop: '4px',
-                transition: 'all 0.2s ease',
-                transform: hovered === 'website-audit-cta' ? 'translateY(-1px)' : 'translateY(0)',
-                boxShadow: hovered === 'website-audit-cta' ? '0 6px 16px rgba(0,212,200,0.25)' : 'none',
-              }}
-            >
-              Get Full Website Audit — $9.80
-            </button>
-            <p style={{
-              color: 'rgba(255,255,255,0.6)',
-              fontSize: '12px',
-              margin: 0
-            }}>
-              Delivered within 24 hours. No subscription.
-            </p>
+            {/* RIGHT — price + CTA */}
+            <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: isMobile ? undefined : 180, textAlign: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 12 }}>
+                <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, textDecoration: 'line-through' }}>$49</span>
+                <span style={{ color: CYAN, fontSize: 32, fontWeight: 800 }}>$9.80</span>
+              </div>
+              <button
+                onClick={() => window.location.href = '/checkout?product=website-audit'}
+                {...hoverProps('website-audit-cta')}
+                style={{
+                  background: CYAN, color: DARK, border: 'none', borderRadius: 10,
+                  padding: '12px 28px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  width: '100%', transition: 'all 0.2s ease',
+                  transform: hovered === 'website-audit-cta' ? 'translateY(-1px)' : 'translateY(0)',
+                  boxShadow: hovered === 'website-audit-cta' ? '0 6px 16px rgba(0,212,200,0.25)' : 'none',
+                }}
+              >
+                Get Full Audit — $9.80
+              </button>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 8 }}>Delivered within 24 hours. No subscription.</div>
+            </div>
+          </div>
         </div>
       )}
 
       {activeTab === 'plan' && (
         <div>
-          {/* A — DETECTED ISSUES HEADER */}
-          <div style={{ background: AMBER_BG, borderRadius: 12, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: AMBER, fontWeight: 600 }}>
-            ⚠ {detectedIssues.length} issues detected in your audit — here's what we'd fix
-          </div>
-
-          {/* B — SERVICE CARDS */}
-          {recommendedServices.map((service: any) => (
-            <div key={service.id} style={{ background: WHITE, borderRadius: r16, border: `1px solid ${selected.includes(service.id) ? CYAN : BORDER}`, padding: 18, marginBottom: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: DARK }}>{service.name}</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: CYAN }}>{service.priceLabel}</span>
+          {/* AI-PERSONALIZED RECOMMENDATION HEADER */}
+          {recommendedServices.length > 0 && (
+            <div style={{ background: DARK, borderRadius: r16, padding: '20px 20px', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: CYAN + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <ClipboardList size={14} color={CYAN} />
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 700, color: WHITE }}>Recommended for Your Business</span>
               </div>
-              {service.isPopular && (
-                <span style={{ display: 'inline-block', marginTop: 4, padding: '2px 10px', borderRadius: 12, background: CYAN + '22', color: CYAN, fontSize: 11, fontWeight: 700 }}>★ Popular</span>
-              )}
-              <div style={{ marginTop: 8 }}>
-                <span style={{ background: AMBER_BG, color: AMBER, padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>
-                  Fixes: {service.fixesIssues.slice(0, 2).join(', ').replace(/-/g, ' ')}
-                </span>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.55 }}>
+                Based on the {detectedIssues.length} issue{detectedIssues.length !== 1 ? 's' : ''} found in your audit, {recommendedServices.length === 1 ? 'this service directly addresses' : `these ${recommendedServices.length} services directly address`} your biggest gaps:
               </div>
-              <div style={{ fontSize: 13, color: GREY, lineHeight: 1.55, marginTop: 12 }}>{service.description}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginTop: 12 }}>
-                {service.features.map((f: string, fi: number) => (
-                  <span key={fi} style={{ fontSize: 11, color: DARK }}>✓ {f}</span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                {detectedIssues.slice(0, 4).map((issue, i) => (
+                  <span key={i} style={{ padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    {issue.replace(/-/g, ' ')}
+                  </span>
                 ))}
+                {detectedIssues.length > 4 && (
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', alignSelf: 'center' }}>+{detectedIssues.length - 4} more</span>
+                )}
               </div>
-              <button
-                onClick={() => toggleService(service.id)}
-                {...hoverProps(`service-${service.id}`)}
-                style={{
-                  marginTop: 16, width: '100%', padding: '10px 20px', borderRadius: 8, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s ease',
-                  border: selected.includes(service.id) ? 'none' : hovered===`service-${service.id}` ? `1px solid ${CYAN}` : `1px solid ${BORDER}`,
-                  background: selected.includes(service.id)
-                    ? (hovered===`service-${service.id}` ? '#00BFB8' : CYAN)
-                    : (hovered===`service-${service.id}` ? '#F0FFFE' : WHITE),
-                  color: selected.includes(service.id) ? DARK : (hovered===`service-${service.id}` ? '#00897B' : DARK),
-                  fontWeight: selected.includes(service.id) ? 700 : 400,
-                }}
-              >
-                {selected.includes(service.id) ? '✓ Selected' : 'Add to Selected Services'}
-              </button>
             </div>
-          ))}
+          )}
+
+          {/* SERVICE CARDS */}
+          {recommendedServices.map((service: any) => {
+            const isSelected = selected.includes(service.id);
+            const isHov = hovered === `service-${service.id}`;
+            return (
+              <div key={service.id} style={{ background: WHITE, borderRadius: r16, border: `1px solid ${isSelected ? CYAN : BORDER}`, padding: '20px 20px 16px', marginBottom: 10, position: 'relative', transition: 'border-color 0.15s ease' }}>
+                {/* Header row — title + price */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: DARK }}>{service.name}</span>
+                      {service.isPopular && (
+                        <span style={{ padding: '2px 8px', borderRadius: 10, background: CYAN + '18', color: CYAN, fontSize: 10, fontWeight: 700 }}>Popular</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 13, color: GREY, lineHeight: 1.5, marginTop: 6 }}>{service.tagline || service.description}</div>
+                  </div>
+                  {/* Price badge */}
+                  <div style={{ flexShrink: 0, background: DARK, borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: CYAN, lineHeight: 1 }}>${service.price}</div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {service.billingPeriod === 'monthly' ? '/mo' : 'one-time'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Matched issues from audit */}
+                {(() => {
+                  const matched = (service.fixesIssues || []).filter((fi: string) => detectedIssues.includes(fi));
+                  return matched.length > 0 ? (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                      {matched.slice(0, 3).map((issue: string, ii: number) => (
+                        <span key={ii} style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600, background: AMBER_BG, color: AMBER }}>
+                          Fixes: {issue.replace(/-/g, ' ')}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
+
+                {/* What's included */}
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${BORDER}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>What's included</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px' }}>
+                    {service.features.map((f: string, fi: number) => (
+                      <div key={fi} style={{ fontSize: 12, color: DARK, display: 'flex', alignItems: 'flex-start', gap: 6, lineHeight: 1.4 }}>
+                        <span style={{ color: CYAN, fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span> {f}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* CTA button */}
+                <button
+                  onClick={() => toggleService(service.id)}
+                  {...hoverProps(`service-${service.id}`)}
+                  style={{
+                    marginTop: 16, width: '100%', padding: '12px 20px', borderRadius: 10, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s ease', fontWeight: 700,
+                    border: isSelected ? 'none' : `1px solid ${isHov ? CYAN : BORDER}`,
+                    background: isSelected ? (isHov ? '#00BFB8' : CYAN) : (isHov ? CYAN + '10' : WHITE),
+                    color: isSelected ? DARK : (isHov ? CYAN : DARK),
+                  }}
+                >
+                  {isSelected ? '✓ Added to Package' : 'Add to My Package'}
+                </button>
+              </div>
+            );
+          })}
 
           {/* Fallback when no services */}
           {recommendedServices.length === 0 && (
@@ -2039,17 +2142,24 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             );
           })()}
 
-          {/* C — SELECTED SERVICES SUMMARY */}
-          {selected.length > 0 && (
-            <div style={{ position: 'sticky', bottom: 16, background: DARK, borderRadius: 12, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: WHITE }}>
-                {selected.length} service{selected.length > 1 ? 's' : ''} selected · ${totalPrice}/mo
-              </span>
-              <button {...hoverProps('getstarted')} style={{ background: hovered==='getstarted' ? '#00BFB8' : CYAN, color: DARK, border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s ease', transform: hovered==='getstarted' ? 'translateY(-1px)' : 'none' }}>
-                Get Started →
-              </button>
-            </div>
-          )}
+        </div>
+      )}
+
+      {/* STICKY PACKAGE BAR — fixed at bottom when services selected on plan tab */}
+      {activeTab === 'plan' && selected.length > 0 && (
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, padding: '0 16px 16px', pointerEvents: 'none' }}>
+          <div style={{ maxWidth: 960, margin: '0 auto', background: DARK, borderRadius: 14, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 -2px 24px rgba(0,0,0,0.25)', pointerEvents: 'auto' }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: WHITE }}>
+              {selected.length} service{selected.length > 1 ? 's' : ''} selected · <span style={{ color: CYAN, fontWeight: 700 }}>${totalPrice}/mo</span>
+            </span>
+            <button
+              onClick={() => window.location.href = '/checkout?services=' + selected.join(',')}
+              {...hoverProps('getstarted')}
+              style={{ background: hovered === 'getstarted' ? '#00BFB8' : CYAN, color: DARK, border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s ease', transform: hovered === 'getstarted' ? 'translateY(-1px)' : 'none' }}
+            >
+              Get Started →
+            </button>
+          </div>
         </div>
       )}
 
@@ -2329,7 +2439,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               </div>
             </div>
             {/* Body — scrolls if content taller than viewport */}
-            <div style={{ padding: '14px 18px 18px', overflowY: 'auto', flex: 1 }}>
+            <div style={{ padding: '14px 18px 18px', overflowY: 'auto', flex: 1, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } as React.CSSProperties}>
               <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 4 }}>What this score means</div>
               <p style={{ fontSize: 13, color: GREY, lineHeight: 1.6, margin: '0 0 12px' }}>
                 {liveTotal >= 80
@@ -2407,7 +2517,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   </span>
                 )}
               </div>
-              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } as React.CSSProperties}>
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it means</div>
                 <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{item.detail}</p>
 
@@ -2477,7 +2587,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   </div>
                 )}
               </div>
-              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } as React.CSSProperties}>
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it means</div>
                 <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{bd.what}</p>
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Why it matters</div>
@@ -2516,7 +2626,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 <button onClick={() => setMetricModal(null)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                 <div style={{ fontSize: 17, fontWeight: 700, color: WHITE }}>{exp.title}</div>
               </div>
-              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } as React.CSSProperties}>
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it means</div>
                 <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 16px' }}>{exp.what}</p>
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Why it matters</div>
@@ -2571,7 +2681,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
         return (
           <>
-            <div onClick={() => setVisualAnalysisModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200 }} />
+            <div onClick={() => setVisualAnalysisModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200, touchAction: 'none' }} />
             <div style={{ position: 'fixed', top: 'clamp(48px, 5dvh, 80px)', left: '50%', transform: 'translateX(-50%)', zIndex: 201, width: 'min(520px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - clamp(48px, 5dvh, 80px) - 20px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
               {/* Modal header */}
               <div style={{ background: DARK, padding: '20px 24px', position: 'relative', flexShrink: 0 }}>
@@ -2585,8 +2695,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 </div>
               </div>
 
-              {/* Scrollable body */}
-              <div style={{ padding: '0', overflowY: 'auto', flex: 1 }}>
+              {/* Scrollable body — overscrollBehavior traps scroll inside modal */}
+              <div style={{ padding: '0', overflowY: 'auto', flex: 1, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } as React.CSSProperties}>
                 {/* Screenshot in modal */}
                 {screenshotSrc && (
                   <div style={{ padding: '16px 24px 0', background: '#F9FAFB' }}>
@@ -2709,6 +2819,45 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           </button>
         )}
       </div>
+
+      {/* EXIT INTENT POPUP */}
+      {exitPopup && (
+        <>
+          <div onClick={() => setExitPopup(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 300 }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 301, width: 'min(420px, calc(100vw - 32px))', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
+            <div style={{ background: DARK, padding: '24px 24px 20px', position: 'relative' }}>
+              <button onClick={() => setExitPopup(false)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+              <div style={{ fontSize: 18, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Not ready for a monthly plan?</div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>We also offer one-time fixes with no ongoing commitment.</div>
+            </div>
+            <div style={{ padding: '20px 24px' }}>
+              {SERVICES.filter(s => s.billingPeriod === 'one-time').slice(0, 2).map(s => (
+                <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: `1px solid ${BORDER}` }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: DARK }}>{s.name}</div>
+                    <div style={{ fontSize: 12, color: GREY, marginTop: 2 }}>{s.tagline}</div>
+                  </div>
+                  <div style={{ flexShrink: 0, marginLeft: 16, textAlign: 'right' }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: CYAN }}>${s.price}</div>
+                    <div style={{ fontSize: 10, color: GREY }}>one-time</div>
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={() => { setExitPopup(false); setActiveTab('plan'); }}
+                style={{ marginTop: 16, width: '100%', padding: '12px 20px', background: CYAN, color: DARK, border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'background 0.15s ease' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = '#00BFB8')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = CYAN)}
+              >
+                See One-Time Options →
+              </button>
+              <div style={{ textAlign: 'center', marginTop: 10 }}>
+                <button onClick={() => setExitPopup(false)} style={{ background: 'none', border: 'none', color: GREY, fontSize: 12, cursor: 'pointer', padding: 4 }}>No thanks, I'll come back later</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

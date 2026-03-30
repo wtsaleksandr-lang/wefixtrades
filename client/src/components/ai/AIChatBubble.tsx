@@ -27,6 +27,7 @@ export default function AIChatBubble({ calculatorId, accentColor = '#6366f1', bu
   const [isMobile, setIsMobile] = useState(false);
   const sessionIdRef = useRef(generateSessionId());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -36,9 +37,10 @@ export default function AIChatBubble({ calculatorId, accentColor = '#6366f1', bu
     return () => window.removeEventListener('resize', check);
   }, []);
 
+  // Scroll to bottom within the chat container (not the page)
   useEffect(() => {
-    if (isOpen && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (isOpen && messagesAreaRef.current) {
+      messagesAreaRef.current.scrollTo({ top: messagesAreaRef.current.scrollHeight, behavior: 'smooth' });
     }
   }, [messages, isOpen]);
 
@@ -147,6 +149,7 @@ export default function AIChatBubble({ calculatorId, accentColor = '#6366f1', bu
           </div>
 
           <div
+            ref={messagesAreaRef}
             style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px', background: '#f8f9fa' }}
             data-testid="chat-messages-area"
           >
