@@ -211,7 +211,7 @@ export function HeroSoundBars({
       {/* Edge fade vignette — fades bars into the background at both sides */}
       <div style={{
         position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none",
-        background: `linear-gradient(90deg, ${mkt.bg} 0%, transparent 12%, transparent 88%, ${mkt.bg} 100%)`,
+        background: `linear-gradient(90deg, ${mkt.bg} 0%, transparent 18%, transparent 82%, ${mkt.bg} 100%)`,
       }} />
       <VoiceVisualizer
         barCount={160}
