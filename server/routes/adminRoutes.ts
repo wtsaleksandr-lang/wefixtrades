@@ -134,7 +134,7 @@ export function registerAdminRoutes(app: Express): void {
   /* ─── Conversation detail ─── */
   app.get("/api/admin/ai/conversations/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       if (!id) return res.status(400).json({ error: "Invalid ID" });
 
       const [row] = await db.select().from(aiConversationArchive)

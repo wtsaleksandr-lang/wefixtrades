@@ -44,7 +44,7 @@ export class MemoryRateLimitStore implements RateLimitStore {
 
   cleanup(): void {
     const now = Date.now();
-    for (const [key, val] of this.map) {
+    for (const [key, val] of Array.from(this.map)) {
       if (now > val.resetAt) this.map.delete(key);
     }
   }
