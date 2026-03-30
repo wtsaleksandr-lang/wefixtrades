@@ -4,7 +4,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
-import { Send, Bot, User, Zap, Phone, Calendar, Star, Check, Mic, PhoneCall, Shield, CheckCircle, AlertCircle } from "lucide-react";
+import VoiceVisualizer, { HeroSoundBars } from "@/components/marketing/VoiceVisualizer";
+import { Send, Bot, User, Zap, Phone, Calendar, Star, Check, Mic, PhoneCall, Shield, CheckCircle, AlertCircle, MessageSquare, ArrowRight } from "lucide-react";
 import { mkt, colors, shadows } from "@/theme/tokens";
 
 
@@ -394,155 +395,145 @@ function VoiceDemo() {
 
   return (
     <div data-testid="voice-demo-panel">
+      {/* ── Central voice interaction area ── */}
       <div style={{
-        background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 20,
-        padding: 32, boxShadow: shadows.card,
+        background: `radial-gradient(ellipse 70% 50% at 50% 40%, rgba(102,232,250,0.06) 0%, ${mkt.bg} 70%)`,
+        border: `1px solid ${mkt.border}`, borderRadius: 24,
+        padding: "48px 32px 40px", textAlign: "center",
+        position: "relative", overflow: "hidden",
       }}>
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
+        {/* Mic button / orb */}
+        <div style={{ marginBottom: 24 }}>
           <div style={{
-            width: 64, height: 64, borderRadius: "50%",
-            background: isReady ? mkt.accent : mkt.surface,
+            width: 88, height: 88, borderRadius: "50%", margin: "0 auto",
+            background: isReady
+              ? `radial-gradient(circle, ${mkt.accent} 0%, ${mkt.accentDark} 100%)`
+              : `radial-gradient(circle, ${mkt.surface} 0%, ${mkt.surfaceAlt} 100%)`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            margin: "0 auto 16px",
-            border: `2px solid ${isReady ? mkt.accent : mkt.border}`,
+            boxShadow: isReady ? `0 0 40px rgba(102,232,250,0.3), 0 0 80px rgba(102,232,250,0.1)` : "none",
+            cursor: isReady ? "pointer" : "default",
+            transition: "box-shadow 0.3s ease",
           }}>
-            <PhoneCall size={28} color={isReady ? "#FFFFFF" : mkt.textMuted} />
+            <Mic size={32} color={isReady ? mkt.buttonText : mkt.textMuted} strokeWidth={1.5} />
           </div>
-          <h3 style={{ fontSize: 22, fontWeight: 700, color: mkt.text, marginBottom: 8, letterSpacing: "-0.02em" }}>
-            AI Voice Assistant
-          </h3>
-          <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, maxWidth: 480, margin: "0 auto" }}>
-            Your 24/7 phone receptionist that answers calls, qualifies leads, and books jobs — powered by the same AI brain as your website chat.
-          </p>
         </div>
 
-        {/* Status badge */}
-        <div style={{
-          display: "flex", justifyContent: "center", marginBottom: 28,
-        }}>
+        {/* Sound bars around the interaction area */}
+        <VoiceVisualizer barCount={50} height={64} active={!isLoading} variant="hero" style={{ marginBottom: 28 }} />
+
+        {/* Status */}
+        <div style={{ marginBottom: 20 }}>
           {isLoading ? (
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "8px 18px", borderRadius: 20,
-              background: mkt.surface, fontSize: 13, fontWeight: 600, color: mkt.textMuted,
-            }}>
-              Checking status...
-            </span>
+            <span style={{ fontSize: 14, color: mkt.textMuted }}>Checking voice system...</span>
           ) : isReady ? (
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "8px 18px", borderRadius: 20,
-              background: "#ECFDF5", fontSize: 13, fontWeight: 600, color: "#059669",
-              border: "1px solid #A7F3D0",
-            }}>
-              <CheckCircle size={14} /> Ready for demo
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, color: "#34D399" }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#34D399" }} />
+              Voice assistant online
             </span>
           ) : isConfigured ? (
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "8px 18px", borderRadius: 20,
-              background: "#FFFBEB", fontSize: 13, fontWeight: 600, color: "#D97706",
-              border: "1px solid #FDE68A",
-            }}>
-              <AlertCircle size={14} /> Partially configured
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, color: mkt.orange }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: mkt.orange }} />
+              Partially configured
             </span>
           ) : (
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "8px 18px", borderRadius: 20,
-              background: mkt.surface, fontSize: 13, fontWeight: 600, color: mkt.textMuted,
-              border: `1px solid ${mkt.border}`,
-            }}>
-              <AlertCircle size={14} /> Coming soon
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, color: mkt.textMuted }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: mkt.textFaint }} />
+              Voice demo coming soon
             </span>
           )}
         </div>
 
-        {/* Feature highlights */}
-        <div style={{
-          display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16,
-          marginBottom: 28,
-        }}>
-          {[
-            { icon: Phone, title: "Answers every call", desc: "Never miss a lead, even at 2am" },
-            { icon: Bot, title: "Same AI brain", desc: "Knows your services, pricing, and brand" },
-            { icon: Calendar, title: "Books appointments", desc: "Schedules jobs directly into your calendar" },
-            { icon: Shield, title: "Qualifies leads", desc: "Asks the right questions before you call back" },
-          ].map(({ icon: Icon, title, desc }) => (
-            <div key={title} style={{
-              background: mkt.surface, borderRadius: 14, padding: "16px 18px",
-              border: `1px solid ${mkt.borderLight}`,
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                <Icon size={16} color={mkt.accent} strokeWidth={2} />
-                <span style={{ fontSize: 14, fontWeight: 600, color: mkt.text }}>{title}</span>
-              </div>
-              <span style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.5 }}>{desc}</span>
-            </div>
-          ))}
-        </div>
+        <h3 style={{ fontSize: 24, fontWeight: 700, color: mkt.text, letterSpacing: "-0.02em", marginBottom: 10 }}>
+          AI Phone Receptionist
+        </h3>
+        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, maxWidth: 440, margin: "0 auto 28px" }}>
+          Never miss a call again. Your AI answers the phone 24/7, qualifies leads, gives quotes, and books jobs — all using the same brain as your website assistant.
+        </p>
 
-        {/* Demo action area */}
+        {/* CTA area */}
         {isReady ? (
-          <div style={{ textAlign: "center" }}>
-            <button
-              data-testid="voice-demo-start"
-              style={{
-                padding: "14px 32px", borderRadius: 14, border: "none",
-                background: mkt.accent, color: "#FFFFFF",
-                fontSize: 15, fontWeight: 700, cursor: "pointer",
-                display: "inline-flex", alignItems: "center", gap: 10,
-              }}
-            >
-              <Mic size={18} />
-              Start Voice Demo
-            </button>
-            <p style={{ fontSize: 12, color: mkt.textMuted, marginTop: 12 }}>
-              Uses your microphone to simulate a phone call with the AI assistant
-            </p>
-          </div>
+          <button
+            data-testid="voice-demo-start"
+            style={{
+              padding: "14px 36px", borderRadius: 50, border: "none",
+              background: mkt.accent, color: mkt.buttonText,
+              fontSize: 16, fontWeight: 700, cursor: "pointer",
+              display: "inline-flex", alignItems: "center", gap: 10,
+              boxShadow: "0 0 30px rgba(102,232,250,0.25)",
+            }}
+          >
+            <Phone size={18} /> Start Voice Demo
+          </button>
         ) : (
-          <div style={{
-            background: mkt.surface, borderRadius: 14, padding: "20px 24px",
-            border: `1px solid ${mkt.borderLight}`, textAlign: "center",
-          }}>
-            <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 12 }}>
-              The voice demo will be available once the integration is fully configured. In the meantime, try the Assistant Chat tab to experience the same AI.
-            </p>
-            <p style={{ fontSize: 13, color: mkt.textMuted }}>
-              Interested in AI voice for your trades business?{" "}
-              <Link href="/contact" style={{ color: mkt.accent, fontWeight: 600, textDecoration: "none" }}>
-                Get in touch
-              </Link>
-            </p>
-          </div>
+          <Link
+            href="/contact"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "14px 32px", borderRadius: 50,
+              border: `1px solid ${mkt.border}`,
+              background: "transparent", color: mkt.text,
+              fontSize: 15, fontWeight: 600, textDecoration: "none", cursor: "pointer",
+            }}
+          >
+            Get notified when it's live <ArrowRight size={16} />
+          </Link>
         )}
+      </div>
 
-        {/* How it works */}
-        <div style={{ marginTop: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 16, textAlign: "center" }}>
-            How it works
-          </div>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            {["Customer calls your number", "AI answers instantly", "Qualifies and books the job", "You get a summary"].map((step, i) => (
-              <div key={step} style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: "8px 16px", borderRadius: 10,
-                background: mkt.surface, border: `1px solid ${mkt.borderLight}`,
-                fontSize: 13, color: mkt.text, fontWeight: 500,
+      {/* ── Feature cards ── */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12,
+        marginTop: 20,
+      }}>
+        {[
+          { icon: Phone, title: "Answers every call", desc: "Even at 2am on a Saturday" },
+          { icon: Bot, title: "One AI brain", desc: "Same knowledge as your website chat" },
+          { icon: Calendar, title: "Books jobs", desc: "Schedules directly into your calendar" },
+          { icon: Shield, title: "Qualifies leads", desc: "Asks the right questions first" },
+        ].map(({ icon: Icon, title, desc }) => (
+          <div key={title} style={{
+            background: mkt.surface, borderRadius: 16, padding: "18px 20px",
+            border: `1px solid ${mkt.border}`,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: 8,
+                background: mkt.accentTint, display: "flex", alignItems: "center", justifyContent: "center",
               }}>
-                <span style={{
-                  width: 22, height: 22, borderRadius: "50%",
-                  background: mkt.accentTint, color: mkt.accent,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 11, fontWeight: 700, flexShrink: 0,
-                }}>{i + 1}</span>
-                {step}
+                <Icon size={14} color={mkt.accent} strokeWidth={2} />
               </div>
-            ))}
+              <span style={{ fontSize: 14, fontWeight: 600, color: mkt.text }}>{title}</span>
+            </div>
+            <span style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.5 }}>{desc}</span>
           </div>
-        </div>
+        ))}
+      </div>
+
+      {/* ── How it works strip ── */}
+      <div style={{
+        display: "flex", gap: 0, marginTop: 20, borderRadius: 16, overflow: "hidden",
+        border: `1px solid ${mkt.border}`,
+      }}>
+        {[
+          { n: "1", text: "Customer calls" },
+          { n: "2", text: "AI picks up instantly" },
+          { n: "3", text: "Qualifies & books" },
+          { n: "4", text: "You get the summary" },
+        ].map(({ n, text }, i) => (
+          <div key={n} style={{
+            flex: 1, padding: "14px 12px", textAlign: "center",
+            background: mkt.surface,
+            borderRight: i < 3 ? `1px solid ${mkt.border}` : "none",
+          }}>
+            <div style={{
+              width: 24, height: 24, borderRadius: "50%",
+              background: mkt.accentTint, color: mkt.accent,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 12, fontWeight: 700, margin: "0 auto 6px",
+            }}>{n}</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: mkt.textMuted }}>{text}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -553,34 +544,92 @@ export default function DemoPage() {
   const [selectedTrade, setSelectedTrade] = useState("Plumbing");
 
   useEffect(() => {
-    document.title = "Try the Demo — QuickQuotePro";
+    document.title = "AI Demo — WeFixTrades";
   }, []);
 
   return (
     <MarketingLayout>
       <div data-testid="demo-page">
-        <section style={{ background: mkt.surface, padding: "80px 28px 48px", textAlign: "center" }}>
-          <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        {/* ═══ HERO — dark, voice-first, Vapi-inspired ═══ */}
+        <section style={{
+          background: `radial-gradient(ellipse 80% 60% at 50% 20%, rgba(102,232,250,0.08) 0%, ${mkt.bg} 70%)`,
+          padding: "100px 28px 0", textAlign: "center", position: "relative", overflow: "hidden",
+        }}>
+          <div style={{ maxWidth: 720, margin: "0 auto", position: "relative", zIndex: 1 }}>
             <div style={{
-              display: "inline-block", background: mkt.accentTint, color: mkt.accent,
-              padding: "4px 14px", borderRadius: 14, fontSize: 12, fontWeight: 600,
-              letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 24,
-              border: `1px solid ${mkt.accentTint}`,
+              display: "inline-flex", alignItems: "center", gap: 6,
+              background: mkt.accentTint, color: mkt.accent,
+              padding: "6px 16px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+              letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 28,
+              border: `1px solid rgba(102,232,250,0.15)`,
             }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22C55E", animation: "pulse 2s ease-in-out infinite" }} />
               Live Demo
             </div>
-            <h1 data-testid="demo-headline" style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", marginBottom: 14, lineHeight: 1.1 }}>
-              See it in action
+            <h1 data-testid="demo-headline" style={{
+              fontSize: "clamp(36px, 5vw, 56px)", fontWeight: 700, color: mkt.text,
+              letterSpacing: "-0.03em", marginBottom: 18, lineHeight: 1.05,
+            }}>
+              Your AI employee,<br />ready to work
             </h1>
-            <p style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", lineHeight: 1.65 }}>
-              Try a live quote widget, assistant chat, booking, and review request. No login required.
+            <p style={{ fontSize: 18, color: mkt.textMuted, lineHeight: 1.65, maxWidth: 520, margin: "0 auto 36px" }}>
+              Voice calls, website chat, instant quotes, and automated follow-ups — try every tool your trades business gets with WeFixTrades.
             </p>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 48 }}>
+              <button
+                onClick={() => setActiveTab("voice")}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 10,
+                  padding: "15px 32px", borderRadius: 14, border: "none",
+                  background: mkt.accent, color: mkt.buttonText,
+                  fontSize: 16, fontWeight: 700, cursor: "pointer",
+                  boxShadow: "0 0 30px rgba(102,232,250,0.25)",
+                }}
+              >
+                <Mic size={18} /> Try Voice Demo
+              </button>
+              <button
+                onClick={() => setActiveTab("chat")}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 10,
+                  padding: "15px 32px", borderRadius: 14,
+                  border: `1px solid ${mkt.border}`,
+                  background: "transparent", color: mkt.textMuted,
+                  fontSize: 16, fontWeight: 600, cursor: "pointer",
+                }}
+              >
+                <MessageSquare size={18} /> Chat Demo
+              </button>
+            </div>
           </div>
+          {/* Sound bars hero band */}
+          <HeroSoundBars active height={90} style={{ opacity: 0.9 }} />
+          <div style={{
+            height: 1,
+            background: `linear-gradient(90deg, transparent 0%, rgba(102,232,250,0.2) 50%, transparent 100%)`,
+          }} />
         </section>
 
-        <section style={{ background: mkt.surface, padding: "0 28px 80px" }}>
+        {/* ═══ TAB BAR + DEMO CONTENT ═══ */}
+        <section style={{ background: mkt.bg, padding: "48px 28px 80px" }}>
           <div style={{ maxWidth: 900, margin: "0 auto" }}>
-            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginBottom: 40 }}>
+            {/* Section label */}
+            <div style={{ textAlign: "center", marginBottom: 28 }}>
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: mkt.accent,
+                letterSpacing: "0.1em", textTransform: "uppercase",
+              }}>
+                Try each tool
+              </span>
+            </div>
+
+            {/* Tab bar — pill style */}
+            <div style={{
+              display: "flex", gap: 4, justifyContent: "center", flexWrap: "wrap",
+              marginBottom: 36, padding: "6px",
+              background: mkt.surface, borderRadius: 16, border: `1px solid ${mkt.border}`,
+              maxWidth: 600, margin: "0 auto 36px",
+            }}>
               {DEMO_TABS.map(tab => {
                 const Icon = tab.icon;
                 const isActive = tab.id === activeTab;
@@ -590,16 +639,16 @@ export default function DemoPage() {
                     data-testid={`demo-tab-${tab.id}`}
                     onClick={() => setActiveTab(tab.id)}
                     style={{
-                      display: "flex", alignItems: "center", gap: 8,
-                      padding: "10px 20px", borderRadius: 14, fontSize: 14, fontWeight: 600,
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "9px 16px", borderRadius: 12, fontSize: 13, fontWeight: 600,
                       cursor: "pointer", transition: "all 0.2s ease",
-                      border: isActive ? `2px solid ${mkt.accent}` : `1px solid ${mkt.border}`,
-                      background: isActive ? mkt.accentTint : mkt.bg,
-                      color: isActive ? mkt.accent : mkt.textMuted,
+                      border: "none",
+                      background: isActive ? mkt.accentTint : "transparent",
+                      color: isActive ? mkt.accent : mkt.textFaint,
                     }}
                   >
-                    <Icon size={16} strokeWidth={1.5} />
-                    {tab.label}
+                    <Icon size={14} strokeWidth={isActive ? 2 : 1.5} />
+                    <span style={{ display: "inline" }}>{tab.label}</span>
                   </button>
                 );
               })}
@@ -613,13 +662,24 @@ export default function DemoPage() {
           </div>
         </section>
 
-        <section style={{ background: mkt.surface, padding: "80px 28px" }}>
+        {/* ═══ WORKFLOW SECTION ═══ */}
+        <section style={{
+          background: mkt.surface, padding: "80px 28px",
+          borderTop: `1px solid ${mkt.border}`,
+        }}>
           <div style={{ maxWidth: 900, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 40 }}>
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 12 }}>
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: mkt.accent,
+                letterSpacing: "0.1em", textTransform: "uppercase",
+                display: "block", marginBottom: 14,
+              }}>
+                Full Automation
+              </span>
+              <h2 style={{ fontSize: "clamp(26px, 3vw, 40px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 12 }}>
                 See the full workflow
               </h2>
-              <p style={{ fontSize: 16, color: "rgba(17,17,17,0.72)", lineHeight: 1.65 }}>
+              <p style={{ fontSize: 16, color: mkt.textMuted, lineHeight: 1.65 }}>
                 From first visit to 5-star review — every step runs automatically.
               </p>
             </div>
@@ -627,24 +687,49 @@ export default function DemoPage() {
           </div>
         </section>
 
-        <section style={{ background: `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentHover} 100%)`, padding: "80px 28px", textAlign: "center" }}>
-          <div style={{ maxWidth: 600, margin: "0 auto" }}>
-            <h2 style={{ fontSize: "clamp(26px, 3.5vw, 42px)", fontWeight: 700, color: "#FFFFFF", letterSpacing: "-0.025em", marginBottom: 16, lineHeight: 1.1 }}>
-              Ready to build your own?
+        {/* ═══ BOTTOM CTA ═══ */}
+        <section style={{
+          background: mkt.bg, padding: "80px 28px", textAlign: "center",
+          position: "relative", overflow: "hidden",
+        }}>
+          {/* Subtle background bars */}
+          <div style={{ position: "absolute", inset: 0, opacity: 0.15, pointerEvents: "none" }}>
+            <HeroSoundBars active height={200} />
+          </div>
+          <div style={{ maxWidth: 600, margin: "0 auto", position: "relative", zIndex: 1 }}>
+            <h2 style={{ fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", marginBottom: 16, lineHeight: 1.1 }}>
+              Ready to build yours?
             </h2>
-            <p style={{ fontSize: 17, color: "rgba(255,255,255,0.72)", lineHeight: 1.65, marginBottom: 36 }}>
-              Set up your quote calculator and 24/7 assistant in under 10 minutes.
+            <p style={{ fontSize: 17, color: mkt.textMuted, lineHeight: 1.65, marginBottom: 36 }}>
+              Set up your quote calculator and AI assistant in under 10 minutes. No code needed.
             </p>
-            <Link
-              href="/Wizard"
-              data-testid="button-build-yours"
-              style={{
-                display: "inline-block", padding: "15px 36px", borderRadius: 14,
-                background: "#FFFFFF", color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none",
-              }}
-            >
-              Try Free
-            </Link>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <Link
+                href="/Wizard"
+                data-testid="button-build-yours"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "16px 36px", borderRadius: 14,
+                  background: mkt.accent, color: mkt.buttonText,
+                  fontSize: 16, fontWeight: 700, textDecoration: "none",
+                  boxShadow: "0 0 30px rgba(102,232,250,0.2)",
+                }}
+              >
+                Start Free <ArrowRight size={16} />
+              </Link>
+              <Link
+                href="/free-audit"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "16px 32px", borderRadius: 14,
+                  border: `1px solid ${mkt.border}`,
+                  background: "transparent", color: mkt.textMuted,
+                  fontSize: 16, fontWeight: 600, textDecoration: "none",
+                }}
+              >
+                Get a free audit
+              </Link>
+            </div>
           </div>
         </section>
       </div>
