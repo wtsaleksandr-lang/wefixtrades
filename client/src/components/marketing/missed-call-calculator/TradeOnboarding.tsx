@@ -66,12 +66,32 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
     return () => document.removeEventListener('mousedown', handleClick);
   }, [isOpen]);
 
-  // Lock body scroll while dropdown is open
+  // Lock page scroll while dropdown is open
   useEffect(() => {
     if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
+
+    const html = document.documentElement;
+    const body = document.body;
+    const scrollY = window.scrollY;
+
+    // Lock both html and body to cover all browsers
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    // Prevent layout shift from scrollbar disappearing
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+
+    return () => {
+      html.style.overflow = '';
+      body.style.overflow = '';
+      body.style.position = '';
+      body.style.top = '';
+      body.style.left = '';
+      body.style.right = '';
+      window.scrollTo(0, scrollY);
+    };
   }, [isOpen]);
 
   // Prevent wheel/touch scroll from leaking to page at dropdown boundaries
