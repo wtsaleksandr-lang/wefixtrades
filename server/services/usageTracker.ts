@@ -35,6 +35,12 @@ export interface UsageLogParams {
   latencyMs?: number;
   success: boolean;
   errorMessage?: string;
+  /** Provider identifier (e.g. "anthropic", "vapi", "openai") */
+  provider?: string;
+  /** Channel/sub-surface (e.g. "chat", "voice", "voice_demo") */
+  channel?: string;
+  /** Extensible metadata for provider-specific fields (call_id, webhook_event, transcript_ref, etc.) */
+  metadata?: Record<string, any>;
 }
 
 export async function logUsage(params: UsageLogParams): Promise<void> {
@@ -46,6 +52,8 @@ export async function logUsage(params: UsageLogParams): Promise<void> {
     await db.insert(aiUsageLogs).values({
       model: params.model,
       surface: params.surface,
+      provider: params.provider || null,
+      channel: params.channel || null,
       session_id: params.sessionId || null,
       user_id: params.userId || null,
       report_id: params.reportId || null,
@@ -55,6 +63,7 @@ export async function logUsage(params: UsageLogParams): Promise<void> {
       estimated_cost_usd: estimatedCost,
       success: params.success,
       error_message: params.errorMessage || null,
+      metadata: params.metadata || null,
     });
   } catch (err) {
     // Never let logging failures break the chat flow

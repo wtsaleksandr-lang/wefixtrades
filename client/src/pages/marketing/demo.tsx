@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
-import { Send, Bot, User, Zap, Phone, Calendar, Star, Check } from "lucide-react";
+import { Send, Bot, User, Zap, Phone, Calendar, Star, Check, Mic, PhoneCall, Shield, CheckCircle, AlertCircle } from "lucide-react";
 import { mkt, colors, shadows } from "@/theme/tokens";
 
 
 const DEMO_TABS = [
   { id: "quote", label: "Quote Widget", icon: Zap },
   { id: "chat", label: "Assistant Chat", icon: Phone },
+  { id: "voice", label: "Voice Assistant", icon: Mic },
   { id: "booking", label: "Booking", icon: Calendar },
   { id: "review", label: "Review Request", icon: Star },
 ];
@@ -367,6 +368,186 @@ function ChatDemo({ selectedTrade, onTradeSelect }: { selectedTrade: string; onT
   );
 }
 
+interface VapiStatus {
+  configured: boolean;
+  ready: boolean;
+  checks: {
+    apiKeyPresent: boolean;
+    assistantIdPresent: boolean;
+    webhookSecretPresent: boolean;
+    assistantCoreReady: boolean;
+  };
+}
+
+function VoiceDemo() {
+  const { data: status, isLoading } = useQuery<VapiStatus>({
+    queryKey: ["/api/vapi/status"],
+    queryFn: async () => {
+      const res = await fetch("/api/vapi/status");
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+
+  const isReady = status?.ready ?? false;
+  const isConfigured = status?.configured ?? false;
+
+  return (
+    <div data-testid="voice-demo-panel">
+      <div style={{
+        background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 20,
+        padding: 32, boxShadow: shadows.card,
+      }}>
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: "50%",
+            background: isReady ? mkt.accent : mkt.surface,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            margin: "0 auto 16px",
+            border: `2px solid ${isReady ? mkt.accent : mkt.border}`,
+          }}>
+            <PhoneCall size={28} color={isReady ? "#FFFFFF" : mkt.textMuted} />
+          </div>
+          <h3 style={{ fontSize: 22, fontWeight: 700, color: mkt.text, marginBottom: 8, letterSpacing: "-0.02em" }}>
+            AI Voice Assistant
+          </h3>
+          <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, maxWidth: 480, margin: "0 auto" }}>
+            Your 24/7 phone receptionist that answers calls, qualifies leads, and books jobs — powered by the same AI brain as your website chat.
+          </p>
+        </div>
+
+        {/* Status badge */}
+        <div style={{
+          display: "flex", justifyContent: "center", marginBottom: 28,
+        }}>
+          {isLoading ? (
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "8px 18px", borderRadius: 20,
+              background: mkt.surface, fontSize: 13, fontWeight: 600, color: mkt.textMuted,
+            }}>
+              Checking status...
+            </span>
+          ) : isReady ? (
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "8px 18px", borderRadius: 20,
+              background: "#ECFDF5", fontSize: 13, fontWeight: 600, color: "#059669",
+              border: "1px solid #A7F3D0",
+            }}>
+              <CheckCircle size={14} /> Ready for demo
+            </span>
+          ) : isConfigured ? (
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "8px 18px", borderRadius: 20,
+              background: "#FFFBEB", fontSize: 13, fontWeight: 600, color: "#D97706",
+              border: "1px solid #FDE68A",
+            }}>
+              <AlertCircle size={14} /> Partially configured
+            </span>
+          ) : (
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "8px 18px", borderRadius: 20,
+              background: mkt.surface, fontSize: 13, fontWeight: 600, color: mkt.textMuted,
+              border: `1px solid ${mkt.border}`,
+            }}>
+              <AlertCircle size={14} /> Coming soon
+            </span>
+          )}
+        </div>
+
+        {/* Feature highlights */}
+        <div style={{
+          display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16,
+          marginBottom: 28,
+        }}>
+          {[
+            { icon: Phone, title: "Answers every call", desc: "Never miss a lead, even at 2am" },
+            { icon: Bot, title: "Same AI brain", desc: "Knows your services, pricing, and brand" },
+            { icon: Calendar, title: "Books appointments", desc: "Schedules jobs directly into your calendar" },
+            { icon: Shield, title: "Qualifies leads", desc: "Asks the right questions before you call back" },
+          ].map(({ icon: Icon, title, desc }) => (
+            <div key={title} style={{
+              background: mkt.surface, borderRadius: 14, padding: "16px 18px",
+              border: `1px solid ${mkt.borderLight}`,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <Icon size={16} color={mkt.accent} strokeWidth={2} />
+                <span style={{ fontSize: 14, fontWeight: 600, color: mkt.text }}>{title}</span>
+              </div>
+              <span style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.5 }}>{desc}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Demo action area */}
+        {isReady ? (
+          <div style={{ textAlign: "center" }}>
+            <button
+              data-testid="voice-demo-start"
+              style={{
+                padding: "14px 32px", borderRadius: 14, border: "none",
+                background: mkt.accent, color: "#FFFFFF",
+                fontSize: 15, fontWeight: 700, cursor: "pointer",
+                display: "inline-flex", alignItems: "center", gap: 10,
+              }}
+            >
+              <Mic size={18} />
+              Start Voice Demo
+            </button>
+            <p style={{ fontSize: 12, color: mkt.textMuted, marginTop: 12 }}>
+              Uses your microphone to simulate a phone call with the AI assistant
+            </p>
+          </div>
+        ) : (
+          <div style={{
+            background: mkt.surface, borderRadius: 14, padding: "20px 24px",
+            border: `1px solid ${mkt.borderLight}`, textAlign: "center",
+          }}>
+            <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 12 }}>
+              The voice demo will be available once the integration is fully configured. In the meantime, try the Assistant Chat tab to experience the same AI.
+            </p>
+            <p style={{ fontSize: 13, color: mkt.textMuted }}>
+              Interested in AI voice for your trades business?{" "}
+              <Link href="/contact" style={{ color: mkt.accent, fontWeight: 600, textDecoration: "none" }}>
+                Get in touch
+              </Link>
+            </p>
+          </div>
+        )}
+
+        {/* How it works */}
+        <div style={{ marginTop: 32 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 16, textAlign: "center" }}>
+            How it works
+          </div>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            {["Customer calls your number", "AI answers instantly", "Qualifies and books the job", "You get a summary"].map((step, i) => (
+              <div key={step} style={{
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "8px 16px", borderRadius: 10,
+                background: mkt.surface, border: `1px solid ${mkt.borderLight}`,
+                fontSize: 13, color: mkt.text, fontWeight: 500,
+              }}>
+                <span style={{
+                  width: 22, height: 22, borderRadius: "50%",
+                  background: mkt.accentTint, color: mkt.accent,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 11, fontWeight: 700, flexShrink: 0,
+                }}>{i + 1}</span>
+                {step}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DemoPage() {
   const [activeTab, setActiveTab] = useState("quote");
   const [selectedTrade, setSelectedTrade] = useState("Plumbing");
@@ -426,6 +607,7 @@ export default function DemoPage() {
 
             {activeTab === "quote" && <QuoteWidgetDemo />}
             {activeTab === "chat" && <ChatDemo selectedTrade={selectedTrade} onTradeSelect={setSelectedTrade} />}
+            {activeTab === "voice" && <VoiceDemo />}
             {activeTab === "booking" && <BookingDemo />}
             {activeTab === "review" && <ReviewRequestDemo />}
           </div>
