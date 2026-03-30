@@ -378,8 +378,42 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     return sum + (s?.price || 0);
   }, 0);
 
+  // ─── Shared chat state (synced via localStorage with SiteChatWidget) ───
+  const MESSAGES_KEY = 'wft_chat_messages';
+  const OPEN_KEY = 'wft_chat_open';
+
+  function loadSharedMessages(): {role:'user'|'ai', text:string}[] {
+    try {
+      const raw = localStorage.getItem(MESSAGES_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.map((m: any) => ({
+            role: m.role === 'assistant' ? 'ai' as const : 'user' as const,
+            text: m.content || m.text || '',
+          }));
+        }
+      }
+    } catch {}
+    return [];
+  }
+
+  function saveSharedMessages(msgs: {role:'user'|'ai', text:string}[]) {
+    try {
+      // Convert to shared format and save
+      const shared = msgs.slice(-40).map(m => ({
+        role: m.role === 'ai' ? 'assistant' : 'user',
+        content: m.text,
+      }));
+      localStorage.setItem(MESSAGES_KEY, JSON.stringify(shared));
+    } catch {}
+  }
+
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{role:'user'|'ai', text:string}[]>([]);
+  const [chatMessages, setChatMessages] = useState<{role:'user'|'ai', text:string}[]>(() => {
+    const saved = loadSharedMessages();
+    return saved.length > 0 ? saved : [];
+  });
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [chatUnread, setChatUnread] = useState(true);
@@ -507,16 +541,41 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     }
   };
 
+  // Add greeting if no messages yet
   useEffect(() => {
+    if (chatMessages.length > 0) return;
     const timer = setTimeout(() => {
-      if (chatMessages.length === 0) {
-        setChatMessages([{
-          role: 'ai',
-          text: `Hi! I've reviewed the audit for ${business?.name || 'your business'}. You have ${report?.detectedIssues?.length || 0} issues detected. Any questions about what we found?`
-        }]);
-      }
+      const greeting = {
+        role: 'ai' as const,
+        text: `Hi! I've reviewed the audit for ${business?.name || 'your business'}. You have ${report?.detectedIssues?.length || 0} issues detected. Any questions about what we found?`
+      };
+      setChatMessages([greeting]);
     }, 6000);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Persist messages to shared localStorage on every change
+  useEffect(() => {
+    if (chatMessages.length > 0) saveSharedMessages(chatMessages);
+  }, [chatMessages]);
+
+  // Listen for changes from SiteChatWidget (other tab/same page)
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === MESSAGES_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setChatMessages(parsed.map((m: any) => ({
+              role: m.role === 'assistant' ? 'ai' as const : 'user' as const,
+              text: m.content || '',
+            })));
+          }
+        } catch {}
+      }
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   useEffect(() => {
