@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Send, X, MessageCircle } from "lucide-react";
 import {
   getSessionId, readSSEStream, sendChatMessage,
@@ -38,6 +38,21 @@ export default function SiteChatWidget() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streaming]);
+
+  // Trap scroll inside chat message area
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    const atTop = scrollTop <= 0 && e.deltaY < 0;
+    const atBottom = scrollTop + clientHeight >= scrollHeight - 1 && e.deltaY > 0;
+    if (atTop || atBottom) {
+      e.preventDefault();
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+  }, []);
 
   function openChat() {
     setOpen(true);
@@ -212,9 +227,11 @@ export default function SiteChatWidget() {
             </button>
           </div>
 
-          {/* Messages — overscroll-behavior: contain traps scroll inside */}
+          {/* Messages — scroll trapped inside */}
           <div
             ref={messagesContainerRef}
+            onWheel={handleWheel}
+            onTouchMove={handleTouchMove}
             style={{
               flex: 1,
               overflowY: "auto",

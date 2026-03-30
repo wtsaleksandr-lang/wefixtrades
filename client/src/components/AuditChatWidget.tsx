@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Send, X } from "lucide-react";
 import s from "../pages/marketing/FreeAuditReport.module.css";
 import {
@@ -22,24 +22,16 @@ interface AuditChatWidgetProps {
 export default function AuditChatWidget(props: AuditChatWidgetProps) {
   const { businessName, trade, city, score, grade, actionPlan, estimatedRevenueLoss, reportId, detectedIssueIds } = props;
 
-  // Build audit-specific greeting
-  const greetingRef = useRef<ChatMessage>(() => {
-    const topIssue = actionPlan?.[0];
-    return {
-      role: "assistant" as const,
-      content: topIssue
-        ? `Hi! I've reviewed your audit for ${businessName}. Your most urgent issue is ${topIssue.title} — this could be worth ${topIssue.estimatedImpact || "significant revenue"} in additional leads. Want me to explain what's happening and how to fix it?`
-        : `Hi! I've reviewed your audit for ${businessName}. Your score is ${score}/100 (grade ${grade}). Ask me anything about your results!`,
-    };
-  });
-  // Evaluate once
-  const greeting = typeof greetingRef.current === "function" ? (greetingRef.current = greetingRef.current()) : greetingRef.current;
+  const greeting = useRef<ChatMessage>({
+    role: "assistant",
+    content: actionPlan?.[0]
+      ? `Hi! I've reviewed your audit for ${businessName}. Your most urgent issue is ${actionPlan[0].title} — this could be worth ${actionPlan[0].estimatedImpact || "significant revenue"} in additional leads. Want me to explain what's happening and how to fix it?`
+      : `Hi! I've reviewed your audit for ${businessName}. Your score is ${score}/100 (grade ${grade}). Ask me anything about your results!`,
+  }).current;
 
   const [open, setOpen] = useState(() => loadOpenState());
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const saved = loadMessages();
-    // If saved messages exist from a previous surface/page, keep them.
-    // If empty, show the audit greeting.
     return saved.length > 0 ? saved : [greeting];
   });
   const [input, setInput] = useState("");
@@ -47,7 +39,7 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
   const [showDot, setShowDot] = useState(() => loadMessages().length <= 1);
   const [pulsing, setPulsing] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
   const sessionId = useRef(getSessionId());
 
   // Stop pulsing after 15s
@@ -56,20 +48,19 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
     return () => clearTimeout(t);
   }, []);
 
-  // Auto-open after 8s if no previous conversation
+  // Auto-open after 8s on audit page
   useEffect(() => {
-    if (loadMessages().length > 1) return; // Already has conversation — don't auto-open
-    autoTimerRef.current = setTimeout(() => {
+    const t = setTimeout(() => {
       if (!open) {
         setOpen(true);
         setShowDot(false);
         saveOpenState(true);
       }
     }, 8000);
-    return () => { if (autoTimerRef.current) clearTimeout(autoTimerRef.current); };
+    return () => clearTimeout(t);
   }, []);
 
-  // Persist messages
+  // Persist messages and open state
   useEffect(() => { saveMessages(messages); }, [messages]);
   useEffect(() => { saveOpenState(open); }, [open]);
 
@@ -77,6 +68,22 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streaming]);
+
+  // Trap scroll: prevent wheel events from reaching the page
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    const atTop = scrollTop <= 0 && e.deltaY < 0;
+    const atBottom = scrollTop + clientHeight >= scrollHeight - 1 && e.deltaY > 0;
+    if (atTop || atBottom) {
+      e.preventDefault();
+    }
+  }, []);
+
+  // Trap touch scroll for mobile
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+  }, []);
 
   function openChat() {
     setOpen(true);
@@ -88,7 +95,6 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
     if (!text || streaming) return;
     setInput("");
 
-    // Auto-open if closed
     if (!open) {
       setOpen(true);
       setShowDot(false);
@@ -176,7 +182,12 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
             </button>
           </div>
 
-          <div className={s.chatMessages} style={{ overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
+          <div
+            ref={chatMessagesRef}
+            className={s.chatMessages}
+            onWheel={handleWheel}
+            onTouchMove={handleTouchMove}
+          >
             {messages.map((msg, i) => (
               <div key={i} className={msg.role === "assistant" ? s.chatMsgAi : s.chatMsgUser}>
                 {msg.content || "\u00A0"}
