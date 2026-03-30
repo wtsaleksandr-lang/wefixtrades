@@ -52,6 +52,8 @@ export function getVapiConfig(): Partial<VapiConfig> {
 export interface VapiReadiness {
   configured: boolean;
   assistantReady: boolean;
+  /** Whether the browser-based voice demo can run (public key + assistant ID) */
+  webDemoReady: boolean;
   details: {
     hasApiKey: boolean;
     hasPublicKey: boolean;
@@ -88,6 +90,7 @@ export function checkVapiReadiness(): VapiReadiness {
 
   const missing: string[] = [];
   if (!details.hasApiKey) missing.push("VAPI_API_KEY");
+  if (!details.hasPublicKey) missing.push("VAPI_PUBLIC_KEY (required for web voice demo)");
   if (!details.hasAssistantId) missing.push("VAPI_ASSISTANT_ID");
   if (!details.hasWebhookSecret) missing.push("VAPI_WEBHOOK_SECRET");
   if (!details.hasPhoneNumberId) missing.push("VAPI_PHONE_NUMBER_ID (optional — needed for inbound calls)");
@@ -97,8 +100,10 @@ export function checkVapiReadiness(): VapiReadiness {
   const configured = details.hasApiKey;
   // Fully ready when assistant core + API key + webhook secret are all set
   const assistantReady = configured && details.assistantCoreReady && details.hasWebhookSecret;
+  // Web demo needs public key + assistant ID (no API key needed on client)
+  const webDemoReady = details.hasPublicKey && details.hasAssistantId;
 
-  return { configured, assistantReady, details, missing };
+  return { configured, assistantReady, webDemoReady, details, missing };
 }
 
 /* ─── Vapi Webhook Event Types ─── */

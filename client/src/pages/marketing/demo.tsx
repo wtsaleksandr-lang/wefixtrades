@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useVapiCall } from "@/hooks/useVapiCall";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import WorkflowDemo from "@/components/marketing/WorkflowDemo";
 import VoiceVisualizer, { HeroSoundBars } from "@/components/marketing/VoiceVisualizer";
-import { Send, Bot, User, Zap, Phone, Calendar, Star, Check, Mic, PhoneCall, Shield, CheckCircle, AlertCircle, MessageSquare, ArrowRight } from "lucide-react";
+import { Send, Bot, User, Zap, Phone, Calendar, Star, Check, Mic, MicOff, PhoneCall, PhoneOff, Shield, CheckCircle, AlertCircle, MessageSquare, ArrowRight, Loader2 } from "lucide-react";
 import { mkt, colors, shadows } from "@/theme/tokens";
 
 
@@ -369,114 +370,171 @@ function ChatDemo({ selectedTrade, onTradeSelect }: { selectedTrade: string; onT
   );
 }
 
-interface VapiStatus {
-  configured: boolean;
-  ready: boolean;
-  checks: {
-    apiKeyPresent: boolean;
-    assistantIdPresent: boolean;
-    webhookSecretPresent: boolean;
-    assistantCoreReady: boolean;
-  };
-}
-
 function VoiceDemo() {
-  const { data: status, isLoading } = useQuery<VapiStatus>({
-    queryKey: ["/api/vapi/status"],
-    queryFn: async () => {
-      const res = await fetch("/api/vapi/status");
-      return res.json();
-    },
-    staleTime: 30_000,
-  });
+  const vapi = useVapiCall();
 
-  const isReady = status?.ready ?? false;
-  const isConfigured = status?.configured ?? false;
+  // Derive visual states
+  const isInCall = vapi.status === "active";
+  const isConnecting = vapi.status === "connecting" || vapi.status === "loading";
+  const isEnded = vapi.status === "ended";
+  const isError = vapi.status === "error";
+  const isIdle = vapi.status === "idle";
+  const canStart = vapi.isAvailable && (isIdle || isEnded || isError);
+
+  // Orb glow intensity based on volume
+  const glowIntensity = isInCall ? 0.15 + vapi.volumeLevel * 0.45 : 0;
+
+  // Determine status label
+  let statusLabel: string = "";
+  let statusColor: string = mkt.textMuted;
+  let statusDot: string = mkt.textFaint;
+  if (isConnecting) { statusLabel = "Connecting..."; statusColor = mkt.orange; statusDot = mkt.orange; }
+  else if (isInCall && vapi.isSpeaking) { statusLabel = "Listening..."; statusColor = "#34D399"; statusDot = "#34D399"; }
+  else if (isInCall && vapi.isAssistantSpeaking) { statusLabel = "Assistant speaking"; statusColor = mkt.accent; statusDot = mkt.accent; }
+  else if (isInCall) { statusLabel = "Call active"; statusColor = "#34D399"; statusDot = "#34D399"; }
+  else if (isEnded) { statusLabel = "Call ended"; statusColor = mkt.textMuted; statusDot = mkt.textFaint; }
+  else if (isError) { statusLabel = "Connection issue"; statusColor = "#EF4444"; statusDot = "#EF4444"; }
+  else if (vapi.isAvailable) { statusLabel = "Voice assistant ready"; statusColor = "#34D399"; statusDot = "#34D399"; }
+  else { statusLabel = "Voice demo coming soon"; statusColor = mkt.textMuted; statusDot = mkt.textFaint; }
+
+  const handleMicClick = () => {
+    if (isInCall || isConnecting) {
+      vapi.stop();
+    } else if (canStart) {
+      vapi.start();
+    }
+  };
 
   return (
     <div data-testid="voice-demo-panel">
       {/* ── Central voice interaction area ── */}
       <div style={{
-        background: `radial-gradient(ellipse 70% 50% at 50% 40%, rgba(102,232,250,0.06) 0%, ${mkt.bg} 70%)`,
+        background: `radial-gradient(ellipse 70% 50% at 50% 40%, rgba(102,232,250,${isInCall ? "0.1" : "0.06"}) 0%, ${mkt.bg} 70%)`,
         border: `1px solid ${mkt.border}`, borderRadius: 24,
         padding: "48px 32px 40px", textAlign: "center",
         position: "relative", overflow: "hidden",
+        transition: "background 0.5s ease",
       }}>
         {/* Mic button / orb */}
         <div style={{ marginBottom: 24 }}>
-          <div style={{
-            width: 88, height: 88, borderRadius: "50%", margin: "0 auto",
-            background: isReady
-              ? `radial-gradient(circle, ${mkt.accent} 0%, ${mkt.accentDark} 100%)`
-              : `radial-gradient(circle, ${mkt.surface} 0%, ${mkt.surfaceAlt} 100%)`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: isReady ? `0 0 40px rgba(102,232,250,0.3), 0 0 80px rgba(102,232,250,0.1)` : "none",
-            cursor: isReady ? "pointer" : "default",
-            transition: "box-shadow 0.3s ease",
-          }}>
-            <Mic size={32} color={isReady ? mkt.buttonText : mkt.textMuted} strokeWidth={1.5} />
-          </div>
-        </div>
-
-        {/* Sound bars around the interaction area */}
-        <VoiceVisualizer barCount={50} height={64} active={!isLoading} variant="hero" style={{ marginBottom: 28 }} />
-
-        {/* Status */}
-        <div style={{ marginBottom: 20 }}>
-          {isLoading ? (
-            <span style={{ fontSize: 14, color: mkt.textMuted }}>Checking voice system...</span>
-          ) : isReady ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, color: "#34D399" }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#34D399" }} />
-              Voice assistant online
-            </span>
-          ) : isConfigured ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, color: mkt.orange }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: mkt.orange }} />
-              Partially configured
-            </span>
-          ) : (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, color: mkt.textMuted }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: mkt.textFaint }} />
-              Voice demo coming soon
-            </span>
-          )}
-        </div>
-
-        <h3 style={{ fontSize: 24, fontWeight: 700, color: mkt.text, letterSpacing: "-0.02em", marginBottom: 10 }}>
-          AI Phone Receptionist
-        </h3>
-        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, maxWidth: 440, margin: "0 auto 28px" }}>
-          Never miss a call again. Your AI answers the phone 24/7, qualifies leads, gives quotes, and books jobs — all using the same brain as your website assistant.
-        </p>
-
-        {/* CTA area */}
-        {isReady ? (
           <button
             data-testid="voice-demo-start"
+            onClick={handleMicClick}
+            disabled={!canStart && !isInCall && !isConnecting}
+            aria-label={isInCall ? "End voice call" : "Start voice demo"}
             style={{
-              padding: "14px 36px", borderRadius: 50, border: "none",
-              background: mkt.accent, color: mkt.buttonText,
-              fontSize: 16, fontWeight: 700, cursor: "pointer",
-              display: "inline-flex", alignItems: "center", gap: 10,
-              boxShadow: "0 0 30px rgba(102,232,250,0.25)",
+              width: 96, height: 96, borderRadius: "50%", margin: "0 auto",
+              border: "none", cursor: canStart || isInCall || isConnecting ? "pointer" : "default",
+              background: isInCall
+                ? `radial-gradient(circle, #EF4444 0%, #DC2626 100%)`
+                : isConnecting
+                  ? `radial-gradient(circle, ${mkt.accent} 0%, ${mkt.accentDark} 100%)`
+                  : canStart
+                    ? `radial-gradient(circle, ${mkt.accent} 0%, ${mkt.accentDark} 100%)`
+                    : `radial-gradient(circle, ${mkt.surface} 0%, ${mkt.surfaceAlt} 100%)`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: isInCall
+                ? `0 0 ${30 + glowIntensity * 60}px rgba(239,68,68,${glowIntensity}), 0 0 80px rgba(239,68,68,0.1)`
+                : canStart || isConnecting
+                  ? `0 0 40px rgba(102,232,250,0.3), 0 0 80px rgba(102,232,250,0.1)`
+                  : "none",
+              transition: "box-shadow 0.15s ease, background 0.3s ease",
             }}
           >
-            <Phone size={18} /> Start Voice Demo
+            {isConnecting ? (
+              <Loader2 size={32} color={mkt.buttonText} strokeWidth={1.5} style={{ animation: "spin 1s linear infinite" }} />
+            ) : isInCall ? (
+              <PhoneOff size={32} color="#FFFFFF" strokeWidth={1.5} />
+            ) : (
+              <Mic size={32} color={canStart ? mkt.buttonText : mkt.textMuted} strokeWidth={1.5} />
+            )}
           </button>
-        ) : (
-          <Link
-            href="/contact"
+          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+        </div>
+
+        {/* Sound bars — react to call state */}
+        <VoiceVisualizer
+          barCount={50}
+          height={64}
+          active={isInCall || isConnecting}
+          variant="hero"
+          style={{ marginBottom: 28 }}
+        />
+
+        {/* Status label */}
+        <div style={{ marginBottom: 20 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, color: statusColor }}>
+            {isConnecting ? (
+              <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} />
+            ) : (
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: statusDot, flexShrink: 0 }} />
+            )}
+            {statusLabel}
+          </span>
+        </div>
+
+        {/* Title & description — context-sensitive */}
+        <h3 style={{ fontSize: 24, fontWeight: 700, color: mkt.text, letterSpacing: "-0.02em", marginBottom: 10 }}>
+          {isInCall ? "You're talking to the AI" : "AI Phone Receptionist"}
+        </h3>
+        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, maxWidth: 440, margin: "0 auto 28px" }}>
+          {isInCall
+            ? "Speak naturally — ask about services, get a quote, or schedule a consultation. Tap the button to end the call."
+            : isEnded
+              ? "Call complete. Start another demo anytime, or try the chat assistant."
+              : isError
+                ? vapi.errorMessage || "Something went wrong. Please try again."
+                : "Never miss a call again. Your AI answers the phone 24/7, qualifies leads, gives quotes, and books jobs — all using the same brain as your website assistant."
+          }
+        </p>
+
+        {/* CTA area — only when not in a call */}
+        {!isInCall && !isConnecting && (
+          <div>
+            {canStart ? (
+              <button
+                onClick={() => vapi.start()}
+                style={{
+                  padding: "14px 36px", borderRadius: 50, border: "none",
+                  background: mkt.accent, color: mkt.buttonText,
+                  fontSize: 16, fontWeight: 700, cursor: "pointer",
+                  display: "inline-flex", alignItems: "center", gap: 10,
+                  boxShadow: "0 0 30px rgba(102,232,250,0.25)",
+                }}
+              >
+                <Phone size={18} /> {isEnded || isError ? "Try Again" : "Start Voice Demo"}
+              </button>
+            ) : !vapi.isAvailable ? (
+              <Link
+                href="/contact"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "14px 32px", borderRadius: 50,
+                  border: `1px solid ${mkt.border}`,
+                  background: "transparent", color: mkt.text,
+                  fontSize: 15, fontWeight: 600, textDecoration: "none",
+                }}
+              >
+                Get notified when it's live <ArrowRight size={16} />
+              </Link>
+            ) : null}
+          </div>
+        )}
+
+        {/* In-call end button (secondary, below orb) */}
+        {isInCall && (
+          <button
+            onClick={() => vapi.stop()}
             style={{
+              padding: "10px 24px", borderRadius: 50,
+              border: `1px solid rgba(239,68,68,0.3)`,
+              background: "rgba(239,68,68,0.1)", color: "#EF4444",
+              fontSize: 14, fontWeight: 600, cursor: "pointer",
               display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "14px 32px", borderRadius: 50,
-              border: `1px solid ${mkt.border}`,
-              background: "transparent", color: mkt.text,
-              fontSize: 15, fontWeight: 600, textDecoration: "none", cursor: "pointer",
             }}
           >
-            Get notified when it's live <ArrowRight size={16} />
-          </Link>
+            <PhoneOff size={14} /> End Call
+          </button>
         )}
       </div>
 

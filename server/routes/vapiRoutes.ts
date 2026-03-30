@@ -15,6 +15,7 @@ import type { Express, Request, Response } from "express";
 import { requireAdmin } from "../auth";
 import {
   checkVapiReadiness,
+  getVapiConfig,
   verifyWebhookSignature,
   handleConversationTurn,
   extractCallReport,
@@ -197,6 +198,28 @@ export function registerVapiRoutes(app: Express): void {
   });
 
   /**
+   * GET /api/vapi/web-config
+   *
+   * Returns the public key and assistant ID needed by the client-side
+   * Vapi Web SDK. Only non-secret values are exposed.
+   * Returns 503 if the web demo is not configured.
+   */
+  app.get("/api/vapi/web-config", (_req: Request, res: Response) => {
+    const config = getVapiConfig();
+    if (!config.publicKey || !config.assistantId) {
+      return res.status(503).json({
+        error: "Voice demo is not configured yet.",
+        webDemoEnabled: false,
+      });
+    }
+    return res.json({
+      publicKey: config.publicKey,
+      assistantId: config.assistantId,
+      webDemoEnabled: true,
+    });
+  });
+
+  /**
    * GET /api/vapi/status
    *
    * Public-safe readiness check. Returns whether Vapi integration
@@ -204,12 +227,15 @@ export function registerVapiRoutes(app: Express): void {
    */
   app.get("/api/vapi/status", (_req: Request, res: Response) => {
     const readiness = checkVapiReadiness();
+    const config = getVapiConfig();
+    const webDemoEnabled = !!(config.publicKey && config.assistantId);
     return res.json({
       configured: readiness.configured,
       ready: readiness.assistantReady,
-      // Only expose boolean flags publicly — no secret details
+      webDemoEnabled,
       checks: {
         apiKeyPresent: readiness.details.hasApiKey,
+        publicKeyPresent: readiness.details.hasPublicKey,
         assistantIdPresent: readiness.details.hasAssistantId,
         webhookSecretPresent: readiness.details.hasWebhookSecret,
         assistantCoreReady: readiness.details.assistantCoreReady,
@@ -228,6 +254,7 @@ export function registerVapiRoutes(app: Express): void {
     return res.json({
       configured: readiness.configured,
       ready: readiness.assistantReady,
+      webDemoReady: readiness.webDemoReady,
       details: readiness.details,
       missing: readiness.missing,
       endpoints: {

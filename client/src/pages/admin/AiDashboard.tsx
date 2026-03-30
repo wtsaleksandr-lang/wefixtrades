@@ -192,13 +192,23 @@ function VapiStatusPanel() {
           <h3 style={{ fontSize: 16, fontWeight: 700, color: c.text, marginBottom: 4 }}>Vapi Voice Integration</h3>
           <p style={{ fontSize: 12, color: c.muted }}>AI phone assistant powered by the shared assistant core</p>
         </div>
-        <span style={{
-          padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-          background: isReady ? c.green + "18" : isConfigured ? c.amber + "18" : c.muted + "18",
-          color: isReady ? c.green : isConfigured ? c.amber : c.muted,
-        }}>
-          {isReady ? "Ready" : isConfigured ? "Partial" : "Not Configured"}
-        </span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {status.webDemoReady && (
+            <span style={{
+              padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+              background: c.cyan + "18", color: c.cyan,
+            }}>
+              Web Demo Live
+            </span>
+          )}
+          <span style={{
+            padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+            background: isReady ? c.green + "18" : isConfigured ? c.amber + "18" : c.muted + "18",
+            color: isReady ? c.green : isConfigured ? c.amber : c.muted,
+          }}>
+            {isReady ? "Ready" : isConfigured ? "Partial" : "Not Configured"}
+          </span>
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 16 }}>
