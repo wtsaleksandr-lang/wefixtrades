@@ -4,32 +4,51 @@ import { eq } from "drizzle-orm";
 import { buildPdfHtml, type PdfReportData } from "./pdfTemplate";
 import fs from "fs";
 import path from "path";
+import { execSync } from "child_process";
 
 const PDF_TIMEOUT_MS = 30_000;
 
 /**
- * Finds the Chromium executable from Playwright's cache.
- * Checks common cache locations used by Playwright browser installs.
+ * Finds any usable Chromium/Chrome executable.
+ * Checks (in order):
+ *  1. CHROMIUM_PATH env var (explicit override)
+ *  2. Playwright cache directories
+ *  3. System-installed chrome/chromium
  */
 function findChromiumExecutable(): string | null {
+  // 1. Explicit override
+  if (process.env.CHROMIUM_PATH && fs.existsSync(process.env.CHROMIUM_PATH)) {
+    return process.env.CHROMIUM_PATH;
+  }
+
+  // 2. Playwright cache
   const cacheBase = process.env.PLAYWRIGHT_BROWSERS_PATH
     || path.join(process.env.HOME || "/root", ".cache", "ms-playwright");
 
-  if (!fs.existsSync(cacheBase)) return null;
+  if (fs.existsSync(cacheBase)) {
+    const entries = fs.readdirSync(cacheBase)
+      .filter(d => d.startsWith("chromium") && !d.includes("tip"))
+      .sort()
+      .reverse();
 
-  // Look for chromium-XXXX directories, pick the latest
-  const entries = fs.readdirSync(cacheBase)
-    .filter(d => d.startsWith("chromium-") && !d.includes("headless") && !d.includes("tip"))
-    .sort()
-    .reverse();
+    for (const dir of entries) {
+      const candidates = [
+        path.join(cacheBase, dir, "chrome-linux", "chrome"),
+        path.join(cacheBase, dir, "chrome-headless-shell-linux64", "chrome-headless-shell"),
+        path.join(cacheBase, dir, "chrome-mac", "Chromium.app", "Contents", "MacOS", "Chromium"),
+      ];
+      for (const p of candidates) {
+        if (fs.existsSync(p)) return p;
+      }
+    }
+  }
 
-  for (const dir of entries) {
-    // Linux path
-    const linuxPath = path.join(cacheBase, dir, "chrome-linux", "chrome");
-    if (fs.existsSync(linuxPath)) return linuxPath;
-    // Mac path
-    const macPath = path.join(cacheBase, dir, "chrome-mac", "Chromium.app", "Contents", "MacOS", "Chromium");
-    if (fs.existsSync(macPath)) return macPath;
+  // 3. System-installed
+  for (const name of ["chromium-browser", "chromium", "google-chrome-stable", "google-chrome"]) {
+    try {
+      const p = execSync(`which ${name} 2>/dev/null`).toString().trim();
+      if (p && fs.existsSync(p)) return p;
+    } catch {}
   }
 
   return null;
@@ -39,7 +58,8 @@ const chromiumPath = findChromiumExecutable();
 if (chromiumPath) {
   console.log(`[pdf-generator] Chromium found at: ${chromiumPath}`);
 } else {
-  console.warn("[pdf-generator] WARNING: Chromium not found. PDF generation will fail. Run: npx playwright install chromium");
+  console.warn("[pdf-generator] WARNING: No Chromium found. PDF generation will be unavailable.");
+  console.warn("[pdf-generator] Set CHROMIUM_PATH env var or run: npx playwright install chromium");
 }
 
 /**
@@ -110,6 +130,8 @@ export async function generateReportPdf(
   let browser;
   try {
     const { chromium } = await import("playwright-core");
+    console.log(`[pdf-generator] Launching Chromium at ${chromiumPath}`);
+
     browser = await chromium.launch({
       executablePath: chromiumPath,
       args: [
@@ -140,7 +162,7 @@ export async function generateReportPdf(
     }
     const signature = buf.slice(0, 5).toString("ascii");
     if (signature !== "%PDF-") {
-      console.error(`[pdf-generator] Invalid PDF signature "${signature}" for report ${reportId}`);
+      console.error(`[pdf-generator] Invalid PDF signature "${signature}" for report ${reportId}, first 50 bytes: ${buf.slice(0, 50).toString("utf8")}`);
       return { ok: false, error: "PDF generation produced invalid output" };
     }
 
@@ -150,12 +172,12 @@ export async function generateReportPdf(
       .slice(0, 60);
     const filename = `WeFixTrades-Audit-${safeName}.pdf`;
 
-    console.log(`[pdf-generator] Generated ${buf.length} byte PDF for "${row.business_name}"`);
+    console.log(`[pdf-generator] OK: ${buf.length} bytes for "${row.business_name}"`);
     return { ok: true, buffer: buf, filename };
   } catch (err: any) {
     const msg = err?.message || "Unknown error";
     console.error(`[pdf-generator] Failed for report ${reportId}: ${msg}`);
-    return { ok: false, error: "PDF generation failed" };
+    return { ok: false, error: `PDF generation failed: ${msg}` };
   } finally {
     if (browser) {
       await browser.close().catch(() => {});

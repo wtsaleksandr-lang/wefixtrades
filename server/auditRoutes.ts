@@ -10,6 +10,11 @@ import { eq, sql, and, gte, desc } from "drizzle-orm";
 
 const router = express.Router();
 
+/* ─── Diagnostic: verify audit router is reachable ─── */
+router.get("/ping", (_req: Request, res: Response) => {
+  res.json({ ok: true, router: "audit", ts: Date.now() });
+});
+
 /* ─── File-based keyword result cache (24h TTL, persists across restarts) ─── */
 const CACHE_FILE = path.join(process.cwd(), ".keyword-cache.json");
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in ms
@@ -2607,9 +2612,13 @@ router.post("/report/:id/send-email", async (req: Request, res: Response) => {
 import { generateReportPdf } from "./lib/pdfGenerator";
 
 router.get("/report/:id/pdf", async (req: Request, res: Response) => {
+  console.log(`[audit-pdf] Route matched: ${req.method} ${req.originalUrl}`);
+
   try {
     const id = String(req.params.id || "").trim();
-    if (!id) return safeJsonError(res, 400, "Report ID required");
+    if (!id) {
+      return res.status(400).json({ ok: false, error: "Report ID required" });
+    }
 
     console.log(`[audit-pdf] Generating PDF for report ${id}`);
     const origin = `${req.protocol}://${req.get("host")}`;
@@ -2618,24 +2627,36 @@ router.get("/report/:id/pdf", async (req: Request, res: Response) => {
     if (!result.ok) {
       console.error(`[audit-pdf] Generation failed for ${id}: ${result.error}`);
       const status = result.error === "Report not found" ? 404 : 500;
-      return safeJsonError(res, status, result.error);
+      return res.status(status).json({ ok: false, error: result.error });
     }
 
-    console.log(`[audit-pdf] Success: ${result.buffer.length} bytes, file="${result.filename}"`);
+    // Final safety: verify the buffer is actual PDF bytes
+    const sig = result.buffer.slice(0, 5).toString("ascii");
+    if (sig !== "%PDF-") {
+      console.error(`[audit-pdf] CRITICAL: buffer is not PDF! sig="${sig}", len=${result.buffer.length}`);
+      return res.status(500).json({ ok: false, error: "Generated content is not a valid PDF" });
+    }
+
+    console.log(`[audit-pdf] Sending ${result.buffer.length} bytes, sig="${sig}", file="${result.filename}"`);
 
     const inline = req.query.inline === "true";
     const disposition = inline ? "inline" : "attachment";
 
-    res.writeHead(200, {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `${disposition}; filename="${result.filename}"`,
-      "Content-Length": result.buffer.length,
-      "Cache-Control": "private, max-age=300",
-    });
-    return res.end(result.buffer);
+    // Use res.status().set().end() chain — avoid writeHead which can conflict with Express
+    res
+      .status(200)
+      .set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `${disposition}; filename="${result.filename}"`,
+        "Content-Length": String(result.buffer.length),
+        "Cache-Control": "private, no-transform, max-age=300",
+      })
+      .end(result.buffer);
   } catch (err: any) {
-    console.error("[audit-pdf] Unhandled error:", err?.message);
-    return safeJsonError(res, 500, "PDF generation failed");
+    console.error("[audit-pdf] Unhandled error:", err?.message, err?.stack?.slice(0, 300));
+    if (!res.headersSent) {
+      return res.status(500).json({ ok: false, error: "PDF generation failed" });
+    }
   }
 });
 
