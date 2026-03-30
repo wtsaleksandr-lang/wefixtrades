@@ -1,16 +1,10 @@
 /**
- * VoiceVisualizer — Animated audio-level bars inspired by voice AI UIs.
+ * VoiceVisualizer — Pixelated audio-level bars with mirror reflection.
  *
- * Pure CSS animation (no JS RAF or heavy libs). Bars bob up and down at
- * randomised speeds to simulate live audio activity. Respects
- * prefers-reduced-motion by collapsing to a static mid-height state.
+ * Each bar is a column of stacked square "pixels" that animate up/down.
+ * A CSS-reflected copy sits below with fade + blur for a premium mirror effect.
  *
- * Props:
- *  - barCount: total bars to render (default 40)
- *  - height: container height in px (default 80)
- *  - active: whether bars are animating (default true)
- *  - variant: "hero" (multicolor, full-width) | "inline" (compact, single-accent)
- *  - className / style: passthrough
+ * Pure CSS animation. Respects prefers-reduced-motion.
  */
 
 import { useMemo } from "react";
@@ -32,11 +26,17 @@ const BAR_COLORS = [
 
 const INLINE_COLORS = [mkt.accent, "#9CF0FC", "#68D4E3", "#54A1AB"];
 
+const PIXEL_SIZE = 4;   // px — each square pixel
+const PIXEL_GAP = 1;    // px — gap between pixels in a column
+const BAR_GAP = 2;      // px — gap between bar columns
+
 interface VoiceVisualizerProps {
   barCount?: number;
   height?: number;
   active?: boolean;
   variant?: "hero" | "inline";
+  /** Show a mirrored reflection below */
+  reflection?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -46,86 +46,150 @@ export default function VoiceVisualizer({
   height = 80,
   active = true,
   variant = "hero",
+  reflection = false,
   className,
   style,
 }: VoiceVisualizerProps) {
   const palette = variant === "hero" ? BAR_COLORS : INLINE_COLORS;
+  const pixelSize = variant === "hero" ? PIXEL_SIZE : 3;
+  const pixelStep = pixelSize + PIXEL_GAP;
+  const maxPixels = Math.floor(height / pixelStep);
 
-  // Generate stable random params per bar (memoised so they don't shift on re-render)
   const bars = useMemo(() => {
     return Array.from({ length: barCount }, (_, i) => {
-      // Deterministic pseudo-random from index
       const seed = ((i * 7919 + 104729) % 1000) / 1000;
       const seed2 = ((i * 6151 + 98321) % 1000) / 1000;
       const seed3 = ((i * 3571 + 54881) % 1000) / 1000;
       return {
         color: palette[i % palette.length],
-        // Height range: 20%-95% of container
-        minH: 15 + seed * 25,        // 15-40%
-        maxH: 55 + seed2 * 40,       // 55-95%
-        duration: 0.6 + seed3 * 1.4,  // 0.6-2.0s
-        delay: seed * -2,             // stagger starts
+        minPixels: Math.max(2, Math.round(maxPixels * (0.12 + seed * 0.22))),
+        maxPixels: Math.max(4, Math.round(maxPixels * (0.45 + seed2 * 0.50))),
+        duration: 0.6 + seed3 * 1.4,
+        delay: seed * -2,
       };
     });
-  }, [barCount, palette]);
+  }, [barCount, palette, maxPixels]);
 
-  const barWidth = variant === "hero" ? 3 : 2;
-  const barGap = variant === "hero" ? 3 : 2;
+  const barsElement = (
+    <div
+      className={className}
+      role="presentation"
+      aria-hidden="true"
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+        gap: BAR_GAP,
+        height,
+        overflow: "hidden",
+        ...(!reflection ? style : {}),
+      }}
+    >
+      {bars.map((bar, i) => (
+        <div
+          key={i}
+          className="vbar-col"
+          style={{
+            display: "flex",
+            flexDirection: "column-reverse",
+            gap: PIXEL_GAP,
+            height: "100%",
+            alignItems: "center",
+            justifyContent: "flex-start",
+            ["--vbar-min" as any]: bar.minPixels,
+            ["--vbar-max" as any]: bar.maxPixels,
+            ["--vbar-dur" as any]: `${bar.duration}s`,
+            ["--vbar-del" as any]: `${bar.delay}s`,
+          }}
+        >
+          {Array.from({ length: maxPixels }, (_, pi) => (
+            <div
+              key={pi}
+              className="vbar-px"
+              style={{
+                width: pixelSize,
+                height: pixelSize,
+                flexShrink: 0,
+                borderRadius: 1,
+                background: bar.color,
+                opacity: variant === "hero" ? 0.9 : 0.75,
+                /* Each pixel's visibility is driven by the column's animated pixel count.
+                   We use a CSS custom property + nth-child-based approach.
+                   Since pure CSS can't do this cleanly, we inline the initial state
+                   and let the animation class handle toggling. */
+              }}
+              data-pi={pi}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <>
       <style>{`
-        @keyframes vbar {
-          0%, 100% { transform: scaleY(var(--vbar-min)); }
-          50%      { transform: scaleY(var(--vbar-max)); }
+        @keyframes vbar-pixels {
+          0%, 100% { --vbar-active: var(--vbar-min); }
+          50%      { --vbar-active: var(--vbar-max); }
         }
+
+        /* Pixel column animation: we animate scaleY on a clip wrapper */
+        @keyframes vbar-clip {
+          0%, 100% { clip-path: inset(calc(100% - var(--vbar-min-pct)) 0 0 0); }
+          50%      { clip-path: inset(calc(100% - var(--vbar-max-pct)) 0 0 0); }
+        }
+
+        .vbar-col {
+          animation: vbar-clip var(--vbar-dur) ease-in-out var(--vbar-del) infinite;
+        }
+
         @media (prefers-reduced-motion: reduce) {
-          .vbar-bar { animation: none !important; transform: scaleY(0.4) !important; }
+          .vbar-col {
+            animation: none !important;
+            clip-path: inset(60% 0 0 0) !important;
+          }
         }
       `}</style>
-      <div
-        className={className}
-        role="presentation"
-        aria-hidden="true"
-        style={{
-          display: "flex",
-          alignItems: "flex-end",
-          justifyContent: "center",
-          gap: barGap,
-          height,
-          overflow: "hidden",
-          ...style,
-        }}
-      >
-        {bars.map((bar, i) => (
-          <div
-            key={i}
-            className="vbar-bar"
-            style={{
-              width: barWidth,
-              height: "100%",
-              borderRadius: barWidth,
-              background: bar.color,
-              transformOrigin: "bottom",
-              opacity: variant === "hero" ? 0.85 : 0.7,
-              ["--vbar-min" as any]: bar.minH / 100,
-              ["--vbar-max" as any]: bar.maxH / 100,
-              animation: active
-                ? `vbar ${bar.duration}s ease-in-out ${bar.delay}s infinite`
-                : "none",
-              transform: active ? undefined : `scaleY(${bar.minH / 100})`,
-              transition: active ? undefined : "transform 0.4s ease",
-            }}
-          />
-        ))}
-      </div>
+
+      {/* Inject per-bar clip percentages as inline style overrides */}
+      <style>{
+        bars.map((bar, i) => {
+          const minPct = `${(bar.minPixels / maxPixels * 100).toFixed(1)}%`;
+          const maxPct = `${(bar.maxPixels / maxPixels * 100).toFixed(1)}%`;
+          return `.vbar-col:nth-child(${i + 1}) { --vbar-min-pct: ${minPct}; --vbar-max-pct: ${maxPct}; }`;
+        }).join("\n")
+      }</style>
+
+      {reflection ? (
+        <div style={{ ...style }}>
+          {/* Main bars */}
+          {barsElement}
+          {/* Mirror reflection: flipped, faded, blurred */}
+          <div style={{
+            transform: "scaleY(-1)",
+            height: height * 0.5,
+            overflow: "hidden",
+            maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 90%)",
+            WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 90%)",
+            filter: "blur(2px)",
+            opacity: 0.5,
+            marginTop: -1,
+            pointerEvents: "none",
+          }}>
+            {barsElement}
+          </div>
+        </div>
+      ) : (
+        barsElement
+      )}
     </>
   );
 }
 
 /**
- * HeroSoundBars — Full-width horizontal band of animated bars,
- * designed for use as a hero background / divider element.
+ * HeroSoundBars — Full-width edge-to-edge animated pixelated bars
+ * with mirror reflection beneath.
  */
 export function HeroSoundBars({
   active = true,
@@ -137,13 +201,14 @@ export function HeroSoundBars({
   style?: React.CSSProperties;
 }) {
   return (
-    <div style={{ width: "100%", overflow: "hidden", ...style }}>
+    <div style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)", overflow: "hidden", ...style }}>
       <VoiceVisualizer
-        barCount={80}
+        barCount={120}
         height={height}
         active={active}
         variant="hero"
-        style={{ width: "100%", maxWidth: 900, margin: "0 auto" }}
+        reflection
+        style={{ width: "100%" }}
       />
     </div>
   );
