@@ -12,10 +12,23 @@ interface AuditChatWidgetProps {
   grade: string;
   actionPlan: any[];
   estimatedRevenueLoss: any;
+  reportId?: string;
+  detectedIssueIds?: string[];
+}
+
+function getSessionId(): string {
+  const KEY = "wft_chat_session";
+  let id = sessionStorage.getItem(KEY) || localStorage.getItem(KEY);
+  if (!id) {
+    id = `s_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    try { localStorage.setItem(KEY, id); } catch { /* noop */ }
+    try { sessionStorage.setItem(KEY, id); } catch { /* noop */ }
+  }
+  return id;
 }
 
 export default function AuditChatWidget(props: AuditChatWidgetProps) {
-  const { businessName, trade, city, score, grade, actionPlan, estimatedRevenueLoss } = props;
+  const { businessName, trade, city, score, grade, actionPlan, estimatedRevenueLoss, reportId, detectedIssueIds } = props;
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -25,6 +38,7 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
   const [pulsing, setPulsing] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionId = useRef(getSessionId());
 
   // Stop pulsing after 15 seconds
   useEffect(() => {
@@ -54,7 +68,7 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
     if (messages.length === 0) {
       const topIssue = actionPlan?.[0];
       const firstMsg = topIssue
-        ? `Hi! I've reviewed your audit for ${businessName}. Your most urgent issue is ${topIssue.title} \u2014 this could be worth ${topIssue.estimatedImpact || "significant revenue"} in additional leads. Want me to explain what's happening and how to fix it?`
+        ? `Hi! I've reviewed your audit for ${businessName}. Your most urgent issue is ${topIssue.title} — this could be worth ${topIssue.estimatedImpact || "significant revenue"} in additional leads. Want me to explain what's happening and how to fix it?`
         : `Hi! I've reviewed your audit for ${businessName}. Your score is ${score}/100 (grade ${grade}). Ask me anything about your results!`;
       setMessages([{ role: "assistant", content: firstMsg }]);
     }
@@ -70,22 +84,31 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
     setStreaming(true);
 
     try {
-      const res = await fetch("/api/audit/chat", {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          mode: "audit",
           messages: newMessages,
+          sessionId: sessionId.current,
+          reportId,
           auditContext: {
             businessName, trade, city, score, grade,
-            topIssue: actionPlan?.[0]?.title || "",
-            estimatedLoss: estimatedRevenueLoss,
+            topIssues: actionPlan?.slice(0, 5)?.map((a: any) => ({
+              title: a.title,
+              estimatedImpact: a.estimatedImpact,
+              priority: a.priority,
+            })),
+            actionPlan: actionPlan?.slice(0, 5),
+            estimatedRevenueLoss,
+            detectedIssueIds,
           },
         }),
       });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        setMessages(prev => [...prev, { role: "assistant", content: err.error || "Sorry, something went wrong. Try again." }]);
+        setMessages(prev => [...prev, { role: "assistant", content: err.error || "Sorry, something went wrong. Try again in a moment." }]);
         setStreaming(false);
         return;
       }
@@ -115,11 +138,11 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
                   return copy;
                 });
               }
-            } catch {}
+            } catch { /* skip malformed chunks */ }
           }
         }
       }
-    } catch (err) {
+    } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Please try again." }]);
     }
     setStreaming(false);
@@ -176,7 +199,7 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder="Ask anything..."
+              placeholder="Ask anything about your audit..."
               disabled={streaming}
             />
             <button className={s.chatSend} onClick={sendMessage} disabled={streaming} aria-label="Send">

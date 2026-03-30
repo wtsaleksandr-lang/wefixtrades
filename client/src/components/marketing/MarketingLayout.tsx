@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { useEffect, lazy, Suspense, type CSSProperties, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { ShieldCheck, Lock, Award } from "lucide-react";
 import { usePageView } from "@/hooks/usePageView";
@@ -7,6 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { queryClient } from "@/lib/queryClient";
 import { mkt } from "@/theme/tokens";
 import { MarketingNav, useNavIsMobile } from "./navigation/MarketingNav";
+
+const SiteChatWidget = lazy(() => import("@/components/SiteChatWidget"));
 
 /* ─── Footer ─── */
 
@@ -237,6 +239,9 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
       <div style={{ height: 24, flexShrink: 0 }} />
       <main style={{ flex: 1 }}>{children}</main>
       <MarketingFooter isMobile={isMobile} />
+      <Suspense fallback={null}>
+        <SiteChatWidget />
+      </Suspense>
     </div>
   );
 }

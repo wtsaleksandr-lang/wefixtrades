@@ -410,6 +410,8 @@ export default function SharedAuditReport() {
         grade={grade}
         actionPlan={actionPlan}
         estimatedRevenueLoss={revLoss}
+        reportId={id}
+        detectedIssueIds={ad?.detectedIssues}
       />
     </div>
   );

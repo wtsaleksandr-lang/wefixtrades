@@ -317,3 +317,29 @@ export const auditReports = pgTable("audit_reports", {
 export const insertAuditReportSchema = createInsertSchema(auditReports).omit({ id: true, created_at: true, view_count: true });
 export type InsertAuditReport = z.infer<typeof insertAuditReportSchema>;
 export type AuditReport = typeof auditReports.$inferSelect;
+
+/* ─── Chat Memory ─── */
+export const chatMemory = pgTable("chat_memory", {
+  id: serial("id").primaryKey(),
+  session_id: varchar("session_id", { length: 100 }).notNull(),
+  report_id: uuid("report_id"),
+  user_name: text("user_name"),
+  business_type: text("business_type"),
+  service_area: text("service_area"),
+  website_url: text("website_url"),
+  previous_topics: jsonb("previous_topics").default([]),
+  interested_in_pricing: boolean("interested_in_pricing").default(false),
+  interested_in_booking: boolean("interested_in_booking").default(false),
+  messages_json: jsonb("messages_json").notNull().default([]),
+  expires_at: timestamp("expires_at").notNull(),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const insertChatMemorySchema = createInsertSchema(chatMemory).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+export type InsertChatMemory = z.infer<typeof insertChatMemorySchema>;
+export type ChatMemory = typeof chatMemory.$inferSelect;
