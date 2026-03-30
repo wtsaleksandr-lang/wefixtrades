@@ -304,6 +304,7 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
               zIndex: 50,
               maxHeight: 'min(320px, 50vh)',
               overflowY: 'auto',
+              overscrollBehavior: 'contain',
               background: mkt.surfaceAlt,
               border: `1px solid ${mkt.accent}33`,
               borderTop: 'none',
