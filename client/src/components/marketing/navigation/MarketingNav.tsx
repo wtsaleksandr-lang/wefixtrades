@@ -307,6 +307,35 @@ export function MarketingNav() {
                   >
                     START FREE
                   </Link>
+                  <Link
+                    href="/demo"
+                    className="mkt-btn-demo"
+                    data-testid="nav-cta-ai-demo"
+                    style={{
+                      padding: "8px 18px",
+                      borderRadius: 9,
+                      background: "transparent",
+                      color: mkt.accent,
+                      fontSize: 12,
+                      fontWeight: 500,
+                      fontFamily: "'DM Mono', monospace",
+                      textTransform: "uppercase" as const,
+                      letterSpacing: "0.08em",
+                      textDecoration: "none",
+                      display: "inline-block",
+                      whiteSpace: "nowrap",
+                      border: `1px solid ${mkt.accent}`,
+                      transition: "background 0.2s ease, color 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.background = mkt.accentTint;
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.background = "transparent";
+                    }}
+                  >
+                    AI DEMO
+                  </Link>
                 </>
               )}
               {isMobile && (
@@ -451,6 +480,28 @@ export function MarketingNav() {
               }}
             >
               START FREE
+            </Link>
+            <Link
+              href="/demo"
+              onClick={() => setMenuOpen(false)}
+              data-testid="nav-cta-ai-demo-mobile"
+              style={{
+                display: "block",
+                marginTop: 8,
+                padding: "12px 14px",
+                borderRadius: 10,
+                background: "transparent",
+                color: mkt.accent,
+                fontSize: 15,
+                fontWeight: 500,
+                textTransform: "uppercase" as const,
+                letterSpacing: "0.04em",
+                textAlign: "center",
+                textDecoration: "none",
+                border: `1px solid ${mkt.accent}`,
+              }}
+            >
+              AI DEMO
             </Link>
           </div>
         </div>
