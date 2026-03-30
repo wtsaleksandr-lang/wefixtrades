@@ -61,7 +61,7 @@ function Router() {
     <Switch>
       <Route path="/" component={MarketingHome} />
 
-      <Route path="/admin/ai" component={AiDashboard} />
+      <Route path="/admin/ai">{() => <RequirePortal><AiDashboard /></RequirePortal>}</Route>
 
       <Route path="/products/mapguard" component={MapGuardPage} />
       <Route path="/products/:slug" component={NewProductPage} />

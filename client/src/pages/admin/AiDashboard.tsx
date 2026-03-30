@@ -478,9 +478,8 @@ function RepositoryTab({ onSelect }: { onSelect: (id: number) => void }) {
     const params = new URLSearchParams({ page: String(page), limit: "25" });
     if (filters.surface) params.set("surface", filters.surface);
     if (filters.intent) params.set("intent", filters.intent);
-    // Only show saved conversations (exclude low_signal and discard)
+    // Repository only contains save-worthy conversations (archiver filters upstream)
     if (filters.decision) params.set("decision", filters.decision);
-    else params.set("decision", "high_value"); // default to high-value for repository
     if (filters.search) params.set("search", filters.search);
     fetchJson(`/api/admin/ai/conversations?${params}`).then(setData).catch(() => {}).finally(() => setLoading(false));
   }, [page, filters]);

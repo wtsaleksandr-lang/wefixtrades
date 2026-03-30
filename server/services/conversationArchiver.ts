@@ -5,6 +5,10 @@
  *
  * This is SEPARATE from the 7-day chat_memory used for continuity.
  * This creates long-term repository records for business intelligence.
+ *
+ * Only save-worthy conversations are stored (high_value, support,
+ * sales_intent, report_followup). Low-signal and discard candidates
+ * are not archived — they remain visible only in operational logs.
  */
 
 import { db } from "../db";
@@ -14,12 +18,16 @@ import { chat, type ChatMessage } from "./aiService";
 import type { ChatSurface } from "./promptBuilder";
 
 /* ─── Types ─── */
+export type SaveDecision = "high_value" | "support" | "sales_intent" | "report_followup" | "low_signal" | "discard_candidate";
+
+const SAVE_WORTHY: SaveDecision[] = ["high_value", "support", "sales_intent", "report_followup"];
+
 export interface ArchiveEvaluation {
   summary: string;
   contextNote: string;
   tags: string[];
   primaryIntent: string;
-  saveDecision: "high_value" | "support" | "sales_intent" | "report_followup" | "low_signal" | "discard_candidate";
+  saveDecision: SaveDecision;
 }
 
 export interface ArchiveRequest {
@@ -43,18 +51,34 @@ export async function evaluateAndArchive(req: ArchiveRequest): Promise<void> {
     const userMessages = req.messages.filter(m => m.role === "user");
     if (userMessages.length < MIN_USER_MESSAGES) return;
 
-    // Check if already archived for this session
-    const existing = await db.select({ id: aiConversationArchive.id })
-      .from(aiConversationArchive)
+    // If already archived with a save-worthy decision, just update the
+    // transcript/tokens (skip the expensive AI classification call).
+    const [existing] = await db.select({
+      id: aiConversationArchive.id,
+      saveDecision: aiConversationArchive.save_decision,
+    }).from(aiConversationArchive)
       .where(eq(aiConversationArchive.session_id, req.sessionId))
       .limit(1);
+
+    if (existing && SAVE_WORTHY.includes(existing.saveDecision as SaveDecision)) {
+      // Already classified as save-worthy — update transcript only
+      await db.update(aiConversationArchive).set({
+        message_count: req.messages.length,
+        messages_json: req.messages,
+        total_input_tokens: req.inputTokens ?? 0,
+        total_output_tokens: req.outputTokens ?? 0,
+        estimated_cost_usd: req.estimatedCostUsd ?? 0,
+        last_message_at: new Date(),
+      }).where(eq(aiConversationArchive.id, existing.id));
+      return;
+    }
 
     // Generate evaluation via a lightweight AI call
     const evaluation = await classifyConversation(req.messages, req.surface);
     if (!evaluation) return;
 
-    // Discard low-value conversations
-    if (evaluation.saveDecision === "discard_candidate") return;
+    // Only archive save-worthy conversations
+    if (!SAVE_WORTHY.includes(evaluation.saveDecision)) return;
 
     const now = new Date();
     const archiveData = {
@@ -76,11 +100,11 @@ export async function evaluateAndArchive(req: ArchiveRequest): Promise<void> {
       last_message_at: now,
     };
 
-    if (existing.length) {
-      // Update existing archive entry
+    if (existing) {
+      // Reclassify: update the existing (previously low-signal) entry
       await db.update(aiConversationArchive)
         .set(archiveData)
-        .where(eq(aiConversationArchive.id, existing[0].id));
+        .where(eq(aiConversationArchive.id, existing.id));
     } else {
       await db.insert(aiConversationArchive).values(archiveData);
     }
@@ -97,45 +121,36 @@ async function classifyConversation(
   try {
     // Build a compact transcript for classification
     const transcript = messages
-      .slice(-20) // Cap to avoid huge prompts
-      .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 300)}`)
+      .slice(-16) // Keep compact to minimize token cost
+      .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 200)}`)
       .join("\n");
 
-    const classifyPrompt = `You are a conversation classifier for a business SaaS platform (WeFixTrades). Analyze this conversation and return a JSON object.
-
-Surface: ${surface}
+    const classifyPrompt = `Classify this ${surface} chat conversation. Return ONLY valid JSON.
 
 Transcript:
 ${transcript}
 
-Return ONLY valid JSON (no markdown, no backticks):
-{
-  "summary": "1-3 sentence summary of what the user wanted and what happened",
-  "contextNote": "Short admin-readable note (1 sentence max)",
-  "tags": ["array", "of", "relevant", "topic", "tags"],
-  "primaryIntent": "one of: pricing_inquiry, service_interest, report_followup, booking_intent, support_request, product_feedback, general_question, lead_capture",
-  "saveDecision": "one of: high_value, support, sales_intent, report_followup, low_signal, discard_candidate"
-}
+JSON format:
+{"summary":"1-3 sentence summary","contextNote":"1 sentence admin note","tags":["topic","tags"],"primaryIntent":"pricing_inquiry|service_interest|report_followup|booking_intent|support_request|product_feedback|general_question|lead_capture","saveDecision":"high_value|support|sales_intent|report_followup|low_signal|discard_candidate"}
 
-Classification rules:
-- high_value: genuine business inquiry, pricing discussion, strong lead potential
+Rules:
+- high_value: genuine business inquiry, pricing discussion, strong lead
 - sales_intent: explicit interest in buying, pricing, or booking
 - support: real help request or product question
 - report_followup: follow-up on an audit report
-- low_signal: vague or unclear but not spam
-- discard_candidate: spam, trolling, nonsense, meaningless exchanges, test messages`;
+- low_signal: vague but not spam
+- discard_candidate: spam, trolling, nonsense, test messages, meaningless exchanges`;
 
     const raw = await chat({
-      system: "You are a precise JSON classifier. Return ONLY valid JSON, no other text.",
+      system: "Return ONLY valid JSON. No markdown, no backticks, no explanation.",
       messages: [{ role: "user", content: classifyPrompt }],
-      maxTokens: 400,
+      maxTokens: 300,
     });
 
     // Parse JSON from response
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     const parsed = JSON.parse(cleaned);
 
-    // Validate required fields
     if (!parsed.summary || !parsed.saveDecision) return null;
 
     return {
@@ -151,7 +166,7 @@ Classification rules:
   }
 }
 
-function validateSaveDecision(val: string): ArchiveEvaluation["saveDecision"] {
-  const valid = ["high_value", "support", "sales_intent", "report_followup", "low_signal", "discard_candidate"];
-  return valid.includes(val) ? val as ArchiveEvaluation["saveDecision"] : "low_signal";
+function validateSaveDecision(val: string): SaveDecision {
+  const valid: SaveDecision[] = ["high_value", "support", "sales_intent", "report_followup", "low_signal", "discard_candidate"];
+  return valid.includes(val as SaveDecision) ? val as SaveDecision : "low_signal";
 }
