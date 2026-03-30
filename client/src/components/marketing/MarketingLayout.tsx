@@ -100,6 +100,16 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
                 Portal
               </Link>
             )}
+            {isPortalUser && (
+              <Link
+                href="/admin/ai"
+                style={{ ...ftLink, color: "rgba(255,255,255,0.18)", fontSize: 11 }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.18)"; }}
+              >
+                Ops
+              </Link>
+            )}
           </div>
 
           {/* Col 4 — Legal */}

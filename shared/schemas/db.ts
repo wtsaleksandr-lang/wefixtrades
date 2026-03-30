@@ -369,3 +369,32 @@ export const insertAiUsageLogSchema = createInsertSchema(aiUsageLogs).omit({
 });
 export type InsertAiUsageLog = z.infer<typeof insertAiUsageLogSchema>;
 export type AiUsageLog = typeof aiUsageLogs.$inferSelect;
+
+/* ─── AI Conversation Archive (admin repository) ─── */
+export const aiConversationArchive = pgTable("ai_conversation_archive", {
+  id: serial("id").primaryKey(),
+  session_id: varchar("session_id", { length: 100 }).notNull(),
+  user_id: integer("user_id").references(() => users.id),
+  surface: varchar("surface", { length: 30 }).notNull(),
+  report_id: uuid("report_id"),
+  summary: text("summary").notNull(),
+  context_note: text("context_note"),
+  tags: jsonb("tags").default([]),
+  primary_intent: varchar("primary_intent", { length: 40 }).notNull().default("general"),
+  save_decision: varchar("save_decision", { length: 30 }).notNull().default("high_value"),
+  message_count: integer("message_count").notNull().default(0),
+  messages_json: jsonb("messages_json").default([]),
+  total_input_tokens: integer("total_input_tokens").default(0),
+  total_output_tokens: integer("total_output_tokens").default(0),
+  estimated_cost_usd: integer("estimated_cost_usd").default(0),
+  first_message_at: timestamp("first_message_at"),
+  last_message_at: timestamp("last_message_at"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertAiConversationArchiveSchema = createInsertSchema(aiConversationArchive).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertAiConversationArchive = z.infer<typeof insertAiConversationArchiveSchema>;
+export type AiConversationArchive = typeof aiConversationArchive.$inferSelect;

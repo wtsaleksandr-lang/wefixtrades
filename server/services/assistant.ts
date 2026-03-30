@@ -11,6 +11,7 @@ import { streamChat, chat, validateConfig, getModel, type ChatMessage, type Chat
 import { buildSystemPrompt, type ChatSurface, type AuditContext, type MemoryContext } from "./promptBuilder";
 import { getMemory, saveMemory, extractMemorySignals } from "./chatMemory";
 import { logUsage } from "./usageTracker";
+import { evaluateAndArchive } from "./conversationArchiver";
 
 /* ─── Types ─── */
 export interface AssistantRequest {
@@ -81,6 +82,15 @@ function createOnComplete(req: AssistantRequest, chatMessages: ChatMessage[]) {
       surface: req.surface,
       ...signals,
     }).catch((err) => console.error("[assistant] Memory save error:", err));
+
+    // Archive for admin visibility (async, non-blocking)
+    evaluateAndArchive({
+      sessionId: req.sessionId,
+      userId: req.userId,
+      surface: req.surface,
+      reportId: req.reportId,
+      messages: allMessages,
+    }).catch(() => {});
   };
 }
 

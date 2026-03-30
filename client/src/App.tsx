@@ -54,11 +54,14 @@ import CaseStudies from "@/pages/CaseStudies";
 import PrimitivesPage from "@/pages/dev/primitives";
 import DemoCanvas from "@/pages/dev/DemoCanvas";
 import RequirePortal from "@/components/auth/RequirePortal";
+import AiDashboard from "@/pages/admin/AiDashboard";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={MarketingHome} />
+
+      <Route path="/admin/ai" component={AiDashboard} />
 
       <Route path="/products/mapguard" component={MapGuardPage} />
       <Route path="/products/:slug" component={NewProductPage} />
