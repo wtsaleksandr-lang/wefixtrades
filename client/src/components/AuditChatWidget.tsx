@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Send, X } from "lucide-react";
 import s from "../pages/marketing/FreeAuditReport.module.css";
 import {
@@ -51,11 +51,14 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
   // Auto-open after 8s on audit page
   useEffect(() => {
     const t = setTimeout(() => {
-      if (!open) {
-        setOpen(true);
-        setShowDot(false);
-        saveOpenState(true);
-      }
+      setOpen(prev => {
+        if (!prev) {
+          setShowDot(false);
+          saveOpenState(true);
+          return true;
+        }
+        return prev;
+      });
     }, 8000);
     return () => clearTimeout(t);
   }, []);
@@ -69,21 +72,24 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streaming]);
 
-  // Trap scroll: prevent wheel events from reaching the page
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const { scrollTop, scrollHeight, clientHeight } = el;
-    const atTop = scrollTop <= 0 && e.deltaY < 0;
-    const atBottom = scrollTop + clientHeight >= scrollHeight - 1 && e.deltaY > 0;
-    if (atTop || atBottom) {
-      e.preventDefault();
-    }
-  }, []);
+  // Native wheel event listener with passive: false to allow preventDefault
+  useEffect(() => {
+    const el = chatMessagesRef.current;
+    if (!el) return;
 
-  // Trap touch scroll for mobile
-  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-  }, []);
+    function onWheel(e: WheelEvent) {
+      const { scrollTop, scrollHeight, clientHeight } = el!;
+      const atTop = scrollTop <= 0 && e.deltaY < 0;
+      const atBottom = scrollTop + clientHeight >= scrollHeight - 1 && e.deltaY > 0;
+      if (atTop || atBottom) {
+        e.preventDefault();
+      }
+      e.stopPropagation();
+    }
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [open]); // Re-attach when chat opens/closes
 
   function openChat() {
     setOpen(true);
@@ -95,6 +101,7 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
     if (!text || streaming) return;
     setInput("");
 
+    // Auto-open if closed
     if (!open) {
       setOpen(true);
       setShowDot(false);
@@ -169,7 +176,7 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
       )}
 
       {open && (
-        <div className={s.chatWindow}>
+        <div className={s.chatWindow} onWheel={e => e.stopPropagation()}>
           <div className={s.chatHeader}>
             <div className={s.chatHeaderInfo}>
               <div className={s.chatHeaderTitle}>WeFixTrades AI Advisor</div>
@@ -182,12 +189,7 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
             </button>
           </div>
 
-          <div
-            ref={chatMessagesRef}
-            className={s.chatMessages}
-            onWheel={handleWheel}
-            onTouchMove={handleTouchMove}
-          >
+          <div ref={chatMessagesRef} className={s.chatMessages}>
             {messages.map((msg, i) => (
               <div key={i} className={msg.role === "assistant" ? s.chatMsgAi : s.chatMsgUser}>
                 {msg.content || "\u00A0"}

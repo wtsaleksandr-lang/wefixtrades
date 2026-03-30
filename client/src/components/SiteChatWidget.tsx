@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Send, X, MessageCircle } from "lucide-react";
 import {
   getSessionId, readSSEStream, sendChatMessage,
@@ -24,35 +24,33 @@ export default function SiteChatWidget() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const sessionId = useRef(getSessionId());
 
-  // Persist messages to localStorage whenever they change
-  useEffect(() => {
-    saveMessages(messages);
-  }, [messages]);
-
-  // Persist open state
-  useEffect(() => {
-    saveOpenState(open);
-  }, [open]);
+  // Persist messages and open state
+  useEffect(() => { saveMessages(messages); }, [messages]);
+  useEffect(() => { saveOpenState(open); }, [open]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streaming]);
 
-  // Trap scroll inside chat message area
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const { scrollTop, scrollHeight, clientHeight } = el;
-    const atTop = scrollTop <= 0 && e.deltaY < 0;
-    const atBottom = scrollTop + clientHeight >= scrollHeight - 1 && e.deltaY > 0;
-    if (atTop || atBottom) {
-      e.preventDefault();
-    }
-  }, []);
+  // Native wheel event listener with passive: false so preventDefault works
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
 
-  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-  }, []);
+    function onWheel(e: WheelEvent) {
+      const { scrollTop, scrollHeight, clientHeight } = el!;
+      const atTop = scrollTop <= 0 && e.deltaY < 0;
+      const atBottom = scrollTop + clientHeight >= scrollHeight - 1 && e.deltaY > 0;
+      if (atTop || atBottom) {
+        e.preventDefault();
+      }
+      e.stopPropagation();
+    }
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [open]);
 
   function openChat() {
     setOpen(true);
@@ -64,7 +62,6 @@ export default function SiteChatWidget() {
     if (!text || streaming) return;
     setInput("");
 
-    // Auto-open if closed
     if (!open) {
       setOpen(true);
       setShowDot(false);
@@ -171,7 +168,7 @@ export default function SiteChatWidget() {
 
       {/* Chat panel */}
       {open && (
-        <div className="wft-site-chat-panel" style={{
+        <div className="wft-site-chat-panel" onWheel={e => e.stopPropagation()} style={{
           position: "fixed",
           bottom: 24,
           right: 24,
@@ -227,11 +224,9 @@ export default function SiteChatWidget() {
             </button>
           </div>
 
-          {/* Messages — scroll trapped inside */}
+          {/* Messages */}
           <div
             ref={messagesContainerRef}
-            onWheel={handleWheel}
-            onTouchMove={handleTouchMove}
             style={{
               flex: 1,
               overflowY: "auto",
