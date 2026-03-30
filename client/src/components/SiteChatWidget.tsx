@@ -1,18 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, X, MessageCircle } from "lucide-react";
-
-type ChatMessage = { role: "user" | "assistant"; content: string };
-
-function getSessionId(): string {
-  const KEY = "wft_chat_session";
-  let id = sessionStorage.getItem(KEY) || localStorage.getItem(KEY);
-  if (!id) {
-    id = `s_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-    try { localStorage.setItem(KEY, id); } catch { /* noop */ }
-    try { sessionStorage.setItem(KEY, id); } catch { /* noop */ }
-  }
-  return id;
-}
+import { getSessionId, readSSEStream, sendChatMessage, type ChatMessage } from "@/lib/chatHelpers";
 
 export default function SiteChatWidget() {
   const [open, setOpen] = useState(false);
@@ -38,7 +26,7 @@ export default function SiteChatWidget() {
     }
   }
 
-  async function sendMessage() {
+  async function handleSend() {
     const text = input.trim();
     if (!text || streaming) return;
     setInput("");
@@ -48,14 +36,10 @@ export default function SiteChatWidget() {
     setStreaming(true);
 
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "general",
-          messages: newMessages,
-          sessionId: sessionId.current,
-        }),
+      const res = await sendChatMessage({
+        surface: "website",
+        messages: newMessages,
+        sessionId: sessionId.current,
       });
 
       if (!res.ok) {
@@ -68,34 +52,14 @@ export default function SiteChatWidget() {
         return;
       }
 
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let assistantText = "";
       setMessages(prev => [...prev, { role: "assistant", content: "" }]);
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n").filter(l => l.startsWith("data: "));
-          for (const line of lines) {
-            const data = line.slice(6);
-            if (data === "[DONE]") break;
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.text) {
-                assistantText += parsed.text;
-                setMessages(prev => {
-                  const copy = [...prev];
-                  copy[copy.length - 1] = { role: "assistant", content: assistantText };
-                  return copy;
-                });
-              }
-            } catch { /* skip */ }
-          }
-        }
-      }
+      await readSSEStream(res, (fullText) => {
+        setMessages(prev => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: "assistant", content: fullText };
+          return copy;
+        });
+      });
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Please try again." }]);
     }
@@ -159,7 +123,7 @@ export default function SiteChatWidget() {
 
       {/* Chat panel */}
       {open && (
-        <div style={{
+        <div className="wft-site-chat-panel" style={{
           position: "fixed",
           bottom: 24,
           right: 24,
@@ -250,7 +214,7 @@ export default function SiteChatWidget() {
                 {[0, 1, 2].map(i => (
                   <span key={i} style={{
                     width: 6, height: 6, borderRadius: "50%", background: "#00D4C8",
-                    animation: `siteChatDotBounce 1.4s ease-in-out ${i * 0.2}s infinite both`,
+                    animation: `wftDotBounce 1.4s ease-in-out ${i * 0.2}s infinite both`,
                   }} />
                 ))}
               </div>
@@ -271,7 +235,7 @@ export default function SiteChatWidget() {
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
               placeholder="Ask us anything..."
               disabled={streaming}
               style={{
@@ -289,7 +253,7 @@ export default function SiteChatWidget() {
               onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; }}
             />
             <button
-              onClick={sendMessage}
+              onClick={handleSend}
               disabled={streaming}
               aria-label="Send message"
               style={{
@@ -314,15 +278,13 @@ export default function SiteChatWidget() {
         </div>
       )}
 
-      {/* Keyframe animation for typing dots */}
       <style>{`
-        @keyframes siteChatDotBounce {
+        @keyframes wftDotBounce {
           0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
           40% { transform: scale(1); opacity: 1; }
         }
         @media (max-width: 480px) {
-          /* Full-screen on small mobile */
-          div[style*="zIndex: 9999"] {
+          .wft-site-chat-panel {
             bottom: 0 !important;
             right: 0 !important;
             width: 100vw !important;

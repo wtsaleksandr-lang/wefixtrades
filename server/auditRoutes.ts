@@ -2414,52 +2414,55 @@ router.get("/report/:id", async (req: Request, res: Response) => {
   }
 });
 
-/* ─── POST /chat — AI Chat for report ─── */
+/* ─── POST /chat — AI Chat for report (delegates to shared assistant) ─── */
 router.post("/chat", async (req: Request, res: Response) => {
   try {
-    const anthropicKey = process.env.ANTHROPIC_API_KEY;
-    if (!anthropicKey) return safeJsonError(res, 500, "ANTHROPIC_API_KEY not set");
+    const { assistantStream, isReady } = await import("./services/assistant");
 
-    const { messages, auditContext } = req.body || {};
+    const readiness = isReady();
+    if (!readiness.ready) return safeJsonError(res, 503, "Chat is temporarily unavailable.");
+
+    const { messages, auditContext, sessionId, reportId } = req.body || {};
     if (!Array.isArray(messages) || messages.length === 0) {
       return safeJsonError(res, 400, "messages[] required");
     }
 
-    const ctx = auditContext || {};
-    const systemPrompt = `You are a friendly local SEO advisor for WeFixTrades. You are chatting with the owner of ${ctx.businessName || "a local business"}, a ${ctx.trade || "trade"} business in ${ctx.city || "their city"}. Their audit score is ${ctx.score ?? "N/A"}/100 (grade ${ctx.grade || "N/A"}).
+    // Map legacy auditContext shape to the shared format
+    const mappedCtx = auditContext ? {
+      businessName: auditContext.businessName,
+      trade: auditContext.trade,
+      city: auditContext.city,
+      score: auditContext.score,
+      grade: auditContext.grade,
+      topIssues: auditContext.topIssue ? [{ title: auditContext.topIssue }] : undefined,
+      estimatedRevenueLoss: auditContext.estimatedLoss,
+    } : undefined;
 
-Their biggest issue is: ${ctx.topIssue || "unknown"}
-Estimated monthly revenue impact: $${ctx.estimatedLoss?.low ?? 0}–$${ctx.estimatedLoss?.high ?? 0}
+    const { stream, onComplete } = await assistantStream({
+      surface: "audit",
+      messages: messages.slice(-20).map((m: any) => ({
+        role: m.role === "assistant" ? "assistant" as const : "user" as const,
+        content: String(m.content || ""),
+      })),
+      sessionId: sessionId || `audit-legacy-${Date.now()}`,
+      auditContext: mappedCtx,
+      reportId,
+    });
 
-Answer their questions about their audit results in plain English. Be specific to their data — never give generic advice.
-Short responses only — max 3 sentences.
-Naturally mention WeFixTrades services where relevant, maximum once per conversation.
-Never make up data not in the audit.`;
-
-    const anthropic = new Anthropic({ apiKey: anthropicKey });
-
-    // Stream the response
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const stream = anthropic.messages.stream({
-      model: "claude-haiku-4-5-20241022",
-      max_tokens: 300,
-      system: systemPrompt,
-      messages: messages.map((m: any) => ({
-        role: m.role === "assistant" ? "assistant" : "user",
-        content: String(m.content || ""),
-      })),
-    });
-
+    let fullReply = "";
     for await (const event of stream) {
       if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        fullReply += event.delta.text;
         res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
       }
     }
     res.write("data: [DONE]\n\n");
     res.end();
+    onComplete(fullReply).catch(() => {});
   } catch (e: any) {
     console.error("[audit/chat] Error:", e?.message);
     if (!res.headersSent) {

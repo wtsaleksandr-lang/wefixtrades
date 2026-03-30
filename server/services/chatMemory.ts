@@ -1,13 +1,13 @@
 import { db } from "../db";
 import { chatMemory } from "@shared/schema";
-import { eq, and, gt } from "drizzle-orm";
+import { eq, and, gt, lt } from "drizzle-orm";
 import type { ChatMessage } from "./aiService";
-import type { MemoryContext } from "./promptBuilder";
+import type { MemoryContext, ChatSurface } from "./promptBuilder";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_STORED_MESSAGES = 40;
 
-/* ─── Get or create session memory ─── */
+/* ─── Get session memory ─── */
 export async function getMemory(sessionId: string): Promise<{
   id: number;
   memory: MemoryContext;
@@ -45,6 +45,8 @@ export async function saveMemory(
   messages: ChatMessage[],
   updates?: Partial<{
     reportId: string;
+    userId: number;
+    surface: ChatSurface;
     userName: string;
     businessType: string;
     serviceArea: string;
@@ -56,8 +58,6 @@ export async function saveMemory(
 ): Promise<void> {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + SEVEN_DAYS_MS);
-
-  // Keep only the last N messages to prevent bloat
   const trimmedMessages = messages.slice(-MAX_STORED_MESSAGES);
 
   const existing = await db
@@ -73,6 +73,8 @@ export async function saveMemory(
       updated_at: now,
     };
     if (updates?.reportId) updateData.report_id = updates.reportId;
+    if (updates?.userId) updateData.user_id = updates.userId;
+    if (updates?.surface) updateData.surface = updates.surface;
     if (updates?.userName) updateData.user_name = updates.userName;
     if (updates?.businessType) updateData.business_type = updates.businessType;
     if (updates?.serviceArea) updateData.service_area = updates.serviceArea;
@@ -85,6 +87,8 @@ export async function saveMemory(
   } else {
     await db.insert(chatMemory).values({
       session_id: sessionId,
+      user_id: updates?.userId ?? null,
+      surface: updates?.surface ?? "website",
       report_id: updates?.reportId ?? null,
       user_name: updates?.userName ?? null,
       business_type: updates?.businessType ?? null,
@@ -99,7 +103,7 @@ export async function saveMemory(
   }
 }
 
-/* ─── Extract memory signals from assistant + user messages ─── */
+/* ─── Extract memory signals from conversation ─── */
 export function extractMemorySignals(
   messages: ChatMessage[]
 ): Partial<{
@@ -114,30 +118,27 @@ export function extractMemorySignals(
     if (msg.role !== "user") continue;
     const lower = msg.content.toLowerCase();
 
-    if (/pric(e|ing)|cost|how much|rate|fee/.test(lower)) {
+    if (/\b(pric|cost|how much|rate|fee|afford)\b/.test(lower)) {
       signals.interestedInPricing = true;
       topics.add("pricing");
     }
-    if (/book|call|schedule|appointment|consult/.test(lower)) {
+    if (/\b(book|schedule|appointment|consult|strategy call)\b/.test(lower)) {
       signals.interestedInBooking = true;
       topics.add("booking");
     }
-    if (/seo|rank|google|map|visib/.test(lower)) topics.add("SEO/visibility");
-    if (/review|reputation|rating/.test(lower)) topics.add("reviews");
-    if (/website|speed|page|mobile/.test(lower)) topics.add("website");
-    if (/chat|ai|bot|assist/.test(lower)) topics.add("AI tools");
-    if (/lead|customer|call/.test(lower)) topics.add("lead generation");
+    if (/\b(seo|rank|google|map|visib|local search)\b/.test(lower)) topics.add("SEO/visibility");
+    if (/\b(review|reputation|rating|trust)\b/.test(lower)) topics.add("reviews");
+    if (/\b(website|speed|page speed|mobile|core web vital)\b/.test(lower)) topics.add("website");
+    if (/\b(chat|ai|voice|call line|chat line)\b/.test(lower)) topics.add("AI tools");
+    if (/\b(lead|customer|conversion|quote)\b/.test(lower)) topics.add("lead generation");
   }
 
   if (topics.size) signals.previousTopics = Array.from(topics);
   return signals;
 }
 
-/* ─── Cleanup expired records (call periodically) ─── */
-export async function cleanupExpiredMemory(): Promise<number> {
+/* ─── Cleanup expired records ─── */
+export async function cleanupExpiredMemory(): Promise<void> {
   const now = new Date();
-  const result = await db.delete(chatMemory).where(
-    gt(now, chatMemory.expires_at)
-  );
-  return 0; // drizzle delete doesn't return count easily
+  await db.delete(chatMemory).where(lt(chatMemory.expires_at, now));
 }

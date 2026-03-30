@@ -322,6 +322,8 @@ export type AuditReport = typeof auditReports.$inferSelect;
 export const chatMemory = pgTable("chat_memory", {
   id: serial("id").primaryKey(),
   session_id: varchar("session_id", { length: 100 }).notNull(),
+  user_id: integer("user_id").references(() => users.id),
+  surface: varchar("surface", { length: 30 }).notNull().default("website"),
   report_id: uuid("report_id"),
   user_name: text("user_name"),
   business_type: text("business_type"),

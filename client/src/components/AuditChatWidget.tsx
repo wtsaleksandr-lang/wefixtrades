@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, X } from "lucide-react";
 import s from "../pages/marketing/FreeAuditReport.module.css";
-
-type ChatMessage = { role: "user" | "assistant"; content: string };
+import { getSessionId, readSSEStream, sendChatMessage, type ChatMessage } from "@/lib/chatHelpers";
 
 interface AuditChatWidgetProps {
   businessName: string;
@@ -14,17 +13,6 @@ interface AuditChatWidgetProps {
   estimatedRevenueLoss: any;
   reportId?: string;
   detectedIssueIds?: string[];
-}
-
-function getSessionId(): string {
-  const KEY = "wft_chat_session";
-  let id = sessionStorage.getItem(KEY) || localStorage.getItem(KEY);
-  if (!id) {
-    id = `s_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-    try { localStorage.setItem(KEY, id); } catch { /* noop */ }
-    try { sessionStorage.setItem(KEY, id); } catch { /* noop */ }
-  }
-  return id;
 }
 
 export default function AuditChatWidget(props: AuditChatWidgetProps) {
@@ -40,23 +28,18 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionId = useRef(getSessionId());
 
-  // Stop pulsing after 15 seconds
   useEffect(() => {
     const t = setTimeout(() => setPulsing(false), 15000);
     return () => clearTimeout(t);
   }, []);
 
-  // Auto-open after 8 seconds with first message
   useEffect(() => {
     autoTimerRef.current = setTimeout(() => {
-      if (!hasOpened) {
-        openChat();
-      }
+      if (!hasOpened) openChat();
     }, 8000);
     return () => { if (autoTimerRef.current) clearTimeout(autoTimerRef.current); };
   }, []);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streaming]);
@@ -74,7 +57,7 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
     }
   }
 
-  async function sendMessage() {
+  async function handleSend() {
     const text = input.trim();
     if (!text || streaming) return;
     setInput("");
@@ -84,26 +67,22 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
     setStreaming(true);
 
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "audit",
-          messages: newMessages,
-          sessionId: sessionId.current,
-          reportId,
-          auditContext: {
-            businessName, trade, city, score, grade,
-            topIssues: actionPlan?.slice(0, 5)?.map((a: any) => ({
-              title: a.title,
-              estimatedImpact: a.estimatedImpact,
-              priority: a.priority,
-            })),
-            actionPlan: actionPlan?.slice(0, 5),
-            estimatedRevenueLoss,
-            detectedIssueIds,
-          },
-        }),
+      const res = await sendChatMessage({
+        surface: "audit",
+        messages: newMessages,
+        sessionId: sessionId.current,
+        reportId,
+        auditContext: {
+          businessName, trade, city, score, grade,
+          topIssues: actionPlan?.slice(0, 5)?.map((a: any) => ({
+            title: a.title,
+            estimatedImpact: a.estimatedImpact,
+            priority: a.priority,
+          })),
+          actionPlan: actionPlan?.slice(0, 5),
+          estimatedRevenueLoss,
+          detectedIssueIds,
+        },
       });
 
       if (!res.ok) {
@@ -113,35 +92,14 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
         return;
       }
 
-      // Stream the response
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let assistantText = "";
       setMessages(prev => [...prev, { role: "assistant", content: "" }]);
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n").filter(l => l.startsWith("data: "));
-          for (const line of lines) {
-            const data = line.slice(6);
-            if (data === "[DONE]") break;
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.text) {
-                assistantText += parsed.text;
-                setMessages(prev => {
-                  const copy = [...prev];
-                  copy[copy.length - 1] = { role: "assistant", content: assistantText };
-                  return copy;
-                });
-              }
-            } catch { /* skip malformed chunks */ }
-          }
-        }
-      }
+      await readSSEStream(res, (fullText) => {
+        setMessages(prev => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: "assistant", content: fullText };
+          return copy;
+        });
+      });
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Please try again." }]);
     }
@@ -150,7 +108,6 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
 
   return (
     <>
-      {/* Floating bubble */}
       {!open && (
         <button
           className={`${s.chatBubble} ${pulsing ? s.chatBubblePulse : ""}`}
@@ -164,7 +121,6 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
         </button>
       )}
 
-      {/* Chat window */}
       {open && (
         <div className={s.chatWindow}>
           <div className={s.chatHeader}>
@@ -198,11 +154,11 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
               className={s.chatInput}
               value={input}
               onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
               placeholder="Ask anything about your audit..."
               disabled={streaming}
             />
-            <button className={s.chatSend} onClick={sendMessage} disabled={streaming} aria-label="Send">
+            <button className={s.chatSend} onClick={handleSend} disabled={streaming} aria-label="Send">
               <Send size={18} />
             </button>
           </div>

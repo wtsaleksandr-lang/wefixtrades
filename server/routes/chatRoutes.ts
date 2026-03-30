@@ -1,15 +1,15 @@
 import type { Express, Request, Response } from "express";
-import { streamChat, type ChatMessage } from "../services/aiService";
-import { buildSystemPrompt, type ChatMode, type AuditContext } from "../services/promptBuilder";
-import { getMemory, saveMemory, extractMemorySignals } from "../services/chatMemory";
+import { assistantStream, isReady, type AssistantRequest } from "../services/assistant";
+import type { ChatSurface, AuditContext } from "../services/promptBuilder";
+import type { ChatMessage } from "../services/aiService";
 import { db } from "../db";
 import { auditReports } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
-/* ─── Simple in-memory rate limiter ─── */
+/* ─── Rate limiter (in-memory, per-IP) ─── */
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT_MAX = 30; // requests per window
-const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 30;
+const RATE_LIMIT_WINDOW_MS = 60_000;
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -22,7 +22,7 @@ function checkRateLimit(ip: string): boolean {
   return entry.count <= RATE_LIMIT_MAX;
 }
 
-// Periodic cleanup of stale entries
+// Clean stale rate-limit entries every 5 minutes
 setInterval(() => {
   const now = Date.now();
   for (const [key, val] of rateLimitMap) {
@@ -30,7 +30,9 @@ setInterval(() => {
   }
 }, 5 * 60_000);
 
-/* ─── Input validation ─── */
+/* ─── Validation ─── */
+const VALID_SURFACES: ChatSurface[] = ["website", "audit", "dashboard", "admin", "vapi"];
+
 function validateMessages(messages: any): messages is ChatMessage[] {
   return (
     Array.isArray(messages) &&
@@ -46,7 +48,11 @@ function validateMessages(messages: any): messages is ChatMessage[] {
   );
 }
 
-/* ─── Load audit report context from DB ─── */
+function getClientIp(req: Request): string {
+  return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
+}
+
+/* ─── Load audit context from DB ─── */
 async function loadAuditContext(reportId: string): Promise<AuditContext | null> {
   try {
     const rows = await db.select().from(auditReports).where(eq(auditReports.id, reportId)).limit(1);
@@ -56,38 +62,32 @@ async function loadAuditContext(reportId: string): Promise<AuditContext | null> 
     const data = report.audit_data as any;
     if (!data) return null;
 
-    // Extract structured context from audit data
     const ctx: AuditContext = {
       businessName: report.business_name,
       trade: data.trade || data.business?.trade || "",
       city: data.city || data.business?.city || "",
     };
 
-    // Score and grade
     if (typeof data.overallScore === "number") ctx.score = data.overallScore;
-    if (data.grade) ctx.grade = data.grade;
+    if (typeof data.scores?.overall === "number") ctx.score = data.scores.overall;
+    if (data.grade || data.scores?.grade) ctx.grade = data.grade || data.scores.grade;
 
-    // Revenue loss
     if (data.estimatedRevenueLoss) ctx.estimatedRevenueLoss = data.estimatedRevenueLoss;
 
-    // Issues / action plan
-    if (Array.isArray(data.actionPlan)) {
-      ctx.actionPlan = data.actionPlan;
-      ctx.topIssues = data.actionPlan.map((a: any) => ({
+    const plan = data.narrative?.actionPlan || data.actionPlan;
+    if (Array.isArray(plan)) {
+      ctx.actionPlan = plan;
+      ctx.topIssues = plan.map((a: any) => ({
         title: a.title,
         estimatedImpact: a.estimatedImpact,
         priority: a.priority,
       }));
     }
 
-    // Detected issue IDs for service matching
     if (Array.isArray(data.detectedIssues)) {
       ctx.detectedIssueIds = data.detectedIssues;
-    } else if (Array.isArray(data.actionPlan)) {
-      // Derive from action plan titles
-      ctx.detectedIssueIds = data.actionPlan
-        .map((a: any) => a.issueId || a.id)
-        .filter(Boolean);
+    } else if (Array.isArray(plan)) {
+      ctx.detectedIssueIds = plan.map((a: any) => a.issueId || a.id).filter(Boolean);
     }
 
     return ctx;
@@ -97,57 +97,77 @@ async function loadAuditContext(reportId: string): Promise<AuditContext | null> 
   }
 }
 
+/* ─── Write SSE stream to response ─── */
+async function writeStream(res: Response, req: AssistantRequest): Promise<void> {
+  const { stream, onComplete } = await assistantStream(req);
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+
+  let fullReply = "";
+
+  for await (const event of stream) {
+    if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+      fullReply += event.delta.text;
+      res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
+    }
+  }
+
+  res.write("data: [DONE]\n\n");
+  res.end();
+
+  // Save memory in background
+  onComplete(fullReply).catch(() => {});
+}
+
 /* ─── Register routes ─── */
 export function registerChatRoutes(app: Express): void {
   /**
    * POST /api/chat
-   * Unified chat endpoint for both audit report chat and general website chat.
+   * Unified chat endpoint for all surfaces.
    *
    * Body:
-   *   mode: "audit" | "general"
+   *   surface: "website" | "audit" | "dashboard" | "admin" | "vapi"
    *   messages: ChatMessage[]
    *   sessionId: string
-   *   reportId?: string (for audit mode)
-   *   auditContext?: AuditContext (client-side fallback if no reportId)
+   *   reportId?: string
+   *   auditContext?: AuditContext (client-side fallback)
+   *   userId?: number (set by auth middleware in future)
    */
   app.post("/api/chat", async (req: Request, res: Response) => {
     try {
-      // Rate limiting
-      const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
+      const clientIp = getClientIp(req);
       if (!checkRateLimit(clientIp)) {
         return res.status(429).json({ error: "Too many requests. Please wait a moment." });
       }
 
-      // Validate API key
-      if (!process.env.ANTHROPIC_API_KEY) {
+      const readiness = isReady();
+      if (!readiness.ready) {
         return res.status(503).json({ error: "Chat is temporarily unavailable." });
       }
 
-      const { mode, messages, sessionId, reportId, auditContext: clientAuditCtx } = req.body || {};
+      const { surface: rawSurface, mode, messages, sessionId, reportId, auditContext: clientAuditCtx, userId } = req.body || {};
 
-      // Validate mode
-      const chatMode: ChatMode = mode === "audit" ? "audit" : "general";
+      // Support both "surface" and legacy "mode" field
+      const surfaceStr = rawSurface || mode || "website";
+      const surface: ChatSurface = VALID_SURFACES.includes(surfaceStr) ? surfaceStr : "website";
 
-      // Validate messages
       if (!validateMessages(messages)) {
         return res.status(400).json({ error: "Invalid messages format." });
       }
 
-      // Validate sessionId
       const sid = typeof sessionId === "string" && sessionId.length > 0 && sessionId.length <= 100
         ? sessionId
         : `anon-${clientIp}-${Date.now()}`;
 
-      // Load memory
-      const storedMemory = await getMemory(sid).catch(() => null);
-
-      // Build audit context
+      // Build audit context if applicable
       let auditCtx: AuditContext | undefined;
-      if (chatMode === "audit") {
+      if (surface === "audit") {
         if (reportId && typeof reportId === "string") {
           auditCtx = await loadAuditContext(reportId) || undefined;
         }
-        // Fall back to client-provided context
         if (!auditCtx && clientAuditCtx) {
           auditCtx = {
             businessName: clientAuditCtx.businessName,
@@ -163,51 +183,16 @@ export function registerChatRoutes(app: Express): void {
         }
       }
 
-      // Build system prompt
-      const systemPrompt = buildSystemPrompt(
-        chatMode,
-        auditCtx,
-        storedMemory?.memory
-      );
+      const assistantReq: AssistantRequest = {
+        surface,
+        messages: messages.slice(-20),
+        sessionId: sid,
+        userId: typeof userId === "number" ? userId : undefined,
+        auditContext: auditCtx,
+        reportId: typeof reportId === "string" ? reportId : undefined,
+      };
 
-      // Use stored history + new messages for context continuity
-      // The client sends the full visible conversation; we trust it but cap it
-      const chatMessages = messages.slice(-20) as ChatMessage[];
-
-      // Stream response via SSE
-      res.setHeader("Content-Type", "text/event-stream");
-      res.setHeader("Cache-Control", "no-cache");
-      res.setHeader("Connection", "keep-alive");
-      res.setHeader("X-Accel-Buffering", "no");
-
-      const stream = streamChat({
-        system: systemPrompt,
-        messages: chatMessages,
-      });
-
-      let fullReply = "";
-
-      for await (const event of stream) {
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-          fullReply += event.delta.text;
-          res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
-        }
-      }
-
-      res.write("data: [DONE]\n\n");
-      res.end();
-
-      // Save memory in the background (don't block response)
-      const allMessages: ChatMessage[] = [
-        ...chatMessages,
-        { role: "assistant" as const, content: fullReply },
-      ];
-      const signals = extractMemorySignals(allMessages);
-      saveMemory(sid, allMessages, {
-        reportId: reportId || storedMemory?.memory?.reportId,
-        ...signals,
-      }).catch((err) => console.error("[chat] Memory save error:", err));
-
+      await writeStream(res, assistantReq);
     } catch (err: any) {
       console.error("[chat] Error:", err?.message);
       if (!res.headersSent) {

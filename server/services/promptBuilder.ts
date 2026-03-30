@@ -1,7 +1,18 @@
 import { compileKnowledge, formatRecommendedServices, getRecommendedServices } from "./knowledgeBase";
 
 /* ─── Types ─── */
-export type ChatMode = "audit" | "general";
+
+/**
+ * Surfaces represent where the conversation is happening.
+ * Adding a new surface (e.g. "vapi", "admin") only requires adding
+ * a case to buildSurfaceContext() below — everything else is shared.
+ */
+export type ChatSurface =
+  | "website"      // General marketing site chat widget
+  | "audit"        // Audit report follow-up chat
+  | "dashboard"    // Client dashboard assistant (future)
+  | "admin"        // Admin/internal assistant (future)
+  | "vapi";        // Voice assistant via Vapi (future)
 
 export interface AuditContext {
   businessName?: string;
@@ -26,7 +37,7 @@ export interface MemoryContext {
   interestedInBooking?: boolean;
 }
 
-/* ─── Brand voice (shared) ─── */
+/* ─── Shared brand voice (all surfaces use this) ─── */
 const BRAND_VOICE = `You are a friendly, knowledgeable growth advisor for WeFixTrades. You help trades business owners understand their online presence and find practical ways to get more customers.
 
 PERSONALITY:
@@ -48,59 +59,89 @@ RULES:
 - When mentioning pricing, use actual data from the knowledge base
 - Never fabricate service names, prices, or features`;
 
-/* ─── Build system prompt ─── */
+/* ─── Conversion guidance (shared) ─── */
+const CONVERSION_GUIDANCE = `CONVERSION GUIDANCE (use naturally, never force):
+- Rankings/visibility concerns → mention how MapGuard™ can help
+- Missed calls or after-hours → mention AI ChatLine™ or CallLine™
+- Website speed or SEO → mention WebBoost™
+- Reviews or reputation → mention ReputationShield™
+- Needs a website → mention SiteLaunch™
+- Wants quotes on their site → mention QuoteQuick Pro™
+- Interested user → suggest booking a free strategy call
+- Haven't tried audit → mention the free audit at /free-audit
+Let conversation flow naturally. Never force a pitch.`;
+
+/* ─── Build the complete system prompt ─── */
 export function buildSystemPrompt(
-  mode: ChatMode,
+  surface: ChatSurface,
   auditContext?: AuditContext,
-  memory?: MemoryContext
+  memory?: MemoryContext,
 ): string {
-  const knowledge = compileKnowledge();
   const parts: string[] = [BRAND_VOICE];
 
   // Knowledge base
-  parts.push(`\n=== YOUR KNOWLEDGE BASE ===\nUse this information to answer questions accurately. Only reference services and prices that appear here.\n\n${knowledge}`);
+  const knowledge = compileKnowledge();
+  parts.push(`\n=== YOUR KNOWLEDGE BASE ===\nUse this to answer questions accurately. Only reference services and prices that appear here.\n\n${knowledge}`);
 
-  // Memory context
+  // Memory context (if any)
   if (memory) {
-    const memParts: string[] = [];
-    if (memory.userName) memParts.push(`User's name: ${memory.userName}`);
-    if (memory.businessType) memParts.push(`Their business type: ${memory.businessType}`);
-    if (memory.serviceArea) memParts.push(`Service area: ${memory.serviceArea}`);
-    if (memory.websiteUrl) memParts.push(`Website: ${memory.websiteUrl}`);
-    if (memory.reportId) memParts.push(`They have a report (ID: ${memory.reportId})`);
-    if (memory.previousTopics?.length) memParts.push(`Previously discussed: ${memory.previousTopics.join(", ")}`);
-    if (memory.interestedInPricing) memParts.push("They've shown interest in pricing");
-    if (memory.interestedInBooking) memParts.push("They've shown interest in booking a call");
-    if (memParts.length) {
-      parts.push(`\n=== WHAT YOU REMEMBER ABOUT THIS USER ===\n${memParts.join("\n")}`);
-    }
+    const memBlock = buildMemoryBlock(memory);
+    if (memBlock) parts.push(memBlock);
   }
 
-  // Mode-specific context
-  if (mode === "audit" && auditContext) {
-    parts.push(buildAuditSection(auditContext));
-  } else if (mode === "general") {
-    parts.push(`\n=== CONTEXT ===\nYou are the website chat assistant on wefixtrades.com. Help visitors understand what WeFixTrades does, answer questions about services and pricing, and guide interested users toward booking a free strategy call or getting a free audit at /free-audit. Be welcoming to first-time visitors.`);
-  }
+  // Surface-specific context
+  parts.push(buildSurfaceContext(surface, auditContext));
 
   // Conversion guidance
-  parts.push(`\n=== CONVERSION GUIDANCE ===
-When it naturally fits the conversation:
-- If they mention rankings or visibility → explain how MapGuard™ can help
-- If they mention missed calls or after-hours → mention AI ChatLine™ or CallLine™
-- If they mention website speed or SEO → mention WebBoost™
-- If they mention reviews or reputation → mention ReputationShield™
-- If they need a website → mention SiteLaunch™
-- If they want quotes on their site → mention QuoteQuick Pro™
-- If they seem interested, suggest booking a free strategy call
-- If they haven't tried the free audit, mention it as a no-obligation way to see where they stand
-Always let the conversation guide this — never force a sales pitch.`);
+  parts.push(`\n=== ${CONVERSION_GUIDANCE}`);
 
   return parts.join("\n");
 }
 
-/* ─── Audit-specific section ─── */
-function buildAuditSection(ctx: AuditContext): string {
+/* ─── Memory block builder ─── */
+function buildMemoryBlock(memory: MemoryContext): string | null {
+  const lines: string[] = [];
+  if (memory.userName) lines.push(`User's name: ${memory.userName}`);
+  if (memory.businessType) lines.push(`Their business type: ${memory.businessType}`);
+  if (memory.serviceArea) lines.push(`Service area: ${memory.serviceArea}`);
+  if (memory.websiteUrl) lines.push(`Website: ${memory.websiteUrl}`);
+  if (memory.reportId) lines.push(`They have an audit report on file`);
+  if (memory.previousTopics?.length) lines.push(`Previously discussed: ${memory.previousTopics.join(", ")}`);
+  if (memory.interestedInPricing) lines.push("They've shown interest in pricing");
+  if (memory.interestedInBooking) lines.push("They've shown interest in booking a call");
+  if (!lines.length) return null;
+  return `\n=== WHAT YOU REMEMBER ABOUT THIS USER ===\n${lines.join("\n")}`;
+}
+
+/* ─── Surface-specific context ─── */
+function buildSurfaceContext(surface: ChatSurface, auditContext?: AuditContext): string {
+  switch (surface) {
+    case "audit":
+      return buildAuditSurface(auditContext);
+
+    case "website":
+      return `\n=== CONTEXT ===\nYou are the website chat assistant on wefixtrades.com. Help visitors understand what WeFixTrades does, answer questions about services and pricing, and guide interested users toward booking a free strategy call or getting a free audit at /free-audit. Be welcoming to first-time visitors.`;
+
+    case "dashboard":
+      return `\n=== CONTEXT ===\nYou are a dashboard assistant helping a logged-in WeFixTrades client. Help them understand their analytics, configure their calculator, manage leads, and get the most from the platform. Be practical and action-oriented.`;
+
+    case "admin":
+      return `\n=== CONTEXT ===\nYou are an internal assistant for the WeFixTrades team. You can help with account management, analytics, and operations. Be precise and data-driven.`;
+
+    case "vapi":
+      return `\n=== CONTEXT ===\nYou are a voice assistant answering phone calls for WeFixTrades. Keep responses short and conversational — this is spoken, not written. Guide callers toward scheduling a consultation or understanding services. Avoid long lists or complex formatting.`;
+
+    default:
+      return `\n=== CONTEXT ===\nYou are a general assistant for WeFixTrades. Answer questions helpfully.`;
+  }
+}
+
+/* ─── Audit surface builder ─── */
+function buildAuditSurface(ctx?: AuditContext): string {
+  if (!ctx) {
+    return `\n=== CONTEXT ===\nYou are chatting with someone who has used the WeFixTrades audit tool. Help them understand their results and what they can do to improve.`;
+  }
+
   const lines: string[] = ["\n=== AUDIT REPORT CONTEXT ==="];
   lines.push(`You are chatting with the owner of ${ctx.businessName || "a local business"}, a ${ctx.trade || "trades"} business in ${ctx.city || "their area"}.`);
   lines.push(`Their audit score: ${ctx.score ?? "N/A"}/100 (Grade: ${ctx.grade || "N/A"}).`);
@@ -127,7 +168,7 @@ function buildAuditSection(ctx: AuditContext): string {
     });
   }
 
-  // Add recommended services based on detected issues
+  // Recommend services based on detected issues
   if (ctx.detectedIssueIds?.length) {
     const recommended = getRecommendedServices(ctx.detectedIssueIds);
     if (recommended.length) {
