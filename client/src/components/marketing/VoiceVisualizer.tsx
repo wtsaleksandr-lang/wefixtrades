@@ -64,7 +64,7 @@ export default function VoiceVisualizer({
         color: palette[i % palette.length],
         minPixels: Math.max(2, Math.round(maxPixels * (0.12 + seed * 0.22))),
         maxPixels: Math.max(4, Math.round(maxPixels * (0.45 + seed2 * 0.50))),
-        duration: 0.6 + seed3 * 1.4,
+        duration: 1.2 + seed3 * 2.0,
         delay: seed * -2,
       };
     });
@@ -170,10 +170,10 @@ export default function VoiceVisualizer({
             transform: "scaleY(-1)",
             height: height * 0.5,
             overflow: "hidden",
-            maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 90%)",
-            WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 90%)",
-            filter: "blur(2px)",
-            opacity: 0.5,
+            maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 85%)",
+            WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 85%)",
+            filter: "blur(1.5px)",
+            opacity: 0.7,
             marginTop: -1,
             pointerEvents: "none",
           }}>

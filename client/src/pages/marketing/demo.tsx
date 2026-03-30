@@ -611,7 +611,7 @@ export default function DemoPage() {
         {/* ═══ HERO — dark, voice-first, Vapi-inspired ═══ */}
         <section style={{
           background: `radial-gradient(ellipse 80% 60% at 50% 20%, rgba(102,232,250,0.08) 0%, ${mkt.bg} 70%)`,
-          padding: "100px 28px 0", textAlign: "center", position: "relative", overflow: "hidden",
+          padding: "100px 28px 0", textAlign: "center", position: "relative",
         }}>
           <div style={{ maxWidth: 720, margin: "0 auto", position: "relative", zIndex: 1 }}>
             <div style={{
@@ -662,10 +662,6 @@ export default function DemoPage() {
           </div>
           {/* Sound bars hero band */}
           <HeroSoundBars active height={90} style={{ opacity: 0.9 }} />
-          <div style={{
-            height: 1,
-            background: `linear-gradient(90deg, transparent 0%, rgba(102,232,250,0.2) 50%, transparent 100%)`,
-          }} />
         </section>
 
         {/* ═══ TAB BAR + DEMO CONTENT ═══ */}
