@@ -78,7 +78,7 @@ export default function VoiceVisualizer({
       style={{
         display: "flex",
         alignItems: "flex-end",
-        justifyContent: "center",
+        justifyContent: "space-evenly",
         gap: BAR_GAP,
         height,
         overflow: "hidden",
