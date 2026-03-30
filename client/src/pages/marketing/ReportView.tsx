@@ -271,14 +271,29 @@ function ScreenshotLightbox({ src, alt, onClose }: { src: string; alt: string; o
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column' }}>
+      {/* Close button — always visible, prominent on mobile */}
+      <button
+        onClick={onClose}
+        style={{
+          position: 'absolute', top: 16, right: 16, zIndex: 302,
+          width: 44, height: 44, borderRadius: '50%',
+          border: '1px solid rgba(255,255,255,0.3)',
+          background: 'rgba(0,0,0,0.6)', color: '#fff',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 20, fontWeight: 300,
+          backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+        }}
+        aria-label="Close"
+      >
+        <X size={22} />
+      </button>
       {/* Toolbar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', flexShrink: 0, background: 'rgba(0,0,0,0.5)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', paddingRight: 72, flexShrink: 0, background: 'rgba(0,0,0,0.5)' }}>
         <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>{Math.round(scale * 100)}%</div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => setScale(s => clampScale(s / 1.3))} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ZoomOut size={18} /></button>
           <button onClick={() => { setScale(1); setTranslate({ x: 0, y: 0 }); }} style={{ padding: '0 12px', height: 36, borderRadius: 18, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Reset</button>
           <button onClick={() => setScale(s => clampScale(s * 1.3))} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ZoomIn size={18} /></button>
-          <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 4 }}><X size={18} /></button>
         </div>
       </div>
       {/* Image area */}
@@ -449,6 +464,17 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [visualAnalysisModal, setVisualAnalysisModal] = useState(false);
   const [screenshotLightbox, setScreenshotLightbox] = useState(false);
   const [reportZoom, setReportZoom] = useState(100);
+
+  // Lock body scroll when any modal is open
+  const anyModalOpen = scoreModalOpen || metricModal !== null || breakdownModal !== null || issueModal !== null || visualAnalysisModal || screenshotLightbox;
+  useEffect(() => {
+    if (anyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [anyModalOpen]);
 
   // Score circle animation state
   const [displayScore, setDisplayScore] = useState(0);
@@ -922,8 +948,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: window.innerWidth >= 1024 ? 960 : 780, margin: '0 auto', padding: isTiny ? '0 10px 80px' : isMobile ? '0 16px 80px' : '0 16px 48px', boxSizing: 'border-box', position: 'relative', transform: reportZoom !== 100 ? `scale(${reportZoom / 100})` : undefined, transformOrigin: 'top center' }}>
 
       {/* TAB BAR */}
-      <div style={{ display:'flex', justifyContent:'center', background:WHITE, padding:'10px 16px', position:'sticky', top:0, zIndex:20, width:'100%' }}>
-        <div style={{ display:'inline-flex', background:'#F3F4F6', borderRadius:24, padding:3, gap:2 }}>
+      <div style={{ display:'flex', justifyContent:'center', background:WHITE, padding:'12px 16px', position:'sticky', top:0, zIndex:20, width:'100%', borderBottom: '1px solid rgba(0,0,0,0.06)', borderRadius: '0 0 16px 16px' }}>
+        <div style={{ display:'inline-flex', background:'#F3F4F6', borderRadius:28, padding:4, gap:2 }}>
           {(['maps','website','plan'] as const).map(tab => (
             <button key={tab} data-testid={`tab-${tab}`} onClick={() => setActiveTab(tab)} {...hoverProps(`tab-${tab}`)} style={{
               padding:'8px 18px', fontSize:13, fontWeight: activeTab===tab ? 600 : 500,
