@@ -127,26 +127,41 @@ async function parseAssistantRequest(req: Request): Promise<
 
 /* ─── Write SSE stream to response ─── */
 async function writeStream(res: Response, req: AssistantRequest): Promise<void> {
-  const { stream, onComplete } = await assistantStream(req);
+  let headersSent = false;
 
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no");
+  try {
+    const { stream, onComplete } = await assistantStream(req);
 
-  let fullReply = "";
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    headersSent = true;
 
-  for await (const event of stream) {
-    if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-      fullReply += event.delta.text;
-      res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
+    let fullReply = "";
+
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        fullReply += event.delta.text;
+        res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
+      }
+    }
+
+    res.write("data: [DONE]\n\n");
+    res.end();
+
+    onComplete(fullReply).catch(() => {});
+  } catch (err: any) {
+    console.error("[chat] Stream error:", err?.message);
+    if (headersSent) {
+      // SSE is already open — send error as an SSE event so the client sees it
+      res.write(`data: ${JSON.stringify({ error: "Something went wrong. Please try again." })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+    } else {
+      throw err; // Let the route handler send a JSON error
     }
   }
-
-  res.write("data: [DONE]\n\n");
-  res.end();
-
-  onComplete(fullReply).catch(() => {});
 }
 
 /* ─── Register routes ─── */
@@ -175,7 +190,7 @@ export function registerChatRoutes(app: Express): void {
 
       await writeStream(res, parsed.assistantReq);
     } catch (err: any) {
-      console.error("[chat] Error:", err?.message);
+      console.error("[chat] Error:", err?.status || "", err?.message, err?.error?.message || "");
       if (!res.headersSent) {
         return res.status(500).json({ error: "Something went wrong. Please try again." });
       }

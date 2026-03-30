@@ -45,11 +45,16 @@ export async function readSSEStream(
         if (data === "[DONE]") return fullText;
         try {
           const parsed = JSON.parse(data);
+          if (parsed.error) {
+            // Server sent an error through the SSE stream
+            throw new Error(parsed.error);
+          }
           if (parsed.text) {
             fullText += parsed.text;
             onChunk(fullText);
           }
-        } catch {
+        } catch (e) {
+          if (e instanceof Error && e.message !== "Unexpected end of JSON input") throw e;
           // Skip malformed chunks
         }
       }

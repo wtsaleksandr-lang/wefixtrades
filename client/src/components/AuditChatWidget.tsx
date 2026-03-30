@@ -101,7 +101,17 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
         });
       });
     } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Please try again." }]);
+      // Replace the empty streaming placeholder with error message
+      setMessages(prev => {
+        const copy = [...prev];
+        const last = copy[copy.length - 1];
+        if (last && last.role === "assistant" && !last.content) {
+          copy[copy.length - 1] = { role: "assistant", content: "Something went wrong. Please try again." };
+        } else {
+          copy.push({ role: "assistant", content: "Something went wrong. Please try again." });
+        }
+        return copy;
+      });
     }
     setStreaming(false);
   }
