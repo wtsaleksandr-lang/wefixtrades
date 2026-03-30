@@ -285,9 +285,11 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
       {/* Fixed overlay + dropdown when open */}
       {isOpen && dropdownRect && (
         <>
-          {/* Invisible backdrop — blocks page scroll and catches clicks to close */}
+          {/* Backdrop — blocks page scroll via event handlers, catches clicks to close */}
           <div
             onClick={close}
+            onWheel={e => e.preventDefault()}
+            onTouchMove={e => e.preventDefault()}
             style={{
               position: 'fixed',
               inset: 0,
@@ -300,6 +302,13 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
             role="listbox"
             aria-label="Trade options"
             ref={listRef}
+            onWheel={e => {
+              const el = e.currentTarget;
+              const atTop = el.scrollTop <= 0 && e.deltaY < 0;
+              const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight && e.deltaY > 0;
+              if (atTop || atBottom) e.preventDefault();
+              e.stopPropagation();
+            }}
             style={{
               position: 'fixed',
               top: dropdownRect.top,
