@@ -330,15 +330,18 @@ function parseSearchQuery(query: string): { service: string | null; location: st
   }
 
   // Check for known locations (multi-word first, then single-word)
+  // Normalize periods for matching (st. catharines → st catharines)
+  const lowerNorm = lower.replace(/\./g, "");
   const knownKeys = Object.keys(KNOWN_CA_LOCATIONS);
   for (const loc of knownKeys) {
-    if (loc.includes(" ") && lower.includes(loc)) {
+    if (loc.includes(" ") && (lower.includes(loc) || lowerNorm.includes(loc))) {
       location = loc;
       break;
     }
   }
   if (!location) {
-    for (const word of words) {
+    const wordsNorm = lowerNorm.split(/\s+/);
+    for (const word of wordsNorm) {
       if (KNOWN_CA_LOCATIONS[word]) {
         location = word;
         break;
@@ -371,10 +374,10 @@ function inferCountryFromRequest(req: Request): string {
 
 /**
  * Re-rank Google results to prefer:
- * 1. Results in the inferred country (by address matching)
- * 2. Results matching the parsed location token
- * 3. Results with stronger business metadata (reviews, rating)
- * 4. Results with service-relevant types
+ * 1. Exact city match (dominant signal when user typed a city)
+ * 2. Results in the inferred country
+ * 3. Results with stronger business metadata
+ * 4. Penalize same-country-different-city when city is clear
  */
 function rerankResults(
   results: any[],
@@ -384,7 +387,7 @@ function rerankResults(
 
   const { inferredCountry, parsedService, parsedLocation } = ctx;
 
-  // Country names/codes for address matching
+  // Country patterns for address matching
   const countryPatterns: Record<string, string[]> = {
     ca: ["canada", ", on,", ", bc,", ", ab,", ", mb,", ", sk,", ", ns,", ", nb,", ", nl,", ", pe,", ", qc,",
          ", on ", ", bc ", ", ab ", ", mb ", ", sk ", ", ns ", ", nb ", ", nl ", ", pe ", ", qc ",
@@ -400,53 +403,66 @@ function rerankResults(
 
   const scored = results.map((r) => {
     const addr = (r.formatted_address || "").toLowerCase();
+    // Normalize punctuation for fuzzy city matching (st. catharines → st catharines)
+    const addrNorm = addr.replace(/\./g, "");
     const name = (r.name || "").toLowerCase();
     const types: string[] = Array.isArray(r.types) ? r.types : [];
     let score = 0;
 
+    const inPreferredCountry = preferredPatterns.some((p) => addr.includes(p));
+
     // +30: address matches inferred country
-    if (preferredPatterns.some((p) => addr.includes(p))) {
+    if (inPreferredCountry) {
       score += 30;
     }
 
-    // +20: address matches the province of the parsed location
-    if (locationProvince) {
-      const provinceTag = `, ${locationProvince.toLowerCase()}`;
-      if (addr.includes(provinceTag) || addr.includes(provinceTag + " ")) {
-        score += 20;
+    // City-level scoring (only when user typed a recognizable city)
+    if (parsedLocation) {
+      const locNorm = parsedLocation.replace(/\./g, "");
+      const cityInAddr = addrNorm.includes(locNorm);
+
+      // +40: exact city match in address — this is the strongest signal
+      if (cityInAddr) {
+        score += 40;
+      }
+
+      // +15: address matches the province of the parsed city
+      if (locationProvince) {
+        const provinceTag = `, ${locationProvince.toLowerCase()}`;
+        if (addr.includes(provinceTag) || addr.includes(provinceTag + " ")) {
+          score += 15;
+        }
+      }
+
+      // -12: same country but different city (penalize wrong-city results)
+      if (!cityInAddr && inPreferredCountry) {
+        score -= 12;
       }
     }
 
-    // +15: address contains the parsed location token
-    if (parsedLocation && addr.includes(parsedLocation)) {
-      score += 15;
-    }
-
-    // +10: name or types contain the parsed service term
+    // +10: name contains the parsed service term
     if (parsedService) {
       if (name.includes(parsedService)) score += 10;
       if (types.some((t) => t.includes(parsedService.replace(/s$/, "")))) score += 5;
     }
 
-    // +5: has reviews (real business signal)
+    // Business quality signals
     const reviews = r.user_ratings_total || 0;
     if (reviews > 0) score += 5;
-    // +3: has more than 10 reviews
     if (reviews > 10) score += 3;
-    // +2: has rating >= 4.0
     if (typeof r.rating === "number" && r.rating >= 4.0) score += 2;
 
     return { result: r, score };
   });
 
-  // Sort by score descending, stable (preserves Google's order for ties)
   scored.sort((a, b) => b.score - a.score);
   return scored.map((s) => s.result);
 }
 
 /**
  * Build a user-facing location hint like "Showing businesses near Hamilton, ON".
- * Returns null if no useful hint can be constructed.
+ * Only shown when a location token is confidently detected AND results contain
+ * mixed locations (i.e., ambiguity actually exists).
  */
 function buildLocationHint(
   results: any[],
@@ -456,12 +472,25 @@ function buildLocationHint(
   if (!parsed.location) return null;
 
   const province = KNOWN_CA_LOCATIONS[parsed.location];
-  if (province && inferredCountry === "ca") {
-    const cityName = parsed.location.charAt(0).toUpperCase() + parsed.location.slice(1);
-    return `Showing businesses near ${cityName}, ${province}`;
-  }
+  if (!province || inferredCountry !== "ca") return null;
 
-  return null;
+  // Only show hint if results contain addresses from different cities
+  // (i.e., there's actual ambiguity to resolve)
+  const locNorm = parsed.location.replace(/\./g, "");
+  const addrs = results.slice(0, 5).map((r) => (r.formatted_address || "").toLowerCase().replace(/\./g, ""));
+  const matchCount = addrs.filter((a) => a.includes(locNorm)).length;
+
+  // If ALL results match the city, no hint needed — no ambiguity
+  if (matchCount === addrs.length && addrs.length > 0) return null;
+  // If NO results match, hint isn't useful either
+  if (matchCount === 0 && addrs.length > 0) return null;
+
+  // Mixed results — hint helps disambiguate
+  const cityName = parsed.location
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+  return `Showing businesses near ${cityName}, ${province}`;
 }
 
 /** Non-business Google Places types to filter out. */
