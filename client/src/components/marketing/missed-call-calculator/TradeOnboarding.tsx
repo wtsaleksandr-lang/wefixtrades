@@ -66,67 +66,49 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
     return () => document.removeEventListener('mousedown', handleClick);
   }, [isOpen]);
 
-  // Lock page scroll while dropdown is open
+  // Prevent page scroll while dropdown is open — only allow scroll inside the listbox
   useEffect(() => {
     if (!isOpen) return;
 
-    const html = document.documentElement;
-    const body = document.body;
-    const scrollY = window.scrollY;
-
-    // Lock both html and body to cover all browsers
-    html.style.overflow = 'hidden';
-    body.style.overflow = 'hidden';
-    // Prevent layout shift from scrollbar disappearing
-    body.style.position = 'fixed';
-    body.style.top = `-${scrollY}px`;
-    body.style.left = '0';
-    body.style.right = '0';
-
-    return () => {
-      html.style.overflow = '';
-      body.style.overflow = '';
-      body.style.position = '';
-      body.style.top = '';
-      body.style.left = '';
-      body.style.right = '';
-      window.scrollTo(0, scrollY);
-    };
-  }, [isOpen]);
-
-  // Prevent wheel/touch scroll from leaking to page at dropdown boundaries
-  useEffect(() => {
-    if (!isOpen) return;
-    const el = listRef.current;
-    if (!el) return;
+    function isInsideList(target: EventTarget | null): boolean {
+      return !!listRef.current && listRef.current.contains(target as Node);
+    }
 
     function onWheel(e: WheelEvent) {
-      const { scrollTop, scrollHeight, clientHeight } = el!;
-      const atTop = scrollTop <= 0 && e.deltaY < 0;
-      const atBottom = scrollTop + clientHeight >= scrollHeight && e.deltaY > 0;
+      if (!isInsideList(e.target)) {
+        e.preventDefault();
+        return;
+      }
+      // Inside the list — clamp at boundaries so it doesn't leak
+      const el = listRef.current!;
+      const atTop = el.scrollTop <= 0 && e.deltaY < 0;
+      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight && e.deltaY > 0;
       if (atTop || atBottom) e.preventDefault();
     }
 
-    // For touch: track start position and prevent at boundaries
     let touchStartY = 0;
     function onTouchStart(e: TouchEvent) {
       touchStartY = e.touches[0].clientY;
     }
     function onTouchMove(e: TouchEvent) {
+      if (!isInsideList(e.target)) {
+        e.preventDefault();
+        return;
+      }
+      const el = listRef.current!;
       const deltaY = touchStartY - e.touches[0].clientY;
-      const { scrollTop, scrollHeight, clientHeight } = el!;
-      const atTop = scrollTop <= 0 && deltaY < 0;
-      const atBottom = scrollTop + clientHeight >= scrollHeight && deltaY > 0;
+      const atTop = el.scrollTop <= 0 && deltaY < 0;
+      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight && deltaY > 0;
       if (atTop || atBottom) e.preventDefault();
     }
 
-    el.addEventListener('wheel', onWheel, { passive: false });
-    el.addEventListener('touchstart', onTouchStart, { passive: true });
-    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('wheel', onWheel, { passive: false });
+    document.addEventListener('touchstart', onTouchStart, { passive: true });
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
     return () => {
-      el.removeEventListener('wheel', onWheel);
-      el.removeEventListener('touchstart', onTouchStart);
-      el.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('wheel', onWheel);
+      document.removeEventListener('touchstart', onTouchStart);
+      document.removeEventListener('touchmove', onTouchMove);
     };
   }, [isOpen]);
 
