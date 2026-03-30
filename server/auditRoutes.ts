@@ -267,34 +267,61 @@ const SERVICE_TERMS = new Set([
   "business", "shop", "store", "company", "service", "services",
 ]);
 
-/** Well-known Canadian city/region names that often clash with US/UK. */
-const KNOWN_CA_LOCATIONS: Record<string, string> = {
-  "hamilton": "ON", "london": "ON", "windsor": "ON", "cambridge": "ON",
-  "kingston": "ON", "barrie": "ON", "niagara": "ON", "niagara falls": "ON",
-  "st catharines": "ON", "st. catharines": "ON", "brantford": "ON",
-  "guelph": "ON", "kitchener": "ON", "waterloo": "ON", "oshawa": "ON",
-  "whitby": "ON", "ajax": "ON", "pickering": "ON", "markham": "ON",
-  "vaughan": "ON", "brampton": "ON", "mississauga": "ON", "oakville": "ON",
-  "burlington": "ON", "milton": "ON", "georgetown": "ON", "orangeville": "ON",
-  "newmarket": "ON", "aurora": "ON", "richmond hill": "ON",
-  "scarborough": "ON", "etobicoke": "ON", "north york": "ON",
-  "toronto": "ON", "ottawa": "ON", "thunder bay": "ON", "sudbury": "ON",
-  "sault ste marie": "ON", "peterborough": "ON", "belleville": "ON",
-  "cornwall": "ON", "sarnia": "ON", "chatham": "ON", "woodstock": "ON",
-  "stratford": "ON", "owen sound": "ON", "collingwood": "ON",
-  "orillia": "ON", "midland": "ON", "muskoka": "ON", "kawartha": "ON",
-  "vancouver": "BC", "victoria": "BC", "surrey": "BC", "burnaby": "BC",
-  "richmond": "BC", "kelowna": "BC", "kamloops": "BC", "nanaimo": "BC",
-  "abbotsford": "BC", "chilliwack": "BC", "prince george": "BC",
-  "calgary": "AB", "edmonton": "AB", "red deer": "AB", "lethbridge": "AB",
-  "medicine hat": "AB", "grande prairie": "AB", "fort mcmurray": "AB",
-  "winnipeg": "MB", "brandon": "MB",
-  "regina": "SK", "saskatoon": "SK",
-  "halifax": "NS", "dartmouth": "NS", "sydney": "NS",
-  "fredericton": "NB", "moncton": "NB", "saint john": "NB",
-  "st john's": "NL", "st. john's": "NL",
-  "charlottetown": "PE",
-};
+/** Well-known Canadian city/region names that often clash with US/UK.
+ *  Keys are stored in NORMALIZED form (see normalizeForMatch). */
+const KNOWN_CA_LOCATIONS: Record<string, string> = {};
+
+// Source data with readable names — inserted into lookup after normalization
+const _CA_CITIES: Array<[string, string]> = [
+  ["Hamilton", "ON"], ["London", "ON"], ["Windsor", "ON"], ["Cambridge", "ON"],
+  ["Kingston", "ON"], ["Barrie", "ON"], ["Niagara", "ON"], ["Niagara Falls", "ON"],
+  ["St. Catharines", "ON"], ["Saint Catharines", "ON"], ["Brantford", "ON"],
+  ["Guelph", "ON"], ["Kitchener", "ON"], ["Waterloo", "ON"], ["Oshawa", "ON"],
+  ["Whitby", "ON"], ["Ajax", "ON"], ["Pickering", "ON"], ["Markham", "ON"],
+  ["Vaughan", "ON"], ["Brampton", "ON"], ["Mississauga", "ON"], ["Oakville", "ON"],
+  ["Burlington", "ON"], ["Milton", "ON"], ["Georgetown", "ON"], ["Orangeville", "ON"],
+  ["Newmarket", "ON"], ["Aurora", "ON"], ["Richmond Hill", "ON"],
+  ["Scarborough", "ON"], ["Etobicoke", "ON"], ["North York", "ON"],
+  ["Toronto", "ON"], ["Ottawa", "ON"], ["Thunder Bay", "ON"], ["Sudbury", "ON"],
+  ["Sault Ste. Marie", "ON"], ["Sault Ste Marie", "ON"], ["Peterborough", "ON"], ["Belleville", "ON"],
+  ["Cornwall", "ON"], ["Sarnia", "ON"], ["Chatham", "ON"], ["Chatham-Kent", "ON"], ["Woodstock", "ON"],
+  ["Stratford", "ON"], ["Owen Sound", "ON"], ["Collingwood", "ON"],
+  ["Orillia", "ON"], ["Midland", "ON"], ["Muskoka", "ON"], ["Kawartha", "ON"],
+  ["Vancouver", "BC"], ["Victoria", "BC"], ["Surrey", "BC"], ["Burnaby", "BC"],
+  ["Richmond", "BC"], ["Kelowna", "BC"], ["Kamloops", "BC"], ["Nanaimo", "BC"],
+  ["Abbotsford", "BC"], ["Chilliwack", "BC"], ["Prince George", "BC"],
+  ["Calgary", "AB"], ["Edmonton", "AB"], ["Red Deer", "AB"], ["Lethbridge", "AB"],
+  ["Medicine Hat", "AB"], ["Grande Prairie", "AB"], ["Fort McMurray", "AB"],
+  ["Winnipeg", "MB"], ["Brandon", "MB"],
+  ["Regina", "SK"], ["Saskatoon", "SK"],
+  ["Halifax", "NS"], ["Dartmouth", "NS"], ["Sydney", "NS"],
+  ["Fredericton", "NB"], ["Moncton", "NB"], ["Saint John", "NB"],
+  ["St. John's", "NL"], ["Saint John's", "NL"],
+  ["Charlottetown", "PE"],
+  ["Québec", "QC"], ["Quebec", "QC"], ["Montréal", "QC"], ["Montreal", "QC"],
+  ["Laval", "QC"], ["Gatineau", "QC"], ["Sherbrooke", "QC"], ["Trois-Rivières", "QC"],
+  ["Trois Rivieres", "QC"], ["Lévis", "QC"], ["Levis", "QC"],
+];
+for (const [name, prov] of _CA_CITIES) {
+  KNOWN_CA_LOCATIONS[normalizeForMatch(name)] = prov;
+}
+
+/**
+ * Normalize a string for fuzzy location matching.
+ * Handles: lowercase, periods, hyphens, apostrophes, accents/diacritics,
+ * saint↔st, extra whitespace.
+ */
+function normalizeForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // strip diacritics (é→e, è→e)
+    .replace(/[.']/g, "")          // strip periods and apostrophes
+    .replace(/-/g, " ")            // hyphens to spaces (Chatham-Kent → Chatham Kent)
+    .replace(/\bsaint\b/g, "st")   // saint → st (Saint John → St John)
+    .replace(/\bste\b/g, "st")     // ste → st (Sault Ste Marie → Sault St Marie)
+    .replace(/\s+/g, " ")          // collapse whitespace
+    .trim();
+}
 
 /**
  * Parse a search query into service and location tokens.
@@ -305,6 +332,8 @@ const KNOWN_CA_LOCATIONS: Record<string, string> = {
 function parseSearchQuery(query: string): { service: string | null; location: string | null } {
   const lower = query.toLowerCase().trim();
   const words = lower.split(/\s+/);
+  const norm = normalizeForMatch(query);
+  const normWords = norm.split(/\s+/);
 
   let service: string | null = null;
   let location: string | null = null;
@@ -329,19 +358,20 @@ function parseSearchQuery(query: string): { service: string | null; location: st
     }
   }
 
-  // Check for known locations (multi-word first, then single-word)
-  // Normalize periods for matching (st. catharines → st catharines)
-  const lowerNorm = lower.replace(/\./g, "");
+  // Check for known locations against the normalized query.
+  // Multi-word locations first (niagara falls, richmond hill), then single-word.
   const knownKeys = Object.keys(KNOWN_CA_LOCATIONS);
+  // Sort longer keys first so "niagara falls" matches before "niagara"
+  knownKeys.sort((a, b) => b.length - a.length);
+
   for (const loc of knownKeys) {
-    if (loc.includes(" ") && (lower.includes(loc) || lowerNorm.includes(loc))) {
+    if (loc.includes(" ") && norm.includes(loc)) {
       location = loc;
       break;
     }
   }
   if (!location) {
-    const wordsNorm = lowerNorm.split(/\s+/);
-    for (const word of wordsNorm) {
+    for (const word of normWords) {
       if (KNOWN_CA_LOCATIONS[word]) {
         location = word;
         break;
@@ -403,8 +433,7 @@ function rerankResults(
 
   const scored = results.map((r) => {
     const addr = (r.formatted_address || "").toLowerCase();
-    // Normalize punctuation for fuzzy city matching (st. catharines → st catharines)
-    const addrNorm = addr.replace(/\./g, "");
+    const addrNorm = normalizeForMatch(r.formatted_address || "");
     const name = (r.name || "").toLowerCase();
     const types: string[] = Array.isArray(r.types) ? r.types : [];
     let score = 0;
@@ -418,8 +447,8 @@ function rerankResults(
 
     // City-level scoring (only when user typed a recognizable city)
     if (parsedLocation) {
-      const locNorm = parsedLocation.replace(/\./g, "");
-      const cityInAddr = addrNorm.includes(locNorm);
+      // parsedLocation is already normalized (comes from KNOWN_CA_LOCATIONS keys)
+      const cityInAddr = addrNorm.includes(parsedLocation);
 
       // +40: exact city match in address — this is the strongest signal
       if (cityInAddr) {
@@ -476,9 +505,8 @@ function buildLocationHint(
 
   // Only show hint if results contain addresses from different cities
   // (i.e., there's actual ambiguity to resolve)
-  const locNorm = parsed.location.replace(/\./g, "");
-  const addrs = results.slice(0, 5).map((r) => (r.formatted_address || "").toLowerCase().replace(/\./g, ""));
-  const matchCount = addrs.filter((a) => a.includes(locNorm)).length;
+  const addrs = results.slice(0, 5).map((r) => normalizeForMatch(r.formatted_address || ""));
+  const matchCount = addrs.filter((a) => a.includes(parsed.location!)).length;
 
   // If ALL results match the city, no hint needed — no ambiguity
   if (matchCount === addrs.length && addrs.length > 0) return null;
