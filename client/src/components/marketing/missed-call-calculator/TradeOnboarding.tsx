@@ -66,6 +66,50 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
     return () => document.removeEventListener('mousedown', handleClick);
   }, [isOpen]);
 
+  // Lock body scroll while dropdown is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [isOpen]);
+
+  // Prevent wheel/touch scroll from leaking to page at dropdown boundaries
+  useEffect(() => {
+    if (!isOpen) return;
+    const el = listRef.current;
+    if (!el) return;
+
+    function onWheel(e: WheelEvent) {
+      const { scrollTop, scrollHeight, clientHeight } = el!;
+      const atTop = scrollTop <= 0 && e.deltaY < 0;
+      const atBottom = scrollTop + clientHeight >= scrollHeight && e.deltaY > 0;
+      if (atTop || atBottom) e.preventDefault();
+    }
+
+    // For touch: track start position and prevent at boundaries
+    let touchStartY = 0;
+    function onTouchStart(e: TouchEvent) {
+      touchStartY = e.touches[0].clientY;
+    }
+    function onTouchMove(e: TouchEvent) {
+      const deltaY = touchStartY - e.touches[0].clientY;
+      const { scrollTop, scrollHeight, clientHeight } = el!;
+      const atTop = scrollTop <= 0 && deltaY < 0;
+      const atBottom = scrollTop + clientHeight >= scrollHeight && deltaY > 0;
+      if (atTop || atBottom) e.preventDefault();
+    }
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+    };
+  }, [isOpen]);
+
   const selectPreset = useCallback((preset: TradePreset) => {
     setIsOpen(false);
     setQuery('');
