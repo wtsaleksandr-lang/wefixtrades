@@ -1,12 +1,14 @@
 /**
  * Shared chat utilities for all chat widget surfaces.
- * Eliminates duplication between AuditChatWidget and SiteChatWidget.
+ * Provides session persistence, message storage, and SSE streaming.
  */
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
 /* ─── Session ID management ─── */
 const SESSION_KEY = "wft_chat_session";
+const MESSAGES_KEY = "wft_chat_messages";
+const OPEN_KEY = "wft_chat_open";
 
 export function getSessionId(): string {
   let id: string | null = null;
@@ -20,6 +22,35 @@ export function getSessionId(): string {
     try { sessionStorage.setItem(SESSION_KEY, id); } catch { /* noop */ }
   }
   return id;
+}
+
+/* ─── Message persistence (survives page navigation) ─── */
+export function loadMessages(): ChatMessage[] {
+  try {
+    const raw = localStorage.getItem(MESSAGES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch { /* noop */ }
+  return [];
+}
+
+export function saveMessages(messages: ChatMessage[]): void {
+  try {
+    // Keep last 40 messages to avoid bloating localStorage
+    const trimmed = messages.slice(-40);
+    localStorage.setItem(MESSAGES_KEY, JSON.stringify(trimmed));
+  } catch { /* noop */ }
+}
+
+/* ─── Open state persistence (survives page navigation) ─── */
+export function loadOpenState(): boolean {
+  try { return localStorage.getItem(OPEN_KEY) === "1"; } catch { return false; }
+}
+
+export function saveOpenState(open: boolean): void {
+  try { localStorage.setItem(OPEN_KEY, open ? "1" : "0"); } catch { /* noop */ }
 }
 
 /* ─── SSE stream reader ─── */
@@ -46,7 +77,6 @@ export async function readSSEStream(
         try {
           const parsed = JSON.parse(data);
           if (parsed.error) {
-            // Server sent an error through the SSE stream
             throw new Error(parsed.error);
           }
           if (parsed.text) {
@@ -55,7 +85,6 @@ export async function readSSEStream(
           }
         } catch (e) {
           if (e instanceof Error && e.message !== "Unexpected end of JSON input") throw e;
-          // Skip malformed chunks
         }
       }
     }

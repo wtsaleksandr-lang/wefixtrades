@@ -1,16 +1,40 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, X, MessageCircle } from "lucide-react";
-import { getSessionId, readSSEStream, sendChatMessage, type ChatMessage } from "@/lib/chatHelpers";
+import {
+  getSessionId, readSSEStream, sendChatMessage,
+  loadMessages, saveMessages, loadOpenState, saveOpenState,
+  type ChatMessage,
+} from "@/lib/chatHelpers";
+
+const GREETING: ChatMessage = {
+  role: "assistant",
+  content: "Hey! I'm here if you have any questions about growing your trades business online. What can I help you with?",
+};
 
 export default function SiteChatWidget() {
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [open, setOpen] = useState(() => loadOpenState());
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const saved = loadMessages();
+    return saved.length > 0 ? saved : [GREETING];
+  });
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
-  const [showDot, setShowDot] = useState(true);
+  const [showDot, setShowDot] = useState(() => loadMessages().length <= 1);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const sessionId = useRef(getSessionId());
 
+  // Persist messages to localStorage whenever they change
+  useEffect(() => {
+    saveMessages(messages);
+  }, [messages]);
+
+  // Persist open state
+  useEffect(() => {
+    saveOpenState(open);
+  }, [open]);
+
+  // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streaming]);
@@ -18,18 +42,18 @@ export default function SiteChatWidget() {
   function openChat() {
     setOpen(true);
     setShowDot(false);
-    if (messages.length === 0) {
-      setMessages([{
-        role: "assistant",
-        content: "Hey! I'm here if you have any questions about growing your trades business online. What can I help you with?",
-      }]);
-    }
   }
 
   async function handleSend() {
     const text = input.trim();
     if (!text || streaming) return;
     setInput("");
+
+    // Auto-open if closed
+    if (!open) {
+      setOpen(true);
+      setShowDot(false);
+    }
 
     const newMessages: ChatMessage[] = [...messages, { role: "user", content: text }];
     setMessages(newMessages);
@@ -61,7 +85,6 @@ export default function SiteChatWidget() {
         });
       });
     } catch {
-      // Replace the empty streaming placeholder with error message
       setMessages(prev => {
         const copy = [...prev];
         const last = copy[copy.length - 1];
@@ -189,16 +212,21 @@ export default function SiteChatWidget() {
             </button>
           </div>
 
-          {/* Messages */}
-          <div style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "16px 14px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
-            background: "#F9FAFB",
-          }}>
+          {/* Messages — overscroll-behavior: contain traps scroll inside */}
+          <div
+            ref={messagesContainerRef}
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              overscrollBehavior: "contain",
+              WebkitOverflowScrolling: "touch",
+              padding: "16px 14px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              background: "#F9FAFB",
+            }}
+          >
             {messages.map((msg, i) => (
               <div
                 key={i}

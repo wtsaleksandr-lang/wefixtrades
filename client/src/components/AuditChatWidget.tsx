@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, X } from "lucide-react";
 import s from "../pages/marketing/FreeAuditReport.module.css";
-import { getSessionId, readSSEStream, sendChatMessage, type ChatMessage } from "@/lib/chatHelpers";
+import {
+  getSessionId, readSSEStream, sendChatMessage,
+  loadMessages, saveMessages, loadOpenState, saveOpenState,
+  type ChatMessage,
+} from "@/lib/chatHelpers";
 
 interface AuditChatWidgetProps {
   businessName: string;
@@ -17,50 +21,78 @@ interface AuditChatWidgetProps {
 
 export default function AuditChatWidget(props: AuditChatWidgetProps) {
   const { businessName, trade, city, score, grade, actionPlan, estimatedRevenueLoss, reportId, detectedIssueIds } = props;
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  // Build audit-specific greeting
+  const greetingRef = useRef<ChatMessage>(() => {
+    const topIssue = actionPlan?.[0];
+    return {
+      role: "assistant" as const,
+      content: topIssue
+        ? `Hi! I've reviewed your audit for ${businessName}. Your most urgent issue is ${topIssue.title} — this could be worth ${topIssue.estimatedImpact || "significant revenue"} in additional leads. Want me to explain what's happening and how to fix it?`
+        : `Hi! I've reviewed your audit for ${businessName}. Your score is ${score}/100 (grade ${grade}). Ask me anything about your results!`,
+    };
+  });
+  // Evaluate once
+  const greeting = typeof greetingRef.current === "function" ? (greetingRef.current = greetingRef.current()) : greetingRef.current;
+
+  const [open, setOpen] = useState(() => loadOpenState());
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const saved = loadMessages();
+    // If saved messages exist from a previous surface/page, keep them.
+    // If empty, show the audit greeting.
+    return saved.length > 0 ? saved : [greeting];
+  });
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
-  const [hasOpened, setHasOpened] = useState(false);
-  const [showDot, setShowDot] = useState(true);
+  const [showDot, setShowDot] = useState(() => loadMessages().length <= 1);
   const [pulsing, setPulsing] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionId = useRef(getSessionId());
 
+  // Stop pulsing after 15s
   useEffect(() => {
     const t = setTimeout(() => setPulsing(false), 15000);
     return () => clearTimeout(t);
   }, []);
 
+  // Auto-open after 8s if no previous conversation
   useEffect(() => {
+    if (loadMessages().length > 1) return; // Already has conversation — don't auto-open
     autoTimerRef.current = setTimeout(() => {
-      if (!hasOpened) openChat();
+      if (!open) {
+        setOpen(true);
+        setShowDot(false);
+        saveOpenState(true);
+      }
     }, 8000);
     return () => { if (autoTimerRef.current) clearTimeout(autoTimerRef.current); };
   }, []);
 
+  // Persist messages
+  useEffect(() => { saveMessages(messages); }, [messages]);
+  useEffect(() => { saveOpenState(open); }, [open]);
+
+  // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streaming]);
 
   function openChat() {
     setOpen(true);
-    setHasOpened(true);
     setShowDot(false);
-    if (messages.length === 0) {
-      const topIssue = actionPlan?.[0];
-      const firstMsg = topIssue
-        ? `Hi! I've reviewed your audit for ${businessName}. Your most urgent issue is ${topIssue.title} — this could be worth ${topIssue.estimatedImpact || "significant revenue"} in additional leads. Want me to explain what's happening and how to fix it?`
-        : `Hi! I've reviewed your audit for ${businessName}. Your score is ${score}/100 (grade ${grade}). Ask me anything about your results!`;
-      setMessages([{ role: "assistant", content: firstMsg }]);
-    }
   }
 
   async function handleSend() {
     const text = input.trim();
     if (!text || streaming) return;
     setInput("");
+
+    // Auto-open if closed
+    if (!open) {
+      setOpen(true);
+      setShowDot(false);
+    }
 
     const newMessages: ChatMessage[] = [...messages, { role: "user", content: text }];
     setMessages(newMessages);
@@ -101,7 +133,6 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
         });
       });
     } catch {
-      // Replace the empty streaming placeholder with error message
       setMessages(prev => {
         const copy = [...prev];
         const last = copy[copy.length - 1];
@@ -145,7 +176,7 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
             </button>
           </div>
 
-          <div className={s.chatMessages}>
+          <div className={s.chatMessages} style={{ overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
             {messages.map((msg, i) => (
               <div key={i} className={msg.role === "assistant" ? s.chatMsgAi : s.chatMsgUser}>
                 {msg.content || "\u00A0"}
