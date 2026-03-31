@@ -322,7 +322,9 @@ export function MarketingNav() {
                       textTransform: "uppercase" as const,
                       letterSpacing: "0.08em",
                       textDecoration: "none",
-                      display: "inline-block",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                       whiteSpace: "nowrap",
                       border: `1px solid ${mkt.accent}`,
                       transition: "background 0.2s ease, color 0.2s ease",
@@ -334,7 +336,7 @@ export function MarketingNav() {
                       (e.currentTarget as HTMLElement).style.background = "transparent";
                     }}
                   >
-                    TRADELINE 24/7
+                    TRADELINE 24/7 DEMO
                   </Link>
                 </>
               )}
@@ -501,7 +503,7 @@ export function MarketingNav() {
                 border: `1px solid ${mkt.accent}`,
               }}
             >
-              TRADELINE 24/7
+              TRADELINE 24/7 DEMO
             </Link>
           </div>
         </div>
