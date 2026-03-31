@@ -310,7 +310,7 @@ export function MarketingNav() {
                   <Link
                     href="/demo"
                     className="mkt-btn-demo"
-                    data-testid="nav-cta-ai-demo"
+                    data-testid="nav-cta-tradeline"
                     style={{
                       padding: "8px 18px",
                       borderRadius: 9,
@@ -334,7 +334,7 @@ export function MarketingNav() {
                       (e.currentTarget as HTMLElement).style.background = "transparent";
                     }}
                   >
-                    AI DEMO
+                    TRADELINE 24/7
                   </Link>
                 </>
               )}
@@ -484,7 +484,7 @@ export function MarketingNav() {
             <Link
               href="/demo"
               onClick={() => setMenuOpen(false)}
-              data-testid="nav-cta-ai-demo-mobile"
+              data-testid="nav-cta-tradeline-mobile"
               style={{
                 display: "block",
                 marginTop: 8,
@@ -501,7 +501,7 @@ export function MarketingNav() {
                 border: `1px solid ${mkt.accent}`,
               }}
             >
-              AI DEMO
+              TRADELINE 24/7
             </Link>
           </div>
         </div>
