@@ -147,6 +147,7 @@ function ChatPanel() {
 
 function VoicePanel() {
   const vapi = useVapiCall();
+  const [micHover, setMicHover] = useState(false);
   const isInCall = vapi.status === "active";
   const isConnecting = vapi.status === "connecting" || vapi.status === "loading";
   const isEnded = vapi.status === "ended";
@@ -179,23 +180,29 @@ function VoicePanel() {
         onClick={handleClick}
         disabled={!canStart && !isInCall && !isConnecting}
         aria-label={isInCall ? "End voice call" : "Start voice demo"}
+        onMouseEnter={() => setMicHover(true)}
+        onMouseLeave={() => setMicHover(false)}
         style={{
           width: 80, height: 80, borderRadius: "50%", border: "none",
           cursor: canStart || isInCall || isConnecting ? "pointer" : "default",
           background: isInCall
             ? `radial-gradient(circle, #EF4444 0%, #DC2626 100%)`
-            : canStart || isConnecting
-              ? `radial-gradient(circle, ${mkt.accent} 0%, ${mkt.accentDark} 100%)`
-              : `radial-gradient(circle, ${mkt.surface} 0%, ${mkt.surfaceAlt} 100%)`,
+            : micHover && canStart
+              ? `radial-gradient(circle, #FFFFFF 0%, ${mkt.accent} 100%)`
+              : canStart || isConnecting
+                ? `radial-gradient(circle, ${mkt.accent} 0%, ${mkt.accentDark} 100%)`
+                : `radial-gradient(circle, ${mkt.surface} 0%, ${mkt.surfaceAlt} 100%)`,
           display: "flex", alignItems: "center", justifyContent: "center",
           boxShadow: isInCall
             ? `0 0 ${30 + glowIntensity * 60}px rgba(239,68,68,${glowIntensity})`
-            : canStart || isConnecting
-              ? `0 0 40px rgba(102,232,250,0.25)`
-              : "none",
-          transition: "box-shadow 0.15s ease, background 0.3s ease",
+            : micHover && canStart
+              ? `0 0 50px rgba(102,232,250,0.5)`
+              : canStart || isConnecting
+                ? `0 0 40px rgba(102,232,250,0.25)`
+                : "none",
+          transition: "box-shadow 0.2s ease, background 0.2s ease",
           marginBottom: 16,
-          animation: canStart && isIdle ? "micPulse 2s ease-in-out infinite" : undefined,
+          animation: canStart && isIdle && !micHover ? "micPulse 2s ease-in-out infinite" : undefined,
         }}
       >
         {isConnecting ? (
@@ -203,7 +210,7 @@ function VoicePanel() {
         ) : isInCall ? (
           <PhoneOff size={28} color="#FFFFFF" strokeWidth={1.5} />
         ) : (
-          <Mic size={28} color={canStart ? mkt.buttonText : mkt.textMuted} strokeWidth={1.5} />
+          <Mic size={28} color={micHover && canStart ? mkt.accent : canStart ? mkt.buttonText : mkt.textMuted} strokeWidth={1.5} style={{ transition: "color 0.2s ease" }} />
         )}
       </button>
       <style>{`
@@ -403,7 +410,7 @@ export default function DemoPage() {
         {/* ═══ CENTRAL DEMO CONTAINER ═══ */}
         <section style={{ background: mkt.bg, padding: "40px 20px 80px" }}>
           <div style={{
-            maxWidth: 720, margin: "0 auto",
+            maxWidth: 820, margin: "0 auto",
             background: mkt.bg,
             border: `1px solid ${mkt.border}`,
             borderRadius: 24,
