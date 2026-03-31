@@ -28,9 +28,12 @@ function ChatPanel() {
   ]);
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
   }, [messages]);
 
   const sendMutation = useMutation({
@@ -66,7 +69,7 @@ function ChatPanel() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Messages area */}
-      <div style={{
+      <div ref={scrollContainerRef} style={{
         flex: 1, overflowY: "auto", padding: "20px 18px", display: "flex",
         flexDirection: "column", gap: 12,
       }}>
@@ -396,7 +399,7 @@ export default function DemoPage() {
         {/* ═══ CENTRAL DEMO CONTAINER ═══ */}
         <section style={{ background: mkt.bg, padding: "40px 20px 80px" }}>
           <div style={{
-            maxWidth: 640, margin: "0 auto",
+            maxWidth: 720, margin: "0 auto",
             background: mkt.bg,
             border: `1px solid ${mkt.border}`,
             borderRadius: 24,
@@ -448,7 +451,7 @@ export default function DemoPage() {
             </div>
 
             {/* ── Demo content ── */}
-            <div style={{ height: 460 }}>
+            <div style={{ height: 600 }}>
               {mode === "chat" ? <ChatPanel /> : <VoicePanel />}
             </div>
           </div>
