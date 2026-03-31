@@ -330,10 +330,16 @@ export function MarketingNav() {
                       transition: "background 0.2s ease, color 0.2s ease",
                     }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = mkt.accentTint;
+                      const el = e.currentTarget as HTMLElement;
+                      el.style.background = mkt.accent;
+                      el.style.color = mkt.buttonText;
+                      el.style.boxShadow = `0 0 16px rgba(102,232,250,0.35)`;
                     }}
                     onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = "transparent";
+                      const el = e.currentTarget as HTMLElement;
+                      el.style.background = "transparent";
+                      el.style.color = mkt.accent;
+                      el.style.boxShadow = "none";
                     }}
                   >
                     TRADELINE 24/7 DEMO
