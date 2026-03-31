@@ -35,14 +35,14 @@ function ChatPanel() {
 
   const sendMutation = useMutation({
     mutationFn: async (msgs: Message[]) => {
-      const res = await apiRequest("POST", "/api/ai/demo-chat", {
+      const res = await apiRequest("POST", "/api/chat/sync", {
+        surface: "website",
         messages: msgs,
-        trade_category: "General",
       });
       return res.json();
     },
     onSuccess: (data) => {
-      const reply = data?.reply || data?.message || "Thanks for your inquiry! I can help you with that.";
+      const reply = data?.reply || "Thanks for your inquiry! I can help you with that.";
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     },
     onError: () => {
