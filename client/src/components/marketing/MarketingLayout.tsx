@@ -65,11 +65,10 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
           {/* Col 1 — Products */}
           <div>
             <div style={ftHeading}>Products</div>
-            <FtLink href="/solutions/ai-call-answering">AI Call Answering</FtLink>
+            <FtLink href="/products/tradeline">24/7 TradeLine™</FtLink>
             <FtLink href="/solutions/instant-quotes">Instant Quotes</FtLink>
             <FtLink href="/solutions/review-engine">Review Engine</FtLink>
             <FtLink href="/solutions/visibility-boost">Visibility Boost</FtLink>
-            <FtLink href="/solutions/website-chat">Website Chat</FtLink>
           </div>
 
           {/* Col 2 — Solutions */}
