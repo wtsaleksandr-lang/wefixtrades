@@ -195,6 +195,7 @@ function VoicePanel() {
               : "none",
           transition: "box-shadow 0.15s ease, background 0.3s ease",
           marginBottom: 16,
+          animation: canStart && isIdle ? "micPulse 2s ease-in-out infinite" : undefined,
         }}
       >
         {isConnecting ? (
@@ -205,10 +206,13 @@ function VoicePanel() {
           <Mic size={28} color={canStart ? mkt.buttonText : mkt.textMuted} strokeWidth={1.5} />
         )}
       </button>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-
-      {/* Sound bars */}
-      <VoiceVisualizer barCount={40} height={48} active={isInCall || isConnecting} variant="hero" style={{ marginBottom: 16, maxWidth: 300 }} />
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+        @keyframes micPulse {
+          0%, 100% { box-shadow: 0 0 20px rgba(102,232,250,0.2); transform: scale(1); }
+          50% { box-shadow: 0 0 40px rgba(102,232,250,0.45); transform: scale(1.06); }
+        }
+      `}</style>
 
       {/* Status */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
