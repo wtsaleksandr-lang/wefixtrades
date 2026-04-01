@@ -33,9 +33,10 @@ async function main() {
     .limit(1);
 
   if (existing) {
-    // Promote existing user to admin
-    await db.update(users).set({ role: "admin" }).where(eq(users.id, existing.id));
-    console.log(`Updated existing user "${normalizedEmail}" to admin role.`);
+    // Promote existing user to admin and reset password
+    const passwordHash = hashPassword(password);
+    await db.update(users).set({ role: "admin", password_hash: passwordHash }).where(eq(users.id, existing.id));
+    console.log(`Updated existing user "${normalizedEmail}" to admin role with new password.`);
   } else {
     // Create new admin user
     const passwordHash = hashPassword(password);
