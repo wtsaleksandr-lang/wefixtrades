@@ -55,6 +55,10 @@ import PrimitivesPage from "@/pages/dev/primitives";
 import DemoCanvas from "@/pages/dev/DemoCanvas";
 import RequirePortal from "@/components/auth/RequirePortal";
 import AiDashboard from "@/pages/admin/AiDashboard";
+import CrmOverview from "@/pages/admin/CrmOverview";
+import ClientsPage from "@/pages/admin/ClientsPage";
+import ClientDetailPage from "@/pages/admin/ClientDetailPage";
+import SuppliersPage from "@/pages/admin/SuppliersPage";
 
 function Router() {
   return (
@@ -62,6 +66,10 @@ function Router() {
       <Route path="/" component={MarketingHome} />
 
       <Route path="/admin/ai">{() => <RequirePortal><AiDashboard /></RequirePortal>}</Route>
+      <Route path="/admin/crm/clients/:id">{() => <RequirePortal><ClientDetailPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/clients">{() => <RequirePortal><ClientsPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/suppliers">{() => <RequirePortal><SuppliersPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm">{() => <RequirePortal><CrmOverview /></RequirePortal>}</Route>
 
       <Route path="/products/mapguard" component={MapGuardPage} />
       <Route path="/products/:slug" component={NewProductPage} />

@@ -5,3 +5,4 @@ export * from "./pricing";
 export * from "./booking";
 export * from "./calculator";
 export * from "./db";
+export * from "./adminCrm";

@@ -19,6 +19,21 @@ import {
   type SmsMessage,
   type User, type InsertUser,
   type AuditSubmission, type InsertAuditSubmission,
+  // Admin CRM
+  clients, clientServices, serviceCatalog, orders, orderItems,
+  suppliers, fulfillmentTasks, onboardingSubmissions,
+  clientPayments, internalNotes, adminActivityLog,
+  type Client, type InsertClient,
+  type ClientService, type InsertClientService,
+  type ServiceCatalogRow, type InsertServiceCatalog,
+  type Order, type InsertOrder,
+  type OrderItem, type InsertOrderItem,
+  type Supplier, type InsertSupplier,
+  type FulfillmentTask, type InsertFulfillmentTask,
+  type OnboardingSubmission, type InsertOnboardingSubmission,
+  type ClientPayment, type InsertClientPayment,
+  type InternalNote, type InsertInternalNote,
+  type AdminActivityLog, type InsertAdminActivityLog,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -101,6 +116,71 @@ export interface IStorage {
   createAuditSubmission(data: InsertAuditSubmission): Promise<AuditSubmission>;
   listAuditSubmissions(limit?: number, offset?: number): Promise<AuditSubmission[]>;
   getAuditSubmissionCount(): Promise<number>;
+
+  // ─── Admin CRM ───
+  // Clients
+  listClients(opts?: { search?: string; status?: string; limit?: number; offset?: number }): Promise<Client[]>;
+  getClientById(id: number): Promise<Client | undefined>;
+  createClient(data: InsertClient): Promise<Client>;
+  updateClient(id: number, updates: Partial<InsertClient>): Promise<Client | undefined>;
+  getClientCount(status?: string): Promise<number>;
+
+  // Service catalog
+  listServiceCatalog(): Promise<ServiceCatalogRow[]>;
+  upsertServiceCatalog(data: InsertServiceCatalog): Promise<ServiceCatalogRow>;
+
+  // Client services
+  listClientServices(clientId: number): Promise<(ClientService & { service_name?: string })[]>;
+  createClientService(data: InsertClientService): Promise<ClientService>;
+  updateClientService(id: number, updates: Partial<InsertClientService>): Promise<ClientService | undefined>;
+  getActiveServiceCount(): Promise<number>;
+
+  // Orders
+  listOrders(clientId?: number, limit?: number, offset?: number): Promise<Order[]>;
+  createOrder(data: InsertOrder): Promise<Order>;
+  createOrderItem(data: InsertOrderItem): Promise<OrderItem>;
+
+  // Suppliers
+  listSuppliers(): Promise<Supplier[]>;
+  createSupplier(data: InsertSupplier): Promise<Supplier>;
+  updateSupplier(id: number, updates: Partial<InsertSupplier>): Promise<Supplier | undefined>;
+
+  // Fulfillment
+  listFulfillmentTasks(opts?: { clientId?: number; status?: string; limit?: number; offset?: number }): Promise<FulfillmentTask[]>;
+  createFulfillmentTask(data: InsertFulfillmentTask): Promise<FulfillmentTask>;
+  updateFulfillmentTask(id: number, updates: Partial<InsertFulfillmentTask>): Promise<FulfillmentTask | undefined>;
+  getOpenFulfillmentCount(): Promise<number>;
+
+  // Onboarding
+  listOnboardingSubmissions(clientId: number): Promise<OnboardingSubmission[]>;
+  createOnboardingSubmission(data: InsertOnboardingSubmission): Promise<OnboardingSubmission>;
+  updateOnboardingSubmission(id: number, updates: Partial<InsertOnboardingSubmission>): Promise<OnboardingSubmission | undefined>;
+  getPendingOnboardingCount(): Promise<number>;
+
+  // Payments
+  listClientPayments(clientId: number): Promise<ClientPayment[]>;
+  createClientPayment(data: InsertClientPayment): Promise<ClientPayment>;
+  updateClientPayment(id: number, updates: Partial<InsertClientPayment>): Promise<ClientPayment | undefined>;
+  getUnpaidTotal(): Promise<number>;
+  getMonthlyRevenue(): Promise<number>;
+
+  // Notes
+  listInternalNotes(clientId: number): Promise<InternalNote[]>;
+  createInternalNote(data: InsertInternalNote): Promise<InternalNote>;
+
+  // Activity log
+  logAdminActivity(data: InsertAdminActivityLog): Promise<AdminActivityLog>;
+  listAdminActivity(opts?: { entityType?: string; entityId?: number; limit?: number }): Promise<AdminActivityLog[]>;
+
+  // CRM Overview
+  getCrmOverview(): Promise<{
+    totalClients: number;
+    activeServices: number;
+    pendingOnboarding: number;
+    openFulfillment: number;
+    unpaidAmount: number;
+    monthlyRevenue: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -632,6 +712,257 @@ export class DatabaseStorage implements IStorage {
   async getAuditSubmissionCount(): Promise<number> {
     const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(auditSubmissions);
     return row?.total ?? 0;
+  }
+
+  // ═══════════════════════════════════════════════
+  // Admin CRM Methods
+  // ═══════════════════════════════════════════════
+
+  // ─── Clients ───
+  async listClients(opts: { search?: string; status?: string; limit?: number; offset?: number } = {}): Promise<Client[]> {
+    const { search, status, limit = 50, offset = 0 } = opts;
+    const conditions = [];
+    if (status) conditions.push(eq(clients.status, status));
+    if (search) {
+      conditions.push(or(
+        ilike(clients.business_name, `%${search}%`),
+        ilike(clients.contact_name, `%${search}%`),
+        ilike(clients.contact_email, `%${search}%`),
+      ));
+    }
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(clients).where(where).orderBy(desc(clients.created_at)).limit(limit).offset(offset);
+  }
+
+  async getClientById(id: number): Promise<Client | undefined> {
+    const [row] = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
+    return row;
+  }
+
+  async createClient(data: InsertClient): Promise<Client> {
+    const [row] = await db.insert(clients).values(data).returning();
+    return row;
+  }
+
+  async updateClient(id: number, updates: Partial<InsertClient>): Promise<Client | undefined> {
+    const [row] = await db.update(clients).set({ ...updates, updated_at: new Date() }).where(eq(clients.id, id)).returning();
+    return row;
+  }
+
+  async getClientCount(status?: string): Promise<number> {
+    const where = status ? eq(clients.status, status) : undefined;
+    const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(clients).where(where);
+    return row?.total ?? 0;
+  }
+
+  // ─── Service Catalog ───
+  async listServiceCatalog(): Promise<ServiceCatalogRow[]> {
+    return db.select().from(serviceCatalog).orderBy(serviceCatalog.sort_order);
+  }
+
+  async upsertServiceCatalog(data: InsertServiceCatalog): Promise<ServiceCatalogRow> {
+    const [row] = await db.insert(serviceCatalog).values(data)
+      .onConflictDoUpdate({ target: serviceCatalog.id, set: { ...data, updated_at: new Date() } })
+      .returning();
+    return row;
+  }
+
+  // ─── Client Services ───
+  async listClientServices(clientId: number): Promise<(ClientService & { service_name?: string })[]> {
+    const rows = await db.select({
+      id: clientServices.id,
+      client_id: clientServices.client_id,
+      service_id: clientServices.service_id,
+      status: clientServices.status,
+      enabled: clientServices.enabled,
+      fulfillment_mode: clientServices.fulfillment_mode,
+      price_cents: clientServices.price_cents,
+      cost_cents: clientServices.cost_cents,
+      billing_period: clientServices.billing_period,
+      started_at: clientServices.started_at,
+      cancelled_at: clientServices.cancelled_at,
+      automation_enabled: clientServices.automation_enabled,
+      human_review_required: clientServices.human_review_required,
+      metadata: clientServices.metadata,
+      created_at: clientServices.created_at,
+      updated_at: clientServices.updated_at,
+      service_name: serviceCatalog.name,
+    })
+    .from(clientServices)
+    .leftJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
+    .where(eq(clientServices.client_id, clientId))
+    .orderBy(desc(clientServices.created_at));
+    return rows;
+  }
+
+  async createClientService(data: InsertClientService): Promise<ClientService> {
+    const [row] = await db.insert(clientServices).values(data).returning();
+    return row;
+  }
+
+  async updateClientService(id: number, updates: Partial<InsertClientService>): Promise<ClientService | undefined> {
+    const [row] = await db.update(clientServices).set({ ...updates, updated_at: new Date() }).where(eq(clientServices.id, id)).returning();
+    return row;
+  }
+
+  async getActiveServiceCount(): Promise<number> {
+    const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(clientServices).where(eq(clientServices.status, "active"));
+    return row?.total ?? 0;
+  }
+
+  // ─── Orders ───
+  async listOrders(clientId?: number, limit = 50, offset = 0): Promise<Order[]> {
+    const where = clientId ? eq(orders.client_id, clientId) : undefined;
+    return db.select().from(orders).where(where).orderBy(desc(orders.created_at)).limit(limit).offset(offset);
+  }
+
+  async createOrder(data: InsertOrder): Promise<Order> {
+    const [row] = await db.insert(orders).values(data).returning();
+    return row;
+  }
+
+  async createOrderItem(data: InsertOrderItem): Promise<OrderItem> {
+    const [row] = await db.insert(orderItems).values(data).returning();
+    return row;
+  }
+
+  // ─── Suppliers ───
+  async listSuppliers(): Promise<Supplier[]> {
+    return db.select().from(suppliers).orderBy(suppliers.name);
+  }
+
+  async createSupplier(data: InsertSupplier): Promise<Supplier> {
+    const [row] = await db.insert(suppliers).values(data).returning();
+    return row;
+  }
+
+  async updateSupplier(id: number, updates: Partial<InsertSupplier>): Promise<Supplier | undefined> {
+    const [row] = await db.update(suppliers).set({ ...updates, updated_at: new Date() }).where(eq(suppliers.id, id)).returning();
+    return row;
+  }
+
+  // ─── Fulfillment ───
+  async listFulfillmentTasks(opts: { clientId?: number; status?: string; limit?: number; offset?: number } = {}): Promise<FulfillmentTask[]> {
+    const { clientId, status, limit = 50, offset = 0 } = opts;
+    const conditions = [];
+    if (clientId) conditions.push(eq(fulfillmentTasks.client_id, clientId));
+    if (status) conditions.push(eq(fulfillmentTasks.status, status));
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(fulfillmentTasks).where(where).orderBy(desc(fulfillmentTasks.created_at)).limit(limit).offset(offset);
+  }
+
+  async createFulfillmentTask(data: InsertFulfillmentTask): Promise<FulfillmentTask> {
+    const [row] = await db.insert(fulfillmentTasks).values(data).returning();
+    return row;
+  }
+
+  async updateFulfillmentTask(id: number, updates: Partial<InsertFulfillmentTask>): Promise<FulfillmentTask | undefined> {
+    const [row] = await db.update(fulfillmentTasks).set({ ...updates, updated_at: new Date() }).where(eq(fulfillmentTasks.id, id)).returning();
+    return row;
+  }
+
+  async getOpenFulfillmentCount(): Promise<number> {
+    const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(fulfillmentTasks)
+      .where(and(
+        sql`${fulfillmentTasks.status} NOT IN ('delivered', 'cancelled')`,
+      ));
+    return row?.total ?? 0;
+  }
+
+  // ─── Onboarding ───
+  async listOnboardingSubmissions(clientId: number): Promise<OnboardingSubmission[]> {
+    return db.select().from(onboardingSubmissions).where(eq(onboardingSubmissions.client_id, clientId)).orderBy(desc(onboardingSubmissions.created_at));
+  }
+
+  async createOnboardingSubmission(data: InsertOnboardingSubmission): Promise<OnboardingSubmission> {
+    const [row] = await db.insert(onboardingSubmissions).values(data).returning();
+    return row;
+  }
+
+  async updateOnboardingSubmission(id: number, updates: Partial<InsertOnboardingSubmission>): Promise<OnboardingSubmission | undefined> {
+    const [row] = await db.update(onboardingSubmissions).set({ ...updates, updated_at: new Date() }).where(eq(onboardingSubmissions.id, id)).returning();
+    return row;
+  }
+
+  async getPendingOnboardingCount(): Promise<number> {
+    const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(onboardingSubmissions)
+      .where(sql`${onboardingSubmissions.status} IN ('not_sent', 'sent', 'viewed', 'needs_followup')`);
+    return row?.total ?? 0;
+  }
+
+  // ─── Payments ───
+  async listClientPayments(clientId: number): Promise<ClientPayment[]> {
+    return db.select().from(clientPayments).where(eq(clientPayments.client_id, clientId)).orderBy(desc(clientPayments.created_at));
+  }
+
+  async createClientPayment(data: InsertClientPayment): Promise<ClientPayment> {
+    const [row] = await db.insert(clientPayments).values(data).returning();
+    return row;
+  }
+
+  async updateClientPayment(id: number, updates: Partial<InsertClientPayment>): Promise<ClientPayment | undefined> {
+    const [row] = await db.update(clientPayments).set({ ...updates, updated_at: new Date() }).where(eq(clientPayments.id, id)).returning();
+    return row;
+  }
+
+  async getUnpaidTotal(): Promise<number> {
+    const [row] = await db.select({ total: sql<number>`coalesce(sum(amount_cents), 0)::int` }).from(clientPayments)
+      .where(and(eq(clientPayments.type, "invoice"), eq(clientPayments.status, "pending")));
+    return row?.total ?? 0;
+  }
+
+  async getMonthlyRevenue(): Promise<number> {
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    const [row] = await db.select({ total: sql<number>`coalesce(sum(amount_cents), 0)::int` }).from(clientPayments)
+      .where(and(eq(clientPayments.status, "paid"), gte(clientPayments.paid_at, monthStart)));
+    return row?.total ?? 0;
+  }
+
+  // ─── Notes ───
+  async listInternalNotes(clientId: number): Promise<InternalNote[]> {
+    return db.select().from(internalNotes).where(eq(internalNotes.client_id, clientId)).orderBy(desc(internalNotes.created_at));
+  }
+
+  async createInternalNote(data: InsertInternalNote): Promise<InternalNote> {
+    const [row] = await db.insert(internalNotes).values(data).returning();
+    return row;
+  }
+
+  // ─── Activity Log ───
+  async logAdminActivity(data: InsertAdminActivityLog): Promise<AdminActivityLog> {
+    const [row] = await db.insert(adminActivityLog).values(data).returning();
+    return row;
+  }
+
+  async listAdminActivity(opts: { entityType?: string; entityId?: number; limit?: number } = {}): Promise<AdminActivityLog[]> {
+    const { entityType, entityId, limit = 50 } = opts;
+    const conditions = [];
+    if (entityType) conditions.push(eq(adminActivityLog.entity_type, entityType));
+    if (entityId) conditions.push(eq(adminActivityLog.entity_id, entityId));
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(adminActivityLog).where(where).orderBy(desc(adminActivityLog.created_at)).limit(limit);
+  }
+
+  // ─── CRM Overview ───
+  async getCrmOverview(): Promise<{
+    totalClients: number;
+    activeServices: number;
+    pendingOnboarding: number;
+    openFulfillment: number;
+    unpaidAmount: number;
+    monthlyRevenue: number;
+  }> {
+    const [totalClients, activeServices, pendingOnboarding, openFulfillment, unpaidAmount, monthlyRevenue] = await Promise.all([
+      this.getClientCount(),
+      this.getActiveServiceCount(),
+      this.getPendingOnboardingCount(),
+      this.getOpenFulfillmentCount(),
+      this.getUnpaidTotal(),
+      this.getMonthlyRevenue(),
+    ]);
+    return { totalClients, activeServices, pendingOnboarding, openFulfillment, unpaidAmount, monthlyRevenue };
   }
 }
 
