@@ -90,26 +90,6 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             <FtLink href="/plans">Pricing</FtLink>
             {!isAuthenticated && <FtLink href="/login">Login</FtLink>}
             {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}
-            {isPortalUser && (
-              <Link
-                href="/dashboard"
-                style={{ ...ftLink, color: "rgba(255,255,255,0.28)" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.28)"; }}
-              >
-                Portal
-              </Link>
-            )}
-            {isPortalUser && (
-              <Link
-                href="/admin/ai"
-                style={{ ...ftLink, color: "rgba(255,255,255,0.18)", fontSize: 11 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.18)"; }}
-              >
-                Ops
-              </Link>
-            )}
           </div>
 
           {/* Col 4 — Legal */}

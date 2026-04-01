@@ -24,9 +24,14 @@ export default function LoginPage() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { user: { role?: string } }) => {
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
-      navigate("/dashboard");
+      const role = data.user?.role;
+      if (role === "admin" || role === "portal") {
+        navigate("/admin/crm");
+      } else {
+        navigate("/dashboard");
+      }
     },
   });
 
