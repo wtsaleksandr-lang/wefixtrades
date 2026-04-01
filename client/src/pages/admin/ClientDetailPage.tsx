@@ -21,6 +21,7 @@ import {
   ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { TaskCard, ClientTasksEmptyState, type TaskItem } from "@/components/admin/TaskCard";
 
 /* ─── Types ─── */
 interface Client {
@@ -48,17 +49,6 @@ interface ClientServiceRow {
   price_cents: number | null;
   cost_cents: number | null;
   billing_period: string | null;
-  created_at: string;
-}
-
-interface FulfillmentTaskRow {
-  id: number;
-  title: string;
-  status: string;
-  priority: string;
-  supplier_id: number | null;
-  cost_cents: number | null;
-  due_at: string | null;
   created_at: string;
 }
 
@@ -164,7 +154,7 @@ export default function ClientDetailPage() {
     enabled: !!clientId,
   });
 
-  const { data: fulfillment } = useQuery<FulfillmentTaskRow[]>({
+  const { data: fulfillment } = useQuery<TaskItem[]>({
     queryKey: [`/api/admin/crm/clients/${clientId}/fulfillment`],
     enabled: !!clientId,
   });
@@ -200,6 +190,18 @@ export default function ClientDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/clients"] });
+    },
+  });
+
+  const updateTaskStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      const res = await apiRequest("PATCH", `/api/admin/crm/fulfillment/${id}`, { status });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/fulfillment`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
     },
   });
 
@@ -419,63 +421,20 @@ export default function ClientDetailPage() {
             </Card>
           </TabsContent>
 
-          {/* ─── Tasks Tab (Fulfillment + Onboarding) ─── */}
-          <TabsContent value="tasks" className="mt-4">
-            <Card>
-              <div className="p-4 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-900">Tasks ({fulfillment?.length ?? 0})</h3>
-              </div>
-
-              {/* Desktop table */}
-              <div className="hidden md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Task</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead>Cost</TableHead>
-                      <TableHead>Due</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {fulfillment?.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-6 text-gray-500 text-sm">No tasks yet.</TableCell>
-                      </TableRow>
-                    ) : (
-                      fulfillment?.map((t) => (
-                        <TableRow key={t.id}>
-                          <TableCell className="font-medium text-sm">{t.title}</TableCell>
-                          <TableCell><StatusBadge status={t.status} /></TableCell>
-                          <TableCell><StatusBadge status={t.priority} /></TableCell>
-                          <TableCell className="text-sm">{fmt(t.cost_cents)}</TableCell>
-                          <TableCell className="text-sm">{fmtDate(t.due_at)}</TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Mobile card list */}
-              <div className="md:hidden divide-y divide-gray-100">
-                {fulfillment?.length === 0 ? (
-                  <p className="text-center py-6 text-gray-500 text-sm">No tasks yet.</p>
-                ) : (
-                  fulfillment?.map((t) => (
-                    <div key={t.id} className="p-4">
-                      <p className="text-sm font-medium text-gray-900">{t.title}</p>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <StatusBadge status={t.status} />
-                        <StatusBadge status={t.priority} />
-                        {t.due_at && <span className="text-xs text-gray-500">Due {fmtDate(t.due_at)}</span>}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </Card>
+          {/* ─── Tasks Tab ─── */}
+          <TabsContent value="tasks" className="mt-4 space-y-1.5">
+            {fulfillment?.length === 0 ? (
+              <ClientTasksEmptyState />
+            ) : (
+              fulfillment?.map((t) => (
+                <TaskCard
+                  key={t.id}
+                  task={t}
+                  showClient={false}
+                  onStatusChange={(id, status) => updateTaskStatus.mutate({ id, status })}
+                />
+              ))
+            )}
           </TabsContent>
 
           {/* ─── Billing Tab ─── */}

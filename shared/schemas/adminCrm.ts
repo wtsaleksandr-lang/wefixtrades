@@ -135,6 +135,8 @@ export const fulfillmentTasks = pgTable("fulfillment_tasks", {
   // not_started | submitted | in_progress | waiting | blocked | delivered | cancelled
   priority: varchar("priority", { length: 20 }).notNull().default("normal"),
   // low | normal | high | urgent
+  waiting_on: varchar("waiting_on", { length: 20 }),
+  // client | supplier | internal (null = not waiting)
   cost_cents: integer("cost_cents"),
   due_at: timestamp("due_at"),
   completed_at: timestamp("completed_at"),

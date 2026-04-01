@@ -857,6 +857,7 @@ export class DatabaseStorage implements IStorage {
       description: fulfillmentTasks.description,
       status: fulfillmentTasks.status,
       priority: fulfillmentTasks.priority,
+      waiting_on: fulfillmentTasks.waiting_on,
       cost_cents: fulfillmentTasks.cost_cents,
       due_at: fulfillmentTasks.due_at,
       completed_at: fulfillmentTasks.completed_at,
