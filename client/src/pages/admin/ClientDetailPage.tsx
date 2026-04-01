@@ -18,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp,
+  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -196,6 +196,39 @@ export default function ClientDetailPage() {
     },
   });
 
+  // Edit client
+  const [showEdit, setShowEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    business_name: "", contact_name: "", contact_email: "", contact_phone: "",
+    website_url: "", trade_type: "", source: "",
+  });
+
+  function openEdit() {
+    setEditForm({
+      business_name: client?.business_name || "",
+      contact_name: client?.contact_name || "",
+      contact_email: client?.contact_email || "",
+      contact_phone: client?.contact_phone || "",
+      website_url: client?.website_url || "",
+      trade_type: client?.trade_type || "",
+      source: client?.source || "",
+    });
+    setShowEdit(true);
+  }
+
+  const saveClient = useMutation({
+    mutationFn: async (data: typeof editForm) => {
+      const res = await apiRequest("PATCH", `/api/admin/crm/clients/${clientId}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/clients"] });
+      setShowEdit(false);
+      toast({ title: "Client updated", description: "Details saved" });
+    },
+  });
+
   const updateTaskStatus = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       const res = await apiRequest("PATCH", `/api/admin/crm/fulfillment/${id}`, { status });
@@ -329,6 +362,9 @@ export default function ClientDetailPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={openEdit}>
+                <Pencil className="w-3 h-3 mr-1" /> Edit
+              </Button>
               <Select value={client.status} onValueChange={(v) => updateStatus.mutate(v)}>
                 <SelectTrigger className="w-[130px] h-8 text-xs">
                   <SelectValue />
@@ -589,6 +625,65 @@ export default function ClientDetailPage() {
                 className="bg-[#2D6A4F] hover:bg-[#1B4332]"
               >
                 {addService.isPending ? "Adding..." : "Add"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {/* Edit client dialog */}
+        <Dialog open={showEdit} onOpenChange={setShowEdit}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>Edit Client</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-gray-600">Business Name *</label>
+                <Input value={editForm.business_name} onChange={(e) => setEditForm({ ...editForm, business_name: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Contact Name</label>
+                  <Input value={editForm.contact_name} onChange={(e) => setEditForm({ ...editForm, contact_name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Phone</label>
+                  <Input value={editForm.contact_phone} onChange={(e) => setEditForm({ ...editForm, contact_phone: e.target.value })} />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600">Email</label>
+                <Input value={editForm.contact_email} onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Trade</label>
+                  <Input value={editForm.trade_type} onChange={(e) => setEditForm({ ...editForm, trade_type: e.target.value })} placeholder="e.g. plumber" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Website</label>
+                  <Input value={editForm.website_url} onChange={(e) => setEditForm({ ...editForm, website_url: e.target.value })} placeholder="https://..." />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600">Source</label>
+                <Select value={editForm.source || "manual"} onValueChange={(v) => setEditForm({ ...editForm, source: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="audit">Audit</SelectItem>
+                    <SelectItem value="referral">Referral</SelectItem>
+                    <SelectItem value="inbound">Inbound</SelectItem>
+                    <SelectItem value="website">Website</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowEdit(false)}>Cancel</Button>
+              <Button
+                onClick={() => saveClient.mutate(editForm)}
+                disabled={!editForm.business_name || saveClient.isPending}
+                className="bg-[#2D6A4F] hover:bg-[#1B4332]"
+              >
+                {saveClient.isPending ? "Saving..." : "Save"}
               </Button>
             </DialogFooter>
           </DialogContent>
