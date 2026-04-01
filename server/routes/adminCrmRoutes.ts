@@ -368,4 +368,33 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to list activity" });
     }
   });
+
+  /* ═══════════════════════════════════════════
+     All Payments (cross-client)
+     ═══════════════════════════════════════════ */
+
+  app.get("/api/admin/crm/payments", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
+      const rows = await storage.listAllPayments({ status, limit });
+      const unpaid = await storage.getUnpaidTotal();
+      res.json({ data: rows, unpaidTotal: unpaid });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to list payments" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     Service Catalog Stats
+     ═══════════════════════════════════════════ */
+
+  app.get("/api/admin/crm/services/stats", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const counts = await storage.getActiveClientCountByService();
+      res.json(counts);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to get service stats" });
+    }
+  });
 }

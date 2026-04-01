@@ -926,6 +926,41 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(clientPayments).where(eq(clientPayments.client_id, clientId)).orderBy(desc(clientPayments.created_at));
   }
 
+  async listAllPayments(opts: { status?: string; limit?: number; offset?: number } = {}): Promise<(ClientPayment & { client_name?: string })[]> {
+    const { status, limit = 50, offset = 0 } = opts;
+    const conditions = [];
+    if (status) conditions.push(eq(clientPayments.status, status));
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select({
+      id: clientPayments.id, client_id: clientPayments.client_id,
+      client_service_id: clientPayments.client_service_id, order_id: clientPayments.order_id,
+      type: clientPayments.type, amount_cents: clientPayments.amount_cents,
+      status: clientPayments.status, description: clientPayments.description,
+      stripe_invoice_id: clientPayments.stripe_invoice_id,
+      stripe_payment_intent_id: clientPayments.stripe_payment_intent_id,
+      period_start: clientPayments.period_start, period_end: clientPayments.period_end,
+      due_at: clientPayments.due_at, paid_at: clientPayments.paid_at,
+      actor_type: clientPayments.actor_type, metadata: clientPayments.metadata,
+      created_at: clientPayments.created_at, updated_at: clientPayments.updated_at,
+      client_name: clients.business_name,
+    })
+    .from(clientPayments)
+    .leftJoin(clients, eq(clientPayments.client_id, clients.id))
+    .where(where)
+    .orderBy(desc(clientPayments.created_at))
+    .limit(limit).offset(offset);
+  }
+
+  async getActiveClientCountByService(): Promise<{ service_id: string; count: number }[]> {
+    return db.select({
+      service_id: clientServices.service_id,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(clientServices)
+    .where(eq(clientServices.status, "active"))
+    .groupBy(clientServices.service_id);
+  }
+
   async createClientPayment(data: InsertClientPayment): Promise<ClientPayment> {
     const [row] = await db.insert(clientPayments).values(data).returning();
     return row;

@@ -13,8 +13,14 @@ import {
   ClipboardPlus,
   DollarSign,
   Sparkles,
+  Wrench,
+  User,
+  Settings,
+  KeyRound,
+  LogOut,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
+import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -42,6 +48,7 @@ const NAV_ITEMS = [
   { label: "Inbox", href: "/admin/crm/inbox", icon: Inbox },
   { label: "Billing", href: "/admin/crm/billing", icon: CreditCard },
   { label: "Suppliers", href: "/admin/crm/suppliers", icon: Factory },
+  { label: "Services", href: "/admin/crm/services", icon: Wrench },
 ];
 
 const SECONDARY_ITEMS = [
@@ -364,10 +371,17 @@ export default function AdminLayout({
   children: React.ReactNode;
   pageContext?: Omit<AdminPageContext, "route">;
 }) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
+  const { user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [quickAdd, setQuickAdd] = useState<string | null>(null);
   const [copilotOpen, setCopilotOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
+    navigate("/login");
+  };
+  const initials = (user?.name || user?.email || "A").charAt(0).toUpperCase();
 
   // Build full context with current route
   const fullPageContext: AdminPageContext = {
@@ -395,11 +409,20 @@ export default function AdminLayout({
       >
         {/* Logo area */}
         <div className="flex items-center justify-between h-14 px-4 border-b border-gray-100">
-          <Link href="/admin/crm" className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#2D6A4F] flex items-center justify-center">
-              <span className="text-white text-xs font-bold">W</span>
+          <Link href="/admin/crm" className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-[#1a1f1e] border border-[rgba(102,232,250,0.15)] flex items-center justify-center">
+              <svg viewBox="0 0 22 22" width={16} height={16} fill="none">
+                <path d="M8 3H4C3.4 3 3 3.4 3 4V8" stroke="#66E8FA" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M14 3H18C18.6 3 19 3.4 19 4V8" stroke="#66E8FA" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M8 19H4C3.4 19 3 18.6 3 18V14" stroke="#66E8FA" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M14 19H18C18.6 19 19 18.6 19 18V14" stroke="#66E8FA" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M7.5 11.5L10 14L14.5 9" stroke="#66E8FA" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
-            <span className="text-sm font-semibold text-gray-900">WFT Admin</span>
+            <div className="leading-tight">
+              <span className="text-sm font-bold text-gray-900">We<span className="text-[#2D6A4F]">Fix</span>Trades</span>
+              <span className="text-[10px] text-gray-400 block -mt-0.5">Admin</span>
+            </div>
           </Link>
           <button
             onClick={() => setMobileOpen(false)}
@@ -515,9 +538,31 @@ export default function AdminLayout({
             >
               <Sparkles className="w-4 h-4" />
             </Button>
-            <div className="w-7 h-7 rounded-full bg-[#2D6A4F] flex items-center justify-center" title="Admin">
-              <span className="text-white text-[10px] font-bold">A</span>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="w-7 h-7 rounded-full bg-[#2D6A4F] flex items-center justify-center hover:ring-2 hover:ring-[#2D6A4F]/20 transition-shadow">
+                  <span className="text-white text-[10px] font-bold">{initials}</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <div className="px-3 py-2 border-b border-gray-100">
+                  <p className="text-sm font-medium text-gray-900 truncate">{user?.name || "Admin"}</p>
+                  <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                </div>
+                <DropdownMenuItem onClick={() => navigate("/admin/crm/profile")}>
+                  <User className="w-4 h-4 mr-2 text-gray-500" /> Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/admin/crm/settings")}>
+                  <Settings className="w-4 h-4 mr-2 text-gray-500" /> Account Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/admin/crm/change-password")}>
+                  <KeyRound className="w-4 h-4 mr-2 text-gray-500" /> Change Password
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                  <LogOut className="w-4 h-4 mr-2" /> Log Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 

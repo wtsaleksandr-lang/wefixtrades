@@ -108,7 +108,7 @@ export default function AiDashboard() {
           })}
         </div>
         <div style={{ padding: "16px", borderTop: `1px solid ${c.borderLight}`, marginTop: "auto" }}>
-          <a href="/" style={{ fontSize: 12, color: c.muted, textDecoration: "none" }}>&larr; Back to site</a>
+          <a href="/admin/crm" style={{ fontSize: 12, color: c.muted, textDecoration: "none" }}>&larr; Back to Admin</a>
         </div>
       </div>
 
