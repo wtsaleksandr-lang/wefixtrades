@@ -12,6 +12,8 @@ export const serviceCatalog = pgTable("service_catalog", {
   category: varchar("category", { length: 50 }).notNull(), // visibility | leads | reputation | automation | website
   default_price: integer("default_price"),                 // cents
   billing_period: varchar("billing_period", { length: 20 }).notNull().default("monthly"), // monthly | one-time
+  delivery_pattern: varchar("delivery_pattern", { length: 20 }).notNull().default("one_time"),
+  // one_time | recurring | always_on
   is_active: boolean("is_active").notNull().default(true),
   sort_order: integer("sort_order").notNull().default(0),
   created_at: timestamp("created_at").defaultNow(),

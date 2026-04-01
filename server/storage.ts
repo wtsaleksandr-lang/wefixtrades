@@ -1070,7 +1070,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ─── Check completion cascade ───
-  async checkAndCompleteService(clientServiceId: number): Promise<{ serviceCompleted: boolean; clientActivated: boolean }> {
+  async checkAndCompleteService(clientServiceId: number): Promise<{ serviceCompleted: boolean; serviceActivated: boolean; clientActivated: boolean }> {
     // Count non-delivered tasks for this client_service
     const [pending] = await db.select({ total: sql<number>`count(*)::int` })
       .from(fulfillmentTasks)
@@ -1079,33 +1079,60 @@ export class DatabaseStorage implements IStorage {
         sql`${fulfillmentTasks.status} NOT IN ('delivered', 'cancelled')`,
       ));
 
-    if ((pending?.total ?? 1) > 0) return { serviceCompleted: false, clientActivated: false };
+    if ((pending?.total ?? 1) > 0) return { serviceCompleted: false, serviceActivated: false, clientActivated: false };
 
-    // All tasks delivered — complete the service
-    const [svc] = await db.update(clientServices)
-      .set({ status: "completed", completed_at: new Date(), updated_at: new Date() })
-      .where(eq(clientServices.id, clientServiceId))
-      .returning();
+    // All tasks delivered — look up the service's delivery_pattern
+    const cs = await this.getClientServiceById(clientServiceId);
+    if (!cs) return { serviceCompleted: false, serviceActivated: false, clientActivated: false };
 
-    if (!svc) return { serviceCompleted: false, clientActivated: false };
+    const catalog = await this.getServiceById(cs.service_id);
+    const pattern = catalog?.delivery_pattern || "one_time";
 
-    // Check if client has any non-completed active services
-    const [otherActive] = await db.select({ total: sql<number>`count(*)::int` })
-      .from(clientServices)
-      .where(and(
-        eq(clientServices.client_id, svc.client_id),
-        sql`${clientServices.status} NOT IN ('completed', 'cancelled')`,
-      ));
+    let newStatus: string;
+    let serviceCompleted = false;
+    let serviceActivated = false;
 
-    let clientActivated = false;
-    if ((otherActive?.total ?? 0) === 0) {
-      await db.update(clients)
-        .set({ status: "active", updated_at: new Date() })
-        .where(eq(clients.id, svc.client_id));
-      clientActivated = true;
+    switch (pattern) {
+      case "one_time":
+        // Sprint complete — mark as completed
+        newStatus = "completed";
+        serviceCompleted = true;
+        break;
+      case "always_on":
+        // Setup done — system goes live, mark as active
+        newStatus = "active";
+        serviceActivated = true;
+        break;
+      case "recurring":
+        // Monthly batch done — service stays active, don't change status
+        return { serviceCompleted: false, serviceActivated: false, clientActivated: false };
+      default:
+        newStatus = "completed";
+        serviceCompleted = true;
     }
 
-    return { serviceCompleted: true, clientActivated };
+    await db.update(clientServices)
+      .set({ status: newStatus, completed_at: serviceCompleted ? new Date() : undefined, updated_at: new Date() })
+      .where(eq(clientServices.id, clientServiceId));
+
+    // Check if client should be moved to "active"
+    // (only if they're still in "onboarding" and have no pending/onboarding services left)
+    let clientActivated = false;
+    const [client] = await db.select({ status: clients.status, id: clients.id }).from(clients).where(eq(clients.id, cs.client_id)).limit(1);
+    if (client && (client.status === "onboarding" || client.status === "lead")) {
+      const [stillPending] = await db.select({ total: sql<number>`count(*)::int` })
+        .from(clientServices)
+        .where(and(
+          eq(clientServices.client_id, cs.client_id),
+          sql`${clientServices.status} IN ('pending', 'onboarding')`,
+        ));
+      if ((stillPending?.total ?? 0) === 0) {
+        await db.update(clients).set({ status: "active", updated_at: new Date() }).where(eq(clients.id, cs.client_id));
+        clientActivated = true;
+      }
+    }
+
+    return { serviceCompleted, serviceActivated, clientActivated };
   }
 }
 
