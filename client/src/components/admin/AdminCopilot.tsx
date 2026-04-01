@@ -19,7 +19,7 @@ export interface AdminPageContext {
   monthlyRevenue?: number;
   totalOpenTasks?: number;
   activeFilters?: string;
-  topTasks?: Array<{ title: string; status: string; priority: string; waiting_on?: string | null }>;
+  topTasks?: Array<{ title: string; status: string; priority: string; waiting_on?: string | null; handled_by?: string | null; automation_status?: string | null; next_action?: string | null }>;
   latestPayment?: { status: string; amount_cents: number; date: string | null };
   supplierNames?: string[];
   blockedCount?: number;

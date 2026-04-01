@@ -137,6 +137,13 @@ export const fulfillmentTasks = pgTable("fulfillment_tasks", {
   // low | normal | high | urgent
   waiting_on: varchar("waiting_on", { length: 20 }),
   // client | supplier | internal (null = not waiting)
+  handled_by: varchar("handled_by", { length: 20 }),
+  // internal | supplier | automation (null = unassigned)
+  automation_status: varchar("automation_status", { length: 20 }),
+  // idle | running | completed | failed (null = not automated)
+  last_action: text("last_action"),
+  next_action: text("next_action"),
+  last_action_at: timestamp("last_action_at"),
   cost_cents: integer("cost_cents"),
   due_at: timestamp("due_at"),
   completed_at: timestamp("completed_at"),

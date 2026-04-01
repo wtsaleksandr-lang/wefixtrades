@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Inbox, Play, MessageSquare, CheckCircle, Clock, User, Factory, Wrench } from "lucide-react";
+import { Inbox, Play, MessageSquare, CheckCircle, Clock, User, Factory, Wrench, Bot, Zap, ArrowRight } from "lucide-react";
 
 /* ─── Types ─── */
 export interface TaskItem {
@@ -13,6 +13,11 @@ export interface TaskItem {
   status: string;
   priority: string;
   waiting_on: string | null;
+  handled_by: string | null;
+  automation_status: string | null;
+  last_action: string | null;
+  next_action: string | null;
+  last_action_at: string | null;
   client_id: number;
   client_name?: string | null;
   supplier_id: number | null;
@@ -206,9 +211,31 @@ export function TaskCard({
             />
           )}
 
-          {task.supplier_name && (
+          {/* Handled by — shows who/what is doing the work */}
+          {task.handled_by && (
+            <span className="inline-flex items-center gap-1 text-gray-500">
+              {task.handled_by === "automation" ? <Bot className="w-3 h-3" /> : task.handled_by === "supplier" ? <Factory className="w-3 h-3" /> : <User className="w-3 h-3" />}
+              <span className="capitalize">{task.handled_by === "supplier" && task.supplier_name ? task.supplier_name : task.handled_by}</span>
+            </span>
+          )}
+
+          {/* Supplier fallback if handled_by not set */}
+          {!task.handled_by && task.supplier_name && (
             <span className="text-gray-400">
               via <span className="text-gray-600">{task.supplier_name}</span>
+            </span>
+          )}
+
+          {/* Automation status badge */}
+          {task.automation_status && task.automation_status !== "idle" && (
+            <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded ${
+              task.automation_status === "running" ? "bg-blue-50 text-blue-600" :
+              task.automation_status === "completed" ? "bg-emerald-50 text-emerald-600" :
+              task.automation_status === "failed" ? "bg-red-50 text-red-600" :
+              "bg-gray-50 text-gray-500"
+            }`}>
+              <Zap className="w-3 h-3" />
+              {task.automation_status}
             </span>
           )}
 
@@ -224,6 +251,20 @@ export function TaskCard({
             </span>
           )}
         </div>
+
+        {/* Row 3: Operations context (only when there's action info) */}
+        {(task.last_action || task.next_action) && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px] text-gray-400">
+            {task.last_action && (
+              <span>Last: {task.last_action}{task.last_action_at ? ` (${timeAgo(task.last_action_at)})` : ""}</span>
+            )}
+            {task.next_action && (
+              <span className="inline-flex items-center gap-0.5 text-gray-500">
+                <ArrowRight className="w-3 h-3" /> Next: {task.next_action}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </Card>
   );

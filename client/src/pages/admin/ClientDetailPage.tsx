@@ -285,6 +285,7 @@ export default function ClientDetailPage() {
       unpaidAmount: payments?.filter(p => p.status === "pending").reduce((a, p) => a + p.amount_cents, 0),
       topTasks: fulfillment?.filter(t => !["delivered","cancelled"].includes(t.status)).slice(0, 5).map(t => ({
         title: t.title, status: t.status, priority: t.priority, waiting_on: t.waiting_on,
+        handled_by: t.handled_by, automation_status: t.automation_status, next_action: t.next_action,
       })),
       latestPayment: payments?.[0] ? {
         status: payments[0].status,

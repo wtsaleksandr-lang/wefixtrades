@@ -40,7 +40,7 @@ export interface PageContext {
   monthlyRevenue?: number;
   totalOpenTasks?: number;
   activeFilters?: string;
-  topTasks?: Array<{ title: string; status: string; priority: string; waiting_on?: string | null }>;
+  topTasks?: Array<{ title: string; status: string; priority: string; waiting_on?: string | null; handled_by?: string | null; automation_status?: string | null; next_action?: string | null }>;
   latestPayment?: { status: string; amount_cents: number; date: string | null };
   supplierNames?: string[];
   blockedCount?: number;
@@ -219,7 +219,10 @@ STRICT RULES:
     lines.push(`\nVisible tasks:`);
     ctx.topTasks.slice(0, 8).forEach((t, i) => {
       const parts2 = [`"${t.title}" — ${t.status} (${t.priority})`];
+      if (t.handled_by) parts2.push(`handled by ${t.handled_by}`);
       if (t.waiting_on) parts2.push(`waiting on ${t.waiting_on}`);
+      if (t.automation_status && t.automation_status !== "idle") parts2.push(`automation: ${t.automation_status}`);
+      if (t.next_action) parts2.push(`next: ${t.next_action}`);
       lines.push(`${i + 1}. ${parts2.join(", ")}`);
     });
   }
