@@ -180,6 +180,8 @@ export interface IStorage {
     openFulfillment: number;
     unpaidAmount: number;
     monthlyRevenue: number;
+    recentClients: { id: number; business_name: string; status: string; created_at: Date | null }[];
+    recentTasks: { id: number; title: string; status: string; priority: string; client_id: number; client_name: string | null; due_at: Date | null }[];
   }>;
 }
 
@@ -975,23 +977,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ─── CRM Overview ───
-  async getCrmOverview(): Promise<{
-    totalClients: number;
-    activeServices: number;
-    pendingOnboarding: number;
-    openFulfillment: number;
-    unpaidAmount: number;
-    monthlyRevenue: number;
-  }> {
-    const [totalClients, activeServices, pendingOnboarding, openFulfillment, unpaidAmount, monthlyRevenue] = await Promise.all([
+  async getCrmOverview() {
+    const [totalClients, activeServices, pendingOnboarding, openFulfillment, unpaidAmount, monthlyRevenue, recentClients, recentTaskRows] = await Promise.all([
       this.getClientCount(),
       this.getActiveServiceCount(),
       this.getPendingOnboardingCount(),
       this.getOpenFulfillmentCount(),
       this.getUnpaidTotal(),
       this.getMonthlyRevenue(),
+      db.select({ id: clients.id, business_name: clients.business_name, status: clients.status, created_at: clients.created_at })
+        .from(clients).orderBy(desc(clients.created_at)).limit(5),
+      db.select({
+        id: fulfillmentTasks.id, title: fulfillmentTasks.title, status: fulfillmentTasks.status,
+        priority: fulfillmentTasks.priority, client_id: fulfillmentTasks.client_id,
+        client_name: clients.business_name, due_at: fulfillmentTasks.due_at,
+      })
+      .from(fulfillmentTasks)
+      .leftJoin(clients, eq(fulfillmentTasks.client_id, clients.id))
+      .where(sql`${fulfillmentTasks.status} NOT IN ('delivered', 'cancelled')`)
+      .orderBy(desc(fulfillmentTasks.created_at))
+      .limit(5),
     ]);
-    return { totalClients, activeServices, pendingOnboarding, openFulfillment, unpaidAmount, monthlyRevenue };
+    return { totalClients, activeServices, pendingOnboarding, openFulfillment, unpaidAmount, monthlyRevenue, recentClients, recentTasks: recentTaskRows };
   }
 }
 

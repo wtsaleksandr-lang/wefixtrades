@@ -44,12 +44,16 @@ export default function InboxPage() {
     },
   });
 
+  // Sort by priority within groups (urgent > high > normal > low)
+  const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+  const byPriority = (a: TaskItem, b: TaskItem) => (PRIORITY_ORDER[a.priority] ?? 2) - (PRIORITY_ORDER[b.priority] ?? 2);
+
   // Group by urgency
-  const blocked = tasks?.filter((t) => t.status === "blocked") ?? [];
-  const overdue = tasks?.filter((t) => t.status !== "blocked" && isOverdue(t.due_at, t.status)) ?? [];
-  const waiting = tasks?.filter((t) => t.status === "waiting" && !isOverdue(t.due_at, t.status)) ?? [];
-  const active = tasks?.filter((t) => ["not_started", "submitted", "in_progress"].includes(t.status) && !isOverdue(t.due_at, t.status)) ?? [];
-  const done = tasks?.filter((t) => t.status === "delivered") ?? [];
+  const blocked = (tasks?.filter((t) => t.status === "blocked") ?? []).sort(byPriority);
+  const overdue = (tasks?.filter((t) => t.status !== "blocked" && isOverdue(t.due_at, t.status)) ?? []).sort(byPriority);
+  const waiting = (tasks?.filter((t) => t.status === "waiting" && !isOverdue(t.due_at, t.status)) ?? []).sort(byPriority);
+  const active = (tasks?.filter((t) => ["not_started", "submitted", "in_progress"].includes(t.status) && !isOverdue(t.due_at, t.status)) ?? []).sort(byPriority);
+  const done = (tasks?.filter((t) => t.status === "delivered") ?? []);
 
   const sections = [
     { label: "Blocked", items: blocked, show: blocked.length > 0 },

@@ -123,7 +123,7 @@ function QuickAddClientDialog({ open, onClose }: { open: boolean; onClose: () =>
 
 function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ client_id: "", client_service_id: "", title: "", priority: "normal" });
+  const [form, setForm] = useState({ client_id: "", client_service_id: "", title: "", priority: "normal", due_at: "", waiting_on: "" });
 
   const { data: clientList } = useQuery<{ data: { id: number; business_name: string }[]; total: number }>({
     queryKey: ["/api/admin/crm/clients", { limit: 100 }],
@@ -143,6 +143,7 @@ function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => v
   const mutation = useMutation({
     mutationFn: async () => {
       const clientId = parseInt(form.client_id);
+      // Auto-select first service if only one exists
       const clientServiceId = parseInt(form.client_service_id) || (clientServices?.[0]?.id ?? 0);
       const res = await apiRequest("POST", "/api/admin/crm/fulfillment", {
         client_id: clientId,
@@ -150,16 +151,21 @@ function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => v
         title: form.title,
         priority: form.priority,
         status: "not_started",
+        waiting_on: form.waiting_on || null,
+        due_at: form.due_at ? new Date(form.due_at).toISOString() : null,
       });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
-      setForm({ client_id: "", client_service_id: "", title: "", priority: "normal" });
+      setForm({ client_id: "", client_service_id: "", title: "", priority: "normal", due_at: "", waiting_on: "" });
       onClose();
     },
   });
+
+  // Only show service selector when client has 2+ services
+  const showServiceSelect = clientServices && clientServices.length > 1;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -177,7 +183,7 @@ function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => v
               </SelectContent>
             </Select>
           </div>
-          {form.client_id && clientServices && clientServices.length > 0 && (
+          {showServiceSelect && (
             <div>
               <label className="text-xs font-medium text-gray-600">Service</label>
               <Select value={form.client_service_id} onValueChange={(v) => setForm({ ...form, client_service_id: v })}>
@@ -194,15 +200,33 @@ function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => v
             <label className="text-xs font-medium text-gray-600">Task Title *</label>
             <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Set up Google Business Profile" />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-600">Priority</label>
+              <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">Due Date</label>
+              <Input type="date" value={form.due_at} onChange={(e) => setForm({ ...form, due_at: e.target.value })} />
+            </div>
+          </div>
           <div>
-            <label className="text-xs font-medium text-gray-600">Priority</label>
-            <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <label className="text-xs font-medium text-gray-600">Waiting On</label>
+            <Select value={form.waiting_on} onValueChange={(v) => setForm({ ...form, waiting_on: v })}>
+              <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="normal">Normal</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="urgent">Urgent</SelectItem>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="client">Client</SelectItem>
+                <SelectItem value="supplier">Supplier</SelectItem>
+                <SelectItem value="internal">Internal</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -220,7 +244,7 @@ function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => v
 
 function QuickAddPaymentDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ client_id: "", amount: "", type: "invoice", status: "pending", description: "" });
+  const [form, setForm] = useState({ client_id: "", amount: "", type: "invoice", status: "pending", description: "", due_at: "" });
 
   const { data: clientList } = useQuery<{ data: { id: number; business_name: string }[]; total: number }>({
     queryKey: ["/api/admin/crm/clients", { limit: 100 }],
@@ -240,13 +264,14 @@ function QuickAddPaymentDialog({ open, onClose }: { open: boolean; onClose: () =
         type: form.type,
         status: form.status,
         description: form.description || null,
+        due_at: form.due_at ? new Date(form.due_at).toISOString() : null,
         actor_type: "human",
       });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
-      setForm({ client_id: "", amount: "", type: "invoice", status: "pending", description: "" });
+      setForm({ client_id: "", amount: "", type: "invoice", status: "pending", description: "", due_at: "" });
       onClose();
     },
   });
@@ -299,6 +324,10 @@ function QuickAddPaymentDialog({ open, onClose }: { open: boolean; onClose: () =
           <div>
             <label className="text-xs font-medium text-gray-600">Description</label>
             <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-600">Due Date</label>
+            <Input type="date" value={form.due_at} onChange={(e) => setForm({ ...form, due_at: e.target.value })} />
           </div>
         </div>
         <DialogFooter>

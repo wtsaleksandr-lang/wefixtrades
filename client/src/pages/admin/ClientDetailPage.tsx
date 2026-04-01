@@ -301,6 +301,9 @@ export default function ClientDetailPage() {
                 {client.trade_type && (
                   <span className="flex items-center gap-1 capitalize"><MapPin className="w-3.5 h-3.5" /> {client.trade_type}</span>
                 )}
+                {client.created_at && (
+                  <span className="text-gray-400">Since {new Date(client.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
