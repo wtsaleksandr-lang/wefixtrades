@@ -184,6 +184,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             <Link href="/privacy" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Privacy</Link>
             <Link href="/terms" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Terms</Link>
             <Link href="/terms" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Cookies</Link>
+            <Link href="/admin/crm" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Admin</Link>
           </div>
         </div>
       </div>
