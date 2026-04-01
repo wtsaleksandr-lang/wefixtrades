@@ -12,7 +12,9 @@ import {
   UserPlus,
   ClipboardPlus,
   DollarSign,
+  Sparkles,
 } from "lucide-react";
+import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -355,10 +357,24 @@ function QuickAddPaymentDialog({ open, onClose }: { open: boolean; onClose: () =
 
 /* ─── Main Layout ─── */
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({
+  children,
+  pageContext,
+}: {
+  children: React.ReactNode;
+  pageContext?: Omit<AdminPageContext, "route">;
+}) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [quickAdd, setQuickAdd] = useState<string | null>(null);
+  const [copilotOpen, setCopilotOpen] = useState(false);
+
+  // Build full context with current route
+  const fullPageContext: AdminPageContext = {
+    route: location,
+    page: pageContext?.page || "unknown",
+    ...pageContext,
+  };
 
   return (
     <div className="flex h-screen bg-[#F6F7F9] overflow-hidden">
@@ -490,6 +506,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 ${copilotOpen ? "bg-[#F0F7F4] text-[#2D6A4F]" : "text-gray-500"}`}
+              onClick={() => setCopilotOpen(!copilotOpen)}
+              title="AI Copilot"
+            >
+              <Sparkles className="w-4 h-4" />
+            </Button>
             <div className="w-7 h-7 rounded-full bg-[#2D6A4F] flex items-center justify-center" title="Admin">
               <span className="text-white text-[10px] font-bold">A</span>
             </div>
@@ -506,6 +531,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <QuickAddClientDialog open={quickAdd === "client"} onClose={() => setQuickAdd(null)} />
       <QuickAddTaskDialog open={quickAdd === "task"} onClose={() => setQuickAdd(null)} />
       <QuickAddPaymentDialog open={quickAdd === "payment"} onClose={() => setQuickAdd(null)} />
+
+      {/* AI Copilot drawer */}
+      <AdminCopilot
+        open={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        pageContext={fullPageContext}
+      />
     </div>
   );
 }

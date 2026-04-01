@@ -26,6 +26,23 @@ export interface AuditContext {
   detectedIssueIds?: string[];
 }
 
+export interface PageContext {
+  route: string;
+  page: string;
+  clientId?: number;
+  clientName?: string;
+  clientStatus?: string;
+  activeServicesCount?: number;
+  openTasksCount?: number;
+  overdueTasksCount?: number;
+  unpaidAmount?: number;
+  totalClients?: number;
+  monthlyRevenue?: number;
+  totalOpenTasks?: number;
+  activeFilters?: string;
+  topTasks?: Array<{ title: string; status: string; priority: string }>;
+}
+
 export interface MemoryContext {
   userName?: string;
   businessType?: string;
@@ -76,7 +93,13 @@ export function buildSystemPrompt(
   surface: ChatSurface,
   auditContext?: AuditContext,
   memory?: MemoryContext,
+  pageContext?: PageContext,
 ): string {
+  // Admin surface gets a focused prompt without marketing cruft
+  if (surface === "admin" && pageContext) {
+    return buildAdminPrompt(pageContext, memory);
+  }
+
   const parts: string[] = [BRAND_VOICE];
 
   // Knowledge base
@@ -134,6 +157,59 @@ function buildSurfaceContext(surface: ChatSurface, auditContext?: AuditContext):
     default:
       return `\n=== CONTEXT ===\nYou are a general assistant for WeFixTrades. Answer questions helpfully.`;
   }
+}
+
+/* ─── Admin surface builder ─── */
+function buildAdminPrompt(ctx: PageContext, memory?: MemoryContext): string {
+  const parts: string[] = [];
+
+  parts.push(`You are an internal operations copilot for WeFixTrades — a company that sells digital marketing and automation services to trades businesses (plumbers, electricians, roofers, etc).
+
+ROLE:
+- Help the admin operator understand what they're looking at
+- Summarize what needs attention
+- Suggest practical next steps
+- Answer contextual questions about clients, tasks, billing, and operations
+
+STRICT RULES:
+- Only reference data explicitly provided in the PAGE CONTEXT below
+- If data is missing or you don't have visibility into something, say so clearly
+- Never pretend to know database state beyond what's provided
+- Never claim you performed an action — you are read-only
+- Never fabricate client names, amounts, or task details
+- Keep responses concise — 2-4 sentences unless asked for detail
+- Be direct and operationally useful, not chatty`);
+
+  // Page context
+  const lines: string[] = [`\n=== PAGE CONTEXT ===`, `Current page: ${ctx.page}`, `Route: ${ctx.route}`];
+
+  if (ctx.clientName) lines.push(`Client: ${ctx.clientName} (ID: ${ctx.clientId})`);
+  if (ctx.clientStatus) lines.push(`Client status: ${ctx.clientStatus}`);
+  if (ctx.activeServicesCount != null) lines.push(`Active services: ${ctx.activeServicesCount}`);
+  if (ctx.openTasksCount != null) lines.push(`Open tasks: ${ctx.openTasksCount}`);
+  if (ctx.overdueTasksCount != null && ctx.overdueTasksCount > 0) lines.push(`Overdue tasks: ${ctx.overdueTasksCount}`);
+  if (ctx.unpaidAmount != null && ctx.unpaidAmount > 0) lines.push(`Unpaid amount: $${(ctx.unpaidAmount / 100).toFixed(2)}`);
+  if (ctx.totalClients != null) lines.push(`Total clients: ${ctx.totalClients}`);
+  if (ctx.monthlyRevenue != null) lines.push(`Monthly revenue: $${(ctx.monthlyRevenue / 100).toFixed(2)}`);
+  if (ctx.totalOpenTasks != null) lines.push(`Total open tasks: ${ctx.totalOpenTasks}`);
+  if (ctx.activeFilters) lines.push(`Active filter: ${ctx.activeFilters}`);
+
+  if (ctx.topTasks?.length) {
+    lines.push(`\nVisible tasks:`);
+    ctx.topTasks.slice(0, 8).forEach((t, i) => {
+      lines.push(`${i + 1}. "${t.title}" — ${t.status} (${t.priority})`);
+    });
+  }
+
+  parts.push(lines.join("\n"));
+
+  // Memory
+  if (memory) {
+    const memBlock = buildMemoryBlock(memory);
+    if (memBlock) parts.push(memBlock);
+  }
+
+  return parts.join("\n");
 }
 
 /* ─── Audit surface builder ─── */

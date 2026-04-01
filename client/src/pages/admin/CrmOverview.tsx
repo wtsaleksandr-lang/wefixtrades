@@ -75,7 +75,13 @@ export default function CrmOverview() {
     `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
   return (
-    <AdminLayout>
+    <AdminLayout pageContext={{
+      page: "overview",
+      totalClients: data?.totalClients,
+      monthlyRevenue: data?.monthlyRevenue,
+      totalOpenTasks: data?.openFulfillment,
+      unpaidAmount: data?.unpaidAmount,
+    }}>
       <div className="max-w-6xl mx-auto space-y-6">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Operations Overview</h2>

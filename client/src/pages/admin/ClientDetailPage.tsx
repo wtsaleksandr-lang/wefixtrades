@@ -273,7 +273,15 @@ export default function ClientDetailPage() {
   const totalCost = (services ?? []).reduce((acc, s) => acc + (s.cost_cents ?? 0), 0);
 
   return (
-    <AdminLayout>
+    <AdminLayout pageContext={{
+      page: "client_detail",
+      clientId: client.id,
+      clientName: client.business_name,
+      clientStatus: client.status,
+      activeServicesCount: services?.filter(s => s.status === "active").length,
+      openTasksCount: fulfillment?.filter(t => !["delivered","cancelled"].includes(t.status)).length,
+      unpaidAmount: payments?.filter(p => p.status === "pending").reduce((a, p) => a + p.amount_cents, 0),
+    }}>
       <div className="max-w-5xl mx-auto space-y-5">
         {/* Back link */}
         <Link href="/admin/crm/clients">

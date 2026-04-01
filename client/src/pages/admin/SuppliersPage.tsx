@@ -65,7 +65,7 @@ export default function SuppliersPage() {
   });
 
   return (
-    <AdminLayout>
+    <AdminLayout pageContext={{ page: "suppliers" }}>
       <div className="max-w-5xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">

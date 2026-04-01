@@ -80,7 +80,13 @@ export default function InboxPage() {
   const totalOpen = (tasks ?? []).filter((t) => !["delivered", "cancelled"].includes(t.status)).length;
 
   return (
-    <AdminLayout>
+    <AdminLayout pageContext={{
+      page: "inbox",
+      totalOpenTasks: totalOpen,
+      overdueTasksCount: overdue.length,
+      activeFilters: statusFilter !== "open" ? statusFilter : undefined,
+      topTasks: (tasks ?? []).slice(0, 8).map(t => ({ title: t.title, status: t.status, priority: t.priority })),
+    }}>
       <div className="max-w-3xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
