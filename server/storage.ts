@@ -21,8 +21,9 @@ import {
   type AuditSubmission, type InsertAuditSubmission,
   // Admin CRM
   clients, clientServices, serviceCatalog, orders, orderItems,
-  suppliers, fulfillmentTasks, onboardingSubmissions,
+  suppliers, fulfillmentTasks, onboardingSubmissions, onboardingTemplates,
   clientPayments, internalNotes, adminActivityLog,
+  serviceTaskTemplates,
   type Client, type InsertClient,
   type ClientService, type InsertClientService,
   type ServiceCatalogRow, type InsertServiceCatalog,
@@ -34,6 +35,8 @@ import {
   type ClientPayment, type InsertClientPayment,
   type InternalNote, type InsertInternalNote,
   type AdminActivityLog, type InsertAdminActivityLog,
+  type ServiceTaskTemplate,
+  type OnboardingTemplate,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -859,6 +862,7 @@ export class DatabaseStorage implements IStorage {
       description: fulfillmentTasks.description,
       status: fulfillmentTasks.status,
       priority: fulfillmentTasks.priority,
+      sort_order: fulfillmentTasks.sort_order,
       waiting_on: fulfillmentTasks.waiting_on,
       handled_by: fulfillmentTasks.handled_by,
       automation_status: fulfillmentTasks.automation_status,
@@ -881,7 +885,7 @@ export class DatabaseStorage implements IStorage {
     .leftJoin(clients, eq(fulfillmentTasks.client_id, clients.id))
     .leftJoin(suppliers, eq(fulfillmentTasks.supplier_id, suppliers.id))
     .where(where)
-    .orderBy(desc(fulfillmentTasks.created_at))
+    .orderBy(fulfillmentTasks.sort_order, fulfillmentTasks.created_at)
     .limit(limit)
     .offset(offset);
     return rows;
@@ -1039,6 +1043,69 @@ export class DatabaseStorage implements IStorage {
       .limit(5),
     ]);
     return { totalClients, activeServices, pendingOnboarding, openFulfillment, unpaidAmount, monthlyRevenue, recentClients, recentTasks: recentTaskRows };
+  }
+
+  // ─── Task Templates ───
+  async getTaskTemplates(serviceId: string): Promise<ServiceTaskTemplate[]> {
+    return db.select().from(serviceTaskTemplates).where(eq(serviceTaskTemplates.service_id, serviceId)).orderBy(serviceTaskTemplates.sort_order);
+  }
+
+  // ─── Onboarding Templates ───
+  async getOnboardingTemplate(serviceId: string): Promise<OnboardingTemplate | undefined> {
+    const [row] = await db.select().from(onboardingTemplates)
+      .where(and(eq(onboardingTemplates.service_id, serviceId), eq(onboardingTemplates.is_active, true)))
+      .limit(1);
+    return row;
+  }
+
+  // ─── Service Catalog lookup ───
+  async getClientServiceById(id: number): Promise<ClientService | undefined> {
+    const [row] = await db.select().from(clientServices).where(eq(clientServices.id, id)).limit(1);
+    return row;
+  }
+
+  async getServiceById(serviceId: string): Promise<ServiceCatalogRow | undefined> {
+    const [row] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, serviceId)).limit(1);
+    return row;
+  }
+
+  // ─── Check completion cascade ───
+  async checkAndCompleteService(clientServiceId: number): Promise<{ serviceCompleted: boolean; clientActivated: boolean }> {
+    // Count non-delivered tasks for this client_service
+    const [pending] = await db.select({ total: sql<number>`count(*)::int` })
+      .from(fulfillmentTasks)
+      .where(and(
+        eq(fulfillmentTasks.client_service_id, clientServiceId),
+        sql`${fulfillmentTasks.status} NOT IN ('delivered', 'cancelled')`,
+      ));
+
+    if ((pending?.total ?? 1) > 0) return { serviceCompleted: false, clientActivated: false };
+
+    // All tasks delivered — complete the service
+    const [svc] = await db.update(clientServices)
+      .set({ status: "completed", completed_at: new Date(), updated_at: new Date() })
+      .where(eq(clientServices.id, clientServiceId))
+      .returning();
+
+    if (!svc) return { serviceCompleted: false, clientActivated: false };
+
+    // Check if client has any non-completed active services
+    const [otherActive] = await db.select({ total: sql<number>`count(*)::int` })
+      .from(clientServices)
+      .where(and(
+        eq(clientServices.client_id, svc.client_id),
+        sql`${clientServices.status} NOT IN ('completed', 'cancelled')`,
+      ));
+
+    let clientActivated = false;
+    if ((otherActive?.total ?? 0) === 0) {
+      await db.update(clients)
+        .set({ status: "active", updated_at: new Date() })
+        .where(eq(clients.id, svc.client_id));
+      clientActivated = true;
+    }
+
+    return { serviceCompleted: true, clientActivated };
   }
 }
 

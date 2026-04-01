@@ -264,20 +264,22 @@ export default function ClientDetailPage() {
   const [newServiceId, setNewServiceId] = useState("");
   const addService = useMutation({
     mutationFn: async () => {
-      const catalogItem = catalog?.find((s) => s.id === newServiceId);
-      const res = await apiRequest("POST", `/api/admin/crm/clients/${clientId}/services`, {
+      // Use provision endpoint — creates service + invoice + onboarding + tasks in one call
+      const res = await apiRequest("POST", `/api/admin/crm/clients/${clientId}/provision`, {
         service_id: newServiceId,
-        price_cents: catalogItem?.default_price ?? 0,
-        billing_period: catalogItem?.billing_period ?? "monthly",
-        status: "pending",
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { tasksCreated: number }) => {
       setShowAddService(false);
       setNewServiceId("");
       queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/services`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/fulfillment`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/payments`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
+      toast({ title: "Service provisioned", description: `${data.tasksCreated} tasks created` });
     },
   });
 

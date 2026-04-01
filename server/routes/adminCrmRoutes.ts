@@ -203,6 +203,10 @@ export function registerAdminCrmRoutes(app: Express): void {
   app.patch("/api/admin/crm/fulfillment/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      // If marking delivered, set completed_at
+      if (req.body.status === "delivered" && !req.body.completed_at) {
+        req.body.completed_at = new Date();
+      }
       const task = await storage.updateFulfillmentTask(id, req.body);
       if (!task) return res.status(404).json({ error: "Fulfillment task not found" });
       await storage.logAdminActivity({
@@ -215,7 +219,14 @@ export function registerAdminCrmRoutes(app: Express): void {
         summary: `Updated fulfillment task "${task.title}" → ${task.status}`,
         metadata: { fields: Object.keys(req.body) },
       });
-      res.json(task);
+
+      // Completion cascade: if task delivered, check if all tasks for this service are done
+      let cascade;
+      if (task.status === "delivered" && task.client_service_id) {
+        cascade = await storage.checkAndCompleteService(task.client_service_id);
+      }
+
+      res.json({ ...task, cascade });
     } catch (err: any) {
       res.status(500).json({ error: "Failed to update fulfillment task" });
     }
@@ -395,6 +406,159 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.json(counts);
     } catch (err: any) {
       res.status(500).json({ error: "Failed to get service stats" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     Provision Service (single-action setup)
+     ═══════════════════════════════════════════ */
+
+  app.post("/api/admin/crm/clients/:id/provision", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id);
+      const { service_id, fulfillment_mode, price_override } = req.body;
+
+      if (!service_id) return res.status(400).json({ error: "service_id is required" });
+
+      const client = await storage.getClientById(clientId);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+
+      const service = await storage.getServiceById(service_id);
+      if (!service) return res.status(404).json({ error: "Service not found in catalog" });
+
+      // 1. Create client_service
+      const clientService = await storage.createClientService({
+        client_id: clientId,
+        service_id,
+        status: "pending",
+        enabled: true,
+        fulfillment_mode: fulfillment_mode || "internal",
+        price_cents: price_override ?? service.default_price,
+        billing_period: service.billing_period,
+      });
+
+      // 2. Create invoice
+      const payment = await storage.createClientPayment({
+        client_id: clientId,
+        client_service_id: clientService.id,
+        type: "invoice",
+        amount_cents: clientService.price_cents ?? 0,
+        status: "pending",
+        description: `${service.name} — ${service.billing_period === "monthly" ? "monthly" : "one-time"}`,
+        actor_type: "human",
+      });
+
+      // 3. Create onboarding submission (if template exists)
+      const onboardingTemplate = await storage.getOnboardingTemplate(service_id);
+      let onboarding = null;
+      if (onboardingTemplate) {
+        onboarding = await storage.createOnboardingSubmission({
+          client_service_id: clientService.id,
+          client_id: clientId,
+          template_id: onboardingTemplate.id,
+          status: "not_sent",
+          actor_type: "human",
+        });
+      }
+
+      // 4. Create tasks from template
+      const taskTemplates = await storage.getTaskTemplates(service_id);
+      const tasks = [];
+      for (const t of taskTemplates) {
+        const task = await storage.createFulfillmentTask({
+          client_service_id: clientService.id,
+          client_id: clientId,
+          title: t.title,
+          description: t.description,
+          sort_order: t.sort_order,
+          priority: t.default_priority,
+          handled_by: t.default_handled_by,
+          waiting_on: t.default_waiting_on,
+          human_review_required: t.human_review_required,
+          status: "not_started",
+          actor_type: "human",
+        });
+        tasks.push(task);
+      }
+
+      // 5. Update client status if needed
+      if (client.status === "lead") {
+        await storage.updateClient(clientId, { status: "onboarding" });
+      }
+
+      // 6. Log activity
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "service.provisioned",
+        entity_type: "client_service",
+        entity_id: clientService.id,
+        summary: `Provisioned "${service.name}" for client "${client.business_name}" — ${tasks.length} tasks created`,
+        metadata: { service_id, tasks_created: tasks.length, has_onboarding: !!onboarding },
+      });
+
+      res.status(201).json({
+        clientService,
+        payment,
+        onboarding,
+        tasksCreated: tasks.length,
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] Provision error:", err.message);
+      res.status(500).json({ error: "Failed to provision service" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     Generate Monthly Tasks (Pattern B)
+     ═══════════════════════════════════════════ */
+
+  app.post("/api/admin/crm/client-services/:id/generate-tasks", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientServiceId = parseInt(req.params.id);
+      const { month } = req.body; // optional label like "2026-04"
+
+      const cs = await storage.getClientServiceById(clientServiceId);
+      if (!cs) return res.status(404).json({ error: "Client service not found" });
+
+      const taskTemplates = await storage.getTaskTemplates(cs.service_id);
+      if (!taskTemplates.length) return res.status(400).json({ error: "No task templates found for this service" });
+
+      const label = month || new Date().toISOString().slice(0, 7);
+      const tasks = [];
+      for (const t of taskTemplates) {
+        const task = await storage.createFulfillmentTask({
+          client_service_id: clientServiceId,
+          client_id: cs.client_id,
+          title: `[${label}] ${t.title}`,
+          description: t.description,
+          sort_order: t.sort_order,
+          priority: t.default_priority,
+          handled_by: t.default_handled_by,
+          waiting_on: t.default_waiting_on,
+          human_review_required: t.human_review_required,
+          status: "not_started",
+          actor_type: "human",
+        });
+        tasks.push(task);
+      }
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "tasks.generated",
+        entity_type: "client_service",
+        entity_id: clientServiceId,
+        summary: `Generated ${tasks.length} monthly tasks for ${label}`,
+        metadata: { month: label, tasks_created: tasks.length },
+      });
+
+      res.status(201).json({ tasksCreated: tasks.length, month: label });
+    } catch (err: any) {
+      console.error("[admin-crm] Generate tasks error:", err.message);
+      res.status(500).json({ error: "Failed to generate tasks" });
     }
   });
 }

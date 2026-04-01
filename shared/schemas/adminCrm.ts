@@ -59,6 +59,7 @@ export const clientServices = pgTable("client_services", {
   cost_cents: integer("cost_cents"),                       // cost to deliver
   billing_period: varchar("billing_period", { length: 20 }),
   started_at: timestamp("started_at"),
+  completed_at: timestamp("completed_at"),
   cancelled_at: timestamp("cancelled_at"),
   automation_enabled: boolean("automation_enabled").notNull().default(true),
   human_review_required: boolean("human_review_required").notNull().default(false),
@@ -135,6 +136,7 @@ export const fulfillmentTasks = pgTable("fulfillment_tasks", {
   // not_started | submitted | in_progress | waiting | blocked | delivered | cancelled
   priority: varchar("priority", { length: 20 }).notNull().default("normal"),
   // low | normal | high | urgent
+  sort_order: integer("sort_order").notNull().default(0),
   waiting_on: varchar("waiting_on", { length: 20 }),
   // client | supplier | internal (null = not waiting)
   handled_by: varchar("handled_by", { length: 20 }),
@@ -157,6 +159,23 @@ export const fulfillmentTasks = pgTable("fulfillment_tasks", {
 export const insertFulfillmentTaskSchema = createInsertSchema(fulfillmentTasks).omit({ id: true, created_at: true, updated_at: true });
 export type InsertFulfillmentTask = z.infer<typeof insertFulfillmentTaskSchema>;
 export type FulfillmentTask = typeof fulfillmentTasks.$inferSelect;
+
+/* ─── Service Task Templates ─── */
+export const serviceTaskTemplates = pgTable("service_task_templates", {
+  id: serial("id").primaryKey(),
+  service_id: varchar("service_id", { length: 100 }).notNull().references(() => serviceCatalog.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  sort_order: integer("sort_order").notNull().default(0),
+  default_priority: varchar("default_priority", { length: 20 }).notNull().default("normal"),
+  default_handled_by: varchar("default_handled_by", { length: 20 }),
+  default_waiting_on: varchar("default_waiting_on", { length: 20 }),
+  human_review_required: boolean("human_review_required").notNull().default(false),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export const insertServiceTaskTemplateSchema = createInsertSchema(serviceTaskTemplates).omit({ id: true, created_at: true });
+export type InsertServiceTaskTemplate = z.infer<typeof insertServiceTaskTemplateSchema>;
+export type ServiceTaskTemplate = typeof serviceTaskTemplates.$inferSelect;
 
 /* ─── Onboarding Templates ─── */
 export const onboardingTemplates = pgTable("onboarding_templates", {
