@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface Client {
   id: number;
@@ -55,6 +56,8 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function ClientsPage() {
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showAdd, setShowAdd] = useState(false);
@@ -85,11 +88,14 @@ export default function ClientsPage() {
       const res = await apiRequest("POST", "/api/admin/crm/clients", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { id: number; business_name: string }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/clients"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+      const name = form.business_name;
       setShowAdd(false);
       setForm({ business_name: "", contact_name: "", contact_email: "", contact_phone: "", trade_type: "", status: "lead", source: "manual" });
+      toast({ title: "Client created", description: name });
+      navigate(`/admin/crm/clients/${data.id}`);
     },
   });
 

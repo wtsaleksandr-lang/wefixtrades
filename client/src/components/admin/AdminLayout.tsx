@@ -160,7 +160,7 @@ function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => v
         title: form.title,
         priority: form.priority,
         status: "not_started",
-        waiting_on: form.waiting_on || null,
+        waiting_on: form.waiting_on && form.waiting_on !== "none" ? form.waiting_on : null,
         due_at: form.due_at ? new Date(form.due_at).toISOString() : null,
       });
       return res.json();

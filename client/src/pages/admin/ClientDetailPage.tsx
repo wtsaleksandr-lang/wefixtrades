@@ -189,9 +189,10 @@ export default function ClientDetailPage() {
       const res = await apiRequest("PATCH", `/api/admin/crm/clients/${clientId}`, { status });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, status) => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/clients"] });
+      toast({ title: "Client updated", description: `Status changed to ${status}` });
     },
   });
 
@@ -294,11 +295,8 @@ export default function ClientDetailPage() {
         <Card className="p-5">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div>
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-semibold text-gray-900">{client.business_name}</h2>
-                <StatusBadge status={client.status} />
-              </div>
-              <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
+              <h2 className="text-xl font-semibold text-gray-900">{client.business_name}</h2>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-gray-500">
                 {client.contact_name && <span>{client.contact_name}</span>}
                 {client.contact_email && (
                   <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" /> {client.contact_email}</span>

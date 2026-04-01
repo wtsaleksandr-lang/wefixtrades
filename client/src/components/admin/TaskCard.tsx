@@ -118,9 +118,8 @@ function WaitingOnChip({
   value: string | null;
   onClick?: () => void;
 }) {
-  if (!value && !onClick) return null;
-  const icon = value ? WAITING_ON_ICON[value] : null;
-  const label = value ? value : "set";
+  if (!value) return null;
+  const icon = WAITING_ON_ICON[value];
   const isClickable = !!onClick;
 
   return (
@@ -128,14 +127,12 @@ function WaitingOnChip({
       type="button"
       onClick={(e) => { e.preventDefault(); onClick?.(); }}
       disabled={!isClickable}
-      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium transition-colors ${
-        value
-          ? "bg-amber-50 text-amber-600 hover:bg-amber-100"
-          : "bg-gray-50 text-gray-400 hover:bg-gray-100"
-      } ${isClickable ? "cursor-pointer" : "cursor-default"}`}
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium transition-colors bg-amber-50 text-amber-600 ${
+        isClickable ? "hover:bg-amber-100 cursor-pointer" : "cursor-default"
+      }`}
     >
       {icon}
-      <span className="capitalize">{label}</span>
+      <span className="capitalize">{value}</span>
     </button>
   );
 }
@@ -198,7 +195,7 @@ export function TaskCard({
             </Link>
           )}
 
-          {(task.waiting_on || onWaitingOnChange) && (
+          {task.waiting_on && (
             <WaitingOnChip
               value={task.waiting_on}
               onClick={onWaitingOnChange ? () => {
@@ -222,7 +219,7 @@ export function TaskCard({
           )}
 
           {updated && (
-            <span className="text-gray-300">
+            <span className="text-gray-400">
               <Clock className="w-3 h-3 inline mr-0.5 -mt-px" />{updated}
             </span>
           )}
