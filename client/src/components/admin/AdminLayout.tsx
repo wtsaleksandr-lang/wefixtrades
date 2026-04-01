@@ -11,18 +11,27 @@ import {
   Plus,
   UserPlus,
   ClipboardPlus,
-  StickyNote,
   DollarSign,
 } from "lucide-react";
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { apiRequest } from "@/lib/queryClient";
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/admin/crm", icon: LayoutDashboard },
@@ -41,46 +50,274 @@ function isActive(location: string, href: string): boolean {
   return location.startsWith(href);
 }
 
-interface QuickAddProps {
-  onAction: (action: string) => void;
-}
+/* ─── Quick Add Dialogs ─── */
 
-function QuickAddButton({ onAction }: QuickAddProps) {
+function QuickAddClientDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({ business_name: "", contact_name: "", contact_email: "", contact_phone: "", trade_type: "", status: "lead" });
+
+  const mutation = useMutation({
+    mutationFn: async (data: typeof form) => {
+      const res = await apiRequest("POST", "/api/admin/crm/clients", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+      setForm({ business_name: "", contact_name: "", contact_email: "", contact_phone: "", trade_type: "", status: "lead" });
+      onClose();
+    },
+  });
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="sm" className="bg-[#2D6A4F] hover:bg-[#1B4332] h-8 px-3 gap-1.5">
-          <Plus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline text-xs">Quick Add</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuItem onClick={() => onAction("client")}>
-          <UserPlus className="w-4 h-4 mr-2 text-gray-500" /> Add Client
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onAction("task")}>
-          <ClipboardPlus className="w-4 h-4 mr-2 text-gray-500" /> Add Task
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onAction("note")}>
-          <StickyNote className="w-4 h-4 mr-2 text-gray-500" /> Add Note
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onAction("payment")}>
-          <DollarSign className="w-4 h-4 mr-2 text-gray-500" /> Add Payment
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>Add Client</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-gray-600">Business Name *</label>
+            <Input value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-600">Contact Name</label>
+              <Input value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">Phone</label>
+              <Input value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-600">Email</label>
+            <Input value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-600">Trade</label>
+              <Input value={form.trade_type} onChange={(e) => setForm({ ...form, trade_type: e.target.value })} placeholder="e.g. plumber" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">Status</label>
+              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lead">Lead</SelectItem>
+                  <SelectItem value="onboarding">Onboarding</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => mutation.mutate(form)} disabled={!form.business_name || mutation.isPending} className="bg-[#2D6A4F] hover:bg-[#1B4332]">
+            {mutation.isPending ? "Creating..." : "Create"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-export default function AdminLayout({
-  children,
-  onQuickAdd,
-}: {
-  children: React.ReactNode;
-  onQuickAdd?: (action: string) => void;
-}) {
+function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({ client_id: "", client_service_id: "", title: "", priority: "normal" });
+
+  const { data: clientList } = useQuery<{ data: { id: number; business_name: string }[]; total: number }>({
+    queryKey: ["/api/admin/crm/clients", { limit: 100 }],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/crm/clients?limit=100", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  const { data: clientServices } = useQuery<{ id: number; service_name: string | null; service_id: string }[]>({
+    queryKey: [`/api/admin/crm/clients/${form.client_id}/services`],
+    enabled: !!form.client_id,
+  });
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const clientId = parseInt(form.client_id);
+      const clientServiceId = parseInt(form.client_service_id) || (clientServices?.[0]?.id ?? 0);
+      const res = await apiRequest("POST", "/api/admin/crm/fulfillment", {
+        client_id: clientId,
+        client_service_id: clientServiceId,
+        title: form.title,
+        priority: form.priority,
+        status: "not_started",
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+      setForm({ client_id: "", client_service_id: "", title: "", priority: "normal" });
+      onClose();
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>Add Task</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-gray-600">Client *</label>
+            <Select value={form.client_id} onValueChange={(v) => setForm({ ...form, client_id: v, client_service_id: "" })}>
+              <SelectTrigger><SelectValue placeholder="Select client..." /></SelectTrigger>
+              <SelectContent>
+                {clientList?.data.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>{c.business_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {form.client_id && clientServices && clientServices.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-gray-600">Service</label>
+              <Select value={form.client_service_id} onValueChange={(v) => setForm({ ...form, client_service_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Select service..." /></SelectTrigger>
+                <SelectContent>
+                  {clientServices.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>{s.service_name || s.service_id}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div>
+            <label className="text-xs font-medium text-gray-600">Task Title *</label>
+            <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Set up Google Business Profile" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-600">Priority</label>
+            <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="normal">Normal</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="urgent">Urgent</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => mutation.mutate()} disabled={!form.client_id || !form.title || mutation.isPending} className="bg-[#2D6A4F] hover:bg-[#1B4332]">
+            {mutation.isPending ? "Creating..." : "Create"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function QuickAddPaymentDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({ client_id: "", amount: "", type: "invoice", status: "pending", description: "" });
+
+  const { data: clientList } = useQuery<{ data: { id: number; business_name: string }[]; total: number }>({
+    queryKey: ["/api/admin/crm/clients", { limit: 100 }],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/crm/clients?limit=100", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/crm/payments", {
+        client_id: parseInt(form.client_id),
+        amount_cents: Math.round(parseFloat(form.amount) * 100),
+        type: form.type,
+        status: form.status,
+        description: form.description || null,
+        actor_type: "human",
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+      setForm({ client_id: "", amount: "", type: "invoice", status: "pending", description: "" });
+      onClose();
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>Add Payment</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-gray-600">Client *</label>
+            <Select value={form.client_id} onValueChange={(v) => setForm({ ...form, client_id: v })}>
+              <SelectTrigger><SelectValue placeholder="Select client..." /></SelectTrigger>
+              <SelectContent>
+                {clientList?.data.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>{c.business_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-600">Amount ($) *</label>
+              <Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0.00" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">Type</label>
+              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="invoice">Invoice</SelectItem>
+                  <SelectItem value="payment">Payment</SelectItem>
+                  <SelectItem value="refund">Refund</SelectItem>
+                  <SelectItem value="credit">Credit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-600">Status</label>
+            <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-600">Description</label>
+            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => mutation.mutate()} disabled={!form.client_id || !form.amount || mutation.isPending} className="bg-[#2D6A4F] hover:bg-[#1B4332]">
+            {mutation.isPending ? "Creating..." : "Create"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ─── Main Layout ─── */
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [quickAdd, setQuickAdd] = useState<string | null>(null);
 
   return (
     <div className="flex h-screen bg-[#F6F7F9] overflow-hidden">
@@ -109,7 +346,7 @@ export default function AdminLayout({
           </Link>
           <button
             onClick={() => setMobileOpen(false)}
-            className="lg:hidden p-1 rounded hover:bg-gray-100"
+            className="lg:hidden p-1 rounded hover:bg-gray-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -193,7 +430,25 @@ export default function AdminLayout({
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            {onQuickAdd && <QuickAddButton onAction={onQuickAdd} />}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="bg-[#2D6A4F] hover:bg-[#1B4332] h-8 px-3 gap-1.5">
+                  <Plus className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline text-xs">Quick Add</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem onClick={() => setQuickAdd("client")}>
+                  <UserPlus className="w-4 h-4 mr-2 text-gray-500" /> Add Client
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setQuickAdd("task")}>
+                  <ClipboardPlus className="w-4 h-4 mr-2 text-gray-500" /> Add Task
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setQuickAdd("payment")}>
+                  <DollarSign className="w-4 h-4 mr-2 text-gray-500" /> Add Payment
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <div className="w-7 h-7 rounded-full bg-[#2D6A4F] flex items-center justify-center" title="Admin">
               <span className="text-white text-[10px] font-bold">A</span>
             </div>
@@ -205,6 +460,11 @@ export default function AdminLayout({
           {children}
         </main>
       </div>
+
+      {/* Quick Add Dialogs */}
+      <QuickAddClientDialog open={quickAdd === "client"} onClose={() => setQuickAdd(null)} />
+      <QuickAddTaskDialog open={quickAdd === "task"} onClose={() => setQuickAdd(null)} />
+      <QuickAddPaymentDialog open={quickAdd === "payment"} onClose={() => setQuickAdd(null)} />
     </div>
   );
 }

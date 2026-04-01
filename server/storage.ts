@@ -146,7 +146,7 @@ export interface IStorage {
   updateSupplier(id: number, updates: Partial<InsertSupplier>): Promise<Supplier | undefined>;
 
   // Fulfillment
-  listFulfillmentTasks(opts?: { clientId?: number; status?: string; limit?: number; offset?: number }): Promise<FulfillmentTask[]>;
+  listFulfillmentTasks(opts?: { clientId?: number; status?: string; limit?: number; offset?: number }): Promise<(FulfillmentTask & { client_name?: string; supplier_name?: string })[]>;
   createFulfillmentTask(data: InsertFulfillmentTask): Promise<FulfillmentTask>;
   updateFulfillmentTask(id: number, updates: Partial<InsertFulfillmentTask>): Promise<FulfillmentTask | undefined>;
   getOpenFulfillmentCount(): Promise<number>;
@@ -842,13 +842,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ─── Fulfillment ───
-  async listFulfillmentTasks(opts: { clientId?: number; status?: string; limit?: number; offset?: number } = {}): Promise<FulfillmentTask[]> {
+  async listFulfillmentTasks(opts: { clientId?: number; status?: string; limit?: number; offset?: number } = {}): Promise<(FulfillmentTask & { client_name?: string; supplier_name?: string })[]> {
     const { clientId, status, limit = 50, offset = 0 } = opts;
     const conditions = [];
     if (clientId) conditions.push(eq(fulfillmentTasks.client_id, clientId));
     if (status) conditions.push(eq(fulfillmentTasks.status, status));
     const where = conditions.length ? and(...conditions) : undefined;
-    return db.select().from(fulfillmentTasks).where(where).orderBy(desc(fulfillmentTasks.created_at)).limit(limit).offset(offset);
+    const rows = await db.select({
+      id: fulfillmentTasks.id,
+      client_service_id: fulfillmentTasks.client_service_id,
+      client_id: fulfillmentTasks.client_id,
+      supplier_id: fulfillmentTasks.supplier_id,
+      title: fulfillmentTasks.title,
+      description: fulfillmentTasks.description,
+      status: fulfillmentTasks.status,
+      priority: fulfillmentTasks.priority,
+      cost_cents: fulfillmentTasks.cost_cents,
+      due_at: fulfillmentTasks.due_at,
+      completed_at: fulfillmentTasks.completed_at,
+      escalation_flag: fulfillmentTasks.escalation_flag,
+      human_review_required: fulfillmentTasks.human_review_required,
+      actor_type: fulfillmentTasks.actor_type,
+      metadata: fulfillmentTasks.metadata,
+      created_at: fulfillmentTasks.created_at,
+      updated_at: fulfillmentTasks.updated_at,
+      client_name: clients.business_name,
+      supplier_name: suppliers.name,
+    })
+    .from(fulfillmentTasks)
+    .leftJoin(clients, eq(fulfillmentTasks.client_id, clients.id))
+    .leftJoin(suppliers, eq(fulfillmentTasks.supplier_id, suppliers.id))
+    .where(where)
+    .orderBy(desc(fulfillmentTasks.created_at))
+    .limit(limit)
+    .offset(offset);
+    return rows;
   }
 
   async createFulfillmentTask(data: InsertFulfillmentTask): Promise<FulfillmentTask> {
