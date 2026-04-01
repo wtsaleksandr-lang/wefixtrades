@@ -40,7 +40,12 @@ export interface PageContext {
   monthlyRevenue?: number;
   totalOpenTasks?: number;
   activeFilters?: string;
-  topTasks?: Array<{ title: string; status: string; priority: string }>;
+  topTasks?: Array<{ title: string; status: string; priority: string; waiting_on?: string | null }>;
+  latestPayment?: { status: string; amount_cents: number; date: string | null };
+  supplierNames?: string[];
+  blockedCount?: number;
+  statusCounts?: Record<string, number>;
+  waitingOnCounts?: Record<string, number>;
 }
 
 export interface MemoryContext {
@@ -194,10 +199,28 @@ STRICT RULES:
   if (ctx.totalOpenTasks != null) lines.push(`Total open tasks: ${ctx.totalOpenTasks}`);
   if (ctx.activeFilters) lines.push(`Active filter: ${ctx.activeFilters}`);
 
+  if (ctx.latestPayment) {
+    lines.push(`Latest payment: ${ctx.latestPayment.status} — $${(ctx.latestPayment.amount_cents / 100).toFixed(2)}${ctx.latestPayment.date ? ` on ${ctx.latestPayment.date}` : ""}`);
+  }
+  if (ctx.supplierNames?.length) {
+    lines.push(`Suppliers involved: ${ctx.supplierNames.join(", ")}`);
+  }
+  if (ctx.blockedCount != null && ctx.blockedCount > 0) {
+    lines.push(`Blocked tasks: ${ctx.blockedCount}`);
+  }
+  if (ctx.statusCounts && Object.keys(ctx.statusCounts).length) {
+    lines.push(`Tasks by status: ${Object.entries(ctx.statusCounts).map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`).join(", ")}`);
+  }
+  if (ctx.waitingOnCounts && Object.keys(ctx.waitingOnCounts).length) {
+    lines.push(`Tasks by waiting on: ${Object.entries(ctx.waitingOnCounts).map(([k, v]) => `${k}=${v}`).join(", ")}`);
+  }
+
   if (ctx.topTasks?.length) {
     lines.push(`\nVisible tasks:`);
     ctx.topTasks.slice(0, 8).forEach((t, i) => {
-      lines.push(`${i + 1}. "${t.title}" — ${t.status} (${t.priority})`);
+      const parts2 = [`"${t.title}" — ${t.status} (${t.priority})`];
+      if (t.waiting_on) parts2.push(`waiting on ${t.waiting_on}`);
+      lines.push(`${i + 1}. ${parts2.join(", ")}`);
     });
   }
 

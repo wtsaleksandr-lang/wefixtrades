@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X, Send, BrainCircuit, Loader2 } from "lucide-react";
-import { getSessionId, readSSEStream, type ChatMessage } from "@/lib/chatHelpers";
+import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2 } from "lucide-react";
+import { readSSEStream, type ChatMessage } from "@/lib/chatHelpers";
 
 /* ─── Types ─── */
 export interface AdminPageContext {
@@ -19,10 +19,45 @@ export interface AdminPageContext {
   monthlyRevenue?: number;
   totalOpenTasks?: number;
   activeFilters?: string;
-  topTasks?: Array<{ title: string; status: string; priority: string }>;
+  topTasks?: Array<{ title: string; status: string; priority: string; waiting_on?: string | null }>;
+  latestPayment?: { status: string; amount_cents: number; date: string | null };
+  supplierNames?: string[];
+  blockedCount?: number;
+  statusCounts?: Record<string, number>;
+  waitingOnCounts?: Record<string, number>;
 }
 
-/* ─── Storage keys (separate from marketing chat) ─── */
+/* ─── Suggested prompts per page ─── */
+const PROMPT_CHIPS: Record<string, string[]> = {
+  overview: [
+    "What should I focus on first?",
+    "Summarize this page",
+    "What needs attention?",
+  ],
+  clients: [
+    "Summarize this page",
+    "Who needs follow-up?",
+    "What am I missing?",
+  ],
+  client_detail: [
+    "Summarize this client",
+    "What should happen next?",
+    "What is blocked?",
+    "Is this client healthy?",
+  ],
+  inbox: [
+    "What should I focus on first?",
+    "What is blocked?",
+    "What am I waiting on?",
+    "Summarize the queue",
+  ],
+  suppliers: [
+    "Summarize this page",
+    "What should I know?",
+  ],
+};
+
+/* ─── Storage ─── */
 const COPILOT_MESSAGES_KEY = "wft_copilot_messages";
 const COPILOT_SESSION_KEY = "wft_copilot_session";
 
@@ -53,6 +88,36 @@ function saveCopilotMessages(messages: ChatMessage[]): void {
   } catch {}
 }
 
+/* ─── Context Preview ─── */
+function ContextPreview({ context }: { context: AdminPageContext }) {
+  const [open, setOpen] = useState(false);
+  // Strip undefined values for clean display
+  const clean = Object.fromEntries(
+    Object.entries(context).filter(([, v]) => v !== undefined && v !== null)
+  );
+
+  return (
+    <div className="border-t border-gray-100">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between w-full px-4 py-2 text-left min-h-[36px]"
+      >
+        <span className="flex items-center gap-1.5 text-[11px] text-gray-400">
+          <Code2 className="w-3 h-3" /> Context
+        </span>
+        {open ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}
+      </button>
+      {open && (
+        <div className="px-4 pb-3">
+          <pre className="text-[10px] leading-relaxed text-gray-500 bg-gray-50 rounded p-2 overflow-x-auto max-h-48 overflow-y-auto">
+            {JSON.stringify(clean, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Component ─── */
 export default function AdminCopilot({
   open,
@@ -69,25 +134,22 @@ export default function AdminCopilot({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, streaming]);
 
-  // Focus input when opened
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [open]);
 
-  async function handleSend() {
-    const text = input.trim();
-    if (!text || streaming) return;
+  async function sendMessage(text: string) {
+    if (!text.trim() || streaming) return;
 
-    const userMsg: ChatMessage = { role: "user", content: text };
+    const userMsg: ChatMessage = { role: "user", content: text.trim() };
     const updated = [...messages, userMsg];
     setMessages(updated);
     saveCopilotMessages(updated);
@@ -107,13 +169,10 @@ export default function AdminCopilot({
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Chat request failed");
-      }
+      if (!response.ok) throw new Error("Chat request failed");
 
       let assistantText = "";
-      const withPlaceholder = [...updated, { role: "assistant" as const, content: "" }];
-      setMessages(withPlaceholder);
+      setMessages([...updated, { role: "assistant" as const, content: "" }]);
 
       await readSSEStream(response, (fullText) => {
         assistantText = fullText;
@@ -123,7 +182,7 @@ export default function AdminCopilot({
       const final = [...updated, { role: "assistant" as const, content: assistantText }];
       setMessages(final);
       saveCopilotMessages(final);
-    } catch (err) {
+    } catch {
       const errorMsg: ChatMessage = { role: "assistant", content: "Sorry, something went wrong. Please try again." };
       const final = [...updated, errorMsg];
       setMessages(final);
@@ -137,6 +196,8 @@ export default function AdminCopilot({
     setMessages([]);
     saveCopilotMessages([]);
   }
+
+  const chips = PROMPT_CHIPS[pageContext.page] || PROMPT_CHIPS.overview;
 
   if (!open) return null;
 
@@ -169,10 +230,24 @@ export default function AdminCopilot({
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
-          <div className="text-center py-8">
+          <div className="text-center py-6">
             <BrainCircuit className="w-8 h-8 text-gray-200 mx-auto mb-3" />
             <p className="text-sm text-gray-500">Ask me about this page.</p>
-            <p className="text-xs text-gray-400 mt-1">I can explain what you see, suggest next steps, and answer questions.</p>
+            <p className="text-xs text-gray-400 mt-1 mb-4">I can explain what you see, suggest next steps, and answer questions.</p>
+
+            {/* Prompt chips */}
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {chips.map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => sendMessage(chip)}
+                  disabled={streaming}
+                  className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {messages.map((msg, i) => (
@@ -195,12 +270,27 @@ export default function AdminCopilot({
             </div>
           </div>
         ))}
+
+        {/* Show chips after conversation too, for follow-up */}
+        {messages.length > 0 && !streaming && (
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {chips.slice(0, 3).map((chip) => (
+              <button
+                key={chip}
+                onClick={() => sendMessage(chip)}
+                className="text-[11px] px-2.5 py-1 rounded-full border border-gray-150 text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Input */}
       <div className="border-t border-gray-100 p-3 shrink-0">
         <form
-          onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+          onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
           className="flex gap-2"
         >
           <Input
@@ -221,6 +311,9 @@ export default function AdminCopilot({
           </Button>
         </form>
       </div>
+
+      {/* Context preview (collapsible, for testing) */}
+      <ContextPreview context={pageContext} />
     </div>
   );
 }

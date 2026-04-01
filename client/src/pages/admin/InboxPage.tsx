@@ -84,8 +84,15 @@ export default function InboxPage() {
       page: "inbox",
       totalOpenTasks: totalOpen,
       overdueTasksCount: overdue.length,
+      blockedCount: blocked.length,
       activeFilters: statusFilter !== "open" ? statusFilter : undefined,
-      topTasks: (tasks ?? []).slice(0, 8).map(t => ({ title: t.title, status: t.status, priority: t.priority })),
+      statusCounts: (tasks ?? []).reduce((acc, t) => {
+        acc[t.status] = (acc[t.status] || 0) + 1; return acc;
+      }, {} as Record<string, number>),
+      waitingOnCounts: (tasks ?? []).filter(t => t.waiting_on).reduce((acc, t) => {
+        acc[t.waiting_on!] = (acc[t.waiting_on!] || 0) + 1; return acc;
+      }, {} as Record<string, number>),
+      topTasks: (tasks ?? []).slice(0, 8).map(t => ({ title: t.title, status: t.status, priority: t.priority, waiting_on: t.waiting_on })),
     }}>
       <div className="max-w-3xl mx-auto space-y-4">
         {/* Header */}

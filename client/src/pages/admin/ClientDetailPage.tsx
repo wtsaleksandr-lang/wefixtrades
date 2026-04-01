@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { TaskCard, ClientTasksEmptyState, type TaskItem } from "@/components/admin/TaskCard";
+import { TaskCard, ClientTasksEmptyState, isOverdue, type TaskItem } from "@/components/admin/TaskCard";
 
 /* ─── Types ─── */
 interface Client {
@@ -281,7 +281,19 @@ export default function ClientDetailPage() {
       clientStatus: client.status,
       activeServicesCount: services?.filter(s => s.status === "active").length,
       openTasksCount: fulfillment?.filter(t => !["delivered","cancelled"].includes(t.status)).length,
+      overdueTasksCount: fulfillment?.filter(t => isOverdue(t.due_at, t.status)).length,
       unpaidAmount: payments?.filter(p => p.status === "pending").reduce((a, p) => a + p.amount_cents, 0),
+      topTasks: fulfillment?.filter(t => !["delivered","cancelled"].includes(t.status)).slice(0, 5).map(t => ({
+        title: t.title, status: t.status, priority: t.priority, waiting_on: t.waiting_on,
+      })),
+      latestPayment: payments?.[0] ? {
+        status: payments[0].status,
+        amount_cents: payments[0].amount_cents,
+        date: payments[0].paid_at || payments[0].created_at,
+      } : undefined,
+      supplierNames: [...new Set(
+        (fulfillment ?? []).map(t => t.supplier_name).filter((n): n is string => !!n)
+      )],
     }}>
       <div className="max-w-5xl mx-auto space-y-5">
         {/* Back link */}
