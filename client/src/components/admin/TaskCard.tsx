@@ -109,14 +109,47 @@ const ACTION_STYLES: Record<string, string> = {
   "Resolve": "bg-red-500 hover:bg-red-600 text-white",
 };
 
+const WAITING_CYCLE = [null, "client", "supplier", "internal"] as const;
+
+function WaitingOnChip({
+  value,
+  onClick,
+}: {
+  value: string | null;
+  onClick?: () => void;
+}) {
+  if (!value && !onClick) return null;
+  const icon = value ? WAITING_ON_ICON[value] : null;
+  const label = value ? value : "set";
+  const isClickable = !!onClick;
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.preventDefault(); onClick?.(); }}
+      disabled={!isClickable}
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium transition-colors ${
+        value
+          ? "bg-amber-50 text-amber-600 hover:bg-amber-100"
+          : "bg-gray-50 text-gray-400 hover:bg-gray-100"
+      } ${isClickable ? "cursor-pointer" : "cursor-default"}`}
+    >
+      {icon}
+      <span className="capitalize">{label}</span>
+    </button>
+  );
+}
+
 /* ─── Task Card ─── */
 export function TaskCard({
   task,
   onStatusChange,
+  onWaitingOnChange,
   showClient = true,
 }: {
   task: TaskItem;
   onStatusChange: (id: number, status: string) => void;
+  onWaitingOnChange?: (id: number, waitingOn: string | null) => void;
   showClient?: boolean;
 }) {
   const overdue = isOverdue(task.due_at, task.status);
@@ -165,11 +198,15 @@ export function TaskCard({
             </Link>
           )}
 
-          {task.waiting_on && (
-            <span className="inline-flex items-center gap-1 text-amber-600">
-              {WAITING_ON_ICON[task.waiting_on]}
-              <span className="capitalize">{task.waiting_on}</span>
-            </span>
+          {(task.waiting_on || onWaitingOnChange) && (
+            <WaitingOnChip
+              value={task.waiting_on}
+              onClick={onWaitingOnChange ? () => {
+                const currentIdx = WAITING_CYCLE.indexOf(task.waiting_on as any);
+                const nextIdx = (currentIdx + 1) % WAITING_CYCLE.length;
+                onWaitingOnChange(task.id, WAITING_CYCLE[nextIdx]);
+              } : undefined}
+            />
           )}
 
           {task.supplier_name && (

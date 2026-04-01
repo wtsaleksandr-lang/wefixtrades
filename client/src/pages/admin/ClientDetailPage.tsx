@@ -21,6 +21,7 @@ import {
   ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { TaskCard, ClientTasksEmptyState, type TaskItem } from "@/components/admin/TaskCard";
 
 /* ─── Types ─── */
@@ -142,6 +143,7 @@ export default function ClientDetailPage() {
   const [, params] = useRoute("/admin/crm/clients/:id");
   const clientId = parseInt(params?.id || "0");
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // Queries
   const { data: client, isLoading } = useQuery<Client>({
@@ -198,10 +200,11 @@ export default function ClientDetailPage() {
       const res = await apiRequest("PATCH", `/api/admin/crm/fulfillment/${id}`, { status });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, { status }) => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/fulfillment`] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+      toast({ title: "Task updated", description: `Moved to ${status.replace(/_/g, " ")}` });
     },
   });
 

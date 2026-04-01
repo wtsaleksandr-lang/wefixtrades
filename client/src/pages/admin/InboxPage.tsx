@@ -8,10 +8,12 @@ import {
 } from "@/components/ui/select";
 import { TaskCard, InboxEmptyState, isOverdue, type TaskItem } from "@/components/admin/TaskCard";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function InboxPage() {
   const [statusFilter, setStatusFilter] = useState<string>("open");
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: tasks, isLoading } = useQuery<TaskItem[]>({
     queryKey: ["/api/admin/crm/fulfillment", { status: statusFilter }],
@@ -38,9 +40,21 @@ export default function InboxPage() {
       const res = await apiRequest("PATCH", `/api/admin/crm/fulfillment/${id}`, { status });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, { status }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+      toast({ title: "Task updated", description: `Moved to ${status.replace(/_/g, " ")}` });
+    },
+  });
+
+  const updateWaitingOn = useMutation({
+    mutationFn: async ({ id, waiting_on }: { id: number; waiting_on: string | null }) => {
+      const res = await apiRequest("PATCH", `/api/admin/crm/fulfillment/${id}`, { waiting_on });
+      return res.json();
+    },
+    onSuccess: (_data, { waiting_on }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
+      toast({ title: "Waiting on updated", description: waiting_on ? `Now waiting on ${waiting_on}` : "Cleared" });
     },
   });
 
@@ -111,6 +125,7 @@ export default function InboxPage() {
                       key={task.id}
                       task={task}
                       onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
+                      onWaitingOnChange={(id, waiting_on) => updateWaitingOn.mutate({ id, waiting_on })}
                     />
                   ))}
                 </div>

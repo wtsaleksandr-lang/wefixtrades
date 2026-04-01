@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import {
   LayoutDashboard,
   Users,
@@ -32,6 +32,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/admin/crm", icon: LayoutDashboard },
@@ -54,6 +55,8 @@ function isActive(location: string, href: string): boolean {
 
 function QuickAddClientDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
   const [form, setForm] = useState({ business_name: "", contact_name: "", contact_email: "", contact_phone: "", trade_type: "", status: "lead" });
 
   const mutation = useMutation({
@@ -61,11 +64,14 @@ function QuickAddClientDialog({ open, onClose }: { open: boolean; onClose: () =>
       const res = await apiRequest("POST", "/api/admin/crm/clients", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { id: number; business_name: string }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/clients"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+      const name = form.business_name;
       setForm({ business_name: "", contact_name: "", contact_email: "", contact_phone: "", trade_type: "", status: "lead" });
       onClose();
+      toast({ title: "Client created", description: name });
+      navigate(`/admin/crm/clients/${data.id}`);
     },
   });
 
@@ -123,6 +129,7 @@ function QuickAddClientDialog({ open, onClose }: { open: boolean; onClose: () =>
 
 function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [form, setForm] = useState({ client_id: "", client_service_id: "", title: "", priority: "normal", due_at: "", waiting_on: "" });
 
   const { data: clientList } = useQuery<{ data: { id: number; business_name: string }[]; total: number }>({
@@ -159,8 +166,10 @@ function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => v
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+      const title = form.title;
       setForm({ client_id: "", client_service_id: "", title: "", priority: "normal", due_at: "", waiting_on: "" });
       onClose();
+      toast({ title: "Task created", description: title });
     },
   });
 
@@ -244,6 +253,7 @@ function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => v
 
 function QuickAddPaymentDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [form, setForm] = useState({ client_id: "", amount: "", type: "invoice", status: "pending", description: "", due_at: "" });
 
   const { data: clientList } = useQuery<{ data: { id: number; business_name: string }[]; total: number }>({
@@ -271,8 +281,10 @@ function QuickAddPaymentDialog({ open, onClose }: { open: boolean; onClose: () =
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+      const amt = `$${parseFloat(form.amount).toFixed(2)}`;
       setForm({ client_id: "", amount: "", type: "invoice", status: "pending", description: "", due_at: "" });
       onClose();
+      toast({ title: "Payment created", description: `${form.type} for ${amt}` });
     },
   });
 
