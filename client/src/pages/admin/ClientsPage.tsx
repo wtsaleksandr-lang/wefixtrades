@@ -102,7 +102,7 @@ export default function ClientsPage() {
             <h2 className="text-lg font-semibold text-gray-900">Clients</h2>
             <p className="text-sm text-gray-500">{data?.total ?? 0} total</p>
           </div>
-          <Button size="sm" onClick={() => setShowAdd(true)} className="bg-[#2D6A4F] hover:bg-[#1B4332]">
+          <Button size="sm" onClick={() => setShowAdd(true)} className="bg-[#2D6A4F] hover:bg-[#1B4332] min-h-[36px]">
             <Plus className="w-4 h-4 mr-1" /> Add Client
           </Button>
         </div>
@@ -119,7 +119,7 @@ export default function ClientsPage() {
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

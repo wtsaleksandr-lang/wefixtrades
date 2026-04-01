@@ -75,7 +75,7 @@ export default function SuppliersPage() {
               {suppliers?.length ?? 0} suppliers — Fiverr, freelancers, white-label, automation, internal
             </p>
           </div>
-          <Button size="sm" onClick={() => setShowAdd(true)} className="bg-[#2D6A4F] hover:bg-[#1B4332]">
+          <Button size="sm" onClick={() => setShowAdd(true)} className="bg-[#2D6A4F] hover:bg-[#1B4332] min-h-[36px]">
             <Plus className="w-4 h-4 mr-1" /> Add Supplier
           </Button>
         </div>

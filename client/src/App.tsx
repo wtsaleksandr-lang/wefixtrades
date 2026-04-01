@@ -59,6 +59,7 @@ import CrmOverview from "@/pages/admin/CrmOverview";
 import ClientsPage from "@/pages/admin/ClientsPage";
 import ClientDetailPage from "@/pages/admin/ClientDetailPage";
 import SuppliersPage from "@/pages/admin/SuppliersPage";
+import InboxPage from "@/pages/admin/InboxPage";
 
 function Router() {
   return (
@@ -68,6 +69,7 @@ function Router() {
       <Route path="/admin/ai">{() => <RequirePortal><AiDashboard /></RequirePortal>}</Route>
       <Route path="/admin/crm/clients/:id">{() => <RequirePortal><ClientDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/clients">{() => <RequirePortal><ClientsPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/inbox">{() => <RequirePortal><InboxPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/suppliers">{() => <RequirePortal><SuppliersPage /></RequirePortal>}</Route>
       <Route path="/admin/crm">{() => <RequirePortal><CrmOverview /></RequirePortal>}</Route>
 
