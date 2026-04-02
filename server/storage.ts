@@ -1067,6 +1067,31 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  async findClientServiceByServiceId(clientId: number, serviceId: string): Promise<ClientService | undefined> {
+    const [row] = await db.select().from(clientServices)
+      .where(and(
+        eq(clientServices.client_id, clientId),
+        eq(clientServices.service_id, serviceId),
+        sql`${clientServices.status} NOT IN ('cancelled')`,
+      ))
+      .limit(1);
+    return row;
+  }
+
+  async findClientByStripeCustomerId(stripeCustomerId: string): Promise<Client | undefined> {
+    const [row] = await db.select().from(clients)
+      .where(eq(clients.stripe_customer_id, stripeCustomerId))
+      .limit(1);
+    return row;
+  }
+
+  async findPaymentByStripeSession(sessionId: string): Promise<ClientPayment | undefined> {
+    const [row] = await db.select().from(clientPayments)
+      .where(eq(clientPayments.stripe_payment_intent_id, sessionId))
+      .limit(1);
+    return row;
+  }
+
   async getServiceById(serviceId: string): Promise<ServiceCatalogRow | undefined> {
     const [row] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, serviceId)).limit(1);
     return row;

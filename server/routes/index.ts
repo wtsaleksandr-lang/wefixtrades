@@ -15,6 +15,7 @@ import { registerTwilioRoutes } from "./twilioRoutes";
 import { registerChatRoutes } from "./chatRoutes";
 import { registerAdminRoutes } from "./adminRoutes";
 import { registerAdminCrmRoutes } from "./adminCrmRoutes";
+import { registerStripeBillingRoutes } from "./stripeBillingRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -35,6 +36,7 @@ export async function registerRoutes(
   registerChatRoutes(app);
   registerAdminRoutes(app);
   registerAdminCrmRoutes(app);
+  registerStripeBillingRoutes(app);
 
   return httpServer;
 }
