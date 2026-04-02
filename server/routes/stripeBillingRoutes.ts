@@ -164,12 +164,40 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
-  // Idempotency: check if already provisioned
+  // Idempotency: check if already provisioned (admin provision-first flow)
   const existing = await storage.findClientServiceByServiceId(clientId, serviceId);
   if (existing) {
-    console.log(`[billing-webhook] Service ${serviceId} already provisioned for client ${clientId}, skipping`);
-    // Still update payment status if needed
-    await markPaymentPaid(clientId, serviceId, session.id, session.amount_total);
+    console.log(`[billing-webhook] Service ${serviceId} already provisioned for client ${clientId} — updating payment only`);
+
+    // Find the pending invoice created during admin provisioning
+    const pendingInvoice = await storage.findPendingPaymentForClientService(existing.id);
+    if (pendingInvoice) {
+      // Update existing invoice to paid (single lifecycle record)
+      await storage.updateClientPayment(pendingInvoice.id, {
+        status: "paid",
+        paid_at: new Date(),
+        stripe_payment_intent_id: session.id,
+      });
+      console.log(`[billing-webhook] Updated invoice #${pendingInvoice.id} → paid`);
+    } else {
+      // No pending invoice found — create a paid record as fallback
+      const alreadyRecorded = await storage.findPaymentByStripeSession(session.id);
+      if (!alreadyRecorded) {
+        const service = await storage.getServiceById(serviceId);
+        await storage.createClientPayment({
+          client_id: clientId,
+          client_service_id: existing.id,
+          type: "payment",
+          amount_cents: session.amount_total ?? service?.default_price ?? 0,
+          status: "paid",
+          paid_at: new Date(),
+          description: service ? service.name : "Service payment",
+          stripe_payment_intent_id: session.id,
+          actor_type: "system",
+        });
+        console.log(`[billing-webhook] No pending invoice found — created paid payment record`);
+      }
+    }
     return;
   }
 
@@ -329,22 +357,3 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   console.log(`[billing-webhook] Subscription cancelled for client ${client.id}`);
 }
 
-/* ─── Helper ─── */
-
-async function markPaymentPaid(clientId: number, serviceId: string, sessionId: string, amount: number | null) {
-  // Check if we already recorded this payment
-  const existing = await storage.findPaymentByStripeSession(sessionId);
-  if (existing) return;
-
-  const service = await storage.getServiceById(serviceId);
-  await storage.createClientPayment({
-    client_id: clientId,
-    type: "payment",
-    amount_cents: amount ?? service?.default_price ?? 0,
-    status: "paid",
-    paid_at: new Date(),
-    description: service ? `${service.name}` : `Service payment`,
-    stripe_payment_intent_id: sessionId,
-    actor_type: "system",
-  });
-}

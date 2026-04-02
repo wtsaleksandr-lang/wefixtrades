@@ -1092,6 +1092,17 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  async findPendingPaymentForClientService(clientServiceId: number): Promise<ClientPayment | undefined> {
+    const [row] = await db.select().from(clientPayments)
+      .where(and(
+        eq(clientPayments.client_service_id, clientServiceId),
+        eq(clientPayments.status, "pending"),
+      ))
+      .orderBy(desc(clientPayments.created_at))
+      .limit(1);
+    return row;
+  }
+
   async getServiceById(serviceId: string): Promise<ServiceCatalogRow | undefined> {
     const [row] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, serviceId)).limit(1);
     return row;
