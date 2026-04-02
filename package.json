@@ -10,7 +10,11 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
-    "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts"
+    "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
+    "test:crm": "npx playwright test tests/e2e/admin-crm/",
+    "test:crm:smoke": "npx playwright test tests/e2e/admin-crm/admin-crm.smoke.spec.ts",
+    "test:crm:e2e": "npx playwright test tests/e2e/admin-crm/admin-crm.e2e.spec.ts",
+    "test:crm:regression": "npx playwright test tests/e2e/admin-crm/admin-crm.regression.spec.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
@@ -99,7 +103,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2",
+    "@playwright/test": "^1.59.1",
     "@replit/vite-plugin-cartographer": "^0.4.4",
     "@replit/vite-plugin-dev-banner": "^0.1.1",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
