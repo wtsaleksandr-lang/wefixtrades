@@ -51,12 +51,9 @@ export const NAV_MOBILE_BREAKPOINT = 900;
 export const NAV_LINKS: NavItem[] = [
   {
     label: "Products",
-    href: "/products/assistants",
+    href: "/products/tradeline",
     children: [
-      { label: "TradeLine\u2122 (Overview)", href: "/products/assistants", description: "24/7 lead handling ecosystem.", icon: "workflow" },
-      { label: "AI ChatLine\u2122", href: "/products/ai-chat", description: "Website + SMS chat handling.", icon: "messageSquare" },
-      { label: "AI CallLine\u2122", href: "/products/ai-voice", description: "24/7 voice answering.", icon: "phoneCall" },
-      { label: "TradeLine\u2122 Complete", href: "/products/tradeline-complete", description: "Chat + Voice + DMs.", icon: "layers" },
+      { label: "24/7 TradeLine\u2122", href: "/products/tradeline", description: "Always-on lead handling system.", icon: "workflow" },
       { label: "QuoteQuick Pro\u2122", href: "/products/quickquotepro", description: "Instant quotes on your site.", icon: "calculator" },
       { label: "MapGuard\u2122", href: "/products/mapguard", description: "Google Maps optimization.", icon: "mapPinned" },
       { label: "ReputationShield\u2122", href: "/products/reputationshield", description: "Reviews + reputation.", icon: "shieldCheck" },

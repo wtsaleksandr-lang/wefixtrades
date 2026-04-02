@@ -307,6 +307,43 @@ export function MarketingNav() {
                   >
                     START FREE
                   </Link>
+                  <Link
+                    href="/demo"
+                    className="mkt-btn-demo"
+                    data-testid="nav-cta-tradeline"
+                    style={{
+                      padding: "8px 18px",
+                      borderRadius: 9,
+                      background: "transparent",
+                      color: mkt.accent,
+                      fontSize: 12,
+                      fontWeight: 500,
+                      fontFamily: "'DM Mono', monospace",
+                      textTransform: "uppercase" as const,
+                      letterSpacing: "0.08em",
+                      textDecoration: "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      whiteSpace: "nowrap",
+                      border: `1px solid ${mkt.accent}`,
+                      transition: "background 0.2s ease, color 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      const el = e.currentTarget as HTMLElement;
+                      el.style.background = mkt.accent;
+                      el.style.color = mkt.buttonText;
+                      el.style.boxShadow = `0 0 16px rgba(102,232,250,0.35)`;
+                    }}
+                    onMouseLeave={(e) => {
+                      const el = e.currentTarget as HTMLElement;
+                      el.style.background = "transparent";
+                      el.style.color = mkt.accent;
+                      el.style.boxShadow = "none";
+                    }}
+                  >
+                    TRADELINE 24/7 DEMO
+                  </Link>
                 </>
               )}
               {isMobile && (
@@ -451,6 +488,28 @@ export function MarketingNav() {
               }}
             >
               START FREE
+            </Link>
+            <Link
+              href="/demo"
+              onClick={() => setMenuOpen(false)}
+              data-testid="nav-cta-tradeline-mobile"
+              style={{
+                display: "block",
+                marginTop: 8,
+                padding: "12px 14px",
+                borderRadius: 10,
+                background: "transparent",
+                color: mkt.accent,
+                fontSize: 15,
+                fontWeight: 500,
+                textTransform: "uppercase" as const,
+                letterSpacing: "0.04em",
+                textAlign: "center",
+                textDecoration: "none",
+                border: `1px solid ${mkt.accent}`,
+              }}
+            >
+              TRADELINE 24/7 DEMO
             </Link>
           </div>
         </div>

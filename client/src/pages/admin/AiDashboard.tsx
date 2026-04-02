@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import {
   LayoutDashboard, MessageSquare, Activity, DollarSign, Search,
   Tag, ChevronLeft, ChevronRight, Loader2, AlertCircle, X,
-  ArrowLeft, Filter, CheckCircle2, XCircle, Clock, Sparkles,
+  ArrowLeft, Filter, CheckCircle2, XCircle, Clock, Sparkles, Phone,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -156,6 +156,118 @@ function OverviewTab() {
         <StatCard label="Archived Conversations" value={data.archive.total} />
         <StatCard label="Save-worthy" value={data.archive.saved} color={c.green} />
         <StatCard label="Low Signal / Discarded" value={data.archive.discarded} color={c.amber} />
+      </div>
+
+      {/* Vapi Integration Status */}
+      <VapiStatusPanel />
+    </div>
+  );
+}
+
+/* ─── Vapi Status Panel (admin overview) ─── */
+function VapiStatusPanel() {
+  const [status, setStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchJson("/api/admin/vapi/status")
+      .then(setStatus)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return null;
+  if (!status) return null;
+
+  const isReady = status.ready;
+  const isConfigured = status.configured;
+
+  return (
+    <div style={{
+      marginTop: 32, background: c.surface, border: `1px solid ${c.border}`,
+      borderRadius: 12, padding: 24,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: c.text, marginBottom: 4 }}>Vapi Voice Integration</h3>
+          <p style={{ fontSize: 12, color: c.muted }}>AI phone assistant powered by the shared assistant core</p>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {status.webDemoReady && (
+            <span style={{
+              padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+              background: c.cyan + "18", color: c.cyan,
+            }}>
+              Web Demo Live
+            </span>
+          )}
+          <span style={{
+            padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+            background: isReady ? c.green + "18" : isConfigured ? c.amber + "18" : c.muted + "18",
+            color: isReady ? c.green : isConfigured ? c.amber : c.muted,
+          }}>
+            {isReady ? "Ready" : isConfigured ? "Partial" : "Not Configured"}
+          </span>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 16 }}>
+        {Object.entries(status.details || {}).map(([key, val]) => {
+          const label = key
+            .replace(/^has/, "")
+            .replace(/([A-Z])/g, " $1")
+            .replace(/^\s/, "")
+            .trim();
+          return (
+            <div key={key} style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "8px 12px", borderRadius: 8,
+              background: val ? c.green + "08" : c.borderLight,
+              border: `1px solid ${val ? c.green + "30" : c.border}`,
+            }}>
+              {val ? (
+                <CheckCircle2 size={14} style={{ color: c.green, flexShrink: 0 }} />
+              ) : (
+                <XCircle size={14} style={{ color: c.muted, flexShrink: 0 }} />
+              )}
+              <span style={{ fontSize: 12, color: val ? c.text : c.muted }}>{label}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {status.missing?.length > 0 && (
+        <div style={{
+          background: c.borderLight, borderRadius: 8, padding: "12px 16px",
+          marginBottom: 12,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: c.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Still needed
+          </div>
+          {status.missing.map((item: string) => (
+            <div key={item} style={{ fontSize: 12, color: c.text, marginBottom: 4 }}>
+              &bull; {item}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {status.setupSteps?.length > 0 && (
+        <div style={{ background: c.borderLight, borderRadius: 8, padding: "12px 16px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: c.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Setup steps
+          </div>
+          {status.setupSteps.map((step: string, i: number) => (
+            <div key={i} style={{ fontSize: 12, color: c.text, marginBottom: 4 }}>
+              {i + 1}. {step}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ marginTop: 12, fontSize: 11, color: c.muted }}>
+        Endpoints: <code style={{ background: c.borderLight, padding: "2px 6px", borderRadius: 4, fontSize: 11 }}>/api/vapi/webhook</code>{" "}
+        <code style={{ background: c.borderLight, padding: "2px 6px", borderRadius: 4, fontSize: 11 }}>/api/vapi/conversation</code>
       </div>
     </div>
   );

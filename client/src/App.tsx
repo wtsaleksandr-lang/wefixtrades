@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -85,6 +85,11 @@ function Router() {
       <Route path="/admin/crm">{() => <RequirePortal><CrmOverview /></RequirePortal>}</Route>
 
       <Route path="/products/mapguard" component={MapGuardPage} />
+      {/* TradeLine consolidation — old routes redirect to unified product */}
+      <Route path="/products/assistants">{() => <Redirect to="/products/tradeline" />}</Route>
+      <Route path="/products/ai-chat">{() => <Redirect to="/products/tradeline" />}</Route>
+      <Route path="/products/ai-voice">{() => <Redirect to="/products/tradeline" />}</Route>
+      <Route path="/products/tradeline-complete">{() => <Redirect to="/products/tradeline" />}</Route>
       <Route path="/products/:slug" component={NewProductPage} />
 
       <Route path="/solutions/visibility" component={SolutionsVisibility} />

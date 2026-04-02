@@ -2,259 +2,54 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useVapiCall } from "@/hooks/useVapiCall";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import WorkflowDemo from "@/components/marketing/WorkflowDemo";
-import { Send, Bot, User, Zap, Phone, Calendar, Star, Check } from "lucide-react";
-import { mkt, colors, shadows } from "@/theme/tokens";
+import ReviewsSection from "@/components/home/ReviewsSection";
+import VoiceVisualizer, { HeroSoundBars } from "@/components/marketing/VoiceVisualizer";
+import { Send, Bot, User, Mic, PhoneOff, Phone, MessageSquare, ArrowRight, Loader2, ChevronDown, Check } from "lucide-react";
+import { mkt, shadows } from "@/theme/tokens";
 
-
-const DEMO_TABS = [
-  { id: "quote", label: "Quote Widget", icon: Zap },
-  { id: "chat", label: "Assistant Chat", icon: Phone },
-  { id: "booking", label: "Booking", icon: Calendar },
-  { id: "review", label: "Review Request", icon: Star },
-];
-
-const TRADES = [
-  { label: "Plumbing", testid: "trade-chip-plumbing" },
-  { label: "Electrical", testid: "trade-chip-electrical" },
-  { label: "HVAC", testid: "trade-chip-hvac" },
-  { label: "Roofing", testid: "trade-chip-roofing" },
-  { label: "Painting", testid: "trade-chip-painting" },
-  { label: "Landscaping", testid: "trade-chip-landscaping" },
-  { label: "Cleaning", testid: "trade-chip-cleaning" },
-  { label: "Flooring", testid: "trade-chip-flooring" },
-];
-
-function getInitialMessage(trade: string): string {
-  const messages: Record<string, string> = {
-    Plumbing: "Hi! I need a quote for a plumbing job.",
-    Electrical: "Hi! I need a quote for an electrical job.",
-    HVAC: "Hi! I need a quote for an HVAC installation or repair.",
-    Roofing: "Hi! I need a quote for a roofing job.",
-    Painting: "Hi! I need a quote for a painting job.",
-    Landscaping: "Hi! I need a quote for landscaping work.",
-    Cleaning: "Hi! I need a quote for a cleaning service.",
-    Flooring: "Hi! I need a quote for a flooring project.",
-  };
-  return messages[trade] || `Hi! I need a quote for a ${trade.toLowerCase()} job.`;
-}
+/* ═══════════════════════════════════════════════════════════════════
+   TYPES
+   ═══════════════════════════════════════════════════════════════════ */
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
 
-function QuoteWidgetDemo() {
-  const [sqft, setSqft] = useState(200);
-  const [service, setService] = useState("bathroom");
-  const rates: Record<string, { min: number; max: number }> = {
-    bathroom: { min: 8, max: 12 },
-    kitchen: { min: 10, max: 15 },
-    plumbing: { min: 6, max: 9 },
-    painting: { min: 4, max: 7 },
-  };
-  const r = rates[service] || rates.bathroom;
-  const minEst = Math.round(sqft * r.min);
-  const maxEst = Math.round(sqft * r.max);
+/* ═══════════════════════════════════════════════════════════════════
+   CHAT PANEL — embedded in the central demo container
+   ═══════════════════════════════════════════════════════════════════ */
 
-  return (
-    <div data-testid="quote-widget-demo" style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 20, padding: 28, boxShadow: shadows.card }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 20 }}>
-        Live Quote Calculator
-      </div>
-      <div style={{ marginBottom: 20 }}>
-        <label style={{ fontSize: 13, fontWeight: 600, color: mkt.text, display: "block", marginBottom: 8 }}>Service type</label>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {[{ id: "bathroom", label: "Bathroom Reno" }, { id: "kitchen", label: "Kitchen Remodel" }, { id: "plumbing", label: "Plumbing" }, { id: "painting", label: "Painting" }].map(s => (
-            <button
-              key={s.id}
-              data-testid={`demo-service-${s.id}`}
-              onClick={() => setService(s.id)}
-              style={{
-                padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer",
-                border: service === s.id ? `2px solid ${mkt.accent}` : `1px solid ${mkt.border}`,
-                background: service === s.id ? mkt.accentTint : mkt.bg,
-                color: service === s.id ? mkt.accent : mkt.textMuted,
-              }}
-            >{s.label}</button>
-          ))}
-        </div>
-      </div>
-      <div style={{ marginBottom: 24 }}>
-        <label style={{ fontSize: 13, fontWeight: 600, color: mkt.text, display: "block", marginBottom: 8 }}>Area (sq ft): {sqft}</label>
-        <input
-          data-testid="demo-sqft-slider"
-          type="range" min={50} max={500} value={sqft}
-          onChange={e => setSqft(Number(e.target.value))}
-          style={{ width: "100%", accentColor: mkt.accent }}
-        />
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: mkt.textMuted }}>
-          <span>50 sq ft</span><span>500 sq ft</span>
-        </div>
-      </div>
-      <div style={{ background: mkt.accentTint, borderRadius: 14, padding: "20px 24px", border: `1px solid ${mkt.accentTint}` }}>
-        <div style={{ fontSize: 11, color: mkt.textMuted, marginBottom: 6 }}>Estimated Cost</div>
-        <div data-testid="demo-estimate" style={{ fontSize: 28, fontWeight: 800, color: mkt.text, letterSpacing: "-0.02em" }}>
-          ${minEst.toLocaleString()} – ${maxEst.toLocaleString()}
-        </div>
-        <div style={{ fontSize: 12, color: mkt.textMuted, marginTop: 4 }}>Based on {sqft} sq ft</div>
-      </div>
-    </div>
-  );
-}
-
-function BookingDemo() {
-  const [selectedDay, setSelectedDay] = useState(3);
-  const [selectedSlot, setSelectedSlot] = useState(0);
-  const days = [
-    { d: 15, name: "Mon", avail: true },
-    { d: 16, name: "Tue", avail: false },
-    { d: 17, name: "Wed", avail: true },
-    { d: 18, name: "Thu", avail: true },
-    { d: 19, name: "Fri", avail: false },
-    { d: 20, name: "Sat", avail: true },
-    { d: 21, name: "Sun", avail: false },
-  ];
-  const slots = ["9:00 AM", "11:00 AM", "1:00 PM", "3:00 PM"];
-
-  return (
-    <div data-testid="booking-demo" style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 20, padding: 28, boxShadow: shadows.card }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>Book a Slot</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: mkt.text }}>March 2026</div>
-        </div>
-        <div style={{ fontSize: 11, fontWeight: 600, background: mkt.accentTint, color: mkt.accent, padding: "4px 12px", borderRadius: 20 }}>Live Preview</div>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 24 }}>
-        {days.map(({ d, name, avail }, i) => (
-          <button
-            key={d}
-            data-testid={`booking-day-${d}`}
-            onClick={() => avail && setSelectedDay(i)}
-            disabled={!avail}
-            style={{
-              textAlign: "center", padding: "10px 0", borderRadius: 10, border: "none", cursor: avail ? "pointer" : "default",
-              fontSize: 12, fontWeight: selectedDay === i ? 700 : 500,
-              background: selectedDay === i ? mkt.accent : avail ? mkt.surface : "transparent",
-              color: selectedDay === i ? "#FFFFFF" : avail ? mkt.text : mkt.border,
-              opacity: avail ? 1 : 0.4,
-            }}
-          >
-            <div style={{ fontSize: 10, marginBottom: 2 }}>{name}</div>
-            {d}
-          </button>
-        ))}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-        {slots.map((t, i) => (
-          <button
-            key={t}
-            data-testid={`booking-slot-${i}`}
-            onClick={() => setSelectedSlot(i)}
-            style={{
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: "12px 16px", borderRadius: 10, border: "none", cursor: "pointer",
-              background: selectedSlot === i ? mkt.accent : mkt.surface,
-              color: selectedSlot === i ? "#FFFFFF" : mkt.text,
-              fontSize: 14, fontWeight: 600,
-            }}
-          >
-            <span>{t}</span>
-            {selectedSlot === i && <span style={{ fontSize: 11, opacity: 0.8 }}>Selected ✓</span>}
-          </button>
-        ))}
-      </div>
-      <div style={{ background: mkt.accentTint, borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: mkt.accentHover }}>Deposit required</span>
-        <span style={{ fontSize: 15, fontWeight: 800, color: mkt.accentHover }}>$150 ✓</span>
-      </div>
-    </div>
-  );
-}
-
-function ReviewRequestDemo() {
-  const [sent, setSent] = useState(false);
-  return (
-    <div data-testid="review-demo" style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 20, padding: 28, boxShadow: shadows.card }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 20 }}>
-        Automated Review Request
-      </div>
-      <div style={{ background: mkt.surface, borderRadius: 14, padding: 20, border: `1px solid ${mkt.borderLight}`, marginBottom: 20 }}>
-        <div style={{ fontSize: 13, color: mkt.textMuted, marginBottom: 12 }}>Preview: SMS to customer after job completion</div>
-        <div style={{
-          background: mkt.bg, borderRadius: 14, padding: "14px 18px", border: `1px solid ${mkt.border}`,
-          fontSize: 14, color: mkt.textMuted, lineHeight: 1.6,
-        }}>
-          Hi Jake! Thanks for choosing Metro Plumbing. We hope you're happy with our work. Could you take 30 seconds to leave us a review? It really helps! ⭐
-          <br /><br />
-          <span style={{ color: mkt.accent, fontWeight: 600 }}>→ Leave a review</span>
-        </div>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
-        {["Sent 24h after job completion", "Includes direct link to Google Reviews", "Follow-up if no response in 3 days"].map(item => (
-          <div key={item} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Check size={16} color={mkt.accent} strokeWidth={2} />
-            <span style={{ fontSize: 14, color: mkt.textMuted }}>{item}</span>
-          </div>
-        ))}
-      </div>
-      <button
-        data-testid="demo-send-review"
-        onClick={() => setSent(true)}
-        style={{
-          width: "100%", padding: "12px 0", borderRadius: 10, border: "none",
-          background: sent ? mkt.accentTint : mkt.accent, color: sent ? mkt.accent : "#FFFFFF",
-          fontSize: 14, fontWeight: 700, cursor: "pointer",
-        }}
-      >
-        {sent ? "✓ Review request sent!" : "Simulate sending review request"}
-      </button>
-    </div>
-  );
-}
-
-function ChatDemo({ selectedTrade, onTradeSelect }: { selectedTrade: string; onTradeSelect: (t: string) => void }) {
-  const [messages, setMessages] = useState<Message[]>([]);
+function ChatPanel() {
+  const [messages, setMessages] = useState<Message[]>([
+    { role: "assistant", content: "Hi! I'm the 24/7 TradeLine assistant. Ask me about services, get a quick estimate, or find out how we help trades businesses grow. What can I help you with?" },
+  ]);
   const [inputValue, setInputValue] = useState("");
-  const [initialized, setInitialized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const initialMsg = getInitialMessage(selectedTrade);
-    setMessages([{ role: "user", content: initialMsg }]);
-    setInitialized(false);
-  }, [selectedTrade]);
-
-  useEffect(() => {
-    if (messages.length > 0 && !initialized) {
-      setInitialized(true);
-      sendMutation.mutate([{ role: "user", content: messages[0].content }]);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
-  }, [messages, initialized]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const sendMutation = useMutation({
     mutationFn: async (msgs: Message[]) => {
-      const res = await apiRequest("POST", "/api/ai/demo-chat", {
+      const res = await apiRequest("POST", "/api/chat/sync", {
+        surface: "website",
         messages: msgs,
-        trade_category: selectedTrade,
       });
       return res.json();
     },
     onSuccess: (data) => {
-      const reply = data?.reply || data?.message || "Thanks for your inquiry! I can help you get a quick estimate.";
-      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+      const reply = data?.reply || "Thanks for your inquiry! I can help you with that.";
+      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     },
     onError: () => {
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        content: `Thanks for reaching out about your ${selectedTrade.toLowerCase()} job! Could you describe the work you need done?`,
-      }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: "I'm here to help! Could you tell me a bit more about what you need?" }]);
     },
   });
 
@@ -272,199 +67,478 @@ function ChatDemo({ selectedTrade, onTradeSelect }: { selectedTrade: string; onT
   };
 
   return (
-    <div data-testid="chat-demo-panel">
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
-        {TRADES.map(({ label, testid }) => (
-          <button
-            key={label}
-            data-testid={testid}
-            onClick={() => onTradeSelect(label)}
-            style={{
-              padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer",
-              border: selectedTrade === label ? `2px solid ${mkt.accent}` : `1px solid ${mkt.border}`,
-              background: selectedTrade === label ? mkt.accentTint : mkt.bg,
-              color: selectedTrade === label ? mkt.accent : mkt.textMuted,
-            }}
-          >{label}</button>
-        ))}
-      </div>
-      <div style={{
-        border: `1px solid ${mkt.border}`, borderRadius: 16, overflow: "hidden",
-        display: "flex", flexDirection: "column", height: 400, boxShadow: shadows.card,
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      {/* Messages area */}
+      <div ref={scrollContainerRef} style={{
+        flex: 1, overflowY: "auto", padding: "20px 18px", display: "flex",
+        flexDirection: "column", gap: 12,
       }}>
-        <div style={{ background: "#0B1F3A", padding: "12px 20px", display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: "50%", background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Bot size={16} color="#FFFFFF" />
-          </div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>24/7 Assistant</div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>{selectedTrade} specialist</div>
-          </div>
-          <div style={{ marginLeft: "auto", width: 8, height: 8, borderRadius: "50%", background: "#22C55E" }} />
-        </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 10, background: "#F9FAFB" }}>
-          {messages.map((msg, idx) => (
-            <div key={idx} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", gap: 8, alignItems: "flex-end" }}>
-              {msg.role === "assistant" && (
-                <div style={{ width: 26, height: 26, borderRadius: "50%", background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <Bot size={12} color="#FFFFFF" />
-                </div>
-              )}
-              <div style={{
-                maxWidth: "75%", padding: "10px 14px",
-                borderRadius: msg.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                background: msg.role === "user" ? mkt.accent : "#FFFFFF",
-                color: msg.role === "user" ? "#FFFFFF" : mkt.textMuted,
-                fontSize: 13, lineHeight: 1.55, boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-              }}>{msg.content}</div>
-              {msg.role === "user" && (
-                <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <User size={12} color="#6B7280" />
-                </div>
-              )}
-            </div>
-          ))}
-          {sendMutation.isPending && (
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-              <div style={{ width: 26, height: 26, borderRadius: "50%", background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Bot size={12} color="#FFFFFF" />
+        {messages.map((msg, idx) => (
+          <div key={idx} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", gap: 8, alignItems: "flex-end" }}>
+            {msg.role === "assistant" && (
+              <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Bot size={13} color={mkt.buttonText} />
               </div>
-              <div style={{ padding: "10px 16px", borderRadius: "14px 14px 14px 4px", background: "#FFFFFF", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", display: "flex", gap: 4, alignItems: "center" }}>
-                {[0, 1, 2].map(i => (
-                  <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: "#9CA3AF", animation: "pulse 1.2s ease-in-out infinite", animationDelay: `${i * 0.2}s` }} />
-                ))}
+            )}
+            <div style={{
+              maxWidth: "78%", padding: "11px 15px",
+              borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+              background: msg.role === "user" ? mkt.accent : mkt.surface,
+              color: msg.role === "user" ? mkt.buttonText : mkt.text,
+              fontSize: 14, lineHeight: 1.55,
+              border: msg.role === "assistant" ? `1px solid ${mkt.border}` : "none",
+            }}>{msg.content}</div>
+            {msg.role === "user" && (
+              <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.surfaceAlt, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <User size={13} color={mkt.textMuted} />
               </div>
+            )}
+          </div>
+        ))}
+        {sendMutation.isPending && (
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Bot size={13} color={mkt.buttonText} />
             </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-        <div style={{ borderTop: `1px solid ${mkt.border}`, padding: "10px 14px", background: mkt.bg, display: "flex", gap: 8 }}>
-          <input
-            data-testid="demo-chat-input"
-            type="text" value={inputValue}
-            onChange={e => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask for an estimate..."
-            style={{ flex: 1, border: `1.5px solid ${mkt.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, color: mkt.textMuted, background: mkt.bg, outline: "none", fontFamily: "inherit" }}
-          />
-          <button
-            data-testid="demo-chat-send"
-            onClick={handleSend}
-            disabled={sendMutation.isPending || !inputValue.trim()}
-            style={{
-              padding: "8px 14px", borderRadius: 8,
-              background: inputValue.trim() ? mkt.accent : "#D1D5DB",
-              color: "#FFFFFF", border: "none",
-              cursor: inputValue.trim() ? "pointer" : "not-allowed",
-              display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
-            }}
-          >
-            <Send size={14} />
-          </button>
-        </div>
+            <div style={{ padding: "12px 18px", borderRadius: "16px 16px 16px 4px", background: mkt.surface, border: `1px solid ${mkt.border}`, display: "flex", gap: 5, alignItems: "center" }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: mkt.textFaint, animation: "pulse 1.2s ease-in-out infinite", animationDelay: `${i * 0.2}s` }} />
+              ))}
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+      {/* Input bar */}
+      <div style={{ borderTop: `1px solid ${mkt.border}`, padding: "12px 16px", display: "flex", gap: 8 }}>
+        <input
+          data-testid="demo-chat-input"
+          type="text" value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask anything — services, pricing, estimates..."
+          style={{
+            flex: 1, border: `1px solid ${mkt.border}`, borderRadius: 10, padding: "10px 14px",
+            fontSize: 14, color: mkt.text, background: mkt.bg, outline: "none", fontFamily: "inherit",
+          }}
+        />
+        <button
+          data-testid="demo-chat-send"
+          onClick={handleSend}
+          disabled={sendMutation.isPending || !inputValue.trim()}
+          style={{
+            padding: "10px 16px", borderRadius: 10,
+            background: inputValue.trim() ? mkt.accent : mkt.surfaceAlt,
+            color: inputValue.trim() ? mkt.buttonText : mkt.textFaint,
+            border: "none", cursor: inputValue.trim() ? "pointer" : "not-allowed",
+            display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 600,
+          }}
+        >
+          <Send size={15} />
+        </button>
       </div>
     </div>
   );
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   VOICE PANEL — embedded in the central demo container
+   ═══════════════════════════════════════════════════════════════════ */
+
+function VoicePanel() {
+  const vapi = useVapiCall();
+  const [micHover, setMicHover] = useState(false);
+  const isInCall = vapi.status === "active";
+  const isConnecting = vapi.status === "connecting" || vapi.status === "loading";
+  const isEnded = vapi.status === "ended";
+  const isError = vapi.status === "error";
+  const isIdle = vapi.status === "idle";
+  const canStart = vapi.isAvailable && (isIdle || isEnded || isError);
+  const glowIntensity = isInCall ? 0.15 + vapi.volumeLevel * 0.45 : 0;
+
+  let statusLabel: string = "";
+  let statusColor: string = mkt.textMuted;
+  if (isConnecting) { statusLabel = "Connecting..."; statusColor = mkt.orange; }
+  else if (isInCall && vapi.isSpeaking) { statusLabel = "Listening..."; statusColor = "#34D399"; }
+  else if (isInCall && vapi.isAssistantSpeaking) { statusLabel = "Speaking"; statusColor = mkt.accent; }
+  else if (isInCall) { statusLabel = "Call active"; statusColor = "#34D399"; }
+  else if (isEnded) { statusLabel = "Call ended"; statusColor = mkt.textMuted; }
+  else if (isError) { statusLabel = "Connection issue"; statusColor = "#EF4444"; }
+  else if (vapi.isAvailable) { statusLabel = "Ready"; statusColor = "#34D399"; }
+  else { statusLabel = "Coming soon"; statusColor = mkt.textMuted; }
+
+  const handleClick = () => {
+    if (isInCall || isConnecting) vapi.stop();
+    else if (canStart) vapi.start();
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: "32px 24px", textAlign: "center" }}>
+      {/* Mic orb */}
+      <button
+        data-testid="voice-demo-start"
+        onClick={handleClick}
+        disabled={!canStart && !isInCall && !isConnecting}
+        aria-label={isInCall ? "End voice call" : "Start voice demo"}
+        onMouseEnter={() => setMicHover(true)}
+        onMouseLeave={() => setMicHover(false)}
+        style={{
+          width: 80, height: 80, borderRadius: "50%", border: "none",
+          cursor: canStart || isInCall || isConnecting ? "pointer" : "default",
+          background: isInCall
+            ? `radial-gradient(circle, #EF4444 0%, #DC2626 100%)`
+            : micHover && canStart
+              ? `radial-gradient(circle, #FFFFFF 0%, ${mkt.accent} 100%)`
+              : canStart || isConnecting
+                ? `radial-gradient(circle, ${mkt.accent} 0%, ${mkt.accentDark} 100%)`
+                : `radial-gradient(circle, ${mkt.surface} 0%, ${mkt.surfaceAlt} 100%)`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: isInCall
+            ? `0 0 ${30 + glowIntensity * 60}px rgba(239,68,68,${glowIntensity})`
+            : micHover && canStart
+              ? `0 0 50px rgba(102,232,250,0.5)`
+              : canStart || isConnecting
+                ? `0 0 40px rgba(102,232,250,0.25)`
+                : "none",
+          transition: "box-shadow 0.2s ease, background 0.2s ease",
+          marginBottom: 16,
+          animation: canStart && isIdle && !micHover ? "micPulse 2s ease-in-out infinite" : undefined,
+        }}
+      >
+        {isConnecting ? (
+          <Loader2 size={28} color={mkt.buttonText} strokeWidth={1.5} style={{ animation: "spin 1s linear infinite" }} />
+        ) : isInCall ? (
+          <PhoneOff size={28} color="#FFFFFF" strokeWidth={1.5} />
+        ) : (
+          <Mic size={28} color={micHover && canStart ? mkt.accent : canStart ? mkt.buttonText : mkt.textMuted} strokeWidth={1.5} style={{ transition: "color 0.2s ease" }} />
+        )}
+      </button>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+        @keyframes micPulse {
+          0%, 100% { box-shadow: 0 0 20px rgba(102,232,250,0.2); transform: scale(1); }
+          50% { box-shadow: 0 0 40px rgba(102,232,250,0.45); transform: scale(1.06); }
+        }
+      `}</style>
+
+      {/* Status */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+        {isConnecting ? (
+          <Loader2 size={12} color={statusColor} style={{ animation: "spin 1s linear infinite" }} />
+        ) : (
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusColor }} />
+        )}
+        <span style={{ fontSize: 13, fontWeight: 600, color: statusColor }}>{statusLabel}</span>
+      </div>
+
+      {/* Context text */}
+      <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.55, maxWidth: 340, margin: 0 }}>
+        {isInCall
+          ? "Speak naturally — ask about services or request an estimate."
+          : isError
+            ? vapi.errorMessage || "Something went wrong. Please try again."
+            : isEnded
+              ? "Call complete. Try again or switch to chat."
+              : "Tap the mic to start a live voice conversation with the assistant."
+        }
+      </p>
+
+      {/* End call button when active */}
+      {isInCall && (
+        <button
+          onClick={() => vapi.stop()}
+          style={{
+            marginTop: 16, padding: "8px 20px", borderRadius: 50,
+            border: "1px solid rgba(239,68,68,0.3)",
+            background: "rgba(239,68,68,0.1)", color: "#EF4444",
+            fontSize: 13, fontWeight: 600, cursor: "pointer",
+            display: "inline-flex", alignItems: "center", gap: 6,
+          }}
+        >
+          <PhoneOff size={13} /> End Call
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   FAQ ACCORDION
+   ═══════════════════════════════════════════════════════════════════ */
+
+const DEMO_FAQ = [
+  { q: "What does the assistant actually do?", a: "It answers phone calls and website chats 24/7, gives instant estimates based on your real pricing, captures lead details, books jobs, and sends automated follow-ups and review requests — all configured to your business." },
+  { q: "Is it the same system for chat and voice?", a: "Yes. One assistant handles both channels using the same knowledge about your services, pricing, and availability. Customers get a consistent experience whether they call or message." },
+  { q: "How long does setup take?", a: "Most trades businesses are up and running in under 15 minutes. You configure your services, pricing formulas, and business hours — the system learns your business from there." },
+  { q: "Is it tailored to my specific trade?", a: "Absolutely. The system adapts to your trade type, service area, pricing structure, and business rules. It's not a generic chatbot — it speaks your language and understands your work." },
+  { q: "Can I still review leads and override things?", a: "Yes. You see every conversation, lead, and booking in your dashboard. You control follow-up timing, messaging, and can jump in manually at any point." },
+  { q: "What if a customer needs to reach a real person?", a: "The assistant can transfer urgent calls to your mobile immediately, with full conversation context included so you never start cold." },
+];
+
+function FAQItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ border: `1px solid ${mkt.border}`, borderRadius: 14, overflow: "hidden" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "18px 22px", background: open ? mkt.surface : mkt.bg, border: "none",
+          cursor: "pointer", gap: 16, textAlign: "left", transition: "background 0.2s ease",
+        }}
+      >
+        <span style={{ fontSize: 15, fontWeight: 600, color: mkt.text, lineHeight: 1.4 }}>{q}</span>
+        <ChevronDown size={18} color={mkt.textMuted} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s ease", flexShrink: 0 }} />
+      </button>
+      <div style={{ maxHeight: open ? 300 : 0, overflow: "hidden", transition: "max-height 0.25s ease" }}>
+        <div style={{ padding: "0 22px 18px", fontSize: 14, color: mkt.textMuted, lineHeight: 1.6 }}>{a}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PRICING SECTION — TradeLine Lite / Pro
+   ═══════════════════════════════════════════════════════════════════ */
+
+const PLANS = [
+  {
+    name: "TradeLine Lite",
+    price: "$99",
+    period: "/mo",
+    desc: "Website chat answering with follow-ups.",
+    features: ["Website chat widget", "Email lead alerts", "Basic follow-ups", "50 conversations/mo", "Dashboard access"],
+  },
+  {
+    name: "TradeLine Pro",
+    price: "$199",
+    period: "/mo",
+    desc: "Chat + voice + full automation.",
+    features: ["Everything in Lite", "24/7 voice answering", "SMS + WhatsApp follow-ups", "Unlimited conversations", "Booking confirmations", "Automated review requests"],
+    highlighted: true,
+    badge: "Most Popular",
+  },
+];
+
+function PricingCards() {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, maxWidth: 680, margin: "0 auto" }}>
+      {PLANS.map((plan) => (
+        <div
+          key={plan.name}
+          style={{
+            background: mkt.surface, borderRadius: 20, padding: "32px 28px",
+            border: `1px solid ${plan.highlighted ? mkt.accent : mkt.border}`,
+            boxShadow: plan.highlighted ? `0 0 40px rgba(102,232,250,0.1)` : "none",
+            position: "relative",
+          }}
+        >
+          {plan.badge && (
+            <div style={{
+              position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)",
+              background: mkt.accent, color: mkt.buttonText, padding: "4px 14px",
+              borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em",
+            }}>{plan.badge}</div>
+          )}
+          <div style={{ fontSize: 18, fontWeight: 700, color: mkt.text, marginBottom: 4 }}>{plan.name}</div>
+          <div style={{ marginBottom: 12 }}>
+            <span style={{ fontSize: 36, fontWeight: 800, color: mkt.text, letterSpacing: "-0.03em" }}>{plan.price}</span>
+            <span style={{ fontSize: 14, color: mkt.textMuted }}>{plan.period}</span>
+          </div>
+          <p style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.5, marginBottom: 20 }}>{plan.desc}</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
+            {plan.features.map((f) => (
+              <div key={f} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Check size={14} color={mkt.accent} strokeWidth={2.5} />
+                <span style={{ fontSize: 13, color: mkt.text }}>{f}</span>
+              </div>
+            ))}
+          </div>
+          <Link
+            href="/Wizard"
+            style={{
+              display: "block", textAlign: "center", padding: "12px 0", borderRadius: 12,
+              background: plan.highlighted ? mkt.accent : "transparent",
+              color: plan.highlighted ? mkt.buttonText : mkt.accent,
+              border: plan.highlighted ? "none" : `1px solid ${mkt.accent}`,
+              fontSize: 14, fontWeight: 700, textDecoration: "none",
+            }}
+          >
+            Get Started
+          </Link>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MAIN DEMO PAGE
+   ═══════════════════════════════════════════════════════════════════ */
+
 export default function DemoPage() {
-  const [activeTab, setActiveTab] = useState("quote");
-  const [selectedTrade, setSelectedTrade] = useState("Plumbing");
+  const [mode, setMode] = useState<"chat" | "voice">("chat");
 
   useEffect(() => {
-    document.title = "Try the Demo — QuickQuotePro";
+    document.title = "Try the Demo — WeFixTrades";
   }, []);
 
   return (
     <MarketingLayout>
       <div data-testid="demo-page">
-        <section style={{ background: mkt.surface, padding: "80px 28px 48px", textAlign: "center" }}>
-          <div style={{ maxWidth: 720, margin: "0 auto" }}>
-            <div style={{
-              display: "inline-block", background: mkt.accentTint, color: mkt.accent,
-              padding: "4px 14px", borderRadius: 14, fontSize: 12, fontWeight: 600,
-              letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 24,
-              border: `1px solid ${mkt.accentTint}`,
+
+        {/* ═══ HERO — minimal, animation retained ═══ */}
+        <section style={{
+          background: `radial-gradient(ellipse 80% 60% at 50% 20%, rgba(102,232,250,0.08) 0%, ${mkt.bg} 70%)`,
+          padding: "80px 28px 0", textAlign: "center", position: "relative",
+        }}>
+          <div style={{ maxWidth: 600, margin: "0 auto", position: "relative", zIndex: 1 }}>
+            <h1 data-testid="demo-headline" style={{
+              fontSize: "clamp(30px, 4.5vw, 48px)", fontWeight: 700, color: mkt.text,
+              letterSpacing: "-0.03em", marginBottom: 12, lineHeight: 1.1,
             }}>
-              Live Demo
-            </div>
-            <h1 data-testid="demo-headline" style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", marginBottom: 14, lineHeight: 1.1 }}>
-              See it in action
+              Try it yourself
             </h1>
-            <p style={{ fontSize: 17, color: "rgba(17,17,17,0.72)", lineHeight: 1.65 }}>
-              Try a live quote widget, assistant chat, booking, and review request. No login required.
+            <p style={{ fontSize: 16, color: mkt.textMuted, lineHeight: 1.6, maxWidth: 460, margin: "0 auto 32px" }}>
+              Chat or call the 24/7 TradeLine assistant. Ask about services, get an estimate, or see how it handles a real conversation.
             </p>
           </div>
+          {/* Sound bars — kept as-is */}
+          <HeroSoundBars active height={90} style={{ opacity: 0.9 }} />
         </section>
 
-        <section style={{ background: mkt.surface, padding: "0 28px 80px" }}>
-          <div style={{ maxWidth: 900, margin: "0 auto" }}>
-            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginBottom: 40 }}>
-              {DEMO_TABS.map(tab => {
-                const Icon = tab.icon;
-                const isActive = tab.id === activeTab;
-                return (
-                  <button
-                    key={tab.id}
-                    data-testid={`demo-tab-${tab.id}`}
-                    onClick={() => setActiveTab(tab.id)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 8,
-                      padding: "10px 20px", borderRadius: 14, fontSize: 14, fontWeight: 600,
-                      cursor: "pointer", transition: "all 0.2s ease",
-                      border: isActive ? `2px solid ${mkt.accent}` : `1px solid ${mkt.border}`,
-                      background: isActive ? mkt.accentTint : mkt.bg,
-                      color: isActive ? mkt.accent : mkt.textMuted,
-                    }}
-                  >
-                    <Icon size={16} strokeWidth={1.5} />
-                    {tab.label}
-                  </button>
-                );
-              })}
+        {/* ═══ CENTRAL DEMO CONTAINER ═══ */}
+        <section style={{ background: mkt.bg, padding: "40px 20px 80px" }}>
+          <div style={{
+            maxWidth: 820, margin: "0 auto",
+            background: mkt.bg,
+            border: `1px solid ${mkt.border}`,
+            borderRadius: 24,
+            overflow: "hidden",
+            boxShadow: `0 0 60px rgba(102,232,250,0.06), 0 2px 20px rgba(0,0,0,0.3)`,
+          }}>
+            {/* ── Mode toggle header ── */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "14px 20px",
+              borderBottom: `1px solid ${mkt.border}`,
+              background: mkt.surface,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#22C55E" }} />
+                <span style={{ fontSize: 14, fontWeight: 600, color: mkt.text }}>24/7 TradeLine</span>
+              </div>
+              <div style={{
+                display: "flex", gap: 2, padding: 3,
+                background: mkt.bg, borderRadius: 10, border: `1px solid ${mkt.border}`,
+              }}>
+                <button
+                  onClick={() => setMode("chat")}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 5,
+                    padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+                    fontSize: 12, fontWeight: 600,
+                    background: mode === "chat" ? mkt.accentTint : "transparent",
+                    color: mode === "chat" ? mkt.accent : mkt.textFaint,
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <MessageSquare size={12} /> Chat
+                </button>
+                <button
+                  onClick={() => setMode("voice")}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 5,
+                    padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+                    fontSize: 12, fontWeight: 600,
+                    background: mode === "voice" ? mkt.accentTint : "transparent",
+                    color: mode === "voice" ? mkt.accent : mkt.textFaint,
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <Phone size={12} /> Voice
+                </button>
+              </div>
             </div>
 
-            {activeTab === "quote" && <QuoteWidgetDemo />}
-            {activeTab === "chat" && <ChatDemo selectedTrade={selectedTrade} onTradeSelect={setSelectedTrade} />}
-            {activeTab === "booking" && <BookingDemo />}
-            {activeTab === "review" && <ReviewRequestDemo />}
+            {/* ── Demo content ── */}
+            <div style={{ height: 600 }}>
+              {mode === "chat" ? <ChatPanel /> : <VoicePanel />}
+            </div>
+          </div>
+
+          {/* Subtle helper text */}
+          <p style={{ textAlign: "center", fontSize: 12, color: mkt.textFaint, marginTop: 16 }}>
+            This is a live demo connected to the real assistant. No account needed.
+          </p>
+        </section>
+
+        {/* ═══ REVIEWS ═══ */}
+        <section style={{ background: mkt.surface, padding: "80px 28px", borderTop: `1px solid ${mkt.border}` }}>
+          <div style={{ maxWidth: 900, margin: "0 auto" }}>
+            <ReviewsSection />
           </div>
         </section>
 
-        <section style={{ background: mkt.surface, padding: "80px 28px" }}>
+        {/* ═══ PRICING ═══ */}
+        <section style={{ background: mkt.bg, padding: "80px 28px", borderTop: `1px solid ${mkt.border}` }}>
           <div style={{ maxWidth: 900, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 40 }}>
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 12 }}>
-                See the full workflow
+              <span style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.1em", textTransform: "uppercase", display: "block", marginBottom: 12 }}>
+                Pricing
+              </span>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 10 }}>
+                Simple, transparent plans
               </h2>
-              <p style={{ fontSize: 16, color: "rgba(17,17,17,0.72)", lineHeight: 1.65 }}>
-                From first visit to 5-star review — every step runs automatically.
+              <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6 }}>
+                Start with chat. Add voice when you're ready. No contracts.
               </p>
             </div>
-            <WorkflowDemo expanded />
+            <PricingCards />
           </div>
         </section>
 
-        <section style={{ background: `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentHover} 100%)`, padding: "80px 28px", textAlign: "center" }}>
-          <div style={{ maxWidth: 600, margin: "0 auto" }}>
-            <h2 style={{ fontSize: "clamp(26px, 3.5vw, 42px)", fontWeight: 700, color: "#FFFFFF", letterSpacing: "-0.025em", marginBottom: 16, lineHeight: 1.1 }}>
-              Ready to build your own?
+        {/* ═══ FAQ ═══ */}
+        <section style={{ background: mkt.surface, padding: "80px 28px", borderTop: `1px solid ${mkt.border}` }}>
+          <div style={{ maxWidth: 680, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 40 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.1em", textTransform: "uppercase", display: "block", marginBottom: 12 }}>
+                FAQ
+              </span>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em" }}>
+                Common questions
+              </h2>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {DEMO_FAQ.map((faq) => <FAQItem key={faq.q} {...faq} />)}
+            </div>
+          </div>
+        </section>
+
+        {/* ═══ MINIMAL BOTTOM CTA ═══ */}
+        <section style={{ background: mkt.bg, padding: "64px 28px", textAlign: "center", borderTop: `1px solid ${mkt.border}` }}>
+          <div style={{ maxWidth: 480, margin: "0 auto" }}>
+            <h2 style={{ fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.02em", marginBottom: 12 }}>
+              Ready to set up yours?
             </h2>
-            <p style={{ fontSize: 17, color: "rgba(255,255,255,0.72)", lineHeight: 1.65, marginBottom: 36 }}>
-              Set up your quote calculator and 24/7 assistant in under 10 minutes.
+            <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 28 }}>
+              Get your 24/7 assistant running in under 15 minutes.
             </p>
             <Link
               href="/Wizard"
               data-testid="button-build-yours"
               style={{
-                display: "inline-block", padding: "15px 36px", borderRadius: 14,
-                background: "#FFFFFF", color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none",
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "14px 32px", borderRadius: 14,
+                background: mkt.accent, color: mkt.buttonText,
+                fontSize: 15, fontWeight: 700, textDecoration: "none",
               }}
             >
-              Try Free
+              Start Free <ArrowRight size={16} />
             </Link>
           </div>
         </section>
+
       </div>
     </MarketingLayout>
   );

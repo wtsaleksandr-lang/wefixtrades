@@ -351,6 +351,8 @@ export const aiUsageLogs = pgTable("ai_usage_logs", {
   id: serial("id").primaryKey(),
   model: varchar("model", { length: 60 }).notNull(),
   surface: varchar("surface", { length: 30 }).notNull(),
+  provider: varchar("provider", { length: 30 }),          // e.g. "anthropic", "vapi", "openai"
+  channel: varchar("channel", { length: 30 }),             // e.g. "chat", "voice", "voice_demo"
   session_id: varchar("session_id", { length: 100 }),
   user_id: integer("user_id").references(() => users.id),
   report_id: uuid("report_id"),
@@ -360,6 +362,7 @@ export const aiUsageLogs = pgTable("ai_usage_logs", {
   estimated_cost_usd: integer("estimated_cost_usd"),  // stored as micro-cents (× 1,000,000) for precision
   success: boolean("success").notNull().default(true),
   error_message: text("error_message"),
+  metadata: jsonb("metadata"),                             // extensible: call_id, transcript ref, webhook event type, etc.
   created_at: timestamp("created_at").defaultNow(),
 });
 

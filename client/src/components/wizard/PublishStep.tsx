@@ -921,7 +921,7 @@ const SUGGESTED_SERVICES = [
   'Licensed & insured', 'Financing available', 'Senior discount',
 ];
 
-function AIDemoModal({ tradeCategory, onClose }: { tradeCategory?: string; onClose: () => void }) {
+function TradelineDemoModal({ tradeCategory, onClose }: { tradeCategory?: string; onClose: () => void }) {
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([
     { role: 'assistant', content: `Hi! I'm your AI assistant. I can help answer questions about services, pricing, and scheduling. What would you like to know?` },
   ]);
@@ -958,7 +958,7 @@ function AIDemoModal({ tradeCategory, onClose }: { tradeCategory?: string; onClo
   }, [input, messages, loading, tradeCategory]);
 
   return (
-    <div data-testid="ai-demo-modal" style={{
+    <div data-testid="tradeline-demo-modal" style={{
       position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.5)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1139,7 +1139,7 @@ function AIEmployeeSection({ aiEmployee, tradeCategory, onAiEmployeeChange }: {
 
   return (
     <>
-      {showDemo && <AIDemoModal tradeCategory={tradeCategory} onClose={() => setShowDemo(false)} />}
+      {showDemo && <TradelineDemoModal tradeCategory={tradeCategory} onClose={() => setShowDemo(false)} />}
 
       <div data-testid="ai-employee-section" style={{
         borderRadius: p.radius.md, border: `1px solid ${p.colors.border}`,
