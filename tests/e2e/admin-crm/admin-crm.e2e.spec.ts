@@ -107,7 +107,7 @@ test.describe("E2E: Service Provisioning", () => {
 
     // Toast must confirm provisioning
     await expect(
-      adminPage.getByText("Service provisioned").or(adminPage.getByText("tasks created"))
+      adminPage.getByText("Service provisioned").or(adminPage.getByText("tasks created")).first()
     ).toBeVisible({ timeout: 15000 });
 
     // API verification: tasks and payment must exist

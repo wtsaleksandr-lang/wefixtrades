@@ -21,7 +21,7 @@ baseTest.describe("Smoke: Auth", () => {
 
     await baseExpect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
 
-    await page.getByRole("textbox", { name: /email/i }).fill(ADMIN_EMAIL);
+    await page.locator('input[type="email"]').fill(ADMIN_EMAIL);
     await page.locator('input[type="password"]').fill(ADMIN_PASSWORD);
     await page.getByRole("button", { name: /sign in/i }).click();
 
@@ -33,7 +33,7 @@ baseTest.describe("Smoke: Auth", () => {
     const overviewContent = page.getByText("Total Clients")
       .or(page.getByText("Active Services"))
       .or(page.getByText("Overview"));
-    await baseExpect(overviewContent).toBeVisible({ timeout: 10000 });
+    await baseExpect(overviewContent.first()).toBeVisible({ timeout: 10000 });
   });
 
   baseTest("S4 — unauthenticated user is redirected to /login", async ({ page }) => {
@@ -45,7 +45,7 @@ baseTest.describe("Smoke: Auth", () => {
 
   baseTest("S5 — login with wrong password shows error", async ({ page }) => {
     await page.goto("/login");
-    await page.getByRole("textbox", { name: /email/i }).fill(ADMIN_EMAIL);
+    await page.locator('input[type="email"]').fill(ADMIN_EMAIL);
     await page.locator('input[type="password"]').fill("WrongPassword999!");
     await page.getByRole("button", { name: /sign in/i }).click();
 

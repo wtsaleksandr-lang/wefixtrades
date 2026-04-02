@@ -26,8 +26,19 @@ export const STORAGE_STATE_PATH = path.join(
 );
 
 async function globalSetup(_config: FullConfig) {
-  /* ── 1. Seed admin user + service catalog ── */
+  /* ── 0. Clean up stale test data from previous runs ── */
   const root = path.resolve(__dirname, "../../..");
+  try {
+    execSync("npx tsx tests/e2e/admin-crm/cleanup-test-data.ts", {
+      cwd: root,
+      stdio: "pipe",
+      timeout: 15_000,
+    });
+  } catch (e: any) {
+    console.warn("[global-setup] cleanup warning:", e.stderr?.toString().trim() || e.message);
+  }
+
+  /* ── 1. Seed admin user + service catalog ── */
   try {
     execSync(
       `npx tsx server/scripts/seed-admin.ts "${ADMIN_EMAIL}" "${ADMIN_PASSWORD}" "PW Admin"`,
@@ -53,7 +64,7 @@ async function globalSetup(_config: FullConfig) {
   const page = await context.newPage();
 
   await page.goto("/login");
-  await page.getByRole("textbox", { name: /email/i }).fill(ADMIN_EMAIL);
+  await page.locator('input[type="email"]').fill(ADMIN_EMAIL);
   await page.locator('input[type="password"]').fill(ADMIN_PASSWORD);
   await page.getByRole("button", { name: /sign in/i }).click();
   await page.waitForURL("**/admin/crm**", { timeout: 20_000 });
