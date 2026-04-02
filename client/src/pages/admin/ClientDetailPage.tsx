@@ -642,10 +642,15 @@ export default function ClientDetailPage() {
                           variant="ghost"
                           size="sm"
                           className="h-7 px-2 text-xs text-gray-500 hover:text-[#2D6A4F]"
-                          onClick={() => {
+                          onClick={async () => {
                             const url = `${window.location.origin}/onboarding/${ob.access_token}`;
                             navigator.clipboard.writeText(url);
                             toast({ title: "Link copied", description: "Onboarding form link copied to clipboard" });
+                            // Mark as sent if still not_sent
+                            if (ob.status === "not_sent") {
+                              await apiRequest("PATCH", `/api/admin/crm/onboarding/${ob.id}`, { status: "sent", sent_at: new Date().toISOString() });
+                              queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/onboarding`] });
+                            }
                           }}
                         >
                           <Copy className="w-3 h-3 mr-1" /> Copy Link
