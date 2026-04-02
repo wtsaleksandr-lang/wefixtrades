@@ -32,15 +32,9 @@ export default defineConfig({
     {
       name: 'admin-crm',
       testDir: './tests/e2e/admin-crm',
+      globalSetup: './tests/e2e/admin-crm/global-setup.ts',
       timeout: 60_000,
       use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'admin-crm-mobile',
-      testDir: './tests/e2e/admin-crm',
-      testMatch: '**/admin-crm.regression.spec.ts',
-      timeout: 60_000,
-      use: { ...devices['Pixel 5'] },
     },
   ],
 

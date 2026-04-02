@@ -7,3 +7,4 @@ vite.config.ts.*
 .env
 .env.local
 .keyword-cache.json
+tests/e2e/admin-crm/.auth/

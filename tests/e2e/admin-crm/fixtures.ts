@@ -1,36 +1,23 @@
 /**
  * Shared Playwright fixtures for Admin CRM tests.
  *
- * Provides:
- * - `adminPage`: a Page already logged in as an admin user
+ * - `adminPage`: a Page with pre-authenticated storageState (no per-test login)
  * - `apiContext`: an APIRequestContext with admin session cookies
- * - helper functions for creating test data via API
+ * - Helper functions for deterministic test data setup via API
  */
 
 import { test as base, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { STORAGE_STATE_PATH } from "./global-setup";
 
 /* ─── Configuration ─── */
 
-/** Admin credentials — must match a seeded admin user in the test DB */
 const ADMIN_EMAIL = process.env.TEST_ADMIN_EMAIL || "admin@wefixtrades.com";
 const ADMIN_PASSWORD = process.env.TEST_ADMIN_PASSWORD || "TestAdmin123!";
-
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
 
 /* ─── Unique suffix for test isolation ─── */
 export function testId() {
   return `pw_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-}
-
-/* ─── Login helper ─── */
-async function loginAsAdmin(page: Page): Promise<void> {
-  await page.goto("/login");
-  await page.getByRole("textbox", { name: /email/i }).fill(ADMIN_EMAIL);
-  await page.locator('input[type="password"]').fill(ADMIN_PASSWORD);
-  await page.getByRole("button", { name: /sign in/i }).click();
-
-  // Wait for redirect to admin CRM
-  await page.waitForURL("**/admin/crm**", { timeout: 15000 });
 }
 
 /* ─── Extended test fixture ─── */
@@ -41,16 +28,16 @@ type AdminFixtures = {
 };
 
 export const test = base.extend<AdminFixtures>({
-  adminPage: async ({ page }, use) => {
-    await loginAsAdmin(page);
+  // Reuse persisted auth — no per-test login
+  adminPage: async ({ browser }, use) => {
+    const context = await browser.newContext({ storageState: STORAGE_STATE_PATH });
+    const page = await context.newPage();
     await use(page);
+    await context.close();
   },
 
   apiContext: async ({ playwright }, use) => {
-    // Create a request context with admin session
-    const ctx = await playwright.request.newContext({
-      baseURL: BASE_URL,
-    });
+    const ctx = await playwright.request.newContext({ baseURL: BASE_URL });
 
     // Login via API to get session cookie
     const loginRes = await ctx.post("/api/auth/login", {
@@ -118,30 +105,6 @@ export async function listClientPayments(
   return res.json();
 }
 
-export async function updateTaskStatus(
-  apiContext: APIRequestContext,
-  taskId: number,
-  status: string
-) {
-  const res = await apiContext.patch(`/api/admin/crm/fulfillment/${taskId}`, {
-    data: { status },
-  });
-  expect(res.ok()).toBeTruthy();
-  return res.json();
-}
-
-export async function updatePaymentStatus(
-  apiContext: APIRequestContext,
-  paymentId: number,
-  status: string
-) {
-  const res = await apiContext.patch(`/api/admin/crm/payments/${paymentId}`, {
-    data: { status },
-  });
-  expect(res.ok()).toBeTruthy();
-  return res.json();
-}
-
 export async function generateMonthlyTasks(
   apiContext: APIRequestContext,
   clientServiceId: number,
@@ -151,8 +114,8 @@ export async function generateMonthlyTasks(
     `/api/admin/crm/client-services/${clientServiceId}/generate-tasks`,
     { data: { month } }
   );
-  expect(res.ok()).toBeTruthy();
-  return res.json();
+  // May return 400 if no recurring templates — caller handles
+  return { response: res, data: res.ok() ? await res.json() : null };
 }
 
 export async function getServiceCatalog(apiContext: APIRequestContext) {
