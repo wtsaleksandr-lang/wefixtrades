@@ -295,6 +295,32 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  app.patch("/api/admin/crm/payments/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = { ...req.body };
+      // Auto-set paid_at when marking as paid
+      if (updates.status === "paid" && !updates.paid_at) {
+        updates.paid_at = new Date();
+      }
+      const payment = await storage.updateClientPayment(id, updates);
+      if (!payment) return res.status(404).json({ error: "Payment not found" });
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "payment.updated",
+        entity_type: "payment",
+        entity_id: id,
+        summary: `Payment #${id} → ${payment.status}`,
+        metadata: { fields: Object.keys(req.body) },
+      });
+      res.json(payment);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to update payment" });
+    }
+  });
+
   /* ═══════════════════════════════════════════
      Onboarding
      ═══════════════════════════════════════════ */

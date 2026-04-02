@@ -149,7 +149,7 @@ export interface IStorage {
   updateSupplier(id: number, updates: Partial<InsertSupplier>): Promise<Supplier | undefined>;
 
   // Fulfillment
-  listFulfillmentTasks(opts?: { clientId?: number; status?: string; limit?: number; offset?: number }): Promise<(FulfillmentTask & { client_name?: string; supplier_name?: string })[]>;
+  listFulfillmentTasks(opts?: { clientId?: number; status?: string; limit?: number; offset?: number }): Promise<(FulfillmentTask & { client_name?: string; supplier_name?: string; service_name?: string })[]>;
   createFulfillmentTask(data: InsertFulfillmentTask): Promise<FulfillmentTask>;
   updateFulfillmentTask(id: number, updates: Partial<InsertFulfillmentTask>): Promise<FulfillmentTask | undefined>;
   getOpenFulfillmentCount(): Promise<number>;
@@ -847,7 +847,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ─── Fulfillment ───
-  async listFulfillmentTasks(opts: { clientId?: number; status?: string; limit?: number; offset?: number } = {}): Promise<(FulfillmentTask & { client_name?: string; supplier_name?: string })[]> {
+  async listFulfillmentTasks(opts: { clientId?: number; status?: string; limit?: number; offset?: number } = {}): Promise<(FulfillmentTask & { client_name?: string; supplier_name?: string; service_name?: string })[]> {
     const { clientId, status, limit = 50, offset = 0 } = opts;
     const conditions = [];
     if (clientId) conditions.push(eq(fulfillmentTasks.client_id, clientId));
@@ -880,10 +880,13 @@ export class DatabaseStorage implements IStorage {
       updated_at: fulfillmentTasks.updated_at,
       client_name: clients.business_name,
       supplier_name: suppliers.name,
+      service_name: serviceCatalog.name,
     })
     .from(fulfillmentTasks)
     .leftJoin(clients, eq(fulfillmentTasks.client_id, clients.id))
     .leftJoin(suppliers, eq(fulfillmentTasks.supplier_id, suppliers.id))
+    .leftJoin(clientServices, eq(fulfillmentTasks.client_service_id, clientServices.id))
+    .leftJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
     .where(where)
     .orderBy(fulfillmentTasks.sort_order, fulfillmentTasks.created_at)
     .limit(limit)

@@ -22,6 +22,7 @@ export interface TaskItem {
   client_name?: string | null;
   supplier_id: number | null;
   supplier_name?: string | null;
+  service_name?: string | null;
   due_at: string | null;
   updated_at: string | null;
   created_at: string;
@@ -191,6 +192,10 @@ export function TaskCard({
         {/* Row 2: Meta */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-gray-500">
           <StatusBadge status={task.status} />
+
+          {task.service_name && (
+            <span className="text-gray-400">{task.service_name}</span>
+          )}
 
           {showClient && (
             <Link href={`/admin/crm/clients/${task.client_id}`}>

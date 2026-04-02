@@ -296,6 +296,20 @@ export default function ClientDetailPage() {
     },
   });
 
+  // Update payment status
+  const updatePaymentStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      const res = await apiRequest("PATCH", `/api/admin/crm/payments/${id}`, { status });
+      return res.json();
+    },
+    onSuccess: (_data, { status }) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/payments`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/payments"] });
+      toast({ title: "Payment updated", description: `Marked as ${status}` });
+    },
+  });
+
   if (isLoading) {
     return (
       <AdminLayout>
@@ -579,7 +593,19 @@ export default function ClientDetailPage() {
                         <TableRow key={p.id}>
                           <TableCell className="text-sm capitalize">{p.type}</TableCell>
                           <TableCell className="font-medium text-sm">{fmt(p.amount_cents)}</TableCell>
-                          <TableCell><StatusBadge status={p.status} /></TableCell>
+                          <TableCell>
+                            <Select value={p.status} onValueChange={(v) => updatePaymentStatus.mutate({ id: p.id, status: v })}>
+                              <SelectTrigger className="h-7 w-auto min-w-[90px] text-[11px] px-2">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending" className="text-xs">Pending</SelectItem>
+                                <SelectItem value="paid" className="text-xs">Paid</SelectItem>
+                                <SelectItem value="failed" className="text-xs">Failed</SelectItem>
+                                <SelectItem value="refunded" className="text-xs">Refunded</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
                           <TableCell className="text-sm text-gray-500">{p.description || "-"}</TableCell>
                           <TableCell className="text-sm">{fmtDate(p.paid_at || p.created_at)}</TableCell>
                         </TableRow>
@@ -595,12 +621,24 @@ export default function ClientDetailPage() {
                   <p className="text-center py-6 text-gray-500 text-sm">No payment records.</p>
                 ) : (
                   payments?.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between p-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 capitalize">{p.type} &middot; {fmt(p.amount_cents)}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{p.description || fmtDate(p.paid_at || p.created_at)}</p>
+                    <div key={p.id} className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 capitalize">{p.type} &middot; {fmt(p.amount_cents)}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{p.description || fmtDate(p.paid_at || p.created_at)}</p>
+                        </div>
+                        <Select value={p.status} onValueChange={(v) => updatePaymentStatus.mutate({ id: p.id, status: v })}>
+                          <SelectTrigger className="h-7 w-auto min-w-[80px] text-[11px] px-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending" className="text-xs">Pending</SelectItem>
+                            <SelectItem value="paid" className="text-xs">Paid</SelectItem>
+                            <SelectItem value="failed" className="text-xs">Failed</SelectItem>
+                            <SelectItem value="refunded" className="text-xs">Refunded</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <StatusBadge status={p.status} />
                     </div>
                   ))
                 )}
