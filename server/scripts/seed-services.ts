@@ -158,6 +158,7 @@ async function main() {
     title: string; description?: string; sort_order: number;
     default_priority?: string; default_handled_by?: string;
     default_waiting_on?: string; human_review_required?: boolean;
+    is_recurring?: boolean; // false = setup-only, true (default) = included in monthly gen
   }>> = {
     "mapguard-setup": [
       { title: "Collect onboarding info from client", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client" },
@@ -195,7 +196,7 @@ async function main() {
       { title: "Send monthly health report", sort_order: 4, default_handled_by: "internal" },
     ],
     "socialsync": [
-      { title: "Collect onboarding info & brand assets", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client" },
+      { title: "Collect onboarding info & brand assets", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
       { title: "Create monthly content calendar", sort_order: 2, default_handled_by: "internal" },
       { title: "Design & write post content", sort_order: 3, default_handled_by: "supplier" },
       { title: "Get client approval", sort_order: 4, default_waiting_on: "client" },
@@ -250,6 +251,7 @@ async function main() {
         default_handled_by: t.default_handled_by || null,
         default_waiting_on: t.default_waiting_on || null,
         human_review_required: t.human_review_required || false,
+        is_recurring: t.is_recurring !== false, // default true unless explicitly false
       });
     }
     console.log(`  ✓ ${serviceId} (${tasks.length} tasks)`);

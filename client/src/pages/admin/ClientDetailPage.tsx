@@ -18,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil,
+  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -283,6 +283,19 @@ export default function ClientDetailPage() {
     },
   });
 
+  // Generate monthly tasks for recurring services
+  const generateTasks = useMutation({
+    mutationFn: async (clientServiceId: number) => {
+      const res = await apiRequest("POST", `/api/admin/crm/client-services/${clientServiceId}/generate-tasks`, {});
+      return res.json();
+    },
+    onSuccess: (data: { tasksCreated: number; month: string }) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/fulfillment`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
+      toast({ title: "Tasks generated", description: `${data.tasksCreated} tasks for ${data.month}` });
+    },
+  });
+
   if (isLoading) {
     return (
       <AdminLayout>
@@ -427,7 +440,7 @@ export default function ClientDetailPage() {
                       <TableHead>Status</TableHead>
                       <TableHead>Mode</TableHead>
                       <TableHead>Price</TableHead>
-                      <TableHead>Cost</TableHead>
+                      <TableHead></TableHead>
                       <TableHead className="text-right">Enabled</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -445,7 +458,19 @@ export default function ClientDetailPage() {
                           <TableCell><StatusBadge status={s.status} /></TableCell>
                           <TableCell className="text-xs text-gray-500 capitalize">{s.fulfillment_mode || "-"}</TableCell>
                           <TableCell className="text-sm">{fmt(s.price_cents)}{s.billing_period === "monthly" ? "/mo" : ""}</TableCell>
-                          <TableCell className="text-sm">{fmt(s.cost_cents)}{s.billing_period === "monthly" ? "/mo" : ""}</TableCell>
+                          <TableCell className="text-sm">
+                            {s.billing_period === "monthly" && s.status === "active" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-xs text-gray-500 hover:text-[#2D6A4F]"
+                                onClick={() => generateTasks.mutate(s.id)}
+                                disabled={generateTasks.isPending}
+                              >
+                                <RefreshCw className="w-3 h-3 mr-1" /> Generate
+                              </Button>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right">
                             <Switch
                               checked={s.enabled}
@@ -465,18 +490,31 @@ export default function ClientDetailPage() {
                   <p className="text-center py-6 text-gray-500 text-sm">No services assigned yet.</p>
                 ) : (
                   services?.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between p-4 gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">{s.service_name || s.service_id}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <StatusBadge status={s.status} />
-                          <span className="text-xs text-gray-500">{fmt(s.price_cents)}{s.billing_period === "monthly" ? "/mo" : ""}</span>
+                    <div key={s.id} className="p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900 truncate">{s.service_name || s.service_id}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <StatusBadge status={s.status} />
+                            <span className="text-xs text-gray-500">{fmt(s.price_cents)}{s.billing_period === "monthly" ? "/mo" : ""}</span>
+                          </div>
                         </div>
+                        <Switch
+                          checked={s.enabled}
+                          onCheckedChange={(checked) => toggleService.mutate({ id: s.id, enabled: checked })}
+                        />
                       </div>
-                      <Switch
-                        checked={s.enabled}
-                        onCheckedChange={(checked) => toggleService.mutate({ id: s.id, enabled: checked })}
-                      />
+                      {s.billing_period === "monthly" && s.status === "active" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-gray-500 hover:text-[#2D6A4F] mt-2"
+                          onClick={() => generateTasks.mutate(s.id)}
+                          disabled={generateTasks.isPending}
+                        >
+                          <RefreshCw className="w-3 h-3 mr-1" /> Generate Monthly Tasks
+                        </Button>
+                      )}
                     </div>
                   ))
                 )}
@@ -486,6 +524,18 @@ export default function ClientDetailPage() {
 
           {/* ─── Tasks Tab ─── */}
           <TabsContent value="tasks" className="mt-4 space-y-1.5">
+            {fulfillment && fulfillment.length > 0 && (() => {
+              const done = fulfillment.filter(t => t.status === "delivered" || t.status === "cancelled").length;
+              const total = fulfillment.length;
+              return (
+                <div className="flex items-center gap-2 mb-2 px-0.5">
+                  <span className="text-xs font-medium text-gray-500">{done}/{total} complete</span>
+                  <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[120px]">
+                    <div className="h-full bg-[#2D6A4F] rounded-full transition-all" style={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }} />
+                  </div>
+                </div>
+              );
+            })()}
             {fulfillment?.length === 0 ? (
               <ClientTasksEmptyState />
             ) : (

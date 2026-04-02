@@ -173,6 +173,8 @@ export const serviceTaskTemplates = pgTable("service_task_templates", {
   default_handled_by: varchar("default_handled_by", { length: 20 }),
   default_waiting_on: varchar("default_waiting_on", { length: 20 }),
   human_review_required: boolean("human_review_required").notNull().default(false),
+  is_recurring: boolean("is_recurring").notNull().default(true),
+  // true = included in monthly generation; false = setup-only (first provision only)
   created_at: timestamp("created_at").defaultNow(),
 });
 export const insertServiceTaskTemplateSchema = createInsertSchema(serviceTaskTemplates).omit({ id: true, created_at: true });

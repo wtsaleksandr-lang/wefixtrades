@@ -522,8 +522,9 @@ export function registerAdminCrmRoutes(app: Express): void {
       const cs = await storage.getClientServiceById(clientServiceId);
       if (!cs) return res.status(404).json({ error: "Client service not found" });
 
-      const taskTemplates = await storage.getTaskTemplates(cs.service_id);
-      if (!taskTemplates.length) return res.status(400).json({ error: "No task templates found for this service" });
+      const allTemplates = await storage.getTaskTemplates(cs.service_id);
+      const taskTemplates = allTemplates.filter(t => t.is_recurring);
+      if (!taskTemplates.length) return res.status(400).json({ error: "No recurring task templates found for this service" });
 
       const label = month || new Date().toISOString().slice(0, 7);
       const tasks = [];

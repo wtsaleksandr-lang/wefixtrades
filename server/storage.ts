@@ -1104,7 +1104,15 @@ export class DatabaseStorage implements IStorage {
         serviceActivated = true;
         break;
       case "recurring":
-        // Monthly batch done — service stays active, don't change status
+        // For recurring services: if still in pending/onboarding, check if all
+        // setup tasks are done (tasks that have no monthly equivalent).
+        // If service is already active, monthly batches complete silently.
+        if (cs.status === "pending" || cs.status === "onboarding") {
+          newStatus = "active";
+          serviceActivated = true;
+          break;
+        }
+        // Already active — monthly batch completed, no status change needed
         return { serviceCompleted: false, serviceActivated: false, clientActivated: false };
       default:
         newStatus = "completed";
