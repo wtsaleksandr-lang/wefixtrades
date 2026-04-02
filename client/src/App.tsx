@@ -65,6 +65,7 @@ import ServicesPage from "@/pages/admin/ServicesPage";
 import ProfilePage from "@/pages/admin/ProfilePage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import ChangePasswordPage from "@/pages/admin/ChangePasswordPage";
+import OnboardingForm from "@/pages/OnboardingForm";
 
 function Router() {
   return (
@@ -133,6 +134,7 @@ function Router() {
       <Route path="/missed-call-calculator" component={MissedCallCalculator} />
       <Route path="/quote-demo" component={QuoteCalculatorDemo} />
       <Route path="/free-audit" component={FreeAudit} />
+      <Route path="/onboarding/:token" component={OnboardingForm} />
       <Route path="/audit/report/:id" component={SharedAuditReport} />
       <Route path="/Wizard" component={Wizard} />
       <Route path="/wizard" component={Wizard} />

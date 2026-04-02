@@ -205,6 +205,7 @@ export const onboardingSubmissions = pgTable("onboarding_submissions", {
   client_service_id: integer("client_service_id").notNull().references(() => clientServices.id),
   client_id: integer("client_id").notNull().references(() => clients.id),
   template_id: integer("template_id").references(() => onboardingTemplates.id),
+  access_token: varchar("access_token", { length: 64 }).unique(),
   status: varchar("status", { length: 30 }).notNull().default("not_sent"),
   // not_sent | sent | viewed | submitted | approved | needs_followup
   responses: jsonb("responses"),

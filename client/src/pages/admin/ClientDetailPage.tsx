@@ -18,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard,
+  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard, Copy, ExternalLink, ClipboardCheck,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -60,6 +60,15 @@ interface PaymentRow {
   status: string;
   description: string | null;
   paid_at: string | null;
+  created_at: string;
+}
+
+interface OnboardingRow {
+  id: number;
+  access_token: string | null;
+  status: string;
+  responses: Record<string, { value: any; completed_at?: string }> | null;
+  submitted_at: string | null;
   created_at: string;
 }
 
@@ -189,6 +198,11 @@ export default function ClientDetailPage() {
 
   const { data: notes } = useQuery<NoteRow[]>({
     queryKey: [`/api/admin/crm/clients/${clientId}/notes`],
+    enabled: !!clientId,
+  });
+
+  const { data: onboarding } = useQuery<OnboardingRow[]>({
+    queryKey: [`/api/admin/crm/clients/${clientId}/onboarding`],
     enabled: !!clientId,
   });
 
@@ -604,7 +618,67 @@ export default function ClientDetailPage() {
           </TabsContent>
 
           {/* ─── Tasks Tab ─── */}
-          <TabsContent value="tasks" className="mt-4 space-y-1.5">
+          <TabsContent value="tasks" className="mt-4 space-y-3">
+            {/* Onboarding cards */}
+            {onboarding?.map((ob) => (
+              <Card key={ob.id} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <ClipboardCheck className="w-4 h-4 text-gray-400 shrink-0" />
+                      <span className="text-sm font-medium text-gray-900">Onboarding Form</span>
+                      <StatusBadge status={ob.status} />
+                    </div>
+                    {ob.submitted_at && (
+                      <p className="text-xs text-gray-500 mt-1 ml-6">
+                        Submitted {new Date(ob.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {ob.access_token && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-gray-500 hover:text-[#2D6A4F]"
+                          onClick={() => {
+                            const url = `${window.location.origin}/onboarding/${ob.access_token}`;
+                            navigator.clipboard.writeText(url);
+                            toast({ title: "Link copied", description: "Onboarding form link copied to clipboard" });
+                          }}
+                        >
+                          <Copy className="w-3 h-3 mr-1" /> Copy Link
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-gray-500 hover:text-[#2D6A4F]"
+                          onClick={() => window.open(`/onboarding/${ob.access_token}`, "_blank")}
+                        >
+                          <ExternalLink className="w-3 h-3 mr-1" /> Open
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {/* Show responses if submitted */}
+                {ob.responses && ob.status !== "not_sent" && ob.status !== "sent" && (
+                  <div className="mt-3 ml-6 space-y-1.5 border-t border-gray-50 pt-3">
+                    {Object.entries(ob.responses).map(([key, val]) => (
+                      <div key={key} className="flex gap-2 text-xs">
+                        <span className="text-gray-400 shrink-0 w-28 truncate">{key.replace(/_/g, " ")}</span>
+                        <span className="text-gray-700">
+                          {typeof (val as any)?.value === "boolean" ? ((val as any).value ? "Yes" : "No") : String((val as any)?.value || "-")}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            ))}
+
+            {/* Progress bar */}
             {fulfillment && fulfillment.length > 0 && (() => {
               const done = fulfillment.filter(t => t.status === "delivered" || t.status === "cancelled").length;
               const total = fulfillment.length;

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { db } from "./db";
 import {
   calculators, leads, analyticsEvents, deploymentStatus,
@@ -918,6 +919,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createOnboardingSubmission(data: InsertOnboardingSubmission): Promise<OnboardingSubmission> {
+    // Auto-generate access token if not provided
+    if (!data.access_token) {
+      data.access_token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+    }
     const [row] = await db.insert(onboardingSubmissions).values(data).returning();
     return row;
   }
@@ -1090,6 +1095,33 @@ export class DatabaseStorage implements IStorage {
       .where(eq(clientPayments.stripe_payment_intent_id, sessionId))
       .limit(1);
     return row;
+  }
+
+  async getOnboardingByToken(token: string): Promise<{
+    submission: OnboardingSubmission;
+    template: OnboardingTemplate | null;
+    clientName: string;
+    serviceName: string;
+  } | undefined> {
+    const [sub] = await db.select().from(onboardingSubmissions)
+      .where(eq(onboardingSubmissions.access_token, token))
+      .limit(1);
+    if (!sub) return undefined;
+
+    const template = sub.template_id
+      ? (await db.select().from(onboardingTemplates).where(eq(onboardingTemplates.id, sub.template_id)).limit(1))[0] ?? null
+      : null;
+
+    const [client] = await db.select({ business_name: clients.business_name }).from(clients).where(eq(clients.id, sub.client_id)).limit(1);
+    const [cs] = await db.select({ service_id: clientServices.service_id }).from(clientServices).where(eq(clientServices.id, sub.client_service_id)).limit(1);
+    const [svc] = cs ? await db.select({ name: serviceCatalog.name }).from(serviceCatalog).where(eq(serviceCatalog.id, cs.service_id)).limit(1) : [null];
+
+    return {
+      submission: sub,
+      template,
+      clientName: client?.business_name ?? "Unknown",
+      serviceName: svc?.name ?? "Unknown Service",
+    };
   }
 
   async findPendingPaymentForClientService(clientServiceId: number): Promise<ClientPayment | undefined> {
