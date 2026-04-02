@@ -71,7 +71,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.get("/api/admin/crm/clients/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       const client = await storage.getClientById(id);
       if (!client) return res.status(404).json({ error: "Client not found" });
       res.json(client);
@@ -82,7 +82,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.patch("/api/admin/crm/clients/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       const client = await storage.updateClient(id, req.body);
       if (!client) return res.status(404).json({ error: "Client not found" });
       await storage.logAdminActivity({
@@ -107,7 +107,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.get("/api/admin/crm/clients/:id/services", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const clientId = parseInt(req.params.id);
+      const clientId = parseInt(req.params.id as string);
       const rows = await storage.listClientServices(clientId);
       res.json(rows);
     } catch (err: any) {
@@ -117,7 +117,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.post("/api/admin/crm/clients/:id/services", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const clientId = parseInt(req.params.id);
+      const clientId = parseInt(req.params.id as string);
       const svc = await storage.createClientService({ ...req.body, client_id: clientId });
       await storage.logAdminActivity({
         actor_type: "human",
@@ -137,7 +137,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.patch("/api/admin/crm/client-services/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       const svc = await storage.updateClientService(id, req.body);
       if (!svc) return res.status(404).json({ error: "Client service not found" });
       await storage.logAdminActivity({
@@ -162,7 +162,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.get("/api/admin/crm/clients/:id/fulfillment", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const clientId = parseInt(req.params.id);
+      const clientId = parseInt(req.params.id as string);
       const rows = await storage.listFulfillmentTasks({ clientId });
       res.json(rows);
     } catch (err: any) {
@@ -202,7 +202,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.patch("/api/admin/crm/fulfillment/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       // If marking delivered, set completed_at
       if (req.body.status === "delivered" && !req.body.completed_at) {
         req.body.completed_at = new Date();
@@ -269,7 +269,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.get("/api/admin/crm/clients/:id/payments", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const clientId = parseInt(req.params.id);
+      const clientId = parseInt(req.params.id as string);
       const rows = await storage.listClientPayments(clientId);
       res.json(rows);
     } catch (err: any) {
@@ -297,7 +297,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.patch("/api/admin/crm/payments/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       const updates = { ...req.body };
       // Auto-set paid_at when marking as paid
       if (updates.status === "paid" && !updates.paid_at) {
@@ -327,7 +327,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.get("/api/admin/crm/clients/:id/onboarding", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const clientId = parseInt(req.params.id);
+      const clientId = parseInt(req.params.id as string);
       const rows = await storage.listOnboardingSubmissions(clientId);
       res.json(rows);
     } catch (err: any) {
@@ -355,7 +355,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.patch("/api/admin/crm/onboarding/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       const sub = await storage.updateOnboardingSubmission(id, req.body);
       if (!sub) return res.status(404).json({ error: "Onboarding submission not found" });
       res.json(sub);
@@ -370,7 +370,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.get("/api/admin/crm/clients/:id/notes", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const clientId = parseInt(req.params.id);
+      const clientId = parseInt(req.params.id as string);
       const rows = await storage.listInternalNotes(clientId);
       res.json(rows);
     } catch (err: any) {
@@ -441,7 +441,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.post("/api/admin/crm/clients/:id/provision", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const clientId = parseInt(req.params.id);
+      const clientId = parseInt(req.params.id as string);
       const { service_id, fulfillment_mode, price_override } = req.body;
 
       if (!service_id) return res.status(400).json({ error: "service_id is required" });
@@ -542,7 +542,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.post("/api/admin/crm/client-services/:id/generate-tasks", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const clientServiceId = parseInt(req.params.id);
+      const clientServiceId = parseInt(req.params.id as string);
       const { month } = req.body; // optional label like "2026-04"
 
       const cs = await storage.getClientServiceById(clientServiceId);

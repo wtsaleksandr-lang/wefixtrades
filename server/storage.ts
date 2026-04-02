@@ -798,7 +798,7 @@ export class DatabaseStorage implements IStorage {
     .leftJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
     .where(eq(clientServices.client_id, clientId))
     .orderBy(desc(clientServices.created_at));
-    return rows;
+    return rows as any;
   }
 
   async createClientService(data: InsertClientService): Promise<ClientService> {
@@ -892,7 +892,7 @@ export class DatabaseStorage implements IStorage {
     .orderBy(fulfillmentTasks.sort_order, fulfillmentTasks.created_at)
     .limit(limit)
     .offset(offset);
-    return rows;
+    return rows as any;
   }
 
   async createFulfillmentTask(data: InsertFulfillmentTask): Promise<FulfillmentTask> {
@@ -965,7 +965,7 @@ export class DatabaseStorage implements IStorage {
     .leftJoin(clients, eq(clientPayments.client_id, clients.id))
     .where(where)
     .orderBy(desc(clientPayments.created_at))
-    .limit(limit).offset(offset);
+    .limit(limit).offset(offset) as any;
   }
 
   async getActiveClientCountByService(): Promise<{ service_id: string; count: number }[]> {

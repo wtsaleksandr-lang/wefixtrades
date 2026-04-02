@@ -15,7 +15,7 @@ export function registerOnboardingPublicRoutes(app: Express): void {
    */
   app.get("/api/onboarding/:token", async (req: Request, res: Response) => {
     try {
-      const { token } = req.params;
+      const token = req.params.token as string;
       const data = await storage.getOnboardingByToken(token);
       if (!data) return res.status(404).json({ error: "Onboarding form not found" });
 
@@ -49,7 +49,7 @@ export function registerOnboardingPublicRoutes(app: Express): void {
    */
   app.post("/api/onboarding/:token", async (req: Request, res: Response) => {
     try {
-      const { token } = req.params;
+      const token = req.params.token as string;
       const { responses } = req.body;
 
       if (!responses || typeof responses !== "object") {

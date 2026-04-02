@@ -409,9 +409,9 @@ export default function ClientDetailPage() {
         amount_cents: payments[0].amount_cents,
         date: payments[0].paid_at || payments[0].created_at,
       } : undefined,
-      supplierNames: [...new Set(
+      supplierNames: Array.from(new Set(
         (fulfillment ?? []).map(t => t.supplier_name).filter((n): n is string => !!n)
-      )],
+      )),
     }}>
       <div className="max-w-5xl mx-auto space-y-5">
         {/* Back link */}
