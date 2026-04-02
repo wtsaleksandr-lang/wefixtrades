@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRoute, Link } from "wouter";
+import { useRoute, Link, useLocation, useSearch } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw,
+  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -144,6 +144,27 @@ export default function ClientDetailPage() {
   const clientId = parseInt(params?.id || "0");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [location, navigate] = useLocation();
+  const searchString = useSearch();
+
+  // Detect checkout return from Stripe
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    const checkout = params.get("checkout");
+    if (checkout === "success") {
+      toast({ title: "Payment successful", description: "Service will be provisioned shortly" });
+      // Clean up query param
+      navigate(`/admin/crm/clients/${clientId}`, { replace: true });
+      // Refresh all data
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/services`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/fulfillment`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/payments`] });
+    } else if (checkout === "cancelled") {
+      toast({ title: "Checkout cancelled", description: "No payment was made" });
+      navigate(`/admin/crm/clients/${clientId}`, { replace: true });
+    }
+  }, [searchString]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Queries
   const { data: client, isLoading } = useQuery<Client>({
@@ -293,6 +314,26 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/fulfillment`] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
       toast({ title: "Tasks generated", description: `${data.tasksCreated} tasks for ${data.month}` });
+    },
+  });
+
+  // Stripe checkout
+  const startCheckout = useMutation({
+    mutationFn: async ({ serviceId }: { serviceId: string }) => {
+      const res = await apiRequest("POST", "/api/billing/checkout", {
+        client_id: clientId,
+        service_id: serviceId,
+      });
+      return res.json();
+    },
+    onSuccess: (data: { checkout_url: string }) => {
+      if (data.checkout_url) {
+        window.open(data.checkout_url, "_blank");
+        toast({ title: "Checkout opened", description: "Complete payment in the new tab" });
+      }
+    },
+    onError: () => {
+      toast({ title: "Checkout failed", description: "Could not create checkout session. Check Stripe config." });
     },
   });
 
@@ -473,17 +514,30 @@ export default function ClientDetailPage() {
                           <TableCell className="text-xs text-gray-500 capitalize">{s.fulfillment_mode || "-"}</TableCell>
                           <TableCell className="text-sm">{fmt(s.price_cents)}{s.billing_period === "monthly" ? "/mo" : ""}</TableCell>
                           <TableCell className="text-sm">
-                            {s.billing_period === "monthly" && s.status === "active" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-xs text-gray-500 hover:text-[#2D6A4F]"
-                                onClick={() => generateTasks.mutate(s.id)}
-                                disabled={generateTasks.isPending}
-                              >
-                                <RefreshCw className="w-3 h-3 mr-1" /> Generate
-                              </Button>
-                            )}
+                            <div className="flex gap-1">
+                              {s.status === "pending" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-[#2D6A4F] hover:bg-[#F0F7F4]"
+                                  onClick={() => startCheckout.mutate({ serviceId: s.service_id })}
+                                  disabled={startCheckout.isPending}
+                                >
+                                  <CreditCard className="w-3 h-3 mr-1" /> Charge
+                                </Button>
+                              )}
+                              {s.billing_period === "monthly" && s.status === "active" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-gray-500 hover:text-[#2D6A4F]"
+                                  onClick={() => generateTasks.mutate(s.id)}
+                                  disabled={generateTasks.isPending}
+                                >
+                                  <RefreshCw className="w-3 h-3 mr-1" /> Generate
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-right">
                             <Switch
@@ -518,17 +572,30 @@ export default function ClientDetailPage() {
                           onCheckedChange={(checked) => toggleService.mutate({ id: s.id, enabled: checked })}
                         />
                       </div>
-                      {s.billing_period === "monthly" && s.status === "active" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs text-gray-500 hover:text-[#2D6A4F] mt-2"
-                          onClick={() => generateTasks.mutate(s.id)}
-                          disabled={generateTasks.isPending}
-                        >
-                          <RefreshCw className="w-3 h-3 mr-1" /> Generate Monthly Tasks
-                        </Button>
-                      )}
+                      <div className="flex gap-2 mt-2">
+                        {s.status === "pending" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-[#2D6A4F] hover:bg-[#F0F7F4]"
+                            onClick={() => startCheckout.mutate({ serviceId: s.service_id })}
+                            disabled={startCheckout.isPending}
+                          >
+                            <CreditCard className="w-3 h-3 mr-1" /> Charge
+                          </Button>
+                        )}
+                        {s.billing_period === "monthly" && s.status === "active" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-gray-500 hover:text-[#2D6A4F]"
+                            onClick={() => generateTasks.mutate(s.id)}
+                            disabled={generateTasks.isPending}
+                          >
+                            <RefreshCw className="w-3 h-3 mr-1" /> Generate Monthly Tasks
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}
