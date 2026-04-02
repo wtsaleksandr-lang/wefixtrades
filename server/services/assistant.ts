@@ -8,7 +8,7 @@
  */
 
 import { streamChat, chat, validateConfig, getModel, type ChatMessage, type ChatOptions } from "./aiService";
-import { buildSystemPrompt, type ChatSurface, type AuditContext, type MemoryContext } from "./promptBuilder";
+import { buildSystemPrompt, type ChatSurface, type AuditContext, type MemoryContext, type PageContext } from "./promptBuilder";
 import { getMemory, saveMemory, extractMemorySignals } from "./chatMemory";
 import { logUsage } from "./usageTracker";
 import { evaluateAndArchive } from "./conversationArchiver";
@@ -25,6 +25,8 @@ export interface AssistantRequest {
   userId?: number;
   /** Audit-specific context (only for surface="audit") */
   auditContext?: AuditContext;
+  /** Admin page context (only for surface="admin") */
+  pageContext?: PageContext;
   /** Report ID to load context from DB */
   reportId?: string;
   /** Override max tokens for this request */
@@ -61,6 +63,7 @@ async function buildContext(req: AssistantRequest): Promise<{
     req.surface,
     req.auditContext,
     memoryContext,
+    req.pageContext,
   );
 
   const chatMessages = req.messages.slice(-20);

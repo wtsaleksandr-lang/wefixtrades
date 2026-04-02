@@ -92,6 +92,18 @@ export default function FreeAudit() {
 
   const reportRef = useRef<HTMLDivElement>(null);
 
+  // Browser geolocation for search bias
+  const userCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => { userCoordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+        () => { /* silently ignore denial */ },
+        { timeout: 5000, maximumAge: 300000 }
+      );
+    }
+  }, []);
+
   // Autocomplete search: fires after 3+ chars with 400ms debounce
   useEffect(() => {
     setError(null);
@@ -108,7 +120,7 @@ export default function FreeAudit() {
 
     postJSON<{ ok: true; predictions: Prediction[]; locationHint?: string | null }>(
       "/api/audit/search-places",
-      { query: q }
+      { query: q, ...(userCoordsRef.current && { lat: userCoordsRef.current.lat, lng: userCoordsRef.current.lng }) }
     )
       .then((d) => {
         setPredictions(d.predictions || []);
@@ -225,6 +237,8 @@ export default function FreeAudit() {
                 const data = await r.json();
                 if (data.ready && data.speedData) {
                   console.log('[speed] data ready:', data.speedData);
+                  console.log('[speed] screenshot:', data.websiteScreenshot ? `${Math.round(data.websiteScreenshot.length / 1024)}KB` : 'null');
+                  console.log('[speed] aiAnalysis findings:', data.websiteAIAnalysis?.findings?.length ?? 0);
                   setSpeedData(data.speedData);
                   if (data.websiteAIAnalysis) setWebsiteAIAnalysis(data.websiteAIAnalysis);
                   if (data.websiteScreenshot) setWebsiteScreenshot(data.websiteScreenshot);

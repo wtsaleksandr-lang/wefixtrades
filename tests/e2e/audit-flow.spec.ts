@@ -1,11 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 
 // ─── Configuration ───────────────────────────────────────────────
+const __filename_esm = fileURLToPath(import.meta.url);
+const __dirname_esm = path.dirname(__filename_esm);
 const BASE_URL = 'http://localhost:5000';
-const SCREENSHOT_DIR = path.join(__dirname, 'screenshots');
-const RESULTS_DIR = path.join(__dirname, 'results');
+const SCREENSHOT_DIR = path.join(__dirname_esm, 'screenshots');
+const RESULTS_DIR = path.join(__dirname_esm, 'results');
 
 // ─── Types ───────────────────────────────────────────────────────
 interface TestCase {
@@ -49,7 +52,7 @@ const LP_DEFAULT_FLOOR = 6; // LP #4-10
 
 // ─── Load test cases ─────────────────────────────────────────────
 const testCases: TestCase[] = JSON.parse(
-  fs.readFileSync(path.join(__dirname, 'test-cases.json'), 'utf-8')
+  fs.readFileSync(path.join(__dirname_esm, 'test-cases.json'), 'utf-8')
 );
 
 // ─── Helpers ─────────────────────────────────────────────────────

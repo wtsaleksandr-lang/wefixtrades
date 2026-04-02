@@ -28,9 +28,12 @@ export default function SiteChatWidget() {
   useEffect(() => { saveMessages(messages); }, [messages]);
   useEffect(() => { saveOpenState(open); }, [open]);
 
-  // Scroll to bottom on new messages
+  // Scroll to bottom within the chat container (not the page)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    }
   }, [messages, streaming]);
 
   // Native wheel event listener with passive: false so preventDefault works

@@ -78,7 +78,7 @@ async function parseAssistantRequest(req: Request): Promise<
   { ok: true; assistantReq: AssistantRequest } |
   { ok: false; status: number; error: string }
 > {
-  const { surface: rawSurface, mode, messages, sessionId, reportId, auditContext: clientAuditCtx, userId } = req.body || {};
+  const { surface: rawSurface, mode, messages, sessionId, reportId, auditContext: clientAuditCtx, pageContext: clientPageCtx, userId } = req.body || {};
 
   const surfaceStr = rawSurface || mode || "website";
   const surface: ChatSurface = VALID_SURFACES.includes(surfaceStr) ? surfaceStr : "website";
@@ -120,6 +120,7 @@ async function parseAssistantRequest(req: Request): Promise<
       sessionId: sid,
       userId: typeof userId === "number" ? userId : undefined,
       auditContext: auditCtx,
+      pageContext: surface === "admin" && clientPageCtx ? clientPageCtx : undefined,
       reportId: typeof reportId === "string" ? reportId : undefined,
     },
   };

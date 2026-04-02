@@ -97,11 +97,12 @@ export async function readSSEStream(
 
 /* ─── Send chat message to unified API ─── */
 export interface SendChatParams {
-  surface: "website" | "audit";
+  surface: "website" | "audit" | "admin";
   messages: ChatMessage[];
   sessionId: string;
   reportId?: string;
   auditContext?: Record<string, any>;
+  pageContext?: Record<string, any>;
 }
 
 export async function sendChatMessage(params: SendChatParams): Promise<Response> {

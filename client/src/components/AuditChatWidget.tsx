@@ -67,9 +67,12 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
   useEffect(() => { saveMessages(messages); }, [messages]);
   useEffect(() => { saveOpenState(open); }, [open]);
 
-  // Scroll to bottom
+  // Scroll to bottom within the chat container (not the page)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = chatMessagesRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    }
   }, [messages, streaming]);
 
   // Native wheel event listener with passive: false to allow preventDefault

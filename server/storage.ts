@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { db } from "./db";
 import {
   calculators, leads, analyticsEvents, deploymentStatus,
@@ -19,6 +20,24 @@ import {
   type SmsMessage,
   type User, type InsertUser,
   type AuditSubmission, type InsertAuditSubmission,
+  // Admin CRM
+  clients, clientServices, serviceCatalog, orders, orderItems,
+  suppliers, fulfillmentTasks, onboardingSubmissions, onboardingTemplates,
+  clientPayments, internalNotes, adminActivityLog,
+  serviceTaskTemplates,
+  type Client, type InsertClient,
+  type ClientService, type InsertClientService,
+  type ServiceCatalogRow, type InsertServiceCatalog,
+  type Order, type InsertOrder,
+  type OrderItem, type InsertOrderItem,
+  type Supplier, type InsertSupplier,
+  type FulfillmentTask, type InsertFulfillmentTask,
+  type OnboardingSubmission, type InsertOnboardingSubmission,
+  type ClientPayment, type InsertClientPayment,
+  type InternalNote, type InsertInternalNote,
+  type AdminActivityLog, type InsertAdminActivityLog,
+  type ServiceTaskTemplate,
+  type OnboardingTemplate,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -101,6 +120,73 @@ export interface IStorage {
   createAuditSubmission(data: InsertAuditSubmission): Promise<AuditSubmission>;
   listAuditSubmissions(limit?: number, offset?: number): Promise<AuditSubmission[]>;
   getAuditSubmissionCount(): Promise<number>;
+
+  // ─── Admin CRM ───
+  // Clients
+  listClients(opts?: { search?: string; status?: string; limit?: number; offset?: number }): Promise<Client[]>;
+  getClientById(id: number): Promise<Client | undefined>;
+  createClient(data: InsertClient): Promise<Client>;
+  updateClient(id: number, updates: Partial<InsertClient>): Promise<Client | undefined>;
+  getClientCount(status?: string): Promise<number>;
+
+  // Service catalog
+  listServiceCatalog(): Promise<ServiceCatalogRow[]>;
+  upsertServiceCatalog(data: InsertServiceCatalog): Promise<ServiceCatalogRow>;
+
+  // Client services
+  listClientServices(clientId: number): Promise<(ClientService & { service_name?: string })[]>;
+  createClientService(data: InsertClientService): Promise<ClientService>;
+  updateClientService(id: number, updates: Partial<InsertClientService>): Promise<ClientService | undefined>;
+  getActiveServiceCount(): Promise<number>;
+
+  // Orders
+  listOrders(clientId?: number, limit?: number, offset?: number): Promise<Order[]>;
+  createOrder(data: InsertOrder): Promise<Order>;
+  createOrderItem(data: InsertOrderItem): Promise<OrderItem>;
+
+  // Suppliers
+  listSuppliers(): Promise<Supplier[]>;
+  createSupplier(data: InsertSupplier): Promise<Supplier>;
+  updateSupplier(id: number, updates: Partial<InsertSupplier>): Promise<Supplier | undefined>;
+
+  // Fulfillment
+  listFulfillmentTasks(opts?: { clientId?: number; status?: string; limit?: number; offset?: number }): Promise<(FulfillmentTask & { client_name?: string; supplier_name?: string; service_name?: string })[]>;
+  createFulfillmentTask(data: InsertFulfillmentTask): Promise<FulfillmentTask>;
+  updateFulfillmentTask(id: number, updates: Partial<InsertFulfillmentTask>): Promise<FulfillmentTask | undefined>;
+  getOpenFulfillmentCount(): Promise<number>;
+
+  // Onboarding
+  listOnboardingSubmissions(clientId: number): Promise<OnboardingSubmission[]>;
+  createOnboardingSubmission(data: InsertOnboardingSubmission): Promise<OnboardingSubmission>;
+  updateOnboardingSubmission(id: number, updates: Partial<InsertOnboardingSubmission>): Promise<OnboardingSubmission | undefined>;
+  getPendingOnboardingCount(): Promise<number>;
+
+  // Payments
+  listClientPayments(clientId: number): Promise<ClientPayment[]>;
+  createClientPayment(data: InsertClientPayment): Promise<ClientPayment>;
+  updateClientPayment(id: number, updates: Partial<InsertClientPayment>): Promise<ClientPayment | undefined>;
+  getUnpaidTotal(): Promise<number>;
+  getMonthlyRevenue(): Promise<number>;
+
+  // Notes
+  listInternalNotes(clientId: number): Promise<InternalNote[]>;
+  createInternalNote(data: InsertInternalNote): Promise<InternalNote>;
+
+  // Activity log
+  logAdminActivity(data: InsertAdminActivityLog): Promise<AdminActivityLog>;
+  listAdminActivity(opts?: { entityType?: string; entityId?: number; limit?: number }): Promise<AdminActivityLog[]>;
+
+  // CRM Overview
+  getCrmOverview(): Promise<{
+    totalClients: number;
+    activeServices: number;
+    pendingOnboarding: number;
+    openFulfillment: number;
+    unpaidAmount: number;
+    monthlyRevenue: number;
+    recentClients: { id: number; business_name: string; status: string; created_at: Date | null }[];
+    recentTasks: { id: number; title: string; status: string; priority: string; client_id: number; client_name: string | null; due_at: Date | null }[];
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -632,6 +718,500 @@ export class DatabaseStorage implements IStorage {
   async getAuditSubmissionCount(): Promise<number> {
     const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(auditSubmissions);
     return row?.total ?? 0;
+  }
+
+  // ═══════════════════════════════════════════════
+  // Admin CRM Methods
+  // ═══════════════════════════════════════════════
+
+  // ─── Clients ───
+  async listClients(opts: { search?: string; status?: string; limit?: number; offset?: number } = {}): Promise<Client[]> {
+    const { search, status, limit = 50, offset = 0 } = opts;
+    const conditions = [];
+    if (status) conditions.push(eq(clients.status, status));
+    if (search) {
+      conditions.push(or(
+        ilike(clients.business_name, `%${search}%`),
+        ilike(clients.contact_name, `%${search}%`),
+        ilike(clients.contact_email, `%${search}%`),
+      ));
+    }
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(clients).where(where).orderBy(desc(clients.created_at)).limit(limit).offset(offset);
+  }
+
+  async getClientById(id: number): Promise<Client | undefined> {
+    const [row] = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
+    return row;
+  }
+
+  async createClient(data: InsertClient): Promise<Client> {
+    const [row] = await db.insert(clients).values(data).returning();
+    return row;
+  }
+
+  async updateClient(id: number, updates: Partial<InsertClient>): Promise<Client | undefined> {
+    const [row] = await db.update(clients).set({ ...updates, updated_at: new Date() }).where(eq(clients.id, id)).returning();
+    return row;
+  }
+
+  async getClientCount(status?: string): Promise<number> {
+    const where = status ? eq(clients.status, status) : undefined;
+    const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(clients).where(where);
+    return row?.total ?? 0;
+  }
+
+  // ─── Service Catalog ───
+  async listServiceCatalog(): Promise<ServiceCatalogRow[]> {
+    return db.select().from(serviceCatalog).orderBy(serviceCatalog.sort_order);
+  }
+
+  async upsertServiceCatalog(data: InsertServiceCatalog): Promise<ServiceCatalogRow> {
+    const [row] = await db.insert(serviceCatalog).values(data)
+      .onConflictDoUpdate({ target: serviceCatalog.id, set: { ...data, updated_at: new Date() } })
+      .returning();
+    return row;
+  }
+
+  // ─── Client Services ───
+  async listClientServices(clientId: number): Promise<(ClientService & { service_name?: string })[]> {
+    const rows = await db.select({
+      id: clientServices.id,
+      client_id: clientServices.client_id,
+      service_id: clientServices.service_id,
+      status: clientServices.status,
+      enabled: clientServices.enabled,
+      fulfillment_mode: clientServices.fulfillment_mode,
+      price_cents: clientServices.price_cents,
+      cost_cents: clientServices.cost_cents,
+      billing_period: clientServices.billing_period,
+      started_at: clientServices.started_at,
+      cancelled_at: clientServices.cancelled_at,
+      automation_enabled: clientServices.automation_enabled,
+      human_review_required: clientServices.human_review_required,
+      metadata: clientServices.metadata,
+      created_at: clientServices.created_at,
+      updated_at: clientServices.updated_at,
+      service_name: serviceCatalog.name,
+    })
+    .from(clientServices)
+    .leftJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
+    .where(eq(clientServices.client_id, clientId))
+    .orderBy(desc(clientServices.created_at));
+    return rows;
+  }
+
+  async createClientService(data: InsertClientService): Promise<ClientService> {
+    const [row] = await db.insert(clientServices).values(data).returning();
+    return row;
+  }
+
+  async updateClientService(id: number, updates: Partial<InsertClientService>): Promise<ClientService | undefined> {
+    const [row] = await db.update(clientServices).set({ ...updates, updated_at: new Date() }).where(eq(clientServices.id, id)).returning();
+    return row;
+  }
+
+  async getActiveServiceCount(): Promise<number> {
+    const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(clientServices).where(eq(clientServices.status, "active"));
+    return row?.total ?? 0;
+  }
+
+  // ─── Orders ───
+  async listOrders(clientId?: number, limit = 50, offset = 0): Promise<Order[]> {
+    const where = clientId ? eq(orders.client_id, clientId) : undefined;
+    return db.select().from(orders).where(where).orderBy(desc(orders.created_at)).limit(limit).offset(offset);
+  }
+
+  async createOrder(data: InsertOrder): Promise<Order> {
+    const [row] = await db.insert(orders).values(data).returning();
+    return row;
+  }
+
+  async createOrderItem(data: InsertOrderItem): Promise<OrderItem> {
+    const [row] = await db.insert(orderItems).values(data).returning();
+    return row;
+  }
+
+  // ─── Suppliers ───
+  async listSuppliers(): Promise<Supplier[]> {
+    return db.select().from(suppliers).orderBy(suppliers.name);
+  }
+
+  async createSupplier(data: InsertSupplier): Promise<Supplier> {
+    const [row] = await db.insert(suppliers).values(data).returning();
+    return row;
+  }
+
+  async updateSupplier(id: number, updates: Partial<InsertSupplier>): Promise<Supplier | undefined> {
+    const [row] = await db.update(suppliers).set({ ...updates, updated_at: new Date() }).where(eq(suppliers.id, id)).returning();
+    return row;
+  }
+
+  // ─── Fulfillment ───
+  async listFulfillmentTasks(opts: { clientId?: number; status?: string; limit?: number; offset?: number } = {}): Promise<(FulfillmentTask & { client_name?: string; supplier_name?: string; service_name?: string })[]> {
+    const { clientId, status, limit = 50, offset = 0 } = opts;
+    const conditions = [];
+    if (clientId) conditions.push(eq(fulfillmentTasks.client_id, clientId));
+    if (status) conditions.push(eq(fulfillmentTasks.status, status));
+    const where = conditions.length ? and(...conditions) : undefined;
+    const rows = await db.select({
+      id: fulfillmentTasks.id,
+      client_service_id: fulfillmentTasks.client_service_id,
+      client_id: fulfillmentTasks.client_id,
+      supplier_id: fulfillmentTasks.supplier_id,
+      title: fulfillmentTasks.title,
+      description: fulfillmentTasks.description,
+      status: fulfillmentTasks.status,
+      priority: fulfillmentTasks.priority,
+      sort_order: fulfillmentTasks.sort_order,
+      waiting_on: fulfillmentTasks.waiting_on,
+      handled_by: fulfillmentTasks.handled_by,
+      automation_status: fulfillmentTasks.automation_status,
+      last_action: fulfillmentTasks.last_action,
+      next_action: fulfillmentTasks.next_action,
+      last_action_at: fulfillmentTasks.last_action_at,
+      cost_cents: fulfillmentTasks.cost_cents,
+      due_at: fulfillmentTasks.due_at,
+      completed_at: fulfillmentTasks.completed_at,
+      escalation_flag: fulfillmentTasks.escalation_flag,
+      human_review_required: fulfillmentTasks.human_review_required,
+      actor_type: fulfillmentTasks.actor_type,
+      metadata: fulfillmentTasks.metadata,
+      created_at: fulfillmentTasks.created_at,
+      updated_at: fulfillmentTasks.updated_at,
+      client_name: clients.business_name,
+      supplier_name: suppliers.name,
+      service_name: serviceCatalog.name,
+    })
+    .from(fulfillmentTasks)
+    .leftJoin(clients, eq(fulfillmentTasks.client_id, clients.id))
+    .leftJoin(suppliers, eq(fulfillmentTasks.supplier_id, suppliers.id))
+    .leftJoin(clientServices, eq(fulfillmentTasks.client_service_id, clientServices.id))
+    .leftJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
+    .where(where)
+    .orderBy(fulfillmentTasks.sort_order, fulfillmentTasks.created_at)
+    .limit(limit)
+    .offset(offset);
+    return rows;
+  }
+
+  async createFulfillmentTask(data: InsertFulfillmentTask): Promise<FulfillmentTask> {
+    const [row] = await db.insert(fulfillmentTasks).values(data).returning();
+    return row;
+  }
+
+  async updateFulfillmentTask(id: number, updates: Partial<InsertFulfillmentTask>): Promise<FulfillmentTask | undefined> {
+    const [row] = await db.update(fulfillmentTasks).set({ ...updates, updated_at: new Date() }).where(eq(fulfillmentTasks.id, id)).returning();
+    return row;
+  }
+
+  async getOpenFulfillmentCount(): Promise<number> {
+    const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(fulfillmentTasks)
+      .where(and(
+        sql`${fulfillmentTasks.status} NOT IN ('delivered', 'cancelled')`,
+      ));
+    return row?.total ?? 0;
+  }
+
+  // ─── Onboarding ───
+  async listOnboardingSubmissions(clientId: number): Promise<OnboardingSubmission[]> {
+    return db.select().from(onboardingSubmissions).where(eq(onboardingSubmissions.client_id, clientId)).orderBy(desc(onboardingSubmissions.created_at));
+  }
+
+  async createOnboardingSubmission(data: InsertOnboardingSubmission): Promise<OnboardingSubmission> {
+    // Auto-generate access token if not provided
+    if (!data.access_token) {
+      data.access_token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+    }
+    const [row] = await db.insert(onboardingSubmissions).values(data).returning();
+    return row;
+  }
+
+  async updateOnboardingSubmission(id: number, updates: Partial<InsertOnboardingSubmission>): Promise<OnboardingSubmission | undefined> {
+    const [row] = await db.update(onboardingSubmissions).set({ ...updates, updated_at: new Date() }).where(eq(onboardingSubmissions.id, id)).returning();
+    return row;
+  }
+
+  async getPendingOnboardingCount(): Promise<number> {
+    const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(onboardingSubmissions)
+      .where(sql`${onboardingSubmissions.status} IN ('not_sent', 'sent', 'viewed', 'needs_followup')`);
+    return row?.total ?? 0;
+  }
+
+  // ─── Payments ───
+  async listClientPayments(clientId: number): Promise<ClientPayment[]> {
+    return db.select().from(clientPayments).where(eq(clientPayments.client_id, clientId)).orderBy(desc(clientPayments.created_at));
+  }
+
+  async listAllPayments(opts: { status?: string; limit?: number; offset?: number } = {}): Promise<(ClientPayment & { client_name?: string })[]> {
+    const { status, limit = 50, offset = 0 } = opts;
+    const conditions = [];
+    if (status) conditions.push(eq(clientPayments.status, status));
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select({
+      id: clientPayments.id, client_id: clientPayments.client_id,
+      client_service_id: clientPayments.client_service_id, order_id: clientPayments.order_id,
+      type: clientPayments.type, amount_cents: clientPayments.amount_cents,
+      status: clientPayments.status, description: clientPayments.description,
+      stripe_invoice_id: clientPayments.stripe_invoice_id,
+      stripe_payment_intent_id: clientPayments.stripe_payment_intent_id,
+      period_start: clientPayments.period_start, period_end: clientPayments.period_end,
+      due_at: clientPayments.due_at, paid_at: clientPayments.paid_at,
+      actor_type: clientPayments.actor_type, metadata: clientPayments.metadata,
+      created_at: clientPayments.created_at, updated_at: clientPayments.updated_at,
+      client_name: clients.business_name,
+    })
+    .from(clientPayments)
+    .leftJoin(clients, eq(clientPayments.client_id, clients.id))
+    .where(where)
+    .orderBy(desc(clientPayments.created_at))
+    .limit(limit).offset(offset);
+  }
+
+  async getActiveClientCountByService(): Promise<{ service_id: string; count: number }[]> {
+    return db.select({
+      service_id: clientServices.service_id,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(clientServices)
+    .where(eq(clientServices.status, "active"))
+    .groupBy(clientServices.service_id);
+  }
+
+  async createClientPayment(data: InsertClientPayment): Promise<ClientPayment> {
+    const [row] = await db.insert(clientPayments).values(data).returning();
+    return row;
+  }
+
+  async updateClientPayment(id: number, updates: Partial<InsertClientPayment>): Promise<ClientPayment | undefined> {
+    const [row] = await db.update(clientPayments).set({ ...updates, updated_at: new Date() }).where(eq(clientPayments.id, id)).returning();
+    return row;
+  }
+
+  async getUnpaidTotal(): Promise<number> {
+    const [row] = await db.select({ total: sql<number>`coalesce(sum(amount_cents), 0)::int` }).from(clientPayments)
+      .where(and(eq(clientPayments.type, "invoice"), eq(clientPayments.status, "pending")));
+    return row?.total ?? 0;
+  }
+
+  async getMonthlyRevenue(): Promise<number> {
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    const [row] = await db.select({ total: sql<number>`coalesce(sum(amount_cents), 0)::int` }).from(clientPayments)
+      .where(and(eq(clientPayments.status, "paid"), gte(clientPayments.paid_at, monthStart)));
+    return row?.total ?? 0;
+  }
+
+  // ─── Notes ───
+  async listInternalNotes(clientId: number): Promise<InternalNote[]> {
+    return db.select().from(internalNotes).where(eq(internalNotes.client_id, clientId)).orderBy(desc(internalNotes.created_at));
+  }
+
+  async createInternalNote(data: InsertInternalNote): Promise<InternalNote> {
+    const [row] = await db.insert(internalNotes).values(data).returning();
+    return row;
+  }
+
+  // ─── Activity Log ───
+  async logAdminActivity(data: InsertAdminActivityLog): Promise<AdminActivityLog> {
+    const [row] = await db.insert(adminActivityLog).values(data).returning();
+    return row;
+  }
+
+  async listAdminActivity(opts: { entityType?: string; entityId?: number; limit?: number } = {}): Promise<AdminActivityLog[]> {
+    const { entityType, entityId, limit = 50 } = opts;
+    const conditions = [];
+    if (entityType) conditions.push(eq(adminActivityLog.entity_type, entityType));
+    if (entityId) conditions.push(eq(adminActivityLog.entity_id, entityId));
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(adminActivityLog).where(where).orderBy(desc(adminActivityLog.created_at)).limit(limit);
+  }
+
+  // ─── CRM Overview ───
+  async getCrmOverview() {
+    const [totalClients, activeServices, pendingOnboarding, openFulfillment, unpaidAmount, monthlyRevenue, recentClients, recentTaskRows] = await Promise.all([
+      this.getClientCount(),
+      this.getActiveServiceCount(),
+      this.getPendingOnboardingCount(),
+      this.getOpenFulfillmentCount(),
+      this.getUnpaidTotal(),
+      this.getMonthlyRevenue(),
+      db.select({ id: clients.id, business_name: clients.business_name, status: clients.status, created_at: clients.created_at })
+        .from(clients).orderBy(desc(clients.created_at)).limit(5),
+      db.select({
+        id: fulfillmentTasks.id, title: fulfillmentTasks.title, status: fulfillmentTasks.status,
+        priority: fulfillmentTasks.priority, client_id: fulfillmentTasks.client_id,
+        client_name: clients.business_name, due_at: fulfillmentTasks.due_at,
+      })
+      .from(fulfillmentTasks)
+      .leftJoin(clients, eq(fulfillmentTasks.client_id, clients.id))
+      .where(sql`${fulfillmentTasks.status} NOT IN ('delivered', 'cancelled')`)
+      .orderBy(desc(fulfillmentTasks.created_at))
+      .limit(5),
+    ]);
+    return { totalClients, activeServices, pendingOnboarding, openFulfillment, unpaidAmount, monthlyRevenue, recentClients, recentTasks: recentTaskRows };
+  }
+
+  // ─── Task Templates ───
+  async getTaskTemplates(serviceId: string): Promise<ServiceTaskTemplate[]> {
+    return db.select().from(serviceTaskTemplates).where(eq(serviceTaskTemplates.service_id, serviceId)).orderBy(serviceTaskTemplates.sort_order);
+  }
+
+  // ─── Onboarding Templates ───
+  async getOnboardingTemplate(serviceId: string): Promise<OnboardingTemplate | undefined> {
+    const [row] = await db.select().from(onboardingTemplates)
+      .where(and(eq(onboardingTemplates.service_id, serviceId), eq(onboardingTemplates.is_active, true)))
+      .limit(1);
+    return row;
+  }
+
+  // ─── Service Catalog lookup ───
+  async getClientServiceById(id: number): Promise<ClientService | undefined> {
+    const [row] = await db.select().from(clientServices).where(eq(clientServices.id, id)).limit(1);
+    return row;
+  }
+
+  async findClientServiceByServiceId(clientId: number, serviceId: string): Promise<ClientService | undefined> {
+    const [row] = await db.select().from(clientServices)
+      .where(and(
+        eq(clientServices.client_id, clientId),
+        eq(clientServices.service_id, serviceId),
+        sql`${clientServices.status} NOT IN ('cancelled')`,
+      ))
+      .limit(1);
+    return row;
+  }
+
+  async findClientByStripeCustomerId(stripeCustomerId: string): Promise<Client | undefined> {
+    const [row] = await db.select().from(clients)
+      .where(eq(clients.stripe_customer_id, stripeCustomerId))
+      .limit(1);
+    return row;
+  }
+
+  async findPaymentByStripeSession(sessionId: string): Promise<ClientPayment | undefined> {
+    const [row] = await db.select().from(clientPayments)
+      .where(eq(clientPayments.stripe_payment_intent_id, sessionId))
+      .limit(1);
+    return row;
+  }
+
+  async getOnboardingByToken(token: string): Promise<{
+    submission: OnboardingSubmission;
+    template: OnboardingTemplate | null;
+    clientName: string;
+    serviceName: string;
+  } | undefined> {
+    const [sub] = await db.select().from(onboardingSubmissions)
+      .where(eq(onboardingSubmissions.access_token, token))
+      .limit(1);
+    if (!sub) return undefined;
+
+    const template = sub.template_id
+      ? (await db.select().from(onboardingTemplates).where(eq(onboardingTemplates.id, sub.template_id)).limit(1))[0] ?? null
+      : null;
+
+    const [client] = await db.select({ business_name: clients.business_name }).from(clients).where(eq(clients.id, sub.client_id)).limit(1);
+    const [cs] = await db.select({ service_id: clientServices.service_id }).from(clientServices).where(eq(clientServices.id, sub.client_service_id)).limit(1);
+    const [svc] = cs ? await db.select({ name: serviceCatalog.name }).from(serviceCatalog).where(eq(serviceCatalog.id, cs.service_id)).limit(1) : [null];
+
+    return {
+      submission: sub,
+      template,
+      clientName: client?.business_name ?? "Unknown",
+      serviceName: svc?.name ?? "Unknown Service",
+    };
+  }
+
+  async findPendingPaymentForClientService(clientServiceId: number): Promise<ClientPayment | undefined> {
+    const [row] = await db.select().from(clientPayments)
+      .where(and(
+        eq(clientPayments.client_service_id, clientServiceId),
+        eq(clientPayments.status, "pending"),
+      ))
+      .orderBy(desc(clientPayments.created_at))
+      .limit(1);
+    return row;
+  }
+
+  async getServiceById(serviceId: string): Promise<ServiceCatalogRow | undefined> {
+    const [row] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, serviceId)).limit(1);
+    return row;
+  }
+
+  // ─── Check completion cascade ───
+  async checkAndCompleteService(clientServiceId: number): Promise<{ serviceCompleted: boolean; serviceActivated: boolean; clientActivated: boolean }> {
+    // Count non-delivered tasks for this client_service
+    const [pending] = await db.select({ total: sql<number>`count(*)::int` })
+      .from(fulfillmentTasks)
+      .where(and(
+        eq(fulfillmentTasks.client_service_id, clientServiceId),
+        sql`${fulfillmentTasks.status} NOT IN ('delivered', 'cancelled')`,
+      ));
+
+    if ((pending?.total ?? 1) > 0) return { serviceCompleted: false, serviceActivated: false, clientActivated: false };
+
+    // All tasks delivered — look up the service's delivery_pattern
+    const cs = await this.getClientServiceById(clientServiceId);
+    if (!cs) return { serviceCompleted: false, serviceActivated: false, clientActivated: false };
+
+    const catalog = await this.getServiceById(cs.service_id);
+    const pattern = catalog?.delivery_pattern || "one_time";
+
+    let newStatus: string;
+    let serviceCompleted = false;
+    let serviceActivated = false;
+
+    switch (pattern) {
+      case "one_time":
+        // Sprint complete — mark as completed
+        newStatus = "completed";
+        serviceCompleted = true;
+        break;
+      case "always_on":
+        // Setup done — system goes live, mark as active
+        newStatus = "active";
+        serviceActivated = true;
+        break;
+      case "recurring":
+        // For recurring services: if still in pending/onboarding, check if all
+        // setup tasks are done (tasks that have no monthly equivalent).
+        // If service is already active, monthly batches complete silently.
+        if (cs.status === "pending" || cs.status === "onboarding") {
+          newStatus = "active";
+          serviceActivated = true;
+          break;
+        }
+        // Already active — monthly batch completed, no status change needed
+        return { serviceCompleted: false, serviceActivated: false, clientActivated: false };
+      default:
+        newStatus = "completed";
+        serviceCompleted = true;
+    }
+
+    await db.update(clientServices)
+      .set({ status: newStatus, completed_at: serviceCompleted ? new Date() : undefined, updated_at: new Date() })
+      .where(eq(clientServices.id, clientServiceId));
+
+    // Check if client should be moved to "active"
+    // (only if they're still in "onboarding" and have no pending/onboarding services left)
+    let clientActivated = false;
+    const [client] = await db.select({ status: clients.status, id: clients.id }).from(clients).where(eq(clients.id, cs.client_id)).limit(1);
+    if (client && (client.status === "onboarding" || client.status === "lead")) {
+      const [stillPending] = await db.select({ total: sql<number>`count(*)::int` })
+        .from(clientServices)
+        .where(and(
+          eq(clientServices.client_id, cs.client_id),
+          sql`${clientServices.status} IN ('pending', 'onboarding')`,
+        ));
+      if ((stillPending?.total ?? 0) === 0) {
+        await db.update(clients).set({ status: "active", updated_at: new Date() }).where(eq(clients.id, cs.client_id));
+        clientActivated = true;
+      }
+    }
+
+    return { serviceCompleted, serviceActivated, clientActivated };
   }
 }
 

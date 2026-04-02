@@ -141,15 +141,20 @@ router.post("/search-places", async (req: Request, res: Response) => {
 
     const inferredCountry = inferCountryFromRequest(req);
 
+    // Extract optional user coordinates for location bias
+    const userLat = typeof req.body?.lat === "number" ? req.body.lat : null;
+    const userLng = typeof req.body?.lng === "number" ? req.body.lng : null;
+    const userCoords = userLat !== null && userLng !== null ? { lat: userLat, lng: userLng } : null;
+
     // PRIMARY: Place Autocomplete (New) API.
     // Returns business-only predictions with built-in geographic bias.
     // Cheaper ($2.83/1k sessions) than Text Search ($32/1k requests)
     // and natively excludes cities/regions when types are restricted.
-    let predictions = await searchViaAutocomplete(query, key, inferredCountry);
+    let predictions = await searchViaAutocomplete(query, key, inferredCountry, userCoords);
 
     // FALLBACK: Text Search (legacy) if Autocomplete returned nothing.
     if (predictions.length === 0) {
-      predictions = await searchViaTextSearch(query, key, inferredCountry);
+      predictions = await searchViaTextSearch(query, key, inferredCountry, userCoords);
     }
 
     // Light reranking for ambiguous location queries
@@ -181,14 +186,25 @@ interface SearchPrediction {
  */
 async function searchViaAutocomplete(
   query: string, key: string, regionCode: string,
+  userCoords?: { lat: number; lng: number } | null,
 ): Promise<SearchPrediction[]> {
   try {
-    const body = {
+    const body: Record<string, any> = {
       input: query,
       includedPrimaryTypes: ["establishment"],
       languageCode: "en",
       regionCode: regionCode.toUpperCase(),
     };
+
+    // Add location bias: circle around user's detected coordinates (50km radius)
+    if (userCoords) {
+      body.locationBias = {
+        circle: {
+          center: { latitude: userCoords.lat, longitude: userCoords.lng },
+          radius: 50000.0,
+        },
+      };
+    }
 
     const r = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
       method: "POST",
@@ -230,6 +246,7 @@ async function searchViaAutocomplete(
  */
 async function searchViaTextSearch(
   query: string, key: string, regionCode: string,
+  userCoords?: { lat: number; lng: number } | null,
 ): Promise<SearchPrediction[]> {
   try {
     const params = new URLSearchParams({
@@ -238,6 +255,12 @@ async function searchViaTextSearch(
       region: regionCode,
       language: "en",
     });
+
+    // Add location bias using user coordinates (50km radius)
+    if (userCoords) {
+      params.set("location", `${userCoords.lat},${userCoords.lng}`);
+      params.set("radius", "50000");
+    }
     const r = await fetch(`https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`);
     const data = await r.json();
 
