@@ -15,6 +15,8 @@ export const serviceCatalog = pgTable("service_catalog", {
   delivery_pattern: varchar("delivery_pattern", { length: 20 }).notNull().default("one_time"),
   // one_time | recurring | always_on
   is_active: boolean("is_active").notNull().default(true),
+  stripe_product_id: text("stripe_product_id"),
+  stripe_price_id: text("stripe_price_id"),
   sort_order: integer("sort_order").notNull().default(0),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
@@ -37,6 +39,7 @@ export const clients = pgTable("clients", {
   // lead | onboarding | active | paused | churned
   source: varchar("source", { length: 50 }),
   // audit | referral | inbound | manual | website
+  stripe_customer_id: text("stripe_customer_id"),
   automation_enabled: boolean("automation_enabled").notNull().default(true),
   human_override: boolean("human_override").notNull().default(false),
   metadata: jsonb("metadata"),                             // flexible extra data
