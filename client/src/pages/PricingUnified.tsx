@@ -9,6 +9,7 @@ import {
   yearlyMonthlyEquiv, formatPrice, bundleSavings,
   type ProductDef, type BundleDef, type Tier,
 } from "@/config/pricing";
+import CheckoutModal, { type CheckoutItem } from "@/components/CheckoutModal";
 
 /* ═══════════════════════════════════════════
    CONSTANTS
@@ -187,10 +188,11 @@ function CheckItem({ children }: { children: React.ReactNode }) {
    CTA BUTTON
    ═══════════════════════════════════════════ */
 
-function CTAButton({ label, highlighted, fullWidth }: { label: string; highlighted?: boolean; fullWidth?: boolean }) {
+function CTAButton({ label, highlighted, fullWidth, onClick }: { label: string; highlighted?: boolean; fullWidth?: boolean; onClick?: () => void }) {
   const [hover, setHover] = useState(false);
   return (
     <button
+      onClick={onClick}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
@@ -269,7 +271,7 @@ function ExpandableDetails({ label, children }: { label?: string; children: Reac
    G: reduced density
    ═══════════════════════════════════════════ */
 
-function BundleCard({ bundle, yearly, ctaLabel }: { bundle: BundleDef; yearly: boolean; ctaLabel: string }) {
+function BundleCard({ bundle, yearly, ctaLabel, onCheckout }: { bundle: BundleDef; yearly: boolean; ctaLabel: string; onCheckout: () => void }) {
   const hl = !!bundle.highlighted;
   const price = yearly ? yearlyMonthlyEquiv(bundle.price) : bundle.price;
   const totalValue = bundleValue(bundle);
@@ -352,7 +354,7 @@ function BundleCard({ bundle, yearly, ctaLabel }: { bundle: BundleDef; yearly: b
       </ul>
 
       {/* C: specific CTA */}
-      <CTAButton label={ctaLabel} highlighted={hl} fullWidth />
+      <CTAButton label={ctaLabel} highlighted={hl} fullWidth onClick={onCheckout} />
 
       {/* A: expandable shows per-item breakdown + features (non-duplicate content) */}
       <div style={{ marginTop: 12 }}>
@@ -389,7 +391,7 @@ function BundleCard({ bundle, yearly, ctaLabel }: { bundle: BundleDef; yearly: b
    FIX & OPTIMIZE CALLOUT (D: repositioned above bundles)
    ═══════════════════════════════════════════ */
 
-function FixOptimizeCallout() {
+function FixOptimizeCallout({ onCheckout }: { onCheckout: () => void }) {
   return (
     <div
       style={{
@@ -415,7 +417,7 @@ function FixOptimizeCallout() {
           </span>
         </div>
       </div>
-      <CTAButton label={`Get Fix & Optimize \u2014 ${formatPrice(FIX_OPTIMIZE.tiers[0].price)}`} />
+      <CTAButton label={`Get Fix & Optimize \u2014 ${formatPrice(FIX_OPTIMIZE.tiers[0].price)}`} onClick={onCheckout} />
     </div>
   );
 }
@@ -424,7 +426,7 @@ function FixOptimizeCallout() {
    SITELAUNCH CARD (E: improved positioning, left-aligned)
    ═══════════════════════════════════════════ */
 
-function SiteLaunchCard() {
+function SiteLaunchCard({ onCheckout }: { onCheckout: () => void }) {
   const tier = SITELAUNCH.tiers[0];
   const [expanded, setExpanded] = useState(false);
   const [hover, setHover] = useState(false);
@@ -484,7 +486,7 @@ function SiteLaunchCard() {
             </span>
             <span style={{ fontSize: 14, color: TEXT_STRONG, marginLeft: 4 }}>one-time</span>
           </div>
-          <CTAButton label="Get Started" highlighted />
+          <CTAButton label="Get Started" highlighted onClick={onCheckout} />
         </div>
       </div>
 
@@ -516,7 +518,7 @@ function SiteLaunchCard() {
    SERVICE CARD (H: simplified)
    ═══════════════════════════════════════════ */
 
-function ServiceCard({ product, yearly }: { product: ProductDef; yearly: boolean }) {
+function ServiceCard({ product, yearly, onCheckout }: { product: ProductDef; yearly: boolean; onCheckout: (tier: Tier) => void }) {
   const [activeTier, setActiveTier] = useState(0);
   const [hover, setHover] = useState(false);
   const isTradelineProduct = product.id === "tradeline";
@@ -625,7 +627,7 @@ function ServiceCard({ product, yearly }: { product: ProductDef; yearly: boolean
       </ul>
 
       {/* C: specific CTA */}
-      <CTAButton label="Start This Service" highlighted={!!currentTier.highlighted} fullWidth />
+      <CTAButton label="Start This Service" highlighted={!!currentTier.highlighted} fullWidth onClick={() => onCheckout(currentTier)} />
 
       {/* H2: simple expandable — list only, no multi-column grid */}
       {(displayTiers.length > 1 || setupTier) && (
@@ -703,6 +705,80 @@ export default function PricingUnified() {
   const [yearly, setYearly] = useState(false);
   const [view, setView] = useState<"plans" | "services">("plans");
 
+  /* ─── Checkout modal state ─── */
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutTitle, setCheckoutTitle] = useState("");
+  const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>([]);
+  const [checkoutBundleId, setCheckoutBundleId] = useState<string | undefined>();
+  const [checkoutBundlePrice, setCheckoutBundlePrice] = useState<number | undefined>();
+
+  function openBundleCheckout(bundle: BundleDef) {
+    setCheckoutTitle(bundle.name);
+    setCheckoutItems(bundle.includes.map(i => ({
+      serviceId: i.tierId,
+      label: i.label,
+      price: i.value,
+      billingPeriod: "monthly" as const,
+    })));
+    setCheckoutBundleId(bundle.id);
+    setCheckoutBundlePrice(bundle.price);
+    setCheckoutOpen(true);
+  }
+
+  function openProductCheckout(product: ProductDef, tier: Tier) {
+    const items: CheckoutItem[] = [{
+      serviceId: tier.id,
+      label: `${product.name} ${product.tiers.length > 1 ? tier.name : ""}`.trim(),
+      price: tier.price,
+      billingPeriod: tier.billingPeriod,
+    }];
+    // If product has a setup fee and this is a monthly tier, also add the setup tier
+    if (product.setup && tier.billingPeriod === "monthly") {
+      const setupTier = product.tiers.find(t => t.billingPeriod === "one-time");
+      if (setupTier) {
+        items.push({
+          serviceId: setupTier.id,
+          label: `${product.name} Setup`,
+          price: setupTier.price,
+          billingPeriod: "one-time",
+        });
+      }
+    }
+    setCheckoutTitle(`${product.name} ${product.tiers.length > 1 ? tier.name : ""}`.trim());
+    setCheckoutItems(items);
+    setCheckoutBundleId(undefined);
+    setCheckoutBundlePrice(undefined);
+    setCheckoutOpen(true);
+  }
+
+  function openSiteLaunchCheckout() {
+    const tier = SITELAUNCH.tiers[0];
+    setCheckoutTitle(SITELAUNCH.name);
+    setCheckoutItems([{
+      serviceId: tier.id,
+      label: SITELAUNCH.name,
+      price: tier.price,
+      billingPeriod: "one-time",
+    }]);
+    setCheckoutBundleId(undefined);
+    setCheckoutBundlePrice(undefined);
+    setCheckoutOpen(true);
+  }
+
+  function openFixOptimizeCheckout() {
+    const tier = FIX_OPTIMIZE.tiers[0];
+    setCheckoutTitle(FIX_OPTIMIZE.name);
+    setCheckoutItems([{
+      serviceId: tier.id,
+      label: FIX_OPTIMIZE.name,
+      price: tier.price,
+      billingPeriod: "one-time",
+    }]);
+    setCheckoutBundleId(undefined);
+    setCheckoutBundlePrice(undefined);
+    setCheckoutOpen(true);
+  }
+
   useEffect(() => {
     document.title = "Pricing — WeFixTrades";
   }, []);
@@ -766,24 +842,24 @@ export default function PricingUnified() {
 
               {/* D: Fix & Optimize callout — ABOVE bundles */}
               <div style={{ marginBottom: 28 }}>
-                <FixOptimizeCallout />
+                <FixOptimizeCallout onCheckout={openFixOptimizeCheckout} />
               </div>
 
               {/* E: SiteLaunch — above bundles as full-width highlighted section */}
               <div style={{ marginBottom: 32 }}>
-                <SiteLaunchCard />
+                <SiteLaunchCard onCheckout={openSiteLaunchCheckout} />
               </div>
 
               {/* Bundle cards — B: desktop order stays, mobile reorders via CSS */}
               <div className="pricing-plans-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, alignItems: "start" }}>
                 {bundlesDesktop.map((b) => (
-                  <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} />
+                  <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} onCheckout={() => openBundleCheckout(b)} />
                 ))}
               </div>
               {/* Mobile-only order: Growth first */}
               <div className="pricing-plans-mobile" style={{ display: "none", flexDirection: "column", gap: 20, maxWidth: 480, margin: "0 auto" }}>
                 {bundlesMobile.map((b) => (
-                  <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} />
+                  <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} onCheckout={() => openBundleCheckout(b)} />
                 ))}
               </div>
 
@@ -808,7 +884,7 @@ export default function PricingUnified() {
                     }}
                   >
                     {group.products.map((product) => (
-                      <ServiceCard key={product.id} product={product} yearly={yearly} />
+                      <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} />
                     ))}
                   </div>
                 </div>
@@ -817,6 +893,17 @@ export default function PricingUnified() {
           </section>
         )}
       </div>
+
+      {/* ═══ CHECKOUT MODAL ═══ */}
+      <CheckoutModal
+        open={checkoutOpen}
+        onClose={() => setCheckoutOpen(false)}
+        title={checkoutTitle}
+        items={checkoutItems}
+        bundleId={checkoutBundleId}
+        bundlePrice={checkoutBundlePrice}
+        yearly={yearly}
+      />
 
       {/* ═══ RESPONSIVE STYLES ═══ */}
       <style>{`
