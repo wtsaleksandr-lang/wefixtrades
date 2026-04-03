@@ -183,7 +183,7 @@ export function registerPublicCheckoutRoutes(app: Express): void {
           source: "public_checkout",
         },
         success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/pricing?checkout=cancelled`,
+        cancel_url: `${baseUrl}/checkout/cancelled`,
         allow_promotion_codes: true,
         billing_address_collection: "auto",
       });

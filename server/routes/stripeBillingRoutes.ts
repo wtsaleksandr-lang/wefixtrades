@@ -10,6 +10,7 @@ import type { Express, Request, Response } from "express";
 import Stripe from "stripe";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
+import { sendOnboardingEmail } from "../lib/onboardingEmail";
 
 function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -157,22 +158,38 @@ export function registerStripeBillingRoutes(app: Express): void {
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const clientId = parseInt(session.metadata?.crm_client_id || "0");
-  const serviceId = session.metadata?.service_catalog_id;
+  const serviceIdRaw = session.metadata?.service_catalog_id;
+  const isPublicCheckout = session.metadata?.source === "public_checkout";
 
-  if (!clientId || !serviceId) {
+  if (!clientId || !serviceIdRaw) {
     console.warn("[billing-webhook] checkout.session.completed missing metadata, skipping");
     return;
   }
 
-  // Idempotency: check if already provisioned (admin provision-first flow)
+  // Support comma-separated service IDs (from public checkout bundles)
+  const serviceIds = serviceIdRaw.split(",").map(s => s.trim()).filter(Boolean);
+  const baseUrl = process.env.APP_URL || "https://wefixtrades.co.uk";
+
+  for (const serviceId of serviceIds) {
+    await provisionOrConfirmService(session, clientId, serviceId, baseUrl);
+  }
+}
+
+/** Handle a single service within a checkout session */
+async function provisionOrConfirmService(
+  session: Stripe.Checkout.Session,
+  clientId: number,
+  serviceId: string,
+  baseUrl: string,
+) {
+  // Idempotency: check if already provisioned (public checkout pre-provisions; admin provision-first flow)
   const existing = await storage.findClientServiceByServiceId(clientId, serviceId);
   if (existing) {
     console.log(`[billing-webhook] Service ${serviceId} already provisioned for client ${clientId} — updating payment only`);
 
-    // Find the pending invoice created during admin provisioning
+    // Find the pending invoice created during provisioning and mark it paid
     const pendingInvoice = await storage.findPendingPaymentForClientService(existing.id);
     if (pendingInvoice) {
-      // Update existing invoice to paid (single lifecycle record)
       await storage.updateClientPayment(pendingInvoice.id, {
         status: "paid",
         paid_at: new Date(),
@@ -180,7 +197,6 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       });
       console.log(`[billing-webhook] Updated invoice #${pendingInvoice.id} → paid`);
     } else {
-      // No pending invoice found — create a paid record as fallback
       const alreadyRecorded = await storage.findPaymentByStripeSession(session.id);
       if (!alreadyRecorded) {
         const service = await storage.getServiceById(serviceId);
@@ -198,16 +214,19 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         console.log(`[billing-webhook] No pending invoice found — created paid payment record`);
       }
     }
+
+    // Send onboarding email now that payment is confirmed
+    await sendOnboardingForClientService(clientId, existing.id, serviceId, baseUrl);
     return;
   }
 
+  // Service not yet provisioned — provision it now (admin-initiated checkout without pre-provision)
   const service = await storage.getServiceById(serviceId);
   if (!service) {
     console.error(`[billing-webhook] Service ${serviceId} not found`);
     return;
   }
 
-  // Provision the service (same logic as admin provision endpoint)
   const clientService = await storage.createClientService({
     client_id: clientId,
     service_id: serviceId,
@@ -234,13 +253,30 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // Create onboarding submission if template exists
   const onboardingTemplate = await storage.getOnboardingTemplate(serviceId);
   if (onboardingTemplate) {
-    await storage.createOnboardingSubmission({
+    const submission = await storage.createOnboardingSubmission({
       client_service_id: clientService.id,
       client_id: clientId,
       template_id: onboardingTemplate.id,
       status: "not_sent",
       actor_type: "system",
     });
+
+    // Send onboarding email immediately
+    const client = await storage.getClientById(clientId);
+    if (client && submission.access_token) {
+      const sent = await sendOnboardingEmail({
+        client,
+        serviceName: service.name,
+        accessToken: submission.access_token,
+        baseUrl,
+      });
+      if (sent) {
+        await storage.updateOnboardingSubmission(submission.id, {
+          status: "sent",
+          sent_at: new Date(),
+        });
+      }
+    }
   }
 
   // Create tasks from template
@@ -279,6 +315,40 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   });
 
   console.log(`[billing-webhook] Provisioned ${serviceId} for client ${clientId} (${taskTemplates.length} tasks)`);
+}
+
+/** Find and send onboarding emails for a client_service that was already provisioned */
+async function sendOnboardingForClientService(
+  clientId: number,
+  clientServiceId: number,
+  serviceId: string,
+  baseUrl: string,
+) {
+  // Find unsent onboarding submissions for this client_service
+  const submissions = await storage.listOnboardingSubmissions(clientId);
+  const unsent = submissions.find(
+    s => s.client_service_id === clientServiceId && (s.status === "not_sent"),
+  );
+  if (!unsent || !unsent.access_token) return;
+
+  const client = await storage.getClientById(clientId);
+  const service = await storage.getServiceById(serviceId);
+  if (!client || !service) return;
+
+  const sent = await sendOnboardingEmail({
+    client,
+    serviceName: service.name,
+    accessToken: unsent.access_token,
+    baseUrl,
+  });
+
+  if (sent) {
+    await storage.updateOnboardingSubmission(unsent.id, {
+      status: "sent",
+      sent_at: new Date(),
+    });
+    console.log(`[billing-webhook] Onboarding email sent for ${service.name} → ${client.contact_email}`);
+  }
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
