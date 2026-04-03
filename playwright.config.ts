@@ -21,11 +21,26 @@ export default defineConfig({
     /* Capture screenshots and traces on failure for debugging */
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
+
+    /* Replit: use nix-managed Chromium (system libs incompatible with PW bundled headless shell) */
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+      : {}),
   },
+
+  /* Global setup for admin-crm: seeds admin user, services, and persists auth session */
+  globalSetup: './tests/e2e/admin-crm/global-setup.ts',
 
   projects: [
     {
       name: 'chromium',
+      testIgnore: '**/admin-crm/**',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'admin-crm',
+      testDir: './tests/e2e/admin-crm',
+      timeout: 60_000,
       use: { ...devices['Desktop Chrome'] },
     },
   ],

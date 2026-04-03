@@ -13,7 +13,7 @@ export type AuthUser = {
  * is treated as unauthenticated (no error thrown, no redirect).
  */
 export function useAuth() {
-  const { data: user, isLoading } = useQuery<AuthUser | null>({
+  const { data: user, isLoading, isFetching } = useQuery<AuthUser | null>({
     queryKey: ["auth", "me"],
     queryFn: async () => {
       try {
@@ -31,7 +31,7 @@ export function useAuth() {
 
   return {
     user: user ?? null,
-    isLoading,
+    isLoading: isLoading || isFetching,
     isAuthenticated: !!user,
     isPortalUser: !!user && (user.role === "admin" || user.role === "portal"),
   };
