@@ -47,6 +47,7 @@ import DemoCenter from "@/pages/demos/DemoCenter";
 import DemoPage from "@/pages/demos/DemoPage";
 import PricingNew from "@/pages/PricingNew";
 import Plans from "@/pages/Plans";
+import PricingUnified from "@/pages/PricingUnified";
 import Resources from "@/pages/Resources";
 import About from "@/pages/About";
 import Blog from "@/pages/Blog";
@@ -101,8 +102,8 @@ function Router() {
       <Route path="/product/:slug" component={ProductPageLegacy} />
       <Route path="/product" component={ProductIndex} />
       <Route path="/platform" component={MarketingProduct} />
-      <Route path="/pricing" component={PricingNew} />
-      <Route path="/plans" component={Plans} />
+      <Route path="/pricing" component={PricingUnified} />
+      <Route path="/plans" component={PricingUnified} />
       <Route path="/login" component={LoginPage} />
       <Route path="/services" component={MarketingServices} />
       <Route path="/bundles" component={MarketingBundles} />
