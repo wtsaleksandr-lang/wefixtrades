@@ -65,11 +65,10 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     pricingSection: {
       plans: [
-        { name: "Free", price: "$0", period: "/mo", features: ["1 calculator", "50 leads/month", "Hosted quote page", "Basic analytics"] },
-        { name: "Starter", price: "$99", period: "/mo", features: ["1 calculator", "Unlimited leads", "Custom branding", "Email follow-ups", "Embed on your site"] },
-        { name: "Pro", price: "$199", period: "/mo", features: ["3 calculators", "Unlimited leads", "24/7 assistant included", "SMS + WhatsApp follow-ups", "Custom CSS", "Priority support"], highlighted: true, badge: "Most Popular" },
+        { name: "Starter", price: "$49", period: "/mo", features: ["Basic calculator", "Lead capture", "Hosted quote page", "Embed on your site"] },
+        { name: "Pro", price: "$79", period: "/mo", features: ["Advanced logic", "Custom styling", "Booking integration", "Lead capture + storage", "Analytics dashboard"], highlighted: true, badge: "Most Popular" },
       ],
-      note: "Calls/SMS usage billed at cost (you control limits).",
+      note: "Both plans include embed on any site.",
     },
     related: ["booking-addon", "ai-chat"],
   },
@@ -115,11 +114,11 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     pricingSection: {
       plans: [
-        { name: "Starter", price: "$99", period: "/mo", features: ["Chat widget on your site", "Email lead alerts", "Basic follow-ups", "50 conversations/month"] },
-        { name: "Pro", price: "$199", period: "/mo", features: ["Chat + voice answering", "SMS + WhatsApp follow-ups", "Unlimited conversations", "Booking confirmations", "Review requests"], highlighted: true, badge: "Most Popular" },
-        { name: "Elite", price: "$299", period: "/mo", features: ["Unlimited everything", "White-label branding", "Priority support", "Custom integrations", "Dedicated account manager"] },
+        { name: "Starter", price: "$97", period: "/mo", features: ["200 minutes included", "AI answering", "SMS replies", "Missed call auto-response", "Follow-ups"] },
+        { name: "Pro", price: "$197", period: "/mo", features: ["600 minutes included", "AI answering", "SMS replies", "Missed call auto-response", "Follow-ups"], highlighted: true, badge: "Most Popular" },
+        { name: "Premium", price: "$347", period: "/mo", features: ["1500 minutes included", "AI answering", "SMS replies", "Missed call auto-response", "Follow-ups"] },
       ],
-      note: "Calls/SMS usage billed at cost (you control limits).",
+      note: "Overage: $0.15/min after included usage.",
     },
     related: ["quickquotepro", "reputationshield"],
   },
@@ -165,11 +164,11 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     pricingSection: {
       plans: [
-        { name: "Starter", price: "$99", period: "/mo", features: ["Chat widget on your site", "Email lead alerts", "Basic follow-ups", "50 conversations/month"] },
-        { name: "Pro", price: "$199", period: "/mo", features: ["Chat + voice answering", "SMS + WhatsApp follow-ups", "Unlimited conversations", "Booking confirmations", "Review requests"], highlighted: true, badge: "Most Popular" },
-        { name: "Elite", price: "$299", period: "/mo", features: ["Unlimited everything", "White-label branding", "Priority support", "Custom integrations", "Dedicated account manager"] },
+        { name: "Starter", price: "$97", period: "/mo", features: ["200 minutes included", "AI answering", "SMS replies", "Missed call auto-response", "Follow-ups"] },
+        { name: "Pro", price: "$197", period: "/mo", features: ["600 minutes included", "AI answering", "SMS replies", "Missed call auto-response", "Follow-ups"], highlighted: true, badge: "Most Popular" },
+        { name: "Premium", price: "$347", period: "/mo", features: ["1500 minutes included", "AI answering", "SMS replies", "Missed call auto-response", "Follow-ups"] },
       ],
-      note: "Calls/SMS usage billed at cost (you control limits).",
+      note: "Overage: $0.15/min after included usage.",
     },
     related: ["quickquotepro", "reputationshield"],
   },
@@ -214,11 +213,10 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     pricingSection: {
       plans: [
-        { name: "Free", price: "$0", period: "/mo", features: ["1 calculator", "50 leads/month", "Hosted quote page", "Basic analytics"] },
-        { name: "Starter", price: "$99", period: "/mo", features: ["1 calculator", "Unlimited leads", "Custom branding", "Email follow-ups", "Embed on your site"] },
-        { name: "Pro", price: "$199", period: "/mo", features: ["3 calculators", "Unlimited leads", "24/7 assistant included", "SMS + WhatsApp follow-ups", "Custom CSS", "Priority support"], highlighted: true, badge: "Most Popular" },
+        { name: "Starter", price: "$49", period: "/mo", features: ["Basic calculator", "Lead capture", "Hosted quote page", "Embed on your site"] },
+        { name: "Pro", price: "$79", period: "/mo", features: ["Advanced logic", "Custom styling", "Booking integration", "Lead capture + storage", "Analytics dashboard"], highlighted: true, badge: "Most Popular" },
       ],
-      note: "Calls/SMS usage billed at cost (you control limits).",
+      note: "Both plans include embed on any site.",
     },
     related: ["booking-addon", "ai-chat", "sitelaunch"],
   },
@@ -309,10 +307,11 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     pricingSection: {
       plans: [
-        { name: "Starter", price: "$99", period: "/mo", features: ["Chat widget on your site", "50 conversations/month", "Email lead alerts", "Basic follow-ups"] },
-        { name: "Pro", price: "$199", period: "/mo", features: ["Unlimited conversations", "SMS + WhatsApp follow-ups", "Booking integration", "Lead qualification", "Priority support"], highlighted: true, badge: "Most Popular" },
+        { name: "Starter", price: "$97", period: "/mo", features: ["200 minutes included", "AI answering", "SMS replies", "Missed call auto-response", "Follow-ups"] },
+        { name: "Pro", price: "$197", period: "/mo", features: ["600 minutes included", "AI answering", "SMS replies", "Missed call auto-response", "Follow-ups"], highlighted: true, badge: "Most Popular" },
+        { name: "Premium", price: "$347", period: "/mo", features: ["1500 minutes included", "AI answering", "SMS replies", "Missed call auto-response", "Follow-ups"] },
       ],
-      note: "Calls/SMS usage billed at cost (you control limits).",
+      note: "Overage: $0.15/min after included usage.",
     },
     related: ["ai-voice", "quickquotepro", "booking-addon"],
   },
@@ -356,10 +355,11 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     pricingSection: {
       plans: [
-        { name: "Starter", price: "$149", period: "/mo", features: ["24/7 call answering", "50 calls/month", "Call transcripts", "Email notifications", "Basic lead capture"] },
-        { name: "Pro", price: "$249", period: "/mo", features: ["Unlimited calls", "SMS + WhatsApp alerts", "Calendar booking", "Call recording", "Priority routing"], highlighted: true, badge: "Most Popular" },
+        { name: "Starter", price: "$97", period: "/mo", features: ["200 minutes included", "AI answering", "SMS replies", "Missed call auto-response", "Follow-ups"] },
+        { name: "Pro", price: "$197", period: "/mo", features: ["600 minutes included", "AI answering", "SMS replies", "Missed call auto-response", "Follow-ups"], highlighted: true, badge: "Most Popular" },
+        { name: "Premium", price: "$347", period: "/mo", features: ["1500 minutes included", "AI answering", "SMS replies", "Missed call auto-response", "Follow-ups"] },
       ],
-      note: "Per-minute rates apply for calls exceeding plan limits.",
+      note: "Overage: $0.15/min after included usage.",
     },
     related: ["ai-chat", "quickquotepro", "reputationshield"],
   },
@@ -403,10 +403,11 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     pricingSection: {
       plans: [
-        { name: "Essentials", price: "$149", period: "/mo", features: ["GBP optimization", "20 citation submissions", "Monthly ranking report", "Review request templates"] },
-        { name: "Growth", price: "$299", period: "/mo", features: ["Full GBP management", "50+ citations", "Competitor analysis", "Review automation", "Bi-weekly reporting", "Priority support"], highlighted: true, badge: "Most Popular" },
+        { name: "Setup", price: "$397", period: " one-time", features: ["Full profile audit & rebuild", "Category & service area optimisation", "Description & keyword tuning", "Photos & posts launch plan"] },
+        { name: "Basic", price: "$99", period: "/mo", features: ["2 posts/month", "Profile monitoring", "Monthly ranking report"] },
+        { name: "Pro", price: "$149", period: "/mo", features: ["4 posts/month", "Review responses", "Optimization", "Competitor analysis", "Priority support"], highlighted: true, badge: "Most Popular" },
       ],
-      note: "3-month minimum commitment for best results.",
+      note: "Setup fee required for new clients.",
     },
     related: ["webboost", "webcare", "reputationshield"],
   },
@@ -450,10 +451,11 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     pricingSection: {
       plans: [
-        { name: "Starter", price: "$199", period: "/mo", features: ["Technical SEO audit", "Speed optimization", "5 keyword targets", "Monthly report"] },
-        { name: "Pro", price: "$399", period: "/mo", features: ["Full SEO management", "Core Web Vitals", "15 keyword targets", "Schema markup", "Content optimization", "Bi-weekly reports"], highlighted: true, badge: "Most Popular" },
+        { name: "Setup", price: "$349", period: " one-time", features: ["Full PageSpeed audit", "Core Web Vitals fixes", "Image & asset optimisation", "Before/after speed report"] },
+        { name: "Basic", price: "$79", period: "/mo", features: ["Monitoring", "Updates", "Monthly performance report"] },
+        { name: "Pro", price: "$129", period: "/mo", features: ["SEO fixes", "Optimization", "Core Web Vitals monitoring", "Monthly reports", "Priority support"], highlighted: true, badge: "Most Popular" },
       ],
-      note: "Results typically visible within 60-90 days.",
+      note: "Setup fee required for new clients.",
     },
     related: ["mapguard", "sitelaunch", "webcare"],
   },
@@ -497,8 +499,8 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     pricingSection: {
       plans: [
-        { name: "Basic", price: "$99", period: "/mo", features: ["Monthly content update", "Security patches", "Uptime monitoring", "Email support"] },
-        { name: "Pro", price: "$199", period: "/mo", features: ["2 content updates/month", "GBP maintenance", "Speed monitoring", "Priority support", "Plugin updates"], highlighted: true, badge: "Most Popular" },
+        { name: "Basic", price: "$79", period: "/mo", features: ["Monitoring", "Updates", "Uptime monitoring", "Email support"] },
+        { name: "Pro", price: "$129", period: "/mo", features: ["SEO fixes", "Optimization", "Speed monitoring", "Priority support", "Plugin updates"], highlighted: true, badge: "Most Popular" },
       ],
       note: "Additional content changes available at $25/each.",
     },
@@ -544,10 +546,9 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     pricingSection: {
       plans: [
-        { name: "Starter", price: "$999", period: " one-time", features: ["5-page custom website", "Mobile responsive", "QuickQuote integration", "Basic SEO setup", "5 business day delivery"] },
-        { name: "Pro", price: "$1,999", period: " one-time", features: ["10-page custom website", "Advanced animations", "Full SEO setup", "Blog integration", "Contact forms", "Priority delivery"], highlighted: true, badge: "Most Popular" },
+        { name: "SiteLaunch", price: "$1,197", period: " one-time", features: ["5–7 page custom website", "Mobile optimization", "Speed optimization", "Basic SEO", "Contact forms", "QuoteQuick embed", "BONUS: 14-day trial of TradeLine Starter + QuoteQuick Pro"], highlighted: true, badge: "All Inclusive" },
       ],
-      note: "Hosting not included. Typically $10-20/month.",
+      note: "Auto-converts to paid plans after 14-day trial.",
     },
     related: ["quickquotepro", "webboost", "webcare"],
   },
@@ -591,8 +592,9 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     pricingSection: {
       plans: [
-        { name: "Starter", price: "$199", period: "/mo", features: ["8 posts/month", "1 platform", "Branded templates", "Monthly report"] },
-        { name: "Pro", price: "$399", period: "/mo", features: ["16 posts/month", "2 platforms", "Lead-gen campaigns", "Stories + Reels", "Engagement management", "Bi-weekly reports"], highlighted: true, badge: "Most Popular" },
+        { name: "Starter", price: "$99", period: "/mo", features: ["Content creation & scheduling", "1 platform", "Branded templates", "Monthly report"] },
+        { name: "Growth", price: "$149", period: "/mo", features: ["2 platforms", "Lead-gen campaigns", "Stories + Reels", "Engagement management"], highlighted: true, badge: "Most Popular" },
+        { name: "Pro", price: "$199", period: "/mo", features: ["Full management", "All platforms", "Lead-gen campaigns", "Stories + Reels", "Engagement management", "Bi-weekly reports"] },
       ],
       note: "Ad spend for campaigns is billed separately.",
     },
@@ -638,8 +640,9 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     pricingSection: {
       plans: [
-        { name: "Starter", price: "$99", period: "/mo", features: ["Review monitoring", "Google + Facebook", "Review request emails", "Monthly report"] },
-        { name: "Pro", price: "$199", period: "/mo", features: ["All platforms", "SMS + email requests", "AI response templates", "Negative review alerts", "Website review widget", "Priority support"], highlighted: true, badge: "Most Popular" },
+        { name: "Basic", price: "$79", period: "/mo", features: ["Review monitoring", "Google + Facebook", "Review request emails", "Monthly report"] },
+        { name: "Pro", price: "$129", period: "/mo", features: ["All platforms", "SMS + email requests", "AI response templates", "Negative review alerts", "Website review widget"], highlighted: true, badge: "Most Popular" },
+        { name: "Premium", price: "$179", period: "/mo", features: ["All Pro features", "Priority support", "Advanced analytics", "Custom escalation rules"] },
       ],
       note: "Works with Google, Facebook, Yelp, and HomeStars.",
     },

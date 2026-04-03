@@ -14,43 +14,42 @@ import {
 
 const PLANS = [
   {
-    name: "Starter",
-    price: 149,
+    name: "Setup",
+    price: 397,
     cadence: "one-time",
     badge: null,
     features: [
-      "Full profile optimization",
-      "Basic keyword setup",
-      "Service area configuration",
-      "Images and content setup",
+      "Full profile audit & rebuild",
+      "Category & service area optimisation",
+      "Description & keyword tuning",
+      "Photos & posts launch plan",
     ],
     highlighted: false,
   },
   {
-    name: "Growth",
+    name: "Basic",
     price: 99,
-    cadence: "/mo",
-    badge: "Most Popular",
-    features: [
-      "Everything in Starter",
-      "Ongoing optimization",
-      "Review strategy and support",
-      "Monthly updates and improvements",
-    ],
-    highlighted: true,
-  },
-  {
-    name: "Pro",
-    price: 199,
     cadence: "/mo",
     badge: null,
     features: [
-      "Full listing management",
-      "Priority updates",
-      "We adjust based on competitors",
-      "Faster improvements",
+      "2 posts/month",
+      "Profile monitoring",
+      "Monthly ranking report",
     ],
     highlighted: false,
+  },
+  {
+    name: "Pro",
+    price: 149,
+    cadence: "/mo",
+    badge: "Most Popular",
+    features: [
+      "4 posts/month",
+      "Review responses",
+      "Optimization",
+      "Competitor analysis",
+    ],
+    highlighted: true,
   },
 ];
 
