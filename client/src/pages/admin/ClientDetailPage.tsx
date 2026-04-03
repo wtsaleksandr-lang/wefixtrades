@@ -18,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard, Copy, ExternalLink, ClipboardCheck,
+  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard, Copy, ExternalLink, ClipboardCheck, UserPlus, ShieldCheck,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +27,7 @@ import { TaskCard, ClientTasksEmptyState, isOverdue, type TaskItem } from "@/com
 /* ─── Types ─── */
 interface Client {
   id: number;
+  user_id: number | null;
   business_name: string;
   contact_name: string | null;
   contact_email: string | null;
@@ -351,6 +352,23 @@ export default function ClientDetailPage() {
     },
   });
 
+  // Portal access
+  const [portalResult, setPortalResult] = useState<{ email: string; temporary_password?: string } | null>(null);
+  const createPortalAccess = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/crm/clients/${clientId}/create-account`, {});
+      return res.json();
+    },
+    onSuccess: (data: { already_exists: boolean; email: string; temporary_password?: string }) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}`] });
+      if (data.already_exists) {
+        toast({ title: "Portal access already exists", description: `Account: ${data.email}` });
+      } else {
+        setPortalResult({ email: data.email, temporary_password: data.temporary_password });
+      }
+    },
+  });
+
   // Update payment status
   const updatePaymentStatus = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
@@ -446,6 +464,23 @@ export default function ClientDetailPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              {client.user_id ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
+                  <ShieldCheck className="w-3 h-3" /> Portal Active
+                </span>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  disabled={createPortalAccess.isPending || !client.contact_email}
+                  onClick={() => createPortalAccess.mutate()}
+                  title={!client.contact_email ? "Add a contact email first" : undefined}
+                >
+                  <UserPlus className="w-3 h-3 mr-1" />
+                  {createPortalAccess.isPending ? "Creating..." : "Create Portal Access"}
+                </Button>
+              )}
               <Button variant="outline" size="sm" className="h-8 text-xs" onClick={openEdit}>
                 <Pencil className="w-3 h-3 mr-1" /> Edit
               </Button>
@@ -920,6 +955,56 @@ export default function ClientDetailPage() {
                 className="bg-[#2D6A4F] hover:bg-[#1B4332]"
               >
                 {saveClient.isPending ? "Saving..." : "Save"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Portal credentials dialog */}
+        <Dialog open={!!portalResult} onOpenChange={(v) => !v && setPortalResult(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Portal Access Created</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <p className="text-sm text-gray-600">
+                Share these credentials with the client. They can sign in at <span className="font-medium">/login</span>.
+              </p>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3 border border-gray-200">
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">Email</p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-sm font-medium text-gray-900">{portalResult?.email}</code>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(portalResult?.email || ""); toast({ title: "Copied email" }); }}
+                      className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+                {portalResult?.temporary_password && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-0.5">Temporary Password</p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-sm font-medium text-gray-900">{portalResult.temporary_password}</code>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(portalResult?.temporary_password || ""); toast({ title: "Copied password" }); }}
+                        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-amber-600">
+                This password is shown once and cannot be retrieved later.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setPortalResult(null)} className="bg-[#2D6A4F] hover:bg-[#1B4332]">
+                Done
               </Button>
             </DialogFooter>
           </DialogContent>

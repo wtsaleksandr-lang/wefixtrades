@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
-import { requireAdmin } from "../auth";
+import { requireAdmin, hashPassword } from "../auth";
 import { storage } from "../storage";
+import crypto from "crypto";
 
 export function registerAdminCrmRoutes(app: Express): void {
 
@@ -586,6 +587,91 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[admin-crm] Generate tasks error:", err.message);
       res.status(500).json({ error: "Failed to generate tasks" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     Portal Account Provisioning
+     ═══════════════════════════════════════════ */
+
+  app.post("/api/admin/crm/clients/:id/create-account", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id);
+      const client = await storage.getClientById(clientId);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+
+      // Already has portal access
+      if (client.user_id) {
+        const existingUser = await storage.getUserById(client.user_id);
+        return res.status(200).json({
+          already_exists: true,
+          email: existingUser?.email ?? client.contact_email,
+        });
+      }
+
+      // Need a contact email to create the account
+      const email = client.contact_email;
+      if (!email) {
+        return res.status(400).json({ error: "Client has no contact email. Add one first." });
+      }
+
+      // Check if a user with this email already exists
+      const existingByEmail = await storage.getUserByEmail(email.toLowerCase().trim());
+      if (existingByEmail) {
+        // Link existing user if it's a client role, otherwise reject
+        if (existingByEmail.role !== "client") {
+          return res.status(409).json({ error: "A user with this email already exists with a different role" });
+        }
+        await storage.updateClient(clientId, { user_id: existingByEmail.id });
+
+        await storage.logAdminActivity({
+          actor_type: "human",
+          actor_id: (req.user as any)?.id,
+          actor_name: (req.user as any)?.name || (req.user as any)?.email,
+          action: "portal.linked",
+          entity_type: "client",
+          entity_id: clientId,
+          summary: `Linked existing portal account ${email}`,
+        });
+
+        return res.status(200).json({
+          already_exists: true,
+          email: existingByEmail.email,
+        });
+      }
+
+      // Generate temporary password
+      const tempPassword = crypto.randomBytes(6).toString("base64url"); // ~8 chars, URL-safe
+
+      // Create user
+      const user = await storage.createUser({
+        email: email.toLowerCase().trim(),
+        password_hash: hashPassword(tempPassword),
+        name: client.contact_name || client.business_name,
+        role: "client",
+      });
+
+      // Link to client
+      await storage.updateClient(clientId, { user_id: user.id });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "portal.created",
+        entity_type: "client",
+        entity_id: clientId,
+        summary: `Created portal account for ${email}`,
+      });
+
+      res.status(201).json({
+        already_exists: false,
+        email: user.email,
+        temporary_password: tempPassword,
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] Create account error:", err.message);
+      res.status(500).json({ error: "Failed to create portal account" });
     }
   });
 }
