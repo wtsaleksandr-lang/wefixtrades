@@ -1,3 +1,13 @@
+/**
+ * Service catalog used by audit recommendations and service matching.
+ * Prices and features derived from shared/pricing.ts (single source of truth).
+ */
+import {
+  SITELAUNCH, TRADELINE, QUOTEQUICK, WEBBOOST, MAPGUARD,
+  REPUTATIONSHIELD, SOCIALSYNC, lowestMonthly, formatPrice,
+  type ProductDef,
+} from "./pricing";
+
 export type Service = {
   id: string;
   name: string;
@@ -15,12 +25,12 @@ export type Service = {
 export const SERVICES: Service[] = [
   {
     id: "mapguard-setup",
-    name: "MapGuard™ Setup",
+    name: MAPGUARD.name + " Setup",
     tagline: "One-time Google Business Profile optimisation sprint",
     description:
       "We audit and rebuild your Google Business Profile from scratch — fixing every gap that's hurting your local ranking and costing you calls.",
-    price: 397,
-    priceLabel: "$397 one-time",
+    price: MAPGUARD.setup!,
+    priceLabel: `${formatPrice(MAPGUARD.setup!)} one-time`,
     billingPeriod: "one-time",
     category: "visibility",
     fixesIssues: [
@@ -29,21 +39,16 @@ export const SERVICES: Service[] = [
       "no-gbp-description",
       "low-search-ranking",
     ],
-    features: [
-      "Full profile audit & rebuild",
-      "Category & service area optimisation",
-      "Description & keyword tuning",
-      "Photos & posts launch plan",
-    ],
+    features: MAPGUARD.tiers[0].features,
   },
   {
     id: "mapguard-ongoing",
-    name: "MapGuard™ Ongoing",
+    name: MAPGUARD.name + " Ongoing",
     tagline: "Monthly Google Maps maintenance & growth",
     description:
       "Monthly profile updates, post scheduling, and review strategy to keep your Maps ranking climbing and your profile ahead of competitors.",
-    price: 99,
-    priceLabel: "From $99/mo",
+    price: lowestMonthly(MAPGUARD)!,
+    priceLabel: `From ${formatPrice(lowestMonthly(MAPGUARD)!)}/mo`,
     billingPeriod: "monthly",
     category: "visibility",
     fixesIssues: [
@@ -53,21 +58,19 @@ export const SERVICES: Service[] = [
       "no-gbp-description",
     ],
     features: [
-      "2 posts/month (Basic) or 4 posts/month (Pro)",
-      "Profile monitoring",
-      "Review responses & optimization (Pro)",
-      "Ranking progress reports",
+      ...MAPGUARD.tiers[1].features,
+      ...MAPGUARD.tiers[2].features.filter(f => !MAPGUARD.tiers[1].features.includes(f)).map(f => `${f} (Pro)`),
     ],
     isPopular: true,
   },
   {
     id: "reputationshield",
-    name: "ReputationShield™",
-    tagline: "Review generation & reputation automation",
+    name: REPUTATIONSHIELD.name,
+    tagline: REPUTATIONSHIELD.tagline,
     description:
       "Automated review request campaigns, response templates, and monitoring to build trust signals that convert browsers into callers.",
-    price: 79,
-    priceLabel: "From $79/mo",
+    price: lowestMonthly(REPUTATIONSHIELD)!,
+    priceLabel: `From ${formatPrice(lowestMonthly(REPUTATIONSHIELD)!)}/mo`,
     billingPeriod: "monthly",
     category: "reputation",
     fixesIssues: [
@@ -76,20 +79,18 @@ export const SERVICES: Service[] = [
       "low-visibility",
     ],
     features: [
-      "Automated review requests",
-      "SMS & email follow-ups",
-      "Response templates",
-      "Reputation monitoring alerts",
+      ...REPUTATIONSHIELD.tiers[0].features,
+      ...REPUTATIONSHIELD.tiers[1].features.filter(f => !REPUTATIONSHIELD.tiers[0].features.includes(f)).map(f => `${f} (Pro)`),
     ],
   },
   {
     id: "tradeline",
-    name: "TradeLine™",
-    tagline: "AI answering, SMS replies & missed call auto-response",
+    name: TRADELINE.name,
+    tagline: TRADELINE.tagline,
     description:
-      "Never miss a lead. TradeLine handles AI answering, SMS replies, missed call auto-response, and follow-ups — with included minutes on every plan.",
-    price: 97,
-    priceLabel: "From $97/mo",
+      "Never miss a lead. TradeLine handles AI call answering, SMS replies, missed call auto-response, and follow-ups — with included minutes on every plan.",
+    price: lowestMonthly(TRADELINE)!,
+    priceLabel: `From ${formatPrice(lowestMonthly(TRADELINE)!)}/mo`,
     billingPeriod: "monthly",
     category: "leads",
     fixesIssues: [
@@ -97,22 +98,17 @@ export const SERVICES: Service[] = [
       "low-demand-coverage",
       "no-quote-tool",
     ],
-    features: [
-      "AI answering",
-      "SMS replies",
-      "Missed call auto-response",
-      "Follow-ups",
-    ],
+    features: TRADELINE.tiers[0].features.filter(f => !f.includes("minutes")),
     isPopular: true,
   },
   {
     id: "webboost-setup",
-    name: "WebBoost™ Setup",
+    name: WEBBOOST.name + " Setup",
     tagline: "One-time speed & SEO upgrade for your website",
     description:
       "We audit your site, fix the PageSpeed issues, and resolve Core Web Vitals problems in a single sprint — giving Google a reason to rank you higher.",
-    price: 349,
-    priceLabel: "$349 one-time",
+    price: WEBBOOST.setup!,
+    priceLabel: `${formatPrice(WEBBOOST.setup!)} one-time`,
     billingPeriod: "one-time",
     category: "website",
     fixesIssues: [
@@ -120,21 +116,16 @@ export const SERVICES: Service[] = [
       "low-search-ranking",
       "low-visibility",
     ],
-    features: [
-      "Full PageSpeed audit",
-      "Core Web Vitals fixes",
-      "Image & asset optimisation",
-      "Before/after speed report",
-    ],
+    features: WEBBOOST.tiers[0].features,
   },
   {
     id: "webboost-care",
-    name: "WebBoost™ Care",
+    name: WEBBOOST.name + " Care",
     tagline: "Ongoing website performance & SEO maintenance",
     description:
       "Monthly checks to keep your site fast, secure, and ranking. We catch regressions before Google does.",
-    price: 79,
-    priceLabel: "From $79/mo",
+    price: lowestMonthly(WEBBOOST)!,
+    priceLabel: `From ${formatPrice(lowestMonthly(WEBBOOST)!)}/mo`,
     billingPeriod: "monthly",
     category: "website",
     fixesIssues: [
@@ -142,20 +133,18 @@ export const SERVICES: Service[] = [
       "low-search-ranking",
     ],
     features: [
-      "Monitoring & updates (Basic)",
-      "SEO fixes & optimization (Pro)",
-      "Core Web Vitals monitoring",
-      "Monthly performance reports",
+      ...WEBBOOST.tiers[1].features,
+      ...WEBBOOST.tiers[2].features.filter(f => !WEBBOOST.tiers[1].features.includes(f)).map(f => `${f} (Pro)`),
     ],
   },
   {
     id: "sitelaunch",
-    name: "SiteLaunch™",
-    tagline: "High-converting website built for trades",
+    name: SITELAUNCH.name,
+    tagline: SITELAUNCH.tagline,
     description:
       "A fast, mobile-first, SEO-ready website designed to convert visitors into leads. 5–7 pages with mobile optimization, speed optimization, basic SEO, contact forms, and QuoteQuick embed. Includes 14-day free trial of TradeLine Starter + QuoteQuick Pro.",
-    price: 1197,
-    priceLabel: "$1,197 one-time",
+    price: SITELAUNCH.tiers[0].price,
+    priceLabel: `${formatPrice(SITELAUNCH.tiers[0].price)} one-time`,
     billingPeriod: "one-time",
     category: "website",
     fixesIssues: [
@@ -164,22 +153,16 @@ export const SERVICES: Service[] = [
       "low-search-ranking",
       "low-visibility",
     ],
-    features: [
-      "5–7 page trades website",
-      "Mobile & speed optimization",
-      "Basic SEO & contact forms",
-      "QuoteQuick embed included",
-      "BONUS: 14-day trial of TradeLine Starter + QuoteQuick Pro",
-    ],
+    features: SITELAUNCH.tiers[0].features,
   },
   {
     id: "quotequick",
-    name: "QuoteQuick™",
-    tagline: "Instant quote calculator for your website",
+    name: QUOTEQUICK.name,
+    tagline: QUOTEQUICK.tagline,
     description:
       "An embeddable quote calculator that gives visitors instant estimates — turning browsers into warm leads before they pick up the phone.",
-    price: 49,
-    priceLabel: "From $49/mo",
+    price: lowestMonthly(QUOTEQUICK)!,
+    priceLabel: `From ${formatPrice(lowestMonthly(QUOTEQUICK)!)}/mo`,
     billingPeriod: "monthly",
     category: "leads",
     fixesIssues: [
@@ -187,20 +170,18 @@ export const SERVICES: Service[] = [
       "low-demand-coverage",
     ],
     features: [
-      "Basic calculator & lead capture (Starter)",
-      "Advanced logic, styling & booking integration (Pro)",
-      "Trade-specific templates",
-      "Embed on any site",
+      ...QUOTEQUICK.tiers[0].features,
+      ...QUOTEQUICK.tiers[1].features.filter(f => !QUOTEQUICK.tiers[0].features.includes(f)).map(f => `${f} (Pro)`),
     ],
   },
   {
     id: "socialsync",
-    name: "SocialSync™",
-    tagline: "Social media content & posting for trades",
+    name: SOCIALSYNC.name,
+    tagline: SOCIALSYNC.tagline,
     description:
       "Consistent social media presence with trade-specific content, scheduling, and engagement tracking.",
-    price: 99,
-    priceLabel: "From $99/mo",
+    price: lowestMonthly(SOCIALSYNC)!,
+    priceLabel: `From ${formatPrice(lowestMonthly(SOCIALSYNC)!)}/mo`,
     billingPeriod: "monthly",
     category: "visibility",
     fixesIssues: [
@@ -208,10 +189,8 @@ export const SERVICES: Service[] = [
       "low-search-ranking",
     ],
     features: [
-      "Content creation & scheduling",
-      "Facebook & Instagram management",
-      "Lead-gen campaigns (Growth+)",
-      "Monthly analytics reports",
+      ...SOCIALSYNC.tiers[0].features,
+      ...SOCIALSYNC.tiers[1].features.filter(f => !SOCIALSYNC.tiers[0].features.includes(f)).map(f => `${f} (Growth)`),
     ],
   },
 ];

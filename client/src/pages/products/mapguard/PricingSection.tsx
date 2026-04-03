@@ -11,47 +11,16 @@ import {
   SECTION_PAD,
   MAX_W,
 } from "./styles";
+import { MAPGUARD } from "@/config/pricing";
 
-const PLANS = [
-  {
-    name: "Setup",
-    price: 397,
-    cadence: "one-time",
-    badge: null,
-    features: [
-      "Full profile audit & rebuild",
-      "Category & service area optimisation",
-      "Description & keyword tuning",
-      "Photos & posts launch plan",
-    ],
-    highlighted: false,
-  },
-  {
-    name: "Basic",
-    price: 99,
-    cadence: "/mo",
-    badge: null,
-    features: [
-      "2 posts/month",
-      "Profile monitoring",
-      "Monthly ranking report",
-    ],
-    highlighted: false,
-  },
-  {
-    name: "Pro",
-    price: 149,
-    cadence: "/mo",
-    badge: "Most Popular",
-    features: [
-      "4 posts/month",
-      "Review responses",
-      "Optimization",
-      "Competitor analysis",
-    ],
-    highlighted: true,
-  },
-];
+const PLANS = MAPGUARD.tiers.map(t => ({
+  name: t.name,
+  price: t.price,
+  cadence: t.billingPeriod === "one-time" ? "one-time" : "/mo",
+  badge: t.badge || null,
+  features: t.features,
+  highlighted: !!t.highlighted,
+}));
 
 export default function PricingSection() {
   return (

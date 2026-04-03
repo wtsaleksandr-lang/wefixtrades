@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { mkt, colors, shadows } from "@/theme/tokens";
+import {
+  BUNDLE_STARTER, BUNDLE_GROWTH, BUNDLE_PRO,
+  formatPrice, bundleSavings, type BundleDef,
+} from "@/config/pricing";
 
 export default function BundlesPage() {
   useEffect(() => {
@@ -176,26 +180,12 @@ export default function BundlesPage() {
     },
   };
 
-  const starterIncludes = [
-    "QuoteQuick Pro ($79/mo value)",
-    "MapGuard Basic ($99/mo value)",
-    "ReputationShield Basic ($79/mo value)",
-  ];
+  const bundleToIncludes = (b: BundleDef) =>
+    b.includes.map(i => `${i.label} (${formatPrice(i.value)}/mo value)`);
 
-  const growthIncludes = [
-    "TradeLine Starter ($97/mo value)",
-    "QuoteQuick Pro ($79/mo value)",
-    "MapGuard Pro ($149/mo value)",
-    "ReputationShield Pro ($129/mo value)",
-  ];
-
-  const proIncludes = [
-    "TradeLine Pro ($197/mo value)",
-    "SocialSync Growth ($149/mo value)",
-    "MapGuard Pro ($149/mo value)",
-    "ReputationShield Pro ($129/mo value)",
-    "WebBoost Pro ($129/mo value)",
-  ];
+  const starterIncludes = bundleToIncludes(BUNDLE_STARTER);
+  const growthIncludes = bundleToIncludes(BUNDLE_GROWTH);
+  const proIncludes = bundleToIncludes(BUNDLE_PRO);
 
   const faqs = [
     {
@@ -232,11 +222,11 @@ export default function BundlesPage() {
               </span>
               <h2 style={s.bundleName}>Starter System</h2>
               <div style={s.bundlePrice}>
-                $249
+                {formatPrice(BUNDLE_STARTER.price)}
                 <span style={{ fontSize: 16, fontWeight: 500, color: "#6B7280" }}>/mo</span>
               </div>
-              <p style={s.bundlePricePeriod}>Everything you need to start growing</p>
-              <span style={s.savingBadge}>Save $8/mo vs buying separately</span>
+              <p style={s.bundlePricePeriod}>{BUNDLE_STARTER.tagline}</p>
+              <span style={s.savingBadge}>Save {formatPrice(bundleSavings(BUNDLE_STARTER))}/mo vs buying separately</span>
               <div style={s.divider} />
               <p style={s.includesLabel}>Includes</p>
               <ul style={s.featureList}>
@@ -258,11 +248,11 @@ export default function BundlesPage() {
               </span>
               <h2 style={s.bundleName}>Growth System</h2>
               <div style={s.bundlePrice}>
-                $449
+                {formatPrice(BUNDLE_GROWTH.price)}
                 <span style={{ fontSize: 16, fontWeight: 500, color: "#6B7280" }}>/mo</span>
               </div>
-              <p style={s.bundlePricePeriod}>Full lead capture + reputation engine</p>
-              <span style={s.savingBadge}>Save $5/mo vs buying separately</span>
+              <p style={s.bundlePricePeriod}>{BUNDLE_GROWTH.tagline}</p>
+              <span style={s.savingBadge}>Save {formatPrice(bundleSavings(BUNDLE_GROWTH))}/mo vs buying separately</span>
               <div style={s.divider} />
               <p style={s.includesLabel}>Includes</p>
               <ul style={s.featureList}>
@@ -284,11 +274,11 @@ export default function BundlesPage() {
               </span>
               <h2 style={s.bundleName}>Pro System</h2>
               <div style={s.bundlePrice}>
-                $799
+                {formatPrice(BUNDLE_PRO.price)}
                 <span style={{ fontSize: 16, fontWeight: 500, color: "#6B7280" }}>/mo</span>
               </div>
-              <p style={s.bundlePricePeriod}>Full-stack growth on autopilot</p>
-              <span style={s.savingBadge}>Save $54/mo vs buying separately</span>
+              <p style={s.bundlePricePeriod}>{BUNDLE_PRO.tagline}</p>
+              <span style={s.savingBadge}>Save {formatPrice(bundleSavings(BUNDLE_PRO))}/mo vs buying separately</span>
               <div style={s.divider} />
               <p style={s.includesLabel}>Includes</p>
               <ul style={s.featureList}>

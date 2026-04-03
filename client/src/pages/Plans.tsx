@@ -3,6 +3,13 @@ import { useLocation, useSearch } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
 import { useToast } from "@/hooks/use-toast";
+import {
+  TRADELINE, QUOTEQUICK, WEBBOOST, MAPGUARD, SITELAUNCH,
+  REPUTATIONSHIELD, SOCIALSYNC, FIX_OPTIMIZE,
+  BUNDLE_STARTER, BUNDLE_GROWTH, BUNDLE_PRO,
+  YEARLY_DISCOUNT_PCT, formatPrice, lowestMonthly,
+  type ProductDef, type BundleDef, type Tier,
+} from "@/config/pricing";
 
 type Currency = "CAD" | "USD";
 type Billing = "monthly" | "yearly";
@@ -363,8 +370,8 @@ export default function Plans() {
     toast({ title: "Checkout coming next", description: "We're building this feature right now." });
   };
 
-  const bundleMonthlyCAD = { starter: 249, growth: 449, authority: 799 };
-  const bundleYearlyTotalCAD = (monthlyCAD: number) => monthlyCAD * 12 * 0.85;
+  const bundleMonthlyCAD = { starter: BUNDLE_STARTER.price, growth: BUNDLE_GROWTH.price, authority: BUNDLE_PRO.price };
+  const bundleYearlyTotalCAD = (monthlyCAD: number) => Math.round(monthlyCAD * 12 * (1 - YEARLY_DISCOUNT_PCT));
 
   const priceLineBundle = (monthlyCAD: number) => {
     const monthly = convertFromCAD(monthlyCAD, currency);
@@ -378,7 +385,7 @@ export default function Plans() {
             <div style={{ fontSize: 14, fontWeight: 600, color: "rgba(0,0,0,0.45)" }}>/yr</div>
           </div>
           <div style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
-            Save 15% billed annually · {formatMoney(monthly, currency)}/mo equivalent
+            Save {Math.round(YEARLY_DISCOUNT_PCT * 100)}% billed annually · {formatMoney(monthly, currency)}/mo equivalent
           </div>
         </div>
       );
@@ -464,46 +471,46 @@ export default function Plans() {
 
           <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
             <BundleCard
-              title="Starter System"
-              subtitle="For small trades who just need more calls."
+              title={BUNDLE_STARTER.name}
+              subtitle={BUNDLE_STARTER.tagline}
               priceLine={priceLineBundle(bundleMonthlyCAD.starter)}
-              note={billing === "yearly" ? "Save 15% billed annually" : undefined}
-              bullets={["QuoteQuick Pro ($79/mo)", "MapGuard Basic ($99/mo)", "ReputationShield Basic ($79/mo)"]}
+              note={billing === "yearly" ? `Save ${Math.round(YEARLY_DISCOUNT_PCT * 100)}% billed annually` : undefined}
+              bullets={BUNDLE_STARTER.includes.map(i => `${i.label} (${formatPrice(i.value)}/mo)`)}
               freeIncludes={[]}
               cta="Choose Starter"
               onCta={showToast}
             />
             <BundleCard
-              title="Growth System"
-              badge="Most Popular"
-              subtitle="Full lead + visibility system."
+              title={BUNDLE_GROWTH.name}
+              badge={BUNDLE_GROWTH.badge}
+              subtitle={BUNDLE_GROWTH.tagline}
               priceLine={priceLineBundle(bundleMonthlyCAD.growth)}
-              note={billing === "yearly" ? "Save 15% billed annually" : undefined}
-              bullets={["TradeLine Starter ($97/mo)", "QuoteQuick Pro ($79/mo)", "MapGuard Pro ($149/mo)", "ReputationShield Pro ($129/mo)"]}
+              note={billing === "yearly" ? `Save ${Math.round(YEARLY_DISCOUNT_PCT * 100)}% billed annually` : undefined}
+              bullets={BUNDLE_GROWTH.includes.map(i => `${i.label} (${formatPrice(i.value)}/mo)`)}
               freeIncludes={[]}
               cta="Choose Growth"
               onCta={showToast}
             />
             <BundleCard
-              title="Pro System"
-              subtitle="Full-stack growth on autopilot."
+              title={BUNDLE_PRO.name}
+              subtitle={BUNDLE_PRO.tagline}
               priceLine={priceLineBundle(bundleMonthlyCAD.authority)}
-              note={billing === "yearly" ? "Save 15% billed annually" : undefined}
-              bullets={["TradeLine Pro ($197/mo)", "SocialSync Growth ($149/mo)", "MapGuard Pro ($149/mo)", "ReputationShield Pro ($129/mo)", "WebBoost Pro ($129/mo)"]}
+              note={billing === "yearly" ? `Save ${Math.round(YEARLY_DISCOUNT_PCT * 100)}% billed annually` : undefined}
+              bullets={BUNDLE_PRO.includes.map(i => `${i.label} (${formatPrice(i.value)}/mo)`)}
               freeIncludes={[]}
               cta="Choose Pro"
               onCta={showToast}
             />
             <BundleCard
-              title="Fix & Optimize™"
-              subtitle="Quick website fixes and optimization."
+              title={FIX_OPTIMIZE.name}
+              subtitle={FIX_OPTIMIZE.tagline}
               priceLine={
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                  <div style={{ fontSize: 30, fontWeight: 800, color: "rgba(0,0,0,0.90)" }}>{oneTime(249)}</div>
+                  <div style={{ fontSize: 30, fontWeight: 800, color: "rgba(0,0,0,0.90)" }}>{oneTime(FIX_OPTIMIZE.tiers[0].price)}</div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "rgba(0,0,0,0.45)" }}>one-time</div>
                 </div>
               }
-              bullets={["Website + Google profile quick fixes", "Priority cleanup", "Fast turnaround"]}
+              bullets={FIX_OPTIMIZE.tiers[0].features}
               cta="Get Started"
               onCta={showToast}
             />
@@ -515,32 +522,33 @@ export default function Plans() {
           <p style={{ marginTop: 8, fontSize: 14, color: "rgba(0,0,0,0.50)" }}>Pick exactly what you need. Add more later.</p>
 
           <div style={{ marginTop: 24, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
-            <SmallCard title="TradeLine™ Starter" price={formatMoney(convertFromCAD(97, currency), currency)} cadence="/mo" bullets={["200 mins included", "AI answering", "SMS replies", "Missed call auto-response"]} cta="Add to Plan" onCta={showToast} />
-            <SmallCard title="TradeLine™ Pro" price={formatMoney(convertFromCAD(197, currency), currency)} cadence="/mo" bullets={["600 mins included", "AI answering", "SMS replies", "Follow-ups"]} cta="Add to Plan" onCta={showToast} />
-            <SmallCard title="TradeLine™ Premium" price={formatMoney(convertFromCAD(347, currency), currency)} cadence="/mo" bullets={["1500 mins included", "AI answering", "SMS replies", "Follow-ups"]} cta="Add to Plan" onCta={showToast} />
+            {TRADELINE.tiers.map(t => (
+              <SmallCard key={t.id} title={`TradeLine™ ${t.name}`} price={formatMoney(convertFromCAD(t.price, currency), currency)} cadence="/mo" bullets={t.features.slice(0, 4)} cta="Add to Plan" onCta={showToast} />
+            ))}
 
-            <SmallCard title="MapGuard™ Setup" price={oneTime(397)} cadence="one-time" bullets={["Full profile audit & rebuild", "Category & service area optimisation"]} cta="Add to Plan" onCta={showToast} />
-            <SmallCard title="MapGuard™ Basic" price={formatMoney(convertFromCAD(99, currency), currency)} cadence="/mo" bullets={["2 posts/month", "Monitoring", "Monthly report"]} cta="Add to Plan" onCta={showToast} />
-            <SmallCard title="MapGuard™ Pro" price={formatMoney(convertFromCAD(149, currency), currency)} cadence="/mo" bullets={["4 posts/month", "Responses", "Optimization"]} cta="Add to Plan" onCta={showToast} />
+            {MAPGUARD.tiers.map(t => (
+              <SmallCard key={t.id} title={`MapGuard™ ${t.name}`} price={t.billingPeriod === "one-time" ? oneTime(t.price) : formatMoney(convertFromCAD(t.price, currency), currency)} cadence={t.billingPeriod === "one-time" ? "one-time" : "/mo"} bullets={t.features.slice(0, 3)} cta="Add to Plan" onCta={showToast} />
+            ))}
 
-            <SmallCard title="ReputationShield™ Basic" price={formatMoney(convertFromCAD(79, currency), currency)} cadence="/mo" bullets={["Review monitoring", "Google + Facebook", "Monthly report"]} cta="Add to Plan" onCta={showToast} />
-            <SmallCard title="ReputationShield™ Pro" price={formatMoney(convertFromCAD(129, currency), currency)} cadence="/mo" bullets={["All platforms", "SMS + email requests", "AI response templates"]} cta="Add to Plan" onCta={showToast} />
-            <SmallCard title="ReputationShield™ Premium" price={formatMoney(convertFromCAD(179, currency), currency)} cadence="/mo" bullets={["All Pro features", "Priority support", "Custom escalation"]} cta="Add to Plan" onCta={showToast} />
+            {REPUTATIONSHIELD.tiers.map(t => (
+              <SmallCard key={t.id} title={`ReputationShield™ ${t.name}`} price={formatMoney(convertFromCAD(t.price, currency), currency)} cadence="/mo" bullets={t.features} cta="Add to Plan" onCta={showToast} />
+            ))}
 
-            <SmallCard title="WebBoost™ Setup" price={oneTime(349)} cadence="one-time" bullets={["Full PageSpeed audit", "Core Web Vitals fixes", "Before/after report"]} cta="Add to Plan" onCta={showToast} />
-            <SmallCard title="WebBoost™ Basic" price={formatMoney(convertFromCAD(79, currency), currency)} cadence="/mo" bullets={["Monitoring", "Updates", "Monthly report"]} cta="Add to Plan" onCta={showToast} />
-            <SmallCard title="WebBoost™ Pro" price={formatMoney(convertFromCAD(129, currency), currency)} cadence="/mo" bullets={["SEO fixes", "Optimization", "Priority support"]} cta="Add to Plan" onCta={showToast} />
+            {WEBBOOST.tiers.map(t => (
+              <SmallCard key={t.id} title={`WebBoost™ ${t.name}`} price={t.billingPeriod === "one-time" ? oneTime(t.price) : formatMoney(convertFromCAD(t.price, currency), currency)} cadence={t.billingPeriod === "one-time" ? "one-time" : "/mo"} bullets={t.features} cta="Add to Plan" onCta={showToast} />
+            ))}
 
-            <SmallCard title="QuoteQuick™ Starter" price={formatMoney(convertFromCAD(49, currency), currency)} cadence="/mo" bullets={["Basic calculator", "Lead capture", "Hosted quote page"]} cta="Add to Plan" onCta={showToast} />
-            <SmallCard title="QuoteQuick™ Pro" price={formatMoney(convertFromCAD(79, currency), currency)} cadence="/mo" bullets={["Advanced logic", "Custom styling", "Booking integration"]} cta="Add to Plan" onCta={showToast} />
+            {QUOTEQUICK.tiers.map(t => (
+              <SmallCard key={t.id} title={`QuoteQuick™ ${t.name}`} price={formatMoney(convertFromCAD(t.price, currency), currency)} cadence="/mo" bullets={t.features} cta="Add to Plan" onCta={showToast} />
+            ))}
 
-            <SmallCard title="SocialSync™ Starter" price={formatMoney(convertFromCAD(99, currency), currency)} cadence="/mo" bullets={["Content creation", "1 platform", "Monthly report"]} cta="Add to Plan" onCta={showToast} />
-            <SmallCard title="SocialSync™ Growth" price={formatMoney(convertFromCAD(149, currency), currency)} cadence="/mo" bullets={["2 platforms", "Lead-gen campaigns", "Engagement management"]} cta="Add to Plan" onCta={showToast} />
-            <SmallCard title="SocialSync™ Pro" price={formatMoney(convertFromCAD(199, currency), currency)} cadence="/mo" bullets={["All platforms", "Full management", "Bi-weekly reports"]} cta="Add to Plan" onCta={showToast} />
+            {SOCIALSYNC.tiers.map(t => (
+              <SmallCard key={t.id} title={`SocialSync™ ${t.name}`} price={formatMoney(convertFromCAD(t.price, currency), currency)} cadence="/mo" bullets={t.features} cta="Add to Plan" onCta={showToast} />
+            ))}
 
-            <SmallCard title="SiteLaunch™" price={oneTime(1197)} cadence="one-time" bullets={["5–7 page website", "Mobile + speed optimization", "Basic SEO + contact forms", "QuoteQuick embed", "14-day trial: TradeLine Starter + QuoteQuick Pro"]} cta="Add to Plan" onCta={showToast} />
+            <SmallCard title={SITELAUNCH.name} price={oneTime(SITELAUNCH.tiers[0].price)} cadence="one-time" bullets={SITELAUNCH.tiers[0].features} cta="Add to Plan" onCta={showToast} />
 
-            <SmallCard title="Fix & Optimize™" price={oneTime(249)} cadence="one-time" bullets={["Website + Google profile quick fixes", "Priority cleanup", "Fast turnaround"]} cta="Add to Plan" onCta={showToast} />
+            <SmallCard title={FIX_OPTIMIZE.name} price={oneTime(FIX_OPTIMIZE.tiers[0].price)} cadence="one-time" bullets={FIX_OPTIMIZE.tiers[0].features} cta="Add to Plan" onCta={showToast} />
           </div>
         </section>}
 
@@ -561,10 +569,10 @@ export default function Plans() {
           >
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
               {[
-                ["MapGuard Setup", oneTime(397)],
-                ["WebBoost Setup", oneTime(349)],
-                ["SiteLaunch", oneTime(1197)],
-                ["Fix & Optimize", oneTime(249)],
+                ["MapGuard Setup", oneTime(MAPGUARD.setup!)],
+                ["WebBoost Setup", oneTime(WEBBOOST.setup!)],
+                ["SiteLaunch", oneTime(SITELAUNCH.tiers[0].price)],
+                ["Fix & Optimize", oneTime(FIX_OPTIMIZE.tiers[0].price)],
               ].map(([name, val], i) => (
                 <div
                   key={name}

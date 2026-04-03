@@ -11,6 +11,11 @@ import sitelaunchIcon from "@assets/sitelaunch-icon_1772080241325.webp";
 import quickquoteIcon from "@assets/quickquote-icon_1772080241349.webp";
 import socialsyncIcon from "@assets/socialsync-icon_1772080241338.webp";
 import reputationshieldIcon from "@assets/reputationshield-icon_1772080241309.webp";
+import {
+  TRADELINE, QUOTEQUICK, WEBBOOST, MAPGUARD, SITELAUNCH,
+  FIX_OPTIMIZE, SOCIALSYNC, REPUTATIONSHIELD,
+  lowestMonthly, formatPrice,
+} from "@/config/pricing";
 
 export default function ServicesPage() {
   useEffect(() => {
@@ -220,9 +225,9 @@ export default function ServicesPage() {
     {
       id: "voice-assistant",
       img: voiceAssistantIcon,
-      title: "TradeLine™",
-      desc: "AI answering, SMS replies, missed call auto-response, and follow-ups. 200–1500 mins included.",
-      from: "From $97/mo",
+      title: "TradeLine\u2122",
+      desc: "AI call answering, SMS replies, missed call auto-response, and follow-ups. 200–1500 mins included.",
+      from: `From $${TRADELINE.tiers[0].price}/mo`,
       testid: "service-voice-assistant",
       btnTestid: "button-request-info-voice-assistant",
     },
@@ -231,7 +236,7 @@ export default function ServicesPage() {
       img: chatAssistantIcon,
       title: "QuoteQuick™",
       desc: "Instant quote calculator for your website. Give visitors real-time estimates and capture more leads.",
-      from: "From $49/mo",
+      from: `From ${formatPrice(lowestMonthly(QUOTEQUICK)!)}/mo`,
       testid: "service-chat-assistant",
       btnTestid: "button-request-info-chat-assistant",
     },
@@ -240,7 +245,7 @@ export default function ServicesPage() {
       img: webboostIcon,
       title: "WebBoost",
       desc: "Website SEO and speed optimization. Rank higher on Google with fast-loading, optimised pages that convert visitors.",
-      from: "From $79/mo + $349 setup",
+      from: `From ${formatPrice(lowestMonthly(WEBBOOST)!)}/mo + ${formatPrice(WEBBOOST.setup!)} setup`,
       testid: "service-seo",
       btnTestid: "button-request-info-seo",
     },
@@ -249,7 +254,7 @@ export default function ServicesPage() {
       img: webcareIcon,
       title: "WebBoost Care",
       desc: "Ongoing website performance & SEO maintenance. Keep your site fast, secure, and ranking.",
-      from: "From $79/mo",
+      from: `From ${formatPrice(lowestMonthly(WEBBOOST)!)}/mo`,
       testid: "service-webcare",
       btnTestid: "button-request-info-webcare",
     },
@@ -258,7 +263,7 @@ export default function ServicesPage() {
       img: mapguardIcon,
       title: "MapGuard",
       desc: "Google Maps GBP optimization. Get found by local customers searching for your trade with citations and review strategy.",
-      from: "From $99/mo + $397 setup",
+      from: `From ${formatPrice(lowestMonthly(MAPGUARD)!)}/mo + ${formatPrice(MAPGUARD.setup!)} setup`,
       testid: "service-gmb",
       btnTestid: "button-request-info-gmb",
     },
@@ -276,7 +281,7 @@ export default function ServicesPage() {
       img: sitelaunchIcon,
       title: "SiteLaunch",
       desc: "Professional trade website built from scratch with QuoteQuick embed, mobile & speed optimization. Includes 14-day free trial.",
-      from: "$1,197 one-time",
+      from: `${formatPrice(SITELAUNCH.tiers[0].price)} one-time`,
       testid: "service-website",
       btnTestid: "button-request-info-website",
     },
@@ -285,7 +290,7 @@ export default function ServicesPage() {
       img: quickquoteIcon,
       title: "Fix & Optimize™",
       desc: "One-off website fixes, tweaks, and optimization. Broken pages, slow loading, SEO issues, design tweaks.",
-      from: "$249 one-time",
+      from: `${formatPrice(FIX_OPTIMIZE.tiers[0].price)} one-time`,
       testid: "service-quickquote",
       btnTestid: "button-request-info-quickquote",
     },
@@ -294,7 +299,7 @@ export default function ServicesPage() {
       img: socialsyncIcon,
       title: "SocialSync",
       desc: "Social media management and automation. Consistent posting, branded content, lead-gen campaigns on Facebook/Instagram.",
-      from: "From $99/mo",
+      from: `From ${formatPrice(lowestMonthly(SOCIALSYNC)!)}/mo`,
       testid: "service-social",
       btnTestid: "button-request-info-social",
     },
@@ -303,7 +308,7 @@ export default function ServicesPage() {
       img: reputationshieldIcon,
       title: "ReputationShield",
       desc: "Review and reputation management. Automated review requests, response templates, and reputation monitoring.",
-      from: "From $79/mo",
+      from: `From ${formatPrice(lowestMonthly(REPUTATIONSHIELD)!)}/mo`,
       testid: "service-reputation",
       btnTestid: "button-request-info-reputation",
     },

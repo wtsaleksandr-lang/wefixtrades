@@ -4,6 +4,7 @@ import { Check, ChevronDown, ArrowRight, Play } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { mkt, shadows } from "@/theme/tokens";
+import { ALL_PRODUCTS, YEARLY_DISCOUNT_PCT, type ProductDef, type Tier as PricingTier } from "@/config/pricing";
 
 const CAD_TO_USD = 1.35;
 
@@ -24,13 +25,28 @@ interface ProductGroup {
   tiers: Tier[];
 }
 
-const PRODUCT_GROUPS: ProductGroup[] = [
+/** Derive display groups from the single source of truth */
+function buildProductGroups(): ProductGroup[] {
+  return ALL_PRODUCTS.map((p: ProductDef) => ({
+    id: p.id,
+    family: p.name,
+    description: p.tagline + ".",
+    tiers: p.tiers.map((t: PricingTier) => ({
+      name: t.name,
+      priceMonthly: t.billingPeriod === "monthly" ? t.price : null,
+      priceOneTime: t.billingPeriod === "one-time" ? t.price : null,
+      cadence: (t.billingPeriod === "monthly" ? "/mo" : "one-time") as "/mo" | "one-time",
+      includes: t.features,
+      highlighted: t.highlighted,
+      badge: t.badge,
+    })),
+  }));
+}
+
+const PRODUCT_GROUPS: ProductGroup[] = buildProductGroups();
+
+const _LEGACY_PLACEHOLDER = [
   {
-    id: "sitelaunch",
-    family: "SiteLaunch\u2122",
-    description: "Professional trade website with everything included.",
-    tiers: [
-      {
         name: "SiteLaunch",
         priceMonthly: null,
         priceOneTime: 1197,
@@ -222,11 +238,11 @@ function formatMoney(amount: number, currency: "CAD" | "USD"): string {
 }
 
 function getAnnualPrice(monthly: number): number {
-  return monthly * 10;
+  return Math.round(monthly * 12 * (1 - YEARLY_DISCOUNT_PCT));
 }
 
 function getAnnualMonthlyEquiv(monthly: number): number {
-  return Math.round((monthly * 10) / 12);
+  return Math.round((monthly * 12 * (1 - YEARLY_DISCOUNT_PCT)) / 12);
 }
 
 function FAQItem({ q, a }: { q: string; a: string }) {

@@ -10,119 +10,53 @@
 import { db } from "../db";
 import { serviceCatalog, serviceTaskTemplates, onboardingTemplates } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import {
+  ALL_PRODUCTS, ALL_BUNDLES, type ProductDef, type Tier,
+} from "@shared/pricing";
 
-const SERVICES = [
-  {
-    id: "tradeline",
-    name: "TradeLine™",
-    tagline: "AI answering, SMS replies & missed call auto-response",
-    description: "Never miss a lead. TradeLine handles AI answering, SMS replies, missed call auto-response, and follow-ups. Starter $97/mo (200 mins), Pro $197/mo (600 mins), Premium $347/mo (1500 mins). Overage $0.15/min.",
-    category: "leads",
-    default_price: 9700,
-    billing_period: "monthly",
-    delivery_pattern: "always_on",
-    sort_order: 1,
-  },
-  {
-    id: "quotequick",
-    name: "QuoteQuick™",
-    tagline: "Instant quote calculator for your website",
-    description: "An embeddable quote calculator that gives visitors instant estimates. Starter $49/mo (basic calculator + lead capture), Pro $79/mo (advanced logic, styling, booking integration).",
-    category: "leads",
-    default_price: 4900,
-    billing_period: "monthly",
-    delivery_pattern: "always_on",
-    sort_order: 2,
-  },
-  {
-    id: "mapguard-setup",
-    name: "MapGuard™ Setup",
-    tagline: "One-time Google Business Profile optimisation sprint",
-    description: "We audit and rebuild your Google Business Profile from scratch — fixing every gap that's hurting your local ranking and costing you calls.",
-    category: "visibility",
-    default_price: 39700,
-    billing_period: "one-time",
-    delivery_pattern: "one_time",
-    sort_order: 3,
-  },
-  {
-    id: "mapguard-ongoing",
-    name: "MapGuard™ Ongoing",
-    tagline: "Monthly Google Maps maintenance & growth",
-    description: "Monthly profile updates, post scheduling, and review strategy. Basic $99/mo (2 posts/month, monitoring), Pro $149/mo (4 posts/month, responses, optimization).",
-    category: "visibility",
-    default_price: 9900,
-    billing_period: "monthly",
-    delivery_pattern: "recurring",
-    sort_order: 4,
-  },
-  {
-    id: "reputationshield",
-    name: "ReputationShield™",
-    tagline: "Review generation & reputation automation",
-    description: "Automated review request campaigns, response templates, and monitoring. Basic $79/mo, Pro $129/mo, Premium $179/mo.",
-    category: "reputation",
-    default_price: 7900,
-    billing_period: "monthly",
-    delivery_pattern: "always_on",
-    sort_order: 5,
-  },
-  {
-    id: "webboost-setup",
-    name: "WebBoost™ Setup",
-    tagline: "One-time speed & SEO upgrade for your website",
-    description: "We audit your site, fix the PageSpeed issues, and resolve Core Web Vitals problems in a single sprint.",
-    category: "website",
-    default_price: 34900,
-    billing_period: "one-time",
-    delivery_pattern: "one_time",
-    sort_order: 6,
-  },
-  {
-    id: "webboost-care",
-    name: "WebBoost™ Care",
-    tagline: "Ongoing website performance & SEO maintenance",
-    description: "Monthly checks to keep your site fast, secure, and ranking. Basic $79/mo (monitoring, updates), Pro $129/mo (SEO fixes, optimization).",
-    category: "website",
-    default_price: 7900,
-    billing_period: "monthly",
-    delivery_pattern: "recurring",
-    sort_order: 7,
-  },
-  {
-    id: "socialsync",
-    name: "SocialSync™",
-    tagline: "Social media content & posting for trades",
-    description: "Consistent social media presence with trade-specific content, scheduling, and engagement tracking. Starter $99/mo, Growth $149/mo, Pro $199/mo.",
-    category: "visibility",
-    default_price: 9900,
-    billing_period: "monthly",
-    delivery_pattern: "recurring",
-    sort_order: 8,
-  },
-  {
-    id: "sitelaunch",
-    name: "SiteLaunch™",
-    tagline: "High-converting website built for trades",
-    description: "5–7 page website with mobile optimization, speed optimization, basic SEO, contact forms, and QuoteQuick embed. Includes 14-day free trial of TradeLine Starter + QuoteQuick Pro.",
-    category: "website",
-    default_price: 119700,
-    billing_period: "one-time",
-    delivery_pattern: "one_time",
-    sort_order: 9,
-  },
-  {
-    id: "fix-optimize",
-    name: "Fix & Optimize™",
-    tagline: "Website fixes, tweaks, and optimization",
-    description: "One-off website fixes — broken pages, slow loading, SEO issues, design tweaks, and technical debt cleanup.",
-    category: "website",
-    default_price: 24900,
-    billing_period: "one-time",
-    delivery_pattern: "one_time",
-    sort_order: 10,
-  },
-];
+/** Build seed rows from pricing data — each tier becomes a service_catalog row */
+function buildServiceRows() {
+  const rows: Array<{
+    id: string;
+    name: string;
+    tagline: string;
+    description: string;
+    category: string;
+    default_price: number;
+    billing_period: string;
+    delivery_pattern: string;
+    sort_order: number;
+  }> = [];
+  let order = 0;
+
+  for (const product of ALL_PRODUCTS) {
+    for (const tier of product.tiers) {
+      order++;
+      const deliveryPattern =
+        tier.billingPeriod === "one-time" ? "one_time" :
+        tier.id.includes("tradeline") ? "always_on" :
+        tier.id.includes("quotequick") ? "always_on" :
+        tier.id.includes("reputationshield") ? "always_on" :
+        "recurring";
+
+      rows.push({
+        id: tier.id,
+        name: `${product.name}${product.tiers.length > 1 ? ` ${tier.name}` : ""}`,
+        tagline: product.tagline,
+        description: tier.features.join(". "),
+        category: product.category,
+        default_price: Math.round(tier.price * 100), // cents
+        billing_period: tier.billingPeriod,
+        delivery_pattern: deliveryPattern,
+        sort_order: order,
+      });
+    }
+  }
+
+  return rows;
+}
+
+const SERVICES = buildServiceRows();
 
 async function main() {
   console.log("Seeding service catalog...");
