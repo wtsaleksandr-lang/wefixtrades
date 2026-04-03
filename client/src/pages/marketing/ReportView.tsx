@@ -2170,14 +2170,14 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           <div style={{ fontSize: 13, color: GREY, marginBottom: 16, lineHeight: 1.5 }}>
             We'll send a PDF copy of this audit straight to your inbox.
           </div>
-          <div style={{ display: 'flex', gap: 8, maxWidth: 480, margin: '0 auto', alignItems: 'stretch' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxWidth: 480, margin: '0 auto', alignItems: 'stretch' }}>
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()}
               placeholder="your@email.com"
-              style={{ flex: 1, padding: '0 14px', borderRadius: 8, border: `1px solid ${BORDER}`, fontSize: 13, outline: 'none', fontFamily: 'inherit', color: DARK, height: 40, lineHeight: '40px' }}
+              style={{ flex: '1 1 100%', minWidth: 0, padding: '0 14px', borderRadius: 8, border: `1px solid ${BORDER}`, fontSize: 13, outline: 'none', fontFamily: 'inherit', color: DARK, height: 40, lineHeight: '40px' }}
             />
             <button
               onClick={handleEmailSubmit}
@@ -2185,6 +2185,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               {...hoverProps('email-pdf')}
               style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                flex: '1 1 auto',
                 height: 40, padding: '0 18px',
                 background: hovered === 'email-pdf' && !emailLoading ? '#00BFB8' : CYAN,
                 color: DARK, border: 'none', borderRadius: 8,
@@ -2205,6 +2206,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 {...hoverProps('download-pdf')}
                 style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  flex: '1 1 auto',
                   height: 40, padding: '0 16px',
                   background: DARK, color: WHITE, borderRadius: 8,
                   fontSize: 13, fontWeight: 600, lineHeight: 1,
@@ -2310,59 +2312,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
       )}
 
-      {/* CHAT WIDGET — mobile only */}
-      {isMobile && <>
-        {/* Bubble */}
-        <div
-          onClick={() => { setChatOpen(o => !o); setChatUnread(false); }}
-          style={{ position:'fixed', bottom:16, right:12, width:52, height:52, borderRadius:'50%', background:DARK, border:`2px solid ${CYAN}`, cursor:'pointer', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 20px rgba(0,0,0,0.25)' }}
-        >
-          <MessageCircle size={22} color={CYAN} />
-          {chatUnread && chatMessages.length > 0 && (
-            <div style={{ position:'absolute', top:0, right:0, width:10, height:10, borderRadius:'50%', background:RED, border:'2px solid white' }}/>
-          )}
-        </div>
-        {/* Chat Window */}
-        {chatOpen && (
-          <div style={{ position:'fixed', bottom:72, right:12, width:320, borderRadius:16, overflow:'hidden', boxShadow:'0 8px 40px rgba(0,0,0,0.18)', zIndex:1000, fontFamily:'Inter, system-ui, sans-serif' }}>
-            {/* Header */}
-            <div style={{ background:DARK, padding:'16px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <div>
-                <div style={{ fontSize:14, fontWeight:700, color:WHITE }}>We're here to help</div>
-                <div style={{ fontSize:11, color:'rgba(255,255,255,0.45)', marginTop:2 }}>Available 24/7 · Usually replies instantly</div>
-              </div>
-              <div onClick={() => setChatOpen(false)} style={{ color:'rgba(255,255,255,0.4)', cursor:'pointer', fontSize:20, lineHeight:1 }}>×</div>
-            </div>
-            {/* Messages */}
-            <div style={{ background:WHITE, height:280, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:10 }}>
-              {chatMessages.map((msg, i) => (
-                <div key={i} style={{ alignSelf:msg.role==='ai'?'flex-start':'flex-end', background:msg.role==='ai'?GREY_BG:CYAN, borderRadius:msg.role==='ai'?'12px 12px 12px 4px':'12px 12px 4px 12px', padding:'10px 14px', fontSize:13, color:DARK, maxWidth:'85%', lineHeight:1.5 }}>
-                  {msg.text}
-                </div>
-              ))}
-              {chatLoading && (
-                <div style={{ alignSelf:'flex-start', background:GREY_BG, borderRadius:12, padding:'10px 14px', display:'flex', gap:4 }}>
-                  {[0,1,2].map(i => (
-                    <div key={i} style={{ width:6, height:6, borderRadius:'50%', background:GREY }}/>
-                  ))}
-                </div>
-              )}
-              <div ref={chatEndRef}/>
-            </div>
-            {/* Input */}
-            <div style={{ background:WHITE, borderTop:`1px solid ${BORDER}`, padding:10, display:'flex', gap:8 }}>
-              <input
-                value={chatInput}
-                onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => e.key==='Enter' && sendChat()}
-                placeholder="Ask anything..."
-                style={{ flex:1, padding:'8px 12px', borderRadius:8, border:`1px solid ${BORDER}`, fontSize:13, outline:'none', fontFamily:'inherit' }}
-              />
-              <button onClick={sendChat} {...hoverProps('chatsend')} style={{ background: hovered==='chatsend' ? '#00BFB8' : CYAN, color:DARK, border:'none', borderRadius:8, padding:'8px 14px', fontWeight:700, fontSize:13, cursor:'pointer', transition:'background 0.15s ease' }}>→</button>
-            </div>
-          </div>
-        )}
-      </>}
+      {/* CHAT WIDGET — removed: SiteChatWidget from MarketingLayout handles chat */}
 
       {/* FAQ — bottom of all tabs */}
       <div data-print-hide style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: '20px 20px', marginBottom: 10 }}>
