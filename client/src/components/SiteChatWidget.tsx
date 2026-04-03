@@ -169,6 +169,22 @@ export default function SiteChatWidget() {
         </button>
       )}
 
+      {/* Backdrop overlay (mobile) */}
+      {open && (
+        <div
+          className="wft-site-chat-backdrop"
+          onClick={() => setOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9998,
+            background: "rgba(0,0,0,0.4)",
+            backdropFilter: "blur(4px)",
+            WebkitBackdropFilter: "blur(4px)",
+          }}
+        />
+      )}
+
       {/* Chat panel */}
       {open && (
         <div className="wft-site-chat-panel" onWheel={e => e.stopPropagation()} style={{
@@ -338,13 +354,22 @@ export default function SiteChatWidget() {
         }
         @media (max-width: 480px) {
           .wft-site-chat-panel {
-            bottom: 0 !important;
-            right: 0 !important;
-            width: 100vw !important;
-            max-width: 100vw !important;
-            height: 100vh !important;
-            max-height: 100vh !important;
-            border-radius: 0 !important;
+            bottom: 16px !important;
+            right: 16px !important;
+            left: 16px !important;
+            width: auto !important;
+            max-width: none !important;
+            height: calc(100vh - 80px) !important;
+            max-height: calc(100vh - 80px) !important;
+            border-radius: 16px !important;
+          }
+          .wft-site-chat-backdrop {
+            display: block;
+          }
+        }
+        @media (min-width: 481px) {
+          .wft-site-chat-backdrop {
+            display: none;
           }
         }
       `}</style>
