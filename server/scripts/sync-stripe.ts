@@ -8,24 +8,26 @@
  *   1. Reads all active services from service_catalog
  *   2. For each service:
  *      - Creates a Stripe Product if stripe_product_id is missing
- *      - Creates a Stripe Price if stripe_price_id is missing
- *   3. Stores stripe_product_id and stripe_price_id back into service_catalog
+ *      - Creates a monthly Stripe Price if stripe_price_id is missing
+ *      - Creates a yearly Stripe Price if stripe_yearly_price_id is missing (monthly services only)
+ *   3. Stores IDs back into service_catalog
+ *
+ * Yearly price = monthly * 12 * (1 - YEARLY_DISCOUNT_PCT), billed annually.
  *
  * Safe to run multiple times — skips services that already have Stripe IDs.
- * To force re-sync (e.g. after price change), clear the stripe_price_id
- * in the database and re-run.
+ * To force re-sync (e.g. after price change), clear the stripe_price_id /
+ * stripe_yearly_price_id in the database and re-run.
  *
  * Requires:
  *   STRIPE_SECRET_KEY in environment
  *   DATABASE_URL in environment
- *
- * Does NOT touch the legacy Stripe Connect / booking deposit flow.
  */
 
 import Stripe from "stripe";
 import { db } from "../db";
 import { serviceCatalog } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { YEARLY_DISCOUNT_PCT } from "@shared/pricing";
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -39,6 +41,7 @@ function getStripe(): Stripe {
 async function main() {
   const stripe = getStripe();
   console.log("Syncing service catalog → Stripe...\n");
+  console.log(`Yearly discount: ${Math.round(YEARLY_DISCOUNT_PCT * 100)}%\n`);
 
   const services = await db.select().from(serviceCatalog).orderBy(serviceCatalog.sort_order);
 
@@ -65,6 +68,8 @@ async function main() {
 
     let productId = svc.stripe_product_id;
     let priceId = svc.stripe_price_id;
+    let yearlyPriceId = svc.stripe_yearly_price_id;
+    const isRecurring = svc.billing_period === "monthly";
 
     // ─── Create Product if missing ───
     if (!productId) {
@@ -83,17 +88,13 @@ async function main() {
       console.log(`  · Product exists: ${svc.name} → ${productId}`);
     }
 
-    // ─── Create Price if missing ───
+    // ─── Create monthly/one-time Price if missing ───
     if (!priceId) {
-      const isRecurring = svc.billing_period === "monthly";
-
       const priceParams: Stripe.PriceCreateParams = {
         product: productId,
         currency: "usd",
-        unit_amount: svc.default_price, // already in cents
-        metadata: {
-          service_catalog_id: svc.id,
-        },
+        unit_amount: svc.default_price,
+        metadata: { service_catalog_id: svc.id, period: isRecurring ? "monthly" : "one-time" },
       };
 
       if (isRecurring) {
@@ -107,24 +108,37 @@ async function main() {
       console.log(`  · Price exists: ${svc.name} → ${priceId}`);
     }
 
+    // ─── Create yearly Price if missing (monthly services only) ───
+    if (isRecurring && !yearlyPriceId) {
+      const yearlyAmountCents = Math.round(svc.default_price * 12 * (1 - YEARLY_DISCOUNT_PCT));
+
+      const yearlyPrice = await stripe.prices.create({
+        product: productId,
+        currency: "usd",
+        unit_amount: yearlyAmountCents,
+        recurring: { interval: "year" },
+        metadata: { service_catalog_id: svc.id, period: "yearly" },
+      });
+      yearlyPriceId = yearlyPrice.id;
+      console.log(`  ✓ Created Yearly Price: $${(yearlyAmountCents / 100).toFixed(2)}/yr → ${yearlyPriceId}`);
+    } else if (isRecurring && yearlyPriceId) {
+      console.log(`  · Yearly Price exists: ${svc.name} → ${yearlyPriceId}`);
+    }
+
     // ─── Store IDs back in service_catalog ───
-    if (productId !== svc.stripe_product_id || priceId !== svc.stripe_price_id) {
-      await db.update(serviceCatalog)
-        .set({
-          stripe_product_id: productId,
-          stripe_price_id: priceId,
-          updated_at: new Date(),
-        })
-        .where(eq(serviceCatalog.id, svc.id));
+    const updates: Record<string, any> = {};
+    if (productId !== svc.stripe_product_id) updates.stripe_product_id = productId;
+    if (priceId !== svc.stripe_price_id) updates.stripe_price_id = priceId;
+    if (yearlyPriceId && yearlyPriceId !== svc.stripe_yearly_price_id) updates.stripe_yearly_price_id = yearlyPriceId;
+
+    if (Object.keys(updates).length > 0) {
+      updates.updated_at = new Date();
+      await db.update(serviceCatalog).set(updates).where(eq(serviceCatalog.id, svc.id));
       created++;
     }
   }
 
   console.log(`\nDone — ${created} synced, ${skipped} skipped.`);
-  console.log("\nNext steps:");
-  console.log("  1. Verify products in Stripe Dashboard → Products");
-  console.log("  2. Build checkout routes (stripeBillingRoutes.ts)");
-  console.log("  3. Build webhook handler for payment events");
   process.exit(0);
 }
 

@@ -83,6 +83,7 @@ export default function CheckoutModal({ open, onClose, title, items, bundleId, b
           contact_phone: phone.trim() || undefined,
           items: items.map(i => i.serviceId),
           bundle_id: bundleId,
+          billing_period: yearly ? "yearly" : "monthly",
         }),
       });
 

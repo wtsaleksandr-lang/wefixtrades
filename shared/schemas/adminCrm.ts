@@ -16,7 +16,8 @@ export const serviceCatalog = pgTable("service_catalog", {
   // one_time | recurring | always_on
   is_active: boolean("is_active").notNull().default(true),
   stripe_product_id: text("stripe_product_id"),
-  stripe_price_id: text("stripe_price_id"),
+  stripe_price_id: text("stripe_price_id"),              // monthly or one-time price
+  stripe_yearly_price_id: text("stripe_yearly_price_id"), // yearly price (monthly services only)
   sort_order: integer("sort_order").notNull().default(0),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),

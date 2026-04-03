@@ -29,6 +29,7 @@ interface CheckoutRequestBody {
   contact_phone?: string;
   items: string[];          // service_catalog IDs, e.g. ["tradeline-starter", "mapguard-basic"]
   bundle_id?: string;       // optional: which bundle this came from (metadata only)
+  billing_period?: "monthly" | "yearly"; // defaults to "monthly"
 }
 
 export function registerPublicCheckoutRoutes(app: Express): void {
@@ -41,6 +42,7 @@ export function registerPublicCheckoutRoutes(app: Express): void {
       /* ─── Validate input ─── */
       const body = req.body as CheckoutRequestBody;
       const { business_name, contact_name, contact_email, contact_phone, items, bundle_id } = body;
+      const billingPeriod = body.billing_period === "yearly" ? "yearly" : "monthly";
 
       if (!business_name?.trim()) return res.status(400).json({ error: "Business name is required" });
       if (!contact_name?.trim()) return res.status(400).json({ error: "Your name is required" });
@@ -49,15 +51,19 @@ export function registerPublicCheckoutRoutes(app: Express): void {
       if (items.length > 10) return res.status(400).json({ error: "Too many items" });
 
       /* ─── Look up all requested services ─── */
-      const services: ServiceCatalogRow[] = [];
+      const services: Array<ServiceCatalogRow & { _resolvedPriceId: string }> = [];
       for (const id of items) {
         const svc = await storage.getServiceById(id);
         if (!svc) return res.status(400).json({ error: `Unknown service: ${id}` });
         if (!svc.is_active) return res.status(400).json({ error: `Service ${svc.name} is not available` });
-        if (!svc.stripe_price_id) {
-          return res.status(400).json({ error: `${svc.name} is not yet available for online checkout. Please contact us.` });
+        // Determine which Stripe price to use
+        const wantsYearly = billingPeriod === "yearly" && svc.billing_period === "monthly";
+        const resolvedPriceId = wantsYearly ? svc.stripe_yearly_price_id : svc.stripe_price_id;
+        if (!resolvedPriceId) {
+          const missing = wantsYearly ? "yearly" : "default";
+          return res.status(400).json({ error: `${svc.name} does not have a ${missing} price configured. Please contact us.` });
         }
-        services.push(svc);
+        services.push({ ...svc, _resolvedPriceId: resolvedPriceId });
       }
 
       /* ─── Find or create CRM client ─── */
@@ -166,7 +172,7 @@ export function registerPublicCheckoutRoutes(app: Express): void {
       const mode = hasSubscription ? "subscription" : "payment";
 
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = services.map(svc => ({
-        price: svc.stripe_price_id!,
+        price: svc._resolvedPriceId,
         quantity: 1,
       }));
 
@@ -180,6 +186,7 @@ export function registerPublicCheckoutRoutes(app: Express): void {
           crm_client_id: String(client.id),
           service_catalog_id: services.map(s => s.id).join(","),
           bundle_id: bundle_id || "",
+          billing_period: billingPeriod,
           source: "public_checkout",
         },
         success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
