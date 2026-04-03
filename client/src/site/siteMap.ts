@@ -23,7 +23,6 @@ export const FOOTER_LINKS = {
     { label: "WebBoost\u2122", href: "/products/webboost" },
     { label: "SocialSync\u2122", href: "/products/socialsync" },
     { label: "SiteLaunch\u2122", href: "/products/sitelaunch" },
-    { label: "Fix & Optimize\u2122", href: "/products/fix-and-optimize" },
   ],
   Solutions: [
     { label: "For Plumbers", href: "/solutions/for-plumbers" },
@@ -34,6 +33,7 @@ export const FOOTER_LINKS = {
   ],
   Resources: [
     { label: "Plans", href: "/plans" },
+    { label: "Fix & Optimize™", href: "/products/fix-and-optimize" },
     { label: "Demo Center", href: "/demos" },
     { label: "Docs", href: "/docs" },
     { label: "Blog", href: "/blog" },

@@ -60,7 +60,6 @@ export const NAV_LINKS: NavItem[] = [
       { label: "WebBoost\u2122", href: "/products/webboost", description: "Speed + SEO optimization.", icon: "rocket" },
       { label: "SocialSync\u2122", href: "/products/socialsync", description: "Social media automation.", icon: "share2" },
       { label: "SiteLaunch\u2122", href: "/products/sitelaunch", description: "High-converting websites.", icon: "layout" },
-      { label: "Fix & Optimize\u2122", href: "/products/fix-and-optimize", description: "Quick improvements package.", icon: "sparkles" },
     ],
   },
   {
@@ -91,7 +90,13 @@ export const NAV_LINKS: NavItem[] = [
     ],
   },
   { label: "Templates", href: "/templates" },
-  { label: "Plans", href: "/plans" },
+  {
+    label: "Plans",
+    href: "/plans",
+    children: [
+      { label: "Fix & Optimize™", href: "/products/fix-and-optimize", description: "Quick improvements package.", icon: "sparkles" },
+    ],
+  },
   {
     label: "Resources",
     href: "/demos",
