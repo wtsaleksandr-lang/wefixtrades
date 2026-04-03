@@ -29,6 +29,8 @@ export default function LoginPage() {
       const role = data.user?.role;
       if (role === "admin" || role === "portal") {
         navigate("/admin/crm");
+      } else if (role === "client") {
+        navigate("/portal");
       } else {
         navigate("/dashboard");
       }

@@ -18,6 +18,7 @@ import { registerAdminCrmRoutes } from "./adminCrmRoutes";
 import { registerStripeBillingRoutes } from "./stripeBillingRoutes";
 import { registerOnboardingPublicRoutes } from "./onboardingPublicRoutes";
 import { registerVapiRoutes } from "./vapiRoutes";
+import { registerPortalRoutes } from "./portalRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -41,6 +42,7 @@ export async function registerRoutes(
   registerStripeBillingRoutes(app);
   registerOnboardingPublicRoutes(app);
   registerVapiRoutes(app);
+  registerPortalRoutes(app);
 
   return httpServer;
 }

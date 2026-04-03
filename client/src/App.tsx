@@ -66,6 +66,12 @@ import ProfilePage from "@/pages/admin/ProfilePage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import ChangePasswordPage from "@/pages/admin/ChangePasswordPage";
 import OnboardingForm from "@/pages/OnboardingForm";
+import RequireClient from "@/components/auth/RequireClient";
+import PortalDashboard from "@/pages/portal/PortalDashboard";
+import PortalServices from "@/pages/portal/PortalServices";
+import PortalServiceDetail from "@/pages/portal/PortalServiceDetail";
+import PortalBilling from "@/pages/portal/PortalBilling";
+import PortalSettings from "@/pages/portal/PortalSettings";
 
 function Router() {
   return (
@@ -83,6 +89,13 @@ function Router() {
       <Route path="/admin/crm/settings">{() => <RequirePortal><SettingsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/change-password">{() => <RequirePortal><ChangePasswordPage /></RequirePortal>}</Route>
       <Route path="/admin/crm">{() => <RequirePortal><CrmOverview /></RequirePortal>}</Route>
+
+      {/* Client portal */}
+      <Route path="/portal/services/:id">{() => <RequireClient><PortalServiceDetail /></RequireClient>}</Route>
+      <Route path="/portal/services">{() => <RequireClient><PortalServices /></RequireClient>}</Route>
+      <Route path="/portal/billing">{() => <RequireClient><PortalBilling /></RequireClient>}</Route>
+      <Route path="/portal/settings">{() => <RequireClient><PortalSettings /></RequireClient>}</Route>
+      <Route path="/portal">{() => <RequireClient><PortalDashboard /></RequireClient>}</Route>
 
       <Route path="/products/mapguard" component={MapGuardPage} />
       {/* TradeLine consolidation — old routes redirect to unified product */}
