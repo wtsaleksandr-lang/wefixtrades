@@ -10,7 +10,7 @@ export default function RequireClient({ children }: { children: React.ReactNode 
 
   if (isLoading) return null;
   if (!isAuthenticated) return <Redirect to="/login" />;
-  if (user?.role !== "client") return <Redirect to="/" />;
+  if (user?.role !== "client" && user?.role !== "admin") return <Redirect to="/" />;
 
   return <>{children}</>;
 }

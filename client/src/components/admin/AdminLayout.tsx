@@ -18,6 +18,7 @@ import {
   Settings,
   KeyRound,
   LogOut,
+  ExternalLink,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -53,6 +54,7 @@ const NAV_ITEMS = [
 
 const SECONDARY_ITEMS = [
   { label: "AI Dashboard", href: "/admin/ai", icon: BrainCircuit },
+  { label: "Client Portal", href: "/portal", icon: ExternalLink },
 ];
 
 function isActive(location: string, href: string): boolean {

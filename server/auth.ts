@@ -84,7 +84,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
  */
 export function requireClient(req: Request, res: Response, next: NextFunction) {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
-  if (req.user.role !== "client") return res.status(403).json({ error: "Client portal access required" });
+  if (req.user.role !== "client" && req.user.role !== "admin") return res.status(403).json({ error: "Client portal access required" });
   // client_id resolution happens in the route handler via req.user.id
   next();
 }
