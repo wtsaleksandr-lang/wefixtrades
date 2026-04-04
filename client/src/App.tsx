@@ -111,6 +111,9 @@ function Router() {
       <Route path="/products/ai-chat">{() => <Redirect to="/products/tradeline" />}</Route>
       <Route path="/products/ai-voice">{() => <Redirect to="/products/tradeline" />}</Route>
       <Route path="/products/tradeline-complete">{() => <Redirect to="/products/tradeline" />}</Route>
+      {/* QuoteQuick slug consolidation */}
+      <Route path="/products/quickquote">{() => <Redirect to="/products/quickquotepro" />}</Route>
+      <Route path="/products/quotequick">{() => <Redirect to="/products/quickquotepro" />}</Route>
       <Route path="/products/:slug" component={NewProductPage} />
 
       <Route path="/solutions/visibility" component={SolutionsVisibility} />

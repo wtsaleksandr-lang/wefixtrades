@@ -45,52 +45,6 @@ export interface ProductPage {
 
 export const PRODUCT_PAGES: ProductPage[] = [
   {
-    slug: "quickquote",
-    name: "QuoteQuick Pro\u2122",
-    shortTagline: "Customer Self-Quoting for Trades",
-    seoTitle: "QuoteQuick Pro\u2122 \u2014 Instant Quote Calculator for Trades | WeFixTrades",
-    seoDescription: "Stop losing leads to a contact form. Give customers instant prices on your website using your real service rates \u2014 and capture every lead automatically.",
-    category: "core",
-    heroVisualType: "calculator",
-    primaryCTA: { label: "Start Free for 14 Days", href: "/Wizard" },
-    secondaryCTA: { label: "See It in Action", href: "/demo" },
-    highlights: [
-      "Instant estimates, 24/7 \u2014 Customers get prices immediately \u2014 even when you\u2019re on a job.",
-      "Your pricing logic \u2014 Flat-rate, per-unit, tiered, formulas \u2014 use the way you already price work.",
-      "Lead capture built in \u2014 Every quote becomes a real lead with contact details.",
-      "Embed anywhere \u2014 One script tag works on almost any website.",
-      "Branded to your business \u2014 Your logo, colors, services, and tone.",
-      "Update once \u2014 Change pricing in your dashboard and every embed updates.",
-    ],
-    outcomes: [
-      { title: "More leads", desc: "Visitors stay on your site instead of leaving." },
-      { title: "Faster conversions", desc: "People who get a price faster are less likely to shop around." },
-      { title: "Higher ticket size", desc: "Optional add-ons and upgrades increase average job value." },
-      { title: "Less manual quoting", desc: "You stop wasting time on basic quote requests." },
-    ],
-    howItWorks: [
-      { title: "Add your services and pricing", desc: "Set your formulas, service options, and upsells." },
-      { title: "Embed it on your site", desc: "Paste one line of code into your website." },
-      { title: "Start capturing leads", desc: "Customers price the job themselves and you get the lead instantly." },
-    ],
-    bestFor: ["Plumbers", "HVAC Technicians", "Electricians", "Cleaners", "Landscapers", "Painters", "Contractors"],
-    visuals: [
-      { title: "Quote Widget", desc: "Branded calculator on your website. Customers estimate their job in seconds." },
-      { title: "Lead Dashboard", desc: "Every estimate, lead detail, and follow-up status in one place." },
-      { title: "Embed Options", desc: "Script tag, iframe, button, or hosted page \u2014 deploy however you want." },
-    ],
-    faq: [
-      { q: "How accurate are the quotes?", a: "They\u2019re based on the pricing rules you configure. You set the formulas, service options, and rates. QuoteQuick calculates using your actual numbers." },
-      { q: "Do I need coding skills?", a: "No. You configure everything through a visual wizard. Embedding is one line of code you paste into your site." },
-      { q: "Can I customize the pricing logic?", a: "Fully. Flat rate, per-unit, area-based, tiered, time-based, package, formula-based, and more." },
-      { q: "Will it work on my website?", a: "Yes. WordPress, Wix, Squarespace, Webflow, Shopify, or plain HTML. If your site supports a script tag, it works." },
-      { q: "Can customers book after getting a quote?", a: "Yes. On supported plans, customers can book and pay a deposit directly after receiving their estimate." },
-      { q: "What if I want to change pricing later?", a: "Update it once in your dashboard and it updates on every embedded widget automatically." },
-    ],
-    pricingSection: buildPricingSection(QUOTEQUICK),
-    related: ["booking-addon", "ai-chat"],
-  },
-  {
     slug: "tradeline",
     name: "24/7 TradeLine\u2122",
     shortTagline: "Always-On Lead Handling",

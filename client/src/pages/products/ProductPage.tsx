@@ -14,6 +14,8 @@ import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { getProductBySlug, PRODUCT_PAGES, CATEGORY_LABELS, type ProductPage as ProductConfig } from "@/config/products";
 import NotFound from "@/pages/not-found";
 import { mkt, shadows, typography } from "@/theme/tokens";
+import QuoteWidget from "@/components/quote-widget/QuoteWidget";
+import type { CalculatorData } from "@/components/quote-widget/types";
 
 /* ---------- FAQ Accordion ---------- */
 function FAQAccordion({ q, a }: { q: string; a: string }) {
@@ -1034,6 +1036,31 @@ function QQSolutionSection() {
 }
 
 /* ---------- QuoteQuick: Live Demo Section ---------- */
+const QQ_DEMO_CALCULATOR: CalculatorData = {
+  id: 0,
+  slug: "demo-plumbing",
+  business_name: "Metro Plumbing Co.",
+  tagline: "Fast & reliable plumbing quotes",
+  primary_color: "#3B82F6",
+  pricing_config: {
+    pricingType: "base_plus_rate",
+    unitName: "fixture",
+    baseFee: 89,
+    rate: 65,
+    travelFee: 25,
+    addOns: [
+      { id: "emergency", label: "Emergency / Same-Day", type: "fixed" as const, amount: 75 },
+      { id: "camera", label: "Camera Inspection", type: "fixed" as const, amount: 120 },
+      { id: "warranty", label: "Extended Warranty (2yr)", type: "pct" as const, amount: 15 },
+    ],
+  },
+  calculator_settings: {
+    ui_template: { template_id: "multi_step_progressive" },
+    calculator_type: "estimate_only",
+    lead_form: { fields: { name: true, email: true, phone: true }, cta_text: "Get My Quote" },
+  },
+};
+
 function QQDemoSection() {
   return (
     <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="qq-demo">
@@ -1054,19 +1081,13 @@ function QQDemoSection() {
           This is exactly what your customer sees on your website.
         </p>
 
-        {/* Demo widget placeholder */}
+        {/* Live QuoteWidget demo */}
         <div
           style={{
             background: mkt.bg,
             border: `2px solid ${mkt.border}`,
             borderRadius: 18,
-            padding: "40px 24px",
-            minHeight: 320,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 16,
+            padding: "24px 16px",
             position: "relative",
             overflow: "hidden",
           }}
@@ -1079,47 +1100,35 @@ function QQDemoSection() {
               pointerEvents: "none",
             }}
           />
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              background: mkt.accentTint,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Zap size={22} color={mkt.accent} strokeWidth={2} />
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <QuoteWidget calculator={QQ_DEMO_CALCULATOR} />
           </div>
-          <p style={{ fontSize: 16, fontWeight: 600, color: mkt.text, margin: 0 }}>
-            Interactive Quote Widget
-          </p>
-          <p style={{ fontSize: 13, color: mkt.textMuted, maxWidth: 320, lineHeight: 1.5 }}>
-            Select a service, answer a few questions, and get an instant estimate — just like your customers will.
-          </p>
-          <Link
-            href="/demo"
-            className="mkt-btn-primary"
-            style={{
-              padding: "11px 24px",
-              borderRadius: 9999,
-              background: mkt.accent,
-              color: mkt.buttonText,
-              fontSize: 14,
-              fontWeight: 700,
-              textDecoration: "none",
-              display: "inline-block",
-              marginTop: 8,
-            }}
-          >
-            Try the Live Demo
-          </Link>
         </div>
 
-        <p style={{ fontSize: 14, color: mkt.textMuted, marginTop: 16, opacity: 0.75 }}>
-          If a customer can use a contact form, they can use this.
-        </p>
+        <div style={{ marginTop: 20, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+          <Link
+            href="/demo"
+            className="mkt-btn-ghost"
+            style={{
+              padding: "10px 22px",
+              borderRadius: 9999,
+              background: "transparent",
+              color: mkt.text,
+              fontSize: 14,
+              fontWeight: 600,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              border: `1.5px solid ${mkt.border}`,
+            }}
+          >
+            Try more trades in the full demo
+          </Link>
+          <p style={{ fontSize: 13, color: mkt.textMuted, opacity: 0.7 }}>
+            If a customer can use a contact form, they can use this.
+          </p>
+        </div>
       </div>
     </section>
   );
@@ -1376,7 +1385,7 @@ export default function ProductPage() {
     .filter(Boolean) as ProductConfig[];
 
   const isTradeLine = product.slug === "tradeline";
-  const isQuoteQuick = product.slug === "quickquote" || product.slug === "quickquotepro";
+  const isQuoteQuick = product.slug === "quickquotepro";
 
   return (
     <MarketingLayout>
