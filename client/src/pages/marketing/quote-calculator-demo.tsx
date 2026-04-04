@@ -372,7 +372,7 @@ export default function QuoteCalculatorDemo() {
 
           {/* ─── CTA ─── */}
           <div style={{ maxWidth: 640, margin: "0 auto" }}>
-            <Link href="/demo" style={{ textDecoration: "none", display: "block", marginBottom: 32 }}>
+            <Link href="/signup?product=quotequick" style={{ textDecoration: "none", display: "block", marginBottom: 16 }}>
               <div className="demo-cta-wrap" style={{
                 background: CYAN,
                 borderRadius: 16,
@@ -390,14 +390,14 @@ export default function QuoteCalculatorDemo() {
                     lineHeight: 1.2,
                     marginBottom: 4,
                   }}>
-                    Get this on your website
+                    Get QuoteQuick for Your Business
                   </div>
                   <div style={{
                     fontSize: 14,
                     color: "rgba(13,21,20,0.6)",
                     fontWeight: 500,
                   }}>
-                    Live in under 10 minutes — no code needed
+                    From $49/mo · Live in under 10 minutes · No code needed
                   </div>
                 </div>
                 <div style={{
@@ -423,6 +423,28 @@ export default function QuoteCalculatorDemo() {
                     ))}
                   </div>
                 </div>
+              </div>
+            </Link>
+
+            {/* Secondary: Talk to Us */}
+            <Link href="/demo" style={{ textDecoration: "none", display: "block", marginBottom: 32 }}>
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                padding: "12px 20px", borderRadius: 14,
+                border: `1px solid ${mkt.border}`, background: "transparent",
+                cursor: "pointer", transition: "border-color 0.2s, background 0.2s",
+                fontSize: 14, fontWeight: 600, color: mkt.textMuted,
+              }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
+                  e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = mkt.border;
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                Talk to Us
               </div>
             </Link>
 

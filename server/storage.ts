@@ -5,7 +5,7 @@ import {
   calculatorAnalyticsSummary, jobLogs,
   notificationQueue, followupJobs, bookings,
   aiConversations, supportTickets, smsMessages,
-  users, auditSubmissions, auditFollowupEmails, missedCallLeads,
+  users, auditSubmissions, auditFollowupEmails, demoQuoteLeads, missedCallLeads,
   type Calculator, type InsertCalculator,
   type Lead, type InsertLead,
   type AnalyticsEvent, type InsertAnalyticsEvent,
@@ -22,6 +22,7 @@ import {
   type AuditSubmission, type InsertAuditSubmission,
   type AuditFollowupEmail, type InsertAuditFollowupEmail,
   type MissedCallLead, type InsertMissedCallLead,
+  type DemoQuoteLead, type InsertDemoQuoteLead,
   // Admin CRM
   clients, clientServices, serviceCatalog, orders, orderItems,
   suppliers, fulfillmentTasks, onboardingSubmissions, onboardingTemplates,
@@ -128,6 +129,7 @@ export interface IStorage {
   updateAuditFollowup(id: number, updates: Record<string, any>): Promise<void>;
 
   createMissedCallLead(data: InsertMissedCallLead): Promise<MissedCallLead>;
+  createDemoQuoteLead(data: InsertDemoQuoteLead): Promise<DemoQuoteLead>;
 
   // ─── Admin CRM ───
   // Clients
@@ -750,6 +752,11 @@ export class DatabaseStorage implements IStorage {
 
   async createMissedCallLead(data: InsertMissedCallLead): Promise<MissedCallLead> {
     const [row] = await db.insert(missedCallLeads).values(data).returning();
+    return row;
+  }
+
+  async createDemoQuoteLead(data: InsertDemoQuoteLead): Promise<DemoQuoteLead> {
+    const [row] = await db.insert(demoQuoteLeads).values(data).returning();
     return row;
   }
 

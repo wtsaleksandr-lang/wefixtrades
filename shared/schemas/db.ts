@@ -322,6 +322,7 @@ export const auditFollowupEmails = pgTable("audit_followup_emails", {
   audit_submission_id: integer("audit_submission_id").references(() => auditSubmissions.id),
   audit_report_id: uuid("audit_report_id").references(() => auditReports.id),
   missed_call_lead_id: integer("missed_call_lead_id"),
+  demo_quote_lead_id: integer("demo_quote_lead_id"),
   email: text("email").notNull(),
   business_name: text("business_name"),
   run_at: timestamp("run_at").notNull(),
@@ -341,6 +342,30 @@ export const insertAuditFollowupEmailSchema = createInsertSchema(auditFollowupEm
 });
 export type InsertAuditFollowupEmail = z.infer<typeof insertAuditFollowupEmailSchema>;
 export type AuditFollowupEmail = typeof auditFollowupEmails.$inferSelect;
+
+/* ─── Demo Quote Leads ─── */
+export const demoQuoteLeads = pgTable("demo_quote_leads", {
+  id: serial("id").primaryKey(),
+  email: text("email"),
+  name: text("name"),
+  phone: text("phone"),
+  company: text("company"),
+  trade: varchar("trade", { length: 50 }).notNull(),
+  demo_business_name: text("demo_business_name"),
+  quote_amount: integer("quote_amount"),
+  answers: jsonb("answers"),
+  sms_consent: boolean("sms_consent").default(false),
+  source: varchar("source", { length: 50 }).default("quote_demo"),
+  page: varchar("page", { length: 100 }).default("quote-demo"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertDemoQuoteLeadSchema = createInsertSchema(demoQuoteLeads).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertDemoQuoteLead = z.infer<typeof insertDemoQuoteLeadSchema>;
+export type DemoQuoteLead = typeof demoQuoteLeads.$inferSelect;
 
 /* ─── Missed Call Calculator Leads ─── */
 export const missedCallLeads = pgTable("missed_call_leads", {

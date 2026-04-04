@@ -78,19 +78,34 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
     setError(null);
 
     try {
-      const body = {
-        calculator_id: config.calculator.id,
-        name: leadData.name || null,
-        email: leadData.email || null,
-        phone: leadData.phone || null,
-        company: leadData.company || null,
-        quote_amount: estimate?.total ?? null,
-        answers: answers,
-        sms_consent: smsConsent,
-        consent_timestamp: smsConsent ? new Date().toISOString() : null,
-      };
+      const isDemo = config.calculator.id === 0;
 
-      const res = await fetch('/api/leads', {
+      const endpoint = isDemo ? '/api/demo-leads' : '/api/leads';
+      const body = isDemo
+        ? {
+            email: leadData.email || null,
+            name: leadData.name || null,
+            phone: leadData.phone || null,
+            company: leadData.company || null,
+            trade: (config.calculator.slug || '').replace('demo-', ''),
+            demoBusinessName: config.calculator.business_name || null,
+            quoteAmount: estimate?.total ?? null,
+            answers: answers,
+            smsConsent: smsConsent,
+          }
+        : {
+            calculator_id: config.calculator.id,
+            name: leadData.name || null,
+            email: leadData.email || null,
+            phone: leadData.phone || null,
+            company: leadData.company || null,
+            quote_amount: estimate?.total ?? null,
+            answers: answers,
+            sms_consent: smsConsent,
+            consent_timestamp: smsConsent ? new Date().toISOString() : null,
+          };
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

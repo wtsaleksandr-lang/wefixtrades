@@ -1,4 +1,4 @@
-import { CheckCircle2, PartyPopper } from 'lucide-react';
+import { CheckCircle2, PartyPopper, ArrowRight, MessageSquare } from 'lucide-react';
 import { useWidgetState } from '../useWidgetState';
 import { eff, stepTitleStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
@@ -14,6 +14,7 @@ interface ConfirmationStepProps {
  */
 export default function ConfirmationStep({ step, accentColor }: ConfirmationStepProps) {
   const { config, state } = useWidgetState();
+  const isDemo = config.calculator.id === 0;
   const leadSubmitted = state.lead.submitted;
   const bookingConfirmed = state.booking.confirmed;
   const bookingData = state.booking.data;
@@ -104,6 +105,74 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
           ? "Check your email for a copy of your estimate. We'll follow up within 24 hours."
           : "We'll reach out shortly to discuss your project."}
       </p>
+
+      {/* QuoteQuick pitch — demo mode only */}
+      {isDemo && leadSubmitted && (
+        <div style={{
+          marginTop: '24px',
+          padding: '20px',
+          borderRadius: eff.radiusLg,
+          border: `1px solid ${eff.buttonBorder}`,
+          background: eff.bgSecondary,
+          textAlign: 'center',
+        }}>
+          <p style={{
+            fontSize: '16px',
+            fontWeight: 700,
+            color: eff.text,
+            margin: '0 0 6px',
+          }}>
+            Want Instant Quotes on Your Website?
+          </p>
+          <p style={{
+            fontSize: '13px',
+            color: eff.textBody,
+            lineHeight: 1.5,
+            margin: '0 0 16px',
+          }}>
+            QuoteQuick lets your customers get prices in seconds and sends every lead straight to you.
+          </p>
+          <a
+            href="/signup?product=quotequick"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '12px 24px',
+              borderRadius: eff.radiusMd,
+              background: eff.buttonBg,
+              color: '#fff',
+              fontSize: '14px',
+              fontWeight: 700,
+              textDecoration: 'none',
+              transition: 'background 0.2s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = eff.buttonBgHover; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = eff.buttonBg; }}
+          >
+            Get QuoteQuick — From $49/mo
+            <ArrowRight style={{ width: 14, height: 14 }} />
+          </a>
+          <div style={{ marginTop: '12px' }}>
+            <a
+              href="/demo"
+              style={{
+                fontSize: '13px',
+                color: eff.textBody,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = eff.text; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = eff.textBody; }}
+            >
+              <MessageSquare style={{ width: 12, height: 12 }} />
+              Talk to Us
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
