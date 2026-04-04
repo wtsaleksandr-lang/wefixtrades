@@ -15,6 +15,7 @@ import {
   calculators,
   leads,
   deploymentStatus,
+  supportTickets,
 } from "@shared/schema";
 
 /* ─── Helpers ─── */
@@ -572,9 +573,76 @@ export function registerPortalRoutes(app: Express) {
   });
 
   /**
+   * GET /api/portal/tickets
+   * List support tickets for the authenticated client.
+   */
+  app.get("/api/portal/tickets", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const tickets = await db
+        .select({
+          id: supportTickets.id,
+          subject: supportTickets.subject,
+          status: supportTickets.status,
+          description: supportTickets.description,
+          created_at: supportTickets.created_at,
+          updated_at: supportTickets.updated_at,
+          resolved_at: supportTickets.resolved_at,
+        })
+        .from(supportTickets)
+        .where(eq(supportTickets.client_id, clientId))
+        .orderBy(desc(supportTickets.created_at))
+        .limit(50);
+
+      res.json({ tickets });
+    } catch (err) {
+      console.error("Portal tickets list error:", err);
+      res.status(500).json({ error: "Failed to load tickets" });
+    }
+  });
+
+  /**
+   * POST /api/portal/tickets
+   * Create a support ticket for the authenticated client.
+   */
+  app.post("/api/portal/tickets", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { subject, message } = req.body;
+      if (!message || typeof message !== "string" || !message.trim()) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      const [ticket] = await db
+        .insert(supportTickets)
+        .values({
+          client_id: clientId,
+          subject: subject?.trim() || null,
+          description: message.trim(),
+          status: "open",
+          admin_notified: false,
+        })
+        .returning();
+
+      res.status(201).json({
+        id: ticket.id,
+        subject: ticket.subject,
+        status: ticket.status,
+        created_at: ticket.created_at,
+      });
+    } catch (err) {
+      console.error("Portal ticket create error:", err);
+      res.status(500).json({ error: "Failed to create ticket" });
+    }
+  });
+
+  /**
    * POST /api/portal/ai-chat
-   * Lightweight AI assistant for onboarding help.
-   * Context-aware: knows the service, fields, and current responses.
+   * Context-aware AI assistant for onboarding or general help.
    */
   app.post("/api/portal/ai-chat", requireClient, async (req: Request, res: Response) => {
     try {
@@ -584,20 +652,41 @@ export function registerPortalRoutes(app: Express) {
         return res.status(400).json({ error: "messages array is required" });
       }
 
-      // Build system prompt with onboarding context
-      const fieldList = (context?.fields ?? [])
-        .map((f: { key: string; label: string; required: boolean }) =>
-          `- ${f.label}${f.required ? " (required)" : " (optional)"}`)
-        .join("\n");
+      let systemPrompt: string;
 
-      const currentValues = context?.current_responses
-        ? Object.entries(context.current_responses)
-            .filter(([, v]) => v !== "" && v !== false)
-            .map(([k, v]) => `- ${k}: ${v}`)
-            .join("\n")
-        : "None filled yet.";
+      if (context?.surface === "help") {
+        // General help context
+        systemPrompt = `You are a helpful support assistant for WeFixTrades, a company that provides digital marketing services for trade businesses (plumbers, electricians, builders, etc.).
 
-      const systemPrompt = `You are a helpful onboarding assistant for WeFixTrades, a company that provides digital marketing and trade business services.
+Services include: MapGuard (Google Business Profile), TradeLine (AI phone/chat), QuoteQuick (quote calculators), WebBoost (website speed & SEO), ReputationShield (review management), SocialSync (social media), SiteLaunch (website builds), and Fix & Optimize (website fixes).
+
+Your job:
+- Answer questions about how services work
+- Explain billing, onboarding, and service delivery
+- Help clients understand their portal and dashboard
+- Keep answers short and practical (2-4 sentences)
+- Use Australian English
+- If you don't know something specific to their account, suggest they submit a ticket
+
+Do NOT:
+- Make up account-specific details (balances, dates, statuses)
+- Provide legal or financial advice
+- Discuss internal pricing or margins`;
+      } else {
+        // Onboarding context
+        const fieldList = (context?.fields ?? [])
+          .map((f: { key: string; label: string; required: boolean }) =>
+            `- ${f.label}${f.required ? " (required)" : " (optional)"}`)
+          .join("\n");
+
+        const currentValues = context?.current_responses
+          ? Object.entries(context.current_responses)
+              .filter(([, v]) => v !== "" && v !== false)
+              .map(([k, v]) => `- ${k}: ${v}`)
+              .join("\n")
+          : "None filled yet.";
+
+        systemPrompt = `You are a helpful onboarding assistant for WeFixTrades, a company that provides digital marketing and trade business services.
 
 The client is filling out an onboarding form for: ${context?.service_name ?? "a service"} (${context?.service_id ?? ""}).
 
@@ -620,6 +709,7 @@ Do NOT:
 - Make up specific business details
 - Provide legal or financial advice
 - Discuss pricing of WeFixTrades services`;
+      }
 
       const reply = await aiChat({
         system: systemPrompt,

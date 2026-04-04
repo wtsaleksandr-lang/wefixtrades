@@ -213,11 +213,14 @@ export const aiConversations = pgTable("ai_conversations", {
 export const supportTickets = pgTable("support_tickets", {
   id: serial("id").primaryKey(),
   calculator_id: integer("calculator_id").references(() => calculators.id),
+  client_id: integer("client_id"),
+  subject: text("subject"),
   status: varchar("status", { length: 20 }).notNull().default("open"),
   description: text("description").notNull(),
   transcript_json: jsonb("transcript_json").default([]),
   admin_notified: boolean("admin_notified").default(false),
   created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at"),
   resolved_at: timestamp("resolved_at"),
 });
 
