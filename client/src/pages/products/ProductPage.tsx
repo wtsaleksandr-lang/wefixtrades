@@ -364,6 +364,8 @@ function TradeLineProblemSection() {
           You're under a sink. On a roof. Elbow-deep in a panel. Your phone rings. You can't answer.
           <br /><br />
           That caller doesn't leave a voicemail. They call the next tradie on Google.
+          <br /><br />
+          That one missed call doesn't just cost you today — it costs repeat work, referrals, and future jobs.
         </p>
 
         <style>{`
@@ -436,8 +438,11 @@ function TradeLineSolutionSection() {
         >
           TradeLine handles it — automatically.
         </h2>
-        <p style={{ fontSize: 16, color: mkt.textMuted, marginBottom: 40, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 16, color: mkt.textMuted, marginBottom: 12, lineHeight: 1.6 }}>
           One system. Every channel. 24/7.
+        </p>
+        <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text, marginBottom: 40, lineHeight: 1.5 }}>
+          TradeLine doesn't just answer calls — it captures and converts every lead.
         </p>
 
         <style>{`
@@ -519,8 +524,11 @@ function TradeLineComparisonSection() {
           Your competitors answer calls.{" "}
           <span style={{ color: mkt.accent }}>TradeLine answers everything.</span>
         </h2>
-        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 36 }}>
+        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 12 }}>
           Most AI answering services handle phone calls only. TradeLine covers calls, texts, website chat, and follow-ups — one system, zero gaps.
+        </p>
+        <p style={{ fontSize: 14, fontWeight: 600, color: mkt.text, marginBottom: 36, lineHeight: 1.5 }}>
+          Most answering services stop at phone calls. That's where you start losing leads.
         </p>
 
         <div
@@ -586,6 +594,9 @@ function TradeLineResultsSection({ outcomes }: { outcomes: { title: string; desc
         >
           What happens when you stop missing calls.
         </h2>
+        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 0 }}>
+          What TradeLine is designed to help you achieve:
+        </p>
 
         <style>{`
           .tl-results-grid {
@@ -654,6 +665,9 @@ function TradeLineBuiltForSection({ trades }: { trades: string[] }) {
             </span>
           ))}
         </div>
+        <p style={{ fontSize: 14, color: mkt.textMuted, marginTop: 16, margin: "16px auto 0", opacity: 0.75 }}>
+          Designed for real job-site conditions — not office desks.
+        </p>
       </div>
     </section>
   );
@@ -712,6 +726,16 @@ function TradeLinePricingIntro() {
         }}
       >
         Every plan includes AI call answering, SMS replies, missed-call auto-response, lead capture, and follow-ups. Pick the plan that matches your call volume.
+      </p>
+      <p
+        style={{
+          fontSize: 14,
+          fontWeight: 600,
+          color: mkt.onDarkMuted,
+          marginTop: 12,
+        }}
+      >
+        Start small. Upgrade anytime as your call volume grows.
       </p>
     </>
   );
@@ -797,8 +821,8 @@ export default function ProductPage() {
                   fontFamily: typography.fontFamily,
                 }}
               >
-                Never Miss a Call.{" "}
-                <span style={{ color: mkt.accent }}>Never Lose a Job.</span>
+                Never Miss a Call Again —{" "}
+                <span style={{ color: mkt.accent }}>Or Lose Another Job to a Competitor</span>
               </h1>
               <p
                 className="hero-enter"
@@ -898,6 +922,31 @@ export default function ProductPage() {
               </Link>
             )}
           </div>
+
+          {isTradeLine && (
+            <div
+              className="hero-enter"
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: "center",
+                gap: "6px 18px",
+                marginTop: 24,
+                fontSize: 13,
+                fontWeight: 500,
+                color: mkt.textMuted,
+              }}
+            >
+              {[
+                "Built for trades businesses",
+                "Works while you\u2019re on the job",
+                "24/7 lead capture",
+                "No contracts \u00B7 Cancel anytime",
+              ].map((item) => (
+                <span key={item} style={{ whiteSpace: "nowrap" }}>{item}</span>
+              ))}
+            </div>
+          )}
         </ProductHeroShell>
 
         {/* ── TradeLine: Built For + Problem + Solution (between hero and capabilities) ── */}
@@ -986,7 +1035,7 @@ export default function ProductPage() {
         {/* ── §7 CTA ── */}
         {isTradeLine ? (
           <CTASection
-            heading="Stop missing calls. Start booking jobs."
+            heading="Stop Missing Calls. Start Winning More Jobs."
             subtext="Try TradeLine free for 14 days. No credit card. No contracts."
             ctaLabel="Start Your Free Trial"
             ctaHref="/Wizard"
