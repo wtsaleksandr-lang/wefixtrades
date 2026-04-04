@@ -34,6 +34,8 @@ export function registerDemoLeadRoutes(app: Express): void {
         quoteAmount,
         answers,
         smsConsent,
+        source_tool,
+        source_page,
       } = req.body;
 
       if (!trade) {
@@ -63,6 +65,8 @@ export function registerDemoLeadRoutes(app: Express): void {
         sms_consent: smsConsent || false,
         source: "quote_demo",
         page: "quote-demo",
+        source_tool: source_tool || "demo",
+        source_page: source_page || null,
       });
 
       const ctx = {

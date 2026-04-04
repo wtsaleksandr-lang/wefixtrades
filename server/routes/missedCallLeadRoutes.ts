@@ -27,6 +27,8 @@ export function registerMissedCallLeadRoutes(app: Express): void {
         closeRatePercent,
         avgJobValue,
         estimatedAnnualLoss,
+        source_tool,
+        source_page,
       } = req.body;
 
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -46,6 +48,8 @@ export function registerMissedCallLeadRoutes(app: Express): void {
         close_rate_percent: closeRatePercent || null,
         avg_job_value: avgJobValue || null,
         estimated_annual_loss: estimatedAnnualLoss || null,
+        source_tool: source_tool || null,
+        source_page: source_page || null,
       });
 
       const ctx = {

@@ -92,6 +92,8 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
             quoteAmount: estimate?.total ?? null,
             answers: answers,
             smsConsent: smsConsent,
+            source_tool: "demo",
+            source_page: typeof window !== "undefined" ? window.location.pathname : null,
           }
         : {
             calculator_id: config.calculator.id,

@@ -2803,7 +2803,7 @@ import { enqueueAuditFollowupSequence } from "./lib/auditFollowup";
 
 router.post('/save-lead', async (req: Request, res: Response) => {
   try {
-    const { email, name, phone, reportId, businessName, placeId, trade, city, score, issueCount, detectedIssues, recommendedServices } = req.body;
+    const { email, name, phone, reportId, businessName, placeId, trade, city, score, issueCount, detectedIssues, recommendedServices, source_tool, source_page } = req.body;
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ error: 'Valid email is required' });
     }
@@ -2818,6 +2818,8 @@ router.post('/save-lead', async (req: Request, res: Response) => {
       local_visibility_score: score || null,
       issue_count: issueCount || 0,
       wants_help: false,
+      source_tool: source_tool || null,
+      source_page: source_page || null,
     });
 
     // 2. Send PDF email (non-blocking)

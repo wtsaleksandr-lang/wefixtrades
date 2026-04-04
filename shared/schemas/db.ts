@@ -306,6 +306,8 @@ export const auditSubmissions = pgTable("audit_submissions", {
   desktop_speed_score: integer("desktop_speed_score"),
   issue_count: integer("issue_count").default(0),
   report_json: jsonb("report_json"),
+  source_tool: varchar("source_tool", { length: 50 }),
+  source_page: text("source_page"),
   created_at: timestamp("created_at").defaultNow(),
 });
 
@@ -357,6 +359,8 @@ export const demoQuoteLeads = pgTable("demo_quote_leads", {
   sms_consent: boolean("sms_consent").default(false),
   source: varchar("source", { length: 50 }).default("quote_demo"),
   page: varchar("page", { length: 100 }).default("quote-demo"),
+  source_tool: varchar("source_tool", { length: 50 }),
+  source_page: text("source_page"),
   created_at: timestamp("created_at").defaultNow(),
 });
 
@@ -378,6 +382,8 @@ export const missedCallLeads = pgTable("missed_call_leads", {
   close_rate_percent: integer("close_rate_percent"),
   avg_job_value: integer("avg_job_value"),
   estimated_annual_loss: integer("estimated_annual_loss"),
+  source_tool: varchar("source_tool", { length: 50 }),
+  source_page: text("source_page"),
   created_at: timestamp("created_at").defaultNow(),
 });
 

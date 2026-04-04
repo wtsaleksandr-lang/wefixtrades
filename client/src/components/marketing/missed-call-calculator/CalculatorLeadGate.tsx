@@ -55,6 +55,8 @@ export default function CalculatorLeadGate({
           closeRatePercent,
           avgJobValue,
           estimatedAnnualLoss,
+          source_tool: "calculator",
+          source_page: typeof window !== "undefined" ? window.location.pathname : null,
         }),
       });
 

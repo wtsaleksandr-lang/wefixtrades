@@ -73,6 +73,8 @@ export default function AuditGate({
             price: s.price,
             id: s.id,
           })),
+          source_tool: "audit",
+          source_page: typeof window !== "undefined" ? window.location.pathname : null,
         }),
       });
 
