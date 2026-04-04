@@ -200,7 +200,7 @@ export function registerPortalRoutes(app: Express) {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const serviceId = parseInt(req.params.id);
+      const serviceId = parseInt(req.params.id as string);
       if (isNaN(serviceId)) return res.status(400).json({ error: "Invalid service id" });
 
       // Get service (scoped to client)
@@ -486,7 +486,7 @@ export function registerPortalRoutes(app: Express) {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const submissionId = parseInt(req.params.id);
+      const submissionId = parseInt(req.params.id as string);
       if (isNaN(submissionId)) return res.status(400).json({ error: "Invalid onboarding id" });
 
       // Get submission scoped to client
@@ -546,7 +546,7 @@ export function registerPortalRoutes(app: Express) {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const submissionId = parseInt(req.params.id);
+      const submissionId = parseInt(req.params.id as string);
       if (isNaN(submissionId)) return res.status(400).json({ error: "Invalid onboarding id" });
 
       const { responses, mode } = req.body;

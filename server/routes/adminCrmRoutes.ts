@@ -596,7 +596,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.post("/api/admin/crm/clients/:id/create-account", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const clientId = parseInt(req.params.id);
+      const clientId = parseInt(req.params.id as string);
       const client = await storage.getClientById(clientId);
       if (!client) return res.status(404).json({ error: "Client not found" });
 
