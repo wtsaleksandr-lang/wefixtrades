@@ -74,6 +74,7 @@ import PortalBilling from "@/pages/portal/PortalBilling";
 import PortalSettings from "@/pages/portal/PortalSettings";
 import PortalOnboarding from "@/pages/portal/PortalOnboarding";
 import PortalHelp from "@/pages/portal/PortalHelp";
+import ResetPasswordPage from "@/pages/ResetPassword";
 
 function Router() {
   return (
@@ -121,6 +122,7 @@ function Router() {
       <Route path="/pricing" component={PricingNew} />
       <Route path="/plans" component={Plans} />
       <Route path="/login" component={LoginPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/services" component={MarketingServices} />
       <Route path="/bundles" component={MarketingBundles} />
       <Route path="/templates" component={MarketingTemplates} />

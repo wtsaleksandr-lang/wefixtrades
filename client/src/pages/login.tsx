@@ -155,6 +155,21 @@ export default function LoginPage() {
             >
               {login.isPending ? "Signing in\u2026" : "Sign in"}
             </button>
+
+            <div style={{ textAlign: "center", marginTop: 16 }}>
+              <a
+                href="/reset-password"
+                style={{
+                  fontSize: 13,
+                  color: mkt.textMuted,
+                  textDecoration: "none",
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.color = mkt.text)}
+                onMouseOut={(e) => (e.currentTarget.style.color = mkt.textMuted)}
+              >
+                Forgot your password?
+              </a>
+            </div>
           </form>
         </div>
       </div>

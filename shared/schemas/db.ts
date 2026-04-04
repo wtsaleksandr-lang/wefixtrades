@@ -16,6 +16,16 @@ export const insertUserSchema = createInsertSchema(users).omit({ id: true, creat
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+/* ─── Password Reset Tokens ─── */
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").notNull().references(() => users.id),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  expires_at: timestamp("expires_at").notNull(),
+  used: boolean("used").notNull().default(false),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
 /* ─── Calculators ─── */
 export const calculators = pgTable("calculators", {
   id: serial("id").primaryKey(),
