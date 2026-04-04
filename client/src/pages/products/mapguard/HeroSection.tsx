@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { ArrowRight, MapPin } from "lucide-react";
 import { mkt } from "@/theme/tokens";
 import MapMockup from "./MapMockup";
+import ProfileChecker from "./ProfileChecker";
 import { HEADING_FONT, BODY_FONT, GLASS } from "./styles";
 
 export default function HeroSection() {
@@ -128,6 +129,11 @@ export default function HeroSection() {
               </li>
             ))}
           </ul>
+
+          {/* Profile Checker */}
+          <div style={{ position: "relative", marginBottom: 28 }}>
+            <ProfileChecker />
+          </div>
 
           {/* CTAs */}
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
