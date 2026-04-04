@@ -100,7 +100,7 @@ export default function LoginPage() {
               lineHeight: 1.5,
             }}
           >
-            Access your dashboard and tools.
+            Manage your services and account.
           </p>
 
           <form onSubmit={handleSubmit}>

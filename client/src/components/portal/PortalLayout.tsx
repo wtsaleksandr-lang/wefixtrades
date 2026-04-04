@@ -148,7 +148,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="w-7 h-7 rounded-full bg-[#2D6A4F] flex items-center justify-center hover:ring-2 hover:ring-[#2D6A4F]/20 transition-shadow">
+                <button className="w-8 h-8 min-w-[44px] min-h-[44px] rounded-full bg-[#2D6A4F] flex items-center justify-center hover:ring-2 hover:ring-[#2D6A4F]/20 transition-shadow">
                   <span className="text-white text-[10px] font-bold">{initials}</span>
                 </button>
               </DropdownMenuTrigger>

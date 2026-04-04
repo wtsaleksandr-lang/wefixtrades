@@ -59,7 +59,7 @@ function AiChatPanel({
   onClose: () => void;
 }) {
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
-    { role: "assistant", content: `Hi! I'm here to help you fill out the ${serviceName} onboarding form. Ask me anything about any of the fields, or I can suggest answers based on your business.` },
+    { role: "assistant", content: `Hi! I'm here to help you fill out the ${serviceName} setup form. Ask me anything about any of the fields, or I can suggest answers based on your business.` },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -104,7 +104,7 @@ function AiChatPanel({
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-[#2D6A4F]">
         <div className="flex items-center gap-2">
           <MessageCircle className="w-4 h-4 text-white" />
-          <span className="text-sm font-medium text-white">Onboarding Assistant</span>
+          <span className="text-sm font-medium text-white">Setup Assistant</span>
         </div>
         <button onClick={onClose} className="p-1 rounded hover:bg-white/20 text-white"><X className="w-4 h-4" /></button>
       </div>
@@ -261,7 +261,7 @@ export default function PortalOnboarding() {
 
         {error && (
           <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
-            <span>Failed to load onboarding form.</span>
+            <span>Failed to load the setup form.</span>
             <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
               <RefreshCw className="w-3 h-3" /> Retry
             </button>
@@ -271,7 +271,7 @@ export default function PortalOnboarding() {
         {data && isSubmitted && (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
             <CheckCircle2 className="w-12 h-12 text-[#2D6A4F] mx-auto mb-4" />
-            <h1 className="text-lg font-semibold text-gray-900">Onboarding Submitted</h1>
+            <h1 className="text-lg font-semibold text-gray-900">Setup Form Submitted</h1>
             <p className="text-sm text-gray-500 mt-2">
               Your information for <span className="font-medium">{data.service_name}</span> has been submitted.
               Our team will review it and get started.

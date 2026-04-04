@@ -9,8 +9,8 @@ import PortalLayout from "@/components/portal/PortalLayout";
 /* ─── FAQ Data ─── */
 const FAQS = [
   {
-    question: "How does onboarding work?",
-    answer: "After you purchase a service, we'll ask you to fill in a short onboarding form (2–3 minutes). This gives us the info we need to get started — things like your business name, services you offer, and any access details. You can find pending onboarding forms on your Services page.",
+    question: "How does getting started work?",
+    answer: "After you purchase a service, we'll ask you to fill in a short setup form (2–3 minutes). This gives us the info we need to get started — things like your business name, services you offer, and any access details. You can find pending setup forms on your Services page.",
     icon: ClipboardList,
   },
   {
@@ -25,7 +25,7 @@ const FAQS = [
   },
   {
     question: "What happens after I buy a service?",
-    answer: "Once payment is confirmed, we create your service, set up onboarding, and generate the tasks needed to deliver it. You'll see the status on your Services page and get notified when we need anything from you (like onboarding info or approvals).",
+    answer: "Once payment is confirmed, we set up your service and send you a short setup form. You'll see the status on your Services page and get notified when we need anything from you.",
     icon: Wrench,
   },
   {
@@ -82,7 +82,7 @@ function AiHelpSection() {
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
   const SUGGESTIONS = [
-    "How do I complete my onboarding?",
+    "How do I complete my setup form?",
     "When will my service go live?",
     "How do I check my billing status?",
     "What does my service include?",
@@ -264,6 +264,9 @@ function TicketSection() {
                 <CheckCircle2 className="w-3.5 h-3.5" /> Ticket submitted
               </span>
             )}
+            {createTicket.error && (
+              <span className="text-xs text-red-600">Failed to submit ticket. Please try again.</span>
+            )}
           </div>
         </form>
       </div>
@@ -286,8 +289,8 @@ function TicketSection() {
                     )}
                   </p>
                 </div>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium capitalize shrink-0 ml-3 ${TICKET_STATUS[t.status] || "bg-gray-100 text-gray-600"}`}>
-                  {t.status}
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ml-3 ${TICKET_STATUS[t.status] || "bg-gray-100 text-gray-600"}`}>
+                  {TICKET_STATUS_LABELS[t.status] || t.status.replace(/_/g, " ")}
                 </span>
               </div>
             ))}
@@ -314,6 +317,13 @@ const TICKET_STATUS: Record<string, string> = {
   in_progress: "bg-indigo-50 text-indigo-700",
   resolved: "bg-emerald-50 text-emerald-700",
   closed: "bg-gray-100 text-gray-500",
+};
+
+const TICKET_STATUS_LABELS: Record<string, string> = {
+  open: "Open",
+  in_progress: "In progress",
+  resolved: "Resolved",
+  closed: "Closed",
 };
 
 function formatDate(d: string | null): string {
