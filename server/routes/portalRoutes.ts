@@ -153,10 +153,19 @@ export function registerPortalRoutes(app: Express) {
             .where(eq(fulfillmentTasks.client_service_id, svc.id));
 
           const [onboarding] = await db
-            .select({ id: onboardingSubmissions.id, status: onboardingSubmissions.status })
+            .select({
+              id: onboardingSubmissions.id,
+              status: onboardingSubmissions.status,
+              responses: onboardingSubmissions.responses,
+            })
             .from(onboardingSubmissions)
             .where(eq(onboardingSubmissions.client_service_id, svc.id))
             .limit(1);
+
+          // Check if draft responses exist
+          const hasResponses = onboarding?.responses != null
+            && typeof onboarding.responses === "object"
+            && Object.keys(onboarding.responses as Record<string, unknown>).length > 0;
 
           return {
             ...svc,
@@ -164,6 +173,7 @@ export function registerPortalRoutes(app: Express) {
             tasks_delivered: taskCounts?.delivered ?? 0,
             onboarding_id: onboarding?.id ?? null,
             onboarding_status: onboarding?.status ?? null,
+            onboarding_has_responses: hasResponses,
           };
         })
       );
@@ -480,10 +490,12 @@ export function registerPortalRoutes(app: Express) {
       const submissionId = parseInt(req.params.id);
       if (isNaN(submissionId)) return res.status(400).json({ error: "Invalid onboarding id" });
 
-      const { responses } = req.body;
+      const { responses, mode } = req.body;
       if (!responses || typeof responses !== "object") {
         return res.status(400).json({ error: "responses object is required" });
       }
+
+      const isDraft = mode === "draft";
 
       // Verify ownership
       const [submission] = await db
@@ -498,20 +510,25 @@ export function registerPortalRoutes(app: Express) {
         return res.status(400).json({ error: "This form has already been approved" });
       }
 
-      await db
-        .update(onboardingSubmissions)
-        .set({
-          responses,
-          status: "submitted",
-          submitted_at: new Date(),
-          updated_at: new Date(),
-        })
-        .where(eq(onboardingSubmissions.id, submissionId));
-
-      res.json({ ok: true, status: "submitted" });
+      if (isDraft) {
+        // Save draft — store responses without changing status to submitted
+        const newStatus = submission.status === "submitted" ? "submitted" : "viewed";
+        await db
+          .update(onboardingSubmissions)
+          .set({ responses, status: newStatus, updated_at: new Date() })
+          .where(eq(onboardingSubmissions.id, submissionId));
+        res.json({ ok: true, status: newStatus, mode: "draft" });
+      } else {
+        // Final submit
+        await db
+          .update(onboardingSubmissions)
+          .set({ responses, status: "submitted", submitted_at: new Date(), updated_at: new Date() })
+          .where(eq(onboardingSubmissions.id, submissionId));
+        res.json({ ok: true, status: "submitted", mode: "submit" });
+      }
     } catch (err) {
       console.error("Portal onboarding PUT error:", err);
-      res.status(500).json({ error: "Failed to submit onboarding" });
+      res.status(500).json({ error: "Failed to save onboarding" });
     }
   });
 

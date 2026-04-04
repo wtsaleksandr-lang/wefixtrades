@@ -174,26 +174,53 @@ export default function PortalOnboarding() {
     }
   }, [data]);
 
-  const submitMutation = useMutation({
-    mutationFn: async (formatted: Record<string, { value: any; completed_at: string }>) => {
-      const res = await fetch(`/api/portal/onboarding/${submissionId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ responses: formatted }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Submission failed");
+  const [draftSaved, setDraftSaved] = useState(false);
+
+  function formatResponses(): Record<string, { value: any; completed_at: string }> {
+    const formatted: Record<string, { value: any; completed_at: string }> = {};
+    for (const [key, value] of Object.entries(responses)) {
+      if (value !== "" && value !== false) {
+        formatted[key] = { value, completed_at: new Date().toISOString() };
       }
-      return res.json();
-    },
+    }
+    return formatted;
+  }
+
+  async function saveToServer(mode: "draft" | "submit", formatted: Record<string, { value: any; completed_at: string }>) {
+    const res = await fetch(`/api/portal/onboarding/${submissionId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ responses: formatted, mode }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "Save failed");
+    }
+    return res.json();
+  }
+
+  const submitMutation = useMutation({
+    mutationFn: (formatted: Record<string, { value: any; completed_at: string }>) => saveToServer("submit", formatted),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/onboarding", submissionId] });
       queryClient.invalidateQueries({ queryKey: ["/api/portal/services"] });
       queryClient.invalidateQueries({ queryKey: ["/api/portal/overview"] });
     },
   });
+
+  const draftMutation = useMutation({
+    mutationFn: (formatted: Record<string, { value: any; completed_at: string }>) => saveToServer("draft", formatted),
+    onSuccess: () => {
+      setDraftSaved(true);
+      setTimeout(() => setDraftSaved(false), 3000);
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/onboarding", submissionId] });
+    },
+  });
+
+  function handleSaveDraft() {
+    draftMutation.mutate(formatResponses());
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -209,18 +236,11 @@ export default function PortalOnboarding() {
     }
 
     setValidationError(null);
-
-    const formatted: Record<string, { value: any; completed_at: string }> = {};
-    for (const [key, value] of Object.entries(responses)) {
-      if (value !== "" && value !== false) {
-        formatted[key] = { value, completed_at: new Date().toISOString() };
-      }
-    }
-
-    submitMutation.mutate(formatted);
+    submitMutation.mutate(formatResponses());
   }
 
   const isSubmitted = data?.status === "submitted" || data?.status === "approved" || submitMutation.isSuccess;
+  const isSaving = draftMutation.isPending || submitMutation.isPending;
 
   // Split steps into required and optional
   const requiredSteps = data?.steps.filter((s) => s.required) ?? [];
@@ -326,19 +346,45 @@ export default function PortalOnboarding() {
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={submitMutation.isPending}
-                className="w-full mt-6 px-4 py-3 text-sm font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors disabled:opacity-60"
-              >
-                {submitMutation.isPending ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
-                  </span>
-                ) : (
-                  "Submit Onboarding"
-                )}
-              </button>
+              {/* Action buttons */}
+              <div className="flex items-center gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  disabled={isSaving}
+                  className="px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60"
+                >
+                  {draftMutation.isPending ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+                    </span>
+                  ) : (
+                    "Save Draft"
+                  )}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex-1 px-4 py-3 text-sm font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors disabled:opacity-60"
+                >
+                  {submitMutation.isPending ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
+                    </span>
+                  ) : (
+                    "Submit"
+                  )}
+                </button>
+              </div>
+              {/* Draft saved confirmation */}
+              {draftSaved && (
+                <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Draft saved. You can come back and finish later.
+                </p>
+              )}
+              {draftMutation.error && (
+                <p className="text-xs text-red-600 mt-2">{draftMutation.error.message}</p>
+              )}
             </form>
           </>
         )}

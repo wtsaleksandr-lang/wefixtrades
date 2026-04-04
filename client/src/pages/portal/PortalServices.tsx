@@ -17,6 +17,7 @@ interface ServiceRow {
   tasks_delivered: number;
   onboarding_id: number | null;
   onboarding_status: string | null;
+  onboarding_has_responses: boolean;
 }
 
 const CATEGORY_STYLES: Record<string, string> = {
@@ -147,12 +148,12 @@ export default function PortalServices() {
                             onClick={(e: React.MouseEvent) => e.stopPropagation()}
                           >
                             <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700 font-medium hover:bg-amber-100 transition-colors flex items-center justify-between">
-                              <span>Complete setup form</span>
+                              <span>{svc.onboarding_has_responses ? "Continue setup form" : "Complete setup form"}</span>
                               <ArrowRight className="w-3 h-3" />
                             </div>
                           </Link>
                         ) : (
-                          <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-100 text-xs text-amber-700">
+                          <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-100 text-xs text-emerald-700">
                             {statusLabel(ONBOARDING_STATUS_LABELS, svc.onboarding_status!)}
                           </div>
                         )}

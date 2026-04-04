@@ -66,7 +66,7 @@ export const PAYMENT_STATUS_STYLES: Record<string, string> = {
 export const ONBOARDING_STATUS_LABELS: Record<string, string> = {
   not_sent: "Not started",
   sent: "Waiting for you",
-  viewed: "Waiting for you",
+  viewed: "In progress",
   submitted: "Submitted",
   approved: "Approved",
   needs_followup: "Needs attention",
