@@ -408,6 +408,16 @@ function TradeLineProblemSection() {
         >
           You don't have a marketing problem. You have a missed-call problem.
         </p>
+        <p
+          style={{
+            fontSize: 15,
+            color: mkt.textMuted,
+            lineHeight: 1.6,
+            marginTop: 16,
+          }}
+        >
+          Every day you wait is more missed calls — and more jobs going to someone else.
+        </p>
       </div>
     </section>
   );
@@ -492,6 +502,10 @@ function TradeLineSolutionSection() {
             </div>
           ))}
         </div>
+
+        <p style={{ fontSize: 14, color: mkt.textMuted, marginTop: 28, lineHeight: 1.6 }}>
+          You stay in control — TradeLine follows your rules, pricing, and availability.
+        </p>
       </div>
     </section>
   );
@@ -577,6 +591,65 @@ function TradeLineComparisonSection() {
   );
 }
 
+/* ---------- TradeLine: Voicemail Objection ---------- */
+function TradeLineVoicemailSection() {
+  const bullets = [
+    "Calls go unanswered",
+    "Leads don\u2019t leave messages",
+    "You call back too late",
+    "Jobs go to competitors",
+  ];
+
+  return (
+    <section style={{ background: mkt.bg, padding: "64px 28px" }} data-testid="tradeline-voicemail">
+      <div style={{ maxWidth: 560, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Reality check</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(22px, 2.8vw, 32px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 24,
+          }}
+        >
+          Still relying on voicemail?
+        </h2>
+        <ul
+          style={{
+            listStyle: "none",
+            padding: 0,
+            margin: "0 auto 24px",
+            maxWidth: 320,
+            textAlign: "left",
+          }}
+        >
+          {bullets.map((b) => (
+            <li
+              key={b}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                fontSize: 15,
+                color: mkt.textMuted,
+                lineHeight: 1.5,
+                marginBottom: 10,
+              }}
+            >
+              <span style={{ color: "rgba(255,100,100,0.7)", fontSize: 16, flexShrink: 0 }}>&times;</span>
+              <span>{b}</span>
+            </li>
+          ))}
+        </ul>
+        <p style={{ fontSize: 16, fontWeight: 600, color: mkt.text }}>
+          That system doesn't work anymore.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 /* ---------- TradeLine: Results / Proof ---------- */
 function TradeLineResultsSection({ outcomes }: { outcomes: { title: string; desc: string }[] }) {
   return (
@@ -633,6 +706,9 @@ function TradeLineResultsSection({ outcomes }: { outcomes: { title: string; desc
 
         <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text }}>
           Starter costs $97/mo. One booked job covers it.
+        </p>
+        <p style={{ fontSize: 14, color: mkt.textMuted, marginTop: 8, lineHeight: 1.5 }}>
+          Missing just one job per month costs more than TradeLine.
         </p>
       </div>
     </section>
@@ -837,6 +913,10 @@ export default function ProductPage() {
                 }}
               >
                 AI that answers your calls and chats 24/7 — so you can stay on the tools.
+                <br />
+                <span style={{ fontSize: "clamp(13px, 1.5vw, 15px)", opacity: 0.75 }}>
+                  Think of it as a 24/7 receptionist that never misses a call.
+                </span>
               </p>
             </>
           ) : (
@@ -955,6 +1035,32 @@ export default function ProductPage() {
             <TradeLineBuiltForSection trades={product.bestFor} />
             <TradeLineProblemSection />
             <TradeLineSolutionSection />
+
+            {/* Mid-page CTA */}
+            <div
+              style={{ background: mkt.surface, textAlign: "center", padding: "48px 28px" }}
+              data-reveal="fade-up"
+            >
+              <Link
+                href="/Wizard"
+                className="mkt-btn-primary"
+                style={{
+                  padding: "14px 32px",
+                  borderRadius: 9999,
+                  background: mkt.accent,
+                  color: mkt.buttonText,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  display: "inline-block",
+                }}
+              >
+                Start Your Free Trial
+              </Link>
+              <p style={{ fontSize: 13, color: mkt.textMuted, marginTop: 12, opacity: 0.75 }}>
+                Takes less than 15 minutes to set up
+              </p>
+            </div>
           </>
         )}
 
@@ -964,8 +1070,19 @@ export default function ProductPage() {
         {/* ── §3 HOW IT WORKS ── */}
         <StepTimeline steps={product.howItWorks} />
 
+        {isTradeLine && (
+          <div style={{ background: mkt.surface, textAlign: "center", padding: "0 28px 48px" }} data-reveal="fade-up">
+            <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text, maxWidth: 560, margin: "0 auto", lineHeight: 1.5 }}>
+              Within minutes, your next missed call is answered automatically — and turned into a lead.
+            </p>
+          </div>
+        )}
+
         {/* ── TradeLine: Multi-channel Comparison (after how-it-works) ── */}
         {isTradeLine && <TradeLineComparisonSection />}
+
+        {/* ── TradeLine: Voicemail objection (after comparison) ── */}
+        {isTradeLine && <TradeLineVoicemailSection />}
 
         {/* ── §4 SOCIAL PROOF ── */}
         <SurfaceSection overlap className="py-4">
