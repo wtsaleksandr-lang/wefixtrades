@@ -5,7 +5,7 @@ import {
   calculatorAnalyticsSummary, jobLogs,
   notificationQueue, followupJobs, bookings,
   aiConversations, supportTickets, smsMessages,
-  users, auditSubmissions, auditFollowupEmails,
+  users, auditSubmissions, auditFollowupEmails, missedCallLeads,
   type Calculator, type InsertCalculator,
   type Lead, type InsertLead,
   type AnalyticsEvent, type InsertAnalyticsEvent,
@@ -21,6 +21,7 @@ import {
   type User, type InsertUser,
   type AuditSubmission, type InsertAuditSubmission,
   type AuditFollowupEmail, type InsertAuditFollowupEmail,
+  type MissedCallLead, type InsertMissedCallLead,
   // Admin CRM
   clients, clientServices, serviceCatalog, orders, orderItems,
   suppliers, fulfillmentTasks, onboardingSubmissions, onboardingTemplates,
@@ -125,6 +126,8 @@ export interface IStorage {
   enqueueAuditFollowups(data: InsertAuditFollowupEmail[]): Promise<AuditFollowupEmail[]>;
   fetchDueAuditFollowups(limit?: number): Promise<AuditFollowupEmail[]>;
   updateAuditFollowup(id: number, updates: Record<string, any>): Promise<void>;
+
+  createMissedCallLead(data: InsertMissedCallLead): Promise<MissedCallLead>;
 
   // ─── Admin CRM ───
   // Clients
@@ -743,6 +746,11 @@ export class DatabaseStorage implements IStorage {
 
   async updateAuditFollowup(id: number, updates: Record<string, any>): Promise<void> {
     await db.update(auditFollowupEmails).set(updates).where(eq(auditFollowupEmails.id, id));
+  }
+
+  async createMissedCallLead(data: InsertMissedCallLead): Promise<MissedCallLead> {
+    const [row] = await db.insert(missedCallLeads).values(data).returning();
+    return row;
   }
 
   // ═══════════════════════════════════════════════

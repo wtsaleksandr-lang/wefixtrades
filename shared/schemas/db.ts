@@ -319,8 +319,9 @@ export type AuditSubmission = typeof auditSubmissions.$inferSelect;
 /* ─── Audit Followup Emails ─── */
 export const auditFollowupEmails = pgTable("audit_followup_emails", {
   id: serial("id").primaryKey(),
-  audit_submission_id: integer("audit_submission_id").notNull().references(() => auditSubmissions.id),
+  audit_submission_id: integer("audit_submission_id").references(() => auditSubmissions.id),
   audit_report_id: uuid("audit_report_id").references(() => auditReports.id),
+  missed_call_lead_id: integer("missed_call_lead_id"),
   email: text("email").notNull(),
   business_name: text("business_name"),
   run_at: timestamp("run_at").notNull(),
@@ -340,6 +341,27 @@ export const insertAuditFollowupEmailSchema = createInsertSchema(auditFollowupEm
 });
 export type InsertAuditFollowupEmail = z.infer<typeof insertAuditFollowupEmailSchema>;
 export type AuditFollowupEmail = typeof auditFollowupEmails.$inferSelect;
+
+/* ─── Missed Call Calculator Leads ─── */
+export const missedCallLeads = pgTable("missed_call_leads", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  name: text("name"),
+  phone: text("phone"),
+  trade: varchar("trade", { length: 50 }).notNull(),
+  missed_calls_per_week: integer("missed_calls_per_week"),
+  close_rate_percent: integer("close_rate_percent"),
+  avg_job_value: integer("avg_job_value"),
+  estimated_annual_loss: integer("estimated_annual_loss"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertMissedCallLeadSchema = createInsertSchema(missedCallLeads).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertMissedCallLead = z.infer<typeof insertMissedCallLeadSchema>;
+export type MissedCallLead = typeof missedCallLeads.$inferSelect;
 
 /* ─── Audit Reports ─── */
 export const auditReports = pgTable("audit_reports", {

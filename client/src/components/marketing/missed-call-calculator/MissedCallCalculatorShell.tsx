@@ -1,16 +1,17 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { Link } from 'wouter';
-import { Calculator, ArrowRight } from 'lucide-react';
 import { mkt, colors, radius } from '@/theme/tokens';
 import { getPresetById } from '@/data/missedCallTradePresets';
 import type { TradePreset } from '@/data/missedCallTradePresets';
+import { calculate } from '@/lib/missedCallCalculator';
 import TradeOnboarding from './TradeOnboarding';
 import CalculatorControls from './CalculatorControls';
 import type { SliderValues } from './CalculatorControls';
 import ResultsPanel from './ResultsPanel';
+import CalculatorLeadGate from './CalculatorLeadGate';
 
 const STORAGE_KEY = 'wft-calc-trade';
+const UNLOCK_PREFIX = 'wft-calc-unlocked-';
 
 function readStoredTradeId(): string | null {
   try {
@@ -26,6 +27,25 @@ function writeStoredTradeId(id: string): void {
   } catch { /* quota / private browsing */ }
 }
 
+/** Build a deterministic unlock key from trade + inputs */
+function unlockKey(trade: string, v: SliderValues): string {
+  return `${UNLOCK_PREFIX}${trade}-${v.missedCallsPerWeek}-${v.closeRatePercent}-${v.avgJobValue}`;
+}
+
+function isUnlockedInStorage(trade: string, v: SliderValues): boolean {
+  try {
+    return localStorage.getItem(unlockKey(trade, v)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function persistUnlock(trade: string, v: SliderValues): void {
+  try {
+    localStorage.setItem(unlockKey(trade, v), '1');
+  } catch { /* ignore */ }
+}
+
 type Step = 'onboarding' | 'calculator';
 
 export default function MissedCallCalculatorShell() {
@@ -37,26 +57,35 @@ export default function MissedCallCalculatorShell() {
     closeRatePercent: 30,
     avgJobValue: 500,
   });
+  const [unlocked, setUnlocked] = useState(false);
 
   // Restore previous trade on mount
   useEffect(() => {
     const stored = readStoredTradeId();
     if (stored) {
       const preset = getPresetById(stored);
-      // Only surface if it resolved to a real preset (not the generic fallback for unknown ids)
       if (preset.id === stored) {
         setPreviousTradeId(stored);
       }
     }
   }, []);
 
+  // Re-check unlock state whenever inputs change
+  useEffect(() => {
+    if (selectedPreset) {
+      setUnlocked(isUnlockedInStorage(selectedPreset.id, sliderValues));
+    }
+  }, [selectedPreset, sliderValues]);
+
   const handleTradeSelect = useCallback((preset: TradePreset) => {
     setSelectedPreset(preset);
-    setSliderValues({
+    const newValues = {
       missedCallsPerWeek: preset.defaultMissedCallsPerWeek,
       closeRatePercent: preset.defaultCloseRate,
       avgJobValue: preset.avgJobValueMid,
-    });
+    };
+    setSliderValues(newValues);
+    setUnlocked(isUnlockedInStorage(preset.id, newValues));
     writeStoredTradeId(preset.id);
     setStep('calculator');
   }, []);
@@ -64,6 +93,22 @@ export default function MissedCallCalculatorShell() {
   const handleChangeTrade = useCallback(() => {
     setStep('onboarding');
   }, []);
+
+  const handleUnlock = useCallback(() => {
+    if (selectedPreset) {
+      persistUnlock(selectedPreset.id, sliderValues);
+      setUnlocked(true);
+    }
+  }, [selectedPreset, sliderValues]);
+
+  // Compute typical annual loss for the gate
+  const typicalAnnualLoss = useMemo(() => {
+    return calculate({
+      missedCallsPerWeek: sliderValues.missedCallsPerWeek,
+      closeRatePercent: sliderValues.closeRatePercent,
+      avgJobValue: sliderValues.avgJobValue,
+    }).lostPerYear;
+  }, [sliderValues]);
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
@@ -116,58 +161,21 @@ export default function MissedCallCalculatorShell() {
                 avgJobValue: sliderValues.avgJobValue,
               }}
               tradeName={selectedPreset.label}
+              unlocked={unlocked}
             />
 
-            {/* Cross-link to quote demo */}
-            <div style={{ marginTop: 24 }}>
-              <Link href="/tools/quote-demo" style={{ textDecoration: 'none', display: 'block' }}>
-                <div
-                  role="link"
-                  tabIndex={0}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 14,
-                    padding: '14px 18px',
-                    borderRadius: radius.lg,
-                    border: `1px solid ${mkt.border}`,
-                    background: mkt.cardBg,
-                    cursor: 'pointer',
-                    transition: 'border-color 0.2s, background 0.2s',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = mkt.border;
-                    e.currentTarget.style.background = mkt.cardBg;
-                  }}
-                >
-                  <div style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 10,
-                    background: mkt.accentTint,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    <Calculator size={16} color={mkt.accent} strokeWidth={1.8} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 650, color: mkt.text }}>
-                      Try the Quote Calculator Demo
-                    </div>
-                    <div style={{ fontSize: 13, color: mkt.textMuted }}>
-                      See how instant quotes work for your trade
-                    </div>
-                  </div>
-                  <ArrowRight size={16} color={mkt.textFaint} />
-                </div>
-              </Link>
-            </div>
+            {/* Lead gate — only when not unlocked */}
+            {!unlocked && (
+              <CalculatorLeadGate
+                trade={selectedPreset.id}
+                tradeName={selectedPreset.label}
+                missedCallsPerWeek={sliderValues.missedCallsPerWeek}
+                closeRatePercent={sliderValues.closeRatePercent}
+                avgJobValue={sliderValues.avgJobValue}
+                estimatedAnnualLoss={typicalAnnualLoss}
+                onUnlock={handleUnlock}
+              />
+            )}
           </div>
         )}
       </AnimatePresence>
