@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { trackEvent } from '@/lib/trackEvent';
 import { Send, CheckCircle2, Loader2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { calculateEstimate } from '@shared/calculateEstimate';
@@ -119,6 +120,9 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
       }
 
       dispatch({ type: 'MARK_LEAD_SUBMITTED' });
+      if (config.calculator.id === 0) {
+        trackEvent("demo_lead_submitted", { trade: (config.calculator.slug || "").replace("demo-", ""), quoteAmount: estimate?.total ?? null });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.');
     } finally {

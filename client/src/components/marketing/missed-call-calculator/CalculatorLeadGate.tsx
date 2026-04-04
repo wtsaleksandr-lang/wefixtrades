@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { trackEvent } from '@/lib/trackEvent';
 import { Lock, Send, CheckCircle2, Loader2, Shield } from 'lucide-react';
 import { mkt, colors, radius } from '@/theme/tokens';
 
@@ -66,6 +67,7 @@ export default function CalculatorLeadGate({
       }
 
       setSubmitted(true);
+      trackEvent("calculator_lead_submitted", { trade, estimatedAnnualLoss });
       setTimeout(() => onUnlock(), 2000);
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');

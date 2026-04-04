@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { Phone } from 'lucide-react';
+import { trackEvent } from '@/lib/trackEvent';
 import { useWidgetState } from '../useWidgetState';
 import { calculateEstimate } from '@shared/calculateEstimate';
 import { eff, stepTitleStyle, stepSubtitleStyle } from '../designTokens';
@@ -25,6 +26,14 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
     () => calculateEstimate(config.pricingConfig, estimateInputs),
     [config.pricingConfig, estimateInputs],
   );
+
+  const trackedRef = useRef(false);
+  useEffect(() => {
+    if (!trackedRef.current && config.calculator.id === 0) {
+      trackedRef.current = true;
+      trackEvent("demo_price_seen", { trade: (config.calculator.slug || "").replace("demo-", ""), total: estimate?.total ?? null });
+    }
+  }, []);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

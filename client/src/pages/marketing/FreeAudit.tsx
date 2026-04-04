@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { trackEvent } from "@/lib/trackEvent";
 import { colors } from "@/theme/tokens";
 import { Search, CheckCircle2 } from "lucide-react";
 import ReportView from "./ReportView";
@@ -206,6 +207,7 @@ export default function FreeAudit() {
       setReport(rep.report_json);
       if (rep.reportId) setReportId(rep.reportId);
       setFromCache(rep.fromCache === true);
+      trackEvent("audit_generated", { businessName: rep.report_json?.business?.name, score: rep.report_json?.scores?.total });
       // Check if this report was previously unlocked
       if (rep.reportId) {
         try {
@@ -696,7 +698,7 @@ export default function FreeAudit() {
                   liveWebsiteScreenshot={websiteScreenshot}
                   liveWebsiteQualityCheckScore={websiteQualityCheckScore}
                   unlocked={auditUnlocked}
-                  onUnlock={() => setAuditUnlocked(true)}
+                  onUnlock={() => { trackEvent("audit_unlocked"); setAuditUnlocked(true); }}
                 />
               </div>
             );

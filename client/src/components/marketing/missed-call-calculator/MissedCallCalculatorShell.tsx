@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { AnimatePresence } from 'framer-motion';
+import { trackEvent } from '@/lib/trackEvent';
 import { mkt, colors, radius } from '@/theme/tokens';
 import { getPresetById } from '@/data/missedCallTradePresets';
 import type { TradePreset } from '@/data/missedCallTradePresets';
@@ -87,6 +88,7 @@ export default function MissedCallCalculatorShell() {
     setSliderValues(newValues);
     setUnlocked(isUnlockedInStorage(preset.id, newValues));
     writeStoredTradeId(preset.id);
+    trackEvent("calculator_used", { trade: preset.id });
     setStep('calculator');
   }, []);
 
@@ -97,6 +99,7 @@ export default function MissedCallCalculatorShell() {
   const handleUnlock = useCallback(() => {
     if (selectedPreset) {
       persistUnlock(selectedPreset.id, sliderValues);
+      trackEvent("calculator_unlocked", { trade: selectedPreset.id });
       setUnlocked(true);
     }
   }, [selectedPreset, sliderValues]);

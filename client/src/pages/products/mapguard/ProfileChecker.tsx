@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
+import { trackEvent } from "@/lib/trackEvent";
 import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
 import {
   Search, ArrowRight, Star, Image, Clock, Globe, MessageSquare,
@@ -212,6 +213,7 @@ export default function ProfileChecker() {
         : { query: `${pred.name} ${pred.formatted_address}`.trim() };
       const d = await postJSON<{ ok: true; business: Business }>("/api/audit/place-details", body);
       setBusiness(d.business);
+      trackEvent("profile_checked", { name: d.business.name, rating: d.business.rating, reviews: d.business.reviewsCount });
     } catch {
       // Silently fail — user can try again
     } finally {

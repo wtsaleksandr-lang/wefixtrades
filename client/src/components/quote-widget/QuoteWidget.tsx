@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { ChevronLeft, ArrowRight } from 'lucide-react';
+import { trackEvent } from '@/lib/trackEvent';
 import { validatePricingConfig } from '@shared/pricingConfig';
 import { getTemplateById } from '@shared/templateLibrary';
 import { buildWidgetFlow, type FlowBuilderSettings } from '@shared/widgetFlowBuilder';
@@ -59,6 +60,14 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
     () => getWidgetTheme(calculator.theme_overrides as any, calculator.primary_color),
     [calculator.theme_overrides, calculator.primary_color],
   );
+
+  const demoTracked = useRef(false);
+  useEffect(() => {
+    if (!demoTracked.current && calculator.id === 0) {
+      demoTracked.current = true;
+      trackEvent("demo_started", { trade: (calculator.slug || "").replace("demo-", "") });
+    }
+  }, [calculator.id, calculator.slug]);
 
   return (
     <WidgetProvider config={config}>

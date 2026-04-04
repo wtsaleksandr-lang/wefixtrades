@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { trackEvent } from "@/lib/trackEvent";
 import { Lock, Send, CheckCircle2, Loader2, Shield } from "lucide-react";
 
 const DARK = "#0d1514";
@@ -84,6 +85,7 @@ export default function AuditGate({
       }
 
       setSubmitted(true);
+      trackEvent("audit_lead_submitted", { businessName, score });
 
       // Store unlock in localStorage
       if (reportId) {
