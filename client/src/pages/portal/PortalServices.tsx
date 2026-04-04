@@ -14,6 +14,7 @@ interface ServiceRow {
   created_at: string | null;
   tasks_total: number;
   tasks_delivered: number;
+  onboarding_id: number | null;
   onboarding_status: string | null;
 }
 
@@ -107,8 +108,22 @@ export default function PortalServices() {
 
                     {/* Onboarding banner */}
                     {showOnboarding && (
-                      <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-100 text-xs text-amber-700">
-                        {ONBOARDING_LABELS[svc.onboarding_status!] || svc.onboarding_status}
+                      <div className="mb-3">
+                        {svc.onboarding_id && svc.onboarding_status !== "submitted" ? (
+                          <Link
+                            href={`/portal/onboarding/${svc.onboarding_id}`}
+                            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                          >
+                            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700 font-medium hover:bg-amber-100 transition-colors flex items-center justify-between">
+                              <span>Complete Onboarding</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </div>
+                          </Link>
+                        ) : (
+                          <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-100 text-xs text-amber-700">
+                            {ONBOARDING_LABELS[svc.onboarding_status!] || svc.onboarding_status}
+                          </div>
+                        )}
                       </div>
                     )}
 

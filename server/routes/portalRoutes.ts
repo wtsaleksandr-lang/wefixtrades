@@ -8,6 +8,7 @@ import {
   serviceCatalog,
   fulfillmentTasks,
   onboardingSubmissions,
+  onboardingTemplates,
   clientPayments,
   users,
 } from "@shared/schema";
@@ -147,7 +148,7 @@ export function registerPortalRoutes(app: Express) {
             .where(eq(fulfillmentTasks.client_service_id, svc.id));
 
           const [onboarding] = await db
-            .select({ status: onboardingSubmissions.status })
+            .select({ id: onboardingSubmissions.id, status: onboardingSubmissions.status })
             .from(onboardingSubmissions)
             .where(eq(onboardingSubmissions.client_service_id, svc.id))
             .limit(1);
@@ -156,6 +157,7 @@ export function registerPortalRoutes(app: Express) {
             ...svc,
             tasks_total: taskCounts?.total ?? 0,
             tasks_delivered: taskCounts?.delivered ?? 0,
+            onboarding_id: onboarding?.id ?? null,
             onboarding_status: onboarding?.status ?? null,
           };
         })
@@ -398,6 +400,112 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       console.error("Portal settings update error:", err);
       res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  /**
+   * GET /api/portal/onboarding/:id
+   * Returns onboarding submission with template steps, scoped to client.
+   */
+  app.get("/api/portal/onboarding/:id", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const submissionId = parseInt(req.params.id);
+      if (isNaN(submissionId)) return res.status(400).json({ error: "Invalid onboarding id" });
+
+      // Get submission scoped to client
+      const [submission] = await db
+        .select()
+        .from(onboardingSubmissions)
+        .where(and(eq(onboardingSubmissions.id, submissionId), eq(onboardingSubmissions.client_id, clientId)))
+        .limit(1);
+
+      if (!submission) return res.status(404).json({ error: "Onboarding not found" });
+
+      // Get template
+      const template = submission.template_id
+        ? (await db.select().from(onboardingTemplates).where(eq(onboardingTemplates.id, submission.template_id)).limit(1))[0] ?? null
+        : null;
+
+      // Get service name
+      const [cs] = await db
+        .select({ service_id: clientServices.service_id })
+        .from(clientServices)
+        .where(eq(clientServices.id, submission.client_service_id))
+        .limit(1);
+      const [svc] = cs
+        ? await db.select({ name: serviceCatalog.name }).from(serviceCatalog).where(eq(serviceCatalog.id, cs.service_id)).limit(1)
+        : [null];
+
+      // Mark as viewed on first access
+      if (submission.status === "not_sent" || submission.status === "sent") {
+        await db
+          .update(onboardingSubmissions)
+          .set({ status: "viewed", updated_at: new Date() })
+          .where(eq(onboardingSubmissions.id, submissionId));
+      }
+
+      res.json({
+        id: submission.id,
+        status: submission.status === "not_sent" || submission.status === "sent" ? "viewed" : submission.status,
+        service_name: svc?.name ?? null,
+        steps: (template?.steps ?? []) as { key: string; label: string; type: string; required: boolean }[],
+        responses: (submission.responses ?? {}) as Record<string, { value: any; completed_at?: string }>,
+        submitted_at: submission.submitted_at,
+        approved_at: submission.approved_at,
+      });
+    } catch (err) {
+      console.error("Portal onboarding GET error:", err);
+      res.status(500).json({ error: "Failed to load onboarding form" });
+    }
+  });
+
+  /**
+   * PUT /api/portal/onboarding/:id
+   * Save/submit onboarding responses, scoped to client.
+   */
+  app.put("/api/portal/onboarding/:id", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const submissionId = parseInt(req.params.id);
+      if (isNaN(submissionId)) return res.status(400).json({ error: "Invalid onboarding id" });
+
+      const { responses } = req.body;
+      if (!responses || typeof responses !== "object") {
+        return res.status(400).json({ error: "responses object is required" });
+      }
+
+      // Verify ownership
+      const [submission] = await db
+        .select()
+        .from(onboardingSubmissions)
+        .where(and(eq(onboardingSubmissions.id, submissionId), eq(onboardingSubmissions.client_id, clientId)))
+        .limit(1);
+
+      if (!submission) return res.status(404).json({ error: "Onboarding not found" });
+
+      if (submission.status === "approved") {
+        return res.status(400).json({ error: "This form has already been approved" });
+      }
+
+      await db
+        .update(onboardingSubmissions)
+        .set({
+          responses,
+          status: "submitted",
+          submitted_at: new Date(),
+          updated_at: new Date(),
+        })
+        .where(eq(onboardingSubmissions.id, submissionId));
+
+      res.json({ ok: true, status: "submitted" });
+    } catch (err) {
+      console.error("Portal onboarding PUT error:", err);
+      res.status(500).json({ error: "Failed to submit onboarding" });
     }
   });
 }

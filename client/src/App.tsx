@@ -72,6 +72,7 @@ import PortalServices from "@/pages/portal/PortalServices";
 import PortalServiceDetail from "@/pages/portal/PortalServiceDetail";
 import PortalBilling from "@/pages/portal/PortalBilling";
 import PortalSettings from "@/pages/portal/PortalSettings";
+import PortalOnboarding from "@/pages/portal/PortalOnboarding";
 
 function Router() {
   return (
@@ -91,6 +92,7 @@ function Router() {
       <Route path="/admin/crm">{() => <RequirePortal><CrmOverview /></RequirePortal>}</Route>
 
       {/* Client portal */}
+      <Route path="/portal/onboarding/:id">{() => <RequireClient><PortalOnboarding /></RequireClient>}</Route>
       <Route path="/portal/services/:id">{() => <RequireClient><PortalServiceDetail /></RequireClient>}</Route>
       <Route path="/portal/services">{() => <RequireClient><PortalServices /></RequireClient>}</Route>
       <Route path="/portal/billing">{() => <RequireClient><PortalBilling /></RequireClient>}</Route>

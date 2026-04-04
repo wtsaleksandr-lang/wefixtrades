@@ -158,14 +158,25 @@ export default function PortalServiceDetail() {
 
             {/* Onboarding status */}
             {data.onboarding && data.onboarding.status !== "approved" && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-sm font-medium text-amber-800">Onboarding Required</p>
-                <p className="text-xs text-amber-600 mt-0.5">
-                  Status: <span className="capitalize">{data.onboarding.status.replace(/_/g, " ")}</span>
-                  {data.onboarding.submitted_at && (
-                    <> &middot; Submitted {formatDate(data.onboarding.submitted_at)}</>
-                  )}
-                </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-amber-800">
+                    {data.onboarding.status === "submitted" ? "Onboarding Submitted" : "Onboarding Required"}
+                  </p>
+                  <p className="text-xs text-amber-600 mt-0.5">
+                    Status: <span className="capitalize">{data.onboarding.status.replace(/_/g, " ")}</span>
+                    {data.onboarding.submitted_at && (
+                      <> &middot; Submitted {formatDate(data.onboarding.submitted_at)}</>
+                    )}
+                  </p>
+                </div>
+                {data.onboarding.status !== "submitted" && (
+                  <Link href={`/portal/onboarding/${data.onboarding.id}`}>
+                    <button className="px-3 py-1.5 text-xs font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors whitespace-nowrap">
+                      Complete Onboarding
+                    </button>
+                  </Link>
+                )}
               </div>
             )}
 
