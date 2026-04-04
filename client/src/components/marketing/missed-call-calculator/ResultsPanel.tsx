@@ -3,7 +3,7 @@ import { motion, useAnimationControls } from 'framer-motion';
 import { Link } from 'wouter';
 import {
   TrendingDown, Calendar, Briefcase, ArrowRight, Info,
-  ChevronDown, ChevronUp, Zap, Lock, Phone, MessageSquare,
+  ChevronDown, ChevronUp, Zap, Lock, Search,
 } from 'lucide-react';
 import { mkt, colors, radius } from '@/theme/tokens';
 import { calculateRange, formatCurrencyFull } from '@/lib/missedCallCalculator';
@@ -400,8 +400,8 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
               </div>
             </Link>
 
-            {/* Secondary: Talk to Us */}
-            <Link href="/demo" style={{ textDecoration: 'none', display: 'block' }}>
+            {/* Secondary: Cross-tool CTA */}
+            <Link href="/free-audit" style={{ textDecoration: 'none', display: 'block' }}>
               <div
                 role="link"
                 tabIndex={0}
@@ -421,8 +421,8 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
                   e.currentTarget.style.background = 'transparent';
                 }}
               >
-                <Phone size={14} />
-                Talk to Us
+                <Search size={14} />
+                Get a full business audit
               </div>
             </Link>
           </motion.div>

@@ -1,4 +1,4 @@
-import { CheckCircle2, PartyPopper, ArrowRight, MessageSquare } from 'lucide-react';
+import { CheckCircle2, PartyPopper, ArrowRight, Search } from 'lucide-react';
 import { useWidgetState } from '../useWidgetState';
 import { eff, stepTitleStyle } from '../designTokens';
 import NextStepSuggestions from '@/components/marketing/NextStepSuggestions';
@@ -161,7 +161,7 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
           </a>
           <div style={{ marginTop: '12px' }}>
             <a
-              href="/demo"
+              href="/free-audit"
               style={{
                 fontSize: '13px',
                 color: eff.textBody,
@@ -173,8 +173,8 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
               onMouseEnter={(e) => { e.currentTarget.style.color = eff.text; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = eff.textBody; }}
             >
-              <MessageSquare style={{ width: 12, height: 12 }} />
-              Talk to Us
+              <Search style={{ width: 12, height: 12 }} />
+              Check your business visibility
             </a>
           </div>
         </div>

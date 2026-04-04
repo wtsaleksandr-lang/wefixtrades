@@ -501,7 +501,7 @@ export default function ProfileChecker() {
                 onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(255,255,255,0.15)"; el.style.color = mkt.onDark; }}
                 onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.borderColor = mkt.border; el.style.color = mkt.textMuted; }}
               >
-                Get Full Free Audit
+                Get full detailed audit
               </Link>
             </div>
           </div>

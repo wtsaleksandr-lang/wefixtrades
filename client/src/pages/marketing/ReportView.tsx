@@ -2201,6 +2201,26 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
       )}
 
+      {/* Secondary CTA — cross-tool */}
+      {unlocked && (
+        <div data-print-hide style={{ textAlign: 'center', marginBottom: 10 }}>
+          <a
+            href="/tools/missed-call-calculator"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '12px 24px', borderRadius: 12,
+              border: `1px solid ${BORDER}`, background: WHITE,
+              color: GREY, fontSize: 14, fontWeight: 600,
+              textDecoration: 'none', transition: 'border-color 0.2s, color 0.2s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = CYAN; e.currentTarget.style.color = DARK; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = GREY; }}
+          >
+            See how much missed calls are costing you →
+          </a>
+        </div>
+      )}
+
       {/* Cross-tool suggestions — only when unlocked */}
       {unlocked && (
         <div style={{ marginBottom: 10 }}>
