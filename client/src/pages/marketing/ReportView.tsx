@@ -1889,7 +1889,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 <span style={{ color: CYAN, fontSize: 32, fontWeight: 800 }}>$9.80</span>
               </div>
               <button
-                onClick={() => window.location.href = '/checkout?product=website-audit'}
+                onClick={() => window.location.href = '/contact?subject=full-audit'}
                 {...hoverProps('website-audit-cta')}
                 style={{
                   background: CYAN, color: DARK, border: 'none', borderRadius: 10,

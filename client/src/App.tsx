@@ -110,7 +110,7 @@ function Router() {
       <Route path="/checkout/cancelled" component={CheckoutCancelled} />
       <Route path="/login" component={LoginPage} />
       <Route path="/services" component={MarketingServices} />
-      <Route path="/bundles" component={MarketingBundles} />
+      <Route path="/bundles">{() => <Redirect to="/pricing" />}</Route>
       <Route path="/templates" component={MarketingTemplates} />
       <Route path="/resources" component={Resources} />
       <Route path="/about" component={About} />

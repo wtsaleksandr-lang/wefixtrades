@@ -8,6 +8,7 @@ import ReviewsSection from "@/components/home/ReviewsSection";
 import VoiceVisualizer, { HeroSoundBars } from "@/components/marketing/VoiceVisualizer";
 import { Send, Bot, User, Mic, PhoneOff, Phone, MessageSquare, ArrowRight, Loader2, ChevronDown, Check } from "lucide-react";
 import { mkt, shadows } from "@/theme/tokens";
+import { TRADELINE, formatPrice } from "@/config/pricing";
 
 /* ═══════════════════════════════════════════════════════════════════
    TYPES
@@ -298,27 +299,18 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   PRICING SECTION — TradeLine Lite / Pro
+   PRICING SECTION — TradeLine tiers (from shared/pricing.ts)
    ═══════════════════════════════════════════════════════════════════ */
 
-const PLANS = [
-  {
-    name: "TradeLine Lite",
-    price: "$99",
-    period: "/mo",
-    desc: "Website chat answering with follow-ups.",
-    features: ["Website chat widget", "Email lead alerts", "Basic follow-ups", "50 conversations/mo", "Dashboard access"],
-  },
-  {
-    name: "TradeLine Pro",
-    price: "$199",
-    period: "/mo",
-    desc: "Chat + voice + full automation.",
-    features: ["Everything in Lite", "24/7 voice answering", "SMS + WhatsApp follow-ups", "Unlimited conversations", "Booking confirmations", "Automated review requests"],
-    highlighted: true,
-    badge: "Most Popular",
-  },
-];
+const PLANS = TRADELINE.tiers.map(t => ({
+  name: `TradeLine ${t.name}`,
+  price: formatPrice(t.price),
+  period: "/mo",
+  desc: t.features.slice(0, 2).join(". ") + ".",
+  features: t.features,
+  highlighted: t.highlighted,
+  badge: t.badge,
+}));
 
 function PricingCards() {
   return (

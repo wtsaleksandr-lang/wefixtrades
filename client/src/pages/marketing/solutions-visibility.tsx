@@ -6,6 +6,7 @@ import mapguardIcon from "@assets/mapguard-icon_1772080241423.webp";
 import webboostIcon from "@assets/webboost-icon_1772080241365.webp";
 import reputationshieldIcon from "@assets/reputationshield-icon_1772080241309.webp";
 import socialsyncIcon from "@assets/socialsync-icon_1772080241338.webp";
+import { MAPGUARD, WEBBOOST, REPUTATIONSHIELD, SOCIALSYNC, lowestMonthly, formatPrice } from "@/config/pricing";
 
 const services = [
   {
@@ -22,7 +23,7 @@ const services = [
       "Review response strategy and templates",
       "Competitor tracking and ranking reports",
     ],
-    from: "From $299/mo",
+    from: `From ${formatPrice(lowestMonthly(MAPGUARD)!)}/mo`,
   },
   {
     id: "webboost",
@@ -38,7 +39,7 @@ const services = [
       "On-page SEO for service and location pages",
       "Monthly performance report with traffic insights",
     ],
-    from: "From $199/mo",
+    from: `From ${formatPrice(lowestMonthly(WEBBOOST)!)}/mo`,
   },
   {
     id: "reputationshield",
@@ -54,7 +55,7 @@ const services = [
       "Review widget for your website",
       "Monthly reputation score report",
     ],
-    from: "From $149/mo",
+    from: `From ${formatPrice(lowestMonthly(REPUTATIONSHIELD)!)}/mo`,
   },
   {
     id: "socialsync",
@@ -70,7 +71,7 @@ const services = [
       "Monthly engagement and follower report",
       "Optional paid ad management (budget separate)",
     ],
-    from: "From $249/mo",
+    from: `From ${formatPrice(lowestMonthly(SOCIALSYNC)!)}/mo`,
   },
 ];
 
