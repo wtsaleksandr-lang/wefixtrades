@@ -42,6 +42,7 @@ import QuoteCalculatorDemo from "@/pages/marketing/quote-calculator-demo";
 import SharedAuditReport from "@/pages/marketing/SharedAuditReport";
 import NewProductPage from "@/pages/products/ProductPage";
 import MapGuardPage from "@/pages/products/mapguard";
+import QuoteQuickPage from "@/pages/products/quotequick";
 import SolutionPage from "@/pages/solutions/SolutionPage";
 import DemoCenter from "@/pages/demos/DemoCenter";
 import DemoPage from "@/pages/demos/DemoPage";
@@ -106,6 +107,9 @@ function Router() {
       <Route path="/portal">{() => <RequireClient><PortalDashboard /></RequireClient>}</Route>
 
       <Route path="/products/mapguard" component={MapGuardPage} />
+      <Route path="/products/quotequick" component={QuoteQuickPage} />
+      <Route path="/products/quickquotepro">{() => <Redirect to="/products/quotequick" />}</Route>
+      <Route path="/products/quickquote">{() => <Redirect to="/products/quotequick" />}</Route>
       {/* TradeLine consolidation — old routes redirect to unified product */}
       <Route path="/products/assistants">{() => <Redirect to="/products/tradeline" />}</Route>
       <Route path="/products/ai-chat">{() => <Redirect to="/products/tradeline" />}</Route>

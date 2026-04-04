@@ -54,7 +54,7 @@ export const NAV_LINKS: NavItem[] = [
     href: "/products/tradeline",
     children: [
       { label: "24/7 TradeLine\u2122", href: "/products/tradeline", description: "Always-on lead handling system.", icon: "workflow" },
-      { label: "QuoteQuick Pro\u2122", href: "/products/quickquotepro", description: "Instant quotes on your site.", icon: "calculator" },
+      { label: "QuoteQuick\u2122", href: "/products/quotequick", description: "Instant quotes on your site.", icon: "calculator" },
       { label: "MapGuard\u2122", href: "/products/mapguard", description: "Google Maps optimization.", icon: "mapPinned" },
       { label: "ReputationShield\u2122", href: "/products/reputationshield", description: "Reviews + reputation.", icon: "shieldCheck" },
       { label: "WebBoost\u2122", href: "/products/webboost", description: "Speed + SEO optimization.", icon: "rocket" },
