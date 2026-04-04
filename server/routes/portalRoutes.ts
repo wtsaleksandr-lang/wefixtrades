@@ -12,6 +12,9 @@ import {
   onboardingTemplates,
   clientPayments,
   users,
+  calculators,
+  leads,
+  deploymentStatus,
 } from "@shared/schema";
 
 /* ─── Helpers ─── */
@@ -508,6 +511,63 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       console.error("Portal onboarding PUT error:", err);
       res.status(500).json({ error: "Failed to submit onboarding" });
+    }
+  });
+
+  /**
+   * GET /api/portal/quotequick/summary
+   * Returns QuoteQuick calculator summary for the authenticated client.
+   * Links via clients.user_id → calculators.user_id.
+   */
+  app.get("/api/portal/quotequick/summary", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      // Get client's user_id
+      const [client] = await db.select({ user_id: clients.user_id }).from(clients).where(eq(clients.id, clientId)).limit(1);
+      if (!client?.user_id) return res.json({ calculator: null });
+
+      // Find calculators owned by this user
+      const calcs = await db
+        .select()
+        .from(calculators)
+        .where(eq(calculators.user_id, client.user_id))
+        .orderBy(desc(calculators.id))
+        .limit(1);
+
+      if (calcs.length === 0) return res.json({ calculator: null });
+
+      const calc = calcs[0];
+
+      // Get deployment status
+      const [deploy] = await db
+        .select({ status: deploymentStatus.status })
+        .from(deploymentStatus)
+        .where(eq(deploymentStatus.calculator_id, calc.id))
+        .limit(1);
+
+      // Get lead count
+      const [leadCount] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(leads)
+        .where(eq(leads.calculator_id, calc.id));
+
+      res.json({
+        calculator: {
+          id: calc.id,
+          business_name: calc.business_name,
+          slug: calc.slug,
+          edit_token: calc.edit_token,
+          plan_tier: calc.plan_tier ?? "free",
+          total_views: calc.total_views ?? 0,
+          total_leads: leadCount?.count ?? 0,
+          status: deploy?.status ?? "draft",
+        },
+      });
+    } catch (err) {
+      console.error("Portal QuoteQuick summary error:", err);
+      res.status(500).json({ error: "Failed to load QuoteQuick summary" });
     }
   });
 

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight, Calculator, Eye, Users, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 
@@ -54,6 +54,15 @@ export default function PortalServices() {
     },
   });
 
+  const { data: qqData } = useQuery<{ calculator: { id: number; business_name: string; slug: string; edit_token: string; plan_tier: string; total_views: number; total_leads: number; status: string } | null }>({
+    queryKey: ["/api/portal/quotequick/summary"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/quotequick/summary", { credentials: "include" });
+      if (!res.ok) return { calculator: null };
+      return res.json();
+    },
+  });
+
   return (
     <PortalLayout>
       <div className="max-w-5xl mx-auto space-y-6">
@@ -74,9 +83,46 @@ export default function PortalServices() {
           </div>
         )}
 
-        {data && data.services.length === 0 && (
+        {data && data.services.length === 0 && !qqData?.calculator && (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
             <p className="text-sm text-gray-500">No services yet. Once you purchase a service, it will appear here.</p>
+          </div>
+        )}
+
+        {/* QuoteQuick tool card */}
+        {qqData?.calculator && (
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+                  <Calculator className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">QuoteQuick Pro</h3>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${
+                      qqData.calculator.status === "live" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
+                    }`}>
+                      {qqData.calculator.status}
+                    </span>
+                    <span className="text-[10px] text-gray-400 capitalize">{qqData.calculator.plan_tier}</span>
+                  </div>
+                </div>
+              </div>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-purple-50 text-purple-700">leads</span>
+            </div>
+            <div className="flex items-center gap-4 mb-3 text-xs text-gray-500">
+              <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {qqData.calculator.total_views.toLocaleString()} views</span>
+              <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {qqData.calculator.total_leads.toLocaleString()} leads</span>
+            </div>
+            <a
+              href={`/dashboard?token=${qqData.calculator.edit_token}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-[#2D6A4F] font-medium hover:underline"
+            >
+              Open Dashboard <ExternalLink className="w-3 h-3" />
+            </a>
           </div>
         )}
 
