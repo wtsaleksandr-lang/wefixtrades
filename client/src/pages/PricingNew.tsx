@@ -4,6 +4,7 @@ import { Check, ChevronDown, ArrowRight, Play } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { mkt, shadows } from "@/theme/tokens";
+import { ALL_PRODUCTS, YEARLY_DISCOUNT_PCT, type ProductDef, type Tier as PricingTier } from "@/config/pricing";
 
 const CAD_TO_USD = 1.35;
 
@@ -24,144 +25,25 @@ interface ProductGroup {
   tiers: Tier[];
 }
 
-const PRODUCT_GROUPS: ProductGroup[] = [
-  {
-    id: "tradeline",
-    family: "TradeLine\u2122",
-    description: "24/7 AI-powered lead handling ecosystem. Chat, voice, and DM capture for trades.",
-    tiers: [
-      {
-        name: "AI ChatLine\u2122",
-        priceMonthly: 149,
-        priceOneTime: null,
-        cadence: "/mo",
-        includes: ["Website chat widget", "SMS lead capture", "Basic qualification flow", "Instant notifications"],
-      },
-      {
-        name: "AI CallLine\u2122",
-        priceMonthly: 199,
-        priceOneTime: null,
-        cadence: "/mo",
-        includes: ["24/7 AI voice answering", "Call summary & transcript", "Lead capture", "SMS/email notifications"],
-      },
-      {
-        name: "TradeLine\u2122 Complete",
-        priceMonthly: 299,
-        priceOneTime: null,
-        cadence: "/mo",
-        includes: ["ChatLine + CallLine", "Facebook & Instagram DMs", "Full lead capture system", "All channels unified"],
-        highlighted: true,
-        badge: "Best Value",
-      },
-    ],
-  },
-  {
-    id: "mapguard",
-    family: "MapGuard\u2122",
-    description: "Google Business Profile optimization and ongoing local visibility growth.",
-    tiers: [
-      {
-        name: "MapGuard Setup",
-        priceMonthly: null,
-        priceOneTime: 499,
-        cadence: "one-time",
-        includes: ["Profile cleanup & optimization", "Category & service tuning", "Description rewrite", "Photos & posts plan"],
-      },
-      {
-        name: "MapGuard Ongoing",
-        priceMonthly: 299,
-        priceOneTime: null,
-        cadence: "/mo",
-        includes: ["Monthly GBP updates", "Review generation strategy", "Posts cadence", "Ranking monitoring"],
-        highlighted: true,
-        badge: "Popular",
-      },
-    ],
-  },
-  {
-    id: "reputationshield",
-    family: "ReputationShield\u2122",
-    description: "Automated review requests, reputation monitoring, and trust building.",
-    tiers: [
-      {
-        name: "ReputationShield",
-        priceMonthly: 229,
-        priceOneTime: null,
-        cadence: "/mo",
-        includes: ["Automated review requests", "Review response templates", "Reputation monitoring", "Negative review alerts", "Review widget for website"],
-        highlighted: true,
-      },
-    ],
-  },
-  {
-    id: "webboost",
-    family: "WebBoost\u2122",
-    description: "Website speed and SEO optimization that lifts your rankings and conversions.",
-    tiers: [
-      {
-        name: "WebBoost Setup",
-        priceMonthly: null,
-        priceOneTime: 599,
-        cadence: "one-time",
-        includes: ["Full SEO + speed audit", "Fix key technical issues", "Optimize assets & images", "Re-test & deliver report"],
-      },
-      {
-        name: "WebBoost Care",
-        priceMonthly: 199,
-        priceOneTime: null,
-        cadence: "/mo",
-        includes: ["Monthly performance checks", "Fix regressions", "Core Web Vitals green", "Light SEO upkeep"],
-        highlighted: true,
-        badge: "Popular",
-      },
-    ],
-  },
-  {
-    id: "quotequick",
-    family: "QuoteQuick Pro\u2122",
-    description: "Instant quote calculators that turn website visitors into booked jobs.",
-    tiers: [
-      {
-        name: "QuoteQuick Template",
-        priceMonthly: 99,
-        priceOneTime: null,
-        cadence: "/mo",
-        includes: ["Pre-built calculator templates", "Fast setup in minutes", "Mobile-ready design", "Lead capture built in"],
-      },
-      {
-        name: "QuoteQuick Pro",
-        priceMonthly: 129,
-        priceOneTime: null,
-        cadence: "/mo",
-        includes: ["Unlimited calculators", "Custom branding", "Email follow-up sequences", "Analytics dashboard"],
-        highlighted: true,
-        badge: "Most Popular",
-      },
-      {
-        name: "QuoteQuick Custom",
-        priceMonthly: null,
-        priceOneTime: 997,
-        cadence: "one-time",
-        includes: ["Your pricing logic built in", "Custom trade flow", "Higher conversion rate", "Full handoff & training"],
-      },
-    ],
-  },
-  {
-    id: "socialsync",
-    family: "SocialSync\u2122",
-    description: "Social media management and automation for consistent brand presence.",
-    tiers: [
-      {
-        name: "SocialSync",
-        priceMonthly: 349,
-        priceOneTime: null,
-        cadence: "/mo",
-        includes: ["Content creation & scheduling", "Facebook & Instagram management", "Lead-gen campaigns", "Branded templates", "Monthly analytics"],
-        highlighted: true,
-      },
-    ],
-  },
-];
+/** Derive display groups from the single source of truth */
+function buildProductGroups(): ProductGroup[] {
+  return ALL_PRODUCTS.map((p: ProductDef) => ({
+    id: p.id,
+    family: p.name,
+    description: p.tagline + ".",
+    tiers: p.tiers.map((t: PricingTier) => ({
+      name: t.name,
+      priceMonthly: t.billingPeriod === "monthly" ? t.price : null,
+      priceOneTime: t.billingPeriod === "one-time" ? t.price : null,
+      cadence: (t.billingPeriod === "monthly" ? "/mo" : "one-time") as "/mo" | "one-time",
+      includes: t.features,
+      highlighted: t.highlighted,
+      badge: t.badge,
+    })),
+  }));
+}
+
+const PRODUCT_GROUPS: ProductGroup[] = buildProductGroups();
 
 function formatMoney(amount: number, currency: "CAD" | "USD"): string {
   const symbol = currency === "USD" ? "US$" : "CA$";
@@ -169,11 +51,11 @@ function formatMoney(amount: number, currency: "CAD" | "USD"): string {
 }
 
 function getAnnualPrice(monthly: number): number {
-  return monthly * 10;
+  return Math.round(monthly * 12 * (1 - YEARLY_DISCOUNT_PCT));
 }
 
 function getAnnualMonthlyEquiv(monthly: number): number {
-  return Math.round((monthly * 10) / 12);
+  return Math.round((monthly * 12 * (1 - YEARLY_DISCOUNT_PCT)) / 12);
 }
 
 function FAQItem({ q, a }: { q: string; a: string }) {

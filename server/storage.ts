@@ -1090,6 +1090,13 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  async findClientByEmail(email: string): Promise<Client | undefined> {
+    const [row] = await db.select().from(clients)
+      .where(sql`lower(${clients.contact_email}) = lower(${email})`)
+      .limit(1);
+    return row;
+  }
+
   async findPaymentByStripeSession(sessionId: string): Promise<ClientPayment | undefined> {
     const [row] = await db.select().from(clientPayments)
       .where(eq(clientPayments.stripe_payment_intent_id, sessionId))

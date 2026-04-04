@@ -1,3 +1,24 @@
+import {
+  TRADELINE, QUOTEQUICK, WEBBOOST, MAPGUARD, SITELAUNCH,
+  REPUTATIONSHIELD, SOCIALSYNC, FIX_OPTIMIZE,
+  formatPrice, type ProductDef, type Tier,
+} from "@shared/pricing";
+
+/** Build a pricingSection from the canonical pricing data */
+function buildPricingSection(product: ProductDef, note?: string) {
+  return {
+    plans: product.tiers.map((t: Tier) => ({
+      name: t.name,
+      price: formatPrice(t.price),
+      period: t.billingPeriod === "monthly" ? "/mo" : " one-time",
+      features: t.features,
+      ...(t.badge ? { badge: t.badge } : {}),
+      ...(t.highlighted ? { highlighted: true } : {}),
+    })),
+    note,
+  };
+}
+
 export type ProductCategory = "core" | "ai" | "growth";
 
 export type HeroVisualVariant = "calculator" | "chat" | "voice" | "dashboard" | "website" | "social" | "reviews";
@@ -63,14 +84,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Is there a free plan?", a: "Yes. The free plan includes 1 calculator, 50 leads/month, and a hosted quote page." },
       { q: "Can I connect booking and deposits?", a: "Yes. Enable the Booking add-on to let customers book and pay a deposit directly after receiving their estimate." },
     ],
-    pricingSection: {
-      plans: [
-        { name: "Free", price: "$0", period: "/mo", features: ["1 calculator", "50 leads/month", "Hosted quote page", "Basic analytics"] },
-        { name: "Starter", price: "$99", period: "/mo", features: ["1 calculator", "Unlimited leads", "Custom branding", "Email follow-ups", "Embed on your site"] },
-        { name: "Pro", price: "$199", period: "/mo", features: ["3 calculators", "Unlimited leads", "24/7 assistant included", "SMS + WhatsApp follow-ups", "Custom CSS", "Priority support"], highlighted: true, badge: "Most Popular" },
-      ],
-      note: "Calls/SMS usage billed at cost (you control limits).",
-    },
+    pricingSection: buildPricingSection(QUOTEQUICK),
     related: ["booking-addon", "ai-chat"],
   },
   {
@@ -113,14 +127,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "What channels does it cover?", a: "Phone calls, website chat, SMS, and WhatsApp — all handled by one system with one conversation history." },
       { q: "Can I control follow-up messages?", a: "Yes. You set the timing, channel (SMS, email, WhatsApp), and content of every automated follow-up and review request." },
     ],
-    pricingSection: {
-      plans: [
-        { name: "Starter", price: "$99", period: "/mo", features: ["Chat widget on your site", "Email lead alerts", "Basic follow-ups", "50 conversations/month"] },
-        { name: "Pro", price: "$199", period: "/mo", features: ["Chat + voice answering", "SMS + WhatsApp follow-ups", "Unlimited conversations", "Booking confirmations", "Review requests"], highlighted: true, badge: "Most Popular" },
-        { name: "Elite", price: "$299", period: "/mo", features: ["Unlimited everything", "White-label branding", "Priority support", "Custom integrations", "Dedicated account manager"] },
-      ],
-      note: "Calls/SMS usage billed at cost (you control limits).",
-    },
+    pricingSection: buildPricingSection(TRADELINE, "Overage: $0.15/min after included usage."),
     related: ["quickquotepro", "reputationshield"],
   },
   {
@@ -163,14 +170,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "How does the technology work?", a: "Our assistants use AI technology to understand natural language, answer questions about your services, and handle conversations just like a trained receptionist would." },
       { q: "Can I control follow-up messages?", a: "Yes. You set the timing, channel (SMS, email, WhatsApp), and content of every automated follow-up and review request." },
     ],
-    pricingSection: {
-      plans: [
-        { name: "Starter", price: "$99", period: "/mo", features: ["Chat widget on your site", "Email lead alerts", "Basic follow-ups", "50 conversations/month"] },
-        { name: "Pro", price: "$199", period: "/mo", features: ["Chat + voice answering", "SMS + WhatsApp follow-ups", "Unlimited conversations", "Booking confirmations", "Review requests"], highlighted: true, badge: "Most Popular" },
-        { name: "Elite", price: "$299", period: "/mo", features: ["Unlimited everything", "White-label branding", "Priority support", "Custom integrations", "Dedicated account manager"] },
-      ],
-      note: "Calls/SMS usage billed at cost (you control limits).",
-    },
+    pricingSection: buildPricingSection(TRADELINE, "Overage: $0.15/min after included usage."),
     related: ["quickquotepro", "reputationshield"],
   },
   {
@@ -212,14 +212,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "What pricing formulas are supported?", a: "10 formula types including flat rate, per-unit, area-based, tiered, time-based, package, and more." },
       { q: "Is there a free plan?", a: "Yes. The free plan includes 1 calculator, 50 leads/month, and a hosted quote page." },
     ],
-    pricingSection: {
-      plans: [
-        { name: "Free", price: "$0", period: "/mo", features: ["1 calculator", "50 leads/month", "Hosted quote page", "Basic analytics"] },
-        { name: "Starter", price: "$99", period: "/mo", features: ["1 calculator", "Unlimited leads", "Custom branding", "Email follow-ups", "Embed on your site"] },
-        { name: "Pro", price: "$199", period: "/mo", features: ["3 calculators", "Unlimited leads", "24/7 assistant included", "SMS + WhatsApp follow-ups", "Custom CSS", "Priority support"], highlighted: true, badge: "Most Popular" },
-      ],
-      note: "Calls/SMS usage billed at cost (you control limits).",
-    },
+    pricingSection: buildPricingSection(QUOTEQUICK),
     related: ["booking-addon", "ai-chat", "sitelaunch"],
   },
   {
@@ -307,13 +300,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "What if the AI can't answer a question?", a: "It gracefully hands off to you via SMS or WhatsApp with full conversation context." },
       { q: "Does it work on mobile?", a: "Yes. The chat widget is fully responsive and works on all devices." },
     ],
-    pricingSection: {
-      plans: [
-        { name: "Starter", price: "$99", period: "/mo", features: ["Chat widget on your site", "50 conversations/month", "Email lead alerts", "Basic follow-ups"] },
-        { name: "Pro", price: "$199", period: "/mo", features: ["Unlimited conversations", "SMS + WhatsApp follow-ups", "Booking integration", "Lead qualification", "Priority support"], highlighted: true, badge: "Most Popular" },
-      ],
-      note: "Calls/SMS usage billed at cost (you control limits).",
-    },
+    pricingSection: buildPricingSection(TRADELINE, "Overage: $0.15/min after included usage."),
     related: ["ai-voice", "quickquotepro", "booking-addon"],
   },
   {
@@ -354,13 +341,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Can it handle multiple calls at once?", a: "Yes. Unlike a human receptionist, AI Voice can handle unlimited simultaneous calls." },
       { q: "What if someone wants to speak to a real person?", a: "AI Voice can transfer urgent calls to your mobile immediately, with full context." },
     ],
-    pricingSection: {
-      plans: [
-        { name: "Starter", price: "$149", period: "/mo", features: ["24/7 call answering", "50 calls/month", "Call transcripts", "Email notifications", "Basic lead capture"] },
-        { name: "Pro", price: "$249", period: "/mo", features: ["Unlimited calls", "SMS + WhatsApp alerts", "Calendar booking", "Call recording", "Priority routing"], highlighted: true, badge: "Most Popular" },
-      ],
-      note: "Per-minute rates apply for calls exceeding plan limits.",
-    },
+    pricingSection: buildPricingSection(TRADELINE, "Overage: $0.15/min after included usage."),
     related: ["ai-chat", "quickquotepro", "reputationshield"],
   },
   {
@@ -401,13 +382,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do you manage my Google reviews?", a: "We set up automated review request campaigns and provide response templates. You approve responses before they go live." },
       { q: "What if I have multiple locations?", a: "Each location gets its own optimized profile. Multi-location packages are available at a discount." },
     ],
-    pricingSection: {
-      plans: [
-        { name: "Essentials", price: "$149", period: "/mo", features: ["GBP optimization", "20 citation submissions", "Monthly ranking report", "Review request templates"] },
-        { name: "Growth", price: "$299", period: "/mo", features: ["Full GBP management", "50+ citations", "Competitor analysis", "Review automation", "Bi-weekly reporting", "Priority support"], highlighted: true, badge: "Most Popular" },
-      ],
-      note: "3-month minimum commitment for best results.",
-    },
+    pricingSection: buildPricingSection(MAPGUARD, "Setup fee required for new clients."),
     related: ["webboost", "webcare", "reputationshield"],
   },
   {
@@ -448,13 +423,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "How is this different from MapGuard?", a: "WebBoost focuses on your website's organic search rankings. MapGuard focuses on Google Maps/GBP visibility. They work best together." },
       { q: "Will I see ranking improvements?", a: "Most clients see measurable ranking improvements within 60-90 days. SEO is a long-term strategy that compounds." },
     ],
-    pricingSection: {
-      plans: [
-        { name: "Starter", price: "$199", period: "/mo", features: ["Technical SEO audit", "Speed optimization", "5 keyword targets", "Monthly report"] },
-        { name: "Pro", price: "$399", period: "/mo", features: ["Full SEO management", "Core Web Vitals", "15 keyword targets", "Schema markup", "Content optimization", "Bi-weekly reports"], highlighted: true, badge: "Most Popular" },
-      ],
-      note: "Results typically visible within 60-90 days.",
-    },
+    pricingSection: buildPricingSection(WEBBOOST, "Setup fee required for new clients."),
     related: ["mapguard", "sitelaunch", "webcare"],
   },
   {
@@ -495,13 +464,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do you host my website?", a: "We maintain whatever hosting you're on. If you need hosting recommendations, we can help with that too." },
       { q: "Can I request urgent changes?", a: "Yes. Priority support means urgent requests are handled within 24 hours." },
     ],
-    pricingSection: {
-      plans: [
-        { name: "Basic", price: "$99", period: "/mo", features: ["Monthly content update", "Security patches", "Uptime monitoring", "Email support"] },
-        { name: "Pro", price: "$199", period: "/mo", features: ["2 content updates/month", "GBP maintenance", "Speed monitoring", "Priority support", "Plugin updates"], highlighted: true, badge: "Most Popular" },
-      ],
-      note: "Additional content changes available at $25/each.",
-    },
+    pricingSection: buildPricingSection(WEBBOOST, "Setup fee required for new clients."),
     related: ["webboost", "mapguard", "sitelaunch"],
   },
   {
@@ -542,13 +505,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Can I edit the site after launch?", a: "Yes. We build on platforms you can manage, or you can add WebCare for ongoing maintenance." },
       { q: "Is hosting included?", a: "We recommend hosting options and can set it up for you. Hosting costs are separate and typically $10-20/month." },
     ],
-    pricingSection: {
-      plans: [
-        { name: "Starter", price: "$999", period: " one-time", features: ["5-page custom website", "Mobile responsive", "QuickQuote integration", "Basic SEO setup", "5 business day delivery"] },
-        { name: "Pro", price: "$1,999", period: " one-time", features: ["10-page custom website", "Advanced animations", "Full SEO setup", "Blog integration", "Contact forms", "Priority delivery"], highlighted: true, badge: "Most Popular" },
-      ],
-      note: "Hosting not included. Typically $10-20/month.",
-    },
+    pricingSection: buildPricingSection(SITELAUNCH, "Auto-converts to paid plans after 14-day trial."),
     related: ["quickquotepro", "webboost", "webcare"],
   },
   {
@@ -589,13 +546,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do I need to provide content?", a: "Photos of your work help, but we can create content using stock images and your branding if needed." },
       { q: "How many posts per month?", a: "Standard plans include 12-16 posts per month across platforms, plus stories and engagement." },
     ],
-    pricingSection: {
-      plans: [
-        { name: "Starter", price: "$199", period: "/mo", features: ["8 posts/month", "1 platform", "Branded templates", "Monthly report"] },
-        { name: "Pro", price: "$399", period: "/mo", features: ["16 posts/month", "2 platforms", "Lead-gen campaigns", "Stories + Reels", "Engagement management", "Bi-weekly reports"], highlighted: true, badge: "Most Popular" },
-      ],
-      note: "Ad spend for campaigns is billed separately.",
-    },
+    pricingSection: buildPricingSection(SOCIALSYNC, "Ad spend for campaigns is billed separately."),
     related: ["reputationshield", "mapguard", "webboost"],
   },
   {
@@ -636,13 +587,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Which review platforms do you monitor?", a: "Google, Facebook, Yelp, and HomeStars. Additional platforms can be added on request." },
       { q: "How are review requests sent?", a: "Via email or SMS after a job is completed. You can customize the timing and message." },
     ],
-    pricingSection: {
-      plans: [
-        { name: "Starter", price: "$99", period: "/mo", features: ["Review monitoring", "Google + Facebook", "Review request emails", "Monthly report"] },
-        { name: "Pro", price: "$199", period: "/mo", features: ["All platforms", "SMS + email requests", "AI response templates", "Negative review alerts", "Website review widget", "Priority support"], highlighted: true, badge: "Most Popular" },
-      ],
-      note: "Works with Google, Facebook, Yelp, and HomeStars.",
-    },
+    pricingSection: buildPricingSection(REPUTATIONSHIELD, "Works with Google, Facebook, Yelp, and HomeStars."),
     related: ["mapguard", "socialsync", "ai-chat"],
   },
   {
@@ -684,13 +629,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Can the AI handle all channels simultaneously?", a: "Yes. Unlike a human receptionist, the AI handles unlimited simultaneous conversations across all channels." },
       { q: "Is this different from buying ChatLine and CallLine separately?", a: "TradeLine Complete includes both plus social DM handling and a unified dashboard. It's also more cost-effective than buying each separately." },
     ],
-    pricingSection: {
-      plans: [
-        { name: "Starter", price: "$249", period: "/mo", features: ["Chat + Voice answering", "100 conversations/month", "Lead dashboard", "Email notifications", "Basic follow-ups"] },
-        { name: "Pro", price: "$399", period: "/mo", features: ["All channels (Chat + Voice + DMs)", "Unlimited conversations", "SMS + WhatsApp follow-ups", "Calendar booking", "Priority support"], highlighted: true, badge: "Most Popular" },
-      ],
-      note: "Per-minute call rates apply. Social DM channels require connected accounts.",
-    },
+    pricingSection: buildPricingSection(TRADELINE, "Overage: $0.15/min after included usage."),
     related: ["ai-chat", "ai-voice", "quickquotepro"],
   },
   {
@@ -733,13 +672,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do I need to provide access?", a: "Yes. We'll need access to your website admin panel and Google Business Profile." },
       { q: "What if I need ongoing help after?", a: "We recommend WebCare for monthly maintenance or WebBoost for ongoing SEO work." },
     ],
-    pricingSection: {
-      plans: [
-        { name: "Standard", price: "$399", period: " one-time", features: ["Website speed audit + fixes", "Google Business Profile cleanup", "Broken link repair", "Basic SEO corrections", "Before/after report"] },
-        { name: "Pro", price: "$699", period: " one-time", features: ["Everything in Standard", "Mobile optimization", "Schema markup setup", "Content review", "Priority turnaround (2-3 days)", "30-min strategy call"], highlighted: true, badge: "Best Value" },
-      ],
-      note: "One-time payment. No recurring fees.",
-    },
+    pricingSection: buildPricingSection(FIX_OPTIMIZE),
     related: ["webboost", "webcare", "mapguard"],
   },
 ];

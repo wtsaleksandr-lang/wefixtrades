@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { mkt, colors, shadows } from "@/theme/tokens";
+import {
+  BUNDLE_STARTER, BUNDLE_GROWTH, BUNDLE_PRO,
+  formatPrice, bundleSavings, type BundleDef,
+} from "@/config/pricing";
 
 export default function BundlesPage() {
   useEffect(() => {
@@ -33,11 +37,11 @@ export default function BundlesPage() {
       padding: "60px 24px",
     },
     bundlesGrid: {
-      maxWidth: 900,
+      maxWidth: 1100,
       margin: "0 auto",
       display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
-      gap: 28,
+      gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+      gap: 24,
       alignItems: "start",
     },
     bundleCard: {
@@ -176,22 +180,12 @@ export default function BundlesPage() {
     },
   };
 
-  const growthIncludes = [
-    "QuickQuotePro Starter",
-    "Google Maps Optimization",
-    "Reputation Management",
-    "Monthly performance report",
-  ];
+  const bundleToIncludes = (b: BundleDef) =>
+    b.includes.map(i => `${i.label} (${formatPrice(i.value)}/mo value)`);
 
-  const autopilotIncludes = [
-    "QuickQuotePro Pro + AI Employee",
-    "Google Maps Optimization",
-    "Website SEO + Speed",
-    "Reputation Management",
-    "Social Media Automation",
-    "Done-For-You AI Training",
-    "Monthly strategy call",
-  ];
+  const starterIncludes = bundleToIncludes(BUNDLE_STARTER);
+  const growthIncludes = bundleToIncludes(BUNDLE_GROWTH);
+  const proIncludes = bundleToIncludes(BUNDLE_PRO);
 
   const faqs = [
     {
@@ -222,17 +216,43 @@ export default function BundlesPage() {
 
         <div style={s.bundlesSection}>
           <div style={s.bundlesGrid}>
-            <div style={s.bundleCard} data-testid="bundle-growth">
+            <div style={s.bundleCard} data-testid="bundle-starter">
               <span style={{ ...s.badge, background: "#EAF1FF", color: "#2F6BFF" }}>
-                Best for growing businesses
+                Best value starter
               </span>
-              <h2 style={s.bundleName}>Growth Bundle</h2>
+              <h2 style={s.bundleName}>Starter System</h2>
               <div style={s.bundlePrice}>
-                $349
+                {formatPrice(BUNDLE_STARTER.price)}
                 <span style={{ fontSize: 16, fontWeight: 500, color: "#6B7280" }}>/mo</span>
               </div>
-              <p style={s.bundlePricePeriod}>Everything you need to grow locally</p>
-              <span style={s.savingBadge}>Save $149/mo vs buying separately</span>
+              <p style={s.bundlePricePeriod}>{BUNDLE_STARTER.tagline}</p>
+              <span style={s.savingBadge}>Save {formatPrice(bundleSavings(BUNDLE_STARTER))}/mo vs buying separately</span>
+              <div style={s.divider} />
+              <p style={s.includesLabel}>Includes</p>
+              <ul style={s.featureList}>
+                {starterIncludes.map(f => (
+                  <li key={f} style={s.featureItem}>
+                    <Check size={16} color={mkt.accent} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 2 }} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <button style={s.ctaBtn} data-testid="button-get-started-starter">
+                Get Started
+              </button>
+            </div>
+
+            <div style={{ ...s.bundleCard, ...s.bundleCardHighlighted }} data-testid="bundle-growth">
+              <span style={{ ...s.badge, background: "#0B1F3A", color: "#FFFFFF" }}>
+                Most Popular
+              </span>
+              <h2 style={s.bundleName}>Growth System</h2>
+              <div style={s.bundlePrice}>
+                {formatPrice(BUNDLE_GROWTH.price)}
+                <span style={{ fontSize: 16, fontWeight: 500, color: "#6B7280" }}>/mo</span>
+              </div>
+              <p style={s.bundlePricePeriod}>{BUNDLE_GROWTH.tagline}</p>
+              <span style={s.savingBadge}>Save {formatPrice(bundleSavings(BUNDLE_GROWTH))}/mo vs buying separately</span>
               <div style={s.divider} />
               <p style={s.includesLabel}>Includes</p>
               <ul style={s.featureList}>
@@ -248,28 +268,28 @@ export default function BundlesPage() {
               </button>
             </div>
 
-            <div style={{ ...s.bundleCard, ...s.bundleCardHighlighted }} data-testid="bundle-autopilot">
-              <span style={{ ...s.badge, background: "#0B1F3A", color: "#FFFFFF" }}>
+            <div style={s.bundleCard} data-testid="bundle-pro">
+              <span style={{ ...s.badge, background: "#F59E0B", color: "#FFFFFF" }}>
                 Hands-free growth
               </span>
-              <h2 style={s.bundleName}>Autopilot System</h2>
+              <h2 style={s.bundleName}>Pro System</h2>
               <div style={s.bundlePrice}>
-                $599
+                {formatPrice(BUNDLE_PRO.price)}
                 <span style={{ fontSize: 16, fontWeight: 500, color: "#6B7280" }}>/mo</span>
               </div>
-              <p style={s.bundlePricePeriod}>Full-stack growth on autopilot</p>
-              <span style={s.savingBadge}>Save $348/mo vs buying separately</span>
+              <p style={s.bundlePricePeriod}>{BUNDLE_PRO.tagline}</p>
+              <span style={s.savingBadge}>Save {formatPrice(bundleSavings(BUNDLE_PRO))}/mo vs buying separately</span>
               <div style={s.divider} />
               <p style={s.includesLabel}>Includes</p>
               <ul style={s.featureList}>
-                {autopilotIncludes.map(f => (
+                {proIncludes.map(f => (
                   <li key={f} style={s.featureItem}>
                     <Check size={16} color={mkt.accent} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 2 }} />
                     {f}
                   </li>
                 ))}
               </ul>
-              <button style={s.ctaBtn} data-testid="button-get-started-autopilot">
+              <button style={s.ctaBtn} data-testid="button-get-started-pro">
                 Get Started
               </button>
             </div>
