@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink } from "lucide-react";
+import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { TASK_STATUS_STYLES, TASK_STATUS_LABELS, statusLabel } from "@/config/portalLabels";
 
 interface OverviewData {
   business_name: string;
@@ -32,16 +33,6 @@ interface QuoteQuickData {
   } | null;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  not_started: "bg-gray-100 text-gray-600",
-  submitted: "bg-blue-50 text-blue-700",
-  in_progress: "bg-indigo-50 text-indigo-700",
-  waiting: "bg-amber-50 text-amber-700",
-  delivered: "bg-emerald-50 text-emerald-700",
-  blocked: "bg-red-50 text-red-700",
-  cancelled: "bg-gray-100 text-gray-500",
-};
-
 function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
@@ -57,7 +48,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function PortalDashboard() {
-  const { data, isLoading, error } = useQuery<OverviewData>({
+  const { data, isLoading, error, refetch } = useQuery<OverviewData>({
     queryKey: ["/api/portal/overview"],
     queryFn: async () => {
       const res = await fetch("/api/portal/overview", { credentials: "include" });
@@ -83,8 +74,11 @@ export default function PortalDashboard() {
         </div>
       )}
       {error && (
-        <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm">
-          Failed to load dashboard. Please try again.
+        <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
+          <span>Failed to load dashboard.</span>
+          <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+            <RefreshCw className="w-3 h-3" /> Retry
+          </button>
         </div>
       )}
       {data && (
@@ -108,11 +102,12 @@ export default function PortalDashboard() {
               href="/portal/services"
             />
             <StatCard
-              label="Pending Onboarding"
+              label="Setup Required"
               value={data.pending_onboarding}
               icon={ClipboardList}
               color="text-amber-600"
               bgColor="bg-amber-50"
+              href="/portal/services"
             />
             <StatCard
               label="Action Needed"
@@ -120,9 +115,10 @@ export default function PortalDashboard() {
               icon={AlertCircle}
               color={data.action_needed > 0 ? "text-red-600" : "text-gray-400"}
               bgColor={data.action_needed > 0 ? "bg-red-50" : "bg-gray-50"}
+              href="/portal/services"
             />
             <StatCard
-              label="Outstanding"
+              label="Amount Due"
               value={formatCents(data.outstanding_balance_cents)}
               icon={CreditCard}
               color="text-blue-600"
@@ -145,7 +141,7 @@ export default function PortalDashboard() {
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${
                         qqData.calculator.status === "live" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
                       }`}>
-                        {qqData.calculator.status}
+                        {qqData.calculator.status === "live" ? "Live" : "Draft"}
                       </span>
                       <span className="text-[10px] text-gray-400 capitalize">{qqData.calculator.plan_tier} plan</span>
                     </div>
@@ -209,9 +205,9 @@ export default function PortalDashboard() {
                   <li key={item.id} className="px-5 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium capitalize whitespace-nowrap ${STATUS_COLORS[item.status] || "bg-gray-100 text-gray-600"}`}
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${TASK_STATUS_STYLES[item.status] || "bg-gray-100 text-gray-600"}`}
                       >
-                        {item.status.replace(/_/g, " ")}
+                        {statusLabel(TASK_STATUS_LABELS, item.status)}
                       </span>
                       <span className="text-sm text-gray-700 truncate">{item.title}</span>
                     </div>
@@ -245,7 +241,7 @@ function StatCard({
   href?: string;
 }) {
   const card = (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow">
+    <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow cursor-pointer">
       <div className="flex items-center gap-3">
         <div className={`w-9 h-9 rounded-lg ${bgColor} flex items-center justify-center`}>
           <Icon className={`w-4 h-4 ${color}`} />

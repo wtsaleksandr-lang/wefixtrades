@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, MessageCircle, Send } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, MessageCircle, Send, RefreshCw } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { getFieldConfig } from "@/config/onboardingFields";
 
@@ -154,7 +154,7 @@ export default function PortalOnboarding() {
   const [helpField, setHelpField] = useState<{ label: string; example?: string; helperText?: string } | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
 
-  const { data, isLoading, error } = useQuery<OnboardingData>({
+  const { data, isLoading, error, refetch } = useQuery<OnboardingData>({
     queryKey: ["/api/portal/onboarding", submissionId],
     queryFn: async () => {
       const res = await fetch(`/api/portal/onboarding/${submissionId}`, { credentials: "include" });
@@ -240,8 +240,11 @@ export default function PortalOnboarding() {
         )}
 
         {error && (
-          <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm">
-            Failed to load onboarding form. Please try again.
+          <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
+            <span>Failed to load onboarding form.</span>
+            <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+              <RefreshCw className="w-3 h-3" /> Retry
+            </button>
           </div>
         )}
 

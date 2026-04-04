@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, CreditCard, Clock, CheckCircle } from "lucide-react";
+import { Loader2, CreditCard, Clock, CheckCircle, RefreshCw } from "lucide-react";
+import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_STYLES, statusLabel } from "@/config/portalLabels";
 
 interface PaymentRow {
   id: number;
@@ -26,14 +28,6 @@ interface BillingData {
   };
 }
 
-const PAYMENT_STATUS: Record<string, string> = {
-  pending: "bg-amber-50 text-amber-700",
-  paid: "bg-emerald-50 text-emerald-700",
-  failed: "bg-red-50 text-red-700",
-  refunded: "bg-gray-100 text-gray-600",
-  partial: "bg-blue-50 text-blue-700",
-};
-
 function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
@@ -48,7 +42,7 @@ function formatDate(dateStr: string | null): string {
 }
 
 export default function PortalBilling() {
-  const { data, isLoading, error } = useQuery<BillingData>({
+  const { data, isLoading, error, refetch } = useQuery<BillingData>({
     queryKey: ["/api/portal/billing"],
     queryFn: async () => {
       const res = await fetch("/api/portal/billing", { credentials: "include" });
@@ -56,6 +50,8 @@ export default function PortalBilling() {
       return res.json();
     },
   });
+
+  const hasPending = data && data.summary.total_pending_cents > 0;
 
   return (
     <PortalLayout>
@@ -72,8 +68,11 @@ export default function PortalBilling() {
         )}
 
         {error && (
-          <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm">
-            Failed to load billing. Please try again.
+          <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
+            <span>Failed to load billing.</span>
+            <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+              <RefreshCw className="w-3 h-3" /> Retry
+            </button>
           </div>
         )}
 
@@ -98,7 +97,7 @@ export default function PortalBilling() {
                     <CreditCard className="w-4 h-4 text-amber-600" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Outstanding</p>
+                    <p className="text-xs text-gray-500">Amount Due</p>
                     <p className="text-lg font-semibold text-gray-900">{formatCents(data.summary.total_pending_cents)}</p>
                   </div>
                 </div>
@@ -122,6 +121,20 @@ export default function PortalBilling() {
                 </div>
               </div>
             </div>
+
+            {/* Payment guidance for unpaid invoices */}
+            {hasPending && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                <CreditCard className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800">You have unpaid invoices</p>
+                  <p className="text-xs text-amber-600 mt-0.5 leading-relaxed">
+                    To arrange payment, please <Link href="/portal/help" className="underline font-medium hover:text-amber-800">contact us via the Help page</Link> or
+                    reply to the invoice email you received. We accept bank transfer and card payments.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Payments table */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -149,11 +162,11 @@ export default function PortalBilling() {
                         <tr key={p.id} className="hover:bg-gray-50/50">
                           <td className="px-5 py-3 text-gray-600 whitespace-nowrap">{formatDate(p.created_at)}</td>
                           <td className="px-5 py-3 text-gray-700">{p.service_name || "-"}</td>
-                          <td className="px-5 py-3 text-gray-500">{p.description || p.type}</td>
+                          <td className="px-5 py-3 text-gray-500">{p.description || "Invoice"}</td>
                           <td className="px-5 py-3 text-gray-900 font-medium text-right whitespace-nowrap">{formatCents(p.amount_cents)}</td>
                           <td className="px-5 py-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${PAYMENT_STATUS[p.status] || "bg-gray-100 text-gray-600"}`}>
-                              {p.status}
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${PAYMENT_STATUS_STYLES[p.status] || "bg-gray-100 text-gray-600"}`}>
+                              {statusLabel(PAYMENT_STATUS_LABELS, p.status)}
                             </span>
                           </td>
                         </tr>

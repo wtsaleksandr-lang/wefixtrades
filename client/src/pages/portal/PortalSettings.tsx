@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { Loader2, Check } from "lucide-react";
+import { Loader2, Check, RefreshCw } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 
 interface SettingsData {
@@ -17,7 +17,7 @@ export default function PortalSettings() {
   const queryClient = useQueryClient();
   const [saved, setSaved] = useState(false);
 
-  const { data, isLoading, error } = useQuery<SettingsData>({
+  const { data, isLoading, error, refetch } = useQuery<SettingsData>({
     queryKey: ["/api/portal/settings"],
     queryFn: async () => {
       const res = await fetch("/api/portal/settings", { credentials: "include" });
@@ -87,8 +87,11 @@ export default function PortalSettings() {
         )}
 
         {error && (
-          <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm">
-            Failed to load settings. Please try again.
+          <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
+            <span>Failed to load settings.</span>
+            <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+              <RefreshCw className="w-3 h-3" /> Retry
+            </button>
           </div>
         )}
 

@@ -1,7 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle } from "lucide-react";
+import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import {
+  SERVICE_STATUS_LABELS, SERVICE_STATUS_STYLES,
+  PAYMENT_STATUS_LABELS, PAYMENT_STATUS_STYLES,
+  ONBOARDING_STATUS_LABELS,
+  statusLabel,
+} from "@/config/portalLabels";
 
 interface TaskRow {
   id: number;
@@ -49,22 +55,6 @@ interface ServiceDetail {
   payments: PaymentRow[];
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  pending: "bg-gray-100 text-gray-600",
-  onboarding: "bg-amber-50 text-amber-700",
-  active: "bg-emerald-50 text-emerald-700",
-  paused: "bg-blue-50 text-blue-700",
-  cancelled: "bg-gray-100 text-gray-500",
-  completed: "bg-indigo-50 text-indigo-700",
-};
-
-const PAYMENT_STATUS: Record<string, string> = {
-  pending: "bg-amber-50 text-amber-700",
-  paid: "bg-emerald-50 text-emerald-700",
-  failed: "bg-red-50 text-red-700",
-  refunded: "bg-gray-100 text-gray-600",
-};
-
 function TaskIcon({ status }: { status: string }) {
   switch (status) {
     case "delivered":
@@ -99,7 +89,7 @@ export default function PortalServiceDetail() {
   const [, params] = useRoute("/portal/services/:id");
   const serviceId = params?.id;
 
-  const { data, isLoading, error } = useQuery<ServiceDetail>({
+  const { data, isLoading, error, refetch } = useQuery<ServiceDetail>({
     queryKey: ["/api/portal/services", serviceId],
     queryFn: async () => {
       const res = await fetch(`/api/portal/services/${serviceId}`, { credentials: "include" });
@@ -124,8 +114,11 @@ export default function PortalServiceDetail() {
         )}
 
         {error && (
-          <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm">
-            Failed to load service. Please try again.
+          <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
+            <span>Failed to load service.</span>
+            <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+              <RefreshCw className="w-3 h-3" /> Retry
+            </button>
           </div>
         )}
 
@@ -150,8 +143,8 @@ export default function PortalServiceDetail() {
                     )}
                   </div>
                 </div>
-                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize ${STATUS_STYLES[data.service.status] || "bg-gray-100 text-gray-600"}`}>
-                  {data.service.status}
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${SERVICE_STATUS_STYLES[data.service.status] || "bg-gray-100 text-gray-600"}`}>
+                  {statusLabel(SERVICE_STATUS_LABELS, data.service.status)}
                 </span>
               </div>
             </div>
@@ -161,10 +154,10 @@ export default function PortalServiceDetail() {
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-amber-800">
-                    {data.onboarding.status === "submitted" ? "Onboarding Submitted" : "Onboarding Required"}
+                    {data.onboarding.status === "submitted" ? "Setup form submitted" : "Setup form required"}
                   </p>
                   <p className="text-xs text-amber-600 mt-0.5">
-                    Status: <span className="capitalize">{data.onboarding.status.replace(/_/g, " ")}</span>
+                    {statusLabel(ONBOARDING_STATUS_LABELS, data.onboarding.status)}
                     {data.onboarding.submitted_at && (
                       <> &middot; Submitted {formatDate(data.onboarding.submitted_at)}</>
                     )}
@@ -173,7 +166,7 @@ export default function PortalServiceDetail() {
                 {data.onboarding.status !== "submitted" && (
                   <Link href={`/portal/onboarding/${data.onboarding.id}`}>
                     <button className="px-3 py-1.5 text-xs font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors whitespace-nowrap">
-                      Complete Onboarding
+                      Complete setup
                     </button>
                   </Link>
                 )}
@@ -192,11 +185,11 @@ export default function PortalServiceDetail() {
               </div>
               {data.tasks.length === 0 ? (
                 <div className="px-5 py-6 text-center text-sm text-gray-400">
-                  No tasks defined for this service yet.
+                  We're setting things up. Your progress tracker will appear shortly.
                 </div>
               ) : (
                 <ul className="divide-y divide-gray-50">
-                  {data.tasks.map((task, i) => (
+                  {data.tasks.map((task) => (
                     <li key={task.id} className="px-5 py-3 flex items-start gap-3">
                       <div className="mt-0.5 shrink-0">
                         <TaskIcon status={task.status} />
@@ -249,11 +242,11 @@ export default function PortalServiceDetail() {
                       {data.payments.map((p) => (
                         <tr key={p.id}>
                           <td className="px-5 py-3 text-gray-600 whitespace-nowrap">{formatDate(p.created_at)}</td>
-                          <td className="px-5 py-3 text-gray-700">{p.description || p.type}</td>
+                          <td className="px-5 py-3 text-gray-700">{p.description || "Invoice"}</td>
                           <td className="px-5 py-3 text-gray-900 font-medium whitespace-nowrap">{formatCents(p.amount_cents)}</td>
                           <td className="px-5 py-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${PAYMENT_STATUS[p.status] || "bg-gray-100 text-gray-600"}`}>
-                              {p.status}
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${PAYMENT_STATUS_STYLES[p.status] || "bg-gray-100 text-gray-600"}`}>
+                              {statusLabel(PAYMENT_STATUS_LABELS, p.status)}
                             </span>
                           </td>
                         </tr>
