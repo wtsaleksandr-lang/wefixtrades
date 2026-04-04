@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "wouter";
-import { Check, ChevronDown, ArrowRight, Phone, MessageSquare, MessagesSquare, RotateCcw, Star } from "lucide-react";
+import { Check, ChevronDown, ArrowRight, Phone, MessageSquare, MessagesSquare, RotateCcw, Star, Zap, UserCheck, CalendarCheck, TrendingUp, X as XIcon } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import ProductHeroShell from "@/components/marketing/ProductHeroShell";
 import ProductCategoryChip from "@/components/marketing/ProductCategoryChip";
@@ -817,6 +817,487 @@ function TradeLinePricingIntro() {
   );
 }
 
+/* ---------- QuoteQuick: Built For Trades ---------- */
+function QQBuiltForSection({ trades }: { trades: string[] }) {
+  return (
+    <section style={{ background: mkt.bg, padding: "56px 28px" }} data-testid="qq-built-for">
+      <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Built for trades</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(22px, 2.8vw, 32px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 12,
+          }}
+        >
+          Built for trades — not generic websites.
+        </h2>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8, marginBottom: 16 }}>
+          {trades.map((trade) => (
+            <span
+              key={trade}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 9999,
+                border: `1px solid ${mkt.border}`,
+                fontSize: 13,
+                fontWeight: 500,
+                color: mkt.textMuted,
+                background: mkt.surface,
+              }}
+            >
+              {trade}
+            </span>
+          ))}
+        </div>
+        <p style={{ fontSize: 14, color: mkt.textMuted, opacity: 0.75 }}>
+          QuoteQuick uses real-world pricing logic — not generic calculators.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- QuoteQuick: Problem Section ---------- */
+function QQProblemSection() {
+  const stats = [
+    "Most customers choose the first business that gives them a price",
+    "Speed to lead wins jobs",
+  ];
+
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="qq-problem">
+      <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>The problem</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 24,
+          }}
+        >
+          Contact forms don't convert.
+        </h2>
+        <p
+          style={{
+            fontSize: 16,
+            color: mkt.textMuted,
+            lineHeight: 1.7,
+            maxWidth: 560,
+            margin: "0 auto 32px",
+          }}
+        >
+          A customer lands on your website.
+          <br />They want a price.
+          <br /><br />
+          Instead, they see:
+          <br /><strong style={{ color: mkt.text }}>"Fill out this form and we'll get back to you."</strong>
+          <br /><br />
+          They leave. They call the next business.
+        </p>
+
+        <style>{`
+          .qq-stat-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+          }
+          @media (max-width: 640px) {
+            .qq-stat-row { grid-template-columns: 1fr; }
+          }
+        `}</style>
+
+        <div className="qq-stat-row" data-reveal="fade-up">
+          {stats.map((stat) => (
+            <div
+              key={stat}
+              style={{
+                background: mkt.bg,
+                border: `1px solid ${mkt.border}`,
+                borderRadius: 14,
+                padding: "20px 16px",
+              }}
+            >
+              <span style={{ fontSize: 14, fontWeight: 500, color: mkt.textMuted, lineHeight: 1.5 }}>
+                {stat}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 16, fontWeight: 600, color: mkt.text, lineHeight: 1.5 }}>
+          You're not losing traffic.
+          <br />You're losing customers who didn't get a price fast enough.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- QuoteQuick: Solution Section ---------- */
+function QQSolutionSection() {
+  const cards = [
+    { icon: Zap, title: "Instant estimates", desc: "Customers get a price in seconds — 24/7." },
+    { icon: UserCheck, title: "Lead capture", desc: "Every quote collects name, phone, and job details." },
+    { icon: CalendarCheck, title: "Optional booking", desc: "Let customers book right after the quote." },
+    { icon: TrendingUp, title: "Upsells built-in", desc: "Add extras and upgrades directly in the quote flow." },
+  ];
+
+  return (
+    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="qq-solution">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>The fix</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 8,
+          }}
+        >
+          Let customers price their job instantly.
+        </h2>
+        <p style={{ fontSize: 16, color: mkt.textMuted, marginBottom: 40, lineHeight: 1.6 }}>
+          QuoteQuick turns your website into a self-service quoting tool.
+        </p>
+
+        <style>{`
+          .qq-solution-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 14px;
+            text-align: left;
+          }
+          .qq-solution-card {
+            background: ${mkt.surface};
+            border: 1px solid ${mkt.border};
+            border-radius: 14px;
+            padding: 22px;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+          }
+          .qq-solution-card:hover {
+            border-color: rgba(102,232,250,0.18);
+            transform: translateY(-1px);
+          }
+        `}</style>
+
+        <div className="qq-solution-grid">
+          {cards.map((c, i) => (
+            <div key={c.title} className="qq-solution-card" data-reveal="fade-up" data-delay={String(i * 60)}>
+              <div style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: mkt.accentTint,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <c.icon size={18} color={mkt.accent} strokeWidth={2} />
+                </div>
+              </div>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: mkt.text, marginBottom: 6 }}>
+                {c.title}
+              </h3>
+              <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.55, margin: 0 }}>
+                {c.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- QuoteQuick: Live Demo Section ---------- */
+function QQDemoSection() {
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="qq-demo">
+      <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Live preview</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(22px, 2.8vw, 32px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 32,
+          }}
+        >
+          See how it works.
+        </h2>
+
+        {/* Demo widget placeholder */}
+        <div
+          style={{
+            background: mkt.bg,
+            border: `2px solid ${mkt.border}`,
+            borderRadius: 18,
+            padding: "40px 24px",
+            minHeight: 320,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 16,
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: `radial-gradient(ellipse at 50% 0%, rgba(102,232,250,0.04) 0%, transparent 70%)`,
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              background: mkt.accentTint,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Zap size={22} color={mkt.accent} strokeWidth={2} />
+          </div>
+          <p style={{ fontSize: 16, fontWeight: 600, color: mkt.text, margin: 0 }}>
+            Interactive Quote Widget
+          </p>
+          <p style={{ fontSize: 13, color: mkt.textMuted, maxWidth: 320, lineHeight: 1.5 }}>
+            Select a service, answer a few questions, and get an instant estimate — just like your customers will.
+          </p>
+          <Link
+            href="/demo"
+            className="mkt-btn-primary"
+            style={{
+              padding: "11px 24px",
+              borderRadius: 9999,
+              background: mkt.accent,
+              color: mkt.buttonText,
+              fontSize: 14,
+              fontWeight: 700,
+              textDecoration: "none",
+              display: "inline-block",
+              marginTop: 8,
+            }}
+          >
+            Try the Live Demo
+          </Link>
+        </div>
+
+        <p style={{ fontSize: 14, color: mkt.textMuted, marginTop: 16, opacity: 0.75 }}>
+          This is exactly what your customers will see.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- QuoteQuick: Comparison Table ---------- */
+function QQComparisonSection() {
+  const rows = [
+    { feature: "Instant pricing", qq: true, form: false, generic: true, fsm: "Sometimes" },
+    { feature: "Trades-specific logic", qq: true, form: false, generic: false, fsm: true },
+    { feature: "Embeddable", qq: true, form: true, generic: true, fsm: false },
+    { feature: "Standalone tool", qq: true, form: true, generic: true, fsm: false },
+    { feature: "Affordable", qq: true, form: true, generic: true, fsm: false },
+  ];
+
+  const renderCell = (val: boolean | string) =>
+    val === true ? (
+      <Check size={16} color={mkt.accent} strokeWidth={2.5} />
+    ) : val === false ? (
+      <span style={{ color: mkt.textMuted, fontSize: 16 }}>—</span>
+    ) : (
+      <span style={{ color: mkt.textMuted, fontSize: 13 }}>{String(val)}</span>
+    );
+
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="qq-comparison">
+      <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Why QuoteQuick</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(22px, 2.8vw, 32px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 12,
+          }}
+        >
+          Why QuoteQuick is different.
+        </h2>
+        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 32 }}>
+          Generic calculators aren't built for trades. FSM platforms bundle quoting into expensive software you don't need.
+        </p>
+
+        <div
+          style={{
+            background: mkt.bg,
+            border: `1px solid ${mkt.border}`,
+            borderRadius: 14,
+            overflow: "auto",
+          }}
+        >
+          <style>{`
+            .qq-compare-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 520px; }
+            .qq-compare-table th, .qq-compare-table td { padding: 12px 14px; }
+          `}</style>
+          <table className="qq-compare-table">
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${mkt.border}` }}>
+                <th style={{ textAlign: "left", fontWeight: 600, color: mkt.textMuted }}></th>
+                <th style={{ textAlign: "center", fontWeight: 700, color: mkt.accent }}>QuoteQuick</th>
+                <th style={{ textAlign: "center", fontWeight: 600, color: mkt.textMuted }}>Contact Form</th>
+                <th style={{ textAlign: "center", fontWeight: 600, color: mkt.textMuted }}>Generic Calc</th>
+                <th style={{ textAlign: "center", fontWeight: 600, color: mkt.textMuted }}>FSM Software</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.feature} style={{ borderBottom: `1px solid ${mkt.border}` }}>
+                  <td style={{ color: mkt.text, fontWeight: 500 }}>{row.feature}</td>
+                  <td style={{ textAlign: "center" }}>{renderCell(row.qq)}</td>
+                  <td style={{ textAlign: "center" }}>{renderCell(row.form)}</td>
+                  <td style={{ textAlign: "center" }}>{renderCell(row.generic)}</td>
+                  <td style={{ textAlign: "center" }}>{renderCell(row.fsm)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- QuoteQuick: Results Section ---------- */
+function QQResultsSection({ outcomes }: { outcomes: { title: string; desc: string }[] }) {
+  return (
+    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="qq-results">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Results</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 36,
+          }}
+        >
+          What changes when you add instant pricing.
+        </h2>
+
+        <style>{`
+          .qq-results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+            text-align: left;
+          }
+        `}</style>
+
+        <div className="qq-results-grid">
+          {outcomes.map((o, i) => (
+            <div
+              key={o.title}
+              data-reveal="fade-up"
+              data-delay={String(i * 60)}
+              style={{
+                background: mkt.surface,
+                border: `1px solid ${mkt.border}`,
+                borderRadius: 14,
+                padding: "22px 18px",
+              }}
+            >
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.accent, marginBottom: 6 }}>
+                {o.title}
+              </h3>
+              <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.55, margin: 0 }}>
+                {o.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- QuoteQuick: Pricing Intro ---------- */
+function QQPricingIntro() {
+  return (
+    <>
+      <SectionLabel>Pricing</SectionLabel>
+      <h2
+        style={{
+          fontSize: "clamp(24px, 3vw, 36px)",
+          fontWeight: 700,
+          color: mkt.onDark,
+          letterSpacing: "-0.025em",
+          marginBottom: 8,
+        }}
+      >
+        Simple, transparent pricing.
+      </h2>
+      <p
+        style={{
+          fontSize: 15,
+          color: mkt.onDarkFaint,
+          maxWidth: 480,
+          margin: "0 auto",
+          lineHeight: 1.6,
+        }}
+      >
+        Start free. Upgrade when you're ready.
+      </p>
+    </>
+  );
+}
+
+/* ---------- QuoteQuick: Risk Reversal ---------- */
+function QQRiskReversal() {
+  return (
+    <div
+      style={{
+        background: mkt.dark,
+        padding: "0 28px 40px",
+        textAlign: "center",
+      }}
+      data-reveal="fade-up"
+    >
+      <p
+        style={{
+          fontSize: 14,
+          fontWeight: 500,
+          color: mkt.onDarkFaint,
+          maxWidth: 600,
+          margin: "0 auto",
+          letterSpacing: "0.01em",
+        }}
+      >
+        14-day free trial · No credit card required · No contracts · Cancel anytime
+      </p>
+    </div>
+  );
+}
+
 /* ---------- Main Product Page ---------- */
 export default function ProductPage() {
   const params = useParams<{ slug: string }>();
@@ -855,6 +1336,7 @@ export default function ProductPage() {
     .filter(Boolean) as ProductConfig[];
 
   const isTradeLine = product.slug === "tradeline";
+  const isQuoteQuick = product.slug === "quickquote" || product.slug === "quickquotepro";
 
   return (
     <MarketingLayout>
@@ -868,7 +1350,7 @@ export default function ProductPage() {
             <ProductCategoryChip category={product.category} />
           </div>
 
-          {isTradeLine ? (
+          {(isTradeLine || isQuoteQuick) ? (
             <>
               <div
                 className="hero-enter"
@@ -897,8 +1379,11 @@ export default function ProductPage() {
                   fontFamily: typography.fontFamily,
                 }}
               >
-                Never Miss a Call Again —{" "}
-                <span style={{ color: mkt.accent }}>Or Lose Another Job to a Competitor</span>
+                {isTradeLine ? (
+                  <>Never Miss a Call Again —{" "}<span style={{ color: mkt.accent }}>Or Lose Another Job to a Competitor</span></>
+                ) : (
+                  <>Turn Your Website Into a{" "}<span style={{ color: mkt.accent }}>Quoting Machine.</span></>
+                )}
               </h1>
               <p
                 className="hero-enter"
@@ -907,16 +1392,22 @@ export default function ProductPage() {
                   fontSize: "clamp(15px, 1.8vw, 18px)",
                   color: mkt.textMuted,
                   lineHeight: 1.65,
-                  maxWidth: 540,
+                  maxWidth: 560,
                   margin: "0 auto 32px",
                   fontFamily: typography.fontFamily,
                 }}
               >
-                AI that answers your calls and chats 24/7 — so you can stay on the tools.
-                <br />
-                <span style={{ fontSize: "clamp(13px, 1.5vw, 15px)", opacity: 0.75 }}>
-                  Think of it as a 24/7 receptionist that never misses a call.
-                </span>
+                {isTradeLine ? (
+                  <>
+                    AI that answers your calls and chats 24/7 — so you can stay on the tools.
+                    <br />
+                    <span style={{ fontSize: "clamp(13px, 1.5vw, 15px)", opacity: 0.75 }}>
+                      Think of it as a 24/7 receptionist that never misses a call.
+                    </span>
+                  </>
+                ) : (
+                  "Give customers instant prices using your real service rates — and capture every lead automatically. No callbacks. No missed opportunities."
+                )}
               </p>
             </>
           ) : (
@@ -1003,7 +1494,7 @@ export default function ProductPage() {
             )}
           </div>
 
-          {isTradeLine && (
+          {(isTradeLine || isQuoteQuick) && (
             <div
               className="hero-enter"
               style={{
@@ -1017,12 +1508,18 @@ export default function ProductPage() {
                 color: mkt.textMuted,
               }}
             >
-              {[
+              {(isQuoteQuick ? [
+                "Built for trades businesses",
+                "Works on any website",
+                "No coding required",
+                "Live in under 15 minutes",
+                "Cancel anytime",
+              ] : [
                 "Built for trades businesses",
                 "Works while you\u2019re on the job",
                 "24/7 lead capture",
                 "No contracts \u00B7 Cancel anytime",
-              ].map((item) => (
+              ]).map((item) => (
                 <span key={item} style={{ whiteSpace: "nowrap" }}>{item}</span>
               ))}
             </div>
@@ -1064,6 +1561,15 @@ export default function ProductPage() {
           </>
         )}
 
+        {/* ── QuoteQuick: Built For + Problem + Solution + Demo (between hero and capabilities) ── */}
+        {isQuoteQuick && (
+          <>
+            <QQBuiltForSection trades={product.bestFor} />
+            <QQProblemSection />
+            <QQSolutionSection />
+          </>
+        )}
+
         {/* ── §2 CAPABILITIES / BENEFITS ── */}
         <CapabilitiesGrid items={product.highlights} />
 
@@ -1078,11 +1584,27 @@ export default function ProductPage() {
           </div>
         )}
 
+        {isQuoteQuick && (
+          <div style={{ background: mkt.surface, textAlign: "center", padding: "0 28px 48px" }} data-reveal="fade-up">
+            <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text, maxWidth: 560, margin: "0 auto", lineHeight: 1.5 }}>
+              Most businesses are live in under 15 minutes.
+            </p>
+          </div>
+        )}
+
         {/* ── TradeLine: Multi-channel Comparison (after how-it-works) ── */}
         {isTradeLine && <TradeLineComparisonSection />}
 
         {/* ── TradeLine: Voicemail objection (after comparison) ── */}
         {isTradeLine && <TradeLineVoicemailSection />}
+
+        {/* ── QuoteQuick: Demo + Comparison (after how-it-works) ── */}
+        {isQuoteQuick && (
+          <>
+            <QQDemoSection />
+            <QQComparisonSection />
+          </>
+        )}
 
         {/* ── §4 SOCIAL PROOF ── */}
         <SurfaceSection overlap className="py-4">
@@ -1092,11 +1614,24 @@ export default function ProductPage() {
         {/* ── TradeLine: Results / Proof (after reviews, before pricing) ── */}
         {isTradeLine && <TradeLineResultsSection outcomes={product.outcomes} />}
 
+        {/* ── QuoteQuick: Results (after reviews, before pricing) ── */}
+        {isQuoteQuick && <QQResultsSection outcomes={product.outcomes} />}
+
         {/* ── §5 PRICING (MANDATORY) ── */}
-        <PricingSection product={product} pricingIntro={isTradeLine ? <TradeLinePricingIntro /> : undefined} />
+        <PricingSection
+          product={product}
+          pricingIntro={
+            isTradeLine ? <TradeLinePricingIntro /> :
+            isQuoteQuick ? <QQPricingIntro /> :
+            undefined
+          }
+        />
 
         {/* ── TradeLine: Risk Reversal (below pricing) ── */}
         {isTradeLine && <TradeLineRiskReversal />}
+
+        {/* ── QuoteQuick: Risk Reversal (below pricing) ── */}
+        {isQuoteQuick && <QQRiskReversal />}
 
         {/* ── §6 FAQ ── */}
         {product.faq.length > 0 && (
@@ -1154,6 +1689,13 @@ export default function ProductPage() {
           <CTASection
             heading="Stop Missing Calls. Start Winning More Jobs."
             subtext="Try TradeLine free for 14 days. No credit card. No contracts."
+            ctaLabel="Start Your Free Trial"
+            ctaHref="/Wizard"
+          />
+        ) : isQuoteQuick ? (
+          <CTASection
+            heading="Stop losing leads to slow quotes."
+            subtext="Give your customers instant pricing — and capture every opportunity."
             ctaLabel="Start Your Free Trial"
             ctaHref="/Wizard"
           />
