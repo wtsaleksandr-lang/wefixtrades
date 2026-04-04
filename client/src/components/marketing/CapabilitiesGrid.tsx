@@ -3,13 +3,14 @@ import { mkt, shadows } from "@/theme/tokens";
 
 interface CapabilitiesGridProps {
   items: string[];
+  heading?: string;
 }
 
 /**
  * Richer "What you get" grid replacing flat bullet lists.
  * Uses surface cards with check icons, matching homepage card patterns.
  */
-export default function CapabilitiesGrid({ items }: CapabilitiesGridProps) {
+export default function CapabilitiesGrid({ items, heading }: CapabilitiesGridProps) {
   return (
     <section
       style={{ background: mkt.bg, padding: "72px 28px" }}
@@ -41,7 +42,7 @@ export default function CapabilitiesGrid({ items }: CapabilitiesGridProps) {
               margin: 0,
             }}
           >
-            Everything you need
+            {heading || "Everything you need"}
           </h2>
         </div>
 

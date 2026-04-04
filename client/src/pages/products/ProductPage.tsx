@@ -832,7 +832,7 @@ function QQBuiltForSection({ trades }: { trades: string[] }) {
             marginBottom: 12,
           }}
         >
-          Built for trades — not generic websites.
+          Built for trades — not generic calculators.
         </h2>
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8, marginBottom: 16 }}>
           {trades.map((trade) => (
@@ -852,8 +852,11 @@ function QQBuiltForSection({ trades }: { trades: string[] }) {
             </span>
           ))}
         </div>
-        <p style={{ fontSize: 14, color: mkt.textMuted, opacity: 0.75 }}>
-          QuoteQuick uses real-world pricing logic — not generic calculators.
+        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 12 }}>
+          QuoteQuick uses real-world pricing logic for service businesses — not generic "price calculator" templates made for marketers.
+        </p>
+        <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text }}>
+          Your customers want a price now. Not a callback later.
         </p>
       </div>
     </section>
@@ -863,8 +866,9 @@ function QQBuiltForSection({ trades }: { trades: string[] }) {
 /* ---------- QuoteQuick: Problem Section ---------- */
 function QQProblemSection() {
   const stats = [
-    "Most customers choose the first business that gives them a price",
-    "Speed to lead wins jobs",
+    "The first business to respond usually wins",
+    "Customers who don\u2019t get a price fast enough keep shopping",
+    "Slow quoting creates lost leads, wasted traffic, and manual follow-up",
   ];
 
   return (
@@ -903,7 +907,7 @@ function QQProblemSection() {
         <style>{`
           .qq-stat-row {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 16px;
             margin-bottom: 32px;
           }
@@ -934,6 +938,9 @@ function QQProblemSection() {
           You're not losing traffic.
           <br />You're losing customers who didn't get a price fast enough.
         </p>
+        <p style={{ fontSize: 15, color: mkt.textMuted, marginTop: 16, lineHeight: 1.6 }}>
+          Every day you wait is more missed leads — and more jobs going somewhere else.
+        </p>
       </div>
     </section>
   );
@@ -943,9 +950,9 @@ function QQProblemSection() {
 function QQSolutionSection() {
   const cards = [
     { icon: Zap, title: "Instant estimates", desc: "Customers get a price in seconds — 24/7." },
-    { icon: UserCheck, title: "Lead capture", desc: "Every quote collects name, phone, and job details." },
-    { icon: CalendarCheck, title: "Optional booking", desc: "Let customers book right after the quote." },
-    { icon: TrendingUp, title: "Upsells built-in", desc: "Add extras and upgrades directly in the quote flow." },
+    { icon: UserCheck, title: "Lead capture", desc: "Every quote collects name, phone, email, and job details." },
+    { icon: CalendarCheck, title: "Optional booking", desc: "Let customers book right after the estimate." },
+    { icon: TrendingUp, title: "Upsells built in", desc: "Add optional upgrades and services inside the quote flow." },
   ];
 
   return (
@@ -963,8 +970,11 @@ function QQSolutionSection() {
         >
           Let customers price their job instantly.
         </h2>
-        <p style={{ fontSize: 16, color: mkt.textMuted, marginBottom: 40, lineHeight: 1.6 }}>
-          QuoteQuick turns your website into a self-service quoting tool.
+        <p style={{ fontSize: 16, color: mkt.textMuted, marginBottom: 12, lineHeight: 1.6 }}>
+          QuoteQuick turns your website into a self-serve quoting tool.
+        </p>
+        <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text, marginBottom: 40, lineHeight: 1.5 }}>
+          More than a contact form. Less hassle than quoting software.
         </p>
 
         <style>{`
@@ -1014,6 +1024,10 @@ function QQSolutionSection() {
             </div>
           ))}
         </div>
+
+        <p style={{ fontSize: 14, color: mkt.textMuted, marginTop: 28, lineHeight: 1.6 }}>
+          You stay in control — QuoteQuick follows your pricing, your services, and your rules.
+        </p>
       </div>
     </section>
   );
@@ -1036,6 +1050,9 @@ function QQDemoSection() {
         >
           See how it works.
         </h2>
+        <p style={{ fontSize: 15, color: mkt.textMuted, marginBottom: 32, marginTop: -16, lineHeight: 1.6 }}>
+          This is exactly what your customer sees on your website.
+        </p>
 
         {/* Demo widget placeholder */}
         <div
@@ -1101,7 +1118,7 @@ function QQDemoSection() {
         </div>
 
         <p style={{ fontSize: 14, color: mkt.textMuted, marginTop: 16, opacity: 0.75 }}>
-          This is exactly what your customers will see.
+          If a customer can use a contact form, they can use this.
         </p>
       </div>
     </section>
@@ -1115,6 +1132,7 @@ function QQComparisonSection() {
     { feature: "Trades-specific logic", qq: true, form: false, generic: false, fsm: true },
     { feature: "Embeddable", qq: true, form: true, generic: true, fsm: false },
     { feature: "Standalone tool", qq: true, form: true, generic: true, fsm: false },
+    { feature: "Optional booking", qq: true, form: false, generic: "Sometimes", fsm: true },
     { feature: "Affordable", qq: true, form: true, generic: true, fsm: false },
   ];
 
@@ -1143,7 +1161,8 @@ function QQComparisonSection() {
           Why QuoteQuick is different.
         </h2>
         <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 32 }}>
-          Generic calculators aren't built for trades. FSM platforms bundle quoting into expensive software you don't need.
+          Most tools force you to choose between cheap and generic — or powerful and expensive.
+          QuoteQuick gives you both speed and trade-specific logic.
         </p>
 
         <div
@@ -1181,6 +1200,10 @@ function QQComparisonSection() {
             </tbody>
           </table>
         </div>
+
+        <p style={{ fontSize: 14, fontWeight: 600, color: mkt.text, marginTop: 24, lineHeight: 1.5 }}>
+          If your website still makes people wait for a callback, you're losing leads you already paid to get.
+        </p>
       </div>
     </section>
   );
@@ -1203,6 +1226,9 @@ function QQResultsSection({ outcomes }: { outcomes: { title: string; desc: strin
         >
           What changes when you add instant pricing.
         </h2>
+        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 0 }}>
+          What QuoteQuick is designed to help you achieve:
+        </p>
 
         <style>{`
           .qq-results-grid {
@@ -1235,6 +1261,10 @@ function QQResultsSection({ outcomes }: { outcomes: { title: string; desc: strin
             </div>
           ))}
         </div>
+
+        <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text, marginTop: 28 }}>
+          One extra booked job can cover your month. Everything after that is upside.
+        </p>
       </div>
     </section>
   );
@@ -1266,6 +1296,16 @@ function QQPricingIntro() {
         }}
       >
         Start free. Upgrade when you're ready.
+      </p>
+      <p
+        style={{
+          fontSize: 14,
+          fontWeight: 600,
+          color: mkt.onDarkMuted,
+          marginTop: 12,
+        }}
+      >
+        Start with the plan that fits your business now. Upgrade anytime later.
       </p>
     </>
   );
@@ -1382,7 +1422,7 @@ export default function ProductPage() {
                 {isTradeLine ? (
                   <>Never Miss a Call Again —{" "}<span style={{ color: mkt.accent }}>Or Lose Another Job to a Competitor</span></>
                 ) : (
-                  <>Turn Your Website Into a{" "}<span style={{ color: mkt.accent }}>Quoting Machine.</span></>
+                  <>Stop Losing Leads to a{" "}<span style={{ color: mkt.accent }}>Contact Form.</span></>
                 )}
               </h1>
               <p
@@ -1406,7 +1446,7 @@ export default function ProductPage() {
                     </span>
                   </>
                 ) : (
-                  "Give customers instant prices using your real service rates — and capture every lead automatically. No callbacks. No missed opportunities."
+                  "Give customers an instant price on your website using your real service rates \u2014 and capture every lead automatically. No callbacks. No quoting delays."
                 )}
               </p>
             </>
@@ -1494,6 +1534,20 @@ export default function ProductPage() {
             )}
           </div>
 
+          {isQuoteQuick && (
+            <p
+              className="hero-enter"
+              style={{
+                fontSize: 13,
+                color: mkt.textMuted,
+                marginTop: 16,
+                opacity: 0.7,
+              }}
+            >
+              No coding required &bull; Works on any website &bull; Cancel anytime
+            </p>
+          )}
+
           {(isTradeLine || isQuoteQuick) && (
             <div
               className="hero-enter"
@@ -1510,10 +1564,10 @@ export default function ProductPage() {
             >
               {(isQuoteQuick ? [
                 "Built for trades businesses",
-                "Works on any website",
-                "No coding required",
+                "Works on WordPress, Wix, Squarespace, Webflow, or plain HTML",
+                "No developer needed",
                 "Live in under 15 minutes",
-                "Cancel anytime",
+                "Standalone tool \u2014 no bloated software required",
               ] : [
                 "Built for trades businesses",
                 "Works while you\u2019re on the job",
@@ -1571,10 +1625,10 @@ export default function ProductPage() {
         )}
 
         {/* ── §2 CAPABILITIES / BENEFITS ── */}
-        <CapabilitiesGrid items={product.highlights} />
+        <CapabilitiesGrid items={product.highlights} heading={isQuoteQuick ? "Everything you need to capture more leads" : undefined} />
 
         {/* ── §3 HOW IT WORKS ── */}
-        <StepTimeline steps={product.howItWorks} />
+        <StepTimeline steps={product.howItWorks} heading={isQuoteQuick ? "Set it up once. Let it work every day." : undefined} />
 
         {isTradeLine && (
           <div style={{ background: mkt.surface, textAlign: "center", padding: "0 28px 48px" }} data-reveal="fade-up">
@@ -1588,6 +1642,9 @@ export default function ProductPage() {
           <div style={{ background: mkt.surface, textAlign: "center", padding: "0 28px 48px" }} data-reveal="fade-up">
             <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text, maxWidth: 560, margin: "0 auto", lineHeight: 1.5 }}>
               Most businesses are live in under 15 minutes.
+            </p>
+            <p style={{ fontSize: 14, color: mkt.textMuted, maxWidth: 560, margin: "12px auto 0", lineHeight: 1.5 }}>
+              Your next website visitor can become your next quote request — without waiting for a callback.
             </p>
           </div>
         )}
@@ -1695,7 +1752,7 @@ export default function ProductPage() {
         ) : isQuoteQuick ? (
           <CTASection
             heading="Stop losing leads to slow quotes."
-            subtext="Give your customers instant pricing — and capture every opportunity."
+            subtext="Give your customers instant pricing — and turn more website visitors into real quote requests."
             ctaLabel="Start Your Free Trial"
             ctaHref="/Wizard"
           />

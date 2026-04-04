@@ -7,13 +7,14 @@ interface Step {
 
 interface StepTimelineProps {
   steps: Step[];
+  heading?: string;
 }
 
 /**
  * Enhanced "How it works" with numbered circles and SVG connector line.
  * Adapts the homepage FlowConnectorSvg pattern for a horizontal timeline.
  */
-export default function StepTimeline({ steps }: StepTimelineProps) {
+export default function StepTimeline({ steps, heading }: StepTimelineProps) {
   return (
     <section
       style={{ background: mkt.surface, padding: "72px 28px" }}
@@ -45,7 +46,7 @@ export default function StepTimeline({ steps }: StepTimelineProps) {
               margin: 0,
             }}
           >
-            {steps.length} simple steps
+            {heading || `${steps.length} simple steps`}
           </h2>
         </div>
 
