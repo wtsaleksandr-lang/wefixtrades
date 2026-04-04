@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight, ZoomIn, ZoomOut, X, Minus, Plus } from "lucide-react";
 import { SERVICES, getServicesForIssues } from '@shared/services';
 import AuditGate from "@/components/marketing/AuditGate";
+import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
 
 // ─── Design tokens ───────────────────
 const DARK = '#0d1514';
@@ -2197,6 +2198,18 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               Get Started →
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Cross-tool suggestions — only when unlocked */}
+      {unlocked && (
+        <div style={{ marginBottom: 10 }}>
+          <NextStepSuggestions
+            context="audit"
+            theme="light"
+            issues={detectedIssues}
+            trade={report?.trade}
+          />
         </div>
       )}
 

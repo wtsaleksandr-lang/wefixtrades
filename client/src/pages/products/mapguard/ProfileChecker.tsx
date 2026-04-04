@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
+import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
 import {
   Search, ArrowRight, Star, Image, Clock, Globe, MessageSquare,
   CheckCircle2, XCircle, AlertTriangle,
@@ -470,6 +471,9 @@ export default function ProfileChecker() {
                 </div>
               </div>
             )}
+
+            {/* Cross-tool suggestions */}
+            <NextStepSuggestions context="mapguard" theme="dark" />
 
             {/* CTAs */}
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>

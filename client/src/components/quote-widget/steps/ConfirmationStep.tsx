@@ -1,6 +1,7 @@
 import { CheckCircle2, PartyPopper, ArrowRight, MessageSquare } from 'lucide-react';
 import { useWidgetState } from '../useWidgetState';
 import { eff, stepTitleStyle } from '../designTokens';
+import NextStepSuggestions from '@/components/marketing/NextStepSuggestions';
 import type { StepDefinition } from '@shared/wizardSchema';
 
 interface ConfirmationStepProps {
@@ -105,6 +106,11 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
           ? "Check your email for a copy of your estimate. We'll follow up within 24 hours."
           : "We'll reach out shortly to discuss your project."}
       </p>
+
+      {/* Cross-tool suggestions — demo mode only */}
+      {isDemo && leadSubmitted && (
+        <NextStepSuggestions context="demo" theme="widget" />
+      )}
 
       {/* QuoteQuick pitch — demo mode only */}
       {isDemo && leadSubmitted && (

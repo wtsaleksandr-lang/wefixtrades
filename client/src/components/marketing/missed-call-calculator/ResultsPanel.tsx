@@ -10,6 +10,7 @@ import { calculateRange, formatCurrencyFull } from '@/lib/missedCallCalculator';
 import type { CalcInputs } from '@/lib/missedCallCalculator';
 import ResultMetricCard from './ResultMetricCard';
 import AnimatedNumber from './AnimatedNumber';
+import NextStepSuggestions from '@/components/marketing/NextStepSuggestions';
 
 const SCENARIO_ID = 'response-scenario-panel';
 const METHODOLOGY_ID = 'methodology-panel';
@@ -343,6 +344,14 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
               </motion.div>
             )}
           </motion.div>
+
+          {/* ── Cross-tool suggestions ── */}
+          <NextStepSuggestions
+            context="calculator"
+            theme="dark"
+            trade={tradeName}
+            estimatedLoss={typical.lostPerYear}
+          />
 
           {/* ── TradeLine CTA ── */}
           <motion.div
