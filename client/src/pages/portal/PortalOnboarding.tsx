@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, MessageCircle, Send } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { getFieldConfig } from "@/config/onboardingFields";
 
 interface Step {
   key: string;
   label: string;
-  type: "text" | "checkbox" | "upload" | "form";
+  type: "text" | "checkbox" | "upload" | "form" | "select";
   required: boolean;
 }
 
@@ -15,12 +16,134 @@ interface OnboardingData {
   id: number;
   status: string;
   service_name: string | null;
+  service_id: string | null;
   steps: Step[];
   responses: Record<string, { value: any; completed_at?: string }>;
   submitted_at: string | null;
   approved_at: string | null;
 }
 
+/* ─── Help Modal ─── */
+function HelpModal({ field, onClose }: { field: { label: string; example?: string; helperText?: string }; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-lg max-w-sm w-full p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-3">
+          <h3 className="text-sm font-semibold text-gray-900">{field.label}</h3>
+          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 text-gray-400"><X className="w-4 h-4" /></button>
+        </div>
+        {field.helperText && <p className="text-sm text-gray-600 mb-2">{field.helperText}</p>}
+        {field.example && (
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+            <p className="text-xs text-gray-500 mb-1">Example:</p>
+            <p className="text-sm text-gray-700">{field.example}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── AI Chat Panel ─── */
+function AiChatPanel({
+  serviceName,
+  serviceId,
+  steps,
+  responses,
+  onClose,
+}: {
+  serviceName: string;
+  serviceId: string;
+  steps: Step[];
+  responses: Record<string, any>;
+  onClose: () => void;
+}) {
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
+    { role: "assistant", content: `Hi! I'm here to help you fill out the ${serviceName} onboarding form. Ask me anything about any of the fields, or I can suggest answers based on your business.` },
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+
+  async function send() {
+    const text = input.trim();
+    if (!text || loading) return;
+    const updated = [...messages, { role: "user" as const, content: text }];
+    setMessages(updated);
+    setInput("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/portal/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          messages: updated.map((m) => ({ role: m.role, content: m.content })),
+          context: {
+            service_name: serviceName,
+            service_id: serviceId,
+            fields: steps.map((s) => ({ key: s.key, label: s.label, required: s.required })),
+            current_responses: responses,
+          },
+        }),
+      });
+      const data = await res.json();
+      setMessages((prev) => [...prev, { role: "assistant", content: data.reply || "Sorry, I couldn't process that. Try again." }]);
+    } catch {
+      setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong. Please try again." }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50 w-80 max-h-[480px] flex flex-col bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-[#2D6A4F]">
+        <div className="flex items-center gap-2">
+          <MessageCircle className="w-4 h-4 text-white" />
+          <span className="text-sm font-medium text-white">Onboarding Assistant</span>
+        </div>
+        <button onClick={onClose} className="p-1 rounded hover:bg-white/20 text-white"><X className="w-4 h-4" /></button>
+      </div>
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[200px] max-h-[340px]">
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+              m.role === "user" ? "bg-[#2D6A4F] text-white" : "bg-gray-100 text-gray-700"
+            }`}>
+              {m.content}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-gray-100 rounded-lg px-3 py-2"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div>
+          </div>
+        )}
+        <div ref={endRef} />
+      </div>
+      {/* Input */}
+      <div className="border-t border-gray-100 p-2 flex gap-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
+          placeholder="Ask about any field..."
+          className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20"
+        />
+        <button onClick={send} disabled={loading || !input.trim()} className="p-2 rounded-lg bg-[#2D6A4F] text-white hover:bg-[#1B4332] disabled:opacity-40">
+          <Send className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main Page ─── */
 export default function PortalOnboarding() {
   const [, params] = useRoute("/portal/onboarding/:id");
   const submissionId = params?.id;
@@ -28,6 +151,8 @@ export default function PortalOnboarding() {
   const queryClient = useQueryClient();
   const [responses, setResponses] = useState<Record<string, any>>({});
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [helpField, setHelpField] = useState<{ label: string; example?: string; helperText?: string } | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const { data, isLoading, error } = useQuery<OnboardingData>({
     queryKey: ["/api/portal/onboarding", submissionId],
@@ -39,7 +164,6 @@ export default function PortalOnboarding() {
     enabled: !!submissionId,
   });
 
-  // Pre-fill responses from existing data
   useEffect(() => {
     if (data?.responses) {
       const existing: Record<string, any> = {};
@@ -75,18 +199,17 @@ export default function PortalOnboarding() {
     e.preventDefault();
     if (!data) return;
 
-    // Validate required
     const missing = data.steps.filter(
       (s) => s.required && !responses[s.key] && responses[s.key] !== true
     );
     if (missing.length > 0) {
       setValidationError(`Please fill in: ${missing.map((s) => s.label).join(", ")}`);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
     setValidationError(null);
 
-    // Build responses with timestamps
     const formatted: Record<string, { value: any; completed_at: string }> = {};
     for (const [key, value] of Object.entries(responses)) {
       if (value !== "" && value !== false) {
@@ -99,10 +222,13 @@ export default function PortalOnboarding() {
 
   const isSubmitted = data?.status === "submitted" || data?.status === "approved" || submitMutation.isSuccess;
 
+  // Split steps into required and optional
+  const requiredSteps = data?.steps.filter((s) => s.required) ?? [];
+  const optionalSteps = data?.steps.filter((s) => !s.required) ?? [];
+
   return (
     <PortalLayout>
-      <div className="max-w-2xl mx-auto space-y-6">
-        {/* Back link */}
+      <div className="max-w-2xl mx-auto space-y-6 pb-20">
         <Link href="/portal/services" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Services
         </Link>
@@ -145,14 +271,13 @@ export default function PortalOnboarding() {
             {/* Header */}
             <div>
               <h1 className="text-xl font-semibold text-gray-900">
-                {data.service_name ?? "Service"} Onboarding
+                Let's set up your {data.service_name ?? "service"}
               </h1>
               <p className="text-sm text-gray-500 mt-0.5">
-                Please fill in the details below so we can get started on your setup.
+                Takes 2–3 minutes. Fill in what you know — we'll handle the rest.
               </p>
             </div>
 
-            {/* Validation error */}
             {validationError && (
               <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
                 {validationError}
@@ -164,47 +289,44 @@ export default function PortalOnboarding() {
               </div>
             )}
 
-            {/* Form */}
             <form onSubmit={handleSubmit}>
+              {/* Required fields */}
               <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
-                {data.steps.map((step) => (
-                  <div key={step.key}>
-                    {step.type === "checkbox" ? (
-                      <label className="flex items-start gap-3 cursor-pointer min-h-[44px] py-1">
-                        <input
-                          type="checkbox"
-                          checked={!!responses[step.key]}
-                          onChange={(e) => setResponses({ ...responses, [step.key]: e.target.checked })}
-                          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#2D6A4F] focus:ring-[#2D6A4F]"
-                        />
-                        <span className="text-sm text-gray-700">
-                          {step.label}
-                          {step.required && <span className="text-red-400 ml-1">*</span>}
-                        </span>
-                      </label>
-                    ) : (
-                      <div>
-                        <label className="text-xs font-medium text-gray-600 mb-1 block">
-                          {step.label}
-                          {step.required && <span className="text-red-400 ml-1">*</span>}
-                          {!step.required && <span className="text-gray-400 ml-1">(optional)</span>}
-                        </label>
-                        <input
-                          value={responses[step.key] || ""}
-                          onChange={(e) => setResponses({ ...responses, [step.key]: e.target.value })}
-                          placeholder={step.required ? "Required" : "Optional"}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] transition-colors"
-                        />
-                      </div>
-                    )}
-                  </div>
+                {requiredSteps.map((step) => (
+                  <FieldRow
+                    key={step.key}
+                    step={step}
+                    value={responses[step.key]}
+                    onChange={(v) => setResponses({ ...responses, [step.key]: v })}
+                    onHelp={(info) => setHelpField(info)}
+                  />
                 ))}
               </div>
+
+              {/* Optional fields */}
+              {optionalSteps.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3 px-1">
+                    Optional — fill in if you have this info
+                  </p>
+                  <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
+                    {optionalSteps.map((step) => (
+                      <FieldRow
+                        key={step.key}
+                        step={step}
+                        value={responses[step.key]}
+                        onChange={(v) => setResponses({ ...responses, [step.key]: v })}
+                        onHelp={(info) => setHelpField(info)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <button
                 type="submit"
                 disabled={submitMutation.isPending}
-                className="w-full mt-4 px-4 py-3 text-sm font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors disabled:opacity-60"
+                className="w-full mt-6 px-4 py-3 text-sm font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors disabled:opacity-60"
               >
                 {submitMutation.isPending ? (
                   <span className="flex items-center justify-center gap-2">
@@ -218,6 +340,128 @@ export default function PortalOnboarding() {
           </>
         )}
       </div>
+
+      {/* Help modal */}
+      {helpField && <HelpModal field={helpField} onClose={() => setHelpField(null)} />}
+
+      {/* AI Chat FAB */}
+      {data && !isSubmitted && !chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-[#2D6A4F] text-white shadow-lg hover:bg-[#1B4332] flex items-center justify-center transition-colors"
+          title="Need help? Ask our AI assistant"
+        >
+          <MessageCircle className="w-5 h-5" />
+        </button>
+      )}
+
+      {/* AI Chat Panel */}
+      {data && chatOpen && (
+        <AiChatPanel
+          serviceName={data.service_name ?? "service"}
+          serviceId={data.service_id ?? ""}
+          steps={data.steps}
+          responses={responses}
+          onClose={() => setChatOpen(false)}
+        />
+      )}
     </PortalLayout>
+  );
+}
+
+/* ─── Field Row Component ─── */
+function FieldRow({
+  step,
+  value,
+  onChange,
+  onHelp,
+}: {
+  step: Step;
+  value: any;
+  onChange: (v: any) => void;
+  onHelp: (info: { label: string; example?: string; helperText?: string }) => void;
+}) {
+  const config = getFieldConfig(step.key);
+
+  if (step.type === "checkbox") {
+    return (
+      <label className="flex items-start gap-3 cursor-pointer min-h-[44px] py-1">
+        <input
+          type="checkbox"
+          checked={!!value}
+          onChange={(e) => onChange(e.target.checked)}
+          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#2D6A4F] focus:ring-[#2D6A4F]"
+        />
+        <div className="flex-1">
+          <span className="text-sm text-gray-700">
+            {step.label}
+            {step.required && <span className="text-red-400 ml-1">*</span>}
+          </span>
+          {config.helperText && <p className="text-xs text-gray-400 mt-0.5">{config.helperText}</p>}
+        </div>
+      </label>
+    );
+  }
+
+  if (step.type === "select" && config.options) {
+    return (
+      <div>
+        <div className="flex items-center gap-1.5 mb-1">
+          <label className="text-xs font-medium text-gray-600">
+            {step.label}
+            {step.required && <span className="text-red-400 ml-1">*</span>}
+          </label>
+          {(config.example || config.helperText) && (
+            <button
+              type="button"
+              onClick={() => onHelp({ label: step.label, example: config.example, helperText: config.helperText })}
+              className="text-gray-300 hover:text-gray-500"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        {config.helperText && <p className="text-xs text-gray-400 mb-1.5">{config.helperText}</p>}
+        <select
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] transition-colors"
+        >
+          <option value="">Select...</option>
+          {config.options.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  // Default: text input
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-1">
+        <label className="text-xs font-medium text-gray-600">
+          {step.label}
+          {step.required && <span className="text-red-400 ml-1">*</span>}
+          {!step.required && <span className="text-gray-400 ml-1">(optional)</span>}
+        </label>
+        {(config.example || config.helperText) && (
+          <button
+            type="button"
+            onClick={() => onHelp({ label: step.label, example: config.example, helperText: config.helperText })}
+            className="text-gray-300 hover:text-gray-500"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      {config.helperText && <p className="text-xs text-gray-400 mb-1.5">{config.helperText}</p>}
+      <input
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={config.placeholder || (step.required ? "Required" : "Optional")}
+        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] transition-colors"
+      />
+    </div>
   );
 }

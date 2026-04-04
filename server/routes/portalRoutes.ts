@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { requireClient } from "../auth";
 import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { chat as aiChat } from "../services/aiService";
 import {
   clients,
   clientServices,
@@ -451,6 +452,7 @@ export function registerPortalRoutes(app: Express) {
         id: submission.id,
         status: submission.status === "not_sent" || submission.status === "sent" ? "viewed" : submission.status,
         service_name: svc?.name ?? null,
+        service_id: cs?.service_id ?? null,
         steps: (template?.steps ?? []) as { key: string; label: string; type: string; required: boolean }[],
         responses: (submission.responses ?? {}) as Record<string, { value: any; completed_at?: string }>,
         submitted_at: submission.submitted_at,
@@ -506,6 +508,72 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       console.error("Portal onboarding PUT error:", err);
       res.status(500).json({ error: "Failed to submit onboarding" });
+    }
+  });
+
+  /**
+   * POST /api/portal/ai-chat
+   * Lightweight AI assistant for onboarding help.
+   * Context-aware: knows the service, fields, and current responses.
+   */
+  app.post("/api/portal/ai-chat", requireClient, async (req: Request, res: Response) => {
+    try {
+      const { messages, context } = req.body;
+
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({ error: "messages array is required" });
+      }
+
+      // Build system prompt with onboarding context
+      const fieldList = (context?.fields ?? [])
+        .map((f: { key: string; label: string; required: boolean }) =>
+          `- ${f.label}${f.required ? " (required)" : " (optional)"}`)
+        .join("\n");
+
+      const currentValues = context?.current_responses
+        ? Object.entries(context.current_responses)
+            .filter(([, v]) => v !== "" && v !== false)
+            .map(([k, v]) => `- ${k}: ${v}`)
+            .join("\n")
+        : "None filled yet.";
+
+      const systemPrompt = `You are a helpful onboarding assistant for WeFixTrades, a company that provides digital marketing and trade business services.
+
+The client is filling out an onboarding form for: ${context?.service_name ?? "a service"} (${context?.service_id ?? ""}).
+
+The form fields are:
+${fieldList}
+
+What the client has filled in so far:
+${currentValues}
+
+Your job:
+- Help explain what each field means in simple terms
+- Suggest answers based on the client's business
+- Ask clarifying questions to help them think
+- Keep answers short and practical (1-3 sentences)
+- Use Australian English
+- Never auto-submit or override their input
+- If they seem stuck, ask "What services bring you most jobs?" or similar to get them started
+
+Do NOT:
+- Make up specific business details
+- Provide legal or financial advice
+- Discuss pricing of WeFixTrades services`;
+
+      const reply = await aiChat({
+        system: systemPrompt,
+        messages: messages.slice(-10).map((m: { role: string; content: string }) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+        maxTokens: 300,
+      });
+
+      res.json({ reply });
+    } catch (err) {
+      console.error("Portal AI chat error:", err);
+      res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
     }
   });
 }
