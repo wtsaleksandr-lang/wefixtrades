@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "wouter";
-import { Check, ChevronDown, ArrowRight } from "lucide-react";
+import { Check, ChevronDown, ArrowRight, Phone, MessageSquare, MessagesSquare, RotateCcw, Star } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import ProductHeroShell from "@/components/marketing/ProductHeroShell";
 import ProductCategoryChip from "@/components/marketing/ProductCategoryChip";
@@ -89,7 +89,7 @@ function FAQAccordion({ q, a }: { q: string; a: string }) {
 }
 
 /* ---------- Pricing Section ---------- */
-function PricingSection({ product }: { product: ProductConfig }) {
+function PricingSection({ product, pricingIntro }: { product: ProductConfig; pricingIntro?: React.ReactNode }) {
   const { pricingSection } = product;
 
   return (
@@ -105,40 +105,44 @@ function PricingSection({ product }: { product: ProductConfig }) {
           style={{ textAlign: "center", marginBottom: 48 }}
           data-reveal="fade-up"
         >
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: mkt.accent,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              marginBottom: 14,
-            }}
-          >
-            Pricing
-          </div>
-          <h2
-            style={{
-              fontSize: "clamp(24px, 3vw, 36px)",
-              fontWeight: 700,
-              color: mkt.onDark,
-              letterSpacing: "-0.025em",
-              marginBottom: 8,
-            }}
-          >
-            Simple, transparent pricing
-          </h2>
-          <p
-            style={{
-              fontSize: 15,
-              color: mkt.onDarkFaint,
-              maxWidth: 420,
-              margin: "0 auto",
-              lineHeight: 1.6,
-            }}
-          >
-            No hidden fees. No custom quotes. Pick a plan and get started today.
-          </p>
+          {pricingIntro ?? (
+            <>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: mkt.accent,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  marginBottom: 14,
+                }}
+              >
+                Pricing
+              </div>
+              <h2
+                style={{
+                  fontSize: "clamp(24px, 3vw, 36px)",
+                  fontWeight: 700,
+                  color: mkt.onDark,
+                  letterSpacing: "-0.025em",
+                  marginBottom: 8,
+                }}
+              >
+                Simple, transparent pricing
+              </h2>
+              <p
+                style={{
+                  fontSize: 15,
+                  color: mkt.onDarkFaint,
+                  maxWidth: 420,
+                  margin: "0 auto",
+                  lineHeight: 1.6,
+                }}
+              >
+                No hidden fees. No custom quotes. Pick a plan and get started today.
+              </p>
+            </>
+          )}
         </div>
 
         <style>{`
@@ -307,6 +311,412 @@ function PricingSection({ product }: { product: ProductConfig }) {
   );
 }
 
+/* ---------- TradeLine: Section label helper ---------- */
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <div
+      style={{
+        fontSize: 11,
+        fontWeight: 700,
+        color: mkt.accent,
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+        marginBottom: 14,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* ---------- TradeLine: Problem Section ---------- */
+function TradeLineProblemSection() {
+  const stats = [
+    "62% of calls to small service businesses go unanswered",
+    "85% of those callers never try again",
+    "Every missed call is potential revenue lost",
+  ];
+
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="tradeline-problem">
+      <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>The problem</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 24,
+          }}
+        >
+          Every missed call costs you money.
+        </h2>
+        <p
+          style={{
+            fontSize: 16,
+            color: mkt.textMuted,
+            lineHeight: 1.7,
+            maxWidth: 560,
+            margin: "0 auto 32px",
+          }}
+        >
+          You're under a sink. On a roof. Elbow-deep in a panel. Your phone rings. You can't answer.
+          <br /><br />
+          That caller doesn't leave a voicemail. They call the next tradie on Google.
+        </p>
+
+        <style>{`
+          .tl-stat-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+          }
+          @media (max-width: 640px) {
+            .tl-stat-row { grid-template-columns: 1fr; }
+          }
+        `}</style>
+
+        <div className="tl-stat-row" data-reveal="fade-up">
+          {stats.map((stat) => (
+            <div
+              key={stat}
+              style={{
+                background: mkt.bg,
+                border: `1px solid ${mkt.border}`,
+                borderRadius: 14,
+                padding: "20px 16px",
+              }}
+            >
+              <span style={{ fontSize: 14, fontWeight: 500, color: mkt.textMuted, lineHeight: 1.5 }}>
+                {stat}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <p
+          style={{
+            fontSize: 17,
+            fontWeight: 600,
+            color: mkt.text,
+            lineHeight: 1.5,
+          }}
+        >
+          You don't have a marketing problem. You have a missed-call problem.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- TradeLine: Solution Channels ---------- */
+function TradeLineSolutionSection() {
+  const channels = [
+    { icon: Phone, title: "Phone Calls", desc: "AI answers in seconds. Takes details, gives estimates, captures leads." },
+    { icon: MessageSquare, title: "SMS / Text", desc: "Missed call? Auto text-back keeps the conversation going." },
+    { icon: MessagesSquare, title: "Website Chat", desc: "Chat widget on your site. Answers questions and captures leads around the clock." },
+    { icon: RotateCcw, title: "Follow-Ups", desc: "Automated sequences that keep leads warm until they book." },
+    { icon: Star, title: "Review Requests", desc: "After the job, TradeLine requests a Google review automatically." },
+  ];
+
+  return (
+    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="tradeline-solution">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>The fix</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 8,
+          }}
+        >
+          TradeLine handles it — automatically.
+        </h2>
+        <p style={{ fontSize: 16, color: mkt.textMuted, marginBottom: 40, lineHeight: 1.6 }}>
+          One system. Every channel. 24/7.
+        </p>
+
+        <style>{`
+          .tl-channel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 14px;
+            text-align: left;
+          }
+          .tl-channel-card {
+            background: ${mkt.surface};
+            border: 1px solid ${mkt.border};
+            border-radius: 14px;
+            padding: 20px;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+          }
+          .tl-channel-card:hover {
+            border-color: rgba(102,232,250,0.18);
+            transform: translateY(-1px);
+          }
+        `}</style>
+
+        <div className="tl-channel-grid">
+          {channels.map((ch, i) => (
+            <div key={ch.title} className="tl-channel-card" data-reveal="fade-up" data-delay={String(i * 60)}>
+              <div style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: mkt.accentTint,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <ch.icon size={18} color={mkt.accent} strokeWidth={2} />
+                </div>
+              </div>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: mkt.text, marginBottom: 6 }}>
+                {ch.title}
+              </h3>
+              <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.55, margin: 0 }}>
+                {ch.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- TradeLine: Multi-channel Comparison ---------- */
+function TradeLineComparisonSection() {
+  const rows = [
+    { feature: "Phone calls", tradeline: true, typical: true },
+    { feature: "SMS text-back", tradeline: true, typical: "Sometimes" },
+    { feature: "Website chat", tradeline: true, typical: false },
+    { feature: "Auto follow-ups", tradeline: true, typical: false },
+    { feature: "Review requests", tradeline: true, typical: false },
+    { feature: "Instant estimates", tradeline: true, typical: "Rarely" },
+  ];
+
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="tradeline-comparison">
+      <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Multi-channel</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 12,
+          }}
+        >
+          Your competitors answer calls.{" "}
+          <span style={{ color: mkt.accent }}>TradeLine answers everything.</span>
+        </h2>
+        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 36 }}>
+          Most AI answering services handle phone calls only. TradeLine covers calls, texts, website chat, and follow-ups — one system, zero gaps.
+        </p>
+
+        <div
+          style={{
+            background: mkt.bg,
+            border: `1px solid ${mkt.border}`,
+            borderRadius: 14,
+            overflow: "hidden",
+          }}
+        >
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${mkt.border}` }}>
+                <th style={{ padding: "14px 16px", textAlign: "left", fontWeight: 600, color: mkt.textMuted }}></th>
+                <th style={{ padding: "14px 16px", textAlign: "center", fontWeight: 700, color: mkt.accent }}>TradeLine</th>
+                <th style={{ padding: "14px 16px", textAlign: "center", fontWeight: 600, color: mkt.textMuted }}>Typical AI</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.feature} style={{ borderBottom: `1px solid ${mkt.border}` }}>
+                  <td style={{ padding: "12px 16px", color: mkt.text, fontWeight: 500 }}>{row.feature}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                    {row.tradeline === true ? (
+                      <Check size={16} color={mkt.accent} strokeWidth={2.5} />
+                    ) : (
+                      <span style={{ color: mkt.textMuted }}>{String(row.tradeline)}</span>
+                    )}
+                  </td>
+                  <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                    {row.typical === true ? (
+                      <Check size={16} color={mkt.accent} strokeWidth={2.5} />
+                    ) : row.typical === false ? (
+                      <span style={{ color: mkt.textMuted, fontSize: 16 }}>—</span>
+                    ) : (
+                      <span style={{ color: mkt.textMuted, fontSize: 13 }}>{String(row.typical)}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- TradeLine: Results / Proof ---------- */
+function TradeLineResultsSection({ outcomes }: { outcomes: { title: string; desc: string }[] }) {
+  return (
+    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="tradeline-results">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Results</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 36,
+          }}
+        >
+          What happens when you stop missing calls.
+        </h2>
+
+        <style>{`
+          .tl-results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+            text-align: left;
+            margin-bottom: 32px;
+          }
+        `}</style>
+
+        <div className="tl-results-grid">
+          {outcomes.map((o, i) => (
+            <div
+              key={o.title}
+              data-reveal="fade-up"
+              data-delay={String(i * 60)}
+              style={{
+                background: mkt.surface,
+                border: `1px solid ${mkt.border}`,
+                borderRadius: 14,
+                padding: "22px 18px",
+              }}
+            >
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.accent, marginBottom: 6 }}>
+                {o.title}
+              </h3>
+              <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.55, margin: 0 }}>
+                {o.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text }}>
+          Starter costs $97/mo. One booked job covers it.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- TradeLine: Built For Trades ---------- */
+function TradeLineBuiltForSection({ trades }: { trades: string[] }) {
+  return (
+    <section style={{ background: mkt.bg, padding: "56px 28px" }} data-testid="tradeline-built-for">
+      <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <p style={{ fontSize: 15, fontWeight: 600, color: mkt.textMuted, marginBottom: 20 }}>
+          Built for businesses that can't afford to miss a call.
+        </p>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8 }}>
+          {trades.map((trade) => (
+            <span
+              key={trade}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 9999,
+                border: `1px solid ${mkt.border}`,
+                fontSize: 13,
+                fontWeight: 500,
+                color: mkt.textMuted,
+                background: mkt.surface,
+              }}
+            >
+              {trade}
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- TradeLine: Risk Reversal ---------- */
+function TradeLineRiskReversal() {
+  return (
+    <div
+      style={{
+        background: mkt.dark,
+        padding: "0 28px 40px",
+        textAlign: "center",
+      }}
+      data-reveal="fade-up"
+    >
+      <p
+        style={{
+          fontSize: 14,
+          fontWeight: 500,
+          color: mkt.onDarkFaint,
+          maxWidth: 600,
+          margin: "0 auto",
+          letterSpacing: "0.01em",
+        }}
+      >
+        14-day free trial · No credit card required · No contracts · Cancel anytime
+      </p>
+    </div>
+  );
+}
+
+/* ---------- TradeLine: Pricing intro override ---------- */
+function TradeLinePricingIntro() {
+  return (
+    <>
+      <SectionLabel>Pricing</SectionLabel>
+      <h2
+        style={{
+          fontSize: "clamp(24px, 3vw, 36px)",
+          fontWeight: 700,
+          color: mkt.onDark,
+          letterSpacing: "-0.025em",
+          marginBottom: 8,
+        }}
+      >
+        Simple pricing. No surprises.
+      </h2>
+      <p
+        style={{
+          fontSize: 15,
+          color: mkt.onDarkFaint,
+          maxWidth: 520,
+          margin: "0 auto",
+          lineHeight: 1.6,
+        }}
+      >
+        Every plan includes AI call answering, SMS replies, missed-call auto-response, lead capture, and follow-ups. Pick the plan that matches your call volume.
+      </p>
+    </>
+  );
+}
+
 /* ---------- Main Product Page ---------- */
 export default function ProductPage() {
   const params = useParams<{ slug: string }>();
@@ -344,6 +754,8 @@ export default function ProductPage() {
     .map((slug) => PRODUCT_PAGES.find((p) => p.slug === slug))
     .filter(Boolean) as ProductConfig[];
 
+  const isTradeLine = product.slug === "tradeline";
+
   return (
     <MarketingLayout>
       <div data-testid={`product-page-${product.slug}`}>
@@ -356,36 +768,86 @@ export default function ProductPage() {
             <ProductCategoryChip category={product.category} />
           </div>
 
-          <h1
-            className="hero-enter"
-            data-testid="product-name"
-            style={{
-              fontSize: "clamp(32px, 4.5vw, 52px)",
-              fontWeight: 700,
-              color: mkt.text,
-              lineHeight: 1.08,
-              letterSpacing: "-0.03em",
-              marginBottom: 18,
-              fontFamily: typography.fontFamily,
-            }}
-          >
-            {product.name}
-          </h1>
-
-          <p
-            className="hero-enter"
-            data-testid="product-tagline"
-            style={{
-              fontSize: "clamp(15px, 1.8vw, 18px)",
-              color: mkt.textMuted,
-              lineHeight: 1.65,
-              maxWidth: 540,
-              margin: "0 auto 32px",
-              fontFamily: typography.fontFamily,
-            }}
-          >
-            {product.seoDescription}
-          </p>
+          {isTradeLine ? (
+            <>
+              <div
+                className="hero-enter"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: mkt.accent,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  marginBottom: 12,
+                  fontFamily: typography.fontFamily,
+                }}
+              >
+                {product.name}
+              </div>
+              <h1
+                className="hero-enter"
+                data-testid="product-name"
+                style={{
+                  fontSize: "clamp(32px, 4.5vw, 52px)",
+                  fontWeight: 700,
+                  color: mkt.text,
+                  lineHeight: 1.08,
+                  letterSpacing: "-0.03em",
+                  marginBottom: 18,
+                  fontFamily: typography.fontFamily,
+                }}
+              >
+                Never Miss a Call.{" "}
+                <span style={{ color: mkt.accent }}>Never Lose a Job.</span>
+              </h1>
+              <p
+                className="hero-enter"
+                data-testid="product-tagline"
+                style={{
+                  fontSize: "clamp(15px, 1.8vw, 18px)",
+                  color: mkt.textMuted,
+                  lineHeight: 1.65,
+                  maxWidth: 540,
+                  margin: "0 auto 32px",
+                  fontFamily: typography.fontFamily,
+                }}
+              >
+                AI that answers your calls and chats 24/7 — so you can stay on the tools.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1
+                className="hero-enter"
+                data-testid="product-name"
+                style={{
+                  fontSize: "clamp(32px, 4.5vw, 52px)",
+                  fontWeight: 700,
+                  color: mkt.text,
+                  lineHeight: 1.08,
+                  letterSpacing: "-0.03em",
+                  marginBottom: 18,
+                  fontFamily: typography.fontFamily,
+                }}
+              >
+                {product.name}
+              </h1>
+              <p
+                className="hero-enter"
+                data-testid="product-tagline"
+                style={{
+                  fontSize: "clamp(15px, 1.8vw, 18px)",
+                  color: mkt.textMuted,
+                  lineHeight: 1.65,
+                  maxWidth: 540,
+                  margin: "0 auto 32px",
+                  fontFamily: typography.fontFamily,
+                }}
+              >
+                {product.seoDescription}
+              </p>
+            </>
+          )}
 
           <div
             className="hero-enter"
@@ -438,19 +900,37 @@ export default function ProductPage() {
           </div>
         </ProductHeroShell>
 
+        {/* ── TradeLine: Built For + Problem + Solution (between hero and capabilities) ── */}
+        {isTradeLine && (
+          <>
+            <TradeLineBuiltForSection trades={product.bestFor} />
+            <TradeLineProblemSection />
+            <TradeLineSolutionSection />
+          </>
+        )}
+
         {/* ── §2 CAPABILITIES / BENEFITS ── */}
         <CapabilitiesGrid items={product.highlights} />
 
         {/* ── §3 HOW IT WORKS ── */}
         <StepTimeline steps={product.howItWorks} />
 
+        {/* ── TradeLine: Multi-channel Comparison (after how-it-works) ── */}
+        {isTradeLine && <TradeLineComparisonSection />}
+
         {/* ── §4 SOCIAL PROOF ── */}
         <SurfaceSection overlap className="py-4">
           <ReviewsSection />
         </SurfaceSection>
 
+        {/* ── TradeLine: Results / Proof (after reviews, before pricing) ── */}
+        {isTradeLine && <TradeLineResultsSection outcomes={product.outcomes} />}
+
         {/* ── §5 PRICING (MANDATORY) ── */}
-        <PricingSection product={product} />
+        <PricingSection product={product} pricingIntro={isTradeLine ? <TradeLinePricingIntro /> : undefined} />
+
+        {/* ── TradeLine: Risk Reversal (below pricing) ── */}
+        {isTradeLine && <TradeLineRiskReversal />}
 
         {/* ── §6 FAQ ── */}
         {product.faq.length > 0 && (
@@ -504,7 +984,16 @@ export default function ProductPage() {
         )}
 
         {/* ── §7 CTA ── */}
-        <CTASection />
+        {isTradeLine ? (
+          <CTASection
+            heading="Stop missing calls. Start booking jobs."
+            subtext="Try TradeLine free for 14 days. No credit card. No contracts."
+            ctaLabel="Start Your Free Trial"
+            ctaHref="/Wizard"
+          />
+        ) : (
+          <CTASection />
+        )}
 
       </div>
     </MarketingLayout>

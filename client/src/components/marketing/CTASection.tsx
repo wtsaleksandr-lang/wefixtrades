@@ -3,7 +3,14 @@ import { Link } from "wouter";
 const DARK = "#0d1514";
 const CYAN = "#00D4C8";
 
-export default function CTASection() {
+interface CTASectionProps {
+  heading?: string;
+  subtext?: string;
+  ctaLabel?: string;
+  ctaHref?: string;
+}
+
+export default function CTASection({ heading, subtext, ctaLabel, ctaHref }: CTASectionProps = {}) {
   return (
     <>
       <style>{`
@@ -56,7 +63,7 @@ export default function CTASection() {
           padding: "clamp(48px, 8vw, 80px) clamp(16px, 5vw, 40px)",
         }}
       >
-        <Link href="/demo" style={{ textDecoration: "none", display: "block" }}>
+        <Link href={ctaHref ?? "/demo"} style={{ textDecoration: "none", display: "block" }}>
           <div className="cta-inner-wrap">
             {/* Content */}
             <div style={{ marginBottom: 32 }}>
@@ -69,7 +76,7 @@ export default function CTASection() {
                 maxWidth: "14ch",
                 marginBottom: 14,
               }}>
-                Ready to grow your trades business?
+                {heading ?? "Ready to grow your trades business?"}
               </h2>
               <p style={{
                 fontSize: 14,
@@ -78,7 +85,7 @@ export default function CTASection() {
                 lineHeight: 1.6,
                 margin: 0,
               }}>
-                Book a demo and see how WeFixTrades helps you win more jobs, get paid faster, and grow without the admin overhead.
+                {subtext ?? "Book a demo and see how WeFixTrades helps you win more jobs, get paid faster, and grow without the admin overhead."}
               </p>
             </div>
 
@@ -98,7 +105,7 @@ export default function CTASection() {
                 fontWeight: 600,
                 color: DARK,
               }}>
-                Book a Free Demo
+                {ctaLabel ?? "Book a Free Demo"}
               </span>
               <div className="cta-btn-arrow" style={{
                 width: 52,
