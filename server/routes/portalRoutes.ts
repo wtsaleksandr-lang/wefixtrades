@@ -566,12 +566,16 @@ export function registerPortalRoutes(app: Express) {
       if (!submission) return res.status(404).json({ error: "Onboarding not found" });
 
       if (submission.status === "approved") {
-        return res.status(400).json({ error: "This form has already been approved" });
+        return res.status(400).json({ error: "This form has already been approved and cannot be changed." });
+      }
+
+      if (submission.status === "submitted") {
+        return res.status(400).json({ error: "This form has already been submitted. Please contact us if you need to make changes." });
       }
 
       if (isDraft) {
-        // Save draft — store responses without changing status to submitted
-        const newStatus = submission.status === "submitted" ? "submitted" : "viewed";
+        // Save draft — store responses, keep status as "viewed"
+        const newStatus = "viewed";
         await db
           .update(onboardingSubmissions)
           .set({ responses, status: newStatus, updated_at: new Date() })
@@ -728,6 +732,12 @@ export function registerPortalRoutes(app: Express) {
         return res.status(400).json({ error: "messages array is required" });
       }
 
+      // Validate and sanitize message roles — only allow user/assistant
+      const allowedRoles = new Set(["user", "assistant"]);
+      const sanitizedMessages = messages
+        .filter((m: any) => m && typeof m.content === "string" && allowedRoles.has(m.role))
+        .slice(-10);
+
       let systemPrompt: string;
 
       if (context?.surface === "help") {
@@ -789,7 +799,7 @@ Do NOT:
 
       const reply = await aiChat({
         system: systemPrompt,
-        messages: messages.slice(-10).map((m: { role: string; content: string }) => ({
+        messages: sanitizedMessages.map((m: { role: string; content: string }) => ({
           role: m.role as "user" | "assistant",
           content: m.content,
         })),

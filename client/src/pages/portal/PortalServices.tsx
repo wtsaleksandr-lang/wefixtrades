@@ -179,7 +179,7 @@ export default function PortalServices() {
                     {/* Footer — always visible on mobile */}
                     <div className="flex items-center justify-between mt-2">
                       <span className="text-xs text-gray-400">
-                        {svc.billing_period === "one-time" ? "One-time" : "Monthly"}
+                        {svc.billing_period === "one-time" ? "One-time" : svc.billing_period === "monthly" ? "Monthly" : ""}
                       </span>
                       <span className="text-xs text-[#2D6A4F] font-medium flex items-center gap-1">
                         View Details <ArrowRight className="w-3 h-3" />
