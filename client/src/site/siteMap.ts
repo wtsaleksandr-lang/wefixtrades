@@ -17,7 +17,7 @@ export const FOOTER_LINKS = {
     { label: "AI ChatLine\u2122", href: "/products/ai-chat" },
     { label: "AI CallLine\u2122", href: "/products/ai-voice" },
     { label: "TradeLine\u2122 Complete", href: "/products/tradeline-complete" },
-    { label: "QuoteQuick\u2122", href: "/products/quotequick" },
+    { label: "QuoteQuick Pro\u2122", href: "/products/quickquotepro" },
     { label: "MapGuard\u2122", href: "/products/mapguard" },
     { label: "ReputationShield\u2122", href: "/products/reputationshield" },
     { label: "WebBoost\u2122", href: "/products/webboost" },
