@@ -19,6 +19,7 @@ import { registerStripeBillingRoutes } from "./stripeBillingRoutes";
 import { registerOnboardingPublicRoutes } from "./onboardingPublicRoutes";
 import { registerVapiRoutes } from "./vapiRoutes";
 import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
+import { registerPortalRoutes } from "./portalRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -43,6 +44,7 @@ export async function registerRoutes(
   registerOnboardingPublicRoutes(app);
   registerVapiRoutes(app);
   registerPublicCheckoutRoutes(app);
+  registerPortalRoutes(app);
 
   return httpServer;
 }

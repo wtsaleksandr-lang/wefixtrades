@@ -29,6 +29,8 @@ export default function LoginPage() {
       const role = data.user?.role;
       if (role === "admin" || role === "portal") {
         navigate("/admin/crm");
+      } else if (role === "client") {
+        navigate("/portal");
       } else {
         navigate("/dashboard");
       }
@@ -98,7 +100,7 @@ export default function LoginPage() {
               lineHeight: 1.5,
             }}
           >
-            Access your dashboard and tools.
+            Manage your services and account.
           </p>
 
           <form onSubmit={handleSubmit}>
@@ -153,6 +155,21 @@ export default function LoginPage() {
             >
               {login.isPending ? "Signing in\u2026" : "Sign in"}
             </button>
+
+            <div style={{ textAlign: "center", marginTop: 16 }}>
+              <a
+                href="/reset-password"
+                style={{
+                  fontSize: 13,
+                  color: mkt.textMuted,
+                  textDecoration: "none",
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.color = mkt.text)}
+                onMouseOut={(e) => (e.currentTarget.style.color = mkt.textMuted)}
+              >
+                Forgot your password?
+              </a>
+            </div>
           </form>
         </div>
       </div>
