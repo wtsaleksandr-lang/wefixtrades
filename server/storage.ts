@@ -5,7 +5,7 @@ import {
   calculatorAnalyticsSummary, jobLogs,
   notificationQueue, followupJobs, bookings,
   aiConversations, supportTickets, smsMessages,
-  users, auditSubmissions,
+  users, auditSubmissions, auditFollowupEmails,
   type Calculator, type InsertCalculator,
   type Lead, type InsertLead,
   type AnalyticsEvent, type InsertAnalyticsEvent,
@@ -20,6 +20,7 @@ import {
   type SmsMessage,
   type User, type InsertUser,
   type AuditSubmission, type InsertAuditSubmission,
+  type AuditFollowupEmail, type InsertAuditFollowupEmail,
   // Admin CRM
   clients, clientServices, serviceCatalog, orders, orderItems,
   suppliers, fulfillmentTasks, onboardingSubmissions, onboardingTemplates,
@@ -120,6 +121,10 @@ export interface IStorage {
   createAuditSubmission(data: InsertAuditSubmission): Promise<AuditSubmission>;
   listAuditSubmissions(limit?: number, offset?: number): Promise<AuditSubmission[]>;
   getAuditSubmissionCount(): Promise<number>;
+
+  enqueueAuditFollowups(data: InsertAuditFollowupEmail[]): Promise<AuditFollowupEmail[]>;
+  fetchDueAuditFollowups(limit?: number): Promise<AuditFollowupEmail[]>;
+  updateAuditFollowup(id: number, updates: Record<string, any>): Promise<void>;
 
   // ─── Admin CRM ───
   // Clients
@@ -718,6 +723,26 @@ export class DatabaseStorage implements IStorage {
   async getAuditSubmissionCount(): Promise<number> {
     const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(auditSubmissions);
     return row?.total ?? 0;
+  }
+
+  async enqueueAuditFollowups(data: InsertAuditFollowupEmail[]): Promise<AuditFollowupEmail[]> {
+    if (data.length === 0) return [];
+    return db.insert(auditFollowupEmails).values(data).returning();
+  }
+
+  async fetchDueAuditFollowups(limit = 20): Promise<AuditFollowupEmail[]> {
+    const now = new Date();
+    return db.select().from(auditFollowupEmails)
+      .where(and(
+        eq(auditFollowupEmails.status, 'pending'),
+        lte(auditFollowupEmails.run_at, now),
+      ))
+      .orderBy(auditFollowupEmails.run_at)
+      .limit(limit);
+  }
+
+  async updateAuditFollowup(id: number, updates: Record<string, any>): Promise<void> {
+    await db.update(auditFollowupEmails).set(updates).where(eq(auditFollowupEmails.id, id));
   }
 
   // ═══════════════════════════════════════════════

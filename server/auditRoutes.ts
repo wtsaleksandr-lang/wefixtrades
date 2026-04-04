@@ -2798,18 +2798,57 @@ router.post("/chat", async (req: Request, res: Response) => {
   }
 });
 
-router.post('/save-email', async (req: Request, res: Response) => {
+import { storage } from "./storage";
+import { enqueueAuditFollowupSequence } from "./lib/auditFollowup";
+
+router.post('/save-lead', async (req: Request, res: Response) => {
   try {
-    const { email, reportId, businessName, trade, city, score } = req.body;
-    if (!email || !email.includes('@')) {
-      return res.status(400).json({ error: 'Invalid email' });
+    const { email, name, phone, reportId, businessName, placeId, trade, city, score, issueCount, detectedIssues, recommendedServices } = req.body;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
     }
-    console.log('[email-capture]', email, businessName, score);
-    // Save to DB when table exists — for now just log and confirm
-    return res.json({ ok: true });
-  } catch (err) {
-    console.error('[email-capture] error:', err);
-    return res.status(500).json({ error: 'Failed to save' });
+
+    // 1. Persist to audit_submissions
+    const submission = await storage.createAuditSubmission({
+      email: email.trim(),
+      name: name || null,
+      phone: phone || null,
+      business_name: businessName || null,
+      place_id: placeId || null,
+      local_visibility_score: score || null,
+      issue_count: issueCount || 0,
+      wants_help: false,
+    });
+
+    // 2. Send PDF email (non-blocking)
+    if (reportId) {
+      import("./lib/sendAuditReport").then(({ sendAuditReportEmail }) => {
+        sendAuditReportEmail({ reportId, recipientEmail: email.trim() }).catch((err) => {
+          console.error("[audit-lead] PDF email error:", err?.message);
+        });
+      });
+    }
+
+    // 3. Enqueue follow-up sequence (non-blocking)
+    enqueueAuditFollowupSequence({
+      auditSubmissionId: submission.id,
+      auditReportId: reportId || null,
+      email: email.trim(),
+      businessName: businessName || "Your Business",
+      topIssues: detectedIssues || [],
+      score: score || 0,
+      trade: trade || "trades",
+      city: city || "your area",
+      recommendedServices: recommendedServices || [],
+    }).catch((err) => {
+      console.error("[audit-lead] Followup enqueue error:", err?.message);
+    });
+
+    console.log("[audit-lead] Saved submission", submission.id, email, businessName, score);
+    return res.json({ ok: true, submissionId: submission.id });
+  } catch (err: any) {
+    console.error("[audit-lead] error:", err?.message);
+    return res.status(500).json({ error: "Failed to save lead" });
   }
 });
 

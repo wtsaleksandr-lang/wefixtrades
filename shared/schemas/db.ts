@@ -316,6 +316,31 @@ export const insertAuditSubmissionSchema = createInsertSchema(auditSubmissions).
 export type InsertAuditSubmission = z.infer<typeof insertAuditSubmissionSchema>;
 export type AuditSubmission = typeof auditSubmissions.$inferSelect;
 
+/* ─── Audit Followup Emails ─── */
+export const auditFollowupEmails = pgTable("audit_followup_emails", {
+  id: serial("id").primaryKey(),
+  audit_submission_id: integer("audit_submission_id").notNull().references(() => auditSubmissions.id),
+  audit_report_id: uuid("audit_report_id").references(() => auditReports.id),
+  email: text("email").notNull(),
+  business_name: text("business_name"),
+  run_at: timestamp("run_at").notNull(),
+  step: varchar("step", { length: 30 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  attempts: integer("attempts").default(0),
+  max_attempts: integer("max_attempts").default(3),
+  last_error: text("last_error"),
+  payload: jsonb("payload"),
+  created_at: timestamp("created_at").defaultNow(),
+  processed_at: timestamp("processed_at"),
+});
+
+export const insertAuditFollowupEmailSchema = createInsertSchema(auditFollowupEmails).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertAuditFollowupEmail = z.infer<typeof insertAuditFollowupEmailSchema>;
+export type AuditFollowupEmail = typeof auditFollowupEmails.$inferSelect;
+
 /* ─── Audit Reports ─── */
 export const auditReports = pgTable("audit_reports", {
   id: uuid("id").primaryKey().defaultRandom(),

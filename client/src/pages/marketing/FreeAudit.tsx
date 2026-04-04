@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { colors } from "@/theme/tokens";
 import { Search, CheckCircle2 } from "lucide-react";
 import ReportView from "./ReportView";
+import AuditGate from "@/components/marketing/AuditGate";
 
 type Prediction = {
   place_id: string;
@@ -89,6 +90,7 @@ export default function FreeAudit() {
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [auditUnlocked, setAuditUnlocked] = useState(false);
 
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -204,6 +206,15 @@ export default function FreeAudit() {
       setReport(rep.report_json);
       if (rep.reportId) setReportId(rep.reportId);
       setFromCache(rep.fromCache === true);
+      // Check if this report was previously unlocked
+      if (rep.reportId) {
+        try {
+          const wasUnlocked = localStorage.getItem(`audit-unlocked-${rep.reportId}`);
+          setAuditUnlocked(wasUnlocked === "1");
+        } catch { setAuditUnlocked(false); }
+      } else {
+        setAuditUnlocked(false);
+      }
       setBusy(null);
 
       // Trigger background speed test then poll for result
@@ -684,6 +695,8 @@ export default function FreeAudit() {
                   liveWebsiteAIAnalysis={websiteAIAnalysis}
                   liveWebsiteScreenshot={websiteScreenshot}
                   liveWebsiteQualityCheckScore={websiteQualityCheckScore}
+                  unlocked={auditUnlocked}
+                  onUnlock={() => setAuditUnlocked(true)}
                 />
               </div>
             );
