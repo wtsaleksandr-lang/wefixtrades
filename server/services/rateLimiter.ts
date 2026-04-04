@@ -76,3 +76,10 @@ export const chatRateLimiter = new RateLimiter(
   30,       // max requests
   60_000,   // per 1-minute window
 );
+
+/** Rate limiter for auth endpoints (login, forgot-password, reset, password change). */
+export const authRateLimiter = new RateLimiter(
+  defaultStore,
+  10,        // max attempts
+  15 * 60_000, // per 15-minute window
+);

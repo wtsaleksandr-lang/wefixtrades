@@ -1,4 +1,4 @@
-import { pbkdf2Sync, randomBytes } from "crypto";
+import { pbkdf2Sync, randomBytes, timingSafeEqual } from "crypto";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { storage } from "./storage";
@@ -27,7 +27,10 @@ export function verifyPassword(password: string, stored: string): boolean {
   const [salt, hash] = stored.split(":");
   if (!salt || !hash) return false;
   const verify = pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex");
-  return hash === verify;
+  const hashBuf = Buffer.from(hash, "hex");
+  const verifyBuf = Buffer.from(verify, "hex");
+  if (hashBuf.length !== verifyBuf.length) return false;
+  return timingSafeEqual(hashBuf, verifyBuf);
 }
 
 /* ─── Passport setup ─── */

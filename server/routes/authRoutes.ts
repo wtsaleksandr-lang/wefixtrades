@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { randomBytes } from "crypto";
 import passport from "passport";
 import { requireAuth, hashPassword, verifyPassword } from "../auth";
@@ -6,6 +6,11 @@ import { db } from "../db";
 import { eq, and, gt } from "drizzle-orm";
 import { users, passwordResetTokens } from "@shared/schema";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { authRateLimiter } from "../services/rateLimiter";
+
+function getClientIp(req: Request): string {
+  return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
+}
 
 export function registerAuthRoutes(app: Express) {
   /** Current session user (or null) */
@@ -14,7 +19,11 @@ export function registerAuthRoutes(app: Express) {
   });
 
   /** Email/password login */
-  app.post("/api/auth/login", (req, res, next) => {
+  app.post("/api/auth/login", async (req, res, next) => {
+    const ip = getClientIp(req);
+    if (!(await authRateLimiter.check(`login:${ip}`))) {
+      return res.status(429).json({ error: "Too many login attempts. Please wait 15 minutes." });
+    }
     passport.authenticate(
       "local",
       (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
@@ -45,6 +54,11 @@ export function registerAuthRoutes(app: Express) {
    */
   app.post("/api/auth/forgot-password", async (req, res) => {
     try {
+      const ip = getClientIp(req);
+      if (!(await authRateLimiter.check(`forgot:${ip}`))) {
+        return res.status(429).json({ error: "Too many requests. Please wait before trying again." });
+      }
+
       const { email } = req.body;
       if (!email || typeof email !== "string") {
         return res.status(400).json({ error: "Email is required" });
@@ -108,6 +122,11 @@ export function registerAuthRoutes(app: Express) {
    */
   app.post("/api/auth/reset-password", async (req, res) => {
     try {
+      const ip = getClientIp(req);
+      if (!(await authRateLimiter.check(`reset:${ip}`))) {
+        return res.status(429).json({ error: "Too many attempts. Please wait before trying again." });
+      }
+
       const { token, password } = req.body;
       if (!token || typeof token !== "string") {
         return res.status(400).json({ error: "Reset token is required" });

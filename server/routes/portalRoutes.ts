@@ -3,6 +3,7 @@ import { requireClient, hashPassword, verifyPassword } from "../auth";
 import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { chat as aiChat } from "../services/aiService";
+import { authRateLimiter } from "../services/rateLimiter";
 import {
   clients,
   clientServices,
@@ -16,9 +17,14 @@ import {
   leads,
   deploymentStatus,
   supportTickets,
+  passwordResetTokens,
 } from "@shared/schema";
 
 /* ─── Helpers ─── */
+
+function getClientIp(req: Request): string {
+  return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
+}
 
 /** Resolve client_id from the authenticated user's id. Returns null if no client record linked. */
 async function resolveClientId(userId: number): Promise<number | null> {
@@ -424,6 +430,11 @@ export function registerPortalRoutes(app: Express) {
    */
   app.post("/api/portal/password", requireClient, async (req: Request, res: Response) => {
     try {
+      const ip = getClientIp(req);
+      if (!(await authRateLimiter.check(`pw:${ip}`))) {
+        return res.status(429).json({ error: "Too many attempts. Please wait before trying again." });
+      }
+
       const { current_password, new_password } = req.body;
 
       if (!current_password || typeof current_password !== "string") {
@@ -447,11 +458,17 @@ export function registerPortalRoutes(app: Express) {
         return res.status(401).json({ error: "Current password is incorrect" });
       }
 
-      // Update
+      // Update password
       await db
         .update(users)
         .set({ password_hash: hashPassword(new_password) })
         .where(eq(users.id, req.user!.id));
+
+      // Invalidate any existing reset tokens for this user
+      await db
+        .update(passwordResetTokens)
+        .set({ used: true })
+        .where(and(eq(passwordResetTokens.user_id, req.user!.id), eq(passwordResetTokens.used, false)));
 
       res.json({ ok: true });
     } catch (err) {
