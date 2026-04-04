@@ -50,6 +50,26 @@ See how it works: {{tradeline_link}}
     },
   },
   {
+    step: "calc_day2_cross_tool",
+    offsetDays: 2,
+    subject: () => `What else is holding your business back?`,
+    body: (ctx) => {
+      return `Hi there,
+
+You already know missed calls are costing your ${ctx.trade} business ${formatDollars(ctx.estimatedAnnualLoss)}/yr.
+
+But that's just one piece. What about your Google Maps visibility? Your website speed? How you stack up against competitors?
+
+We offer a free audit that checks all of this in about 30 seconds — no signup, no strings:
+
+{{audit_link}}
+
+It shows exactly where you're losing customers and what to fix first.
+
+— The WeFixTrades Team`;
+    },
+  },
+  {
     step: "calc_day3",
     offsetDays: 3,
     subject: (ctx) =>
@@ -106,11 +126,14 @@ Start recovering lost revenue today: {{tradeline_link}}
 export async function enqueueMissedCallFollowups(ctx: MissedCallFollowupContext): Promise<void> {
   const now = Date.now();
   const tradelineLink = `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : ""}/products/tradeline`;
+  const auditLink = `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : ""}/free-audit`;
 
   const jobs: InsertAuditFollowupEmail[] = SEQUENCE.map((step) => {
     const runAt = new Date(now + step.offsetDays * 24 * 60 * 60 * 1000);
     const subject = step.subject(ctx);
-    const body = step.body(ctx).replace(/\{\{tradeline_link\}\}/g, tradelineLink);
+    const body = step.body(ctx)
+      .replace(/\{\{tradeline_link\}\}/g, tradelineLink)
+      .replace(/\{\{audit_link\}\}/g, auditLink);
 
     return {
       missed_call_lead_id: ctx.missedCallLeadId,

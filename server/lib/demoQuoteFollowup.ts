@@ -147,6 +147,24 @@ Get QuoteQuick: ${quotequickLink()}
     },
   },
   {
+    step: "demo_day2_cross_tool",
+    offsetDays: 2,
+    subject: () => `Now get more traffic to your quotes`,
+    body: (ctx) => {
+      return `Hi there,
+
+You've seen how QuoteQuick works for ${ctx.trade} businesses. The next question is: are customers actually finding you online?
+
+We have a free audit that checks your Google Maps profile, website speed, and how you compare to local competitors — in about 30 seconds:
+
+{{audit_link}}
+
+No signup needed. It shows you exactly where you're visible and where you're not.
+
+— The WeFixTrades Team`;
+    },
+  },
+  {
     step: "demo_day3",
     offsetDays: 3,
     subject: (ctx) =>
@@ -175,11 +193,12 @@ export async function enqueueDemoQuoteFollowups(
   ctx: DemoQuoteFollowupContext
 ): Promise<void> {
   const now = Date.now();
+  const auditLink = `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : ""}/free-audit`;
 
   const jobs: InsertAuditFollowupEmail[] = SEQUENCE.map((step) => {
     const runAt = new Date(now + step.offsetDays * 24 * 60 * 60 * 1000);
     const subject = step.subject(ctx);
-    const body = step.body(ctx);
+    const body = step.body(ctx).replace(/\{\{audit_link\}\}/g, auditLink);
 
     return {
       demo_quote_lead_id: ctx.demoQuoteLeadId,

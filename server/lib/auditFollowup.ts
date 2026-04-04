@@ -50,6 +50,28 @@ If you'd like help fixing it, our team handles everything — no learning curve,
     },
   },
   {
+    step: "day2_cross_tool",
+    offsetDays: 2,
+    subject: (ctx) => `You're losing more than just rankings`,
+    body: (ctx) => {
+      return `Hi there,
+
+Your audit for ${ctx.businessName} flagged ${ctx.topIssues.length} issue${ctx.topIssues.length !== 1 ? "s" : ""}. But there's another problem most ${ctx.trade} businesses don't realize:
+
+Missed calls.
+
+Every call that goes unanswered is a potential job walking out the door. And it adds up fast — especially during busy hours and weekends.
+
+We built a free calculator that shows you exactly how much missed calls are costing your business:
+
+{{calculator_link}}
+
+Takes 30 seconds. You might be surprised.
+
+— The WeFixTrades Team`;
+    },
+  },
+  {
     step: "day3_fix",
     offsetDays: 3,
     subject: (ctx) => `How to fix "${ctx.topIssues[0]?.replace(/-/g, " ") || "your top issue"}" for ${ctx.businessName}`,
@@ -101,11 +123,14 @@ export async function enqueueAuditFollowupSequence(ctx: AuditFollowupContext): P
   const reportLink = ctx.auditReportId
     ? `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : ""}/audit/report/${ctx.auditReportId}`
     : "";
+  const calculatorLink = `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : ""}/tools/missed-call-calculator`;
 
   const jobs: InsertAuditFollowupEmail[] = SEQUENCE.map((step) => {
     const runAt = new Date(now + step.offsetDays * 24 * 60 * 60 * 1000);
     const subject = step.subject(ctx);
-    const body = step.body(ctx).replace(/\{\{report_link\}\}/g, reportLink);
+    const body = step.body(ctx)
+      .replace(/\{\{report_link\}\}/g, reportLink)
+      .replace(/\{\{calculator_link\}\}/g, calculatorLink);
 
     return {
       audit_submission_id: ctx.auditSubmissionId,
