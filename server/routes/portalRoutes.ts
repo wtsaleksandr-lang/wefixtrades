@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { requireClient } from "../auth";
+import { requireClient, hashPassword, verifyPassword } from "../auth";
 import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { chat as aiChat } from "../services/aiService";
@@ -415,6 +415,48 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       console.error("Portal settings update error:", err);
       res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  /**
+   * POST /api/portal/password
+   * Change password for the authenticated client.
+   */
+  app.post("/api/portal/password", requireClient, async (req: Request, res: Response) => {
+    try {
+      const { current_password, new_password } = req.body;
+
+      if (!current_password || typeof current_password !== "string") {
+        return res.status(400).json({ error: "Current password is required" });
+      }
+      if (!new_password || typeof new_password !== "string" || new_password.length < 8) {
+        return res.status(400).json({ error: "New password must be at least 8 characters" });
+      }
+
+      // Get current user with hash
+      const [user] = await db
+        .select({ id: users.id, password_hash: users.password_hash })
+        .from(users)
+        .where(eq(users.id, req.user!.id))
+        .limit(1);
+
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      // Verify current password
+      if (!verifyPassword(current_password, user.password_hash)) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+
+      // Update
+      await db
+        .update(users)
+        .set({ password_hash: hashPassword(new_password) })
+        .where(eq(users.id, req.user!.id));
+
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Portal password change error:", err);
+      res.status(500).json({ error: "Failed to change password" });
     }
   });
 

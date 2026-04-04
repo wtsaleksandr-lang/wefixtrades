@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { Loader2, Check, RefreshCw } from "lucide-react";
+import { Loader2, Check, RefreshCw, KeyRound } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 
 interface SettingsData {
@@ -176,9 +176,126 @@ export default function PortalSettings() {
                 </div>
               </div>
             </form>
+
+            {/* Change Password */}
+            <ChangePasswordSection inputClass={inputClass} labelClass={labelClass} />
           </>
         )}
       </div>
     </PortalLayout>
+  );
+}
+
+/* ─── Change Password Section ─── */
+function ChangePasswordSection({ inputClass, labelClass }: { inputClass: string; labelClass: string }) {
+  const [pw, setPw] = useState({ current: "", new_password: "", confirm: "" });
+  const [pwSaved, setPwSaved] = useState(false);
+  const [pwError, setPwError] = useState("");
+
+  const pwMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/portal/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          current_password: pw.current,
+          new_password: pw.new_password,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to change password");
+      return data;
+    },
+    onSuccess: () => {
+      setPw({ current: "", new_password: "", confirm: "" });
+      setPwError("");
+      setPwSaved(true);
+      setTimeout(() => setPwSaved(false), 3000);
+    },
+    onError: (err: Error) => {
+      setPwError(err.message);
+    },
+  });
+
+  function handlePwSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setPwError("");
+
+    if (pw.new_password.length < 8) {
+      setPwError("New password must be at least 8 characters.");
+      return;
+    }
+    if (pw.new_password !== pw.confirm) {
+      setPwError("New passwords don't match.");
+      return;
+    }
+
+    pwMutation.mutate();
+  }
+
+  return (
+    <form onSubmit={handlePwSubmit}>
+      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <KeyRound className="w-4 h-4 text-gray-400" />
+          <h2 className="text-sm font-semibold text-gray-900">Change Password</h2>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className={labelClass}>Current Password</label>
+            <input
+              type="password"
+              autoComplete="current-password"
+              className={inputClass}
+              value={pw.current}
+              onChange={(e) => setPw({ ...pw, current: e.target.value })}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelClass}>New Password</label>
+            <input
+              type="password"
+              autoComplete="new-password"
+              placeholder="At least 8 characters"
+              className={inputClass}
+              value={pw.new_password}
+              onChange={(e) => setPw({ ...pw, new_password: e.target.value })}
+              required
+              minLength={8}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Confirm New Password</label>
+            <input
+              type="password"
+              autoComplete="new-password"
+              className={inputClass}
+              value={pw.confirm}
+              onChange={(e) => setPw({ ...pw, confirm: e.target.value })}
+              required
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            type="submit"
+            disabled={pwMutation.isPending || !pw.current || !pw.new_password || !pw.confirm}
+            className="px-4 py-2 text-sm font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors disabled:opacity-60"
+          >
+            {pwMutation.isPending ? "Updating..." : "Update Password"}
+          </button>
+          {pwSaved && (
+            <span className="flex items-center gap-1 text-xs text-emerald-600">
+              <Check className="w-3.5 h-3.5" /> Password updated
+            </span>
+          )}
+          {pwError && (
+            <span className="text-xs text-red-600">{pwError}</span>
+          )}
+        </div>
+      </div>
+    </form>
   );
 }
