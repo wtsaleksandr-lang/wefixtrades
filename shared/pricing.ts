@@ -225,6 +225,45 @@ export const WEBBOOST: ProductDef = {
 };
 
 /* ═══════════════════════════════════════════
+   D2. WEBCARE
+   ═══════════════════════════════════════════ */
+export const WEBCARE: ProductDef = {
+  id: "webcare",
+  name: "WebCare™",
+  tagline: "Ongoing website maintenance for trades businesses",
+  category: "website",
+  tiers: [
+    {
+      id: "webcare-basic",
+      name: "Basic",
+      price: 79,
+      billingPeriod: "monthly",
+      features: [
+        "Monthly updates & security patches",
+        "Uptime monitoring with alerts",
+        "Daily backups",
+        "1 content change per month",
+        "Email support",
+      ],
+    },
+    {
+      id: "webcare-pro",
+      name: "Pro",
+      price: 129,
+      billingPeriod: "monthly",
+      highlighted: true,
+      badge: "Most Popular",
+      features: [
+        "Everything in Basic",
+        "4 content changes per month",
+        "Speed & performance checks",
+        "Priority support (24 hr response)",
+      ],
+    },
+  ],
+};
+
+/* ═══════════════════════════════════════════
    E. MAPGUARD
    ═══════════════════════════════════════════ */
 export const MAPGUARD: ProductDef = {
@@ -390,6 +429,7 @@ export const ALL_PRODUCTS: ProductDef[] = [
   TRADELINE,
   QUOTEQUICK,
   WEBBOOST,
+  WEBCARE,
   MAPGUARD,
   REPUTATIONSHIELD,
   SOCIALSYNC,

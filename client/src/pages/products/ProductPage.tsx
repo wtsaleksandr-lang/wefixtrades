@@ -819,6 +819,403 @@ function TradeLinePricingIntro() {
   );
 }
 
+/* ============================================================
+   WEBCARE CUSTOM SECTIONS
+   ============================================================ */
+
+/* ---------- WebCare: Built For Trades ---------- */
+function WCBuiltForSection({ trades }: { trades: string[] }) {
+  return (
+    <section style={{ background: mkt.bg, padding: "56px 28px" }} data-testid="webcare-built-for">
+      <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <p style={{ fontSize: 15, fontWeight: 600, color: mkt.textMuted, marginBottom: 20 }}>
+          Built for businesses that spend their day on job sites — not behind a desk.
+        </p>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8 }}>
+          {trades.map((trade) => (
+            <span
+              key={trade}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 9999,
+                border: `1px solid ${mkt.border}`,
+                fontSize: 13,
+                fontWeight: 500,
+                color: mkt.textMuted,
+                background: mkt.surface,
+              }}
+            >
+              {trade}
+            </span>
+          ))}
+        </div>
+        <p style={{ fontSize: 14, color: mkt.textMuted, marginTop: 16, margin: "16px auto 0", opacity: 0.75 }}>
+          Your website should work as hard as you do — without needing your attention.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- WebCare: Problem Section ---------- */
+function WCProblemSection() {
+  const pains = [
+    "Outdated info, broken forms, and slow pages quietly cost you leads",
+    "Most maintenance companies speak in jargon and assume you understand the tech",
+    "A website that isn't working properly doesn't just look bad — it loses real business",
+  ];
+
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="webcare-problem">
+      <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>The problem</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 24,
+          }}
+        >
+          Your website shouldn't be another job on your list.
+        </h2>
+        <p
+          style={{
+            fontSize: 16,
+            color: mkt.textMuted,
+            lineHeight: 1.7,
+            maxWidth: 560,
+            margin: "0 auto 32px",
+          }}
+        >
+          You're busy running jobs, managing crews, and keeping customers happy.
+          <br /><br />
+          The last thing you need is to worry about whether your website is up to date, loading properly, or showing the right phone number.
+          <br /><br />
+          But when your site breaks or falls behind, you don't hear about it — your customers just move on.
+        </p>
+
+        <style>{`
+          .wc-pain-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+          }
+          @media (max-width: 640px) {
+            .wc-pain-row { grid-template-columns: 1fr; }
+          }
+        `}</style>
+
+        <div className="wc-pain-row" data-reveal="fade-up">
+          {pains.map((pain) => (
+            <div
+              key={pain}
+              style={{
+                background: mkt.bg,
+                border: `1px solid ${mkt.border}`,
+                borderRadius: 14,
+                padding: "20px 16px",
+              }}
+            >
+              <span style={{ fontSize: 14, fontWeight: 500, color: mkt.textMuted, lineHeight: 1.5 }}>
+                {pain}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 17, fontWeight: 600, color: mkt.text, lineHeight: 1.5 }}>
+          You didn't start a trades business to manage a website.
+        </p>
+        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginTop: 16 }}>
+          That's exactly why WebCare exists.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- WebCare: What We Do Section ---------- */
+function WCWhatWeDoSection() {
+  const items = [
+    { icon: ShieldCheck, title: "Keeps your site updated", desc: "Security patches, software updates, and backups — all handled." },
+    { icon: Eye, title: "Keeps it working", desc: "We monitor your site 24/7. If something breaks, we fix it." },
+    { icon: PenTool, title: "Keeps your info current", desc: "Hours changed? New service area? Updated pricing? Just tell us." },
+    { icon: Zap, title: "Handles small changes", desc: "Text edits, image swaps, seasonal updates — included in your plan." },
+    { icon: MessageCircle, title: "Protects against common problems", desc: "Malware, outdated plugins, expired SSL — we catch it before it causes issues." },
+  ];
+
+  return (
+    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="webcare-whatwedo">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>What WebCare does</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 8,
+          }}
+        >
+          We just take care of it.
+        </h2>
+        <p style={{ fontSize: 16, color: mkt.textMuted, marginBottom: 12, lineHeight: 1.6 }}>
+          Here's what that actually means for your business:
+        </p>
+
+        <style>{`
+          .wc-card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 14px;
+            text-align: left;
+          }
+          .wc-card {
+            background: ${mkt.surface};
+            border: 1px solid ${mkt.border};
+            border-radius: 14px;
+            padding: 20px;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+          }
+          .wc-card:hover {
+            border-color: rgba(102,232,250,0.18);
+            transform: translateY(-1px);
+          }
+        `}</style>
+
+        <div className="wc-card-grid">
+          {items.map((item, i) => (
+            <div key={item.title} className="wc-card" data-reveal="fade-up" data-delay={String(i * 60)}>
+              <div style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: mkt.accentTint,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <item.icon size={18} color={mkt.accent} strokeWidth={2} />
+                </div>
+              </div>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: mkt.text, marginBottom: 6 }}>
+                {item.title}
+              </h3>
+              <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.55, margin: 0 }}>
+                {item.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 14, color: mkt.textMuted, marginTop: 28, lineHeight: 1.6 }}>
+          You don't need WordPress knowledge, logins, or technical skills. We handle it.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- WebCare: Comparison Table ---------- */
+function WCComparisonSection() {
+  const rows = [
+    { feature: "Built specifically for trades", webcare: true, generic: false },
+    { feature: "Plain-English support (no jargon)", webcare: true, generic: false },
+    { feature: "You own your site — always", webcare: true, generic: "Varies" },
+    { feature: "Content edits included", webcare: true, generic: "Limited" },
+    { feature: "No technical knowledge needed", webcare: true, generic: false },
+    { feature: "No contracts or lock-in", webcare: true, generic: "Varies" },
+  ];
+
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="webcare-comparison">
+      <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>How we compare</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 12,
+          }}
+        >
+          WebCare vs generic website maintenance.
+        </h2>
+        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 36 }}>
+          Most maintenance plans are built for developers and agencies. WebCare is built for trades businesses that want simple, reliable website care.
+        </p>
+
+        <div
+          style={{
+            background: mkt.bg,
+            border: `1px solid ${mkt.border}`,
+            borderRadius: 14,
+            overflow: "hidden",
+          }}
+        >
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${mkt.border}` }}>
+                <th style={{ padding: "14px 16px", textAlign: "left", fontWeight: 600, color: mkt.textMuted }}></th>
+                <th style={{ padding: "14px 16px", textAlign: "center", fontWeight: 700, color: mkt.accent }}>WebCare</th>
+                <th style={{ padding: "14px 16px", textAlign: "center", fontWeight: 600, color: mkt.textMuted }}>Generic Plans</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.feature} style={{ borderBottom: `1px solid ${mkt.border}` }}>
+                  <td style={{ padding: "12px 16px", color: mkt.text, fontWeight: 500 }}>{row.feature}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                    {row.webcare === true ? (
+                      <Check size={16} color={mkt.accent} strokeWidth={2.5} />
+                    ) : (
+                      <span style={{ color: mkt.textMuted }}>{String(row.webcare)}</span>
+                    )}
+                  </td>
+                  <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                    {row.generic === true ? (
+                      <Check size={16} color={mkt.accent} strokeWidth={2.5} />
+                    ) : row.generic === false ? (
+                      <span style={{ color: mkt.textMuted, fontSize: 16 }}>—</span>
+                    ) : (
+                      <span style={{ color: mkt.textMuted, fontSize: 13 }}>{String(row.generic)}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- WebCare: Results / Value Section ---------- */
+function WCResultsSection({ outcomes }: { outcomes: { title: string; desc: string }[] }) {
+  return (
+    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="webcare-results">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Results</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 36,
+          }}
+        >
+          What happens when your website just works.
+        </h2>
+
+        <style>{`
+          .wc-results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+            text-align: left;
+            margin-bottom: 32px;
+          }
+        `}</style>
+
+        <div className="wc-results-grid">
+          {outcomes.map((o, i) => (
+            <div
+              key={o.title}
+              data-reveal="fade-up"
+              data-delay={String(i * 60)}
+              style={{
+                background: mkt.surface,
+                border: `1px solid ${mkt.border}`,
+                borderRadius: 14,
+                padding: "22px 18px",
+              }}
+            >
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.accent, marginBottom: 6 }}>
+                {o.title}
+              </h3>
+              <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.55, margin: 0 }}>
+                {o.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text }}>
+          Pro costs $129/mo. One enquiry from a working website covers it.
+        </p>
+        <p style={{ fontSize: 14, color: mkt.textMuted, marginTop: 8, lineHeight: 1.5 }}>
+          A broken contact form, outdated hours, or slow homepage costs more than you think.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- WebCare: Pricing Intro ---------- */
+function WCPricingIntro() {
+  return (
+    <>
+      <p
+        style={{
+          fontSize: 17,
+          fontWeight: 600,
+          color: mkt.onDark,
+          marginBottom: 6,
+        }}
+      >
+        Simple pricing. No contracts. No surprises.
+      </p>
+      <p
+        style={{
+          fontSize: 15,
+          color: mkt.onDarkMuted,
+          maxWidth: 520,
+          margin: "0 auto 32px",
+          lineHeight: 1.6,
+        }}
+      >
+        Pick the plan that fits. Scale up or cancel anytime — your website stays yours either way.
+      </p>
+    </>
+  );
+}
+
+/* ---------- WebCare: Risk Reversal ---------- */
+function WCRiskReversal() {
+  return (
+    <div
+      style={{
+        background: mkt.dark,
+        padding: "0 28px 40px",
+        textAlign: "center",
+      }}
+      data-reveal="fade-up"
+    >
+      <p
+        style={{
+          fontSize: 14,
+          fontWeight: 500,
+          color: mkt.onDarkFaint,
+          maxWidth: 600,
+          margin: "0 auto",
+          letterSpacing: "0.01em",
+        }}
+      >
+        No contracts · Cancel anytime · Your website stays yours · Fast support when you need changes
+      </p>
+    </div>
+  );
+}
+
 /* ---------- QuoteQuick: Built For Trades ---------- */
 function QQBuiltForSection({ trades }: { trades: string[] }) {
   return (
@@ -2501,7 +2898,8 @@ export default function ProductPage() {
   const isReputationShield = product.slug === "reputationshield";
   const isSocialSync = product.slug === "socialsync";
   const isSiteLaunch = product.slug === "sitelaunch";
-  const hasCustomHero = isTradeLine || isQuoteQuick || isReputationShield || isSocialSync || isSiteLaunch;
+  const isWebCare = product.slug === "webcare";
+  const hasCustomHero = isTradeLine || isQuoteQuick || isReputationShield || isSocialSync || isSiteLaunch || isWebCare;
 
   return (
     <MarketingLayout>
@@ -2552,6 +2950,9 @@ export default function ProductPage() {
                   <>Get More 5-Star Reviews —{" "}<span style={{ color: mkt.accent }}>Without Lifting a Finger</span></>
                 ) : isSiteLaunch ? (
                   <>Get a Trade Website That Brings You Jobs —{" "}<span style={{ color: mkt.accent }}>Live in 5 Days</span></>
+                ) : isWebCare ? (
+                  <>We Take Care of Your Website —{" "}<span style={{ color: mkt.accent }}>So You Can Focus on the Job</span></>
+
                 ) : (
                   <>Stay Active Online —{" "}<span style={{ color: mkt.accent }}>Without Doing It Yourself</span></>
                 )}
@@ -2582,6 +2983,8 @@ export default function ProductPage() {
                   "ReputationShield sends review requests, responds to every review, and builds your reputation automatically \u2014 so customers trust you before they even call."
                 ) : isSiteLaunch ? (
                   "We build your website from scratch \u2014 custom designed, mobile-first, SEO-ready, with lead capture built in. One-time fee. No contracts. You own the site."
+                ) : isWebCare ? (
+                  "Your website stays updated, secure, and working. No tech headaches. No contracts. Just reliable maintenance \u2014 built for trades businesses."
                 ) : (
                   "SocialSync creates and posts content for your business across Facebook, Instagram, and Google \u2014 so you stay visible, trusted, and top of mind without lifting a finger."
                 )}
@@ -2721,6 +3124,12 @@ export default function ProductPage() {
                 "You own the website",
                 "No contracts",
                 "Optional ongoing support",
+              ] : isWebCare ? [
+                "Built for trades businesses",
+                "We handle all updates",
+                "No contracts",
+                "Fast support when you need changes",
+                "You keep full ownership of your site",
               ] : [
                 "Built for trades businesses",
                 "Works while you\u2019re on the job",
@@ -2802,6 +3211,15 @@ export default function ProductPage() {
           </>
         )}
 
+        {/* ── WebCare: Built For + Problem + What We Do (between hero and capabilities) ── */}
+        {isWebCare && (
+          <>
+            <WCBuiltForSection trades={product.bestFor} />
+            <WCProblemSection />
+            <WCWhatWeDoSection />
+          </>
+        )}
+
         {/* ── §2 CAPABILITIES / BENEFITS ── */}
         <CapabilitiesGrid
           items={product.highlights}
@@ -2811,12 +3229,13 @@ export default function ProductPage() {
             isReputationShield ? "What this actually does for your business" :
             isSocialSync ? "What this actually does for your business" :
             isSiteLaunch ? "What\u2019s included in every SiteLaunch build" :
+            isWebCare ? "What's included in your plan" :
             undefined
           }
         />
 
         {/* ── §3 HOW IT WORKS ── */}
-        <StepTimeline steps={product.howItWorks} heading={isQuoteQuick ? "Set it up once. Let it work every day." : isSiteLaunch ? "Three steps. Five days. Done." : undefined} />
+        <StepTimeline steps={product.howItWorks} heading={isQuoteQuick ? "Set it up once. Let it work every day." : isSiteLaunch ? "Three steps. Five days. Done." : isWebCare ? "Simple setup. Ongoing care." : undefined} />
 
         {isTradeLine && (
           <div style={{ background: mkt.surface, textAlign: "center", padding: "0 28px 48px" }} data-reveal="fade-up">
@@ -2867,6 +3286,8 @@ export default function ProductPage() {
 
         {/* ── SiteLaunch: Comparison (after how-it-works) ── */}
         {isSiteLaunch && <SLComparisonSection />}
+        {/* ── WebCare: Comparison (after how-it-works) ── */}
+        {isWebCare && <WCComparisonSection />}
 
         {/* ── §4 SOCIAL PROOF ── */}
         <SurfaceSection overlap className="py-4">
@@ -2887,6 +3308,8 @@ export default function ProductPage() {
 
         {/* ── SiteLaunch: Results (after reviews, before pricing) ── */}
         {isSiteLaunch && <SLResultsSection outcomes={product.outcomes} />}
+        {/* ── WebCare: Results (after reviews, before pricing) ── */}
+        {isWebCare && <WCResultsSection outcomes={product.outcomes} />}
 
         {/* ── §5 PRICING (MANDATORY) ── */}
         <PricingSection
@@ -2897,6 +3320,7 @@ export default function ProductPage() {
             isReputationShield ? <RSPricingIntro /> :
             isSocialSync ? <SSPricingIntro /> :
             isSiteLaunch ? <SLPricingIntro /> :
+            isWebCare ? <WCPricingIntro /> :
             undefined
           }
         />
@@ -2915,6 +3339,8 @@ export default function ProductPage() {
 
         {/* ── SiteLaunch: Risk Reversal (below pricing) ── */}
         {isSiteLaunch && <SLRiskReversal />}
+        {/* ── WebCare: Risk Reversal (below pricing) ── */}
+        {isWebCare && <WCRiskReversal />}
 
         {/* ── §6 FAQ ── */}
         {product.faq.length > 0 && (
@@ -3001,6 +3427,13 @@ export default function ProductPage() {
             heading="Get your new website live in 5 days."
             subtext="Custom built for your trade. You own it. No contracts. One extra job covers the cost."
             ctaLabel="Get Your Website Built"
+            ctaHref="/Wizard"
+          />
+        ) : isWebCare ? (
+          <CTASection
+            heading="Stop worrying about your website."
+            subtext="Let us handle the upkeep — so you can stay focused on the work that matters. No contracts. No tech headaches. Just reliable maintenance built for trades."
+            ctaLabel="Get Started with WebCare"
             ctaHref="/Wizard"
           />
         ) : (
