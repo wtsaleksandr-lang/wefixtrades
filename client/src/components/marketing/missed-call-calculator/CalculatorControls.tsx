@@ -123,6 +123,7 @@ export default function CalculatorControls({
 
         <SliderField
           label="Missed calls per week"
+          tooltip="The number of inbound calls your business doesn't answer each week — including after-hours, weekends, and busy periods when no one picks up."
           value={values.missedCallsPerWeek}
           min={sliderBounds.missedCalls.min}
           max={sliderBounds.missedCalls.max}
@@ -137,6 +138,7 @@ export default function CalculatorControls({
 
         <SliderField
           label="Close rate"
+          tooltip="The percentage of answered calls that turn into a booked job. Industry average for home services is 25–40%."
           value={values.closeRatePercent}
           min={sliderBounds.closeRate.min}
           max={sliderBounds.closeRate.max}
@@ -153,6 +155,7 @@ export default function CalculatorControls({
 
         <SliderField
           label="Average job value"
+          tooltip="The typical revenue from a single completed job, including materials and labor."
           value={values.avgJobValue}
           min={sliderBounds.avgJobValue.min}
           max={sliderBounds.avgJobValue.max}

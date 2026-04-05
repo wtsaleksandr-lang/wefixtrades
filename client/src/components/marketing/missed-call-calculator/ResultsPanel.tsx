@@ -185,7 +185,7 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
           ].map((row) => (
             <div key={row.label} style={{
               display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 14px',
+              padding: 'clamp(8px, 1.5vw, 10px) clamp(10px, 2vw, 14px)',
               background: mkt.cardBg,
               border: `1px solid ${mkt.cardBorder}`,
               borderRadius: radius.md,
@@ -273,7 +273,7 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
                   </p>
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 14px',
+                    padding: 'clamp(8px, 1.5vw, 10px) clamp(10px, 2vw, 14px)',
                     background: 'rgba(102,232,250,0.06)',
                     border: `1px solid ${mkt.accent}22`, borderRadius: radius.sm,
                   }}>

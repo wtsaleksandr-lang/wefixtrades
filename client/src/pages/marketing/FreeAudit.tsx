@@ -5,6 +5,7 @@ import { trackEvent } from "@/lib/trackEvent";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { usePageMeta } from "@/lib/usePageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
+import TrustStrip from "@/components/marketing/TrustStrip";
 import { colors } from "@/theme/tokens";
 import { Search, CheckCircle2, PhoneOff, Calculator, ArrowRight, ChevronDown } from "lucide-react";
 import ReportView from "./ReportView";
@@ -917,6 +918,7 @@ export default function FreeAudit() {
           {!reportReady && !busy && (
             <>
               <AuditStaticSections />
+              <TrustStrip theme="light" />
               <AuditFaqSection />
             </>
           )}

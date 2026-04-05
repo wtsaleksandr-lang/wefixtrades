@@ -5,6 +5,7 @@ import MissedCallCalculatorShell from '@/components/marketing/missed-call-calcul
 import FAQSection from '@/components/marketing/missed-call-calculator/FAQSection';
 import { usePageMeta } from '@/lib/usePageMeta';
 import { useBreadcrumbSchema } from '@/lib/useBreadcrumbSchema';
+import TrustStrip from '@/components/marketing/TrustStrip';
 import { mkt, colors } from '@/theme/tokens';
 
 /* ═══ Static SEO Content ═══ */
@@ -91,8 +92,10 @@ export default function MissedCallCalculator() {
           ))}
         </div>
 
+        <TrustStrip theme="dark" />
+
         <div style={{
-          marginTop: 'clamp(48px, 8vw, 80px)',
+          marginTop: 'clamp(24px, 4vw, 40px)',
           borderTop: `1px solid ${mkt.border}`,
           paddingTop: 'clamp(32px, 6vw, 56px)',
         }}>

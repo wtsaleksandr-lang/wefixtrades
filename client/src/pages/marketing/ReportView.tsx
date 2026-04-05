@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight, ZoomIn, ZoomOut, X, Minus, Plus } from "lucide-react";
 import { SERVICES, getServicesForIssues } from '@shared/services';
 import AuditGate from "@/components/marketing/AuditGate";
+import InfoTooltip from "@/components/marketing/InfoTooltip";
 import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
 import { trackEvent } from "@/lib/trackEvent";
 
@@ -113,67 +114,9 @@ function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: 
   );
 }
 
+/** Light-themed "?" trigger for the audit report (light bg context) */
 function Tooltip({ text }: { text: string }) {
-  const [show, setShow] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    if (!show) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setShow(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [show]);
-  return (
-    <span ref={ref} style={{ position: 'relative', display: 'inline-block', verticalAlign: 'middle' }}>
-      <span
-        onClick={() => setShow(s => !s)}
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 18, height: 18, borderRadius: '50%', background: '#E5E7EB',
-          color: '#6B7280', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-          marginLeft: 6, userSelect: 'none', flexShrink: 0, transition: 'background 0.15s ease'
-        }}
-      >
-        ?
-      </span>
-      {show && (
-        <>
-          {/* Background blur overlay */}
-          <div style={{
-            position: 'fixed', inset: 0, zIndex: 98,
-            backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
-            background: 'rgba(0,0,0,0.15)', pointerEvents: 'none'
-          }}/>
-          {/* Tooltip card */}
-          <div style={{
-            position: 'absolute', bottom: 'calc(100% + 10px)', left: '50%',
-            transform: 'translateX(-50%)', zIndex: 99, width: 240,
-            background: 'rgba(13,21,20,0.92)', backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)', borderRadius: 12,
-            border: '1px solid rgba(255,255,255,0.12)', padding: '14px 16px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.3)', pointerEvents: 'none'
-          }}>
-            {/* Arrow */}
-            <div style={{
-              position: 'absolute', bottom: -6, left: '50%',
-              transform: 'translateX(-50%) rotate(45deg)', width: 10, height: 10,
-              background: 'rgba(13,21,20,0.92)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderTop: 'none', borderLeft: 'none'
-            }}/>
-            <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 1.55, fontWeight: 400 }}>
-              {text}
-            </p>
-          </div>
-        </>
-      )}
-    </span>
-  );
+  return <InfoTooltip text={text} theme="light" />;
 }
 
 /* ─── Screenshot Lightbox with pinch-zoom & scroll-zoom ─── */

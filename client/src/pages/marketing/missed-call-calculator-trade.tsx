@@ -5,6 +5,7 @@ import MissedCallCalculatorShell from '@/components/marketing/missed-call-calcul
 import FAQSection from '@/components/marketing/missed-call-calculator/FAQSection';
 import { usePageMeta } from '@/lib/usePageMeta';
 import { useBreadcrumbSchema } from '@/lib/useBreadcrumbSchema';
+import TrustStrip from '@/components/marketing/TrustStrip';
 import { mkt, colors } from '@/theme/tokens';
 import { getPresetById, TRADE_PRESETS } from '@/data/missedCallTradePresets';
 import { Search, Calculator, ArrowRight } from 'lucide-react';
@@ -216,9 +217,11 @@ export default function MissedCallCalculatorTrade() {
             })}
           </div>
 
+          <TrustStrip theme="dark" />
+
           {/* FAQ */}
           <div style={{
-            marginTop: 'clamp(32px, 6vw, 48px)',
+            marginTop: 'clamp(16px, 3vw, 24px)',
             borderTop: `1px solid ${mkt.border}`,
             paddingTop: 'clamp(24px, 4vw, 40px)',
           }}>

@@ -6,6 +6,9 @@ import { mkt, colors, shadows } from "@/theme/tokens";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { usePageMeta } from "@/lib/usePageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
+import InfoTooltip from "@/components/marketing/InfoTooltip";
+import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
+import TrustStrip from "@/components/marketing/TrustStrip";
 import type { CalculatorData } from "@/components/quote-widget/types";
 import {
   Wrench, SprayCan, Paintbrush, Zap, Home, Search,
@@ -242,6 +245,9 @@ export default function QuoteCalculatorDemo() {
           background: color-mix(in srgb, var(--active-color) 12%, transparent);
           color: var(--active-color);
         }
+        @media (max-width: 480px) {
+          .trade-btn { padding: 8px 14px; font-size: 13px; gap: 6px; }
+        }
         .demo-cta-wrap {
           transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
@@ -319,6 +325,12 @@ export default function QuoteCalculatorDemo() {
           </div>
 
           {/* ─── Trade Selector ─── */}
+          <div style={{ textAlign: "center", marginBottom: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, display: "inline-flex", alignItems: "center" }}>
+              Select a trade to preview
+              <InfoTooltip text="Each trade shows a realistic quote calculator configured with typical pricing for that service type. Try switching between trades to see how the widget adapts." />
+            </span>
+          </div>
           <div style={{
             display: "flex",
             flexWrap: "wrap",
@@ -516,8 +528,13 @@ export default function QuoteCalculatorDemo() {
           {/* ─── Static SEO Content ─── */}
           <TradeDescriptions />
 
-          {/* ─── Audit callout ─── */}
-          <AuditCallout />
+          {/* ─── Cross-tool suggestions ─── */}
+          <div style={{ maxWidth: 640, margin: "clamp(32px, 5vw, 48px) auto 0" }}>
+            <NextStepSuggestions context="demo" theme="dark" />
+          </div>
+
+          {/* ─── Trust Strip ─── */}
+          <TrustStrip theme="dark" />
 
           {/* ─── FAQ ─── */}
           <DemoFaqSection />

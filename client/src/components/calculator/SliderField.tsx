@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import InfoTooltip from '@/components/marketing/InfoTooltip';
 
 interface SliderFieldProps {
   label: string;
@@ -21,6 +22,8 @@ interface SliderFieldProps {
   formatValue?: (value: number) => string;
   /** Custom min/max label formatter */
   formatBound?: (value: number) => string;
+  /** Optional "?" tooltip explanation for this slider */
+  tooltip?: string;
 }
 
 export default function SliderField({
@@ -39,6 +42,7 @@ export default function SliderField({
   minMaxColor,
   formatValue,
   formatBound,
+  tooltip,
 }: SliderFieldProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -71,7 +75,10 @@ export default function SliderField({
   return (
     <div data-testid={`slider-field-${label.toLowerCase().replace(/\s+/g, '-')}`} style={{ marginBottom: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-        <span style={{ fontSize: '13px', fontWeight: 600, color: labelColor || '#64748B' }}>{label}</span>
+        <span style={{ fontSize: '13px', fontWeight: 600, color: labelColor || '#64748B', display: 'inline-flex', alignItems: 'center' }}>
+          {label}
+          {tooltip && <InfoTooltip text={tooltip} />}
+        </span>
         <span data-testid={`slider-value-${label.toLowerCase().replace(/\s+/g, '-')}`} style={{
           fontSize: '15px', fontWeight: 700, color: accentColor,
           background: `rgba(${r},${g},${b},0.08)`,
