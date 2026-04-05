@@ -1382,6 +1382,9 @@ function RSProblemSection() {
         <p style={{ fontSize: 17, fontWeight: 600, color: mkt.text, lineHeight: 1.5 }}>
           Better reputation = more calls. It's that simple.
         </p>
+        <p style={{ fontSize: 15, color: mkt.textMuted, marginTop: 16, lineHeight: 1.6 }}>
+          Every happy customer who leaves without reviewing is a missed chance to strengthen your reputation.
+        </p>
       </div>
     </section>
   );
@@ -1532,6 +1535,9 @@ function RSComparisonSection() {
         <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 32 }}>
           Most review tools still expect you to do the work. ReputationShield is a service — we handle it for you.
         </p>
+        <p style={{ fontSize: 14, fontWeight: 600, color: mkt.text, marginBottom: 32, marginTop: -16, lineHeight: 1.5 }}>
+          Most review tools give you another dashboard to manage. ReputationShield gives you results without extra work.
+        </p>
 
         <div
           style={{
@@ -1625,6 +1631,9 @@ function RSResultsSection({ outcomes }: { outcomes: { title: string; desc: strin
 
         <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text }}>
           A few extra jobs per month can easily cover the cost.
+        </p>
+        <p style={{ fontSize: 14, color: mkt.textMuted, marginTop: 8, lineHeight: 1.5 }}>
+          More strong reviews help you stand out in Google before customers ever call.
         </p>
       </div>
     </section>
@@ -2146,7 +2155,7 @@ export default function ProductPage() {
         ) : isReputationShield ? (
           <CTASection
             heading="Start building your reputation today."
-            subtext="More reviews. Better rating. More calls."
+            subtext="More reviews. Better rating. More calls. Start now and turn completed jobs into more trust, more reviews, and more calls."
             ctaLabel="Start ReputationShield"
             ctaHref="/Wizard"
           />
