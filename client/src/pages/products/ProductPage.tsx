@@ -2194,13 +2194,13 @@ function SLDifferentiationSection() {
 /* ---------- SiteLaunch: Comparison Section ---------- */
 function SLComparisonSection() {
   const rows: { feature: string; sl: string | boolean; diy: string | boolean; agency: string | boolean }[] = [
-    { feature: "Delivery time", sl: "5 business days", diy: "Weeks (you build it)", agency: "10\u201316 weeks" },
-    { feature: "Cost", sl: "One-time fee", diy: "$12\u201330/mo", agency: "$3,000\u2013$10,000+" },
-    { feature: "You own it", sl: true, diy: "Platform-dependent", agency: "Often not" },
-    { feature: "Lead capture", sl: "Forms + QuoteQuick", diy: "Basic forms only", agency: "Varies" },
-    { feature: "Effort from you", sl: "15 min onboarding", diy: "Hours of your time", agency: "Weeks of meetings" },
-    { feature: "Contracts", sl: "None", diy: "Monthly subscription", agency: "6\u201312 month contracts" },
-    { feature: "Built for trades", sl: true, diy: false, agency: "Rarely" },
+    { feature: "Time to launch", sl: "5 business days", diy: "Weeks (you build it)", agency: "10\u201316 weeks" },
+    { feature: "Upfront cost", sl: "One-time fee", diy: "$0", agency: "$3,000\u2013$10,000+" },
+    { feature: "Ongoing cost", sl: "None required", diy: "$12\u201330/mo", agency: "$500\u2013$3,000+/mo" },
+    { feature: "You own the site", sl: true, diy: "Platform-dependent", agency: "Often not" },
+    { feature: "Lead capture built in", sl: "Forms + QuoteQuick", diy: "Basic forms only", agency: "Varies" },
+    { feature: "Work required from you", sl: "15 min onboarding", diy: "Hours of your time", agency: "Weeks of meetings" },
+    { feature: "Contract required", sl: "None", diy: "Monthly subscription", agency: "6\u201312 month contracts" },
   ];
 
   return (
@@ -2551,7 +2551,7 @@ export default function ProductPage() {
                 ) : isReputationShield ? (
                   <>Get More 5-Star Reviews —{" "}<span style={{ color: mkt.accent }}>Without Lifting a Finger</span></>
                 ) : isSiteLaunch ? (
-                  <>A Professional Trade Website —{" "}<span style={{ color: mkt.accent }}>Live in 5 Days. Yours to Keep.</span></>
+                  <>Get a Trade Website That Brings You Jobs —{" "}<span style={{ color: mkt.accent }}>Live in 5 Days</span></>
                 ) : (
                   <>Stay Active Online —{" "}<span style={{ color: mkt.accent }}>Without Doing It Yourself</span></>
                 )}
