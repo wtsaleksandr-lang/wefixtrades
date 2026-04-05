@@ -4,15 +4,17 @@ import { mkt, shadows } from "@/theme/tokens";
 interface CapabilitiesGridProps {
   items: string[];
   heading?: string;
+  sectionId?: string;
 }
 
 /**
  * Richer "What you get" grid replacing flat bullet lists.
  * Uses surface cards with check icons, matching homepage card patterns.
  */
-export default function CapabilitiesGrid({ items, heading }: CapabilitiesGridProps) {
+export default function CapabilitiesGrid({ items, heading, sectionId }: CapabilitiesGridProps) {
   return (
     <section
+      id={sectionId}
       style={{ background: mkt.bg, padding: "72px 28px" }}
       data-testid="product-capabilities"
     >

@@ -2023,6 +2023,442 @@ function SSRiskReversal() {
   );
 }
 
+/* ---------- SiteLaunch: Problem Section ---------- */
+function SLProblemSection() {
+  const painPoints = [
+    "DIY builders look cheap — and they take hours you don't have",
+    "Agencies charge thousands and take months to deliver",
+    "Most websites have a contact form and nothing else",
+  ];
+
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="sl-problem">
+      <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>The problem</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 24,
+          }}
+        >
+          Your website should bring in jobs. Most don't.
+        </h2>
+        <p
+          style={{
+            fontSize: 16,
+            color: mkt.textMuted,
+            lineHeight: 1.7,
+            maxWidth: 560,
+            margin: "0 auto 32px",
+          }}
+        >
+          You're busy running jobs. You don't have time to learn WordPress or wait 3 months for an agency to build something you can't even edit.
+          <br /><br />
+          Meanwhile, customers Google your trade, land on your website, see something that looks like it was built in 2015 — and call the next person instead.
+          <br /><br />
+          A website that doesn't convert visitors into calls is costing you money every single day.
+        </p>
+
+        <style>{`
+          .sl-pain-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+          }
+          @media (max-width: 640px) {
+            .sl-pain-row { grid-template-columns: 1fr; }
+          }
+        `}</style>
+
+        <div className="sl-pain-row" data-reveal="fade-up">
+          {painPoints.map((point) => (
+            <div
+              key={point}
+              style={{
+                background: mkt.bg,
+                border: `1px solid ${mkt.border}`,
+                borderRadius: 14,
+                padding: "20px 16px",
+              }}
+            >
+              <span style={{ fontSize: 14, fontWeight: 500, color: mkt.textMuted, lineHeight: 1.5 }}>
+                {point}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 17, fontWeight: 600, color: mkt.text, lineHeight: 1.5 }}>
+          You don't need a fancier template. You need a website that actually works.
+        </p>
+        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginTop: 16 }}>
+          One that loads fast, looks professional, and turns visitors into real enquiries — without you lifting a finger.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- SiteLaunch: Differentiation Section ---------- */
+function SLDifferentiationSection() {
+  const points = [
+    { icon: Zap, title: "5-day delivery", desc: "Not 10 weeks. Not 16 weeks. Your website is designed, built, and live in 5 business days." },
+    { icon: ShieldCheck, title: "You own the website", desc: "No proprietary platforms. No agency lock-in. The site is yours — take it anywhere." },
+    { icon: UserCheck, title: "One-time build", desc: "Pay once. No monthly retainers, no hidden agency fees. Optional support if you want it." },
+    { icon: TrendingUp, title: "Lead capture ready", desc: "Contact forms plus optional QuoteQuick calculator — so visitors become enquiries, not bounces." },
+  ];
+
+  return (
+    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="sl-differentiation">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Why SiteLaunch</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 8,
+          }}
+        >
+          Not a DIY builder.{" "}
+          <span style={{ color: mkt.accent }}>Not an overpriced agency.</span>
+        </h2>
+        <p style={{ fontSize: 16, color: mkt.textMuted, marginBottom: 12, lineHeight: 1.6 }}>
+          SiteLaunch is a done-for-you website, built specifically for trades businesses.
+        </p>
+        <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text, marginBottom: 40, lineHeight: 1.5 }}>
+          Fast. Affordable. Yours to keep.
+        </p>
+
+        <style>{`
+          .sl-diff-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 14px;
+            text-align: left;
+          }
+          .sl-diff-card {
+            background: ${mkt.surface};
+            border: 1px solid ${mkt.border};
+            border-radius: 14px;
+            padding: 22px;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+          }
+          .sl-diff-card:hover {
+            border-color: rgba(102,232,250,0.18);
+            transform: translateY(-1px);
+          }
+        `}</style>
+
+        <div className="sl-diff-grid">
+          {points.map((pt, i) => (
+            <div key={pt.title} className="sl-diff-card" data-reveal="fade-up" data-delay={String(i * 60)}>
+              <div style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: mkt.accentTint,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <pt.icon size={18} color={mkt.accent} strokeWidth={2} />
+                </div>
+              </div>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: mkt.text, marginBottom: 6 }}>
+                {pt.title}
+              </h3>
+              <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.55, margin: 0 }}>
+                {pt.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 14, color: mkt.textMuted, marginTop: 28, lineHeight: 1.6 }}>
+          Built for trades. Not restaurants. Not e-commerce. Not generic "local businesses."
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- SiteLaunch: Comparison Section ---------- */
+function SLComparisonSection() {
+  const rows: { feature: string; sl: string | boolean; diy: string | boolean; agency: string | boolean }[] = [
+    { feature: "Delivery time", sl: "5 business days", diy: "Weeks (you build it)", agency: "10\u201316 weeks" },
+    { feature: "Cost", sl: "One-time fee", diy: "$12\u201330/mo", agency: "$3,000\u2013$10,000+" },
+    { feature: "You own it", sl: true, diy: "Platform-dependent", agency: "Often not" },
+    { feature: "Lead capture", sl: "Forms + QuoteQuick", diy: "Basic forms only", agency: "Varies" },
+    { feature: "Effort from you", sl: "15 min onboarding", diy: "Hours of your time", agency: "Weeks of meetings" },
+    { feature: "Contracts", sl: "None", diy: "Monthly subscription", agency: "6\u201312 month contracts" },
+    { feature: "Built for trades", sl: true, diy: false, agency: "Rarely" },
+  ];
+
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="sl-comparison">
+      <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>How it compares</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 12,
+          }}
+        >
+          SiteLaunch vs DIY builders vs agencies
+        </h2>
+        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 36 }}>
+          There are two options out there: build it yourself for cheap, or pay an agency a fortune. SiteLaunch is the middle ground that didn't exist before.
+        </p>
+
+        <div
+          style={{
+            background: mkt.bg,
+            border: `1px solid ${mkt.border}`,
+            borderRadius: 14,
+            overflow: "hidden",
+          }}
+        >
+          <style>{`
+            @media (max-width: 640px) {
+              .sl-comp-table { font-size: 12px !important; }
+              .sl-comp-table th, .sl-comp-table td { padding: 10px 8px !important; }
+            }
+          `}</style>
+          <table className="sl-comp-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${mkt.border}` }}>
+                <th style={{ padding: "14px 16px", textAlign: "left", fontWeight: 600, color: mkt.textMuted }}></th>
+                <th style={{ padding: "14px 16px", textAlign: "center", fontWeight: 700, color: mkt.accent }}>SiteLaunch</th>
+                <th style={{ padding: "14px 16px", textAlign: "center", fontWeight: 600, color: mkt.textMuted }}>DIY Builder</th>
+                <th style={{ padding: "14px 16px", textAlign: "center", fontWeight: 600, color: mkt.textMuted }}>Agency</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.feature} style={{ borderBottom: `1px solid ${mkt.border}` }}>
+                  <td style={{ padding: "12px 16px", color: mkt.text, fontWeight: 500 }}>{row.feature}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                    {row.sl === true ? (
+                      <Check size={16} color={mkt.accent} strokeWidth={2.5} />
+                    ) : (
+                      <span style={{ color: mkt.accent, fontWeight: 600, fontSize: 13 }}>{row.sl}</span>
+                    )}
+                  </td>
+                  <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                    {row.diy === false ? (
+                      <span style={{ color: mkt.textMuted, fontSize: 16 }}>&mdash;</span>
+                    ) : (
+                      <span style={{ color: mkt.textMuted, fontSize: 13 }}>{String(row.diy)}</span>
+                    )}
+                  </td>
+                  <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                    {row.agency === false ? (
+                      <span style={{ color: mkt.textMuted, fontSize: 16 }}>&mdash;</span>
+                    ) : (
+                      <span style={{ color: mkt.textMuted, fontSize: 13 }}>{String(row.agency)}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- SiteLaunch: Built For Trades ---------- */
+function SLBuiltForSection({ trades }: { trades: string[] }) {
+  return (
+    <section style={{ background: mkt.bg, padding: "56px 28px" }} data-testid="sl-built-for">
+      <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Built for trades</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(22px, 2.8vw, 32px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 12,
+          }}
+        >
+          Built for trades — not generic "local businesses."
+        </h2>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8, marginBottom: 16 }}>
+          {trades.map((trade) => (
+            <span
+              key={trade}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 9999,
+                border: `1px solid ${mkt.border}`,
+                fontSize: 13,
+                fontWeight: 500,
+                color: mkt.textMuted,
+                background: mkt.surface,
+              }}
+            >
+              {trade}
+            </span>
+          ))}
+        </div>
+        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 12 }}>
+          Every SiteLaunch website is structured for how trades businesses actually get customers — service pages, areas served, clear calls to action, and lead capture that works.
+        </p>
+        <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text }}>
+          Not restaurants. Not e-commerce. Not generic brand sites.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- SiteLaunch: Results Section ---------- */
+function SLResultsSection({ outcomes }: { outcomes: { title: string; desc: string }[] }) {
+  return (
+    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="sl-results">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Results</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 36,
+          }}
+        >
+          A website that pays for itself.
+        </h2>
+        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 0 }}>
+          What SiteLaunch is designed to help you achieve:
+        </p>
+
+        <style>{`
+          .sl-results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+            text-align: left;
+            margin-bottom: 32px;
+          }
+        `}</style>
+
+        <div className="sl-results-grid">
+          {outcomes.map((o, i) => (
+            <div
+              key={o.title}
+              data-reveal="fade-up"
+              data-delay={String(i * 60)}
+              style={{
+                background: mkt.surface,
+                border: `1px solid ${mkt.border}`,
+                borderRadius: 14,
+                padding: "22px 18px",
+              }}
+            >
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.accent, marginBottom: 6 }}>
+                {o.title}
+              </h3>
+              <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.55, margin: 0 }}>
+                {o.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text }}>
+          SiteLaunch costs less than most agencies charge for a single meeting.
+        </p>
+        <p style={{ fontSize: 14, color: mkt.textMuted, marginTop: 8, lineHeight: 1.5 }}>
+          One extra job from your new website covers the entire build.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- SiteLaunch: Pricing Intro ---------- */
+function SLPricingIntro() {
+  return (
+    <>
+      <SectionLabel>Pricing</SectionLabel>
+      <h2
+        style={{
+          fontSize: "clamp(24px, 3vw, 36px)",
+          fontWeight: 700,
+          color: mkt.onDark,
+          letterSpacing: "-0.025em",
+          marginBottom: 8,
+        }}
+      >
+        One price. No surprises. No contracts.
+      </h2>
+      <p
+        style={{
+          fontSize: 15,
+          color: mkt.onDarkFaint,
+          maxWidth: 520,
+          margin: "0 auto",
+          lineHeight: 1.6,
+        }}
+      >
+        One-time build fee. You own the website. Optional monthly maintenance if you want hands-off support — cancel anytime.
+      </p>
+      <p
+        style={{
+          fontSize: 14,
+          fontWeight: 600,
+          color: mkt.onDarkMuted,
+          marginTop: 12,
+        }}
+      >
+        No hidden agency retainers. No long-term contracts. No platform lock-in.
+      </p>
+    </>
+  );
+}
+
+/* ---------- SiteLaunch: Risk Reversal ---------- */
+function SLRiskReversal() {
+  return (
+    <div
+      style={{
+        background: mkt.dark,
+        padding: "0 28px 40px",
+        textAlign: "center",
+      }}
+      data-reveal="fade-up"
+    >
+      <p
+        style={{
+          fontSize: 14,
+          fontWeight: 500,
+          color: mkt.onDarkFaint,
+          maxWidth: 600,
+          margin: "0 auto",
+          letterSpacing: "0.01em",
+        }}
+      >
+        You own the website &middot; No contracts &middot; 14-day free trial of TradeLine + QuoteQuick included &middot; Live in 5 days
+      </p>
+    </div>
+  );
+}
+
 /* ---------- Main Product Page ---------- */
 export default function ProductPage() {
   const params = useParams<{ slug: string }>();
@@ -2064,7 +2500,8 @@ export default function ProductPage() {
   const isQuoteQuick = product.slug === "quickquotepro";
   const isReputationShield = product.slug === "reputationshield";
   const isSocialSync = product.slug === "socialsync";
-  const hasCustomHero = isTradeLine || isQuoteQuick || isReputationShield || isSocialSync;
+  const isSiteLaunch = product.slug === "sitelaunch";
+  const hasCustomHero = isTradeLine || isQuoteQuick || isReputationShield || isSocialSync || isSiteLaunch;
 
   return (
     <MarketingLayout>
@@ -2113,6 +2550,8 @@ export default function ProductPage() {
                   <>Stop Losing Leads to a{" "}<span style={{ color: mkt.accent }}>Contact Form.</span></>
                 ) : isReputationShield ? (
                   <>Get More 5-Star Reviews —{" "}<span style={{ color: mkt.accent }}>Without Lifting a Finger</span></>
+                ) : isSiteLaunch ? (
+                  <>A Professional Trade Website —{" "}<span style={{ color: mkt.accent }}>Live in 5 Days. Yours to Keep.</span></>
                 ) : (
                   <>Stay Active Online —{" "}<span style={{ color: mkt.accent }}>Without Doing It Yourself</span></>
                 )}
@@ -2141,6 +2580,8 @@ export default function ProductPage() {
                   "Give customers an instant price on your website using your real service rates \u2014 and capture every lead automatically. No callbacks. No quoting delays."
                 ) : isReputationShield ? (
                   "ReputationShield sends review requests, responds to every review, and builds your reputation automatically \u2014 so customers trust you before they even call."
+                ) : isSiteLaunch ? (
+                  "We build your website from scratch \u2014 custom designed, mobile-first, SEO-ready, with lead capture built in. One-time fee. No contracts. You own the site."
                 ) : (
                   "SocialSync creates and posts content for your business across Facebook, Instagram, and Google \u2014 so you stay visible, trusted, and top of mind without lifting a finger."
                 )}
@@ -2274,6 +2715,12 @@ export default function ProductPage() {
                 "No developer needed",
                 "Live in under 15 minutes",
                 "Standalone tool \u2014 no bloated software required",
+              ] : isSiteLaunch ? [
+                "Built for trades businesses",
+                "Live in 5 business days",
+                "You own the website",
+                "No contracts",
+                "Optional ongoing support",
               ] : [
                 "Built for trades businesses",
                 "Works while you\u2019re on the job",
@@ -2346,19 +2793,30 @@ export default function ProductPage() {
           </>
         )}
 
+        {/* ── SiteLaunch: Built For + Problem + Differentiation (between hero and capabilities) ── */}
+        {isSiteLaunch && (
+          <>
+            <SLBuiltForSection trades={product.bestFor} />
+            <SLProblemSection />
+            <SLDifferentiationSection />
+          </>
+        )}
+
         {/* ── §2 CAPABILITIES / BENEFITS ── */}
         <CapabilitiesGrid
           items={product.highlights}
+          sectionId={isSiteLaunch ? "sitelaunch-included" : undefined}
           heading={
             isQuoteQuick ? "Everything you need to capture more leads" :
             isReputationShield ? "What this actually does for your business" :
             isSocialSync ? "What this actually does for your business" :
+            isSiteLaunch ? "What\u2019s included in every SiteLaunch build" :
             undefined
           }
         />
 
         {/* ── §3 HOW IT WORKS ── */}
-        <StepTimeline steps={product.howItWorks} heading={isQuoteQuick ? "Set it up once. Let it work every day." : undefined} />
+        <StepTimeline steps={product.howItWorks} heading={isQuoteQuick ? "Set it up once. Let it work every day." : isSiteLaunch ? "Three steps. Five days. Done." : undefined} />
 
         {isTradeLine && (
           <div style={{ background: mkt.surface, textAlign: "center", padding: "0 28px 48px" }} data-reveal="fade-up">
@@ -2375,6 +2833,14 @@ export default function ProductPage() {
             </p>
             <p style={{ fontSize: 14, color: mkt.textMuted, maxWidth: 560, margin: "12px auto 0", lineHeight: 1.5 }}>
               Your next website visitor can become your next quote request — without waiting for a callback.
+            </p>
+          </div>
+        )}
+
+        {isSiteLaunch && (
+          <div style={{ background: mkt.surface, textAlign: "center", padding: "0 28px 48px" }} data-reveal="fade-up">
+            <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text, maxWidth: 560, margin: "0 auto", lineHeight: 1.5 }}>
+              No long agency timelines. No weekends spent dragging boxes around a template. We handle the build — you keep running your business.
             </p>
           </div>
         )}
@@ -2399,6 +2865,9 @@ export default function ProductPage() {
         {/* ── SocialSync: Comparison (after how-it-works) ── */}
         {isSocialSync && <SSComparisonSection />}
 
+        {/* ── SiteLaunch: Comparison (after how-it-works) ── */}
+        {isSiteLaunch && <SLComparisonSection />}
+
         {/* ── §4 SOCIAL PROOF ── */}
         <SurfaceSection overlap className="py-4">
           <ReviewsSection />
@@ -2416,6 +2885,9 @@ export default function ProductPage() {
         {/* ── SocialSync: Results (after reviews, before pricing) ── */}
         {isSocialSync && <SSResultsSection outcomes={product.outcomes} />}
 
+        {/* ── SiteLaunch: Results (after reviews, before pricing) ── */}
+        {isSiteLaunch && <SLResultsSection outcomes={product.outcomes} />}
+
         {/* ── §5 PRICING (MANDATORY) ── */}
         <PricingSection
           product={product}
@@ -2424,6 +2896,7 @@ export default function ProductPage() {
             isQuoteQuick ? <QQPricingIntro /> :
             isReputationShield ? <RSPricingIntro /> :
             isSocialSync ? <SSPricingIntro /> :
+            isSiteLaunch ? <SLPricingIntro /> :
             undefined
           }
         />
@@ -2439,6 +2912,9 @@ export default function ProductPage() {
 
         {/* ── SocialSync: Risk Reversal (below pricing) ── */}
         {isSocialSync && <SSRiskReversal />}
+
+        {/* ── SiteLaunch: Risk Reversal (below pricing) ── */}
+        {isSiteLaunch && <SLRiskReversal />}
 
         {/* ── §6 FAQ ── */}
         {product.faq.length > 0 && (
@@ -2518,6 +2994,13 @@ export default function ProductPage() {
             heading="Stay active without doing the work."
             subtext="Keep your business visible, trusted, and growing."
             ctaLabel="Start SocialSync"
+            ctaHref="/Wizard"
+          />
+        ) : isSiteLaunch ? (
+          <CTASection
+            heading="Get your new website live in 5 days."
+            subtext="Custom built for your trade. You own it. No contracts. One extra job covers the cost."
+            ctaLabel="Get Your Website Built"
             ctaHref="/Wizard"
           />
         ) : (
