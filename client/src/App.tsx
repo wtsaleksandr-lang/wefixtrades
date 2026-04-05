@@ -40,6 +40,7 @@ import FreeAudit from "@/pages/marketing/FreeAudit";
 import MissedCallCalculator from "@/pages/marketing/missed-call-calculator";
 import MissedCallCalculatorTrade from "@/pages/marketing/missed-call-calculator-trade";
 import QuoteCalculatorDemo from "@/pages/marketing/quote-calculator-demo";
+import ToolsHub from "@/pages/marketing/tools-hub";
 import SharedAuditReport from "@/pages/marketing/SharedAuditReport";
 import NewProductPage from "@/pages/products/ProductPage";
 import MapGuardPage from "@/pages/products/mapguard";
@@ -161,22 +162,24 @@ function Router() {
       <Route path="/tools/missed-call-calculator" component={MissedCallCalculator} />
       <Route path="/tools/quote-demo" component={QuoteCalculatorDemo} />
       <Route path="/tools/free-audit" component={FreeAudit} />
+      <Route path="/tools" component={ToolsHub} />
       {/* Legacy tool routes — redirect to canonical /tools/ URLs */}
       <Route path="/missed-call-calculator">{() => <Redirect to="/tools/missed-call-calculator" />}</Route>
       <Route path="/quote-demo">{() => <Redirect to="/tools/quote-demo" />}</Route>
       <Route path="/free-audit">{() => <Redirect to="/tools/free-audit" />}</Route>
       <Route path="/onboarding/:token" component={OnboardingForm} />
       <Route path="/audit/report/:id" component={SharedAuditReport} />
-      <Route path="/Wizard" component={Wizard} />
       <Route path="/wizard" component={Wizard} />
-      <Route path="/Calculator" component={Calculator} />
       <Route path="/calculator" component={Calculator} />
-      <Route path="/EditCalculator" component={EditCalculator} />
       <Route path="/edit-calculator" component={EditCalculator} />
-      <Route path="/Leads" component={LeadsPage} />
       <Route path="/leads" component={LeadsPage} />
-      <Route path="/Dashboard" component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
+      {/* Redirect legacy uppercase routes to canonical lowercase */}
+      <Route path="/Wizard">{() => <Redirect to="/wizard" />}</Route>
+      <Route path="/Calculator">{() => <Redirect to="/calculator" />}</Route>
+      <Route path="/EditCalculator">{() => <Redirect to="/edit-calculator" />}</Route>
+      <Route path="/Leads">{() => <Redirect to="/leads" />}</Route>
+      <Route path="/Dashboard">{() => <Redirect to="/dashboard" />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

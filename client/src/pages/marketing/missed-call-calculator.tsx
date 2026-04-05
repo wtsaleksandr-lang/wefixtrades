@@ -1,7 +1,10 @@
-import { useEffect } from 'react';
+import { useMemo } from 'react';
+import { Link } from 'wouter';
 import MarketingLayout from '@/components/marketing/MarketingLayout';
 import MissedCallCalculatorShell from '@/components/marketing/missed-call-calculator/MissedCallCalculatorShell';
 import FAQSection from '@/components/marketing/missed-call-calculator/FAQSection';
+import { usePageMeta } from '@/lib/usePageMeta';
+import { useBreadcrumbSchema } from '@/lib/useBreadcrumbSchema';
 import { mkt, colors } from '@/theme/tokens';
 
 /* ═══ Static SEO Content ═══ */
@@ -21,19 +24,21 @@ const CALC_SECTIONS = [
   },
 ];
 
+const BASE = "https://wefixtrades.com";
+
 export default function MissedCallCalculator() {
-  useEffect(() => {
-    document.title = "Missed Call Revenue Calculator | WeFixTrades";
-    const setMeta = (name: string, content: string) => {
-      let el = document.querySelector(`meta[name="${name}"]`);
-      if (!el) { el = document.createElement("meta"); (el as HTMLMetaElement).name = name; document.head.appendChild(el); }
-      el.setAttribute("content", content);
-    };
-    setMeta("description", "Calculate how much revenue your business loses from missed calls. Free tool for plumbers, electricians, HVAC, and other trades.");
-    let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
-    if (!link) { link = document.createElement("link"); link.rel = "canonical"; document.head.appendChild(link); }
-    link.href = `${window.location.origin}/tools/missed-call-calculator`;
-  }, []);
+  usePageMeta({
+    title: "Missed Call Revenue Calculator | WeFixTrades",
+    description: "Calculate how much revenue your business loses from missed calls. Free tool for plumbers, electricians, HVAC, and other trades.",
+    canonicalPath: "/tools/missed-call-calculator",
+  });
+
+  const breadcrumbs = useMemo(() => [
+    { name: "Home", url: `${BASE}/` },
+    { name: "Free Tools", url: `${BASE}/tools` },
+    { name: "Missed Call Calculator", url: `${BASE}/tools/missed-call-calculator` },
+  ], []);
+  useBreadcrumbSchema(breadcrumbs);
 
   return (
     <MarketingLayout>
@@ -42,6 +47,15 @@ export default function MissedCallCalculator() {
         minHeight: '100vh',
         padding: 'clamp(100px, 12vw, 140px) clamp(16px, 5vw, 40px) clamp(48px, 8vw, 80px)',
       }}>
+        {/* Breadcrumb */}
+        <nav aria-label="breadcrumb" style={{ maxWidth: 640, margin: '0 auto 16px', fontSize: 13, color: mkt.textMuted }}>
+          <Link href="/" style={{ color: mkt.textMuted, textDecoration: 'none' }}>Home</Link>
+          <span style={{ margin: '0 6px' }}>/</span>
+          <Link href="/tools" style={{ color: mkt.textMuted, textDecoration: 'none' }}>Free Tools</Link>
+          <span style={{ margin: '0 6px' }}>/</span>
+          <span style={{ color: mkt.text }}>Missed Call Calculator</span>
+        </nav>
+
         <MissedCallCalculatorShell />
 
         {/* Static SEO Content */}

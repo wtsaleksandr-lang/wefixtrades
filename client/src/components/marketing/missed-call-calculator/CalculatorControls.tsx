@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { SlidersHorizontal, ChevronLeft, RotateCcw } from 'lucide-react';
 import { mkt, radius, shadows } from '@/theme/tokens';
+import { trackEvent } from '@/lib/trackEvent';
 import SliderField from '@/components/calculator/SliderField';
 import type { TradePreset } from '@/data/missedCallTradePresets';
 
@@ -39,6 +40,7 @@ export default function CalculatorControls({
     values.avgJobValue === preset.avgJobValueMid;
 
   const handleReset = useCallback(() => {
+    trackEvent("calculator_values_reset", { trade: preset.id });
     onChange({
       missedCallsPerWeek: preset.defaultMissedCallsPerWeek,
       closeRatePercent: preset.defaultCloseRate,
@@ -75,7 +77,7 @@ export default function CalculatorControls({
         </div>
 
         <button
-          onClick={onChangeTrade}
+          onClick={() => { trackEvent("calculator_trade_changed"); onChangeTrade(); }}
           aria-label="Change trade"
           style={{
             display: 'inline-flex',
@@ -87,7 +89,8 @@ export default function CalculatorControls({
             background: 'none',
             border: 'none',
             cursor: 'pointer',
-            padding: '4px 8px',
+            padding: '8px 12px',
+            minHeight: 44,
             borderRadius: radius.sm,
             transition: 'color 0.15s',
           }}
@@ -202,7 +205,8 @@ export default function CalculatorControls({
                 background: 'none',
                 border: `1px solid ${mkt.border}`,
                 borderRadius: radius.sm,
-                padding: '5px 10px',
+                padding: '8px 14px',
+                minHeight: 44,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
                 transition: 'color 0.15s, border-color 0.15s',

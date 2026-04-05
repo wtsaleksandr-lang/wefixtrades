@@ -3,25 +3,12 @@ import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { trackEvent } from "@/lib/trackEvent";
 import { useFaqSchema } from "@/lib/useFaqSchema";
+import { usePageMeta } from "@/lib/usePageMeta";
+import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import { colors } from "@/theme/tokens";
 import { Search, CheckCircle2, PhoneOff, Calculator, ArrowRight, ChevronDown } from "lucide-react";
 import ReportView from "./ReportView";
 import AuditGate from "@/components/marketing/AuditGate";
-
-function usePageMeta() {
-  useEffect(() => {
-    document.title = "Free Google Maps & Website Audit | WeFixTrades";
-    const setMeta = (name: string, content: string) => {
-      let el = document.querySelector(`meta[name="${name}"]`);
-      if (!el) { el = document.createElement("meta"); (el as HTMLMetaElement).name = name; document.head.appendChild(el); }
-      el.setAttribute("content", content);
-    };
-    setMeta("description", "Get a free instant audit of your Google Business Profile and website. See your score, competitor analysis, and a fix plan — no signup required.");
-    let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
-    if (!link) { link = document.createElement("link"); link.rel = "canonical"; document.head.appendChild(link); }
-    link.href = `${window.location.origin}/tools/free-audit`;
-  }, []);
-}
 
 type Prediction = {
   place_id: string;
@@ -44,19 +31,31 @@ type Business = {
   hours: string[];
   photos: string[];
 };
-async function postJSON<T>(url: string, body: any): Promise<T> {
+async function postJSON<T>(url: string, body: any, timeoutMs = 30000): Promise<T> {
   console.log(`[Audit] POST ${url}`, body);
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok || data?.ok === false) {
-    console.error(`[Audit] ${url} failed:`, r.status, data);
-    throw new Error(data?.error || `Request failed: ${r.status}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || data?.ok === false) {
+      console.error(`[Audit] ${url} failed:`, r.status, data);
+      throw new Error(data?.error || `Request failed: ${r.status}`);
+    }
+    return data as T;
+  } catch (err: any) {
+    if (err.name === "AbortError") {
+      throw new Error("Taking longer than expected. Please try again.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
-  return data as T;
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
@@ -249,8 +248,21 @@ function AuditFaqSection() {
   );
 }
 
+const AUDIT_BASE = "https://wefixtrades.com";
+
 export default function FreeAudit() {
-  usePageMeta();
+  usePageMeta({
+    title: "Free Google Maps & Website Audit | WeFixTrades",
+    description: "Get a free instant audit of your Google Business Profile and website. See your score, competitor analysis, and a fix plan — no signup required.",
+    canonicalPath: "/tools/free-audit",
+  });
+
+  const auditBreadcrumbs = useMemo(() => [
+    { name: "Home", url: `${AUDIT_BASE}/` },
+    { name: "Free Tools", url: `${AUDIT_BASE}/tools` },
+    { name: "Google Business Audit", url: `${AUDIT_BASE}/tools/free-audit` },
+  ], []);
+  useBreadcrumbSchema(auditBreadcrumbs);
   const [query, setQuery] = useState("");
   const debounced = useDebouncedValue(query, 400);
 
@@ -306,6 +318,7 @@ export default function FreeAudit() {
 
     setLoadingSearch(true);
     setSearchDone(false);
+    trackEvent("audit_search_submitted", { query: q });
 
     postJSON<{ ok: true; predictions: Prediction[]; locationHint?: string | null }>(
       "/api/audit/search-places",
@@ -355,6 +368,7 @@ export default function FreeAudit() {
   async function runAudit(pred: Prediction, tradeOverride?: string) {
     lastPredRef.current = pred;
     if (tradeOverride) lastTradeRef.current = tradeOverride;
+    trackEvent("audit_prediction_selected", { businessName: pred.name });
     console.log("[Audit] runAudit called:", JSON.stringify({ name: pred.name, place_id: pred.place_id, tradeOverride }));
     const placeId = (pred.place_id || "").trim();
     try {
@@ -546,6 +560,15 @@ export default function FreeAudit() {
 
       <div className="audit-page">
         <div className="audit-container">
+          {/* Breadcrumb */}
+          <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
+            <Link href="/" style={{ color: "#6b7280", textDecoration: "none" }}>Home</Link>
+            <span style={{ margin: "0 6px" }}>/</span>
+            <Link href="/tools" style={{ color: "#6b7280", textDecoration: "none" }}>Free Tools</Link>
+            <span style={{ margin: "0 6px" }}>/</span>
+            <span style={{ color: "#111827" }}>Google Business Audit</span>
+          </nav>
+
           {/* ─── Header + Search (always visible) ─── */}
           <div style={{ textAlign: "center", marginBottom: reportReady ? 20 : 36 }}>
             <h1
@@ -633,6 +656,7 @@ export default function FreeAudit() {
                   onChange={(e) => setQuery(e.target.value)}
                   onFocus={() => { if (predictions.length > 0 || (searchDone && predictions.length === 0)) setDropdownOpen(true); }}
                   placeholder="Type your business name + city…"
+                  aria-label="Search your business name and city"
                   style={{
                     width: "100%",
                     height: 46,

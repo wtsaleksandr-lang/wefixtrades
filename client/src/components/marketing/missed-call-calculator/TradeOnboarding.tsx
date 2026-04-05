@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback, useLayoutEffect } fr
 import { motion } from 'framer-motion';
 import { Search, ChevronDown, ArrowRight, Briefcase } from 'lucide-react';
 import { mkt, colors, radius, shadows } from '@/theme/tokens';
+import { trackEvent } from '@/lib/trackEvent';
 import { TRADE_PRESETS, GENERIC_PRESET, CATEGORY_LABELS, getPresetById } from '@/data/missedCallTradePresets';
 import type { TradePreset } from '@/data/missedCallTradePresets';
 
@@ -64,6 +65,7 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
   const selectPreset = useCallback((preset: TradePreset) => {
     setIsOpen(false);
     setQuery('');
+    trackEvent("trade_selected", { trade: preset.id });
     onSelect(preset);
   }, [onSelect]);
 
@@ -327,7 +329,7 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
             }}
           >
             {filtered.length === 0 && (
-              <div style={{
+              <div role="status" aria-live="polite" style={{
                 padding: '20px 16px',
                 textAlign: 'center',
                 color: mkt.textMuted,

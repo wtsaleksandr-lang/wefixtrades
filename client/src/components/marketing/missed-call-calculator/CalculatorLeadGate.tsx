@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { Link } from 'wouter';
 import { motion } from 'framer-motion';
 import { trackEvent } from '@/lib/trackEvent';
-import { Lock, Send, CheckCircle2, Loader2, Shield } from 'lucide-react';
+import { Lock, Send, CheckCircle2, Loader2, Shield, ArrowRight } from 'lucide-react';
 import { mkt, colors, radius } from '@/theme/tokens';
 
 interface CalculatorLeadGateProps {
@@ -44,9 +45,12 @@ export default function CalculatorLeadGate({
     setError('');
 
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
       const res = await fetch('/api/missed-call-leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           email: trimmed,
           name: name.trim() || null,
@@ -60,6 +64,7 @@ export default function CalculatorLeadGate({
           source_page: typeof window !== "undefined" ? window.location.pathname : null,
         }),
       });
+      clearTimeout(timeout);
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -70,7 +75,11 @@ export default function CalculatorLeadGate({
       trackEvent("calculator_lead_submitted", { trade, estimatedAnnualLoss });
       setTimeout(() => onUnlock(), 2000);
     } catch (err: any) {
-      setError(err.message || 'Something went wrong. Please try again.');
+      if (err.name === 'AbortError') {
+        setError('Request timed out. Please try again.');
+      } else {
+        setError(err.message || 'Something went wrong. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -81,6 +90,8 @@ export default function CalculatorLeadGate({
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
+        role="status"
+        aria-live="polite"
         style={{
           background: mkt.cardBg,
           border: `1px solid ${mkt.cardBorder}`,
@@ -101,8 +112,22 @@ export default function CalculatorLeadGate({
         <div style={{ fontSize: 18, fontWeight: 700, color: colors.effortel.n200, marginBottom: 6 }}>
           Your full report is ready.
         </div>
-        <div style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.5 }}>
-          We've also emailed your recovery plan.
+        <div style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.5, marginBottom: 16 }}>
+          We've also emailed your recovery plan — check your inbox within 5 minutes.
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+          <Link href="/tools/free-audit" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 13, color: mkt.accent, textDecoration: 'none', fontWeight: 600,
+          }}>
+            Run a free Google audit <ArrowRight size={14} />
+          </Link>
+          <Link href="/tools/quote-demo" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 13, color: mkt.accent, textDecoration: 'none', fontWeight: 600,
+          }}>
+            Try the instant quote demo <ArrowRight size={14} />
+          </Link>
         </div>
       </motion.div>
     );
@@ -151,7 +176,9 @@ export default function CalculatorLeadGate({
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <label htmlFor="calc-email" className="sr-only">Email address</label>
         <input
+          id="calc-email"
           type="email"
           value={email}
           onChange={(e) => { setEmail(e.target.value); setError(''); }}
@@ -175,7 +202,9 @@ export default function CalculatorLeadGate({
         )}
 
         <div style={{ display: 'flex', gap: 8 }}>
+          <label htmlFor="calc-name" className="sr-only">Name (optional)</label>
           <input
+            id="calc-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -190,7 +219,9 @@ export default function CalculatorLeadGate({
               boxSizing: 'border-box',
             }}
           />
+          <label htmlFor="calc-phone" className="sr-only">Phone (optional)</label>
           <input
+            id="calc-phone"
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -210,6 +241,7 @@ export default function CalculatorLeadGate({
         <button
           type="submit"
           disabled={submitting}
+          aria-busy={submitting}
           style={{
             width: '100%', height: 48, borderRadius: radius.lg,
             border: 'none', background: mkt.accent, color: '#0d1514',

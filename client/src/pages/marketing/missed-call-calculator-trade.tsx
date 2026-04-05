@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from 'react';
-import { useParams, Redirect } from 'wouter';
+import { useMemo } from 'react';
+import { useParams, Redirect, Link } from 'wouter';
 import MarketingLayout from '@/components/marketing/MarketingLayout';
 import MissedCallCalculatorShell from '@/components/marketing/missed-call-calculator/MissedCallCalculatorShell';
 import FAQSection from '@/components/marketing/missed-call-calculator/FAQSection';
-import { Link } from 'wouter';
+import { usePageMeta } from '@/lib/usePageMeta';
+import { useBreadcrumbSchema } from '@/lib/useBreadcrumbSchema';
 import { mkt, colors } from '@/theme/tokens';
 import { getPresetById, TRADE_PRESETS } from '@/data/missedCallTradePresets';
 import { Search, Calculator, ArrowRight } from 'lucide-react';
@@ -88,19 +89,21 @@ export default function MissedCallCalculatorTrade() {
   const content = TRADE_CONTENT[tradeId];
   const label = preset.label;
 
-  // SEO meta
-  useEffect(() => {
-    document.title = `${label} Missed Call Revenue Calculator | WeFixTrades`;
-    const setMeta = (name: string, val: string) => {
-      let el = document.querySelector(`meta[name="${name}"]`);
-      if (!el) { el = document.createElement("meta"); (el as HTMLMetaElement).name = name; document.head.appendChild(el); }
-      el.setAttribute("content", val);
-    };
-    setMeta("description", `See how much missed calls are costing your ${label.toLowerCase()} business. Free calculator with instant results.`);
-    let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
-    if (!link) { link = document.createElement("link"); link.rel = "canonical"; document.head.appendChild(link); }
-    link.href = `${window.location.origin}/tools/missed-call-calculator/${rawSlug}`;
-  }, [label, rawSlug]);
+  const BASE = "https://wefixtrades.com";
+
+  usePageMeta({
+    title: `${label} Missed Call Revenue Calculator | WeFixTrades`,
+    description: `See how much missed calls are costing your ${label.toLowerCase()} business. Free calculator with instant results.`,
+    canonicalPath: `/tools/missed-call-calculator/${rawSlug}`,
+  });
+
+  const breadcrumbs = useMemo(() => [
+    { name: "Home", url: `${BASE}/` },
+    { name: "Free Tools", url: `${BASE}/tools` },
+    { name: "Missed Call Calculator", url: `${BASE}/tools/missed-call-calculator` },
+    { name: label, url: `${BASE}/tools/missed-call-calculator/${rawSlug}` },
+  ], [label, rawSlug]);
+  useBreadcrumbSchema(breadcrumbs);
 
   return (
     <MarketingLayout>
@@ -110,6 +113,17 @@ export default function MissedCallCalculatorTrade() {
         padding: 'clamp(100px, 12vw, 140px) clamp(16px, 5vw, 40px) clamp(48px, 8vw, 80px)',
       }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
+          {/* Breadcrumb */}
+          <nav aria-label="breadcrumb" style={{ fontSize: 13, color: mkt.textMuted, marginBottom: 16 }}>
+            <Link href="/" style={{ color: mkt.textMuted, textDecoration: 'none' }}>Home</Link>
+            <span style={{ margin: '0 6px' }}>/</span>
+            <Link href="/tools" style={{ color: mkt.textMuted, textDecoration: 'none' }}>Free Tools</Link>
+            <span style={{ margin: '0 6px' }}>/</span>
+            <Link href="/tools/missed-call-calculator" style={{ color: mkt.textMuted, textDecoration: 'none' }}>Missed Call Calculator</Link>
+            <span style={{ margin: '0 6px' }}>/</span>
+            <span style={{ color: mkt.text }}>{label}</span>
+          </nav>
+
           {/* SEO H1 */}
           <h1 style={{
             fontSize: 'clamp(24px, 4.5vw, 36px)',

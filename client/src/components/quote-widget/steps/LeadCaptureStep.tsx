@@ -108,11 +108,15 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
             consent_timestamp: smsConsent ? new Date().toISOString() : null,
           };
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify(body),
       });
+      clearTimeout(timeout);
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -124,7 +128,11 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
         trackEvent("demo_lead_submitted", { trade: (config.calculator.slug || "").replace("demo-", ""), quoteAmount: estimate?.total ?? null });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Request timed out. Please try again.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Something went wrong.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -133,7 +141,7 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
   // ─── Already submitted state ───
   if (leadSubmitted) {
     return (
-      <div style={{ textAlign: 'center', padding: '24px 0' }}>
+      <div role="status" aria-live="polite" style={{ textAlign: 'center', padding: '24px 0' }}>
         <div style={{
           width: '56px',
           height: '56px',
@@ -150,8 +158,14 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
           {config.calculator.lead_thank_you_message || 'Thank you!'}
         </h3>
         <p style={{ ...stepSubtitleStyle, textAlign: 'center' }}>
-          We've received your information and will be in touch soon.
+          You'll receive your quote by email within a few minutes.
         </p>
+        <a href="/tools" style={{
+          display: 'inline-block', marginTop: 12,
+          fontSize: '13px', color: eff.buttonBg, textDecoration: 'none', fontWeight: 600,
+        }}>
+          Explore more free tools &rarr;
+        </a>
       </div>
     );
   }
@@ -164,10 +178,11 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div>
-          <label style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
+          <label htmlFor="lead-name" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
             Name
           </label>
           <input
+            id="lead-name"
             type="text"
             placeholder="Your name"
             value={leadData.name}
@@ -179,10 +194,11 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
         </div>
 
         <div>
-          <label style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
+          <label htmlFor="lead-email" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
             Email
           </label>
           <input
+            id="lead-email"
             type="email"
             placeholder="you@example.com"
             value={leadData.email}
@@ -200,10 +216,11 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
         </div>
 
         <div>
-          <label style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
+          <label htmlFor="lead-phone" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
             Phone
           </label>
           <input
+            id="lead-phone"
             type="tel"
             placeholder="(555) 123-4567"
             value={leadData.phone}
@@ -221,10 +238,11 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
         </div>
 
         <div>
-          <label style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
+          <label htmlFor="lead-company" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
             Company <span style={{ fontWeight: 400, color: eff.textBody }}>(optional)</span>
           </label>
           <input
+            id="lead-company"
             type="text"
             placeholder="Company name"
             value={leadData.company}

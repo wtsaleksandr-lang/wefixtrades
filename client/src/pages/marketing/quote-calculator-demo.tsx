@@ -1,9 +1,11 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
 import { mkt, colors, shadows } from "@/theme/tokens";
 import { useFaqSchema } from "@/lib/useFaqSchema";
+import { usePageMeta } from "@/lib/usePageMeta";
+import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import type { CalculatorData } from "@/components/quote-widget/types";
 import {
   Wrench, SprayCan, Paintbrush, Zap, Home, Search,
@@ -187,19 +189,21 @@ const BENEFITS = [
 
 /* ─── Page Component ─── */
 
+const BASE = "https://wefixtrades.com";
+
 export default function QuoteCalculatorDemo() {
-  useEffect(() => {
-    document.title = "Instant Quote Demo | WeFixTrades";
-    const setMeta = (name: string, content: string) => {
-      let el = document.querySelector(`meta[name="${name}"]`);
-      if (!el) { el = document.createElement("meta"); (el as HTMLMetaElement).name = name; document.head.appendChild(el); }
-      el.setAttribute("content", content);
-    };
-    setMeta("description", "Try the live quote calculator demo. See how your customers get instant prices for plumbing, cleaning, electrical, and more.");
-    let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
-    if (!link) { link = document.createElement("link"); link.rel = "canonical"; document.head.appendChild(link); }
-    link.href = `${window.location.origin}/tools/quote-demo`;
-  }, []);
+  usePageMeta({
+    title: "Instant Quote Demo | WeFixTrades",
+    description: "Try the live quote calculator demo. See how your customers get instant prices for plumbing, cleaning, electrical, and more.",
+    canonicalPath: "/tools/quote-demo",
+  });
+
+  const breadcrumbs = useMemo(() => [
+    { name: "Home", url: `${BASE}/` },
+    { name: "Free Tools", url: `${BASE}/tools` },
+    { name: "Instant Quote Demo", url: `${BASE}/tools/quote-demo` },
+  ], []);
+  useBreadcrumbSchema(breadcrumbs);
 
   const [selectedTrade, setSelectedTrade] = useState(TRADES[0].key);
 
@@ -278,6 +282,15 @@ export default function QuoteCalculatorDemo() {
         padding: "clamp(100px, 12vw, 140px) clamp(16px, 5vw, 40px) clamp(48px, 8vw, 80px)",
       }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
+
+          {/* Breadcrumb */}
+          <nav aria-label="breadcrumb" style={{ fontSize: 13, color: mkt.textMuted, marginBottom: 16 }}>
+            <Link href="/" style={{ color: mkt.textMuted, textDecoration: "none" }}>Home</Link>
+            <span style={{ margin: "0 6px" }}>/</span>
+            <Link href="/tools" style={{ color: mkt.textMuted, textDecoration: "none" }}>Free Tools</Link>
+            <span style={{ margin: "0 6px" }}>/</span>
+            <span style={{ color: mkt.text }}>Instant Quote Demo</span>
+          </nav>
 
           {/* ─── Headline ─── */}
           <div style={{ textAlign: "center", marginBottom: "clamp(28px, 4vw, 40px)" }}>

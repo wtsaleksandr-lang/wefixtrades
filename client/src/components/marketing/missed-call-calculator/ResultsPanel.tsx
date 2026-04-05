@@ -3,7 +3,7 @@ import { motion, useAnimationControls } from 'framer-motion';
 import { Link } from 'wouter';
 import {
   TrendingDown, Calendar, Briefcase, ArrowRight, Info,
-  ChevronDown, ChevronUp, Zap, Lock, Search,
+  ChevronDown, ChevronUp, Zap, Lock, Search, Copy, Check,
 } from 'lucide-react';
 import { mkt, colors, radius } from '@/theme/tokens';
 import { calculateRange, formatCurrencyFull } from '@/lib/missedCallCalculator';
@@ -42,6 +42,7 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
   const range = useMemo(() => calculateRange(inputs), [inputs]);
   const [showScenario, setShowScenario] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
+  const [copied, setCopied] = useState(false);
   const heroControls = useAnimationControls();
   const prevInputsRef = useRef(inputs);
   const reducedMotion = usePrefersReducedMotion();
@@ -235,7 +236,7 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
               transition={{ delay: reducedMotion ? 0 : 0.4, duration: reducedMotion ? 0 : 0.35 }}
             >
               <button
-                onClick={() => setShowScenario(s => !s)}
+                onClick={() => { setShowScenario(s => !s); trackEvent("calculator_scenario_toggled", { open: !showScenario }); }}
                 aria-expanded={showScenario}
                 aria-controls={SCENARIO_ID}
                 style={{
@@ -428,6 +429,42 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
                 Get a full business audit
               </div>
             </Link>
+
+            {/* Copy results to clipboard */}
+            <button
+              onClick={() => {
+                const text = [
+                  `Missed Call Revenue Calculator — ${tradeName}`,
+                  `Estimated monthly loss: ${formatCurrencyFull(typical.lostPerMonth)}`,
+                  `Based on: ${inputs.missedCallsPerWeek} missed calls/week, ${inputs.closeRatePercent}% close rate, ${formatCurrencyFull(inputs.avgJobValue)} avg job`,
+                  `Try it: https://wefixtrades.com/tools/missed-call-calculator`,
+                ].join("\n");
+                navigator.clipboard.writeText(text).then(() => {
+                  setCopied(true);
+                  trackEvent("calculator_results_copied", { trade: tradeName });
+                  setTimeout(() => setCopied(false), 2000);
+                });
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                padding: '10px 20px', borderRadius: radius.lg, minHeight: 44,
+                border: `1px solid ${mkt.border}`, background: 'transparent',
+                cursor: 'pointer', transition: 'border-color 0.2s, background 0.2s',
+                fontSize: 13, fontWeight: 600, color: copied ? '#22C55E' : mkt.textFaint,
+                fontFamily: 'inherit',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = mkt.border;
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? 'Copied!' : 'Copy results'}
+            </button>
           </motion.div>
         </>
       )}
