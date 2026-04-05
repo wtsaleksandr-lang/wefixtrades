@@ -49,14 +49,32 @@ function persistUnlock(trade: string, v: SliderValues): void {
 
 type Step = 'onboarding' | 'calculator';
 
-export default function MissedCallCalculatorShell() {
-  const [step, setStep] = useState<Step>('onboarding');
-  const [selectedPreset, setSelectedPreset] = useState<TradePreset | null>(null);
+interface ShellProps {
+  initialTradeId?: string;
+}
+
+export default function MissedCallCalculatorShell({ initialTradeId }: ShellProps = {}) {
+  const [step, setStep] = useState<Step>(initialTradeId ? 'calculator' : 'onboarding');
+  const [selectedPreset, setSelectedPreset] = useState<TradePreset | null>(() => {
+    if (initialTradeId) {
+      const preset = getPresetById(initialTradeId);
+      return preset.id === initialTradeId ? preset : null;
+    }
+    return null;
+  });
   const [previousTradeId, setPreviousTradeId] = useState<string | null>(null);
-  const [sliderValues, setSliderValues] = useState<SliderValues>({
-    missedCallsPerWeek: 10,
-    closeRatePercent: 30,
-    avgJobValue: 500,
+  const [sliderValues, setSliderValues] = useState<SliderValues>(() => {
+    if (initialTradeId) {
+      const preset = getPresetById(initialTradeId);
+      if (preset.id === initialTradeId) {
+        return {
+          missedCallsPerWeek: preset.defaultMissedCallsPerWeek,
+          closeRatePercent: preset.defaultCloseRate,
+          avgJobValue: preset.avgJobValueMid,
+        };
+      }
+    }
+    return { missedCallsPerWeek: 10, closeRatePercent: 30, avgJobValue: 500 };
   });
   const [unlocked, setUnlocked] = useState(false);
 
