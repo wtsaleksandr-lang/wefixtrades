@@ -114,6 +114,9 @@ function Router() {
       {/* QuoteQuick slug consolidation */}
       <Route path="/products/quickquote">{() => <Redirect to="/products/quickquotepro" />}</Route>
       <Route path="/products/quotequick">{() => <Redirect to="/products/quickquotepro" />}</Route>
+      {/* Removed products — redirect to closest active product */}
+      <Route path="/products/booking-addon">{() => <Redirect to="/products/quickquotepro" />}</Route>
+      <Route path="/products/fix-and-optimize">{() => <Redirect to="/pricing" />}</Route>
       <Route path="/products/:slug" component={NewProductPage} />
 
       <Route path="/solutions/visibility" component={SolutionsVisibility} />

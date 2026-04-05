@@ -90,13 +90,7 @@ export const NAV_LINKS: NavItem[] = [
     ],
   },
   { label: "Templates", href: "/templates" },
-  {
-    label: "Plans",
-    href: "/plans",
-    children: [
-      { label: "Fix & Optimize™", href: "/products/fix-and-optimize", description: "Quick improvements package.", icon: "sparkles" },
-    ],
-  },
+  { label: "Plans", href: "/plans" },
   {
     label: "Resources",
     href: "/demos",
