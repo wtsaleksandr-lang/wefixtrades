@@ -28,6 +28,9 @@ export default function MapGuardPage() {
       meta.content = desc;
       document.head.appendChild(meta);
     }
+    let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    if (!link) { link = document.createElement("link"); link.rel = "canonical"; document.head.appendChild(link); }
+    link.href = `${window.location.origin}/products/mapguard`;
   }, []);
 
   return (

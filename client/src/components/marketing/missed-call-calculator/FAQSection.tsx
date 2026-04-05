@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronDown, HelpCircle } from 'lucide-react';
 import { mkt, colors, radius } from '@/theme/tokens';
+import { useFaqSchema } from '@/lib/useFaqSchema';
 
 interface FAQItem {
   id: string;
@@ -60,6 +61,9 @@ function usePrefersReducedMotion(): boolean {
 export default function FAQSection() {
   const [openId, setOpenId] = useState<string | null>(null);
   const reducedMotion = usePrefersReducedMotion();
+
+  const faqSchemaItems = useMemo(() => FAQ_ITEMS.map(f => ({ question: f.question, answer: f.answer })), []);
+  useFaqSchema(faqSchemaItems);
 
   const toggle = (id: string) => setOpenId(prev => (prev === id ? null : id));
 

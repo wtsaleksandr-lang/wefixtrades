@@ -159,10 +159,10 @@ function Router() {
       <Route path="/tools/missed-call-calculator" component={MissedCallCalculator} />
       <Route path="/tools/quote-demo" component={QuoteCalculatorDemo} />
       <Route path="/tools/free-audit" component={FreeAudit} />
-      {/* Legacy redirects */}
-      <Route path="/missed-call-calculator" component={MissedCallCalculator} />
-      <Route path="/quote-demo" component={QuoteCalculatorDemo} />
-      <Route path="/free-audit" component={FreeAudit} />
+      {/* Legacy tool routes — redirect to canonical /tools/ URLs */}
+      <Route path="/missed-call-calculator">{() => <Redirect to="/tools/missed-call-calculator" />}</Route>
+      <Route path="/quote-demo">{() => <Redirect to="/tools/quote-demo" />}</Route>
+      <Route path="/free-audit">{() => <Redirect to="/tools/free-audit" />}</Route>
       <Route path="/onboarding/:token" component={OnboardingForm} />
       <Route path="/audit/report/:id" component={SharedAuditReport} />
       <Route path="/Wizard" component={Wizard} />

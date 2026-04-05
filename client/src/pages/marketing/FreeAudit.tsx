@@ -17,7 +17,7 @@ function usePageMeta() {
     setMeta("description", "Get a free instant audit of your Google Business Profile and website. See your score, competitor analysis, and a fix plan — no signup required.");
     let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
     if (!link) { link = document.createElement("link"); link.rel = "canonical"; document.head.appendChild(link); }
-    link.href = `${window.location.origin}/free-audit`;
+    link.href = `${window.location.origin}/tools/free-audit`;
   }, []);
 }
 
