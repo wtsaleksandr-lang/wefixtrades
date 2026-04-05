@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "wouter";
-import { Check, ChevronDown, ArrowRight, Phone, MessageSquare, MessagesSquare, RotateCcw, Star, Zap, UserCheck, CalendarCheck, TrendingUp, X as XIcon } from "lucide-react";
+import { Check, ChevronDown, ArrowRight, Phone, MessageSquare, MessagesSquare, RotateCcw, Star, Zap, UserCheck, CalendarCheck, TrendingUp, X as XIcon, Send, ShieldCheck, MessageCircle } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import ProductHeroShell from "@/components/marketing/ProductHeroShell";
 import ProductCategoryChip from "@/components/marketing/ProductCategoryChip";
@@ -1347,6 +1347,348 @@ function QQRiskReversal() {
   );
 }
 
+/* ---------- ReputationShield: Problem Section ---------- */
+function RSProblemSection() {
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="rs-problem">
+      <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>The problem</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 24,
+          }}
+        >
+          Most customers won't leave a review — unless you ask.
+        </h2>
+        <p
+          style={{
+            fontSize: 16,
+            color: mkt.textMuted,
+            lineHeight: 1.7,
+            maxWidth: 560,
+            margin: "0 auto 32px",
+          }}
+        >
+          You finish a job. Customer is happy. They say "thanks."
+          <br /><br />
+          But they never leave a review.
+          <br /><br />
+          Meanwhile, your competitor has 80+ reviews and shows up above you.
+        </p>
+        <p style={{ fontSize: 17, fontWeight: 600, color: mkt.text, lineHeight: 1.5 }}>
+          Better reputation = more calls. It's that simple.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- ReputationShield: What We Do ---------- */
+function RSWhatWeDoSection() {
+  const blocks = [
+    {
+      icon: Send,
+      label: "Get more reviews",
+      items: [
+        "Automatic SMS/email requests",
+        "Sent at the right moment",
+        "No manual follow-up needed",
+      ],
+    },
+    {
+      icon: MessageCircle,
+      label: "Respond to every review",
+      items: [
+        "We write and post responses for you",
+        "Positive or negative \u2014 handled professionally",
+        "You don\u2019t have to touch a thing",
+      ],
+    },
+    {
+      icon: ShieldCheck,
+      label: "Protect your reputation",
+      items: [
+        "Catch issues early",
+        "Improve customer experience",
+        "Prevent bad reviews before they happen",
+      ],
+    },
+  ];
+
+  return (
+    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="rs-whatwedo">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>What we do</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 40,
+          }}
+        >
+          We handle your reviews — start to finish.
+        </h2>
+
+        <style>{`
+          .rs-whatwedo-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            text-align: left;
+          }
+          .rs-whatwedo-card {
+            background: ${mkt.surface};
+            border: 1px solid ${mkt.border};
+            border-radius: 14px;
+            padding: 24px;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+          }
+          .rs-whatwedo-card:hover {
+            border-color: rgba(102,232,250,0.18);
+            transform: translateY(-1px);
+          }
+          @media (max-width: 768px) {
+            .rs-whatwedo-grid { grid-template-columns: 1fr !important; }
+          }
+        `}</style>
+
+        <div className="rs-whatwedo-grid">
+          {blocks.map((b, i) => (
+            <div key={b.label} className="rs-whatwedo-card" data-reveal="fade-up" data-delay={String(i * 80)}>
+              <div style={{ marginBottom: 14 }}>
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: mkt.accentTint,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <b.icon size={20} color={mkt.accent} strokeWidth={2} />
+                </div>
+              </div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                {b.label}
+              </h3>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+                {b.items.map((item) => (
+                  <li key={item} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: mkt.textMuted, lineHeight: 1.5 }}>
+                    <div style={{ width: 5, height: 5, borderRadius: "50%", background: mkt.accent, flexShrink: 0 }} />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- ReputationShield: Comparison ---------- */
+function RSComparisonSection() {
+  const rows = [
+    { feature: "We do the work", rs: true, tools: false },
+    { feature: "Responses written for you", rs: true, tools: false },
+    { feature: "No setup or learning", rs: true, tools: false },
+    { feature: "Works after every job", rs: true, tools: "You configure" },
+    { feature: "Built for trades", rs: true, tools: false },
+  ];
+
+  const renderCell = (val: boolean | string) =>
+    val === true ? (
+      <Check size={16} color={mkt.accent} strokeWidth={2.5} />
+    ) : val === false ? (
+      <span style={{ color: mkt.textMuted, fontSize: 16 }}>\u2014</span>
+    ) : (
+      <span style={{ color: mkt.textMuted, fontSize: 13 }}>{String(val)}</span>
+    );
+
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="rs-comparison">
+      <div style={{ maxWidth: 560, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>The difference</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(22px, 2.8vw, 32px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 12,
+          }}
+        >
+          This isn't another dashboard you have to manage.
+        </h2>
+        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 32 }}>
+          Most review tools still expect you to do the work. ReputationShield is a service — we handle it for you.
+        </p>
+
+        <div
+          style={{
+            background: mkt.bg,
+            border: `1px solid ${mkt.border}`,
+            borderRadius: 14,
+            overflow: "auto",
+          }}
+        >
+          <style>{`
+            .rs-compare-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 380px; }
+            .rs-compare-table th, .rs-compare-table td { padding: 12px 16px; }
+          `}</style>
+          <table className="rs-compare-table">
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${mkt.border}` }}>
+                <th style={{ textAlign: "left", fontWeight: 600, color: mkt.textMuted }}></th>
+                <th style={{ textAlign: "center", fontWeight: 700, color: mkt.accent }}>ReputationShield</th>
+                <th style={{ textAlign: "center", fontWeight: 600, color: mkt.textMuted }}>Typical Tools</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.feature} style={{ borderBottom: `1px solid ${mkt.border}` }}>
+                  <td style={{ color: mkt.text, fontWeight: 500 }}>{row.feature}</td>
+                  <td style={{ textAlign: "center" }}>{renderCell(row.rs)}</td>
+                  <td style={{ textAlign: "center" }}>{renderCell(row.tools)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- ReputationShield: Results ---------- */
+function RSResultsSection({ outcomes }: { outcomes: { title: string; desc: string }[] }) {
+  return (
+    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="rs-results">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Results</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 36,
+          }}
+        >
+          What happens when your reputation improves.
+        </h2>
+
+        <style>{`
+          .rs-results-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            text-align: left;
+            margin-bottom: 28px;
+          }
+          @media (max-width: 640px) {
+            .rs-results-grid { grid-template-columns: 1fr !important; }
+          }
+        `}</style>
+
+        <div className="rs-results-grid">
+          {outcomes.map((o, i) => (
+            <div
+              key={o.title}
+              data-reveal="fade-up"
+              data-delay={String(i * 60)}
+              style={{
+                background: mkt.surface,
+                border: `1px solid ${mkt.border}`,
+                borderRadius: 14,
+                padding: "22px 18px",
+              }}
+            >
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.accent, marginBottom: 6 }}>
+                {o.title}
+              </h3>
+              <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.55, margin: 0 }}>
+                {o.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text }}>
+          A few extra jobs per month can easily cover the cost.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- ReputationShield: Pricing Intro ---------- */
+function RSPricingIntro() {
+  return (
+    <>
+      <SectionLabel>Pricing</SectionLabel>
+      <h2
+        style={{
+          fontSize: "clamp(24px, 3vw, 36px)",
+          fontWeight: 700,
+          color: mkt.onDark,
+          letterSpacing: "-0.025em",
+          marginBottom: 8,
+        }}
+      >
+        Simple monthly pricing.
+      </h2>
+      <p
+        style={{
+          fontSize: 15,
+          color: mkt.onDarkFaint,
+          maxWidth: 480,
+          margin: "0 auto",
+          lineHeight: 1.6,
+        }}
+      >
+        No contracts. Cancel anytime. No hidden fees.
+      </p>
+    </>
+  );
+}
+
+/* ---------- ReputationShield: Risk Reversal ---------- */
+function RSRiskReversal() {
+  return (
+    <div
+      style={{
+        background: mkt.dark,
+        padding: "0 28px 40px",
+        textAlign: "center",
+      }}
+      data-reveal="fade-up"
+    >
+      <p
+        style={{
+          fontSize: 14,
+          fontWeight: 500,
+          color: mkt.onDarkFaint,
+          maxWidth: 600,
+          margin: "0 auto",
+          letterSpacing: "0.01em",
+        }}
+      >
+        No contracts \u00B7 Cancel anytime \u00B7 No setup fees \u00B7 We handle everything
+      </p>
+    </div>
+  );
+}
+
 /* ---------- Main Product Page ---------- */
 export default function ProductPage() {
   const params = useParams<{ slug: string }>();
@@ -1386,6 +1728,8 @@ export default function ProductPage() {
 
   const isTradeLine = product.slug === "tradeline";
   const isQuoteQuick = product.slug === "quickquotepro";
+  const isReputationShield = product.slug === "reputationshield";
+  const hasCustomHero = isTradeLine || isQuoteQuick || isReputationShield;
 
   return (
     <MarketingLayout>
@@ -1399,7 +1743,7 @@ export default function ProductPage() {
             <ProductCategoryChip category={product.category} />
           </div>
 
-          {(isTradeLine || isQuoteQuick) ? (
+          {hasCustomHero ? (
             <>
               <div
                 className="hero-enter"
@@ -1430,8 +1774,10 @@ export default function ProductPage() {
               >
                 {isTradeLine ? (
                   <>Never Miss a Call Again —{" "}<span style={{ color: mkt.accent }}>Or Lose Another Job to a Competitor</span></>
-                ) : (
+                ) : isQuoteQuick ? (
                   <>Stop Losing Leads to a{" "}<span style={{ color: mkt.accent }}>Contact Form.</span></>
+                ) : (
+                  <>Get More 5-Star Reviews —{" "}<span style={{ color: mkt.accent }}>Without Lifting a Finger</span></>
                 )}
               </h1>
               <p
@@ -1454,8 +1800,10 @@ export default function ProductPage() {
                       Think of it as a 24/7 receptionist that never misses a call.
                     </span>
                   </>
-                ) : (
+                ) : isQuoteQuick ? (
                   "Give customers an instant price on your website using your real service rates \u2014 and capture every lead automatically. No callbacks. No quoting delays."
+                ) : (
+                  "ReputationShield sends review requests, responds to every review, and builds your reputation automatically \u2014 so customers trust you before they even call."
                 )}
               </p>
             </>
@@ -1557,7 +1905,7 @@ export default function ProductPage() {
             </p>
           )}
 
-          {(isTradeLine || isQuoteQuick) && (
+          {hasCustomHero && (
             <div
               className="hero-enter"
               style={{
@@ -1571,7 +1919,12 @@ export default function ProductPage() {
                 color: mkt.textMuted,
               }}
             >
-              {(isQuoteQuick ? [
+              {(isReputationShield ? [
+                "Built for trades businesses",
+                "Done-for-you (we handle everything)",
+                "No contracts",
+                "Works automatically after every job",
+              ] : isQuoteQuick ? [
                 "Built for trades businesses",
                 "Works on WordPress, Wix, Squarespace, Webflow, or plain HTML",
                 "No developer needed",
@@ -1633,8 +1986,23 @@ export default function ProductPage() {
           </>
         )}
 
+        {/* ── ReputationShield: Problem + What We Do (between hero and capabilities) ── */}
+        {isReputationShield && (
+          <>
+            <RSProblemSection />
+            <RSWhatWeDoSection />
+          </>
+        )}
+
         {/* ── §2 CAPABILITIES / BENEFITS ── */}
-        <CapabilitiesGrid items={product.highlights} heading={isQuoteQuick ? "Everything you need to capture more leads" : undefined} />
+        <CapabilitiesGrid
+          items={product.highlights}
+          heading={
+            isQuoteQuick ? "Everything you need to capture more leads" :
+            isReputationShield ? "What this actually does for your business" :
+            undefined
+          }
+        />
 
         {/* ── §3 HOW IT WORKS ── */}
         <StepTimeline steps={product.howItWorks} heading={isQuoteQuick ? "Set it up once. Let it work every day." : undefined} />
@@ -1672,6 +2040,9 @@ export default function ProductPage() {
           </>
         )}
 
+        {/* ── ReputationShield: Comparison (after how-it-works) ── */}
+        {isReputationShield && <RSComparisonSection />}
+
         {/* ── §4 SOCIAL PROOF ── */}
         <SurfaceSection overlap className="py-4">
           <ReviewsSection />
@@ -1683,12 +2054,16 @@ export default function ProductPage() {
         {/* ── QuoteQuick: Results (after reviews, before pricing) ── */}
         {isQuoteQuick && <QQResultsSection outcomes={product.outcomes} />}
 
+        {/* ── ReputationShield: Results (after reviews, before pricing) ── */}
+        {isReputationShield && <RSResultsSection outcomes={product.outcomes} />}
+
         {/* ── §5 PRICING (MANDATORY) ── */}
         <PricingSection
           product={product}
           pricingIntro={
             isTradeLine ? <TradeLinePricingIntro /> :
             isQuoteQuick ? <QQPricingIntro /> :
+            isReputationShield ? <RSPricingIntro /> :
             undefined
           }
         />
@@ -1698,6 +2073,9 @@ export default function ProductPage() {
 
         {/* ── QuoteQuick: Risk Reversal (below pricing) ── */}
         {isQuoteQuick && <QQRiskReversal />}
+
+        {/* ── ReputationShield: Risk Reversal (below pricing) ── */}
+        {isReputationShield && <RSRiskReversal />}
 
         {/* ── §6 FAQ ── */}
         {product.faq.length > 0 && (
@@ -1763,6 +2141,13 @@ export default function ProductPage() {
             heading="Stop losing leads to slow quotes."
             subtext="Give your customers instant pricing — and turn more website visitors into real quote requests."
             ctaLabel="Start Your Free Trial"
+            ctaHref="/Wizard"
+          />
+        ) : isReputationShield ? (
+          <CTASection
+            heading="Start building your reputation today."
+            subtext="More reviews. Better rating. More calls."
+            ctaLabel="Start ReputationShield"
             ctaHref="/Wizard"
           />
         ) : (
