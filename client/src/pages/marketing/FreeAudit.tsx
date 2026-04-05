@@ -6,6 +6,21 @@ import { Search, CheckCircle2 } from "lucide-react";
 import ReportView from "./ReportView";
 import AuditGate from "@/components/marketing/AuditGate";
 
+function usePageMeta() {
+  useEffect(() => {
+    document.title = "Free Google Maps & Website Audit | WeFixTrades";
+    const setMeta = (name: string, content: string) => {
+      let el = document.querySelector(`meta[name="${name}"]`);
+      if (!el) { el = document.createElement("meta"); (el as HTMLMetaElement).name = name; document.head.appendChild(el); }
+      el.setAttribute("content", content);
+    };
+    setMeta("description", "Get a free instant audit of your Google Business Profile and website. See your score, competitor analysis, and a fix plan — no signup required.");
+    let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    if (!link) { link = document.createElement("link"); link.rel = "canonical"; document.head.appendChild(link); }
+    link.href = `${window.location.origin}/free-audit`;
+  }, []);
+}
+
 type Prediction = {
   place_id: string;
   name: string;
@@ -65,6 +80,7 @@ function busyStep(busy: string | null): number {
 }
 
 export default function FreeAudit() {
+  usePageMeta();
   const [query, setQuery] = useState("");
   const debounced = useDebouncedValue(query, 400);
 

@@ -15,9 +15,23 @@ function getTransporter() {
   return nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } });
 }
 
+const rateMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_WINDOW = 10 * 60 * 1000;
+const RATE_MAX = 5;
+
 export function registerMissedCallLeadRoutes(app: Express): void {
   app.post("/api/missed-call-leads", async (req: Request, res: Response) => {
     try {
+      // Rate limiting
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      const now = Date.now();
+      let rl = rateMap.get(ip);
+      if (!rl || now > rl.resetAt) { rl = { count: 0, resetAt: now + RATE_WINDOW }; rateMap.set(ip, rl); }
+      rl.count++;
+      if (rl.count > RATE_MAX) {
+        return res.status(429).json({ error: "Too many submissions. Please try again in a few minutes." });
+      }
+
       const {
         email,
         name,

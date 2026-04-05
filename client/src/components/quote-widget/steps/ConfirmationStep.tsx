@@ -2,6 +2,7 @@ import { CheckCircle2, PartyPopper, ArrowRight, Search } from 'lucide-react';
 import { useWidgetState } from '../useWidgetState';
 import { eff, stepTitleStyle } from '../designTokens';
 import NextStepSuggestions from '@/components/marketing/NextStepSuggestions';
+import { trackEvent } from '@/lib/trackEvent';
 import type { StepDefinition } from '@shared/wizardSchema';
 
 interface ConfirmationStepProps {
@@ -140,6 +141,7 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
           </p>
           <a
             href="/signup?product=quotequick"
+            onClick={() => trackEvent("demo_primary_cta_clicked", { target: "/signup?product=quotequick" })}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -162,6 +164,7 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
           <div style={{ marginTop: '12px' }}>
             <a
               href="/free-audit"
+              onClick={() => trackEvent("demo_secondary_cta_clicked", { target: "/free-audit" })}
               style={{
                 fontSize: '13px',
                 color: eff.textBody,

@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { trackEvent } from "@/lib/trackEvent";
 import { ArrowRight, Search, Calculator, PhoneOff, BarChart3 } from "lucide-react";
 
 type ToolContext = "audit" | "calculator" | "demo" | "mapguard";
@@ -170,7 +171,7 @@ export default function NextStepSuggestions({
         {suggestions.map((s) => {
           const Icon = s.icon;
           return (
-            <Link key={s.href} href={s.href} style={{ textDecoration: "none", display: "block" }}>
+            <Link key={s.href} href={s.href} onClick={() => trackEvent("cross_tool_clicked", { source: context, target: s.href })} style={{ textDecoration: "none", display: "block" }}>
               <div
                 style={{
                   display: "flex",

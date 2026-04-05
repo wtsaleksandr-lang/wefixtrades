@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
@@ -187,6 +187,19 @@ const BENEFITS = [
 /* ─── Page Component ─── */
 
 export default function QuoteCalculatorDemo() {
+  useEffect(() => {
+    document.title = "Instant Quote Demo | WeFixTrades";
+    const setMeta = (name: string, content: string) => {
+      let el = document.querySelector(`meta[name="${name}"]`);
+      if (!el) { el = document.createElement("meta"); (el as HTMLMetaElement).name = name; document.head.appendChild(el); }
+      el.setAttribute("content", content);
+    };
+    setMeta("description", "Try the live quote calculator demo. See how your customers get instant prices for plumbing, cleaning, electrical, and more.");
+    let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    if (!link) { link = document.createElement("link"); link.rel = "canonical"; document.head.appendChild(link); }
+    link.href = `${window.location.origin}/tools/quote-demo`;
+  }, []);
+
   const [selectedTrade, setSelectedTrade] = useState(TRADES[0].key);
 
   const activeTrade = TRADES.find((t) => t.key === selectedTrade)!;

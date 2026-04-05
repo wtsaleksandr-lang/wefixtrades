@@ -3,6 +3,7 @@ import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench,
 import { SERVICES, getServicesForIssues } from '@shared/services';
 import AuditGate from "@/components/marketing/AuditGate";
 import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
+import { trackEvent } from "@/lib/trackEvent";
 
 // ─── Design tokens ───────────────────
 const DARK = '#0d1514';
@@ -2191,7 +2192,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               {selected.length} service{selected.length > 1 ? 's' : ''} selected · <span style={{ color: CYAN, fontWeight: 700 }}>${totalPrice}/mo</span>
             </span>
             <button
-              onClick={() => window.location.href = '/checkout?services=' + selected.join(',')}
+              onClick={() => { trackEvent("audit_primary_cta_clicked", { services: selected }); window.location.href = '/checkout?services=' + selected.join(','); }}
               {...hoverProps('getstarted')}
               style={{ background: hovered === 'getstarted' ? '#00BFB8' : CYAN, color: DARK, border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s ease', transform: hovered === 'getstarted' ? 'translateY(-1px)' : 'none' }}
             >
@@ -2206,6 +2207,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         <div data-print-hide style={{ textAlign: 'center', marginBottom: 10 }}>
           <a
             href="/tools/missed-call-calculator"
+            onClick={() => trackEvent("audit_secondary_cta_clicked", { target: "/tools/missed-call-calculator" })}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
               padding: '12px 24px', borderRadius: 12,

@@ -11,6 +11,7 @@ import type { CalcInputs } from '@/lib/missedCallCalculator';
 import ResultMetricCard from './ResultMetricCard';
 import AnimatedNumber from './AnimatedNumber';
 import NextStepSuggestions from '@/components/marketing/NextStepSuggestions';
+import { trackEvent } from '@/lib/trackEvent';
 
 const SCENARIO_ID = 'response-scenario-panel';
 const METHODOLOGY_ID = 'methodology-panel';
@@ -365,6 +366,7 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
               <div
                 role="link"
                 tabIndex={0}
+                onClick={() => trackEvent("calculator_primary_cta_clicked", { target: "/products/tradeline" })}
                 style={{
                   background: mkt.accent, borderRadius: radius.lg,
                   padding: '18px 24px', display: 'flex', alignItems: 'center',
@@ -405,6 +407,7 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
               <div
                 role="link"
                 tabIndex={0}
+                onClick={() => trackEvent("calculator_secondary_cta_clicked", { target: "/free-audit" })}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                   padding: '12px 20px', borderRadius: radius.lg,

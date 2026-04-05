@@ -21,9 +21,23 @@ function getTransporter() {
   });
 }
 
+const rateMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_WINDOW = 10 * 60 * 1000;
+const RATE_MAX = 5;
+
 export function registerDemoLeadRoutes(app: Express): void {
   app.post("/api/demo-leads", async (req: Request, res: Response) => {
     try {
+      // Rate limiting
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      const now = Date.now();
+      let rl = rateMap.get(ip);
+      if (!rl || now > rl.resetAt) { rl = { count: 0, resetAt: now + RATE_WINDOW }; rateMap.set(ip, rl); }
+      rl.count++;
+      if (rl.count > RATE_MAX) {
+        return res.status(429).json({ error: "Too many submissions. Please try again in a few minutes." });
+      }
+
       const {
         email,
         name,

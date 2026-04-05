@@ -2801,8 +2801,22 @@ router.post("/chat", async (req: Request, res: Response) => {
 import { storage } from "./storage";
 import { enqueueAuditFollowupSequence } from "./lib/auditFollowup";
 
+const leadRateMap = new Map<string, { count: number; resetAt: number }>();
+const LEAD_RATE_WINDOW = 10 * 60 * 1000;
+const LEAD_RATE_MAX = 5;
+
 router.post('/save-lead', async (req: Request, res: Response) => {
   try {
+    // Rate limiting
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    const now = Date.now();
+    let rl = leadRateMap.get(ip);
+    if (!rl || now > rl.resetAt) { rl = { count: 0, resetAt: now + LEAD_RATE_WINDOW }; leadRateMap.set(ip, rl); }
+    rl.count++;
+    if (rl.count > LEAD_RATE_MAX) {
+      return res.status(429).json({ error: "Too many submissions. Please try again in a few minutes." });
+    }
+
     const { email, name, phone, reportId, businessName, placeId, trade, city, score, issueCount, detectedIssues, recommendedServices, source_tool, source_page } = req.body;
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ error: 'Valid email is required' });
