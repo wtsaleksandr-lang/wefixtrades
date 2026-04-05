@@ -78,6 +78,17 @@ export default function ProblemSection() {
           >
             That means your competitors are getting your calls.
           </p>
+          <p
+            style={{
+              fontFamily: BODY_FONT,
+              fontSize: 15,
+              color: mkt.textMuted,
+              lineHeight: 1.6,
+              marginTop: 16,
+            }}
+          >
+            Every day your profile stays weak, nearby competitors keep getting the calls that should have gone to you.
+          </p>
         </div>
       </div>
 

@@ -148,6 +148,10 @@ export default function WhatWeDoSection() {
           ))}
         </div>
 
+        <p style={{ fontSize: 14, color: mkt.textMuted, textAlign: "center", marginTop: 24, lineHeight: 1.6 }}>
+          We do the work for you — you don't need to learn Google Business Profile, logging in, or ongoing maintenance.
+        </p>
+
         <style>{`
           @media (max-width: 768px) {
             .mg-whatwedo-grid { grid-template-columns: 1fr !important; }

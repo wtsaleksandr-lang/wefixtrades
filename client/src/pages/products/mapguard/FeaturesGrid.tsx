@@ -13,7 +13,7 @@ import {
 } from "./styles";
 
 const BENEFITS = [
-  { icon: MapPin, title: "Show up when customers search nearby", desc: "Appear in Google Maps results for your services and service area." },
+  { icon: MapPin, title: "More calls from nearby customers", desc: "Show up where people are already searching and ready to hire." },
   { icon: Phone, title: "Get more calls without paying for ads", desc: "Organic visibility that brings in leads every month." },
   { icon: ShieldCheck, title: "Build trust before they even click", desc: "Reviews, photos, and activity make customers choose you." },
   { icon: CalendarCheck, title: "Stay active and visible every week", desc: "Regular posts and updates keep your profile fresh." },

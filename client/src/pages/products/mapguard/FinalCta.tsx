@@ -60,6 +60,10 @@ export default function FinalCta() {
           }}
         >
           Get your free audit and see exactly what's missing from your Google Business Profile.
+          <br />
+          <span style={{ fontSize: 14, opacity: 0.8 }}>
+            See what's missing before another nearby customer finds someone else.
+          </span>
         </p>
 
         <Link

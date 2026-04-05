@@ -57,7 +57,7 @@ export default function ResultsSection() {
             <span style={{ color: mkt.accent }}>You Start Showing Up</span>
           </h2>
           <p style={sectionSub}>
-            More visibility = more calls. One extra job per month can cover your entire cost.
+            More visibility = more calls. One extra local job per month can easily cover the cost of MapGuard.
           </p>
         </div>
 
