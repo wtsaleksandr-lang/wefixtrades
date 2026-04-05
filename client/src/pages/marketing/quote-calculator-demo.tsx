@@ -6,7 +6,7 @@ import { mkt, colors, shadows } from "@/theme/tokens";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import type { CalculatorData } from "@/components/quote-widget/types";
 import {
-  Wrench, SprayCan, Paintbrush, Zap, Home,
+  Wrench, SprayCan, Paintbrush, Zap, Home, Search,
   ArrowRight, Clock, DollarSign, Smartphone, PhoneOff, ChevronDown,
 } from "lucide-react";
 
@@ -503,6 +503,9 @@ export default function QuoteCalculatorDemo() {
           {/* ─── Static SEO Content ─── */}
           <TradeDescriptions />
 
+          {/* ─── Audit callout ─── */}
+          <AuditCallout />
+
           {/* ─── FAQ ─── */}
           <DemoFaqSection />
 
@@ -684,6 +687,55 @@ function DemoFaqSection() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/* ═══ Audit Callout ═══ */
+
+function AuditCallout() {
+  return (
+    <div style={{
+      maxWidth: 640,
+      margin: "0 auto",
+      marginTop: "clamp(32px, 5vw, 48px)",
+      paddingTop: "clamp(24px, 4vw, 36px)",
+      borderTop: `1px solid ${mkt.border}`,
+    }}>
+      <div style={{
+        fontSize: "clamp(16px, 2.2vw, 18px)",
+        fontWeight: 700,
+        color: colors.effortel.n300,
+        marginBottom: 8,
+      }}>
+        Before you install a quote tool, check this
+      </div>
+      <p style={{
+        fontSize: 14,
+        color: mkt.textMuted,
+        lineHeight: 1.7,
+        margin: "0 0 14px",
+      }}>
+        A quote calculator only works if customers can find your website. Run a
+        free audit to check your Google Business Profile and website health first —
+        then add QuoteQuick to convert the traffic you're already getting.
+      </p>
+      <Link href="/tools/free-audit" style={{ textDecoration: "none", display: "inline-block" }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "10px 16px", borderRadius: 12,
+          border: `1px solid ${mkt.border}`, background: mkt.cardBg,
+          cursor: "pointer", transition: "border-color 0.15s, background 0.15s",
+          fontSize: 13, fontWeight: 650, color: mkt.text,
+        }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = mkt.border; e.currentTarget.style.background = mkt.cardBg; }}
+        >
+          <Search size={14} color={mkt.accent} strokeWidth={1.8} />
+          Run Free Audit
+          <ArrowRight size={13} color={mkt.textFaint} />
+        </div>
+      </Link>
     </div>
   );
 }

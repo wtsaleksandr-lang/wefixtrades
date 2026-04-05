@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { trackEvent } from "@/lib/trackEvent";
 import { colors } from "@/theme/tokens";
-import { Search, CheckCircle2 } from "lucide-react";
+import { Search, CheckCircle2, PhoneOff, Calculator, ArrowRight } from "lucide-react";
 import ReportView from "./ReportView";
 import AuditGate from "@/components/marketing/AuditGate";
 
@@ -719,6 +720,66 @@ export default function FreeAudit() {
               </div>
             );
           })()}
+          {/* ─── Other Free Tools ─── */}
+          <div style={{
+            maxWidth: 480,
+            margin: "0 auto",
+            marginTop: reportReady ? 48 : 56,
+            paddingTop: 24,
+            borderTop: "1px solid rgba(0,0,0,0.07)",
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginBottom: 10 }}>
+              Other free tools
+            </div>
+            {[
+              {
+                href: "/tools/missed-call-calculator",
+                icon: PhoneOff,
+                iconColor: "#EF4444",
+                iconBg: "rgba(239,68,68,0.08)",
+                title: "Missed Call Revenue Calculator",
+                desc: "See how much unanswered calls are costing you",
+              },
+              {
+                href: "/tools/quote-demo",
+                icon: Calculator,
+                iconColor: "#2F6BFF",
+                iconBg: "rgba(47,107,255,0.08)",
+                title: "Instant Quote Demo",
+                desc: "Let customers get prices on your website",
+              },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link key={item.href} href={item.href} style={{ textDecoration: "none", display: "block", marginBottom: 8 }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    padding: "12px 14px", borderRadius: 14,
+                    border: "1px solid rgba(0,0,0,0.07)",
+                    background: "rgba(255,255,255,0.6)",
+                    cursor: "pointer", transition: "border-color 0.15s, background 0.15s",
+                  }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(0,0,0,0.13)"; e.currentTarget.style.background = "rgba(255,255,255,0.85)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(0,0,0,0.07)"; e.currentTarget.style.background = "rgba(255,255,255,0.6)"; }}
+                  >
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 10,
+                      background: item.iconBg,
+                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    }}>
+                      <Icon size={16} color={item.iconColor} strokeWidth={1.8} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 650, color: "#111827" }}>{item.title}</div>
+                      <div style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>{item.desc}</div>
+                    </div>
+                    <ArrowRight size={14} color="rgba(0,0,0,0.25)" style={{ flexShrink: 0 }} />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
         </div>
       </div>
     </MarketingLayout>
