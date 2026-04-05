@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "wouter";
-import { Check, ChevronDown, ArrowRight, Phone, MessageSquare, MessagesSquare, RotateCcw, Star, Zap, UserCheck, CalendarCheck, TrendingUp, X as XIcon, Send, ShieldCheck, MessageCircle } from "lucide-react";
+import { Check, ChevronDown, ArrowRight, Phone, MessageSquare, MessagesSquare, RotateCcw, Star, Zap, UserCheck, CalendarCheck, TrendingUp, X as XIcon, Send, ShieldCheck, MessageCircle, PenTool, Share2, Eye } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import ProductHeroShell from "@/components/marketing/ProductHeroShell";
 import ProductCategoryChip from "@/components/marketing/ProductCategoryChip";
@@ -1698,6 +1698,331 @@ function RSRiskReversal() {
   );
 }
 
+/* ---------- SocialSync: Problem Section ---------- */
+function SSProblemSection() {
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="ss-problem">
+      <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>The problem</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 24,
+          }}
+        >
+          Most trades businesses go silent online.
+        </h2>
+        <p
+          style={{
+            fontSize: 16,
+            color: mkt.textMuted,
+            lineHeight: 1.7,
+            maxWidth: 560,
+            margin: "0 auto 32px",
+          }}
+        >
+          You finish jobs every day.
+          <br /><br />
+          But your social media? Empty. Outdated. Forgotten.
+          <br /><br />
+          Customers check your profile before calling — and see nothing.
+          <br /><br />
+          Meanwhile, your competitors look active and trusted.
+        </p>
+        <p style={{ fontSize: 17, fontWeight: 600, color: mkt.text, lineHeight: 1.5 }}>
+          No activity = lost trust = fewer calls.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- SocialSync: What We Do ---------- */
+function SSWhatWeDoSection() {
+  const blocks = [
+    {
+      icon: PenTool,
+      label: "Create",
+      desc: "We turn your services and job work into clean, professional posts.",
+    },
+    {
+      icon: Share2,
+      label: "Post",
+      desc: "We publish consistently across Facebook, Instagram, and Google.",
+    },
+    {
+      icon: Eye,
+      label: "Keep you active",
+      desc: "Your business always looks current, busy, and trusted.",
+    },
+  ];
+
+  return (
+    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="ss-whatwedo">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>What we do</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 40,
+          }}
+        >
+          We handle your content — start to finish.
+        </h2>
+
+        <style>{`
+          .ss-whatwedo-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            text-align: left;
+          }
+          .ss-whatwedo-card {
+            background: ${mkt.surface};
+            border: 1px solid ${mkt.border};
+            border-radius: 14px;
+            padding: 24px;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+          }
+          .ss-whatwedo-card:hover {
+            border-color: rgba(102,232,250,0.18);
+            transform: translateY(-1px);
+          }
+          @media (max-width: 768px) {
+            .ss-whatwedo-grid { grid-template-columns: 1fr !important; }
+          }
+        `}</style>
+
+        <div className="ss-whatwedo-grid">
+          {blocks.map((b, i) => (
+            <div key={b.label} className="ss-whatwedo-card" data-reveal="fade-up" data-delay={String(i * 80)}>
+              <div style={{ marginBottom: 14 }}>
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: mkt.accentTint,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <b.icon size={20} color={mkt.accent} strokeWidth={2} />
+                </div>
+              </div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.accent, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                {b.label}
+              </h3>
+              <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.55, margin: 0 }}>
+                {b.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 14, color: mkt.textMuted, marginTop: 24, lineHeight: 1.6 }}>
+          You don't need to log in, write posts, or manage anything.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- SocialSync: Comparison ---------- */
+function SSComparisonSection() {
+  const rows = [
+    { feature: "We do the posting", ss: true, others: false },
+    { feature: "No dashboard to manage", ss: true, others: false },
+    { feature: "No learning curve", ss: true, others: false },
+    { feature: "Affordable monthly pricing", ss: true, others: "Often $750+/mo" },
+    { feature: "Consistent weekly posts", ss: true, others: "If you remember" },
+    { feature: "Built for trades", ss: true, others: false },
+  ];
+
+  const renderCell = (val: boolean | string) =>
+    val === true ? (
+      <Check size={16} color={mkt.accent} strokeWidth={2.5} />
+    ) : val === false ? (
+      <span style={{ color: mkt.textMuted, fontSize: 16 }}>\u2014</span>
+    ) : (
+      <span style={{ color: mkt.textMuted, fontSize: 13 }}>{String(val)}</span>
+    );
+
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="ss-comparison">
+      <div style={{ maxWidth: 560, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>The difference</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(22px, 2.8vw, 32px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 12,
+          }}
+        >
+          Not another social media tool or expensive agency.
+        </h2>
+        <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 32 }}>
+          SocialSync is a service — we create and post content for you at a price that makes sense.
+        </p>
+
+        <div style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 14, overflow: "auto" }}>
+          <style>{`
+            .ss-compare-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 380px; }
+            .ss-compare-table th, .ss-compare-table td { padding: 12px 16px; }
+          `}</style>
+          <table className="ss-compare-table">
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${mkt.border}` }}>
+                <th style={{ textAlign: "left", fontWeight: 600, color: mkt.textMuted }}></th>
+                <th style={{ textAlign: "center", fontWeight: 700, color: mkt.accent }}>SocialSync</th>
+                <th style={{ textAlign: "center", fontWeight: 600, color: mkt.textMuted }}>Agencies / Tools</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.feature} style={{ borderBottom: `1px solid ${mkt.border}` }}>
+                  <td style={{ color: mkt.text, fontWeight: 500 }}>{row.feature}</td>
+                  <td style={{ textAlign: "center" }}>{renderCell(row.ss)}</td>
+                  <td style={{ textAlign: "center" }}>{renderCell(row.others)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- SocialSync: Results ---------- */
+function SSResultsSection({ outcomes }: { outcomes: { title: string; desc: string }[] }) {
+  return (
+    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="ss-results">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Results</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 36px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 36,
+          }}
+        >
+          What happens when you stay active.
+        </h2>
+
+        <style>{`
+          .ss-results-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            text-align: left;
+            margin-bottom: 28px;
+          }
+          @media (max-width: 640px) {
+            .ss-results-grid { grid-template-columns: 1fr !important; }
+          }
+        `}</style>
+
+        <div className="ss-results-grid">
+          {outcomes.map((o, i) => (
+            <div
+              key={o.title}
+              data-reveal="fade-up"
+              data-delay={String(i * 60)}
+              style={{
+                background: mkt.surface,
+                border: `1px solid ${mkt.border}`,
+                borderRadius: 14,
+                padding: "22px 18px",
+              }}
+            >
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.accent, marginBottom: 6 }}>
+                {o.title}
+              </h3>
+              <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.55, margin: 0 }}>
+                {o.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text }}>
+          A few extra jobs per month can easily cover the cost.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- SocialSync: Pricing Intro ---------- */
+function SSPricingIntro() {
+  return (
+    <>
+      <SectionLabel>Pricing</SectionLabel>
+      <h2
+        style={{
+          fontSize: "clamp(24px, 3vw, 36px)",
+          fontWeight: 700,
+          color: mkt.onDark,
+          letterSpacing: "-0.025em",
+          marginBottom: 8,
+        }}
+      >
+        Simple monthly plans.
+      </h2>
+      <p
+        style={{
+          fontSize: 15,
+          color: mkt.onDarkFaint,
+          maxWidth: 480,
+          margin: "0 auto",
+          lineHeight: 1.6,
+        }}
+      >
+        No contracts. Cancel anytime. No hidden fees.
+      </p>
+    </>
+  );
+}
+
+/* ---------- SocialSync: Risk Reversal ---------- */
+function SSRiskReversal() {
+  return (
+    <div
+      style={{
+        background: mkt.dark,
+        padding: "0 28px 40px",
+        textAlign: "center",
+      }}
+      data-reveal="fade-up"
+    >
+      <p
+        style={{
+          fontSize: 14,
+          fontWeight: 500,
+          color: mkt.onDarkFaint,
+          maxWidth: 600,
+          margin: "0 auto",
+          letterSpacing: "0.01em",
+        }}
+      >
+        No contracts \u00B7 Cancel anytime \u00B7 We handle everything \u00B7 Posts go out every week
+      </p>
+    </div>
+  );
+}
+
 /* ---------- Main Product Page ---------- */
 export default function ProductPage() {
   const params = useParams<{ slug: string }>();
@@ -1738,7 +2063,8 @@ export default function ProductPage() {
   const isTradeLine = product.slug === "tradeline";
   const isQuoteQuick = product.slug === "quickquotepro";
   const isReputationShield = product.slug === "reputationshield";
-  const hasCustomHero = isTradeLine || isQuoteQuick || isReputationShield;
+  const isSocialSync = product.slug === "socialsync";
+  const hasCustomHero = isTradeLine || isQuoteQuick || isReputationShield || isSocialSync;
 
   return (
     <MarketingLayout>
@@ -1785,8 +2111,10 @@ export default function ProductPage() {
                   <>Never Miss a Call Again —{" "}<span style={{ color: mkt.accent }}>Or Lose Another Job to a Competitor</span></>
                 ) : isQuoteQuick ? (
                   <>Stop Losing Leads to a{" "}<span style={{ color: mkt.accent }}>Contact Form.</span></>
-                ) : (
+                ) : isReputationShield ? (
                   <>Get More 5-Star Reviews —{" "}<span style={{ color: mkt.accent }}>Without Lifting a Finger</span></>
+                ) : (
+                  <>Stay Active Online —{" "}<span style={{ color: mkt.accent }}>Without Doing It Yourself</span></>
                 )}
               </h1>
               <p
@@ -1811,8 +2139,10 @@ export default function ProductPage() {
                   </>
                 ) : isQuoteQuick ? (
                   "Give customers an instant price on your website using your real service rates \u2014 and capture every lead automatically. No callbacks. No quoting delays."
-                ) : (
+                ) : isReputationShield ? (
                   "ReputationShield sends review requests, responds to every review, and builds your reputation automatically \u2014 so customers trust you before they even call."
+                ) : (
+                  "SocialSync creates and posts content for your business across Facebook, Instagram, and Google \u2014 so you stay visible, trusted, and top of mind without lifting a finger."
                 )}
               </p>
             </>
@@ -1928,7 +2258,12 @@ export default function ProductPage() {
                 color: mkt.textMuted,
               }}
             >
-              {(isReputationShield ? [
+              {(isSocialSync ? [
+                "Built for trades businesses",
+                "Done-for-you posting",
+                "No contracts",
+                "We post for you every week",
+              ] : isReputationShield ? [
                 "Built for trades businesses",
                 "Done-for-you (we handle everything)",
                 "No contracts",
@@ -2003,12 +2338,21 @@ export default function ProductPage() {
           </>
         )}
 
+        {/* ── SocialSync: Problem + What We Do (between hero and capabilities) ── */}
+        {isSocialSync && (
+          <>
+            <SSProblemSection />
+            <SSWhatWeDoSection />
+          </>
+        )}
+
         {/* ── §2 CAPABILITIES / BENEFITS ── */}
         <CapabilitiesGrid
           items={product.highlights}
           heading={
             isQuoteQuick ? "Everything you need to capture more leads" :
             isReputationShield ? "What this actually does for your business" :
+            isSocialSync ? "What this actually does for your business" :
             undefined
           }
         />
@@ -2052,6 +2396,9 @@ export default function ProductPage() {
         {/* ── ReputationShield: Comparison (after how-it-works) ── */}
         {isReputationShield && <RSComparisonSection />}
 
+        {/* ── SocialSync: Comparison (after how-it-works) ── */}
+        {isSocialSync && <SSComparisonSection />}
+
         {/* ── §4 SOCIAL PROOF ── */}
         <SurfaceSection overlap className="py-4">
           <ReviewsSection />
@@ -2066,6 +2413,9 @@ export default function ProductPage() {
         {/* ── ReputationShield: Results (after reviews, before pricing) ── */}
         {isReputationShield && <RSResultsSection outcomes={product.outcomes} />}
 
+        {/* ── SocialSync: Results (after reviews, before pricing) ── */}
+        {isSocialSync && <SSResultsSection outcomes={product.outcomes} />}
+
         {/* ── §5 PRICING (MANDATORY) ── */}
         <PricingSection
           product={product}
@@ -2073,6 +2423,7 @@ export default function ProductPage() {
             isTradeLine ? <TradeLinePricingIntro /> :
             isQuoteQuick ? <QQPricingIntro /> :
             isReputationShield ? <RSPricingIntro /> :
+            isSocialSync ? <SSPricingIntro /> :
             undefined
           }
         />
@@ -2085,6 +2436,9 @@ export default function ProductPage() {
 
         {/* ── ReputationShield: Risk Reversal (below pricing) ── */}
         {isReputationShield && <RSRiskReversal />}
+
+        {/* ── SocialSync: Risk Reversal (below pricing) ── */}
+        {isSocialSync && <SSRiskReversal />}
 
         {/* ── §6 FAQ ── */}
         {product.faq.length > 0 && (
@@ -2157,6 +2511,13 @@ export default function ProductPage() {
             heading="Start building your reputation today."
             subtext="More reviews. Better rating. More calls. Start now and turn completed jobs into more trust, more reviews, and more calls."
             ctaLabel="Start ReputationShield"
+            ctaHref="/Wizard"
+          />
+        ) : isSocialSync ? (
+          <CTASection
+            heading="Stay active without doing the work."
+            subtext="Keep your business visible, trusted, and growing."
+            ctaLabel="Start SocialSync"
             ctaHref="/Wizard"
           />
         ) : (
