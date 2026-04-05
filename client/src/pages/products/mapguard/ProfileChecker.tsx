@@ -492,7 +492,7 @@ export default function ProfileChecker() {
                 Start My Optimization
                 <ArrowRight size={14} />
               </Link>
-              <Link href="/free-audit" onClick={() => trackEvent("mapguard_secondary_cta_clicked", { target: "/free-audit" })} style={{
+              <Link href="/tools/free-audit" onClick={() => trackEvent("mapguard_secondary_cta_clicked", { target: "/tools/free-audit" })} style={{
                 display: "inline-flex", alignItems: "center", gap: 6,
                 padding: "10px 16px", borderRadius: 10,
                 background: "transparent", color: mkt.textMuted,

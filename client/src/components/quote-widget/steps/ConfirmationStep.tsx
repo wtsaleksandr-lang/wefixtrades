@@ -163,8 +163,8 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
           </a>
           <div style={{ marginTop: '12px' }}>
             <a
-              href="/free-audit"
-              onClick={() => trackEvent("demo_secondary_cta_clicked", { target: "/free-audit" })}
+              href="/tools/free-audit"
+              onClick={() => trackEvent("demo_secondary_cta_clicked", { target: "/tools/free-audit" })}
               style={{
                 fontSize: '13px',
                 color: eff.textBody,

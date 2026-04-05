@@ -95,7 +95,7 @@ export default function SharedAuditReport() {
     <div style={{ padding: 40, textAlign: "center", fontFamily: "Inter, system-ui" }}>
       <h2 style={{ color: "#EF4444" }}>Report not found</h2>
       <p style={{ color: "#6B7280", marginTop: 8 }}>{error || "This report may have been removed."}</p>
-      <a href="/free-audit" style={{ display: "inline-block", marginTop: 16, padding: "12px 24px", background: "#00D4C8", color: "#1A1A2E", borderRadius: 10, fontWeight: 700, textDecoration: "none" }}>Get your own free audit &rarr;</a>
+      <a href="/tools/free-audit" style={{ display: "inline-block", marginTop: 16, padding: "12px 24px", background: "#00D4C8", color: "#1A1A2E", borderRadius: 10, fontWeight: 700, textDecoration: "none" }}>Get your own free audit &rarr;</a>
     </div>
   );
 
@@ -132,7 +132,7 @@ export default function SharedAuditReport() {
         <div className={s.stickyLogo}>We<span>Fix</span>Trades</div>
         <div style={{ flex: 1 }} />
         <span className={s.sharedBadge}>Shared Report</span>
-        <a href="/free-audit" style={{ marginLeft: 8, padding: "6px 14px", borderRadius: 8, background: "#00D4C8", color: "#1A1A2E", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Get your own free audit &rarr;</a>
+        <a href="/tools/free-audit" style={{ marginLeft: 8, padding: "6px 14px", borderRadius: 8, background: "#00D4C8", color: "#1A1A2E", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Get your own free audit &rarr;</a>
       </div>
 
       <div className={s.reportPage}>
@@ -397,7 +397,7 @@ export default function SharedAuditReport() {
 
         {/* Back to audit CTA */}
         <div style={{ textAlign: "center", marginTop: 24, marginBottom: 40 }}>
-          <a href="/free-audit" style={{ display: "inline-block", padding: "14px 28px", background: "#00D4C8", color: "#1A1A2E", borderRadius: 12, fontWeight: 800, fontSize: 15, textDecoration: "none" }}>Get your own free audit &rarr;</a>
+          <a href="/tools/free-audit" style={{ display: "inline-block", padding: "14px 28px", background: "#00D4C8", color: "#1A1A2E", borderRadius: 12, fontWeight: 800, fontSize: 15, textDecoration: "none" }}>Get your own free audit &rarr;</a>
         </div>
       </div>
 

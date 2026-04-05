@@ -47,7 +47,7 @@ function getSuggestions(
         {
           title: "Get a full business audit",
           description: "See your Google Maps health, website speed, and competitor analysis",
-          href: "/free-audit",
+          href: "/tools/free-audit",
           icon: BarChart3,
         },
         {
@@ -62,7 +62,7 @@ function getSuggestions(
         {
           title: "Check your Google visibility",
           description: "Free audit of your Google Maps profile and website",
-          href: "/free-audit",
+          href: "/tools/free-audit",
           icon: Search,
         },
         {
@@ -77,7 +77,7 @@ function getSuggestions(
         {
           title: "Get your full detailed audit",
           description: "Deep analysis of your Google presence, website, and competitors",
-          href: "/free-audit",
+          href: "/tools/free-audit",
           icon: BarChart3,
         },
         {

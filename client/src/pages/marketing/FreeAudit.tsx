@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { trackEvent } from "@/lib/trackEvent";
+import { useFaqSchema } from "@/lib/useFaqSchema";
 import { colors } from "@/theme/tokens";
-import { Search, CheckCircle2, PhoneOff, Calculator, ArrowRight } from "lucide-react";
+import { Search, CheckCircle2, PhoneOff, Calculator, ArrowRight, ChevronDown } from "lucide-react";
 import ReportView from "./ReportView";
 import AuditGate from "@/components/marketing/AuditGate";
 
@@ -78,6 +79,174 @@ function busyStep(busy: string | null): number {
   if (busy.includes("speed")) return 2;
   if (busy.includes("Generating")) return 3;
   return 1;
+}
+
+/* ═══ Static SEO Content ═══ */
+
+const AUDIT_SECTIONS = [
+  {
+    heading: "What Does the Google Business Profile Audit Check?",
+    text: "We analyze your Google Business Profile for completeness — categories, business hours, photos, description, and review health. Missing or outdated information hurts your ranking in the local map pack and costs you visibility when customers search for your trade.",
+  },
+  {
+    heading: "Website Speed & Mobile Analysis",
+    text: "Your website is tested against Google PageSpeed benchmarks. We check load time, mobile responsiveness, and Core Web Vitals. Slow websites lose customers — 53% of mobile visitors leave if a page takes more than 3 seconds to load.",
+  },
+  {
+    heading: "Competitor Comparison",
+    text: "The audit benchmarks your business against nearby competitors in your trade. You'll see how your review count, rating, and profile completeness stack up — so you know exactly where you're falling behind and what to fix first.",
+  },
+  {
+    heading: "Who Is This For?",
+    text: "This tool is built for trade businesses — plumbers, electricians, HVAC technicians, roofers, cleaners, painters, landscapers, and more. If your customers find you through Google Maps or local search, this audit shows you what's working and what's not.",
+  },
+];
+
+const AUDIT_FAQ_ITEMS = [
+  {
+    question: "How long does the audit take?",
+    answer: "About 30 seconds. Search your business name, select it from the dropdown, and the report generates automatically. No signup or account needed.",
+  },
+  {
+    question: "What does the audit check?",
+    answer: "The audit evaluates your Google Business Profile completeness (categories, hours, photos, description), review health (count, rating, recency), website speed and mobile performance, and how you compare to nearby competitors in your trade.",
+  },
+  {
+    question: "Is this really free?",
+    answer: "Yes, completely free. No credit card, no signup, no hidden upsell wall. You get a full report with scores and recommendations at no cost.",
+  },
+  {
+    question: "Do I need to create an account?",
+    answer: "No. Just type your business name and city into the search box. The audit runs instantly without any login or registration.",
+  },
+  {
+    question: "How is my business scored?",
+    answer: "Your score is calculated from weighted criteria across three areas: Google Business Profile health (photos, reviews, categories, hours), website performance (speed, mobile-friendliness), and competitive standing (how you rank against nearby businesses in your trade).",
+  },
+  {
+    question: "Can I share my report?",
+    answer: "Yes. Every report has a unique shareable URL. You can send it to a business partner, your marketing person, or save it to track improvements over time.",
+  },
+];
+
+function AuditStaticSections() {
+  return (
+    <div style={{
+      maxWidth: 480,
+      margin: "0 auto",
+      marginTop: 48,
+      paddingTop: 32,
+      borderTop: "1px solid rgba(0,0,0,0.07)",
+    }}>
+      {AUDIT_SECTIONS.map((section, i) => (
+        <div key={i} style={{ marginBottom: 28 }}>
+          <h2 style={{
+            fontSize: "clamp(18px, 2.5vw, 22px)",
+            fontWeight: 700,
+            color: "#111827",
+            lineHeight: 1.2,
+            letterSpacing: "-0.01em",
+            margin: "0 0 8px",
+          }}>
+            {section.heading}
+          </h2>
+          <p style={{
+            fontSize: 14,
+            color: "rgba(0,0,0,0.55)",
+            lineHeight: 1.7,
+            margin: 0,
+          }}>
+            {section.text}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AuditFaqSection() {
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const faqSchemaItems = useMemo(() => AUDIT_FAQ_ITEMS.map(f => ({ question: f.question, answer: f.answer })), []);
+  useFaqSchema(faqSchemaItems);
+
+  return (
+    <div style={{
+      maxWidth: 480,
+      margin: "0 auto",
+      marginTop: 36,
+      paddingTop: 28,
+      borderTop: "1px solid rgba(0,0,0,0.07)",
+    }}>
+      <h2 style={{
+        fontSize: "clamp(20px, 3vw, 26px)",
+        fontWeight: 700,
+        color: "#111827",
+        letterSpacing: "-0.02em",
+        lineHeight: 1.15,
+        margin: "0 0 16px",
+        textAlign: "center",
+      }}>
+        Frequently Asked Questions
+      </h2>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {AUDIT_FAQ_ITEMS.map((item, i) => {
+          const isOpen = openIdx === i;
+          return (
+            <div key={i} style={{
+              background: "rgba(255,255,255,0.78)",
+              border: "1px solid rgba(0,0,0,0.08)",
+              borderRadius: 12,
+              overflow: "hidden",
+            }}>
+              <button
+                onClick={() => setOpenIdx(isOpen ? null : i)}
+                aria-expanded={isOpen}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "14px 16px",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: isOpen ? "#111827" : "rgba(0,0,0,0.55)",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  textAlign: "left",
+                  lineHeight: 1.4,
+                  transition: "color 0.15s",
+                }}
+              >
+                <span>{item.question}</span>
+                <ChevronDown
+                  size={14}
+                  color="rgba(0,0,0,0.3)"
+                  style={{
+                    flexShrink: 0,
+                    transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                />
+              </button>
+              {isOpen && (
+                <div style={{
+                  padding: "0 16px 14px",
+                  fontSize: 13,
+                  color: "rgba(0,0,0,0.48)",
+                  lineHeight: 1.65,
+                }}>
+                  {item.answer}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function FreeAudit() {
@@ -720,6 +889,14 @@ export default function FreeAudit() {
               </div>
             );
           })()}
+          {/* ─── Static SEO Content + FAQ (hidden during audit/report) ─── */}
+          {!reportReady && !busy && (
+            <>
+              <AuditStaticSections />
+              <AuditFaqSection />
+            </>
+          )}
+
           {/* ─── Other Free Tools ─── */}
           <div style={{
             maxWidth: 480,

@@ -403,11 +403,11 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
             </Link>
 
             {/* Secondary: Cross-tool CTA */}
-            <Link href="/free-audit" style={{ textDecoration: 'none', display: 'block' }}>
+            <Link href="/tools/free-audit" style={{ textDecoration: 'none', display: 'block' }}>
               <div
                 role="link"
                 tabIndex={0}
-                onClick={() => trackEvent("calculator_secondary_cta_clicked", { target: "/free-audit" })}
+                onClick={() => trackEvent("calculator_secondary_cta_clicked", { target: "/tools/free-audit" })}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                   padding: '12px 20px', borderRadius: radius.lg,
