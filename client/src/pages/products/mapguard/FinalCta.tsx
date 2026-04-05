@@ -44,9 +44,9 @@ export default function FinalCta() {
             marginBottom: 16,
           }}
         >
-          Start Getting More Calls
+          Start Getting Found
           <br />
-          <span style={{ color: mkt.accent }}>From Google Maps</span>
+          <span style={{ color: mkt.accent }}>on Google.</span>
         </h2>
 
         <p
@@ -59,8 +59,7 @@ export default function FinalCta() {
             margin: "0 auto 36px",
           }}
         >
-          Your competitors are already optimized. Don't let customers find them
-          instead of you.
+          Get your free audit and see exactly what's missing from your Google Business Profile.
         </p>
 
         <Link
@@ -90,7 +89,7 @@ export default function FinalCta() {
             el.style.transform = "translateY(0)";
           }}
         >
-          Optimize My Listing Now
+          Get My Free GBP Audit
           <ArrowRight size={18} />
         </Link>
       </div>

@@ -78,9 +78,9 @@ export default function HeroSection() {
               marginBottom: 20,
             }}
           >
-            Get Found on Google Maps
+            Get More Calls From Google
             <br />
-            <span style={{ color: mkt.accent }}>by People Ready to Call</span>
+            <span style={{ color: mkt.accent }}>— Without Running Ads</span>
           </h1>
 
           <p
@@ -93,17 +93,16 @@ export default function HeroSection() {
               maxWidth: 480,
             }}
           >
-            We optimize your Google Business profile so you show up when
-            customers search for your service in your area — more calls, more
-            bookings, no guesswork.
+            MapGuard sets up, fixes, and manages your Google Business Profile
+            so you show up when customers search "near me" — and stay there.
           </p>
 
           {/* Quick bullets */}
           <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column", gap: 10 }}>
             {[
-              "Rank higher in local searches",
-              "Get more calls and direction requests",
-              "Fully done-for-you setup and optimization",
+              "Show up when customers search nearby",
+              "Get more calls without paying for ads",
+              "Fully done-for-you — we handle everything",
             ].map((b) => (
               <li
                 key={b}
@@ -158,7 +157,7 @@ export default function HeroSection() {
                 el.style.transform = "translateY(0)";
               }}
             >
-              Start My Optimization
+              Get Your Free GBP Audit
               <ArrowRight size={16} />
             </Link>
             <Link

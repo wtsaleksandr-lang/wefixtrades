@@ -33,11 +33,11 @@ export default function PricingSection() {
       <div style={MAX_W}>
         <div style={{ textAlign: "center", marginBottom: 48 }} data-reveal="fade-up">
           <h2 style={sectionHeading}>
-            Simple,{" "}
-            <span style={{ color: mkt.accent }}>Transparent Pricing</span>
+            Simple Pricing.{" "}
+            <span style={{ color: mkt.accent }}>No Contracts.</span>
           </h2>
           <p style={sectionSub}>
-            Pick a plan that fits your needs. No hidden fees, no surprises.
+            We set it up once, then manage it monthly so your profile keeps improving. Cancel anytime.
           </p>
         </div>
 

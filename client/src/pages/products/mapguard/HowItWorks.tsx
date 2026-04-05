@@ -1,27 +1,22 @@
-import { ShoppingCart, Settings, Rocket, TrendingUp } from "lucide-react";
+import { Search, Settings, Rocket } from "lucide-react";
 import { mkt } from "@/theme/tokens";
 import { HEADING_FONT, BODY_FONT, GLASS, sectionHeading, sectionSub, SECTION_PAD, MAX_W } from "./styles";
 
 const STEPS = [
   {
-    icon: ShoppingCart,
-    title: "Order",
-    desc: "Choose your plan and submit your business details. Takes about 2 minutes.",
+    icon: Search,
+    title: "Audit",
+    desc: "We scan your current profile and show you exactly what\u2019s missing or holding you back.",
   },
   {
     icon: Settings,
-    title: "Setup",
-    desc: "We optimize your Google profile and structure everything properly for maximum visibility.",
+    title: "Optimize",
+    desc: "We fix everything \u2014 structure, content, categories, photos, and visibility signals.",
   },
   {
     icon: Rocket,
-    title: "Go Live",
-    desc: "Your listing starts improving visibility and generating more calls from real local searches.",
-  },
-  {
-    icon: TrendingUp,
-    title: "Grow",
-    desc: "We monitor and improve your listing over time so results keep building (ongoing plans).",
+    title: "Maintain",
+    desc: "We keep your profile active and improving every month \u2014 posts, reviews, adjustments.",
   },
 ];
 
@@ -36,11 +31,11 @@ export default function HowItWorks() {
       <div style={MAX_W}>
         <div style={{ textAlign: "center", marginBottom: 56 }} data-reveal="fade-up">
           <h2 style={sectionHeading}>
-            Simple. Fast.{" "}
-            <span style={{ color: mkt.accent }}>No Back and Forth.</span>
+            How It{" "}
+            <span style={{ color: mkt.accent }}>Works</span>
           </h2>
           <p style={sectionSub}>
-            Getting started takes less than 5 minutes. We handle the rest.
+            You don't need to log into anything — we handle it.
           </p>
         </div>
 

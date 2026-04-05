@@ -3,11 +3,10 @@ import { mkt } from "@/theme/tokens";
 import { BODY_FONT } from "./styles";
 
 const BADGES = [
-  { icon: Star, text: "4.8 average client rating" },
-  { icon: Shield, text: "No contracts — cancel anytime" },
-  { icon: Zap, text: "Setup starts immediately" },
-  { icon: MessageSquare, text: "No long calls or onboarding" },
-  { icon: MapPin, text: "Built for local trades businesses" },
+  { icon: MapPin, text: "Built for trades businesses" },
+  { icon: Zap, text: "Done-for-you (no setup work on your side)" },
+  { icon: Shield, text: "No contracts" },
+  { icon: Star, text: "Results in 30\u201360 days" },
 ];
 
 export default function TrustStrip() {

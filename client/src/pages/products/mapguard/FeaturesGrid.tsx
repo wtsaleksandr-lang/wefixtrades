@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings, Eye, Star, TrendingUp } from "lucide-react";
+import { MapPin, Phone, ShieldCheck, CalendarCheck, Trophy, UserCheck } from "lucide-react";
 import { mkt } from "@/theme/tokens";
 import {
   HEADING_FONT,
@@ -12,60 +12,18 @@ import {
   MAX_W,
 } from "./styles";
 
-const FEATURES = [
-  {
-    icon: Settings,
-    title: "Profile Optimization",
-    desc: "We fully optimize your Google profile so it performs properly.",
-    bullets: [
-      "Business info setup (categories, services, areas)",
-      "Keyword optimization for your trade",
-      "Service descriptions written for conversions",
-      "Images and content setup",
-    ],
-  },
-  {
-    icon: Eye,
-    title: "Visibility Boost",
-    desc: "We improve how often your business appears in searches.",
-    bullets: [
-      "Location relevance tuning",
-      "Service-area targeting",
-      "Competitor gap adjustments",
-      "Search visibility improvements",
-    ],
-  },
-  {
-    icon: Star,
-    title: "Reviews & Reputation",
-    desc: "We help you build trust where it matters.",
-    bullets: [
-      "Review strategy setup",
-      "Response templates (done for you)",
-      "Rating improvement guidance",
-    ],
-  },
-  {
-    icon: TrendingUp,
-    title: "Ongoing Growth",
-    desc: "Keep your listing active and improving.",
-    bullets: [
-      "Regular updates",
-      "Performance tracking",
-      "Continuous improvements",
-    ],
-  },
+const BENEFITS = [
+  { icon: MapPin, title: "Show up when customers search nearby", desc: "Appear in Google Maps results for your services and service area." },
+  { icon: Phone, title: "Get more calls without paying for ads", desc: "Organic visibility that brings in leads every month." },
+  { icon: ShieldCheck, title: "Build trust before they even click", desc: "Reviews, photos, and activity make customers choose you." },
+  { icon: CalendarCheck, title: "Stay active and visible every week", desc: "Regular posts and updates keep your profile fresh." },
+  { icon: Trophy, title: "Beat competitors in your area", desc: "Optimized profiles outrank incomplete ones." },
+  { icon: UserCheck, title: "Everything handled for you", desc: "We do the work. You focus on the job." },
 ];
 
-function FeatureCard({
-  feature,
-  delay,
-}: {
-  feature: (typeof FEATURES)[0];
-  delay: number;
-}) {
+function BenefitCard({ benefit, delay }: { benefit: typeof BENEFITS[0]; delay: number }) {
   const [hovered, setHovered] = useState(false);
-  const Icon = feature.icon;
+  const Icon = benefit.icon;
 
   return (
     <div
@@ -75,79 +33,48 @@ function FeatureCard({
       onMouseLeave={() => setHovered(false)}
       style={{
         ...GLASS,
-        padding: "32px 28px",
+        padding: "28px 24px",
         transition: "transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease",
         ...(hovered ? GLASS_HOVER : {}),
         cursor: "default",
       }}
     >
-      {/* Icon */}
       <div
         style={{
-          width: 48,
-          height: 48,
-          borderRadius: 14,
+          width: 40,
+          height: 40,
+          borderRadius: 12,
           background: mkt.accentTint,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: 20,
+          marginBottom: 16,
         }}
       >
-        <Icon size={22} color={mkt.accent} strokeWidth={1.8} />
+        <Icon size={20} color={mkt.accent} strokeWidth={1.8} />
       </div>
-
       <h3
         style={{
           fontFamily: HEADING_FONT,
-          fontSize: 20,
+          fontSize: 17,
           fontWeight: 700,
           color: mkt.text,
-          marginBottom: 8,
+          marginBottom: 6,
         }}
       >
-        {feature.title}
+        {benefit.title}
       </h3>
-
       <p
         style={{
           fontFamily: BODY_FONT,
           fontSize: 14,
           color: mkt.textMuted,
-          lineHeight: 1.6,
-          marginBottom: 16,
+          lineHeight: 1.55,
+          margin: 0,
         }}
       >
-        {feature.desc}
+        {benefit.desc}
       </p>
-
-      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-        {feature.bullets.map((b) => (
-          <li
-            key={b}
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 8,
-              fontSize: 13,
-              color: mkt.textFaint,
-              lineHeight: 1.5,
-            }}
-          >
-            <div
-              style={{
-                width: 5,
-                height: 5,
-                borderRadius: "50%",
-                background: mkt.accent,
-                flexShrink: 0,
-                marginTop: 6,
-              }}
-            />
-            {b}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
@@ -157,14 +84,24 @@ export default function FeaturesGrid() {
     <section style={{ ...SECTION_PAD, background: mkt.bg }}>
       <div style={MAX_W}>
         <div style={{ textAlign: "center", marginBottom: 48 }} data-reveal="fade-up">
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: mkt.accent,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              marginBottom: 14,
+            }}
+          >
+            Benefits
+          </div>
           <h2 style={sectionHeading}>
-            Everything Your Business Needs
-            <br />
-            <span style={{ color: mkt.accent }}>to Show Up Locally</span>
+            What You Get{" "}
+            <span style={{ color: mkt.accent }}>With MapGuard</span>
           </h2>
           <p style={sectionSub}>
-            No jargon, no complicated tools. We handle everything so you can
-            focus on your work.
+            No jargon. No complicated tools. Simple outcomes for your business.
           </p>
         </div>
 
@@ -172,12 +109,12 @@ export default function FeaturesGrid() {
           className="mapguard-features-grid"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
-            gap: 20,
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 16,
           }}
         >
-          {FEATURES.map((f, i) => (
-            <FeatureCard key={f.title} feature={f} delay={i * 100} />
+          {BENEFITS.map((b, i) => (
+            <BenefitCard key={b.title} benefit={b} delay={i * 80} />
           ))}
         </div>
 

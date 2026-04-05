@@ -5,24 +5,28 @@ import { HEADING_FONT, BODY_FONT, GLASS, sectionHeading, SECTION_PAD, MAX_W } fr
 
 const FAQ_ITEMS = [
   {
-    q: "How fast will I see results?",
-    a: "Most clients see improved visibility within 2–4 weeks. Google needs time to process changes, but our optimizations are designed to move the needle fast. Ongoing plans continue building momentum each month.",
+    q: "How long before I see results?",
+    a: "Most clients see improvement within 30\u201360 days. Google needs time to process changes, but our optimizations are designed to move the needle fast. Ongoing plans keep building momentum each month.",
   },
   {
-    q: "Do I need to give you access to my Google account?",
-    a: "We'll need limited access to your Google Business Profile to make the changes. We'll walk you through a simple process that keeps your account secure — no passwords shared.",
+    q: "Do I need to do anything?",
+    a: "No. We handle everything \u2014 setup, optimization, posts, reviews, monitoring. You don\u2019t need to log in or learn any tools.",
   },
   {
-    q: "Do you guarantee ranking?",
-    a: "No one can guarantee specific rankings — be cautious of anyone who does. What we can guarantee is a properly optimized profile that gives your business the best possible chance of ranking higher for your service and area.",
+    q: "Is this SEO?",
+    a: "It\u2019s focused specifically on Google Maps visibility \u2014 where your calls actually come from. When someone searches \u201Cplumber near me,\u201D we make sure your business shows up.",
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. There are no contracts or commitments on our monthly plans. If you're on a Growth or Pro plan, you can cancel anytime with no penalty.",
+    a: "Yes. No contracts, no commitments. Monthly plans can be cancelled anytime with no penalty.",
   },
   {
     q: "Do you work with my trade?",
-    a: "We work with all trades — plumbers, electricians, HVAC, roofers, cleaners, landscapers, painters, and more. If you serve local customers, MapGuard is built for you.",
+    a: "We work with all trades \u2014 plumbers, electricians, HVAC, roofers, cleaners, landscapers, painters, and more. If you serve local customers, MapGuard is built for you.",
+  },
+  {
+    q: "Do you guarantee rankings?",
+    a: "No one can honestly guarantee specific rankings. What we guarantee is a fully optimized, actively managed profile that gives your business the best possible chance of ranking higher in your area.",
   },
 ];
 

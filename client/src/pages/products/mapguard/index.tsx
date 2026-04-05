@@ -5,6 +5,8 @@ import { mkt } from "@/theme/tokens";
 import { GRID_BG } from "./styles";
 import HeroSection from "./HeroSection";
 import TrustStrip from "./TrustStrip";
+import ProblemSection from "./ProblemSection";
+import WhatWeDoSection from "./WhatWeDoSection";
 import FeaturesGrid from "./FeaturesGrid";
 import HowItWorks from "./HowItWorks";
 import ResultsSection from "./ResultsSection";
@@ -16,10 +18,10 @@ export default function MapGuardPage() {
   useScrollReveal();
 
   useEffect(() => {
-    document.title = "MapGuard™ — Google Maps Optimization | WeFixTrades";
+    document.title = "MapGuard™ — Get More Calls From Google Maps | WeFixTrades";
     const metaDesc = document.querySelector('meta[name="description"]');
     const desc =
-      "We optimize your Google Business profile so you show up when customers search for your service in your area.";
+      "Get more calls from Google without running ads. MapGuard sets up, fixes, and manages your Google Business Profile so you show up when customers search near you.";
     if (metaDesc) {
       metaDesc.setAttribute("content", desc);
     } else {
@@ -35,8 +37,10 @@ export default function MapGuardPage() {
       <div style={{ ...GRID_BG, background: mkt.bg, overflowX: "hidden" }}>
         <HeroSection />
         <TrustStrip />
-        <FeaturesGrid />
+        <ProblemSection />
+        <WhatWeDoSection />
         <HowItWorks />
+        <FeaturesGrid />
         <ResultsSection />
         <PricingSection />
         <FaqSection />

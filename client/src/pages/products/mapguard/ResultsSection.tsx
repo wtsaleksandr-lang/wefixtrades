@@ -3,9 +3,9 @@ import { HEADING_FONT, BODY_FONT, GLASS, sectionHeading, sectionSub, SECTION_PAD
 import { useCountUp } from "./useCountUp";
 
 const METRICS = [
-  { value: 40, suffix: "%", label: "Increase in map visibility" },
+  { value: 40, suffix: "%", label: "More map visibility" },
   { value: 3, suffix: "x", label: "More calls from local searches" },
-  { value: 21, suffix: "", label: "Days to first results" },
+  { value: 30, suffix: "", label: "Days to first improvements" },
 ];
 
 function MetricCard({ value, suffix, label }: { value: number; suffix: string; label: string }) {
@@ -53,11 +53,11 @@ export default function ResultsSection() {
       <div style={MAX_W}>
         <div style={{ textAlign: "center", marginBottom: 48 }} data-reveal="fade-up">
           <h2 style={sectionHeading}>
-            Real Improvements{" "}
-            <span style={{ color: mkt.accent }}>Our Clients See</span>
+            What Happens When{" "}
+            <span style={{ color: mkt.accent }}>You Start Showing Up</span>
           </h2>
           <p style={sectionSub}>
-            Realistic numbers based on what businesses like yours experience after optimization.
+            More visibility = more calls. One extra job per month can cover your entire cost.
           </p>
         </div>
 
