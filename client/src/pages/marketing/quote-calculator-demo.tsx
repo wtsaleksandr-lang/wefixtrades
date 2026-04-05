@@ -614,7 +614,7 @@ const DEMO_FAQ_ITEMS = [
   },
   {
     question: "Can I customize the pricing and questions?",
-    answer: "Yes. QuoteQuick supports 10 pricing models including hourly, per square foot, tiered packages, and base-plus-rate. You can add custom add-ons, difficulty tiers, travel fees, and after-hours multipliers.",
+    answer: "Yes. QuoteQuick supports 10 pricing options including hourly rates, per square foot, tiered packages, and service call + hourly. You can add custom extras, job complexity levels, travel fees, and after-hours surcharges.",
   },
   {
     question: "Does it work on mobile?",

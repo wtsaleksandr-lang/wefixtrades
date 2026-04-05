@@ -5,6 +5,7 @@ import {
   TrendingDown, Calendar, Briefcase, ArrowRight, Info,
   ChevronDown, ChevronUp, Zap, Lock, Search, Copy, Check,
 } from 'lucide-react';
+import InfoTooltip from '@/components/marketing/InfoTooltip';
 import { mkt, colors, radius } from '@/theme/tokens';
 import { calculateRange, formatCurrencyFull } from '@/lib/missedCallCalculator';
 import type { CalcInputs } from '@/lib/missedCallCalculator';
@@ -104,8 +105,10 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
           <span style={{
             fontSize: 12, fontWeight: 700, color: '#EF4444',
             letterSpacing: '0.04em', textTransform: 'uppercase' as const,
+            display: 'inline-flex', alignItems: 'center',
           }}>
-            Estimated lost opportunity per year
+            Estimated revenue from missed calls
+            <InfoTooltip text="This is the revenue that likely went to competitors because the call wasn't answered. It's based on your missed call volume, the percentage that would have become jobs, and your average job value." />
           </span>
         </div>
 
@@ -167,7 +170,7 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
         textAlign: 'center', fontSize: 12, color: mkt.textFaint, lineHeight: 1.5,
         padding: '0 8px',
       }}>
-        Based on {inputs.missedCallsPerWeek} missed calls/week at {inputs.closeRatePercent}% close rate
+        Based on {inputs.missedCallsPerWeek} missed calls/week at {inputs.closeRatePercent}% booking rate
       </div>
 
       {/* ═══ LOCKED TEASERS: only when NOT unlocked ═══ */}
@@ -181,7 +184,7 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
           {/* Locked preview rows */}
           {[
             { label: 'Monthly breakdown', icon: <Calendar size={13} /> },
-            { label: 'Jobs lost per month', icon: <Briefcase size={13} /> },
+            { label: 'Missed jobs per month', icon: <Briefcase size={13} /> },
           ].map((row) => (
             <div key={row.label} style={{
               display: 'flex', alignItems: 'center', gap: 10,
@@ -219,7 +222,7 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
               delay={reducedMotion ? 0 : 0.2}
             />
             <ResultMetricCard
-              label="Jobs lost / mo"
+              label="Missed jobs / mo"
               value={`~${Math.round(conservative.lostJobsPerMonth)} – ${Math.round(high.lostJobsPerMonth)}`}
               icon={<Briefcase size={14} />}
               accent="#D97706"
@@ -249,7 +252,10 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
                 }}
               >
                 <Zap size={14} color={mkt.accent} />
-                <span style={{ flex: 1 }}>What if your close rate improved?</span>
+                <span style={{ flex: 1, display: 'inline-flex', alignItems: 'center' }}>
+                  What if you answered calls faster?
+                  <InfoTooltip text="Businesses that respond to calls within 30 seconds book significantly more jobs. This shows how much more revenue you'd capture if your booking rate increased." />
+                </span>
                 {showScenario
                   ? <ChevronUp size={14} color={mkt.textFaint} />
                   : <ChevronDown size={14} color={mkt.textFaint} />}
@@ -268,7 +274,7 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
                   }}
                 >
                   <p style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.55, margin: '0 0 10px' }}>
-                    Faster response times tend to increase close rates. If yours
+                    Answering calls faster means more booked jobs. If your booking rate
                     went from {inputs.closeRatePercent}% to {boostedRate}%:
                   </p>
                   <div style={{
@@ -335,12 +341,12 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
                   lineHeight: 1.65, listStyleType: 'disc',
                 }}>
                   <li>Results are based on your inputs for missed calls, close rate, and average job value</li>
-                  <li>The conservative figure assumes 70% of missed calls were genuine leads</li>
-                  <li>The high estimate adds 20% for repeat and referral value</li>
-                  <li>Trade presets use typical service-business ranges and are meant as starting points</li>
-                  <li>Results are shown as ranges because real businesses vary by season, market, and lead quality</li>
+                  <li>The low estimate assumes 70% of missed calls were real potential customers</li>
+                  <li>The high estimate adds 20% for repeat business and referrals you'd also lose</li>
+                  <li>Trade presets use typical averages for your industry and are meant as starting points</li>
+                  <li>Results are shown as ranges because every business varies by season, location, and customer type</li>
                   <li style={{ marginTop: 4 }}>
-                    <span style={{ color: mkt.textMuted }}>These estimates are directional, not guarantees</span>
+                    <span style={{ color: mkt.textMuted }}>These are rough estimates, not exact figures</span>
                   </li>
                 </ul>
               </motion.div>

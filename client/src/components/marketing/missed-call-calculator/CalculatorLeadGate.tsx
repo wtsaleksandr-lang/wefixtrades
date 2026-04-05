@@ -113,7 +113,7 @@ export default function CalculatorLeadGate({
           Your full report is ready.
         </div>
         <div style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.5, marginBottom: 16 }}>
-          We've also emailed your recovery plan — check your inbox within 5 minutes.
+          We've also emailed your action plan to capture missed revenue — check your inbox within 5 minutes.
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
           <Link href="/tools/free-audit" style={{

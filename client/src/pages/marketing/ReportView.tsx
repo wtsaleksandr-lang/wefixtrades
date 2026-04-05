@@ -944,8 +944,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     { key: 'websiteQuality', icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote },
     { key: 'searchVisibility', icon: <Search size={18} color="#00D4C8" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
     { key: 'competitorPosition', icon: <Trophy size={18} color="#00D4C8" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
-    { key: 'adOpportunity', icon: <Megaphone size={18} color="#00D4C8" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'The paid search market in your area' },
-    { key: 'demandCoverage', icon: <Clock size={18} color="#00D4C8" />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you're visible when customers search most" },
+    { key: 'adOpportunity', icon: <Megaphone size={18} color="#00D4C8" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'Whether Google Ads would help you get more calls' },
+    { key: 'demandCoverage', icon: <Clock size={18} color="#00D4C8" />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you show up during evenings, weekends, and emergencies" },
   ];
 
   const card = (extra?: any) => ({
@@ -1605,10 +1605,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     Tap a metric to see how to fix it
                   </div>
                   {[
-                    { key: 'fcp', label: 'FCP', tip: 'First Contentful Paint', val: data?.fcp, unit: 's', good: 2.5, ok: 4 },
-                    { key: 'lcp', label: 'LCP', tip: 'Largest Contentful Paint — key ranking factor', val: data?.lcp, unit: 's', good: 2.5, ok: 4 },
-                    { key: 'tbt', label: 'TBT', tip: 'Total Blocking Time — responsiveness', val: data?.tbt, unit: 'ms', good: 200, ok: 600 },
-                    { key: 'cls', label: 'CLS', tip: 'Cumulative Layout Shift — stability', val: data?.cls, unit: '', good: 0.1, ok: 0.25 },
+                    { key: 'fcp', label: 'FCP', tip: 'How fast the first content appears on screen', val: data?.fcp, unit: 's', good: 2.5, ok: 4 },
+                    { key: 'lcp', label: 'LCP', tip: 'How fast the main content loads — Google uses this for rankings', val: data?.lcp, unit: 's', good: 2.5, ok: 4 },
+                    { key: 'tbt', label: 'TBT', tip: 'How long your site freezes before users can interact', val: data?.tbt, unit: 'ms', good: 200, ok: 600 },
+                    { key: 'cls', label: 'CLS', tip: 'How much elements jump around while loading', val: data?.cls, unit: '', good: 0.1, ok: 0.25 },
                   ].map(m => {
                     const isGood = (m.val || 0) <= m.good;
                     const isOk = (m.val || 0) <= m.ok;
@@ -1625,7 +1625,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                             <span style={{ fontSize: 12, fontWeight: 600, color: DARK }}>{m.label}</span>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%', background: GREY_BG, color: GREY, fontSize: 9 }}>?</span>
+                            <Tooltip text={m.tip} />
                           </div>
                           <div style={{ fontSize: 12, color: GREY, marginTop: 1 }}>{m.val != null ? `${m.val}${m.unit}` : '—'}</div>
                         </div>
@@ -1806,10 +1806,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           <div style={{ display: 'flex', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${BORDER}`, gap: 4 }}>
             <span style={{ flex: 1, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, minWidth: 0 }}>Keyword</span>
             {([
-              { key: 'vol', label: 'Vol.', w: 40, tip: 'Monthly search volume — how many people search this term each month in your area.' },
-              { key: 'cpc', label: 'CPC', w: 42, tip: 'Cost Per Click — what advertisers pay per click for this keyword. Higher CPC = higher commercial intent.' },
+              { key: 'vol', label: 'Vol.', w: 40, tip: 'Monthly searches — how many people search this term each month in your area.' },
+              { key: 'cpc', label: 'CPC', w: 42, tip: 'Cost Per Click — what Google charges per ad click for this search term. Higher cost means more competition for these customers.' },
               { key: 'rank', label: 'Rank', w: 48, tip: 'Your Google search position for this keyword. Top 3 gets the most clicks; page 1 is positions 1–10.' },
-              { key: 'vis', label: 'Visibility', w: 58, tip: 'Overall search presence — combines organic rank and Google Maps (Local Pack) position.' },
+              { key: 'vis', label: 'Visibility', w: 58, tip: 'How visible you are for this search — combines your website ranking and Google Maps position.' },
             ] as const).map(col => (
               <span key={col.key} style={{ width: col.w, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0, position: 'relative', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}
                 onClick={() => setKwColTooltip(prev => prev === col.key ? null : col.key)}>
