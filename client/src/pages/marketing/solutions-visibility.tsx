@@ -3,10 +3,9 @@ import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, colors, shadows } from "@/theme/tokens";
 import mapguardIcon from "@assets/mapguard-icon_1772080241423.webp";
-import webboostIcon from "@assets/webboost-icon_1772080241365.webp";
 import reputationshieldIcon from "@assets/reputationshield-icon_1772080241309.webp";
 import socialsyncIcon from "@assets/socialsync-icon_1772080241338.webp";
-import { MAPGUARD, WEBBOOST, REPUTATIONSHIELD, SOCIALSYNC, lowestMonthly, formatPrice } from "@/config/pricing";
+import { MAPGUARD, REPUTATIONSHIELD, SOCIALSYNC, RANKFLOW, lowestMonthly, formatPrice } from "@/config/pricing";
 
 const services = [
   {
@@ -26,20 +25,20 @@ const services = [
     from: `From ${formatPrice(lowestMonthly(MAPGUARD)!)}/mo`,
   },
   {
-    id: "webboost",
-    icon: webboostIcon,
-    title: "WebBoost",
-    subtitle: "SEO & Website Speed Optimisation",
+    id: "rankflow",
+    icon: mapguardIcon,
+    title: "RankFlow",
+    subtitle: "Ongoing SEO for Trades",
     description:
-      "Rank higher on Google with a fast-loading, optimised website that converts visitors into leads. We handle technical SEO, content, and performance tuning.",
+      "Rank higher on Google with ongoing SEO that brings consistent traffic and leads. We handle keyword targeting, content creation, and performance tracking.",
     included: [
-      "Technical SEO audit and fixes (meta, schema, sitemap)",
-      "Page speed optimisation (Core Web Vitals)",
-      "Monthly keyword tracking and content recommendations",
-      "On-page SEO for service and location pages",
-      "Monthly performance report with traffic insights",
+      "Keyword research & on-page optimization",
+      "Content creation that ranks for your services",
+      "Google Search Console monitoring",
+      "Monthly ranking reports",
+      "Local SEO optimization",
     ],
-    from: `From ${formatPrice(lowestMonthly(WEBBOOST)!)}/mo`,
+    from: `From ${formatPrice(lowestMonthly(RANKFLOW)!)}/mo`,
   },
   {
     id: "reputationshield",

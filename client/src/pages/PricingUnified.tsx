@@ -5,7 +5,7 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, shadows, typography } from "@/theme/tokens";
 import {
   ALL_PRODUCTS, YEARLY_DISCOUNT_PCT,
-  SITELAUNCH, TRADELINE, FIX_OPTIMIZE,
+  SITELAUNCH, TRADELINE, WEBFIX,
   BUNDLE_STARTER, BUNDLE_GROWTH, BUNDLE_PRO,
   yearlyMonthlyEquiv, formatPrice, bundleSavings,
   type ProductDef, type BundleDef, type Tier,
@@ -92,14 +92,6 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
     trustLine: "Keeps your business visible without you posting anything",
     bestFor: "hands-off social media",
   },
-  webboost: {
-    name: "WebBoost\u2122",
-    headline: "Make your website faster and easier to find",
-    bullets: ["Improve loading speed", "Fix SEO structure", "Help your site bring more leads"],
-    href: "/products/webboost",
-    trustLine: "Improves your site so it actually brings in work",
-    bestFor: "faster site + better rankings",
-  },
   webcare: {
     name: "WebCare\u2122",
     headline: "We handle your website so you don\u2019t have to",
@@ -132,8 +124,8 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
     trustLine: "Brings qualified leads to trades businesses through paid ads",
     bestFor: "fast lead generation via ads",
   },
-  "fix-optimize": {
-    name: "Fix & Optimize\u2122",
+  webfix: {
+    name: "WebFix\u2122",
     headline: "Quick website fixes and optimization",
     bullets: [
       "Speed optimization (Core Web Vitals)",
@@ -960,11 +952,11 @@ export default function PricingUnified() {
   }
 
   function openFixOptimizeCheckout() {
-    const tier = FIX_OPTIMIZE.tiers[0];
-    setCheckoutTitle(FIX_OPTIMIZE.name);
+    const tier = WEBFIX.tiers[0];
+    setCheckoutTitle(WEBFIX.name);
     setCheckoutItems([{
       serviceId: tier.id,
-      label: FIX_OPTIMIZE.name,
+      label: WEBFIX.name,
       price: tier.price,
       billingPeriod: "one-time",
     }]);
@@ -1180,7 +1172,7 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
             {/* Active category cards */}
             {productsByCategory.filter(g => g.cat === activeCat).map((group) => {
               /* Filter out one-time-only products from the monthly grid — they appear in the one-time section below */
-              const ONE_TIME_IDS = new Set(["sitelaunch", "fix-optimize"]);
+              const ONE_TIME_IDS = new Set(["sitelaunch", "webfix"]);
               const monthlyProducts = group.cat === "website" ? group.products.filter(p => !ONE_TIME_IDS.has(p.id)) : group.products;
 
               return (
@@ -1205,7 +1197,7 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
                       </p>
                     </div>
                     <div className="pricing-services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, alignItems: "stretch" }}>
-                      <OneTimeCard product={FIX_OPTIMIZE} yearly={yearly} onCheckout={openFixOptimizeCheckout} onInfo={() => setInfoModal(SERVICE_INFO["fix-optimize"])} bestFor={SERVICE_INFO["fix-optimize"]?.bestFor} />
+                      <OneTimeCard product={WEBFIX} yearly={yearly} onCheckout={openFixOptimizeCheckout} onInfo={() => setInfoModal(SERVICE_INFO["webfix"])} bestFor={SERVICE_INFO["webfix"]?.bestFor} />
                       <OneTimeCard product={SITELAUNCH} yearly={yearly} onCheckout={openSiteLaunchCheckout} onInfo={() => setInfoModal(SERVICE_INFO["sitelaunch"])} bestFor={SERVICE_INFO["sitelaunch"]?.bestFor} />
                     </div>
                   </>

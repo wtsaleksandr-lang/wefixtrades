@@ -3358,8 +3358,8 @@ export default function ProductPage() {
   const isSocialSync = product.slug === "socialsync";
   const isSiteLaunch = product.slug === "sitelaunch";
   const isWebCare = product.slug === "webcare";
-  const isWebBoost = product.slug === "webboost";
-  const hasCustomHero = isTradeLine || isQuoteQuick || isReputationShield || isSocialSync || isSiteLaunch || isWebCare || isWebBoost;
+
+  const hasCustomHero = isTradeLine || isQuoteQuick || isReputationShield || isSocialSync || isSiteLaunch || isWebCare || false /* WebBoost removed */;
 
   return (
     <MarketingLayout>
@@ -3413,7 +3413,7 @@ export default function ProductPage() {
                 ) : isWebCare ? (
                   <>We Take Care of Your Website —{" "}<span style={{ color: mkt.accent }}>So You Can Focus on the Job</span></>
 
-                ) : isWebBoost ? (
+                ) : false /* WebBoost removed */ ? (
                   <>Make Your Website Faster, Easier to Find, and{" "}<span style={{ color: mkt.accent }}>Better at Turning Visitors Into Calls</span></>
                 ) : (
                   <>Stay Active Online —{" "}<span style={{ color: mkt.accent }}>Without Doing It Yourself</span></>
@@ -3447,7 +3447,7 @@ export default function ProductPage() {
                   "We build your website from scratch \u2014 custom designed, mobile-first, SEO-ready, with lead capture built in. One-time fee. No contracts. You own the site."
                 ) : isWebCare ? (
                   "Your website stays updated, secure, and working. No tech headaches. No contracts. Just reliable maintenance \u2014 built for trades businesses."
-                ) : isWebBoost ? (
+                ) : false /* WebBoost removed */ ? (
                   "WebBoost fixes the speed, structure, and SEO issues that quietly cost trades businesses leads every day \u2014 without locking you into a big agency retainer."
                 ) : (
                   "SocialSync creates and posts content for your business across Facebook, Instagram, and Google \u2014 so you stay visible, trusted, and top of mind without lifting a finger."
@@ -3552,7 +3552,7 @@ export default function ProductPage() {
             </p>
           )}
 
-          {isWebBoost && (
+          {false /* WebBoost removed */ && (
             <p
               className="hero-enter"
               style={{
@@ -3580,7 +3580,7 @@ export default function ProductPage() {
                 color: mkt.textMuted,
               }}
             >
-              {(isWebBoost ? [
+              {(false /* WebBoost removed */ ? [
                 "Built for trades businesses",
                 "Speed + SEO improvements together",
                 "No contracts",
@@ -3705,7 +3705,7 @@ export default function ProductPage() {
         )}
 
         {/* ── WebBoost: Built For + Problem + Alternatives + What We Do + Benefits ── */}
-        {isWebBoost && (
+        {false /* WebBoost removed */ && (
           <>
             <WBBuiltForSection trades={product.bestFor} />
             <WBProblemSection />
@@ -3725,13 +3725,13 @@ export default function ProductPage() {
             isSocialSync ? "What this actually does for your business" :
             isSiteLaunch ? "What\u2019s included in every SiteLaunch build" :
             isWebCare ? "What's included in your plan" :
-            isWebBoost ? "What you get with WebBoost" :
+            false /* WebBoost removed */ ? "What you get with WebBoost" :
             undefined
           }
         />
 
         {/* ── §3 HOW IT WORKS ── */}
-        <StepTimeline steps={product.howItWorks} heading={isQuoteQuick ? "Set it up once. Let it work every day." : isSiteLaunch ? "Three steps. Five days. Done." : isWebCare ? "Simple setup. Ongoing care." : isWebBoost ? "Simple process. Real improvements." : undefined} />
+        <StepTimeline steps={product.howItWorks} heading={isQuoteQuick ? "Set it up once. Let it work every day." : isSiteLaunch ? "Three steps. Five days. Done." : isWebCare ? "Simple setup. Ongoing care." : false /* WebBoost removed */ ? "Simple process. Real improvements." : undefined} />
 
         {isTradeLine && (
           <div style={{ background: mkt.surface, textAlign: "center", padding: "0 28px 48px" }} data-reveal="fade-up">
@@ -3760,7 +3760,7 @@ export default function ProductPage() {
           </div>
         )}
 
-        {isWebBoost && (
+        {false /* WebBoost removed */ && (
           <div style={{ background: mkt.surface, textAlign: "center", padding: "0 28px 48px" }} data-reveal="fade-up">
             <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text, maxWidth: 560, margin: "0 auto", lineHeight: 1.5 }}>
               No drawn-out agency process. No endless calls. Just focused improvements that matter.
@@ -3794,7 +3794,7 @@ export default function ProductPage() {
         {isWebCare && <WCComparisonSection />}
 
         {/* ── WebBoost: Comparison (after how-it-works) ── */}
-        {isWebBoost && <WBComparisonSection />}
+        {false /* WebBoost removed */ && <WBComparisonSection />}
 
         {/* ── §4 SOCIAL PROOF ── */}
         <SurfaceSection overlap className="py-4">
@@ -3819,7 +3819,7 @@ export default function ProductPage() {
         {isWebCare && <WCResultsSection outcomes={product.outcomes} />}
 
         {/* ── WebBoost: Results (after reviews, before pricing) ── */}
-        {isWebBoost && <WBResultsSection outcomes={product.outcomes} />}
+        {false /* WebBoost removed */ && <WBResultsSection outcomes={product.outcomes} />}
 
         {/* ── §5 PRICING (MANDATORY) ── */}
         <PricingSection
@@ -3831,7 +3831,7 @@ export default function ProductPage() {
             isSocialSync ? <SSPricingIntro /> :
             isSiteLaunch ? <SLPricingIntro /> :
             isWebCare ? <WCPricingIntro /> :
-            isWebBoost ? <WBPricingIntro /> :
+            false /* WebBoost removed */ ? <WBPricingIntro /> :
             undefined
           }
         />
@@ -3854,7 +3854,7 @@ export default function ProductPage() {
         {isWebCare && <WCRiskReversal />}
 
         {/* ── WebBoost: Risk Reversal (below pricing) ── */}
-        {isWebBoost && <WBRiskReversal />}
+        {false /* WebBoost removed */ && <WBRiskReversal />}
 
         {/* ── §6 FAQ ── */}
         {product.faq.length > 0 && (
@@ -3950,7 +3950,7 @@ export default function ProductPage() {
             ctaLabel="Get Started with WebCare"
             ctaHref="/Wizard"
           />
-        ) : isWebBoost ? (
+        ) : false /* WebBoost removed */ ? (
           <CTASection
             heading="Stop losing leads to a weak website."
             subtext="Fix the speed, SEO, and structure issues that hold your site back — without paying for a full agency retainer."

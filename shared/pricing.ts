@@ -176,53 +176,8 @@ export const QUOTEQUICK: ProductDef = {
 };
 
 /* ═══════════════════════════════════════════
-   D. WEBBOOST
+   D. (REMOVED — WebBoost replaced by WebFix one-time)
    ═══════════════════════════════════════════ */
-export const WEBBOOST: ProductDef = {
-  id: "webboost",
-  name: "WebBoost™",
-  tagline: "Website SEO and speed optimization",
-  category: "website",
-  setup: 349,
-  tiers: [
-    {
-      id: "webboost-setup",
-      name: "Setup",
-      price: 349,
-      billingPeriod: "one-time",
-      features: [
-        "Full PageSpeed audit",
-        "Core Web Vitals fixes",
-        "Image & asset optimisation",
-        "Before/after speed report",
-      ],
-    },
-    {
-      id: "webboost-basic",
-      name: "Basic",
-      price: 79,
-      billingPeriod: "monthly",
-      features: [
-        "Monitoring",
-        "Updates",
-        "Backups",
-      ],
-    },
-    {
-      id: "webboost-pro",
-      name: "Pro",
-      price: 129,
-      billingPeriod: "monthly",
-      highlighted: true,
-      badge: "Most Popular",
-      features: [
-        "SEO fixes",
-        "Performance optimization",
-        "Priority updates",
-      ],
-    },
-  ],
-};
 
 /* ═══════════════════════════════════════════
    D2. WEBCARE
@@ -275,7 +230,7 @@ export const MAPGUARD: ProductDef = {
   tiers: [
     {
       id: "mapguard-setup",
-      name: "Setup",
+      name: "MapSetup\u2122",
       price: 397,
       billingPeriod: "one-time",
       features: [
@@ -401,18 +356,20 @@ export const SOCIALSYNC: ProductDef = {
   ],
 };
 
+/* (FIX_OPTIMIZE moved → WEBFIX above) */
+
 /* ═══════════════════════════════════════════
-   FIX & OPTIMIZE (one-time)
+   H2. WEBFIX (formerly Fix & Optimize)
    ═══════════════════════════════════════════ */
-export const FIX_OPTIMIZE: ProductDef = {
-  id: "fix-optimize",
-  name: "Fix & Optimize™",
+export const WEBFIX: ProductDef = {
+  id: "webfix",
+  name: "WebFix\u2122",
   tagline: "Website fixes, tweaks, and optimization",
   category: "website",
   tiers: [
     {
-      id: "fix-optimize",
-      name: "Fix & Optimize",
+      id: "webfix",
+      name: "WebFix",
       price: 249,
       billingPeriod: "one-time",
       features: [
@@ -426,6 +383,9 @@ export const FIX_OPTIMIZE: ProductDef = {
     },
   ],
 };
+
+/** @deprecated Use WEBFIX instead */
+export const FIX_OPTIMIZE = WEBFIX;
 
 /* ═══════════════════════════════════════════
    I. RANKFLOW (SEO)
@@ -543,13 +503,12 @@ export const ALL_PRODUCTS: ProductDef[] = [
   TRADELINE,
   QUOTEQUICK,
   ADFLOW,
-  WEBBOOST,
   WEBCARE,
   MAPGUARD,
   RANKFLOW,
   REPUTATIONSHIELD,
   SOCIALSYNC,
-  FIX_OPTIMIZE,
+  WEBFIX,
 ];
 
 /* ═══════════════════════════════════════════
@@ -595,19 +554,18 @@ export const BUNDLE_PRO: BundleDef = {
     { productId: "socialsync", tierId: "socialsync-growth", label: "SocialSync Growth", value: 149 },
     { productId: "mapguard", tierId: "mapguard-pro", label: "MapGuard Pro", value: 149 },
     { productId: "reputationshield", tierId: "reputationshield-pro", label: "ReputationShield Pro", value: 129 },
-    { productId: "webboost", tierId: "webboost-pro", label: "WebBoost Pro", value: 129 },
   ],
 };
 
 export const BUNDLE_FIX: BundleDef = {
   id: "bundle-fix",
-  name: "Fix & Optimize™",
+  name: "WebFix\u2122",
   tagline: "Quick website fixes and optimization",
   price: 249,
   billingPeriod: "one-time",
   includes: [
-    { productId: "webboost", tierId: "webboost-setup", label: "WebBoost Setup (lite)", value: 349 },
-    { productId: "mapguard", tierId: "mapguard-setup", label: "MapGuard audit + quick fixes", value: 397 },
+    { productId: "webfix", tierId: "webfix", label: "Website speed & SEO fixes", value: 249 },
+    { productId: "mapguard", tierId: "mapguard-setup", label: "MapSetup\u2122 \u2014 GBP audit + fixes", value: 397 },
   ],
 };
 

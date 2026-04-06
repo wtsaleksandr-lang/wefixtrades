@@ -4,8 +4,8 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
 import { useToast } from "@/hooks/use-toast";
 import {
-  TRADELINE, QUOTEQUICK, WEBBOOST, MAPGUARD, SITELAUNCH,
-  REPUTATIONSHIELD, SOCIALSYNC, FIX_OPTIMIZE,
+  TRADELINE, QUOTEQUICK, MAPGUARD, SITELAUNCH,
+  REPUTATIONSHIELD, SOCIALSYNC, WEBFIX,
   BUNDLE_STARTER, BUNDLE_GROWTH, BUNDLE_PRO,
   YEARLY_DISCOUNT_PCT, formatPrice, lowestMonthly,
   type ProductDef, type BundleDef, type Tier,
@@ -502,15 +502,15 @@ export default function Plans() {
               onCta={showToast}
             />
             <BundleCard
-              title={FIX_OPTIMIZE.name}
-              subtitle={FIX_OPTIMIZE.tagline}
+              title={WEBFIX.name}
+              subtitle={WEBFIX.tagline}
               priceLine={
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                  <div style={{ fontSize: 30, fontWeight: 800, color: "rgba(0,0,0,0.90)" }}>{oneTime(FIX_OPTIMIZE.tiers[0].price)}</div>
+                  <div style={{ fontSize: 30, fontWeight: 800, color: "rgba(0,0,0,0.90)" }}>{oneTime(WEBFIX.tiers[0].price)}</div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "rgba(0,0,0,0.45)" }}>one-time</div>
                 </div>
               }
-              bullets={FIX_OPTIMIZE.tiers[0].features}
+              bullets={WEBFIX.tiers[0].features}
               cta="Get Started"
               onCta={showToast}
             />
@@ -534,8 +534,8 @@ export default function Plans() {
               <SmallCard key={t.id} title={`ReputationShield™ ${t.name}`} price={formatMoney(convertFromCAD(t.price, currency), currency)} cadence="/mo" bullets={t.features} cta="Add to Plan" onCta={showToast} />
             ))}
 
-            {WEBBOOST.tiers.map(t => (
-              <SmallCard key={t.id} title={`WebBoost™ ${t.name}`} price={t.billingPeriod === "one-time" ? oneTime(t.price) : formatMoney(convertFromCAD(t.price, currency), currency)} cadence={t.billingPeriod === "one-time" ? "one-time" : "/mo"} bullets={t.features} cta="Add to Plan" onCta={showToast} />
+            {WEBFIX.tiers.map(t => (
+              <SmallCard key={t.id} title={`WebFix™ ${t.name}`} price={t.billingPeriod === "one-time" ? oneTime(t.price) : formatMoney(convertFromCAD(t.price, currency), currency)} cadence={t.billingPeriod === "one-time" ? "one-time" : "/mo"} bullets={t.features} cta="Add to Plan" onCta={showToast} />
             ))}
 
             {QUOTEQUICK.tiers.map(t => (
@@ -548,7 +548,7 @@ export default function Plans() {
 
             <SmallCard title={SITELAUNCH.name} price={oneTime(SITELAUNCH.tiers[0].price)} cadence="one-time" bullets={SITELAUNCH.tiers[0].features} cta="Add to Plan" onCta={showToast} />
 
-            <SmallCard title={FIX_OPTIMIZE.name} price={oneTime(FIX_OPTIMIZE.tiers[0].price)} cadence="one-time" bullets={FIX_OPTIMIZE.tiers[0].features} cta="Add to Plan" onCta={showToast} />
+            <SmallCard title={WEBFIX.name} price={oneTime(WEBFIX.tiers[0].price)} cadence="one-time" bullets={WEBFIX.tiers[0].features} cta="Add to Plan" onCta={showToast} />
           </div>
         </section>}
 
@@ -570,9 +570,9 @@ export default function Plans() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
               {[
                 ["MapGuard Setup", oneTime(MAPGUARD.setup!)],
-                ["WebBoost Setup", oneTime(WEBBOOST.setup!)],
+                ["WebFix", oneTime(WEBFIX.setup!)],
                 ["SiteLaunch", oneTime(SITELAUNCH.tiers[0].price)],
-                ["Fix & Optimize", oneTime(FIX_OPTIMIZE.tiers[0].price)],
+                ["WebFix", oneTime(WEBFIX.tiers[0].price)],
               ].map(([name, val], i) => (
                 <div
                   key={name}
