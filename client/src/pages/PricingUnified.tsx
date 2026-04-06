@@ -23,6 +23,15 @@ const CARD_BORDER = "1px solid rgba(255,255,255,0.08)";
 const GLOW = `0 0 60px rgba(102,232,250,0.12), 0 0 20px rgba(102,232,250,0.06)`;
 const GLOW_STRONG = `0 0 60px rgba(102,232,250,0.18), 0 0 30px rgba(102,232,250,0.10)`;
 
+/* ── Shared card inner spacing tokens ── */
+const CARD_PAD = "28px 26px 28px";
+const TITLE_STYLE: CSSProperties = { fontSize: 17, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, marginBottom: 4 };
+const TAGLINE_STYLE: CSSProperties = { fontSize: 13, color: mkt.text, lineHeight: 1.5, marginBottom: 14 };
+const PRICE_SIZE = 36;
+const PRICE_MB = 14;
+const FEATURES_STYLE: CSSProperties = { listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 7, flex: 1, marginBottom: 20 };
+const EXPAND_MT = 12;
+
 /* F: stronger contrast color for important secondary text */
 const TEXT_STRONG = mkt.text; // #D5E1E7 instead of mkt.textMuted (#B1C5CE)
 
@@ -239,7 +248,7 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout }: { bundle: BundleDe
         background: CARD_BG,
         border: hl ? `2px solid ${mkt.accent}` : CARD_BORDER,
         borderRadius: CARD_RADIUS,
-        padding: "28px 26px 28px",
+        padding: CARD_PAD,
         display: "flex",
         flexDirection: "column",
         position: "relative",
@@ -271,46 +280,40 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout }: { bundle: BundleDe
       )}
 
       {/* Name */}
-      <div style={{ fontSize: 18, fontWeight: 700, color: mkt.onDark, marginBottom: 2, fontFamily: FONT }}>
-        {bundle.name}
-      </div>
+      <div style={TITLE_STYLE}>{bundle.name}</div>
 
-      {/* Tagline — F: stronger contrast */}
-      <div style={{ fontSize: 13, color: TEXT_STRONG, marginBottom: 16, lineHeight: 1.5 }}>
-        {bundle.tagline}
-      </div>
+      {/* Tagline */}
+      <div style={TAGLINE_STYLE}>{bundle.tagline}</div>
 
-      {/* A: Value anchor — struck-through total value */}
+      {/* Value anchor */}
       <div style={{ fontSize: 13, color: mkt.textMuted, marginBottom: 4 }}>
         <span style={{ textDecoration: "line-through" }}>{formatPrice(totalValue)}/mo value</span>
       </div>
 
       {/* Price */}
-      <div style={{ marginBottom: 2 }}>
-        <span style={{ fontSize: 42, fontWeight: 800, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.03em", lineHeight: 1 }}>
+      <div style={{ marginBottom: PRICE_MB }}>
+        <span style={{ fontSize: PRICE_SIZE, fontWeight: 800, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.03em", lineHeight: 1 }}>
           {formatPrice(price)}
         </span>
-        <span style={{ fontSize: 15, fontWeight: 500, color: TEXT_STRONG, marginLeft: 4 }}>/mo</span>
+        <span style={{ fontSize: 14, fontWeight: 500, color: TEXT_STRONG, marginLeft: 4 }}>/mo</span>
+        {yearly && (
+          <div style={{ fontSize: 12, color: TEXT_STRONG, marginTop: 3 }}>billed annually</div>
+        )}
+        {!yearly && <div style={{ height: 17 }} />}
       </div>
 
-      {/* Yearly note — F: stronger contrast */}
-      {yearly && (
-        <div style={{ fontSize: 12, color: TEXT_STRONG, marginBottom: 14 }}>billed annually</div>
-      )}
-      {!yearly && <div style={{ height: 14 }} />}
-
-      {/* A: Includes — service names only, no per-item prices */}
-      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8, flex: 1, marginBottom: 20 }}>
+      {/* Includes */}
+      <ul style={FEATURES_STYLE}>
         {bundle.includes.map((item) => (
           <CheckItem key={item.tierId}>{item.label}</CheckItem>
         ))}
       </ul>
 
-      {/* C: specific CTA */}
+      {/* CTA */}
       <CTAButton label={ctaLabel} highlighted={hl} fullWidth onClick={onCheckout} />
 
-      {/* A: expandable shows per-item breakdown + features (non-duplicate content) */}
-      <div style={{ marginTop: 12 }}>
+      {/* Expandable */}
+      <div style={{ marginTop: EXPAND_MT }}>
         <ExpandableDetails label="What's included">
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {bundle.includes.map((item) => {
@@ -359,7 +362,7 @@ function OneTimeCard({ product, onCheckout }: { product: ProductDef; yearly: boo
         background: CARD_BG,
         border: isHighlighted ? `1px solid rgba(102,232,250,0.15)` : CARD_BORDER,
         borderRadius: CARD_RADIUS,
-        padding: "28px 26px 28px",
+        padding: CARD_PAD,
         display: "flex",
         flexDirection: "column",
         transition: "all 0.3s ease",
@@ -368,23 +371,21 @@ function OneTimeCard({ product, onCheckout }: { product: ProductDef; yearly: boo
       }}
     >
       {/* Name */}
-      <div style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, marginBottom: 4 }}>
-        {product.name}
-      </div>
-      <div style={{ fontSize: 13, color: TEXT_STRONG, lineHeight: 1.5, marginBottom: 14 }}>
-        {product.tagline}
-      </div>
+      <div style={TITLE_STYLE}>{product.name}</div>
+
+      {/* Tagline */}
+      <div style={TAGLINE_STYLE}>{product.tagline}</div>
 
       {/* Price */}
-      <div style={{ marginBottom: 14 }}>
-        <span style={{ fontSize: 34, fontWeight: 800, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.03em", lineHeight: 1 }}>
+      <div style={{ marginBottom: PRICE_MB }}>
+        <span style={{ fontSize: PRICE_SIZE, fontWeight: 800, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.03em", lineHeight: 1 }}>
           {formatPrice(tier.price)}
         </span>
         <span style={{ fontSize: 14, color: TEXT_STRONG, marginLeft: 4 }}>one-time</span>
       </div>
 
       {/* Features */}
-      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6, flex: 1, marginBottom: 18 }}>
+      <ul style={FEATURES_STYLE}>
         {tier.features.filter(f => !f.startsWith("BONUS")).slice(0, 5).map((f) => (
           <CheckItem key={f}>{f}</CheckItem>
         ))}
@@ -467,7 +468,7 @@ function ServiceCard({ product, yearly, onCheckout }: { product: ProductDef; yea
         background: CARD_BG,
         border: CARD_BORDER,
         borderRadius: CARD_RADIUS,
-        padding: "28px 26px 28px",
+        padding: CARD_PAD,
         display: "flex",
         flexDirection: "column",
         transition: "all 0.3s ease",
@@ -475,13 +476,11 @@ function ServiceCard({ product, yearly, onCheckout }: { product: ProductDef; yea
         boxShadow: hover ? shadows.lg : "none",
       }}
     >
-      {/* Header */}
-      <div style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, marginBottom: 4 }}>
-        {product.name}
-      </div>
-      <div style={{ fontSize: 13, color: TEXT_STRONG, lineHeight: 1.5, marginBottom: 14 }}>
-        {product.tagline}
-      </div>
+      {/* Name */}
+      <div style={TITLE_STYLE}>{product.name}</div>
+
+      {/* Tagline */}
+      <div style={TAGLINE_STYLE}>{product.tagline}</div>
 
       {/* Setup fee */}
       {product.setup && (
@@ -491,7 +490,7 @@ function ServiceCard({ product, yearly, onCheckout }: { product: ProductDef; yea
         </div>
       )}
 
-      {/* H1: Tier tabs — bigger tap targets */}
+      {/* Tier tabs */}
       {displayTiers.length > 1 && (
         <div style={{ display: "flex", gap: 2, marginBottom: 14, background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 3 }}>
           {displayTiers.map((tier, i) => {
@@ -526,8 +525,8 @@ function ServiceCard({ product, yearly, onCheckout }: { product: ProductDef; yea
       )}
 
       {/* Price */}
-      <div style={{ marginBottom: 14 }}>
-        <span style={{ fontSize: 34, fontWeight: 800, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.03em", lineHeight: 1 }}>
+      <div style={{ marginBottom: PRICE_MB }}>
+        <span style={{ fontSize: PRICE_SIZE, fontWeight: 800, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.03em", lineHeight: 1 }}>
           {displayPrice(currentTier.price, yearly, currentTier.billingPeriod)}
         </span>
         <span style={{ fontSize: 14, color: TEXT_STRONG, marginLeft: 4 }}>
@@ -550,19 +549,19 @@ function ServiceCard({ product, yearly, onCheckout }: { product: ProductDef; yea
         </div>
       )}
 
-      {/* H3: only 3-5 key features */}
-      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6, flex: 1, marginBottom: 18 }}>
+      {/* Features */}
+      <ul style={FEATURES_STYLE}>
         {currentTier.features.filter(f => !f.includes("minutes included")).slice(0, 5).map((f) => (
           <CheckItem key={f}>{f}</CheckItem>
         ))}
       </ul>
 
-      {/* C: specific CTA */}
+      {/* CTA */}
       <CTAButton label="Start This Service" highlighted={!!currentTier.highlighted} fullWidth onClick={() => onCheckout(currentTier)} />
 
-      {/* H2: simple expandable — list only, no multi-column grid */}
+      {/* Compare tiers expandable */}
       {(displayTiers.length > 1 || setupTier) && (
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: EXPAND_MT }}>
           <ExpandableDetails label="Compare tiers">
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {displayTiers.map((tier) => (
@@ -776,7 +775,7 @@ export default function PricingUnified() {
             />
 
             {/* Desktop: 3-col */}
-            <div className="pricing-plans-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, alignItems: "start" }}>
+            <div className="pricing-plans-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, alignItems: "stretch" }}>
               {bundlesDesktop.map((b) => (
                 <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} onCheckout={() => openBundleCheckout(b)} />
               ))}
@@ -812,7 +811,7 @@ export default function PricingUnified() {
                     display: "grid",
                     gridTemplateColumns: "repeat(2, 1fr)",
                     gap: 20,
-                    alignItems: "start",
+                    alignItems: "stretch",
                   }}
                 >
                   {group.products.map((product) => (
