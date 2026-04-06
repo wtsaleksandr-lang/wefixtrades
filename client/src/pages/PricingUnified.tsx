@@ -1,5 +1,6 @@
-import { useState, useEffect, type CSSProperties } from "react";
-import { Check, ChevronDown, Zap, Shield, Eye, Globe, Wrench, ArrowRight } from "lucide-react";
+import { useState, useEffect, useCallback, type CSSProperties } from "react";
+import { Check, ChevronDown, Zap, Shield, Eye, Globe, Wrench, ArrowRight, Info, X } from "lucide-react";
+import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, shadows, typography } from "@/theme/tokens";
 import {
@@ -31,6 +32,233 @@ const PRICE_SIZE = 36;
 const PRICE_MB = 14;
 const FEATURES_STYLE: CSSProperties = { listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 7, flex: 1, marginBottom: 20 };
 const EXPAND_MT = 12;
+
+/* ── Service info modal content ── */
+interface ServiceInfo {
+  name: string;
+  headline: string;
+  bullets: string[];
+  href: string;
+}
+
+const SERVICE_INFO: Record<string, ServiceInfo> = {
+  tradeline: {
+    name: "TradeLine\u2122",
+    headline: "Never miss a call \u2014 AI answers 24/7",
+    bullets: ["Every call and chat answered instantly", "SMS auto-response for missed calls", "Capture leads while you\u2019re on the job"],
+    href: "/products/tradeline",
+  },
+  quotequick: {
+    name: "QuoteQuick\u2122",
+    headline: "Give instant quotes on your website",
+    bullets: ["Capture leads automatically", "Show pricing before customers call", "Filter serious customers only"],
+    href: "/products/quickquotepro",
+  },
+  mapguard: {
+    name: "MapGuard\u2122",
+    headline: "Get found on Google Maps",
+    bullets: ["Show up when customers search nearby", "Improve your Google Business profile", "Turn searches into calls"],
+    href: "/products/mapguard",
+  },
+  reputationshield: {
+    name: "ReputationShield\u2122",
+    headline: "Get more 5-star reviews automatically",
+    bullets: ["Ask customers at the right time", "Respond to every review", "Build trust before customers call"],
+    href: "/products/reputationshield",
+  },
+  socialsync: {
+    name: "SocialSync\u2122",
+    headline: "Stay active on social without doing it yourself",
+    bullets: ["We create and post for you", "Show real jobs and updates", "Stay visible every week"],
+    href: "/products/socialsync",
+  },
+  webboost: {
+    name: "WebBoost\u2122",
+    headline: "Make your website faster and easier to find",
+    bullets: ["Improve loading speed", "Fix SEO structure", "Help your site bring more leads"],
+    href: "/products/webboost",
+  },
+  webcare: {
+    name: "WebCare\u2122",
+    headline: "We handle your website so you don\u2019t have to",
+    bullets: ["Keep everything updated", "Fix small issues quickly", "Make sure your site stays working"],
+    href: "/products/webcare",
+  },
+  sitelaunch: {
+    name: "SiteLaunch\u2122",
+    headline: "A high-converting website built for your trade",
+    bullets: ["Custom designed, mobile-first", "SEO-ready with lead capture built in", "Live in 5 days \u2014 you own it"],
+    href: "/products/sitelaunch",
+  },
+  "fix-optimize": {
+    name: "Fix & Optimize\u2122",
+    headline: "Quick website fixes and optimization",
+    bullets: ["Speed and performance audit", "Core SEO fixes applied", "Google Maps profile cleanup"],
+    href: "/pricing",
+  },
+};
+
+/* ── Info icon trigger ── */
+function InfoIconTrigger({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      aria-label="Learn more about this service"
+      className="info-icon-trigger"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 20,
+        height: 20,
+        borderRadius: 999,
+        border: "none",
+        background: "rgba(255,255,255,0.06)",
+        color: mkt.textFaint,
+        cursor: "pointer",
+        padding: 0,
+        flexShrink: 0,
+        transition: "all 0.15s ease",
+      }}
+    >
+      <Info size={12} strokeWidth={2} />
+    </button>
+  );
+}
+
+/* ── Service info modal ── */
+function ServiceInfoModal({ info, onClose }: { info: ServiceInfo; onClose: () => void }) {
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  // Prevent body scroll while open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 10000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+        background: "rgba(0,0,0,0.5)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        animation: "infoModalOverlayIn 0.2s ease forwards",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={info.name}
+        style={{
+          background: "rgba(22,28,30,0.92)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: CARD_RADIUS,
+          boxShadow: "0 24px 64px rgba(0,0,0,0.4), 0 0 1px rgba(255,255,255,0.1)",
+          width: "100%",
+          maxWidth: 440,
+          padding: "28px 28px 24px",
+          position: "relative",
+          animation: "infoModalIn 0.22s cubic-bezier(0.22,1,0.36,1) forwards",
+        }}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          style={{
+            position: "absolute",
+            top: 14,
+            right: 14,
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            border: "none",
+            background: "rgba(255,255,255,0.06)",
+            color: mkt.textFaint,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
+        >
+          <X size={14} />
+        </button>
+
+        {/* Title */}
+        <div style={{ fontSize: 18, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, marginBottom: 4 }}>
+          {info.name}
+        </div>
+
+        {/* Headline */}
+        <div style={{ fontSize: 14, color: mkt.accent, fontWeight: 600, marginBottom: 16, lineHeight: 1.4 }}>
+          {info.headline}
+        </div>
+
+        {/* Bullets */}
+        <ul style={{ listStyle: "none", padding: 0, margin: "0 0 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {info.bullets.map((b) => (
+            <li key={b} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: TEXT_STRONG, lineHeight: 1.5 }}>
+              <Check size={15} color={mkt.accent} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 2 }} />
+              <span>{b}</span>
+            </li>
+          ))}
+        </ul>
+
+        {/* CTA */}
+        <Link
+          href={info.href}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            padding: "11px 20px",
+            borderRadius: 10,
+            border: `1px solid rgba(255,255,255,0.1)`,
+            background: "rgba(255,255,255,0.04)",
+            color: mkt.accent,
+            fontSize: 13,
+            fontWeight: 600,
+            fontFamily: FONT,
+            textDecoration: "none",
+            transition: "background 0.15s, border-color 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(102,232,250,0.08)";
+            e.currentTarget.style.borderColor = "rgba(102,232,250,0.2)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+          }}
+        >
+          See how it works
+          <ArrowRight size={13} />
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 /* F: stronger contrast color for important secondary text */
 const TEXT_STRONG = mkt.text; // #D5E1E7 instead of mkt.textMuted (#B1C5CE)
@@ -234,7 +462,7 @@ function ExpandableDetails({ label, children }: { label?: string; children: Reac
    G: reduced density
    ═══════════════════════════════════════════ */
 
-function BundleCard({ bundle, yearly, ctaLabel, onCheckout }: { bundle: BundleDef; yearly: boolean; ctaLabel: string; onCheckout: () => void }) {
+function BundleCard({ bundle, yearly, ctaLabel, onCheckout, onServiceInfo }: { bundle: BundleDef; yearly: boolean; ctaLabel: string; onCheckout: () => void; onServiceInfo?: (productId: string) => void }) {
   const hl = !!bundle.highlighted;
   const price = yearly ? yearlyMonthlyEquiv(bundle.price) : bundle.price;
   const totalValue = bundleValue(bundle);
@@ -306,7 +534,13 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout }: { bundle: BundleDe
       {/* Includes */}
       <ul style={FEATURES_STYLE}>
         {bundle.includes.map((item) => (
-          <CheckItem key={item.tierId}>{item.label}</CheckItem>
+          <li key={item.tierId} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: TEXT_STRONG, lineHeight: 1.5 }}>
+            <Check size={15} color={mkt.accent} strokeWidth={2.5} style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1 }}>{item.label}</span>
+            {onServiceInfo && SERVICE_INFO[item.productId] && (
+              <InfoIconTrigger onClick={() => onServiceInfo(item.productId)} />
+            )}
+          </li>
         ))}
       </ul>
 
@@ -349,7 +583,7 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout }: { bundle: BundleDe
    ONE-TIME CARD (standardized format)
    ═══════════════════════════════════════════ */
 
-function OneTimeCard({ product, onCheckout }: { product: ProductDef; yearly: boolean; onCheckout: () => void }) {
+function OneTimeCard({ product, onCheckout, onInfo }: { product: ProductDef; yearly: boolean; onCheckout: () => void; onInfo?: () => void }) {
   const tier = product.tiers[0];
   const [hover, setHover] = useState(false);
   const isHighlighted = product.id === "sitelaunch";
@@ -371,8 +605,11 @@ function OneTimeCard({ product, onCheckout }: { product: ProductDef; yearly: boo
         boxShadow: hover ? shadows.lg : "none",
       }}
     >
-      {/* Name */}
-      <div style={TITLE_STYLE}>{product.name}</div>
+      {/* Name + info icon */}
+      <div style={{ ...TITLE_STYLE, display: "flex", alignItems: "center", gap: 8 }}>
+        <span>{product.name}</span>
+        {onInfo && <InfoIconTrigger onClick={onInfo} />}
+      </div>
 
       {/* Tagline */}
       <div style={TAGLINE_STYLE}>{product.tagline}</div>
@@ -451,7 +688,7 @@ function PricingSectionHeading({ title, subtitle, badge }: { title: string; subt
    SERVICE CARD
    ═══════════════════════════════════════════ */
 
-function ServiceCard({ product, yearly, onCheckout }: { product: ProductDef; yearly: boolean; onCheckout: (tier: Tier) => void }) {
+function ServiceCard({ product, yearly, onCheckout, onInfo }: { product: ProductDef; yearly: boolean; onCheckout: (tier: Tier) => void; onInfo?: () => void }) {
   const [activeTier, setActiveTier] = useState(0);
   const [hover, setHover] = useState(false);
   const isTradelineProduct = product.id === "tradeline";
@@ -477,8 +714,11 @@ function ServiceCard({ product, yearly, onCheckout }: { product: ProductDef; yea
         boxShadow: hover ? shadows.lg : "none",
       }}
     >
-      {/* Name */}
-      <div style={TITLE_STYLE}>{product.name}</div>
+      {/* Name + info icon */}
+      <div style={{ ...TITLE_STYLE, display: "flex", alignItems: "center", gap: 8 }}>
+        <span>{product.name}</span>
+        {onInfo && <InfoIconTrigger onClick={onInfo} />}
+      </div>
 
       {/* Tagline */}
       <div style={TAGLINE_STYLE}>{product.tagline}</div>
@@ -635,6 +875,8 @@ function SectionLabel({ icon: Icon, label }: { icon: typeof Zap; label: string }
 export default function PricingUnified() {
   const [yearly, setYearly] = useState(false);
   const [activeCat, setActiveCat] = useState("leads");
+  const [infoModal, setInfoModal] = useState<ServiceInfo | null>(null);
+  const closeInfoModal = useCallback(() => setInfoModal(null), []);
 
   /* ─── Checkout modal state ─── */
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -778,13 +1020,13 @@ export default function PricingUnified() {
             {/* Desktop: 3-col */}
             <div className="pricing-plans-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, alignItems: "stretch" }}>
               {bundlesDesktop.map((b) => (
-                <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} onCheckout={() => openBundleCheckout(b)} />
+                <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} onCheckout={() => openBundleCheckout(b)} onServiceInfo={(pid) => SERVICE_INFO[pid] && setInfoModal(SERVICE_INFO[pid])} />
               ))}
             </div>
             {/* Mobile: Growth first */}
             <div className="pricing-plans-mobile" style={{ display: "none", flexDirection: "column", gap: 20, maxWidth: 480, margin: "0 auto" }}>
               {bundlesMobile.map((b) => (
-                <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} onCheckout={() => openBundleCheckout(b)} />
+                <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} onCheckout={() => openBundleCheckout(b)} onServiceInfo={(pid) => SERVICE_INFO[pid] && setInfoModal(SERVICE_INFO[pid])} />
               ))}
             </div>
           </div>
@@ -845,7 +1087,7 @@ export default function PricingUnified() {
                     }}
                   >
                     {group.products.map((product) => (
-                      <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} />
+                      <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} onInfo={SERVICE_INFO[product.id] ? () => setInfoModal(SERVICE_INFO[product.id]) : undefined} />
                     ))}
                   </div>
                 </div>
@@ -867,7 +1109,7 @@ export default function PricingUnified() {
                     }}
                   >
                     {group.products.map((product) => (
-                      <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} />
+                      <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} onInfo={SERVICE_INFO[product.id] ? () => setInfoModal(SERVICE_INFO[product.id]) : undefined} />
                     ))}
                   </div>
                 </div>
@@ -898,13 +1140,16 @@ export default function PricingUnified() {
                 alignItems: "start",
               }}
             >
-              <OneTimeCard product={FIX_OPTIMIZE} yearly={yearly} onCheckout={openFixOptimizeCheckout} />
-              <OneTimeCard product={SITELAUNCH} yearly={yearly} onCheckout={openSiteLaunchCheckout} />
+              <OneTimeCard product={FIX_OPTIMIZE} yearly={yearly} onCheckout={openFixOptimizeCheckout} onInfo={() => setInfoModal(SERVICE_INFO["fix-optimize"])} />
+              <OneTimeCard product={SITELAUNCH} yearly={yearly} onCheckout={openSiteLaunchCheckout} onInfo={() => setInfoModal(SERVICE_INFO["sitelaunch"])} />
             </div>
           </div>
         </section>
 
       </div>
+
+      {/* ═══ SERVICE INFO MODAL ═══ */}
+      {infoModal && <ServiceInfoModal info={infoModal} onClose={closeInfoModal} />}
 
       {/* ═══ CHECKOUT MODAL ═══ */}
       <CheckoutModal
@@ -919,6 +1164,20 @@ export default function PricingUnified() {
 
       {/* ═══ RESPONSIVE STYLES ═══ */}
       <style>{`
+        /* Info icon hover */
+        .info-icon-trigger:hover {
+          background: rgba(102,232,250,0.12) !important;
+          color: ${mkt.accent} !important;
+        }
+        /* Info modal animations */
+        @keyframes infoModalOverlayIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes infoModalIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
         @media (max-width: 900px) {
           .pricing-plans-grid {
             display: none !important;
