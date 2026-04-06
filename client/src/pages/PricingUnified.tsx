@@ -33,12 +33,18 @@ const PRICE_MB = 14;
 const FEATURES_STYLE: CSSProperties = { listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 7, flex: 1, marginBottom: 20 };
 const EXPAND_MT = 12;
 
+/* ── Warm accent palette (subtle enhancement) ── */
+const WARM_AMBER = "#F5B942";
+const WARM_GREEN = "#6FCF97";
+const WARM_GRAY = "#CBBBA0";
+
 /* ── Service info modal content ── */
 interface ServiceInfo {
   name: string;
   headline: string;
   bullets: string[];
   href: string;
+  trustLine: string;
 }
 
 const SERVICE_INFO: Record<string, ServiceInfo> = {
@@ -47,54 +53,63 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
     headline: "Never miss a call \u2014 AI answers 24/7",
     bullets: ["Every call and chat answered instantly", "SMS auto-response for missed calls", "Capture leads while you\u2019re on the job"],
     href: "/products/tradeline",
+    trustLine: "Used by trades to answer every call \u2014 even at 2am",
   },
   quotequick: {
     name: "QuoteQuick\u2122",
     headline: "Give instant quotes on your website",
     bullets: ["Capture leads automatically", "Show pricing before customers call", "Filter serious customers only"],
     href: "/products/quickquotepro",
+    trustLine: "Used by trades to capture leads before the phone even rings",
   },
   mapguard: {
     name: "MapGuard\u2122",
     headline: "Get found on Google Maps",
     bullets: ["Show up when customers search nearby", "Improve your Google Business profile", "Turn searches into calls"],
     href: "/products/mapguard",
+    trustLine: "Helps local businesses show up when customers search nearby",
   },
   reputationshield: {
     name: "ReputationShield\u2122",
     headline: "Get more 5-star reviews automatically",
     bullets: ["Ask customers at the right time", "Respond to every review", "Build trust before customers call"],
     href: "/products/reputationshield",
+    trustLine: "Turns completed jobs into consistent 5-star reviews",
   },
   socialsync: {
     name: "SocialSync\u2122",
     headline: "Stay active on social without doing it yourself",
     bullets: ["We create and post for you", "Show real jobs and updates", "Stay visible every week"],
     href: "/products/socialsync",
+    trustLine: "Keeps your business visible without you posting anything",
   },
   webboost: {
     name: "WebBoost\u2122",
     headline: "Make your website faster and easier to find",
     bullets: ["Improve loading speed", "Fix SEO structure", "Help your site bring more leads"],
     href: "/products/webboost",
+    trustLine: "Improves your site so it actually brings in work",
   },
   webcare: {
     name: "WebCare\u2122",
     headline: "We handle your website so you don\u2019t have to",
     bullets: ["Keep everything updated", "Fix small issues quickly", "Make sure your site stays working"],
     href: "/products/webcare",
+    trustLine: "Keeps your website running so you don\u2019t have to think about it",
   },
   sitelaunch: {
     name: "SiteLaunch\u2122",
     headline: "A high-converting website built for your trade",
     bullets: ["Custom designed, mobile-first", "SEO-ready with lead capture built in", "Live in 5 days \u2014 you own it"],
     href: "/products/sitelaunch",
+    trustLine: "Built for trades who need a real website that brings in jobs",
   },
   "fix-optimize": {
     name: "Fix & Optimize\u2122",
     headline: "Quick website fixes and optimization",
     bullets: ["Speed and performance audit", "Core SEO fixes applied", "Google Maps profile cleanup"],
     href: "/pricing",
+    trustLine: "A fast way to fix what\u2019s holding your website back",
   },
 };
 
@@ -215,14 +230,19 @@ function ServiceInfoModal({ info, onClose }: { info: ServiceInfo; onClose: () =>
         </div>
 
         {/* Bullets */}
-        <ul style={{ listStyle: "none", padding: 0, margin: "0 0 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <ul style={{ listStyle: "none", padding: 0, margin: "0 0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           {info.bullets.map((b) => (
             <li key={b} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: TEXT_STRONG, lineHeight: 1.5 }}>
-              <Check size={15} color={mkt.accent} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 2 }} />
+              <Check size={15} color={WARM_GREEN} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 2 }} />
               <span>{b}</span>
             </li>
           ))}
         </ul>
+
+        {/* Trust line */}
+        <div style={{ fontSize: 12, color: WARM_GRAY, lineHeight: 1.4, marginBottom: 18, opacity: 0.8 }}>
+          {info.trustLine}
+        </div>
 
         {/* CTA */}
         <Link
@@ -252,7 +272,7 @@ function ServiceInfoModal({ info, onClose }: { info: ServiceInfo; onClose: () =>
             e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
           }}
         >
-          See how it works
+          See it in action
           <ArrowRight size={13} />
         </Link>
       </div>
@@ -369,7 +389,7 @@ function BillingToggle({ yearly, onChange }: { yearly: boolean; onChange: (y: bo
 function CheckItem({ children }: { children: React.ReactNode }) {
   return (
     <li style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: TEXT_STRONG, lineHeight: 1.5 }}>
-      <Check size={15} color={mkt.accent} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 3 }} />
+      <Check size={15} color={WARM_GREEN} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 3 }} />
       <span>{children}</span>
     </li>
   );
@@ -494,8 +514,8 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout, onServiceInfo }: { b
             top: -13,
             left: "50%",
             transform: "translateX(-50%)",
-            background: mkt.accent,
-            color: mkt.dark,
+            background: WARM_AMBER,
+            color: "#1a1400",
             fontSize: 11,
             fontWeight: 800,
             padding: "5px 18px",
@@ -535,7 +555,7 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout, onServiceInfo }: { b
       <ul style={FEATURES_STYLE}>
         {bundle.includes.map((item) => (
           <li key={item.tierId} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: TEXT_STRONG, lineHeight: 1.5 }}>
-            <Check size={15} color={mkt.accent} strokeWidth={2.5} style={{ flexShrink: 0 }} />
+            <Check size={15} color={WARM_GREEN} strokeWidth={2.5} style={{ flexShrink: 0 }} />
             <span style={{ flex: 1 }}>{item.label}</span>
             {onServiceInfo && SERVICE_INFO[item.productId] && (
               <InfoIconTrigger onClick={() => onServiceInfo(item.productId)} />
@@ -563,7 +583,7 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout, onServiceInfo }: { b
                   <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                     {tier.features.map((f) => (
                       <li key={f} style={{ fontSize: 12, color: mkt.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
-                        <Check size={11} color={mkt.accent} strokeWidth={2.5} />
+                        <Check size={11} color={WARM_GREEN} strokeWidth={2.5} />
                         {f}
                       </li>
                     ))}
@@ -817,7 +837,7 @@ function ServiceCard({ product, yearly, onCheckout, onInfo }: { product: Product
                   <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 3 }}>
                     {tier.features.map((f) => (
                       <li key={f} style={{ fontSize: 12, color: mkt.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
-                        <Check size={11} color={mkt.accent} strokeWidth={2.5} />
+                        <Check size={11} color={WARM_GREEN} strokeWidth={2.5} />
                         {f}
                       </li>
                     ))}
@@ -836,7 +856,7 @@ function ServiceCard({ product, yearly, onCheckout, onInfo }: { product: Product
                   <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 3 }}>
                     {setupTier.features.map(f => (
                       <li key={f} style={{ fontSize: 12, color: mkt.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
-                        <Check size={11} color={mkt.accent} strokeWidth={2.5} />
+                        <Check size={11} color={WARM_GREEN} strokeWidth={2.5} />
                         {f}
                       </li>
                     ))}
@@ -971,51 +991,65 @@ export default function PricingUnified() {
     <MarketingLayout>
       <div style={{ paddingBottom: 80 }}>
 
-        {/* ═══ HERO ═══ */}
-        <section className="pricing-hero" style={{ textAlign: "center", padding: "48px 24px 0" }}>
+        {/* ═══ HERO + BILLING TOGGLE ═══ */}
+        <section className="pricing-hero" style={{ padding: "48px 24px 0" }}>
           <div style={MAX_W}>
-            <h1
-              style={{
-                fontSize: "clamp(28px, 5vw, 48px)",
-                fontWeight: 800,
-                color: mkt.onDark,
-                fontFamily: FONT,
-                letterSpacing: "-0.03em",
-                lineHeight: 1.1,
-                margin: "0 0 12px",
-              }}
-            >
-              Simple, transparent pricing
-            </h1>
-            <p
-              style={{
-                fontSize: "clamp(14px, 2vw, 17px)",
-                color: TEXT_STRONG,
-                lineHeight: 1.5,
-                maxWidth: 400,
-                margin: "0 auto",
-              }}
-            >
-              Everything you need to grow your trades business. No hidden fees. Cancel anytime.
-            </p>
-          </div>
-        </section>
-
-        {/* ═══ BILLING TOGGLE ═══ */}
-        <section style={{ textAlign: "center", padding: "28px 24px 0" }}>
-          <div style={MAX_W}>
-            <BillingToggle yearly={yearly} onChange={setYearly} />
+            <div className="pricing-hero-row" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20, flexWrap: "wrap", marginBottom: 8 }}>
+              <div>
+                <h1
+                  style={{
+                    fontSize: "clamp(26px, 5vw, 42px)",
+                    fontWeight: 800,
+                    color: mkt.onDark,
+                    fontFamily: FONT,
+                    letterSpacing: "-0.03em",
+                    lineHeight: 1.1,
+                    margin: 0,
+                  }}
+                >
+                  Simple, transparent pricing
+                </h1>
+                <p style={{ fontSize: "clamp(13px, 1.8vw, 15px)", color: WARM_GRAY, lineHeight: 1.5, margin: "6px 0 0", opacity: 0.85 }}>
+                  No hidden fees. Cancel anytime.
+                </p>
+              </div>
+              <BillingToggle yearly={yearly} onChange={setYearly} />
+            </div>
           </div>
         </section>
 
         {/* ═══ BLOCK 1: BUNDLES / SYSTEMS (primary offer) ═══ */}
-        <section style={{ padding: "36px 24px 0" }}>
+        <section style={{ padding: "28px 24px 0" }}>
           <div style={MAX_W}>
-            <PricingSectionHeading
-              title="Choose your system"
-              subtitle="Bundled plans designed for trades businesses. Best value — everything works together."
-              badge="Recommended"
-            />
+            {/* Section header — left-aligned with inline badge */}
+            <div className="pricing-section-heading" style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
+                <h2 style={{ fontSize: "clamp(18px, 3vw, 26px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.02em", margin: 0 }}>
+                  Choose your system
+                </h2>
+                <span style={{
+                  display: "inline-flex",
+                  background: `${WARM_AMBER}18`,
+                  color: WARM_AMBER,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: "3px 10px",
+                  borderRadius: 999,
+                  letterSpacing: "0.03em",
+                  textTransform: "uppercase" as const,
+                }}>
+                  Recommended
+                </span>
+              </div>
+              <p style={{ fontSize: 13, color: WARM_GRAY, lineHeight: 1.45, margin: 0, opacity: 0.85 }}>
+                Bundled systems designed for trades businesses. Everything works together — no setup needed.
+              </p>
+            </div>
+
+            {/* Trust strip */}
+            <div style={{ textAlign: "center", fontSize: 12, color: WARM_GRAY, opacity: 0.7, marginBottom: 20, lineHeight: 1.5 }}>
+              Used by 2,400+ trades &bull; Plumbers, HVAC, Electricians & more &bull; Built for real job workflows
+            </div>
 
             {/* Desktop: 3-col */}
             <div className="pricing-plans-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, alignItems: "stretch" }}>
@@ -1177,6 +1211,13 @@ export default function PricingUnified() {
         @keyframes infoModalIn {
           from { opacity: 0; transform: scale(0.95); }
           to { opacity: 1; transform: scale(1); }
+        }
+        @media (max-width: 640px) {
+          .pricing-hero-row {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            text-align: left;
+          }
         }
         @media (max-width: 900px) {
           .pricing-plans-grid {
