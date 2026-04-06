@@ -427,14 +427,126 @@ export const FIX_OPTIMIZE: ProductDef = {
   ],
 };
 
+/* ═══════════════════════════════════════════
+   I. RANKFLOW (SEO)
+   ═══════════════════════════════════════════ */
+export const RANKFLOW: ProductDef = {
+  id: "rankflow",
+  name: "RankFlow™",
+  tagline: "Ongoing SEO that brings consistent traffic and leads",
+  category: "visibility",
+  tiers: [
+    {
+      id: "rankflow-starter",
+      name: "Starter",
+      price: 349,
+      billingPeriod: "monthly",
+      features: [
+        "Keyword research & targeting",
+        "On-page SEO optimization",
+        "Monthly content recommendations",
+        "Google Search Console setup",
+        "Monthly ranking reports",
+      ],
+    },
+    {
+      id: "rankflow-growth",
+      name: "Growth",
+      price: 599,
+      billingPeriod: "monthly",
+      badge: "Most Popular",
+      highlighted: true,
+      features: [
+        "Everything in Starter",
+        "Content creation (2 pages/mo)",
+        "Link building outreach",
+        "Competitor analysis",
+        "Local SEO optimization",
+        "Bi-weekly ranking reports",
+      ],
+    },
+    {
+      id: "rankflow-pro",
+      name: "Pro",
+      price: 899,
+      billingPeriod: "monthly",
+      features: [
+        "Everything in Growth",
+        "Content creation (4 pages/mo)",
+        "Technical SEO audits",
+        "Schema markup implementation",
+        "Priority support",
+        "Weekly ranking reports",
+      ],
+    },
+  ],
+};
+
+/* ═══════════════════════════════════════════
+   J. ADFLOW (Ads)
+   ═══════════════════════════════════════════ */
+export const ADFLOW: ProductDef = {
+  id: "adflow",
+  name: "AdFlow™",
+  tagline: "Done-for-you ads that bring leads fast",
+  category: "leads",
+  tiers: [
+    {
+      id: "adflow-starter",
+      name: "Starter",
+      price: 399,
+      billingPeriod: "monthly",
+      features: [
+        "Google Ads campaign setup",
+        "Ad copy & creative",
+        "Keyword targeting",
+        "Monthly performance reports",
+        "Budget optimization",
+      ],
+    },
+    {
+      id: "adflow-growth",
+      name: "Growth",
+      price: 699,
+      billingPeriod: "monthly",
+      badge: "Most Popular",
+      highlighted: true,
+      features: [
+        "Everything in Starter",
+        "Google + Facebook Ads",
+        "Landing page optimization",
+        "A/B testing",
+        "Bi-weekly performance calls",
+        "Retargeting campaigns",
+      ],
+    },
+    {
+      id: "adflow-pro",
+      name: "Pro",
+      price: 999,
+      billingPeriod: "monthly",
+      features: [
+        "Everything in Growth",
+        "Google + Facebook + Instagram",
+        "Video ad creation",
+        "Advanced audience targeting",
+        "Weekly optimization calls",
+        "Dedicated account manager",
+      ],
+    },
+  ],
+};
+
 /* ─── All Products (ordered) ─── */
 export const ALL_PRODUCTS: ProductDef[] = [
   SITELAUNCH,
   TRADELINE,
   QUOTEQUICK,
+  ADFLOW,
   WEBBOOST,
   WEBCARE,
   MAPGUARD,
+  RANKFLOW,
   REPUTATIONSHIELD,
   SOCIALSYNC,
   FIX_OPTIMIZE,

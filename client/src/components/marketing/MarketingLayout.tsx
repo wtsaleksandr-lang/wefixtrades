@@ -70,6 +70,8 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             <FtLink href="/products/mapguard">MapGuard™</FtLink>
             <FtLink href="/products/reputationshield">ReputationShield™</FtLink>
             <FtLink href="/products/socialsync">SocialSync™</FtLink>
+            <FtLink href="/products/rankflow">RankFlow™</FtLink>
+            <FtLink href="/products/adflow">AdFlow™</FtLink>
             <Link
               href="/products"
               style={{

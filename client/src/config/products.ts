@@ -1,6 +1,6 @@
 import {
   TRADELINE, QUOTEQUICK, WEBBOOST, WEBCARE, MAPGUARD, SITELAUNCH,
-  REPUTATIONSHIELD, SOCIALSYNC,
+  REPUTATIONSHIELD, SOCIALSYNC, RANKFLOW, ADFLOW,
   formatPrice, type ProductDef, type Tier,
 } from "@shared/pricing";
 
@@ -403,6 +403,90 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     pricingSection: buildPricingSection(REPUTATIONSHIELD, "Works with Google, Facebook, Yelp, and HomeStars."),
     related: ["mapguard", "socialsync", "tradeline"],
+  },
+  {
+    slug: "rankflow",
+    name: "RankFlow\u2122",
+    shortTagline: "Ongoing SEO for Trades",
+    seoTitle: "RankFlow\u2122 — SEO That Brings Consistent Leads | WeFixTrades",
+    seoDescription: "Ongoing SEO built for trades businesses. Keyword targeting, content creation, and monthly ranking reports that bring consistent traffic and leads.",
+    category: "growth",
+    heroVisualType: "dashboard",
+    primaryCTA: { label: "Start Growing Organically", href: "/Wizard" },
+    secondaryCTA: { label: "See Pricing", href: "/pricing" },
+    highlights: [
+      "Keyword research targeting your services and service area",
+      "On-page SEO optimization for every key page",
+      "Content creation that ranks for what customers search",
+      "Google Search Console monitoring and fixes",
+      "Monthly ranking reports with clear progress tracking",
+    ],
+    outcomes: [
+      { title: "More organic traffic", desc: "Rank higher for the searches your customers are making." },
+      { title: "Consistent leads", desc: "SEO builds a steady pipeline that doesn\u2019t depend on ads." },
+      { title: "Lower cost per lead", desc: "Organic traffic costs nothing per click \u2014 the value compounds." },
+    ],
+    howItWorks: [
+      { title: "We audit your site", desc: "Find what\u2019s holding you back and where the biggest opportunities are." },
+      { title: "We optimize and build", desc: "Fix technical issues, optimize pages, and create content that ranks." },
+      { title: "You see the results", desc: "Monthly reports show ranking improvements and traffic growth." },
+    ],
+    bestFor: ["Plumbers", "HVAC", "Electricians", "Roofers", "Cleaners", "Landscapers", "Contractors"],
+    visuals: [
+      { title: "Ranking Dashboard", desc: "Track your keyword positions and organic traffic growth." },
+      { title: "Content Calendar", desc: "See upcoming content planned to boost your rankings." },
+      { title: "Competitor Analysis", desc: "Know where you stand vs. competitors in your area." },
+    ],
+    faq: [
+      { q: "How long until I see results?", a: "Most clients see ranking improvements within 60\u201390 days. SEO is a long-term strategy \u2014 results compound over time." },
+      { q: "Do you write the content?", a: "Yes. On Growth and Pro plans, we create SEO-optimized pages targeting your services and service area." },
+      { q: "Will this work for my area?", a: "Yes. We focus on local SEO so you rank for searches in your specific service area." },
+      { q: "Can I see what you\u2019re doing?", a: "Absolutely. You get monthly reports showing rankings, traffic, and exactly what work was done." },
+    ],
+    pricingSection: buildPricingSection(RANKFLOW),
+    related: ["mapguard", "webboost", "adflow"],
+  },
+  {
+    slug: "adflow",
+    name: "AdFlow\u2122",
+    shortTagline: "Done-for-You Ads",
+    seoTitle: "AdFlow\u2122 — Ads That Bring Leads Fast | WeFixTrades",
+    seoDescription: "Done-for-you Google and Facebook ads built for trades businesses. We handle everything \u2014 setup, targeting, optimization, and reporting.",
+    category: "growth",
+    heroVisualType: "dashboard",
+    primaryCTA: { label: "Start Getting Leads", href: "/Wizard" },
+    secondaryCTA: { label: "See Pricing", href: "/pricing" },
+    highlights: [
+      "Google Ads campaigns targeting homeowners who need your services",
+      "Facebook & Instagram ads to reach local customers",
+      "Ad copy and creative designed for trades",
+      "Budget optimization so every dollar works harder",
+      "Clear reporting on leads, cost per lead, and ROI",
+    ],
+    outcomes: [
+      { title: "Leads fast", desc: "Start getting calls and form submissions within days, not months." },
+      { title: "Targeted reach", desc: "Your ads show to homeowners actively searching for your services." },
+      { title: "Clear ROI", desc: "Know exactly how much you\u2019re spending and what you\u2019re getting back." },
+    ],
+    howItWorks: [
+      { title: "We set up your campaigns", desc: "Research, targeting, ad copy, and landing page optimization \u2014 all handled." },
+      { title: "We optimize daily", desc: "We monitor and adjust bids, targeting, and creative to maximize leads." },
+      { title: "You get the leads", desc: "Calls, form submissions, and booking requests come directly to you." },
+    ],
+    bestFor: ["Plumbers", "HVAC", "Electricians", "Roofers", "Cleaners", "Landscapers", "Contractors"],
+    visuals: [
+      { title: "Campaign Dashboard", desc: "See your active campaigns, spend, and lead count at a glance." },
+      { title: "Lead Tracking", desc: "Every call and form submission tracked back to your ads." },
+      { title: "Performance Reports", desc: "Weekly and monthly reports showing ROI and optimization opportunities." },
+    ],
+    faq: [
+      { q: "Do I need to manage anything?", a: "No. We handle everything \u2014 setup, optimization, and reporting. You just answer the leads." },
+      { q: "How much should I budget for ads?", a: "We recommend starting with $500\u2013$1,500/month in ad spend (separate from management fee). We\u2019ll help you find the right budget." },
+      { q: "How fast will I see results?", a: "Most clients see leads within the first week. We optimize continuously to improve results." },
+      { q: "Which platforms do you use?", a: "Google Ads on all plans. Growth adds Facebook, and Pro adds Instagram and video ads." },
+    ],
+    pricingSection: buildPricingSection(ADFLOW),
+    related: ["rankflow", "tradeline", "quotequick"],
   },
 ];
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, type CSSProperties } from "react";
-import { Check, ChevronDown, Zap, Shield, Eye, Globe, Wrench, ArrowRight, Info, X } from "lucide-react";
+import { Check, ChevronDown, Zap, Shield, Eye, Globe, Wrench, ArrowRight, Info, X, TrendingUp, Target } from "lucide-react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, shadows, typography } from "@/theme/tokens";
@@ -115,6 +115,22 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
     href: "/products/sitelaunch",
     trustLine: "Built for trades who need a real website that brings in jobs",
     bestFor: "brand new website",
+  },
+  rankflow: {
+    name: "RankFlow\u2122",
+    headline: "Ongoing SEO that brings consistent traffic and leads",
+    bullets: ["Keyword research and on-page optimization", "Content that ranks for your services", "Monthly reports showing real progress"],
+    href: "/products/rankflow",
+    trustLine: "Helps trades businesses rank higher and get found organically",
+    bestFor: "long-term organic traffic",
+  },
+  adflow: {
+    name: "AdFlow\u2122",
+    headline: "Done-for-you ads that bring leads fast",
+    bullets: ["Google & Facebook ad campaigns managed for you", "Targeting homeowners who need your services", "Clear reporting on leads and spend"],
+    href: "/products/adflow",
+    trustLine: "Brings qualified leads to trades businesses through paid ads",
+    bestFor: "fast lead generation via ads",
   },
   "fix-optimize": {
     name: "Fix & Optimize\u2122",
