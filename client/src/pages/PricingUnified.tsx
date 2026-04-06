@@ -7,7 +7,7 @@ import {
   ALL_PRODUCTS, YEARLY_DISCOUNT_PCT,
   SITELAUNCH, TRADELINE, WEBFIX,
   BUNDLE_STARTER, BUNDLE_GROWTH, BUNDLE_PRO,
-  yearlyMonthlyEquiv, formatPrice, bundleSavings,
+  yearlyMonthlyEquiv, formatPrice, bundleSavings, lowestMonthly,
   type ProductDef, type BundleDef, type Tier,
 } from "@/config/pricing";
 import CheckoutModal, { type CheckoutItem } from "@/components/CheckoutModal";
@@ -967,6 +967,177 @@ function RoiAnchor({ text }: { text: string }) {
   );
 }
 
+/* ── Build your own system ── */
+const CUSTOM_DISCOUNT = 0.07; // 7% discount when 3+ services selected
+
+interface BuilderService {
+  id: string;
+  name: string;
+  tagline: string;
+  price: number; // lowest monthly
+}
+
+const BUILDER_SERVICES: BuilderService[] = ALL_PRODUCTS
+  .filter(p => {
+    const monthly = p.tiers.filter(t => t.billingPeriod === "monthly");
+    return monthly.length > 0 && !["sitelaunch", "webfix"].includes(p.id);
+  })
+  .map(p => ({
+    id: p.id,
+    name: p.name,
+    tagline: p.tagline,
+    price: lowestMonthly(p)!,
+  }));
+
+function SystemBuilder({ yearly, onCheckout }: {
+  yearly: boolean;
+  onCheckout: (items: CheckoutItem[], title: string) => void;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState(false);
+
+  const toggle = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const selectedServices = BUILDER_SERVICES.filter(s => selected.has(s.id));
+  const subtotal = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const hasDiscount = selectedServices.length >= 3;
+  const discountAmount = hasDiscount ? Math.round(subtotal * CUSTOM_DISCOUNT) : 0;
+  const total = subtotal - discountAmount;
+  const displayTotal = yearly ? yearlyMonthlyEquiv(total) : total;
+
+  const handleCheckout = () => {
+    if (selectedServices.length === 0) return;
+    const items: CheckoutItem[] = selectedServices.map(s => {
+      const product = ALL_PRODUCTS.find(p => p.id === s.id)!;
+      const tier = product.tiers.filter(t => t.billingPeriod === "monthly")[0];
+      return { serviceId: tier.id, label: s.name, price: s.price, billingPeriod: "monthly" as const };
+    });
+    onCheckout(items, `Custom System (${selectedServices.length} services)`);
+  };
+
+  return (
+    <div style={{
+      background: "rgba(255,255,255,0.02)",
+      border: "1px solid rgba(255,255,255,0.06)",
+      borderRadius: CARD_RADIUS,
+      overflow: "hidden",
+    }}>
+      {/* Header — always visible */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+          gap: 12, padding: "16px 20px", background: "none", border: "none",
+          cursor: "pointer", textAlign: "left", fontFamily: FONT,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: mkt.onDark, marginBottom: 2 }}>
+            Build your own system
+          </div>
+          <div style={{ fontSize: 12, color: WARM_GRAY, opacity: 0.8 }}>
+            Pick the services you need — get 7% off when you choose 3+
+          </div>
+        </div>
+        <ChevronDown size={16} color={mkt.textFaint} style={{
+          flexShrink: 0,
+          transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+          transition: "transform 0.2s ease",
+        }} />
+      </button>
+
+      {/* Expanded content */}
+      {expanded && (
+        <div style={{ padding: "0 20px 20px" }}>
+          {/* Service toggles */}
+          <div className="builder-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 16 }}>
+            {BUILDER_SERVICES.map(s => {
+              const isSelected = selected.has(s.id);
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => toggle(s.id)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "12px 14px", borderRadius: 10, textAlign: "left",
+                    border: `1px solid ${isSelected ? mkt.accent + "44" : "rgba(255,255,255,0.08)"}`,
+                    background: isSelected ? mkt.accent + "0a" : "rgba(255,255,255,0.02)",
+                    cursor: "pointer", transition: "all 0.15s ease", fontFamily: FONT,
+                  }}
+                >
+                  {/* Checkbox */}
+                  <div style={{
+                    width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+                    border: `2px solid ${isSelected ? mkt.accent : "rgba(255,255,255,0.2)"}`,
+                    background: isSelected ? mkt.accent : "transparent",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "all 0.15s ease",
+                  }}>
+                    {isSelected && <Check size={11} color={mkt.dark} strokeWidth={3} />}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: isSelected ? mkt.onDark : mkt.textMuted, lineHeight: 1.2 }}>
+                      {s.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: WARM_GRAY, opacity: 0.7, marginTop: 1 }}>
+                      from {formatPrice(yearly ? yearlyMonthlyEquiv(s.price) : s.price)}/mo
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Summary */}
+          {selectedServices.length > 0 && (
+            <div style={{
+              background: "rgba(255,255,255,0.03)", borderRadius: 12,
+              border: "1px solid rgba(255,255,255,0.06)", padding: "16px 18px",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: hasDiscount ? 4 : 12 }}>
+                <span style={{ fontSize: 13, color: mkt.textMuted }}>
+                  {selectedServices.length} service{selectedServices.length !== 1 ? "s" : ""} selected
+                </span>
+                {hasDiscount && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: WARM_GREEN, letterSpacing: "0.02em" }}>
+                    7% BUNDLE DISCOUNT
+                  </span>
+                )}
+              </div>
+              {hasDiscount && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: mkt.textFaint, marginBottom: 12 }}>
+                  <span style={{ textDecoration: "line-through" }}>{formatPrice(yearly ? yearlyMonthlyEquiv(subtotal) : subtotal)}/mo</span>
+                  <span style={{ color: WARM_GREEN }}>-{formatPrice(yearly ? yearlyMonthlyEquiv(discountAmount) : discountAmount)}/mo</span>
+                </div>
+              )}
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 14 }}>
+                <span style={{ fontSize: 28, fontWeight: 800, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.03em" }}>
+                  {formatPrice(displayTotal)}
+                </span>
+                <span style={{ fontSize: 14, color: TEXT_STRONG }}>/mo</span>
+                {yearly && <span style={{ fontSize: 11, color: WARM_GRAY }}>billed annually</span>}
+              </div>
+              <CTAButton label="Start Custom System" fullWidth onClick={handleCheckout} />
+            </div>
+          )}
+
+          {selectedServices.length === 0 && (
+            <div style={{ textAlign: "center", fontSize: 13, color: mkt.textFaint, padding: "8px 0" }}>
+              Select services above to build your system
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Decision button (compact for grid) ── */
 function DecisionButton({ label, targetId }: { label: string; targetId: string }) {
   const [hover, setHover] = useState(false);
@@ -1110,6 +1281,20 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
             </div>
 
             <RoiAnchor text="One booked job can cover this entire system." />
+
+            {/* Build your own — collapsible, below bundles */}
+            <div style={{ marginTop: 28 }}>
+              <SystemBuilder
+                yearly={yearly}
+                onCheckout={(items, title) => {
+                  setCheckoutTitle(title);
+                  setCheckoutItems(items);
+                  setCheckoutBundleId(undefined);
+                  setCheckoutBundlePrice(undefined);
+                  setCheckoutOpen(true);
+                }}
+              />
+            </div>
           </div>
         </section>
 
@@ -1262,6 +1447,9 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
           .pricing-section { padding-left: 4px !important; padding-right: 4px !important; }
           .pricing-max-w { padding-left: 2px !important; padding-right: 2px !important; }
           .pricing-tab-icon { display: none !important; }
+          .builder-grid {
+            grid-template-columns: 1fr !important;
+          }
           .pricing-decision-grid {
             grid-template-columns: repeat(2, 1fr) !important;
             gap: 6px !important;
