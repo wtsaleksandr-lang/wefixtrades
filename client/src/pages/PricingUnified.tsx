@@ -691,55 +691,6 @@ function OneTimeCard({ product, onCheckout, onInfo, bestFor }: { product: Produc
 }
 
 /* ═══════════════════════════════════════════
-   SECTION HEADING
-   ═══════════════════════════════════════════ */
-
-function PricingSectionHeading({ title, subtitle, badge }: { title: string; subtitle: string; badge?: string }) {
-  return (
-    <div className="pricing-section-heading" style={{ textAlign: "center", marginBottom: 28 }}>
-      {badge && (
-        <span style={{
-          display: "inline-flex",
-          background: mkt.accentTint,
-          color: mkt.accent,
-          fontSize: 10,
-          fontWeight: 700,
-          padding: "4px 12px",
-          borderRadius: 999,
-          letterSpacing: "0.04em",
-          textTransform: "uppercase" as const,
-          marginBottom: 8,
-        }}>
-          {badge}
-        </span>
-      )}
-      <h2 style={{
-        fontSize: "clamp(18px, 3vw, 28px)",
-        fontWeight: 700,
-        color: mkt.onDark,
-        fontFamily: FONT,
-        letterSpacing: "-0.02em",
-        lineHeight: 1.15,
-        margin: "0 0 4px",
-      }}>
-        {title}
-      </h2>
-      <p style={{
-        fontSize: 13,
-        color: TEXT_STRONG,
-        lineHeight: 1.45,
-        margin: 0,
-        maxWidth: 380,
-        marginLeft: "auto",
-        marginRight: "auto",
-      }}>
-        {subtitle}
-      </p>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════
    SERVICE CARD
    ═══════════════════════════════════════════ */
 
@@ -1012,7 +963,7 @@ function RoiAnchor({ text }: { text: string }) {
   );
 }
 
-/* ── Decision button ── */
+/* ── Decision button (compact for grid) ── */
 function DecisionButton({ label, targetId }: { label: string; targetId: string }) {
   const [hover, setHover] = useState(false);
   return (
@@ -1021,21 +972,44 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        flex: 1,
-        minWidth: 160,
-        padding: "16px 20px",
-        borderRadius: 14,
+        padding: "12px 14px",
+        borderRadius: 12,
         border: `1px solid ${hover ? "rgba(102,232,250,0.25)" : "rgba(255,255,255,0.1)"}`,
         background: hover ? "rgba(102,232,250,0.06)" : "rgba(255,255,255,0.03)",
         color: hover ? mkt.onDark : TEXT_STRONG,
-        fontSize: 15,
-        fontWeight: 650,
+        fontSize: 13,
+        fontWeight: 600,
         fontFamily: FONT,
         cursor: "pointer",
         transition: "all 0.2s ease",
         textAlign: "center",
       }}
     >
+      {label}
+    </button>
+  );
+}
+
+/* ── Helper link (for guidance block) ── */
+function GuideLink({ label, targetId, onClick }: { label: string; targetId: string; onClick?: () => void }) {
+  return (
+    <button
+      onClick={() => {
+        onClick?.();
+        document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }}
+      style={{
+        display: "flex", alignItems: "center", gap: 8,
+        padding: "8px 14px", borderRadius: 10,
+        border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)",
+        color: mkt.textMuted, fontSize: 13, fontWeight: 550,
+        cursor: "pointer", transition: "all 0.15s ease",
+        fontFamily: FONT, textAlign: "left", width: "100%",
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(102,232,250,0.2)"; e.currentTarget.style.color = mkt.onDark; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = mkt.textMuted; }}
+    >
+      <ArrowRight size={12} style={{ flexShrink: 0, opacity: 0.5 }} />
       {label}
     </button>
   );
@@ -1058,44 +1032,40 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
     <MarketingLayout>
       <div style={{ paddingBottom: 80 }}>
 
-        {/* ═══ 1. HERO + BILLING TOGGLE ═══ */}
-        <section className="pricing-hero" style={{ padding: "48px 24px 0" }}>
+        {/* ═══ 1. HERO (compact) ═══ */}
+        <section className="pricing-hero" style={{ padding: "40px 20px 0" }}>
           <div style={MAX_W}>
-            <div className="pricing-hero-row" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20, flexWrap: "wrap", marginBottom: 4 }}>
-              <div>
-                <h1 style={{ fontSize: "clamp(26px, 5vw, 42px)", fontWeight: 800, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.03em", lineHeight: 1.1, margin: 0 }}>
-                  Simple, transparent pricing
-                </h1>
-                <p style={{ fontSize: "clamp(13px, 1.8vw, 15px)", color: WARM_GRAY, lineHeight: 1.5, margin: "6px 0 0", opacity: 0.85 }}>
-                  Built for trades businesses. No contracts. You own everything.
-                </p>
-              </div>
-              <BillingToggle yearly={yearly} onChange={setYearly} />
-            </div>
+            <h1 style={{ fontSize: "clamp(24px, 5vw, 40px)", fontWeight: 800, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.03em", lineHeight: 1.1, margin: "0 0 4px" }}>
+              Simple, transparent pricing
+            </h1>
+            <p style={{ fontSize: 14, color: WARM_GRAY, lineHeight: 1.4, margin: 0, opacity: 0.85 }}>
+              Built for trades businesses. No contracts. You own everything.
+            </p>
           </div>
         </section>
 
         {/* ═══ 2. DECISION FRAME ═══ */}
-        <section style={{ padding: "28px 24px 0" }}>
+        <section style={{ padding: "20px 20px 0" }}>
           <div style={MAX_W}>
-            <div style={{ textAlign: "center", marginBottom: 16 }}>
-              <h2 style={{ fontSize: "clamp(16px, 2.5vw, 20px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, margin: "0 0 4px" }}>
-                What do you need right now?
-              </h2>
-            </div>
-            <div className="pricing-decision-row" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, margin: "0 0 12px", textAlign: "center" }}>
+              What do you want help with?
+            </h2>
+            <div className="pricing-decision-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
               <DecisionButton label="Get more jobs" targetId="pricing-bundles" />
+              <DecisionButton label="Be found on Google" targetId="pricing-services" />
+              <DecisionButton label="Handle calls automatically" targetId="pricing-bundles" />
+              <DecisionButton label="Get more 5-star reviews" targetId="pricing-services" />
               <DecisionButton label="Fix my website" targetId="pricing-services" />
               <DecisionButton label="Build a new website" targetId="pricing-services" />
             </div>
           </div>
         </section>
 
-        {/* ═══ 3. BUNDLES / SYSTEMS (PRIMARY) ═══ */}
-        <section id="pricing-bundles" style={{ padding: "36px 24px 0", scrollMarginTop: 80 }}>
+        {/* ═══ 3. BUNDLES (PRIMARY) ═══ */}
+        <section id="pricing-bundles" style={{ padding: "32px 20px 0", scrollMarginTop: 80 }}>
           <div style={MAX_W}>
-            <div className="pricing-section-heading" style={{ marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <h2 style={{ fontSize: "clamp(18px, 3vw, 26px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.02em", margin: 0 }}>
                   Choose your system
                 </h2>
@@ -1103,24 +1073,23 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
                   Most businesses start here
                 </span>
               </div>
-              <p style={{ fontSize: 13, color: WARM_GRAY, lineHeight: 1.45, margin: 0, opacity: 0.85 }}>
-                Everything working together — more jobs, less manual work.
-              </p>
+              <BillingToggle yearly={yearly} onChange={setYearly} />
             </div>
+            <p style={{ fontSize: 13, color: WARM_GRAY, lineHeight: 1.45, margin: "0 0 16px", opacity: 0.85 }}>
+              Everything working together — more jobs, less manual work.
+            </p>
 
-            {/* Guidance block */}
+            {/* Guidance block — clickable */}
             <div style={{
               background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 12, padding: "14px 20px", marginBottom: 20,
-              fontSize: 13, color: mkt.textMuted, lineHeight: 1.6,
+              borderRadius: 12, padding: "14px 16px", marginBottom: 20,
             }}>
-              <span style={{ fontWeight: 650, color: TEXT_STRONG }}>Not sure which to pick?</span>
-              <span style={{ margin: "0 8px", opacity: 0.4 }}>·</span>
-              Just starting → Starter
-              <span style={{ margin: "0 8px", opacity: 0.4 }}>·</span>
-              Want steady jobs → Growth
-              <span style={{ margin: "0 8px", opacity: 0.4 }}>·</span>
-              Want everything automated → Pro
+              <div style={{ fontSize: 13, fontWeight: 650, color: TEXT_STRONG, marginBottom: 8 }}>Not sure where to start?</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <GuideLink label="Need more leads now → Growth System" targetId="pricing-bundles" />
+                <GuideLink label="Need one specific fix → Individual services" targetId="pricing-services" />
+                <GuideLink label="Need a website from scratch → SiteLaunch" targetId="pricing-services" onClick={() => setActiveCat("website")} />
+              </div>
             </div>
 
             {/* Desktop: 3-col */}
@@ -1130,7 +1099,7 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
               ))}
             </div>
             {/* Mobile: Growth first */}
-            <div className="pricing-plans-mobile" style={{ display: "none", flexDirection: "column", gap: 20, maxWidth: 480, margin: "0 auto" }}>
+            <div className="pricing-plans-mobile" style={{ display: "none", flexDirection: "column", gap: 16, maxWidth: 480, margin: "0 auto" }}>
               {bundlesMobile.map((b) => (
                 <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} onCheckout={() => openBundleCheckout(b)} onServiceInfo={(pid) => SERVICE_INFO[pid] && setInfoModal(SERVICE_INFO[pid])} />
               ))}
@@ -1140,22 +1109,27 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
           </div>
         </section>
 
-        {/* ═══ SECTION DIVIDER ═══ */}
-        <div style={{ ...MAX_W, marginTop: 48 }}>
+        {/* ═══ DIVIDER ═══ */}
+        <div style={{ ...MAX_W, marginTop: 40 }}>
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
         </div>
 
         {/* ═══ 4. INDIVIDUAL SERVICES (SECONDARY) ═══ */}
-        <section id="pricing-services" style={{ padding: "40px 24px 0", scrollMarginTop: 80 }}>
+        <section id="pricing-services" style={{ padding: "32px 20px 0", scrollMarginTop: 80 }}>
           <div style={MAX_W}>
-            <PricingSectionHeading
-              title="Add or fix specific parts"
-              subtitle="Only need one piece? Start here."
-            />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+              <div>
+                <h2 style={{ fontSize: "clamp(16px, 2.5vw, 22px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.02em", margin: "0 0 2px" }}>
+                  Add or fix specific parts
+                </h2>
+                <p style={{ fontSize: 13, color: WARM_GRAY, margin: 0, opacity: 0.8 }}>Only need one piece? Start here.</p>
+              </div>
+              <BillingToggle yearly={yearly} onChange={setYearly} />
+            </div>
 
             {/* Category tabs */}
             <div className="pricing-cat-tabs-row" style={{
-              display: "flex", gap: 4, marginBottom: 24, borderRadius: 12,
+              display: "flex", gap: 4, marginBottom: 20, borderRadius: 12,
               background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
               padding: 4, overflowX: "auto",
               WebkitOverflowScrolling: "touch" as any, scrollbarWidth: "none" as any,
@@ -1169,7 +1143,7 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
                     onClick={() => setActiveCat(group.cat)}
                     style={{
                       flex: 1, minWidth: 0, display: "flex", alignItems: "center",
-                      justifyContent: "center", gap: 6, padding: "10px 16px", borderRadius: 9,
+                      justifyContent: "center", gap: 6, padding: "10px 14px", borderRadius: 9,
                       border: "none", background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
                       color: isActive ? mkt.onDark : mkt.textMuted, fontSize: 13,
                       fontWeight: isActive ? 650 : 500, cursor: "pointer",
@@ -1192,15 +1166,14 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
                   ))}
                 </div>
 
-                {/* One-time options — shown at bottom of Website tab */}
                 {group.cat === "website" && (
                   <>
-                    <div style={{ marginTop: 40, marginBottom: 24 }}>
-                      <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginBottom: 20 }} />
-                      <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, margin: "0 0 4px" }}>
+                    <div style={{ marginTop: 32, marginBottom: 20 }}>
+                      <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginBottom: 16 }} />
+                      <h3 style={{ fontSize: 15, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, margin: "0 0 3px" }}>
                         One-time payment options
                       </h3>
-                      <p style={{ fontSize: 13, color: WARM_GRAY, lineHeight: 1.45, margin: 0, opacity: 0.75 }}>
+                      <p style={{ fontSize: 12, color: WARM_GRAY, lineHeight: 1.4, margin: 0, opacity: 0.75 }}>
                         Not ready for a monthly plan? Start with a one-time fix or a full website build.
                       </p>
                     </div>
@@ -1215,21 +1188,21 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
           </div>
         </section>
 
-        {/* ═══ SECTION DIVIDER ═══ */}
-        <div style={{ ...MAX_W, marginTop: 48 }}>
+        {/* ═══ DIVIDER ═══ */}
+        <div style={{ ...MAX_W, marginTop: 40 }}>
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
         </div>
 
         {/* ═══ 5. FINAL CTA ═══ */}
-        <section style={{ padding: "48px 24px 0" }}>
+        <section style={{ padding: "36px 20px 0" }}>
           <div style={{ ...MAX_W, textAlign: "center" }}>
-            <h2 style={{ fontSize: "clamp(18px, 3vw, 26px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.02em", margin: "0 0 6px" }}>
+            <h2 style={{ fontSize: "clamp(16px, 2.5vw, 22px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.02em", margin: "0 0 4px" }}>
               Still not sure?
             </h2>
-            <p style={{ fontSize: 14, color: WARM_GRAY, lineHeight: 1.5, margin: "0 auto 24px", maxWidth: 400, opacity: 0.85 }}>
+            <p style={{ fontSize: 13, color: WARM_GRAY, lineHeight: 1.4, margin: "0 auto 20px", maxWidth: 360, opacity: 0.85 }}>
               Start with one tool — or choose a system and see results faster.
             </p>
-            <div className="pricing-final-cta-row" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <div className="pricing-final-cta-row" style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
               <CTAButton label="Start with Growth" highlighted onClick={() => openBundleCheckout(BUNDLE_GROWTH)} />
               <CTAButton label="Try one tool" onClick={() => document.getElementById("pricing-services")?.scrollIntoView({ behavior: "smooth" })} />
             </div>
@@ -1271,13 +1244,8 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
         /* Hide scrollbar on tabs row */
         .pricing-cat-tabs-row::-webkit-scrollbar { display: none; }
         @media (max-width: 640px) {
-          .pricing-hero-row {
-            flex-direction: column !important;
-            align-items: flex-start !important;
-            text-align: left;
-          }
-          .pricing-decision-row {
-            flex-direction: column !important;
+          .pricing-decision-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
           }
           .pricing-final-cta-row {
             flex-direction: column !important;
@@ -1299,12 +1267,6 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
             max-width: 480px;
             margin-left: auto;
             margin-right: auto;
-          }
-          .pricing-hero {
-            padding-top: 24px !important;
-          }
-          .pricing-section-heading {
-            margin-bottom: 20px !important;
           }
         }
         @media (min-width: 901px) {
