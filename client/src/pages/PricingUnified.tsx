@@ -91,10 +91,11 @@ function BillingToggle({ yearly, onChange }: { yearly: boolean; onChange: (y: bo
             <button
               key={opt}
               onClick={() => onChange(opt === "yearly")}
+              className="billing-btn"
               style={{
                 position: "relative",
                 zIndex: 1,
-                padding: "10px 24px",
+                padding: "8px 20px",
                 borderRadius: 999,
                 border: "none",
                 background: active ? mkt.accent : "transparent",
@@ -403,40 +404,40 @@ function OneTimeCard({ product, onCheckout }: { product: ProductDef; yearly: boo
 
 function PricingSectionHeading({ title, subtitle, badge }: { title: string; subtitle: string; badge?: string }) {
   return (
-    <div style={{ textAlign: "center", marginBottom: 32 }}>
+    <div className="pricing-section-heading" style={{ textAlign: "center", marginBottom: 28 }}>
       {badge && (
-        <div style={{
+        <span style={{
           display: "inline-flex",
           background: mkt.accentTint,
           color: mkt.accent,
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: 700,
-          padding: "5px 14px",
+          padding: "4px 12px",
           borderRadius: 999,
           letterSpacing: "0.04em",
           textTransform: "uppercase" as const,
-          marginBottom: 12,
+          marginBottom: 8,
         }}>
           {badge}
-        </div>
+        </span>
       )}
       <h2 style={{
-        fontSize: "clamp(20px, 3vw, 28px)",
+        fontSize: "clamp(18px, 3vw, 28px)",
         fontWeight: 700,
         color: mkt.onDark,
         fontFamily: FONT,
         letterSpacing: "-0.02em",
         lineHeight: 1.15,
-        margin: "0 0 6px",
+        margin: "0 0 4px",
       }}>
         {title}
       </h2>
       <p style={{
-        fontSize: 14,
+        fontSize: 13,
         color: TEXT_STRONG,
-        lineHeight: 1.5,
+        lineHeight: 1.45,
         margin: 0,
-        maxWidth: 480,
+        maxWidth: 380,
         marginLeft: "auto",
         marginRight: "auto",
       }}>
@@ -633,6 +634,7 @@ function SectionLabel({ icon: Icon, label }: { icon: typeof Zap; label: string }
 
 export default function PricingUnified() {
   const [yearly, setYearly] = useState(false);
+  const [activeCat, setActiveCat] = useState("leads");
 
   /* ─── Checkout modal state ─── */
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -747,13 +749,12 @@ export default function PricingUnified() {
               style={{
                 fontSize: "clamp(14px, 2vw, 17px)",
                 color: TEXT_STRONG,
-                lineHeight: 1.6,
-                maxWidth: 480,
+                lineHeight: 1.5,
+                maxWidth: 400,
                 margin: "0 auto",
               }}
             >
-              Everything you need to grow your trades business online.
-              No hidden fees. Cancel anytime.
+              Everything you need to grow your trades business. No hidden fees. Cancel anytime.
             </p>
           </div>
         </section>
@@ -790,46 +791,98 @@ export default function PricingUnified() {
         </section>
 
         {/* ═══ SECTION DIVIDER ═══ */}
-        <div style={{ ...MAX_W, marginTop: 56 }}>
+        <div className="pricing-divider" style={{ ...MAX_W, marginTop: 48 }}>
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
         </div>
 
         {/* ═══ BLOCK 2: INDIVIDUAL SERVICES (secondary) ═══ */}
-        <section style={{ padding: "48px 24px 0" }}>
+        <section style={{ padding: "40px 24px 0" }}>
           <div style={MAX_W}>
             <PricingSectionHeading
               title="Individual services"
-              subtitle="Need just one tool? Pick the service that fits your business right now."
+              subtitle="Need just one tool? Pick what fits your business."
             />
 
-            {productsByCategory.map((group) => (
-              <div key={group.cat} style={{ marginBottom: 40 }}>
-                <SectionLabel icon={group.icon} label={group.label} />
-                <div
-                  className="pricing-services-grid"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(2, 1fr)",
-                    gap: 20,
-                    alignItems: "stretch",
-                  }}
-                >
-                  {group.products.map((product) => (
-                    <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} />
-                  ))}
+            {/* Category tabs — visible on mobile, hidden on desktop */}
+            <div className="pricing-cat-tabs" style={{ display: "none", justifyContent: "center", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
+              {productsByCategory.map((group) => {
+                const isActive = activeCat === group.cat;
+                return (
+                  <button
+                    key={group.cat}
+                    onClick={() => setActiveCat(group.cat)}
+                    style={{
+                      padding: "7px 14px",
+                      borderRadius: 9999,
+                      border: `1px solid ${isActive ? "rgba(102,232,250,0.3)" : "rgba(255,255,255,0.08)"}`,
+                      background: isActive ? "rgba(102,232,250,0.08)" : "transparent",
+                      color: isActive ? mkt.accent : mkt.textMuted,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                      fontFamily: FONT,
+                    }}
+                  >
+                    {group.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Desktop: all categories stacked */}
+            <div className="pricing-services-all">
+              {productsByCategory.map((group) => (
+                <div key={group.cat} style={{ marginBottom: 40 }}>
+                  <SectionLabel icon={group.icon} label={group.label} />
+                  <div
+                    className="pricing-services-grid"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, 1fr)",
+                      gap: 20,
+                      alignItems: "stretch",
+                    }}
+                  >
+                    {group.products.map((product) => (
+                      <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+
+            {/* Mobile: only active category */}
+            <div className="pricing-services-tabbed" style={{ display: "none" }}>
+              {productsByCategory.filter(g => g.cat === activeCat).map((group) => (
+                <div key={group.cat}>
+                  <div
+                    className="pricing-services-grid"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr",
+                      gap: 16,
+                      maxWidth: 480,
+                      margin: "0 auto",
+                    }}
+                  >
+                    {group.products.map((product) => (
+                      <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
         {/* ═══ SECTION DIVIDER ═══ */}
-        <div style={{ ...MAX_W, marginTop: 8 }}>
+        <div className="pricing-divider" style={{ ...MAX_W, marginTop: 8 }}>
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
         </div>
 
         {/* ═══ BLOCK 3: ONE-TIME OPTIONS (entry point) ═══ */}
-        <section style={{ padding: "48px 24px 0" }}>
+        <section style={{ padding: "40px 24px 0" }}>
           <div style={MAX_W}>
             <PricingSectionHeading
               title="One-time options"
@@ -883,11 +936,30 @@ export default function PricingUnified() {
             margin-right: auto;
           }
           .pricing-hero {
-            padding-top: 32px !important;
+            padding-top: 24px !important;
+          }
+          /* Services: show tabs, hide all-categories, show tabbed */
+          .pricing-cat-tabs {
+            display: flex !important;
+          }
+          .pricing-services-all {
+            display: none !important;
+          }
+          .pricing-services-tabbed {
+            display: block !important;
+          }
+          .pricing-section-heading {
+            margin-bottom: 20px !important;
           }
         }
         @media (min-width: 901px) {
           .pricing-plans-mobile {
+            display: none !important;
+          }
+          .pricing-cat-tabs {
+            display: none !important;
+          }
+          .pricing-services-tabbed {
             display: none !important;
           }
         }
