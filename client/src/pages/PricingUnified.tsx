@@ -1162,13 +1162,20 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
             </div>
 
             {/* Active category cards */}
-            {productsByCategory.filter(g => g.cat === activeCat).map((group) => (
+            {productsByCategory.filter(g => g.cat === activeCat).map((group) => {
+              /* Filter out one-time-only products from the monthly grid — they appear in the one-time section below */
+              const ONE_TIME_IDS = new Set(["sitelaunch", "fix-optimize"]);
+              const monthlyProducts = group.cat === "website" ? group.products.filter(p => !ONE_TIME_IDS.has(p.id)) : group.products;
+
+              return (
               <div key={group.cat}>
+                {monthlyProducts.length > 0 && (
                 <div className="pricing-services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, alignItems: "stretch" }}>
-                  {group.products.map((product) => (
+                  {monthlyProducts.map((product) => (
                     <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} onInfo={SERVICE_INFO[product.id] ? () => setInfoModal(SERVICE_INFO[product.id]) : undefined} bestFor={SERVICE_INFO[product.id]?.bestFor} />
                   ))}
                 </div>
+                )}
 
                 {group.cat === "website" && (
                   <>
@@ -1188,7 +1195,8 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
                   </>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
