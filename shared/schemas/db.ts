@@ -306,6 +306,8 @@ export const auditSubmissions = pgTable("audit_submissions", {
   desktop_speed_score: integer("desktop_speed_score"),
   issue_count: integer("issue_count").default(0),
   report_json: jsonb("report_json"),
+  source_tool: varchar("source_tool", { length: 50 }),
+  source_page: text("source_page"),
   created_at: timestamp("created_at").defaultNow(),
 });
 
@@ -315,6 +317,82 @@ export const insertAuditSubmissionSchema = createInsertSchema(auditSubmissions).
 });
 export type InsertAuditSubmission = z.infer<typeof insertAuditSubmissionSchema>;
 export type AuditSubmission = typeof auditSubmissions.$inferSelect;
+
+/* ─── Audit Followup Emails ─── */
+export const auditFollowupEmails = pgTable("audit_followup_emails", {
+  id: serial("id").primaryKey(),
+  audit_submission_id: integer("audit_submission_id").references(() => auditSubmissions.id),
+  audit_report_id: uuid("audit_report_id").references(() => auditReports.id),
+  missed_call_lead_id: integer("missed_call_lead_id"),
+  demo_quote_lead_id: integer("demo_quote_lead_id"),
+  email: text("email").notNull(),
+  business_name: text("business_name"),
+  run_at: timestamp("run_at").notNull(),
+  step: varchar("step", { length: 30 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  attempts: integer("attempts").default(0),
+  max_attempts: integer("max_attempts").default(3),
+  last_error: text("last_error"),
+  payload: jsonb("payload"),
+  created_at: timestamp("created_at").defaultNow(),
+  processed_at: timestamp("processed_at"),
+});
+
+export const insertAuditFollowupEmailSchema = createInsertSchema(auditFollowupEmails).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertAuditFollowupEmail = z.infer<typeof insertAuditFollowupEmailSchema>;
+export type AuditFollowupEmail = typeof auditFollowupEmails.$inferSelect;
+
+/* ─── Demo Quote Leads ─── */
+export const demoQuoteLeads = pgTable("demo_quote_leads", {
+  id: serial("id").primaryKey(),
+  email: text("email"),
+  name: text("name"),
+  phone: text("phone"),
+  company: text("company"),
+  trade: varchar("trade", { length: 50 }).notNull(),
+  demo_business_name: text("demo_business_name"),
+  quote_amount: integer("quote_amount"),
+  answers: jsonb("answers"),
+  sms_consent: boolean("sms_consent").default(false),
+  source: varchar("source", { length: 50 }).default("quote_demo"),
+  page: varchar("page", { length: 100 }).default("quote-demo"),
+  source_tool: varchar("source_tool", { length: 50 }),
+  source_page: text("source_page"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertDemoQuoteLeadSchema = createInsertSchema(demoQuoteLeads).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertDemoQuoteLead = z.infer<typeof insertDemoQuoteLeadSchema>;
+export type DemoQuoteLead = typeof demoQuoteLeads.$inferSelect;
+
+/* ─── Missed Call Calculator Leads ─── */
+export const missedCallLeads = pgTable("missed_call_leads", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  name: text("name"),
+  phone: text("phone"),
+  trade: varchar("trade", { length: 50 }).notNull(),
+  missed_calls_per_week: integer("missed_calls_per_week"),
+  close_rate_percent: integer("close_rate_percent"),
+  avg_job_value: integer("avg_job_value"),
+  estimated_annual_loss: integer("estimated_annual_loss"),
+  source_tool: varchar("source_tool", { length: 50 }),
+  source_page: text("source_page"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertMissedCallLeadSchema = createInsertSchema(missedCallLeads).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertMissedCallLead = z.infer<typeof insertMissedCallLeadSchema>;
+export type MissedCallLead = typeof missedCallLeads.$inferSelect;
 
 /* ─── Audit Reports ─── */
 export const auditReports = pgTable("audit_reports", {

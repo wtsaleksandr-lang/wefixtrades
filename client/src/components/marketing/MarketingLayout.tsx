@@ -91,7 +91,15 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}
           </div>
 
-          {/* Col 4 — Legal */}
+          {/* Col 4 — Free Tools */}
+          <div>
+            <div style={ftHeading}>Free Tools</div>
+            <FtLink href="/tools/free-audit">Google Business Audit</FtLink>
+            <FtLink href="/tools/missed-call-calculator">Missed Call Calculator</FtLink>
+            <FtLink href="/tools/quote-demo">Instant Quote Demo</FtLink>
+          </div>
+
+          {/* Col 5 — Legal */}
           <div>
             <div style={ftHeading}>Legal</div>
             <FtLink href="/privacy">Privacy Policy</FtLink>

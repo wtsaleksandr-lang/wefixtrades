@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ChevronDown } from "lucide-react";
 import { mkt } from "@/theme/tokens";
+import { useFaqSchema } from "@/lib/useFaqSchema";
 import { HEADING_FONT, BODY_FONT, GLASS, sectionHeading, SECTION_PAD, MAX_W } from "./styles";
 
 const FAQ_ITEMS = [
@@ -107,6 +108,9 @@ function FaqItem({ q, a, delay }: { q: string; a: string; delay: number }) {
 }
 
 export default function FaqSection() {
+  const faqSchemaItems = useMemo(() => FAQ_ITEMS.map(f => ({ question: f.q, answer: f.a })), []);
+  useFaqSchema(faqSchemaItems);
+
   return (
     <section style={{ ...SECTION_PAD, background: mkt.bg }}>
       <div style={{ ...MAX_W, maxWidth: 720 }}>

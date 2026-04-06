@@ -1,12 +1,18 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
 import { mkt, colors, shadows } from "@/theme/tokens";
+import { useFaqSchema } from "@/lib/useFaqSchema";
+import { usePageMeta } from "@/lib/usePageMeta";
+import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
+import InfoTooltip from "@/components/marketing/InfoTooltip";
+import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
+import TrustStrip from "@/components/marketing/TrustStrip";
 import type { CalculatorData } from "@/components/quote-widget/types";
 import {
-  Wrench, SprayCan, Paintbrush, Zap, Home,
-  ArrowRight, Clock, DollarSign, Smartphone, PhoneOff,
+  Wrench, SprayCan, Paintbrush, Zap, Home, Search,
+  ArrowRight, Clock, DollarSign, Smartphone, PhoneOff, ChevronDown,
 } from "lucide-react";
 
 /* ─── Trade Definitions ─── */
@@ -186,7 +192,22 @@ const BENEFITS = [
 
 /* ─── Page Component ─── */
 
+const BASE = "https://wefixtrades.com";
+
 export default function QuoteCalculatorDemo() {
+  usePageMeta({
+    title: "Instant Quote Demo | WeFixTrades",
+    description: "Try the live quote calculator demo. See how your customers get instant prices for plumbing, cleaning, electrical, and more.",
+    canonicalPath: "/tools/quote-demo",
+  });
+
+  const breadcrumbs = useMemo(() => [
+    { name: "Home", url: `${BASE}/` },
+    { name: "Free Tools", url: `${BASE}/tools` },
+    { name: "Instant Quote Demo", url: `${BASE}/tools/quote-demo` },
+  ], []);
+  useBreadcrumbSchema(breadcrumbs);
+
   const [selectedTrade, setSelectedTrade] = useState(TRADES[0].key);
 
   const activeTrade = TRADES.find((t) => t.key === selectedTrade)!;
@@ -223,6 +244,9 @@ export default function QuoteCalculatorDemo() {
           border-color: var(--active-color);
           background: color-mix(in srgb, var(--active-color) 12%, transparent);
           color: var(--active-color);
+        }
+        @media (max-width: 480px) {
+          .trade-btn { padding: 8px 14px; font-size: 13px; gap: 6px; }
         }
         .demo-cta-wrap {
           transition: border-color 0.3s ease, box-shadow 0.3s ease;
@@ -265,6 +289,15 @@ export default function QuoteCalculatorDemo() {
       }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
 
+          {/* Breadcrumb */}
+          <nav aria-label="breadcrumb" style={{ fontSize: 13, color: mkt.textMuted, marginBottom: 16 }}>
+            <Link href="/" style={{ color: mkt.textMuted, textDecoration: "none" }}>Home</Link>
+            <span style={{ margin: "0 6px" }}>/</span>
+            <Link href="/tools" style={{ color: mkt.textMuted, textDecoration: "none" }}>Free Tools</Link>
+            <span style={{ margin: "0 6px" }}>/</span>
+            <span style={{ color: mkt.text }}>Instant Quote Demo</span>
+          </nav>
+
           {/* ─── Headline ─── */}
           <div style={{ textAlign: "center", marginBottom: "clamp(28px, 4vw, 40px)" }}>
             <h1 style={{
@@ -292,6 +325,12 @@ export default function QuoteCalculatorDemo() {
           </div>
 
           {/* ─── Trade Selector ─── */}
+          <div style={{ textAlign: "center", marginBottom: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, display: "inline-flex", alignItems: "center" }}>
+              Select a trade to preview
+              <InfoTooltip text="Each trade shows a realistic quote calculator configured with typical pricing for that service type. Try switching between trades to see how the widget adapts." />
+            </span>
+          </div>
           <div style={{
             display: "flex",
             flexWrap: "wrap",
@@ -372,7 +411,7 @@ export default function QuoteCalculatorDemo() {
 
           {/* ─── CTA ─── */}
           <div style={{ maxWidth: 640, margin: "0 auto" }}>
-            <Link href="/demo" style={{ textDecoration: "none", display: "block", marginBottom: 32 }}>
+            <Link href="/signup?product=quotequick" style={{ textDecoration: "none", display: "block", marginBottom: 16 }}>
               <div className="demo-cta-wrap" style={{
                 background: CYAN,
                 borderRadius: 16,
@@ -390,14 +429,14 @@ export default function QuoteCalculatorDemo() {
                     lineHeight: 1.2,
                     marginBottom: 4,
                   }}>
-                    Get this on your website
+                    Get QuoteQuick for Your Business
                   </div>
                   <div style={{
                     fontSize: 14,
                     color: "rgba(13,21,20,0.6)",
                     fontWeight: 500,
                   }}>
-                    Live in under 10 minutes — no code needed
+                    From $49/mo · Live in under 10 minutes · No code needed
                   </div>
                 </div>
                 <div style={{
@@ -423,6 +462,28 @@ export default function QuoteCalculatorDemo() {
                     ))}
                   </div>
                 </div>
+              </div>
+            </Link>
+
+            {/* Secondary: Talk to Us */}
+            <Link href="/demo" style={{ textDecoration: "none", display: "block", marginBottom: 32 }}>
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                padding: "12px 20px", borderRadius: 14,
+                border: `1px solid ${mkt.border}`, background: "transparent",
+                cursor: "pointer", transition: "border-color 0.2s, background 0.2s",
+                fontSize: 14, fontWeight: 600, color: mkt.textMuted,
+              }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
+                  e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = mkt.border;
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                Talk to Us
               </div>
             </Link>
 
@@ -464,8 +525,247 @@ export default function QuoteCalculatorDemo() {
             </Link>
           </div>
 
+          {/* ─── Static SEO Content ─── */}
+          <TradeDescriptions />
+
+          {/* ─── Cross-tool suggestions ─── */}
+          <div style={{ maxWidth: 640, margin: "clamp(32px, 5vw, 48px) auto 0" }}>
+            <NextStepSuggestions context="demo" theme="dark" />
+          </div>
+
+          {/* ─── Trust Strip ─── */}
+          <TrustStrip theme="dark" />
+
+          {/* ─── FAQ ─── */}
+          <DemoFaqSection />
+
         </div>
       </section>
     </MarketingLayout>
+  );
+}
+
+/* ═══ Static Trade Descriptions (crawlable) ═══ */
+
+const TRADE_SECTIONS = [
+  {
+    heading: "Instant Quote Calculator for Plumbing Businesses",
+    text: "Plumbing customers often need help fast — a leaking pipe or clogged drain won't wait. With an instant quote calculator on your website, they can see pricing for common jobs like fixture replacements, drain clearing, or emergency calls without picking up the phone. Every quote captures their name, email, and phone number so you can follow up directly.",
+  },
+  {
+    heading: "Instant Quote Calculator for Cleaning Services",
+    text: "Cleaning clients want to know what a standard clean, deep clean, or move-out clean will cost before they book. A quote calculator lets them select their service type, choose add-ons like oven cleaning or window washing, and see a price instantly. You get the lead with all their selections — ready to confirm and schedule.",
+  },
+  {
+    heading: "Instant Quote Calculator for Painting Contractors",
+    text: "Painting estimates depend on square footage, surface prep, and the number of coats. An online calculator lets homeowners enter their room size and see a ballpark price in seconds. This filters out tire-kickers and sends you qualified leads who already understand your pricing range.",
+  },
+  {
+    heading: "Instant Quote Calculator for Electricians",
+    text: "Electrical work is priced by the hour plus materials. A quote tool lets customers describe their job — panel upgrades, outlet installations, or rewiring — and get an estimate based on your actual rates. Leads arrive with the scope already defined, saving you time on every follow-up call.",
+  },
+  {
+    heading: "Instant Quote Calculator for Roofing Companies",
+    text: "Roofing jobs are high-value and competitive. Homeowners comparing roofers want pricing transparency. A calculator that factors in roof size, pitch, and materials gives them confidence in your numbers — and gives you a qualified lead with project details before you ever get on the phone.",
+  },
+];
+
+function TradeDescriptions() {
+  return (
+    <div style={{
+      maxWidth: 640,
+      margin: "0 auto",
+      paddingTop: "clamp(40px, 6vw, 64px)",
+      borderTop: `1px solid ${mkt.border}`,
+      marginTop: "clamp(40px, 6vw, 64px)",
+    }}>
+      {TRADE_SECTIONS.map((section, i) => (
+        <div key={i} style={{ marginBottom: 32 }}>
+          <h2 style={{
+            fontSize: "clamp(18px, 2.5vw, 22px)",
+            fontWeight: 700,
+            color: colors.effortel.n300,
+            lineHeight: 1.2,
+            letterSpacing: "-0.01em",
+            margin: "0 0 10px",
+          }}>
+            {section.heading}
+          </h2>
+          <p style={{
+            fontSize: 14,
+            color: mkt.textMuted,
+            lineHeight: 1.7,
+            margin: 0,
+          }}>
+            {section.text}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══ FAQ Section ═══ */
+
+const DEMO_FAQ_ITEMS = [
+  {
+    question: "How accurate are the quotes?",
+    answer: "Quotes are calculated from pricing rules you define — base fees, hourly rates, per-sqft pricing, add-ons, and modifiers. The customer sees numbers based on your actual rates, so accuracy is in your control.",
+  },
+  {
+    question: "Can I customize the pricing and questions?",
+    answer: "Yes. QuoteQuick supports 10 pricing options including hourly rates, per square foot, tiered packages, and service call + hourly. You can add custom extras, job complexity levels, travel fees, and after-hours surcharges.",
+  },
+  {
+    question: "Does it work on mobile?",
+    answer: "Yes. The quote widget is fully responsive and optimized for mobile. Customers can complete the entire flow — from selecting options to submitting their details — on any device.",
+  },
+  {
+    question: "How are leads delivered?",
+    answer: "When a customer submits a quote, you receive an email with their name, email, phone number, quote amount, and all their selections. Leads also appear in your dashboard for easy follow-up.",
+  },
+  {
+    question: "How do I add it to my website?",
+    answer: "You embed a single line of code on any page. It works with WordPress, Wix, Squarespace, and any platform that supports HTML. No developer needed — setup takes under 10 minutes.",
+  },
+  {
+    question: "Is there a free trial?",
+    answer: "You can try the full demo on this page to see exactly how it works. Plans start at $49/mo with no contracts — cancel anytime.",
+  },
+];
+
+function DemoFaqSection() {
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+
+  const faqSchemaItems = useMemo(() => DEMO_FAQ_ITEMS.map(f => ({ question: f.question, answer: f.answer })), []);
+  useFaqSchema(faqSchemaItems);
+
+  return (
+    <div style={{
+      maxWidth: 640,
+      margin: "0 auto",
+      paddingTop: "clamp(32px, 5vw, 48px)",
+      borderTop: `1px solid ${mkt.border}`,
+      marginTop: "clamp(32px, 5vw, 48px)",
+    }}>
+      <h2 style={{
+        fontSize: "clamp(20px, 3vw, 26px)",
+        fontWeight: 700,
+        color: colors.effortel.n300,
+        letterSpacing: "-0.02em",
+        lineHeight: 1.15,
+        margin: "0 0 20px",
+        textAlign: "center",
+      }}>
+        Frequently Asked Questions
+      </h2>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {DEMO_FAQ_ITEMS.map((item, i) => {
+          const isOpen = openIdx === i;
+          return (
+            <div key={i} style={{
+              background: mkt.cardBg,
+              border: `1px solid ${mkt.cardBorder}`,
+              borderRadius: 12,
+              overflow: "hidden",
+            }}>
+              <button
+                onClick={() => setOpenIdx(isOpen ? null : i)}
+                aria-expanded={isOpen}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "14px 16px",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: isOpen ? colors.effortel.n200 : mkt.textMuted,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  textAlign: "left",
+                  lineHeight: 1.4,
+                  transition: "color 0.15s",
+                }}
+              >
+                <span>{item.question}</span>
+                <ChevronDown
+                  size={14}
+                  color={mkt.textFaint}
+                  style={{
+                    flexShrink: 0,
+                    transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                />
+              </button>
+
+              {isOpen && (
+                <div style={{
+                  padding: "0 16px 14px",
+                  fontSize: 13,
+                  color: mkt.textFaint,
+                  lineHeight: 1.65,
+                }}>
+                  {item.answer}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ═══ Audit Callout ═══ */
+
+function AuditCallout() {
+  return (
+    <div style={{
+      maxWidth: 640,
+      margin: "0 auto",
+      marginTop: "clamp(32px, 5vw, 48px)",
+      paddingTop: "clamp(24px, 4vw, 36px)",
+      borderTop: `1px solid ${mkt.border}`,
+    }}>
+      <div style={{
+        fontSize: "clamp(16px, 2.2vw, 18px)",
+        fontWeight: 700,
+        color: colors.effortel.n300,
+        marginBottom: 8,
+      }}>
+        Before you install a quote tool, check this
+      </div>
+      <p style={{
+        fontSize: 14,
+        color: mkt.textMuted,
+        lineHeight: 1.7,
+        margin: "0 0 14px",
+      }}>
+        A quote calculator only works if customers can find your website. Run a
+        free audit to check your Google Business Profile and website health first —
+        then add QuoteQuick to convert the traffic you're already getting.
+      </p>
+      <Link href="/tools/free-audit" style={{ textDecoration: "none", display: "inline-block" }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "10px 16px", borderRadius: 12,
+          border: `1px solid ${mkt.border}`, background: mkt.cardBg,
+          cursor: "pointer", transition: "border-color 0.15s, background 0.15s",
+          fontSize: 13, fontWeight: 650, color: mkt.text,
+        }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = mkt.border; e.currentTarget.style.background = mkt.cardBg; }}
+        >
+          <Search size={14} color={mkt.accent} strokeWidth={1.8} />
+          Run Free Audit
+          <ArrowRight size={13} color={mkt.textFaint} />
+        </div>
+      </Link>
+    </div>
   );
 }

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronDown, HelpCircle } from 'lucide-react';
 import { mkt, colors, radius } from '@/theme/tokens';
+import { useFaqSchema } from '@/lib/useFaqSchema';
 
 interface FAQItem {
   id: string;
@@ -14,7 +15,7 @@ const FAQ_ITEMS: FAQItem[] = [
     id: 'accuracy',
     question: 'How accurate are these estimates?',
     answer:
-      'Results are based on the numbers you enter combined with typical ranges for your trade. They are meant as a starting point — adjust the sliders to reflect your actual call volume, close rate, and job size for the most relevant estimate.',
+      'Results are based on the numbers you enter combined with typical ranges for your trade. They are meant as a starting point — adjust the sliders to reflect your actual call volume, booking rate, and job size for the most relevant estimate.',
   },
   {
     id: 'missed-call',
@@ -26,13 +27,13 @@ const FAQ_ITEMS: FAQItem[] = [
     id: 'not-all-jobs',
     question: 'Do all missed calls become jobs?',
     answer:
-      'No. The close rate slider accounts for this — it represents the percentage of answered calls that typically convert to booked work. Some callers are existing customers, price shoppers, or not a fit. The calculator factors this in.',
+      'No. The booking rate slider accounts for this — it represents the percentage of answered calls that turn into booked jobs. Some callers are existing customers, people comparing prices, or not a fit. The calculator factors this in.',
   },
   {
     id: 'range',
     question: 'Why do the results show a range?',
     answer:
-      'Because job values, lead quality, and customer behavior vary from business to business and season to season. A single number would imply false precision. The range gives you a conservative-to-high bracket that reflects real-world variance.',
+      'Because job values, how serious callers are, and customer behavior vary from business to business and season to season. A single number would suggest a certainty we can\'t guarantee. The range gives you a low-to-high bracket that reflects real-world variation.',
   },
   {
     id: 'reduce',
@@ -60,6 +61,9 @@ function usePrefersReducedMotion(): boolean {
 export default function FAQSection() {
   const [openId, setOpenId] = useState<string | null>(null);
   const reducedMotion = usePrefersReducedMotion();
+
+  const faqSchemaItems = useMemo(() => FAQ_ITEMS.map(f => ({ question: f.question, answer: f.answer })), []);
+  useFaqSchema(faqSchemaItems);
 
   const toggle = (id: string) => setOpenId(prev => (prev === id ? null : id));
 

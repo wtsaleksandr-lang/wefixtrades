@@ -20,6 +20,8 @@ import { registerOnboardingPublicRoutes } from "./onboardingPublicRoutes";
 import { registerVapiRoutes } from "./vapiRoutes";
 import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
 import { registerPortalRoutes } from "./portalRoutes";
+import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
+import { registerDemoLeadRoutes } from "./demoLeadRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -45,6 +47,8 @@ export async function registerRoutes(
   registerVapiRoutes(app);
   registerPublicCheckoutRoutes(app);
   registerPortalRoutes(app);
+  registerMissedCallLeadRoutes(app);
+  registerDemoLeadRoutes(app);
 
   return httpServer;
 }

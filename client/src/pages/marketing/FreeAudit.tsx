@@ -1,8 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { trackEvent } from "@/lib/trackEvent";
+import { useFaqSchema } from "@/lib/useFaqSchema";
+import { usePageMeta } from "@/lib/usePageMeta";
+import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
+import TrustStrip from "@/components/marketing/TrustStrip";
 import { colors } from "@/theme/tokens";
-import { Search, CheckCircle2 } from "lucide-react";
+import { Search, CheckCircle2, PhoneOff, Calculator, ArrowRight, ChevronDown } from "lucide-react";
 import ReportView from "./ReportView";
+import AuditGate from "@/components/marketing/AuditGate";
 
 type Prediction = {
   place_id: string;
@@ -25,19 +32,31 @@ type Business = {
   hours: string[];
   photos: string[];
 };
-async function postJSON<T>(url: string, body: any): Promise<T> {
+async function postJSON<T>(url: string, body: any, timeoutMs = 30000): Promise<T> {
   console.log(`[Audit] POST ${url}`, body);
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok || data?.ok === false) {
-    console.error(`[Audit] ${url} failed:`, r.status, data);
-    throw new Error(data?.error || `Request failed: ${r.status}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || data?.ok === false) {
+      console.error(`[Audit] ${url} failed:`, r.status, data);
+      throw new Error(data?.error || `Request failed: ${r.status}`);
+    }
+    return data as T;
+  } catch (err: any) {
+    if (err.name === "AbortError") {
+      throw new Error("Taking longer than expected. Please try again.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
-  return data as T;
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
@@ -62,7 +81,189 @@ function busyStep(busy: string | null): number {
   return 1;
 }
 
+/* ═══ Static SEO Content ═══ */
+
+const AUDIT_SECTIONS = [
+  {
+    heading: "What Does the Google Business Profile Audit Check?",
+    text: "We analyze your Google Business Profile for completeness — categories, business hours, photos, description, and review health. Missing or outdated information hurts your ranking in the local map pack and costs you visibility when customers search for your trade.",
+  },
+  {
+    heading: "Website Speed & Mobile Analysis",
+    text: "Your website is tested against Google PageSpeed benchmarks. We check load time, mobile responsiveness, and Core Web Vitals. Slow websites lose customers — 53% of mobile visitors leave if a page takes more than 3 seconds to load.",
+  },
+  {
+    heading: "Competitor Comparison",
+    text: "The audit benchmarks your business against nearby competitors in your trade. You'll see how your review count, rating, and profile completeness stack up — so you know exactly where you're falling behind and what to fix first.",
+  },
+  {
+    heading: "Who Is This For?",
+    text: "This tool is built for trade businesses — plumbers, electricians, HVAC technicians, roofers, cleaners, painters, landscapers, and more. If your customers find you through Google Maps or local search, this audit shows you what's working and what's not.",
+  },
+];
+
+const AUDIT_FAQ_ITEMS = [
+  {
+    question: "How long does the audit take?",
+    answer: "About 30 seconds. Search your business name, select it from the dropdown, and the report generates automatically. No signup or account needed.",
+  },
+  {
+    question: "What does the audit check?",
+    answer: "The audit evaluates your Google Business Profile completeness (categories, hours, photos, description), review health (count, rating, recency), website speed and mobile performance, and how you compare to nearby competitors in your trade.",
+  },
+  {
+    question: "Is this really free?",
+    answer: "Yes, completely free. No credit card, no signup, no hidden upsell wall. You get a full report with scores and recommendations at no cost.",
+  },
+  {
+    question: "Do I need to create an account?",
+    answer: "No. Just type your business name and city into the search box. The audit runs instantly without any login or registration.",
+  },
+  {
+    question: "How is my business scored?",
+    answer: "Your score is calculated from weighted criteria across three areas: Google Business Profile health (photos, reviews, categories, hours), website performance (speed, mobile-friendliness), and competitive standing (how you rank against nearby businesses in your trade).",
+  },
+  {
+    question: "Can I share my report?",
+    answer: "Yes. Every report has a unique shareable URL. You can send it to a business partner, your marketing person, or save it to track improvements over time.",
+  },
+];
+
+function AuditStaticSections() {
+  return (
+    <div style={{
+      maxWidth: 480,
+      margin: "0 auto",
+      marginTop: 48,
+      paddingTop: 32,
+      borderTop: "1px solid rgba(0,0,0,0.07)",
+    }}>
+      {AUDIT_SECTIONS.map((section, i) => (
+        <div key={i} style={{ marginBottom: 28 }}>
+          <h2 style={{
+            fontSize: "clamp(18px, 2.5vw, 22px)",
+            fontWeight: 700,
+            color: "#111827",
+            lineHeight: 1.2,
+            letterSpacing: "-0.01em",
+            margin: "0 0 8px",
+          }}>
+            {section.heading}
+          </h2>
+          <p style={{
+            fontSize: 14,
+            color: "rgba(0,0,0,0.55)",
+            lineHeight: 1.7,
+            margin: 0,
+          }}>
+            {section.text}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AuditFaqSection() {
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const faqSchemaItems = useMemo(() => AUDIT_FAQ_ITEMS.map(f => ({ question: f.question, answer: f.answer })), []);
+  useFaqSchema(faqSchemaItems);
+
+  return (
+    <div style={{
+      maxWidth: 480,
+      margin: "0 auto",
+      marginTop: 36,
+      paddingTop: 28,
+      borderTop: "1px solid rgba(0,0,0,0.07)",
+    }}>
+      <h2 style={{
+        fontSize: "clamp(20px, 3vw, 26px)",
+        fontWeight: 700,
+        color: "#111827",
+        letterSpacing: "-0.02em",
+        lineHeight: 1.15,
+        margin: "0 0 16px",
+        textAlign: "center",
+      }}>
+        Frequently Asked Questions
+      </h2>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {AUDIT_FAQ_ITEMS.map((item, i) => {
+          const isOpen = openIdx === i;
+          return (
+            <div key={i} style={{
+              background: "rgba(255,255,255,0.78)",
+              border: "1px solid rgba(0,0,0,0.08)",
+              borderRadius: 12,
+              overflow: "hidden",
+            }}>
+              <button
+                onClick={() => setOpenIdx(isOpen ? null : i)}
+                aria-expanded={isOpen}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "14px 16px",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: isOpen ? "#111827" : "rgba(0,0,0,0.55)",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  textAlign: "left",
+                  lineHeight: 1.4,
+                  transition: "color 0.15s",
+                }}
+              >
+                <span>{item.question}</span>
+                <ChevronDown
+                  size={14}
+                  color="rgba(0,0,0,0.3)"
+                  style={{
+                    flexShrink: 0,
+                    transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                />
+              </button>
+              {isOpen && (
+                <div style={{
+                  padding: "0 16px 14px",
+                  fontSize: 13,
+                  color: "rgba(0,0,0,0.48)",
+                  lineHeight: 1.65,
+                }}>
+                  {item.answer}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const AUDIT_BASE = "https://wefixtrades.com";
+
 export default function FreeAudit() {
+  usePageMeta({
+    title: "Free Google Maps & Website Audit | WeFixTrades",
+    description: "Get a free instant audit of your Google Business Profile and website. See your score, competitor analysis, and a fix plan — no signup required.",
+    canonicalPath: "/tools/free-audit",
+  });
+
+  const auditBreadcrumbs = useMemo(() => [
+    { name: "Home", url: `${AUDIT_BASE}/` },
+    { name: "Free Tools", url: `${AUDIT_BASE}/tools` },
+    { name: "Google Business Audit", url: `${AUDIT_BASE}/tools/free-audit` },
+  ], []);
+  useBreadcrumbSchema(auditBreadcrumbs);
   const [query, setQuery] = useState("");
   const debounced = useDebouncedValue(query, 400);
 
@@ -89,6 +290,7 @@ export default function FreeAudit() {
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [auditUnlocked, setAuditUnlocked] = useState(false);
 
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -117,6 +319,7 @@ export default function FreeAudit() {
 
     setLoadingSearch(true);
     setSearchDone(false);
+    trackEvent("audit_search_submitted", { query: q });
 
     postJSON<{ ok: true; predictions: Prediction[]; locationHint?: string | null }>(
       "/api/audit/search-places",
@@ -166,6 +369,7 @@ export default function FreeAudit() {
   async function runAudit(pred: Prediction, tradeOverride?: string) {
     lastPredRef.current = pred;
     if (tradeOverride) lastTradeRef.current = tradeOverride;
+    trackEvent("audit_prediction_selected", { businessName: pred.name });
     console.log("[Audit] runAudit called:", JSON.stringify({ name: pred.name, place_id: pred.place_id, tradeOverride }));
     const placeId = (pred.place_id || "").trim();
     try {
@@ -204,6 +408,16 @@ export default function FreeAudit() {
       setReport(rep.report_json);
       if (rep.reportId) setReportId(rep.reportId);
       setFromCache(rep.fromCache === true);
+      trackEvent("audit_generated", { businessName: rep.report_json?.business?.name, score: rep.report_json?.scores?.total });
+      // Check if this report was previously unlocked
+      if (rep.reportId) {
+        try {
+          const wasUnlocked = localStorage.getItem(`audit-unlocked-${rep.reportId}`);
+          setAuditUnlocked(wasUnlocked === "1");
+        } catch { setAuditUnlocked(false); }
+      } else {
+        setAuditUnlocked(false);
+      }
       setBusy(null);
 
       // Trigger background speed test then poll for result
@@ -347,6 +561,15 @@ export default function FreeAudit() {
 
       <div className="audit-page">
         <div className="audit-container">
+          {/* Breadcrumb */}
+          <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
+            <Link href="/" style={{ color: "#6b7280", textDecoration: "none" }}>Home</Link>
+            <span style={{ margin: "0 6px" }}>/</span>
+            <Link href="/tools" style={{ color: "#6b7280", textDecoration: "none" }}>Free Tools</Link>
+            <span style={{ margin: "0 6px" }}>/</span>
+            <span style={{ color: "#111827" }}>Google Business Audit</span>
+          </nav>
+
           {/* ─── Header + Search (always visible) ─── */}
           <div style={{ textAlign: "center", marginBottom: reportReady ? 20 : 36 }}>
             <h1
@@ -434,6 +657,7 @@ export default function FreeAudit() {
                   onChange={(e) => setQuery(e.target.value)}
                   onFocus={() => { if (predictions.length > 0 || (searchDone && predictions.length === 0)) setDropdownOpen(true); }}
                   placeholder="Type your business name + city…"
+                  aria-label="Search your business name and city"
                   style={{
                     width: "100%",
                     height: 46,
@@ -684,10 +908,81 @@ export default function FreeAudit() {
                   liveWebsiteAIAnalysis={websiteAIAnalysis}
                   liveWebsiteScreenshot={websiteScreenshot}
                   liveWebsiteQualityCheckScore={websiteQualityCheckScore}
+                  unlocked={auditUnlocked}
+                  onUnlock={() => { trackEvent("audit_unlocked"); setAuditUnlocked(true); }}
                 />
               </div>
             );
           })()}
+          {/* ─── Static SEO Content + FAQ (hidden during audit/report) ─── */}
+          {!reportReady && !busy && (
+            <>
+              <AuditStaticSections />
+              <TrustStrip theme="light" />
+              <AuditFaqSection />
+            </>
+          )}
+
+          {/* ─── Other Free Tools ─── */}
+          <div style={{
+            maxWidth: 480,
+            margin: "0 auto",
+            marginTop: reportReady ? 48 : 56,
+            paddingTop: 24,
+            borderTop: "1px solid rgba(0,0,0,0.07)",
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginBottom: 10 }}>
+              Other free tools
+            </div>
+            {[
+              {
+                href: "/tools/missed-call-calculator",
+                icon: PhoneOff,
+                iconColor: "#EF4444",
+                iconBg: "rgba(239,68,68,0.08)",
+                title: "Missed Call Revenue Calculator",
+                desc: "See how much unanswered calls are costing you",
+              },
+              {
+                href: "/tools/quote-demo",
+                icon: Calculator,
+                iconColor: "#2F6BFF",
+                iconBg: "rgba(47,107,255,0.08)",
+                title: "Instant Quote Demo",
+                desc: "Let customers get prices on your website",
+              },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link key={item.href} href={item.href} style={{ textDecoration: "none", display: "block", marginBottom: 8 }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    padding: "12px 14px", borderRadius: 14,
+                    border: "1px solid rgba(0,0,0,0.07)",
+                    background: "rgba(255,255,255,0.6)",
+                    cursor: "pointer", transition: "border-color 0.15s, background 0.15s",
+                  }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(0,0,0,0.13)"; e.currentTarget.style.background = "rgba(255,255,255,0.85)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(0,0,0,0.07)"; e.currentTarget.style.background = "rgba(255,255,255,0.6)"; }}
+                  >
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 10,
+                      background: item.iconBg,
+                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    }}>
+                      <Icon size={16} color={item.iconColor} strokeWidth={1.8} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 650, color: "#111827" }}>{item.title}</div>
+                      <div style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>{item.desc}</div>
+                    </div>
+                    <ArrowRight size={14} color="rgba(0,0,0,0.25)" style={{ flexShrink: 0 }} />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
         </div>
       </div>
     </MarketingLayout>

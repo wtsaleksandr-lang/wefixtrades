@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight, ZoomIn, ZoomOut, X, Minus, Plus } from "lucide-react";
 import { SERVICES, getServicesForIssues } from '@shared/services';
+import AuditGate from "@/components/marketing/AuditGate";
+import InfoTooltip from "@/components/marketing/InfoTooltip";
+import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
+import { trackEvent } from "@/lib/trackEvent";
 
 // ─── Design tokens ───────────────────
 const DARK = '#0d1514';
@@ -110,67 +114,9 @@ function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: 
   );
 }
 
+/** Light-themed "?" trigger for the audit report (light bg context) */
 function Tooltip({ text }: { text: string }) {
-  const [show, setShow] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    if (!show) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setShow(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [show]);
-  return (
-    <span ref={ref} style={{ position: 'relative', display: 'inline-block', verticalAlign: 'middle' }}>
-      <span
-        onClick={() => setShow(s => !s)}
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 18, height: 18, borderRadius: '50%', background: '#E5E7EB',
-          color: '#6B7280', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-          marginLeft: 6, userSelect: 'none', flexShrink: 0, transition: 'background 0.15s ease'
-        }}
-      >
-        ?
-      </span>
-      {show && (
-        <>
-          {/* Background blur overlay */}
-          <div style={{
-            position: 'fixed', inset: 0, zIndex: 98,
-            backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
-            background: 'rgba(0,0,0,0.15)', pointerEvents: 'none'
-          }}/>
-          {/* Tooltip card */}
-          <div style={{
-            position: 'absolute', bottom: 'calc(100% + 10px)', left: '50%',
-            transform: 'translateX(-50%)', zIndex: 99, width: 240,
-            background: 'rgba(13,21,20,0.92)', backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)', borderRadius: 12,
-            border: '1px solid rgba(255,255,255,0.12)', padding: '14px 16px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.3)', pointerEvents: 'none'
-          }}>
-            {/* Arrow */}
-            <div style={{
-              position: 'absolute', bottom: -6, left: '50%',
-              transform: 'translateX(-50%) rotate(45deg)', width: 10, height: 10,
-              background: 'rgba(13,21,20,0.92)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderTop: 'none', borderLeft: 'none'
-            }}/>
-            <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 1.55, fontWeight: 400 }}>
-              {text}
-            </p>
-          </div>
-        </>
-      )}
-    </span>
-  );
+  return <InfoTooltip text={text} theme="light" />;
 }
 
 /* ─── Screenshot Lightbox with pinch-zoom & scroll-zoom ─── */
@@ -371,7 +317,7 @@ const ShareIcons = {
   ),
 };
 
-export default function ReportView({ report, business, reportId, liveSpeedData, speedLoading, liveWebsiteAIAnalysis, liveWebsiteScreenshot, liveWebsiteQualityCheckScore }: {
+export default function ReportView({ report, business, reportId, liveSpeedData, speedLoading, liveWebsiteAIAnalysis, liveWebsiteScreenshot, liveWebsiteQualityCheckScore, unlocked = true, onUnlock }: {
   report: any;
   business: any;
   reportId?: string | null;
@@ -380,6 +326,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   liveWebsiteAIAnalysis?: any;
   liveWebsiteScreenshot?: string | null;
   liveWebsiteQualityCheckScore?: number;
+  unlocked?: boolean;
+  onUnlock?: () => void;
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [activeTab, setActiveTab] = useState<'maps' | 'website' | 'plan'>('maps');
@@ -996,8 +944,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     { key: 'websiteQuality', icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote },
     { key: 'searchVisibility', icon: <Search size={18} color="#00D4C8" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
     { key: 'competitorPosition', icon: <Trophy size={18} color="#00D4C8" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
-    { key: 'adOpportunity', icon: <Megaphone size={18} color="#00D4C8" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'The paid search market in your area' },
-    { key: 'demandCoverage', icon: <Clock size={18} color="#00D4C8" />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you're visible when customers search most" },
+    { key: 'adOpportunity', icon: <Megaphone size={18} color="#00D4C8" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'Whether Google Ads would help you get more calls' },
+    { key: 'demandCoverage', icon: <Clock size={18} color="#00D4C8" />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you show up during evenings, weekends, and emergencies" },
   ];
 
   const card = (extra?: any) => ({
@@ -1069,8 +1017,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: window.innerWidth >= 1024 ? 960 : 780, margin: '0 auto', padding: isTiny ? '0 10px 80px' : isMobile ? '0 16px 80px' : '0 16px 48px', boxSizing: 'border-box', position: 'relative', transform: reportZoom !== 100 ? `scale(${reportZoom / 100})` : undefined, transformOrigin: 'top center' }}>
 
-      {/* TAB BAR */}
-      <div style={{ display:'flex', justifyContent:'center', background:WHITE, padding:'12px 16px', position:'sticky', top:0, zIndex:20, width:'100%', borderBottom: '1px solid rgba(0,0,0,0.06)', borderRadius: '0 0 16px 16px' }}>
+      {/* TAB BAR — only shown when unlocked */}
+      {unlocked && <div style={{ display:'flex', justifyContent:'center', background:WHITE, padding:'12px 16px', position:'sticky', top:0, zIndex:20, width:'100%', borderBottom: '1px solid rgba(0,0,0,0.06)', borderRadius: '0 0 16px 16px' }}>
         <div style={{ display:'inline-flex', background:'#F3F4F6', borderRadius:28, padding:4, gap:2 }}>
           {(['maps','website','plan'] as const).map(tab => (
             <button key={tab} data-testid={`tab-${tab}`} onClick={() => setActiveTab(tab)} {...hoverProps(`tab-${tab}`)} style={{
@@ -1085,10 +1033,116 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             </button>
           ))}
         </div>
-      </div>
+      </div>}
+
+      {/* ═══ LOCKED STATE: Partial results + gate ═══ */}
+      {!unlocked && (
+        <>
+          {/* Business card + score (always visible) */}
+          <div style={{ background: DARK, borderRadius: r16, padding: 20, marginBottom: 10, position: 'relative', overflow: 'hidden' }}>
+            <div style={{
+              position: 'absolute', inset: 0,
+              backgroundImage: 'radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px)',
+              backgroundSize: '18px 18px', opacity: 0.45, pointerEvents: 'none',
+            }}/>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                {business?.businessPhotoUrl ? (
+                  <img src={business.businessPhotoUrl} alt={business.name} style={{
+                    width: 72, height: 72, borderRadius: '50%', objectFit: 'cover',
+                    border: `3px solid ${CYAN}`, marginBottom: 8, display: 'block'
+                  }} />
+                ) : (
+                  <div style={{
+                    width: 72, height: 72, borderRadius: '50%', background: CYAN,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 24, fontWeight: 700, color: DARK, marginBottom: 8
+                  }}>
+                    {(business?.name || 'B').charAt(0)}
+                  </div>
+                )}
+                <div style={{ fontSize: 22, fontWeight: 700, color: WHITE, marginBottom: 8, lineHeight: 1.3 }}>
+                  {business?.name}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <span style={{ color: AMBER, fontSize: 14 }}>{'★'.repeat(Math.round(business?.rating || 0))}</span>
+                  <span style={{ color: WHITE, fontWeight: 600, fontSize: 14 }}>{business?.rating}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>({business?.reviewsCount?.toLocaleString()} reviews)</span>
+                </div>
+              </div>
+              <ScoreCircle score={liveTotal} grade={scores.grade || 'D'} displayScore={displayScore} pulsing={liveWebsiteScore === null && !!speedLoading} />
+            </div>
+          </div>
+
+          {/* Top 3 issues as badges */}
+          {detectedIssues.length > 0 && (
+            <div style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: '16px 20px', marginBottom: 10 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: DARK, marginBottom: 10 }}>
+                {detectedIssues.length} issue{detectedIssues.length !== 1 ? 's' : ''} found
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {detectedIssues.slice(0, 3).map((issue: string) => (
+                  <span key={issue} style={{
+                    padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                    background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A',
+                  }}>
+                    {issue.replace(/-/g, ' ')}
+                  </span>
+                ))}
+                {detectedIssues.length > 3 && (
+                  <span style={{ padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, color: GREY }}>
+                    +{detectedIssues.length - 3} more
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Gate */}
+          <AuditGate
+            businessName={business?.name}
+            reportId={reportId}
+            score={liveTotal}
+            trade={report?.trade}
+            city={report?.city}
+            placeId={business?.placeId}
+            issueCount={detectedIssues.length}
+            detectedIssues={detectedIssues}
+            recommendedServices={recommendedServices?.slice(0, 3)}
+            onUnlock={() => onUnlock?.()}
+          />
+
+          {/* Blurred teaser of what's below */}
+          <div style={{
+            position: 'relative', overflow: 'hidden',
+            maxHeight: 220, borderRadius: r16,
+            pointerEvents: 'none', userSelect: 'none',
+          }}>
+            <div style={{ filter: 'blur(6px)', opacity: 0.4 }}>
+              <div style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: 20, marginBottom: 10 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 12 }}>Your Score Breakdown</div>
+                {['Google Maps Profile', 'Website Quality', 'Online Presence', 'Content & Keywords'].map(label => (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                    <span style={{ fontSize: 13, color: DARK, flex: 1 }}>{label}</span>
+                    <div style={{ width: 80, height: 8, borderRadius: 4, background: '#E5E7EB' }}>
+                      <div style={{ width: `${30 + Math.random() * 50}%`, height: '100%', background: CYAN, borderRadius: 4 }}/>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0, height: 100,
+              background: 'linear-gradient(transparent, white)',
+            }}/>
+          </div>
+        </>
+      )}
+
+      {/* ═══ UNLOCKED STATE: Full report ═══ */}
 
       {/* SECTION 1 — COVER */}
-      {activeTab === 'maps' && <div style={{ background: DARK, borderRadius: r16, padding: 20, marginBottom: 10, position: 'relative', overflow: 'hidden' }}>
+      {unlocked && activeTab === 'maps' && <div style={{ background: DARK, borderRadius: r16, padding: 20, marginBottom: 10, position: 'relative', overflow: 'hidden' }}>
         {/* Dotted grid background */}
         <div style={{
           position: 'absolute', inset: 0,
@@ -1139,7 +1193,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       </div>}
 
       {/* SECTION 2 — SCORE BREAKDOWN */}
-      {activeTab === 'maps' && <div style={card()}>
+      {unlocked && activeTab === 'maps' && <div style={card()}>
         <style>{`
           @keyframes infoNudge {
             0%, 100% { opacity: 0.35; transform: scale(1); }
@@ -1324,7 +1378,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       )}
 
       {/* SECTION 3 — ACTION PLAN (Tab 3 only — sales content lives here) */}
-      {activeTab === 'plan' && plan.length > 0 && (
+      {unlocked && activeTab === 'plan' && plan.length > 0 && (
         <div style={card()}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, position: 'relative' }}>
             <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What's Holding You Back</span>
@@ -1508,7 +1562,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       )}
 
       {/* SECTION 7 — SPEED */}
-      {activeTab === 'website' && (<>
+      {unlocked && activeTab === 'website' && (<>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         {speedLoading && speed.mobile?.score == null ? (
           <div style={{ textAlign: 'center', padding: '32px 16px', background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, marginBottom: 10 }}>
@@ -1551,10 +1605,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     Tap a metric to see how to fix it
                   </div>
                   {[
-                    { key: 'fcp', label: 'FCP', tip: 'First Contentful Paint', val: data?.fcp, unit: 's', good: 2.5, ok: 4 },
-                    { key: 'lcp', label: 'LCP', tip: 'Largest Contentful Paint — key ranking factor', val: data?.lcp, unit: 's', good: 2.5, ok: 4 },
-                    { key: 'tbt', label: 'TBT', tip: 'Total Blocking Time — responsiveness', val: data?.tbt, unit: 'ms', good: 200, ok: 600 },
-                    { key: 'cls', label: 'CLS', tip: 'Cumulative Layout Shift — stability', val: data?.cls, unit: '', good: 0.1, ok: 0.25 },
+                    { key: 'fcp', label: 'FCP', tip: 'How fast the first content appears on screen', val: data?.fcp, unit: 's', good: 2.5, ok: 4 },
+                    { key: 'lcp', label: 'LCP', tip: 'How fast the main content loads — Google uses this for rankings', val: data?.lcp, unit: 's', good: 2.5, ok: 4 },
+                    { key: 'tbt', label: 'TBT', tip: 'How long your site freezes before users can interact', val: data?.tbt, unit: 'ms', good: 200, ok: 600 },
+                    { key: 'cls', label: 'CLS', tip: 'How much elements jump around while loading', val: data?.cls, unit: '', good: 0.1, ok: 0.25 },
                   ].map(m => {
                     const isGood = (m.val || 0) <= m.good;
                     const isOk = (m.val || 0) <= m.ok;
@@ -1571,7 +1625,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                             <span style={{ fontSize: 12, fontWeight: 600, color: DARK }}>{m.label}</span>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%', background: GREY_BG, color: GREY, fontSize: 9 }}>?</span>
+                            <Tooltip text={m.tip} />
                           </div>
                           <div style={{ fontSize: 12, color: GREY, marginTop: 1 }}>{m.val != null ? `${m.val}${m.unit}` : '—'}</div>
                         </div>
@@ -1601,7 +1655,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       </>)}
 
       {/* SECTION — WEBSITE VISUAL ANALYSIS (screenshot + AI findings) */}
-      {activeTab === 'website' && (() => {
+      {unlocked && activeTab === 'website' && (() => {
         const aiAnalysis = liveWebsiteAIAnalysis || report?.websiteAIAnalysis;
         const screenshot = liveWebsiteScreenshot || report?.websiteScreenshot;
         if (!aiAnalysis?.findings?.length && !screenshot) return null;
@@ -1740,7 +1794,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       })()}
 
       {/* SECTION — KEYWORDS (moved after speed + visual analysis for better flow) */}
-      {activeTab === 'website' && keywords.some((k: any) => k.monthlySearches > 0) && (
+      {unlocked && activeTab === 'website' && keywords.some((k: any) => k.monthlySearches > 0) && (
         <div style={card()}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
             <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What Customers Search For</span>
@@ -1752,10 +1806,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           <div style={{ display: 'flex', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${BORDER}`, gap: 4 }}>
             <span style={{ flex: 1, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, minWidth: 0 }}>Keyword</span>
             {([
-              { key: 'vol', label: 'Vol.', w: 40, tip: 'Monthly search volume — how many people search this term each month in your area.' },
-              { key: 'cpc', label: 'CPC', w: 42, tip: 'Cost Per Click — what advertisers pay per click for this keyword. Higher CPC = higher commercial intent.' },
+              { key: 'vol', label: 'Vol.', w: 40, tip: 'Monthly searches — how many people search this term each month in your area.' },
+              { key: 'cpc', label: 'CPC', w: 42, tip: 'Cost Per Click — what Google charges per ad click for this search term. Higher cost means more competition for these customers.' },
               { key: 'rank', label: 'Rank', w: 48, tip: 'Your Google search position for this keyword. Top 3 gets the most clicks; page 1 is positions 1–10.' },
-              { key: 'vis', label: 'Visibility', w: 58, tip: 'Overall search presence — combines organic rank and Google Maps (Local Pack) position.' },
+              { key: 'vis', label: 'Visibility', w: 58, tip: 'How visible you are for this search — combines your website ranking and Google Maps position.' },
             ] as const).map(col => (
               <span key={col.key} style={{ width: col.w, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0, position: 'relative', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}
                 onClick={() => setKwColTooltip(prev => prev === col.key ? null : col.key)}>
@@ -1816,7 +1870,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       )}
 
       {/* SECTION 8 — CONTENT GAPS */}
-      {activeTab === 'website' && gaps.length > 0 && (
+      {unlocked && activeTab === 'website' && gaps.length > 0 && (
         <div style={card()}>
           <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 4 }}>Pages You Should Create</div>
           <div style={{ fontSize: 12, color: GREY, marginBottom: 16 }}>These missing pages are leaving search traffic on the table</div>
@@ -1835,79 +1889,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
       )}
 
-      {/* CONTENT AUTOMATION CTA */}
-      {activeTab === 'website' && (
-        <div style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: '20px 24px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: DARK, marginBottom: 4 }}>Automate Your Content Growth</div>
-            <div style={{ fontSize: 13, color: GREY, lineHeight: 1.55 }}>
-              WeFixTrades can automatically write and publish weekly blog posts and service pages to your website — improving your Google ranking on autopilot.
-            </div>
-          </div>
-          <button
-            onClick={() => setActiveTab('plan')}
-            style={{ padding: '10px 20px', background: CYAN + '18', color: CYAN, border: `1px solid ${CYAN}44`, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, transition: 'background 0.15s ease' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = CYAN + '30')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = CYAN + '18')}
-          >
-            Learn More →
-          </button>
-        </div>
-      )}
-
-      {/* FULL WEBSITE AUDIT CTA — compact 2-column */}
-      {activeTab === 'website' && (
-        <div style={{ background: DARK, borderRadius: r16, padding: isMobile ? '24px 20px' : '24px 28px', marginBottom: 10 }}>
-          <div style={{ display: 'flex', gap: isMobile ? 20 : 28, flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'flex-start' }}>
-            {/* LEFT — what's included */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <span style={{ background: CYAN, color: DARK, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '3px 10px', borderRadius: 999 }}>One-Time Report</span>
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: WHITE, marginBottom: 8 }}>Get Your Full Website Audit</div>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginBottom: 12 }}>Everything not covered in this free audit:</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px' }}>
-                {[
-                  'Broken link scan',
-                  'Duplicate content check',
-                  'Full backlink profile',
-                  'Competitor gap analysis',
-                  'Local citation audit',
-                  'Core Web Vitals deep dive',
-                  'Accessibility score',
-                ].map(item => (
-                  <div key={item} style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ color: CYAN, fontSize: 11, flexShrink: 0 }}>✓</span> {item}
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* RIGHT — price + CTA */}
-            <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: isMobile ? undefined : 180, textAlign: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 12 }}>
-                <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, textDecoration: 'line-through' }}>$49</span>
-                <span style={{ color: CYAN, fontSize: 32, fontWeight: 800 }}>$9.80</span>
-              </div>
-              <button
-                onClick={() => window.location.href = '/contact?subject=full-audit'}
-                {...hoverProps('website-audit-cta')}
-                style={{
-                  background: CYAN, color: DARK, border: 'none', borderRadius: 10,
-                  padding: '12px 28px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                  width: '100%', transition: 'all 0.2s ease',
-                  transform: hovered === 'website-audit-cta' ? 'translateY(-1px)' : 'translateY(0)',
-                  boxShadow: hovered === 'website-audit-cta' ? '0 6px 16px rgba(0,212,200,0.25)' : 'none',
-                }}
-              >
-                Get Full Audit — $9.80
-              </button>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 8 }}>Delivered within 24 hours. No subscription.</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'plan' && (
+      {unlocked && activeTab === 'plan' && (
         <div>
           {/* AI-PERSONALIZED RECOMMENDATION HEADER */}
           {recommendedServices.length > 0 && (
@@ -2146,14 +2128,14 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       )}
 
       {/* STICKY PACKAGE BAR — fixed at bottom when services selected on plan tab */}
-      {activeTab === 'plan' && selected.length > 0 && (
+      {unlocked && activeTab === 'plan' && selected.length > 0 && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, padding: '0 16px 16px', pointerEvents: 'none' }}>
           <div style={{ maxWidth: 960, margin: '0 auto', background: DARK, borderRadius: 14, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 -2px 24px rgba(0,0,0,0.25)', pointerEvents: 'auto' }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: WHITE }}>
               {selected.length} service{selected.length > 1 ? 's' : ''} selected · <span style={{ color: CYAN, fontWeight: 700 }}>${totalPrice}/mo</span>
             </span>
             <button
-              onClick={() => window.location.href = '/checkout?services=' + selected.join(',')}
+              onClick={() => { trackEvent("audit_primary_cta_clicked", { services: selected }); window.location.href = '/checkout?services=' + selected.join(','); }}
               {...hoverProps('getstarted')}
               style={{ background: hovered === 'getstarted' ? '#00BFB8' : CYAN, color: DARK, border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s ease', transform: hovered === 'getstarted' ? 'translateY(-1px)' : 'none' }}
             >
@@ -2163,87 +2145,41 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
       )}
 
-      {/* SECTION 9 — EMAIL + DOWNLOAD (Primary CTA) */}
-      {!emailSubmitted ? (
-        <div data-print-hide style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: '24px 20px', marginBottom: 10, textAlign: 'center' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 4 }}>Get your report delivered</div>
-          <div style={{ fontSize: 13, color: GREY, marginBottom: 16, lineHeight: 1.5 }}>
-            We'll send a PDF copy of this audit straight to your inbox.
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxWidth: 480, margin: '0 auto', alignItems: 'stretch' }}>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()}
-              placeholder="your@email.com"
-              style={{ flex: '1 1 100%', minWidth: 0, padding: '0 14px', borderRadius: 8, border: `1px solid ${BORDER}`, fontSize: 13, outline: 'none', fontFamily: 'inherit', color: DARK, height: 40, lineHeight: '40px' }}
-            />
-            <button
-              onClick={handleEmailSubmit}
-              disabled={emailLoading}
-              {...hoverProps('email-pdf')}
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                flex: '1 1 auto',
-                height: 40, padding: '0 18px',
-                background: hovered === 'email-pdf' && !emailLoading ? '#00BFB8' : CYAN,
-                color: DARK, border: 'none', borderRadius: 8,
-                fontSize: 13, fontWeight: 700, lineHeight: 1,
-                cursor: emailLoading ? 'not-allowed' : 'pointer',
-                opacity: emailLoading ? 0.7 : 1,
-                whiteSpace: 'nowrap',
-                transition: 'all 0.2s ease',
-                transform: hovered === 'email-pdf' && !emailLoading ? 'scale(1.02)' : 'scale(1)',
-              }}
-            >
-              {emailLoading ? 'Generating PDF...' : 'Email me the PDF'}
-            </button>
-            {reportId && (
-              <button
-                onClick={handlePdfDownload}
-                disabled={pdfDownloading}
-                {...hoverProps('download-pdf')}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  flex: '1 1 auto',
-                  height: 40, padding: '0 16px',
-                  background: DARK, color: WHITE, borderRadius: 8,
-                  fontSize: 13, fontWeight: 600, lineHeight: 1,
-                  whiteSpace: 'nowrap',
-                  border: 'none', cursor: pdfDownloading ? 'wait' : 'pointer',
-                  transition: 'all 0.2s ease',
-                  opacity: pdfDownloading ? 0.6 : hovered === 'download-pdf' ? 0.85 : 1,
-                }}
-              >
-                {pdfDownloading ? 'Generating...' : 'Download PDF'}
-              </button>
-            )}
-          </div>
-          {emailError && (
-            <div style={{ fontSize: 12, color: '#EF4444', marginTop: 8 }}>{emailError}</div>
-          )}
-          <div style={{ fontSize: 11, color: GREY, marginTop: 10, opacity: 0.7 }}>We'll only email your report. No spam.</div>
+      {/* Secondary CTA — cross-tool */}
+      {unlocked && (
+        <div data-print-hide style={{ textAlign: 'center', marginBottom: 10 }}>
+          <a
+            href="/tools/missed-call-calculator"
+            onClick={() => trackEvent("audit_secondary_cta_clicked", { target: "/tools/missed-call-calculator" })}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '12px 24px', borderRadius: 12,
+              border: `1px solid ${BORDER}`, background: WHITE,
+              color: GREY, fontSize: 14, fontWeight: 600,
+              textDecoration: 'none', transition: 'border-color 0.2s, color 0.2s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = CYAN; e.currentTarget.style.color = DARK; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = GREY; }}
+          >
+            See how much missed calls are costing you →
+          </a>
         </div>
-      ) : (
-        <div data-print-hide style={{ background: '#F0FFF4', borderRadius: r16, border: '1px solid #BBF7D0', padding: '20px', marginBottom: 10, textAlign: 'center' }}>
-          <div style={{ fontSize: 20, marginBottom: 8 }}>✓</div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#166534', marginBottom: 4 }}>Report sent!</div>
-          <div style={{ fontSize: 13, color: '#4B5563' }}>Check your inbox — your PDF report is on the way.</div>
-          {reportId && (
-            <button
-              onClick={handlePdfDownload}
-              disabled={pdfDownloading}
-              style={{ display: 'inline-block', marginTop: 12, fontSize: 13, fontWeight: 600, color: DARK, textDecoration: 'underline', background: 'none', border: 'none', cursor: pdfDownloading ? 'wait' : 'pointer', padding: 0 }}
-            >
-              {pdfDownloading ? 'Generating PDF...' : 'Download PDF directly'}
-            </button>
-          )}
+      )}
+
+      {/* Cross-tool suggestions — only when unlocked */}
+      {unlocked && (
+        <div style={{ marginBottom: 10 }}>
+          <NextStepSuggestions
+            context="audit"
+            theme="light"
+            issues={detectedIssues}
+            trade={report?.trade}
+          />
         </div>
       )}
 
       {/* SECTION 10 — SHARE (Social only) */}
-      <div data-print-hide style={{ background: DARK, borderRadius: r16, padding: '20px', textAlign: 'center' }}>
+      {unlocked && <div data-print-hide style={{ background: DARK, borderRadius: r16, padding: '20px', textAlign: 'center' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Share This Report</div>
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 14 }}>Send your audit to a partner or colleague</div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'nowrap' }}>
@@ -2269,10 +2205,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             </div>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* INLINE CHAT PANEL — desktop only */}
-      {!isMobile && (
+      {unlocked && !isMobile && (
         <div data-print-hide style={{ background:WHITE, borderRadius:r16, border:`1px solid ${BORDER}`, marginBottom:16, overflow:'hidden' }}>
           <div
             onClick={() => setChatExpanded(e => !e)}
@@ -2315,7 +2251,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {/* CHAT WIDGET — removed: SiteChatWidget from MarketingLayout handles chat */}
 
       {/* FAQ — bottom of all tabs */}
-      <div data-print-hide style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: '20px 20px', marginBottom: 10 }}>
+      {unlocked && <div data-print-hide style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: '20px 20px', marginBottom: 10 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 12 }}>Common Questions</div>
         {FAQS.map((faq, i) => (
           <div key={i} style={{ borderBottom: i < FAQS.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
@@ -2345,7 +2281,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             )}
           </div>
         ))}
-      </div>
+      </div>}
 
       {/* SCORE MODAL */}
       {scoreModalOpen && (
