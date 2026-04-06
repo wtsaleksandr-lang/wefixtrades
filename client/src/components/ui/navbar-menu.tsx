@@ -67,7 +67,7 @@ export const MenuItem = ({
   return (
     <div
       onMouseEnter={() => setActive(item)}
-      style={{ position: "relative" }}
+      style={{ position: "static" }}
     >
       {hasChildren ? (
         <motion.button
@@ -199,6 +199,7 @@ export const Menu = ({
       aria-label="Main navigation"
       onMouseLeave={() => setActive(null)}
       style={{
+        position: "relative",
         display: "flex",
         alignItems: "center",
         gap: 2,
