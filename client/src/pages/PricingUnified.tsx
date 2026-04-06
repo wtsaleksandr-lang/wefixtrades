@@ -125,53 +125,6 @@ function BillingToggle({ yearly, onChange }: { yearly: boolean; onChange: (y: bo
 }
 
 /* ═══════════════════════════════════════════
-   VIEW SWITCH
-   ═══════════════════════════════════════════ */
-
-function ViewSwitch({ view, onChange }: { view: "plans" | "services"; onChange: (v: "plans" | "services") => void }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "center" }}>
-      <div
-        style={{
-          display: "inline-flex",
-          borderRadius: 12,
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.06)",
-          padding: 3,
-        }}
-      >
-        {([
-          { key: "plans" as const, label: "Plans" },
-          { key: "services" as const, label: "Individual Services" },
-        ]).map(({ key, label }) => {
-          const active = view === key;
-          return (
-            <button
-              key={key}
-              onClick={() => onChange(key)}
-              style={{
-                padding: "9px 22px",
-                borderRadius: 10,
-                border: "none",
-                background: active ? "rgba(255,255,255,0.08)" : "transparent",
-                color: active ? mkt.onDark : mkt.textMuted,
-                fontSize: 13,
-                fontWeight: active ? 600 : 500,
-                fontFamily: FONT,
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════
    CHECK ITEM
    ═══════════════════════════════════════════ */
 
@@ -387,135 +340,113 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout }: { bundle: BundleDe
   );
 }
 
+
 /* ═══════════════════════════════════════════
-   FIX & OPTIMIZE CALLOUT (D: repositioned above bundles)
+   ONE-TIME CARD (standardized format)
    ═══════════════════════════════════════════ */
 
-function FixOptimizeCallout({ onCheckout }: { onCheckout: () => void }) {
+function OneTimeCard({ product, onCheckout }: { product: ProductDef; yearly: boolean; onCheckout: () => void }) {
+  const tier = product.tiers[0];
+  const [hover, setHover] = useState(false);
+  const isHighlighted = product.id === "sitelaunch";
+
   return (
     <div
+      className="pricing-card"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
-        background: "rgba(255,255,255,0.02)",
-        border: "1px solid rgba(255,255,255,0.06)",
-        borderRadius: 12,
-        padding: "16px 24px",
+        background: CARD_BG,
+        border: isHighlighted ? `1px solid rgba(102,232,250,0.15)` : CARD_BORDER,
+        borderRadius: CARD_RADIUS,
+        padding: "28px 26px 28px",
         display: "flex",
-        flexWrap: "wrap",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 16,
+        flexDirection: "column",
+        transition: "all 0.3s ease",
+        transform: hover ? "translateY(-3px)" : "none",
+        boxShadow: hover ? shadows.lg : "none",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: "1 1 300px" }}>
-        <Wrench size={18} color={mkt.accent} style={{ flexShrink: 0 }} />
-        <div>
-          <span style={{ fontSize: 14, fontWeight: 600, color: TEXT_STRONG }}>
-            Not ready for a monthly plan?
-          </span>
-          <span style={{ fontSize: 14, color: mkt.textMuted, marginLeft: 6 }}>
-            Start with a one-time optimization.
-          </span>
-        </div>
+      {/* Name */}
+      <div style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, marginBottom: 4 }}>
+        {product.name}
       </div>
-      <CTAButton label={`Get Fix & Optimize \u2014 ${formatPrice(FIX_OPTIMIZE.tiers[0].price)}`} onClick={onCheckout} />
+      <div style={{ fontSize: 13, color: TEXT_STRONG, lineHeight: 1.5, marginBottom: 14 }}>
+        {product.tagline}
+      </div>
+
+      {/* Price */}
+      <div style={{ marginBottom: 14 }}>
+        <span style={{ fontSize: 34, fontWeight: 800, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.03em", lineHeight: 1 }}>
+          {formatPrice(tier.price)}
+        </span>
+        <span style={{ fontSize: 14, color: TEXT_STRONG, marginLeft: 4 }}>one-time</span>
+      </div>
+
+      {/* Features */}
+      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6, flex: 1, marginBottom: 18 }}>
+        {tier.features.filter(f => !f.startsWith("BONUS")).slice(0, 5).map((f) => (
+          <CheckItem key={f}>{f}</CheckItem>
+        ))}
+      </ul>
+
+      {/* CTA — lighter emphasis for one-time */}
+      <CTAButton label="Get Started" fullWidth onClick={onCheckout} />
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════
-   SITELAUNCH CARD (E: improved positioning, left-aligned)
+   SECTION HEADING
    ═══════════════════════════════════════════ */
 
-function SiteLaunchCard({ onCheckout }: { onCheckout: () => void }) {
-  const tier = SITELAUNCH.tiers[0];
-  const [expanded, setExpanded] = useState(false);
-  const [hover, setHover] = useState(false);
-
+function PricingSectionHeading({ title, subtitle, badge }: { title: string; subtitle: string; badge?: string }) {
   return (
-    <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        background: CARD_BG,
-        border: `1px solid rgba(102,232,250,0.15)`,
-        borderRadius: CARD_RADIUS,
-        padding: "28px 28px 24px",
-        transition: "all 0.3s ease",
-        transform: hover ? "translateY(-2px)" : "none",
-        boxShadow: hover ? GLOW : "none",
-        position: "relative",
-      }}
-    >
-      {/* Trial badge */}
-      <div
-        style={{
+    <div style={{ textAlign: "center", marginBottom: 32 }}>
+      {badge && (
+        <div style={{
           display: "inline-flex",
           background: mkt.accentTint,
           color: mkt.accent,
           fontSize: 11,
           fontWeight: 700,
-          padding: "4px 12px",
+          padding: "5px 14px",
           borderRadius: 999,
-          letterSpacing: "0.02em",
+          letterSpacing: "0.04em",
+          textTransform: "uppercase" as const,
           marginBottom: 12,
-        }}
-      >
-        Includes 14-day free trial
-      </div>
-
-      {/* E: Left-aligned layout throughout */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
-        <div style={{ flex: "1 1 320px" }}>
-          <div style={{ fontSize: 20, fontWeight: 700, color: mkt.onDark, fontFamily: FONT }}>{SITELAUNCH.name}</div>
-          <div style={{ fontSize: 14, color: TEXT_STRONG, marginTop: 4, marginBottom: 16, lineHeight: 1.5 }}>
-            {SITELAUNCH.tagline}
-          </div>
-
-          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-            {tier.features.filter(f => !f.startsWith("BONUS")).slice(0, 5).map((f) => (
-              <CheckItem key={f}>{f}</CheckItem>
-            ))}
-          </ul>
+        }}>
+          {badge}
         </div>
-
-        {/* E: Price + CTA left-aligned on mobile, right on desktop */}
-        <div className="sitelaunch-price-col" style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
-          <div>
-            <span style={{ fontSize: 36, fontWeight: 800, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.03em" }}>
-              {formatPrice(tier.price)}
-            </span>
-            <span style={{ fontSize: 14, color: TEXT_STRONG, marginLeft: 4 }}>one-time</span>
-          </div>
-          <CTAButton label="Get Started" highlighted onClick={onCheckout} />
-        </div>
-      </div>
-
-      {/* Expandable trial details */}
-      <div style={{ marginTop: 14 }}>
-        <ExpandableDetails label="What\u2019s in the free trial?">
-          <div style={{ padding: "10px 14px", background: "rgba(255,255,255,0.02)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)" }}>
-            <div style={{ fontSize: 12, color: TEXT_STRONG, marginBottom: 8 }}>
-              Auto-converts after 14 days unless cancelled
-            </div>
-            <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Check size={13} color={mkt.accent} strokeWidth={2.5} />
-                <span style={{ fontSize: 13, color: mkt.onDark }}>TradeLine Starter</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Check size={13} color={mkt.accent} strokeWidth={2.5} />
-                <span style={{ fontSize: 13, color: mkt.onDark }}>QuoteQuick Pro</span>
-              </div>
-            </div>
-          </div>
-        </ExpandableDetails>
-      </div>
+      )}
+      <h2 style={{
+        fontSize: "clamp(20px, 3vw, 28px)",
+        fontWeight: 700,
+        color: mkt.onDark,
+        fontFamily: FONT,
+        letterSpacing: "-0.02em",
+        lineHeight: 1.15,
+        margin: "0 0 6px",
+      }}>
+        {title}
+      </h2>
+      <p style={{
+        fontSize: 14,
+        color: TEXT_STRONG,
+        lineHeight: 1.5,
+        margin: 0,
+        maxWidth: 480,
+        marginLeft: "auto",
+        marginRight: "auto",
+      }}>
+        {subtitle}
+      </p>
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════
-   SERVICE CARD (H: simplified)
+   SERVICE CARD
    ═══════════════════════════════════════════ */
 
 function ServiceCard({ product, yearly, onCheckout }: { product: ProductDef; yearly: boolean; onCheckout: (tier: Tier) => void }) {
@@ -703,7 +634,6 @@ function SectionLabel({ icon: Icon, label }: { icon: typeof Zap; label: string }
 
 export default function PricingUnified() {
   const [yearly, setYearly] = useState(false);
-  const [view, setView] = useState<"plans" | "services">("plans");
 
   /* ─── Checkout modal state ─── */
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -783,10 +713,11 @@ export default function PricingUnified() {
     document.title = "Pricing — WeFixTrades";
   }, []);
 
-  /* B: mobile reorder — Growth first */
+  /* Bundle ordering — Growth first on mobile */
   const bundlesDesktop = [BUNDLE_STARTER, BUNDLE_GROWTH, BUNDLE_PRO];
   const bundlesMobile = [BUNDLE_GROWTH, BUNDLE_STARTER, BUNDLE_PRO];
 
+  /* Group products by category for individual services section */
   const productsByCategory = CATEGORY_ORDER.map(cat => ({
     cat,
     ...CATEGORY_MAP[cat],
@@ -796,7 +727,8 @@ export default function PricingUnified() {
   return (
     <MarketingLayout>
       <div style={{ paddingBottom: 80 }}>
-        {/* ═══ HERO — I: reduced top padding ═══ */}
+
+        {/* ═══ HERO ═══ */}
         <section className="pricing-hero" style={{ textAlign: "center", padding: "48px 24px 0" }}>
           <div style={MAX_W}>
             <h1
@@ -827,71 +759,99 @@ export default function PricingUnified() {
           </div>
         </section>
 
-        {/* ═══ CONTROLS ═══ */}
+        {/* ═══ BILLING TOGGLE ═══ */}
         <section style={{ textAlign: "center", padding: "28px 24px 0" }}>
-          <div style={{ ...MAX_W, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+          <div style={MAX_W}>
             <BillingToggle yearly={yearly} onChange={setYearly} />
-            <ViewSwitch view={view} onChange={setView} />
           </div>
         </section>
 
-        {/* ═══ PLANS VIEW ═══ */}
-        {view === "plans" && (
-          <section style={{ padding: "36px 24px 0" }}>
-            <div style={MAX_W}>
+        {/* ═══ BLOCK 1: BUNDLES / SYSTEMS (primary offer) ═══ */}
+        <section style={{ padding: "36px 24px 0" }}>
+          <div style={MAX_W}>
+            <PricingSectionHeading
+              title="Choose your system"
+              subtitle="Bundled plans designed for trades businesses. Best value — everything works together."
+              badge="Recommended"
+            />
 
-              {/* D: Fix & Optimize callout — ABOVE bundles */}
-              <div style={{ marginBottom: 28 }}>
-                <FixOptimizeCallout onCheckout={openFixOptimizeCheckout} />
-              </div>
-
-              {/* E: SiteLaunch — above bundles as full-width highlighted section */}
-              <div style={{ marginBottom: 32 }}>
-                <SiteLaunchCard onCheckout={openSiteLaunchCheckout} />
-              </div>
-
-              {/* Bundle cards — B: desktop order stays, mobile reorders via CSS */}
-              <div className="pricing-plans-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, alignItems: "start" }}>
-                {bundlesDesktop.map((b) => (
-                  <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} onCheckout={() => openBundleCheckout(b)} />
-                ))}
-              </div>
-              {/* Mobile-only order: Growth first */}
-              <div className="pricing-plans-mobile" style={{ display: "none", flexDirection: "column", gap: 20, maxWidth: 480, margin: "0 auto" }}>
-                {bundlesMobile.map((b) => (
-                  <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} onCheckout={() => openBundleCheckout(b)} />
-                ))}
-              </div>
-
-            </div>
-          </section>
-        )}
-
-        {/* ═══ SERVICES VIEW ═══ */}
-        {view === "services" && (
-          <section style={{ padding: "36px 24px 0" }}>
-            <div style={MAX_W}>
-              {productsByCategory.map((group) => (
-                <div key={group.cat} style={{ marginBottom: 48 }}>
-                  <SectionLabel icon={group.icon} label={group.label} />
-                  <div
-                    className="pricing-services-grid"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(2, 1fr)",
-                      gap: 20,
-                      alignItems: "start",
-                    }}
-                  >
-                    {group.products.map((product) => (
-                      <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} />
-                    ))}
-                  </div>
-                </div>
+            {/* Desktop: 3-col */}
+            <div className="pricing-plans-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, alignItems: "start" }}>
+              {bundlesDesktop.map((b) => (
+                <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} onCheckout={() => openBundleCheckout(b)} />
               ))}
             </div>
-          </section>
-        )}
+            {/* Mobile: Growth first */}
+            <div className="pricing-plans-mobile" style={{ display: "none", flexDirection: "column", gap: 20, maxWidth: 480, margin: "0 auto" }}>
+              {bundlesMobile.map((b) => (
+                <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} onCheckout={() => openBundleCheckout(b)} />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ═══ SECTION DIVIDER ═══ */}
+        <div style={{ ...MAX_W, marginTop: 56 }}>
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
+        </div>
+
+        {/* ═══ BLOCK 2: INDIVIDUAL SERVICES (secondary) ═══ */}
+        <section style={{ padding: "48px 24px 0" }}>
+          <div style={MAX_W}>
+            <PricingSectionHeading
+              title="Individual services"
+              subtitle="Need just one tool? Pick the service that fits your business right now."
+            />
+
+            {productsByCategory.map((group) => (
+              <div key={group.cat} style={{ marginBottom: 40 }}>
+                <SectionLabel icon={group.icon} label={group.label} />
+                <div
+                  className="pricing-services-grid"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, 1fr)",
+                    gap: 20,
+                    alignItems: "start",
+                  }}
+                >
+                  {group.products.map((product) => (
+                    <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ═══ SECTION DIVIDER ═══ */}
+        <div style={{ ...MAX_W, marginTop: 8 }}>
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
+        </div>
+
+        {/* ═══ BLOCK 3: ONE-TIME OPTIONS (entry point) ═══ */}
+        <section style={{ padding: "48px 24px 0" }}>
+          <div style={MAX_W}>
+            <PricingSectionHeading
+              title="One-time options"
+              subtitle="Not ready for a monthly plan? Start with a one-time fix or a full website build."
+            />
+
+            <div
+              className="pricing-services-grid"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, 1fr)",
+                gap: 20,
+                alignItems: "start",
+              }}
+            >
+              <OneTimeCard product={FIX_OPTIMIZE} yearly={yearly} onCheckout={openFixOptimizeCheckout} />
+              <OneTimeCard product={SITELAUNCH} yearly={yearly} onCheckout={openSiteLaunchCheckout} />
+            </div>
+          </div>
+        </section>
+
       </div>
 
       {/* ═══ CHECKOUT MODAL ═══ */}
@@ -917,13 +877,6 @@ export default function PricingUnified() {
           .pricing-card {
             transform: none !important;
           }
-        }
-        @media (min-width: 901px) {
-          .pricing-plans-mobile {
-            display: none !important;
-          }
-        }
-        @media (max-width: 900px) {
           .pricing-services-grid {
             grid-template-columns: 1fr !important;
             max-width: 480px;
@@ -933,8 +886,10 @@ export default function PricingUnified() {
           .pricing-hero {
             padding-top: 32px !important;
           }
-          .sitelaunch-price-col {
-            align-items: flex-start !important;
+        }
+        @media (min-width: 901px) {
+          .pricing-plans-mobile {
+            display: none !important;
           }
         }
       `}</style>
