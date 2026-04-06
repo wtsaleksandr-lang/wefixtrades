@@ -185,7 +185,7 @@ export const QUOTEQUICK: ProductDef = {
 export const WEBCARE: ProductDef = {
   id: "webcare",
   name: "WebCare™",
-  tagline: "Ongoing website maintenance for trades businesses",
+  tagline: "Your website stays updated, secure, and working",
   category: "website",
   tiers: [
     {
@@ -194,9 +194,9 @@ export const WEBCARE: ProductDef = {
       price: 79,
       billingPeriod: "monthly",
       features: [
-        "Monthly updates & security patches",
-        "Uptime monitoring with alerts",
-        "Daily backups",
+        "Monthly software & security updates",
+        "24/7 uptime monitoring",
+        "Daily automated backups",
         "1 content change per month",
         "Email support",
       ],
@@ -211,7 +211,7 @@ export const WEBCARE: ProductDef = {
       features: [
         "Everything in Basic",
         "4 content changes per month",
-        "Speed & performance checks",
+        "Monthly performance checks",
         "Priority support (24 hr response)",
       ],
     },
@@ -223,8 +223,8 @@ export const WEBCARE: ProductDef = {
    ═══════════════════════════════════════════ */
 export const MAPGUARD: ProductDef = {
   id: "mapguard",
-  name: "MapGuard™",
-  tagline: "Google Maps GBP optimization",
+  name: "MapGuard\u2122",
+  tagline: "Keep your Google Business Profile optimized and ranking",
   category: "visibility",
   setup: 397,
   tiers: [
@@ -234,10 +234,11 @@ export const MAPGUARD: ProductDef = {
       price: 397,
       billingPeriod: "one-time",
       features: [
-        "Full profile audit & rebuild",
-        "Category & service area optimisation",
-        "Description & keyword tuning",
-        "Photos & posts launch plan",
+        "Full GBP audit & rebuild from scratch",
+        "Category, services & area optimization",
+        "Business description & keyword tuning",
+        "Photo uploads & first posts",
+        "Before/after visibility report",
       ],
     },
     {
@@ -246,8 +247,10 @@ export const MAPGUARD: ProductDef = {
       price: 99,
       billingPeriod: "monthly",
       features: [
-        "2 GBP posts/month",
-        "Listing monitoring",
+        "2 Google Business posts/month",
+        "Profile monitoring & alerts",
+        "Listing accuracy checks",
+        "Monthly ranking snapshot",
       ],
     },
     {
@@ -258,9 +261,11 @@ export const MAPGUARD: ProductDef = {
       highlighted: true,
       badge: "Most Popular",
       features: [
-        "4 GBP posts/month",
-        "Review responses",
-        "Keyword optimization",
+        "4 Google Business posts/month",
+        "Review response management",
+        "Local keyword optimization",
+        "Competitor tracking",
+        "Monthly performance report",
       ],
     },
   ],
@@ -271,8 +276,8 @@ export const MAPGUARD: ProductDef = {
    ═══════════════════════════════════════════ */
 export const REPUTATIONSHIELD: ProductDef = {
   id: "reputationshield",
-  name: "ReputationShield™",
-  tagline: "Review and reputation management",
+  name: "ReputationShield\u2122",
+  tagline: "Get more 5-star reviews and protect your reputation",
   category: "reputation",
   tiers: [
     {
@@ -281,8 +286,10 @@ export const REPUTATIONSHIELD: ProductDef = {
       price: 79,
       billingPeriod: "monthly",
       features: [
-        "Review monitoring",
-        "Alerts",
+        "Automated review requests after jobs",
+        "Review monitoring across platforms",
+        "Instant alerts for new reviews",
+        "Monthly review growth report",
       ],
     },
     {
@@ -293,8 +300,11 @@ export const REPUTATIONSHIELD: ProductDef = {
       highlighted: true,
       badge: "Most Popular",
       features: [
-        "AI + human-reviewed responses",
-        "Negative review handling",
+        "Everything in Basic",
+        "Professional review responses (AI + human)",
+        "Negative review handling & resolution",
+        "Review widget for your website",
+        "Bi-weekly growth report",
       ],
     },
     {
@@ -303,8 +313,11 @@ export const REPUTATIONSHIELD: ProductDef = {
       price: 179,
       billingPeriod: "monthly",
       features: [
-        "Review growth strategy",
-        "Priority handling",
+        "Everything in Pro",
+        "Review growth strategy & coaching",
+        "Priority response handling",
+        "Competitor review analysis",
+        "Weekly detailed reporting",
       ],
     },
   ],
@@ -315,8 +328,8 @@ export const REPUTATIONSHIELD: ProductDef = {
    ═══════════════════════════════════════════ */
 export const SOCIALSYNC: ProductDef = {
   id: "socialsync",
-  name: "SocialSync™",
-  tagline: "Social media management and automation",
+  name: "SocialSync\u2122",
+  tagline: "We post on social media so you don\u2019t have to",
   category: "visibility",
   tiers: [
     {
@@ -325,8 +338,10 @@ export const SOCIALSYNC: ProductDef = {
       price: 99,
       billingPeriod: "monthly",
       features: [
-        "8 posts/month",
-        "1 platform",
+        "8 posts/month created for you",
+        "1 platform (Facebook or Instagram)",
+        "Job photos & updates posted",
+        "Monthly content calendar",
       ],
     },
     {
@@ -337,9 +352,11 @@ export const SOCIALSYNC: ProductDef = {
       highlighted: true,
       badge: "Most Popular",
       features: [
-        "12 posts/month",
-        "2 platforms",
-        "GBP posting included",
+        "12 posts/month created for you",
+        "Facebook + Instagram",
+        "Google Business posts included",
+        "Branded content templates",
+        "Monthly engagement report",
       ],
     },
     {
@@ -348,9 +365,11 @@ export const SOCIALSYNC: ProductDef = {
       price: 199,
       billingPeriod: "monthly",
       features: [
-        "20 posts/month",
-        "Multi-platform",
-        "Priority content",
+        "20 posts/month created for you",
+        "All platforms (FB, IG, Google, LinkedIn)",
+        "Priority content creation",
+        "Custom graphics & captions",
+        "Weekly reporting",
       ],
     },
   ],
@@ -364,7 +383,7 @@ export const SOCIALSYNC: ProductDef = {
 export const WEBFIX: ProductDef = {
   id: "webfix",
   name: "WebFix\u2122",
-  tagline: "Website fixes, tweaks, and optimization",
+  tagline: "One-time fixes to make your website faster and work properly",
   category: "website",
   tiers: [
     {
@@ -373,12 +392,11 @@ export const WEBFIX: ProductDef = {
       price: 249,
       billingPeriod: "one-time",
       features: [
-        "Speed optimization (Core Web Vitals)",
-        "Technical SEO fixes (meta tags, structure)",
-        "Google Maps / GBP audit + fixes",
-        "Broken links & errors cleanup",
-        "Mobile performance improvements",
-        "Basic on-page SEO improvements",
+        "Page speed optimization (Core Web Vitals)",
+        "Broken links, errors & 404 cleanup",
+        "Mobile responsiveness fixes",
+        "Contact form & CTA troubleshooting",
+        "Image compression & performance tuning",
       ],
     },
   ],
