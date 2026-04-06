@@ -569,7 +569,7 @@ export default function Plans() {
           >
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
               {[
-                ["MapGuard Setup", oneTime(MAPGUARD.setup!)],
+                ["MapSetup\u2122", oneTime(MAPGUARD.setup!)],
                 ["WebFix", oneTime(WEBFIX.setup!)],
                 ["SiteLaunch", oneTime(SITELAUNCH.tiers[0].price)],
                 ["WebFix", oneTime(WEBFIX.tiers[0].price)],

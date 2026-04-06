@@ -578,7 +578,7 @@ export const BUNDLE_PRO: BundleDef = {
 export const BUNDLE_FIX: BundleDef = {
   id: "bundle-fix",
   name: "WebFix\u2122",
-  tagline: "Quick website fixes and optimization",
+  tagline: "One-time website fixes to make your site faster and work properly",
   price: 249,
   billingPeriod: "one-time",
   includes: [

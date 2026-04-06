@@ -183,7 +183,7 @@ async function main() {
 
   const ONBOARDING: Record<string, { name: string; steps: Array<{ key: string; label: string; type: string; required: boolean }> }> = {
     "mapguard-setup": {
-      name: "MapGuard Setup Onboarding",
+      name: "MapSetup Onboarding",
       steps: [
         { key: "business_name", label: "Business name", type: "text", required: true },
         { key: "business_address", label: "Full business address", type: "text", required: true },
