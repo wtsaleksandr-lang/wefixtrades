@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X } from "lucide-react";
+import { Menu as MenuIcon, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/components/primitives/Logo";
 import { NAV_LINKS, NAV_MOBILE_BREAKPOINT } from "@/site/navigation";
-import { DesktopNavItem } from "./DesktopNavItem";
+import { Menu, MenuItem, HoveredLink } from "@/components/ui/navbar-menu";
 import { MobileNavItem } from "./MobileNavItem";
 import { mkt } from "@/theme/tokens";
 
@@ -38,6 +38,7 @@ export function useNavIsMobile() {
 }
 
 export function MarketingNav() {
+  const [active, setActive] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuEpoch, setMenuEpoch] = useState(0);
   const navCardRef = useRef<HTMLDivElement>(null);
@@ -221,26 +222,38 @@ export function MarketingNav() {
             <Logo />
 
             {!isMobile && (
-              <nav
-                aria-label="Main navigation"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 2,
-                  flex: "0 1 auto",
-                }}
-              >
-                {NAV_LINKS.map(({ label, href, children }) => (
-                  <DesktopNavItem
+              <Menu setActive={setActive}>
+                {NAV_LINKS.map(({ label, href, children: navChildren }) => (
+                  <MenuItem
                     key={href}
-                    label={label}
+                    setActive={setActive}
+                    active={active}
+                    item={label}
                     href={href}
-                    children={children}
-                    isActive={isActive(href)}
-                    headerRef={navCardRef}
-                  />
+                  >
+                    {navChildren && navChildren.length > 0 && (
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns:
+                            navChildren.length > 6
+                              ? "repeat(3, 1fr)"
+                              : navChildren.length > 3
+                                ? "repeat(2, 1fr)"
+                                : "1fr",
+                          gap: 4,
+                        }}
+                      >
+                        {navChildren.map((child) => (
+                          <HoveredLink key={child.href} href={child.href}>
+                            {child.label}
+                          </HoveredLink>
+                        ))}
+                      </div>
+                    )}
+                  </MenuItem>
                 ))}
-              </nav>
+              </Menu>
             )}
 
             <div
@@ -377,7 +390,7 @@ export function MarketingNav() {
                     {menuOpen ? (
                       <X size={22} strokeWidth={1.5} />
                     ) : (
-                      <Menu size={22} strokeWidth={1.5} />
+                      <MenuIcon size={22} strokeWidth={1.5} />
                     )}
                   </div>
                 </button>
