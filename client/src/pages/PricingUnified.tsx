@@ -19,6 +19,9 @@ import CheckoutModal, { type CheckoutItem } from "@/components/CheckoutModal";
 const MAX_W: CSSProperties = { maxWidth: 1080, margin: "0 auto", padding: "0 24px" };
 const FONT = typography.fontFamily;
 const CARD_RADIUS = 16;
+
+/* Mobile side padding — sections use class for responsive override */
+const SECTION_PAD_X = 20; // desktop default, overridden to 6px on mobile via CSS
 const CARD_BG = "rgba(255,255,255,0.03)";
 const CARD_BORDER = "1px solid rgba(255,255,255,0.08)";
 const GLOW = `0 0 60px rgba(102,232,250,0.12), 0 0 20px rgba(102,232,250,0.06)`;
@@ -1033,8 +1036,8 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
       <div style={{ paddingBottom: 80 }}>
 
         {/* ═══ 1. HERO (compact) ═══ */}
-        <section className="pricing-hero" style={{ padding: "40px 20px 0" }}>
-          <div style={MAX_W}>
+        <section className="pricing-section" style={{ paddingTop: 56 }}>
+          <div className="pricing-max-w" style={MAX_W}>
             <h1 style={{ fontSize: "clamp(24px, 5vw, 40px)", fontWeight: 800, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.03em", lineHeight: 1.1, margin: "0 0 4px" }}>
               Simple, transparent pricing
             </h1>
@@ -1045,8 +1048,8 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
         </section>
 
         {/* ═══ 2. DECISION FRAME ═══ */}
-        <section style={{ padding: "20px 20px 0" }}>
-          <div style={MAX_W}>
+        <section className="pricing-section" style={{ paddingTop: 20 }}>
+          <div className="pricing-max-w" style={MAX_W}>
             <h2 style={{ fontSize: 15, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, margin: "0 0 12px", textAlign: "center" }}>
               What do you want help with?
             </h2>
@@ -1062,8 +1065,8 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
         </section>
 
         {/* ═══ 3. BUNDLES (PRIMARY) ═══ */}
-        <section id="pricing-bundles" style={{ padding: "32px 20px 0", scrollMarginTop: 80 }}>
-          <div style={MAX_W}>
+        <section id="pricing-bundles" className="pricing-section" style={{ paddingTop: 32, scrollMarginTop: 80 }}>
+          <div className="pricing-max-w" style={MAX_W}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <h2 style={{ fontSize: "clamp(18px, 3vw, 26px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.02em", margin: 0 }}>
@@ -1110,13 +1113,13 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
         </section>
 
         {/* ═══ DIVIDER ═══ */}
-        <div style={{ ...MAX_W, marginTop: 40 }}>
+        <div className="pricing-max-w" style={{ ...MAX_W, marginTop: 40 }}>
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
         </div>
 
         {/* ═══ 4. INDIVIDUAL SERVICES (SECONDARY) ═══ */}
-        <section id="pricing-services" style={{ padding: "32px 20px 0", scrollMarginTop: 80 }}>
-          <div style={MAX_W}>
+        <section id="pricing-services" className="pricing-section" style={{ paddingTop: 32, scrollMarginTop: 80 }}>
+          <div className="pricing-max-w" style={MAX_W}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
               <div>
                 <h2 style={{ fontSize: "clamp(16px, 2.5vw, 22px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.02em", margin: "0 0 2px" }}>
@@ -1189,13 +1192,13 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
         </section>
 
         {/* ═══ DIVIDER ═══ */}
-        <div style={{ ...MAX_W, marginTop: 40 }}>
+        <div className="pricing-max-w" style={{ ...MAX_W, marginTop: 40 }}>
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
         </div>
 
         {/* ═══ 5. FINAL CTA ═══ */}
-        <section style={{ padding: "36px 20px 0" }}>
-          <div style={{ ...MAX_W, textAlign: "center" }}>
+        <section className="pricing-section" style={{ paddingTop: 36 }}>
+          <div className="pricing-max-w" style={{ ...MAX_W, textAlign: "center" }}>
             <h2 style={{ fontSize: "clamp(16px, 2.5vw, 22px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.02em", margin: "0 0 4px" }}>
               Still not sure?
             </h2>
@@ -1241,11 +1244,16 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
           from { opacity: 0; transform: scale(0.95); }
           to { opacity: 1; transform: scale(1); }
         }
+        /* Section horizontal padding */
+        .pricing-section { padding-left: ${SECTION_PAD_X}px; padding-right: ${SECTION_PAD_X}px; }
         /* Hide scrollbar on tabs row */
         .pricing-cat-tabs-row::-webkit-scrollbar { display: none; }
         @media (max-width: 640px) {
+          .pricing-section { padding-left: 4px !important; padding-right: 4px !important; }
+          .pricing-max-w { padding-left: 2px !important; padding-right: 2px !important; }
           .pricing-decision-grid {
             grid-template-columns: repeat(2, 1fr) !important;
+            gap: 6px !important;
           }
           .pricing-final-cta-row {
             flex-direction: column !important;
