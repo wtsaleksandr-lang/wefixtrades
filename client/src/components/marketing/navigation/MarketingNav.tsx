@@ -4,7 +4,7 @@ import { Menu as MenuIcon, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/components/primitives/Logo";
 import { NAV_LINKS, NAV_MOBILE_BREAKPOINT } from "@/site/navigation";
-import { Menu, MenuItem, HoveredLink } from "@/components/ui/navbar-menu";
+import { Menu, MenuItem } from "@/components/ui/navbar-menu";
 import { MobileNavItem } from "./MobileNavItem";
 import { mkt } from "@/theme/tokens";
 
@@ -230,28 +230,8 @@ export function MarketingNav() {
                     active={active}
                     item={label}
                     href={href}
-                  >
-                    {navChildren && navChildren.length > 0 && (
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns:
-                            navChildren.length > 6
-                              ? "repeat(3, 1fr)"
-                              : navChildren.length > 3
-                                ? "repeat(2, 1fr)"
-                                : "1fr",
-                          gap: 4,
-                        }}
-                      >
-                        {navChildren.map((child) => (
-                          <HoveredLink key={child.href} href={child.href}>
-                            {child.label}
-                          </HoveredLink>
-                        ))}
-                      </div>
-                    )}
-                  </MenuItem>
+                    children={navChildren}
+                  />
                 ))}
               </Menu>
             )}

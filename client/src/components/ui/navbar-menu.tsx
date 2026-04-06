@@ -1,7 +1,13 @@
 import React from "react";
 import { motion } from "motion/react";
 import { Link } from "wouter";
+import { Plus } from "lucide-react";
+import type { NavItemChild } from "@/site/navigation";
+import { NavIcon } from "@/components/marketing/navigation/NavIcon";
+import { mkt } from "@/theme/tokens";
+import type { CSSProperties } from "react";
 
+// ── Animation config (keep exactly as-is) ────────────────────────────────────
 const transition = {
   type: "spring" as const,
   mass: 0.5,
@@ -11,6 +17,37 @@ const transition = {
   restSpeed: 0.001,
 };
 
+// ── Original visual styles from DesktopNavItem ───────────────────────────────
+const topItemBase: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
+  padding: "5px 10px",
+  borderRadius: 10,
+  fontSize: 13,
+  fontWeight: 500,
+  fontFamily: "'DM Mono', monospace",
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  color: mkt.text,
+  background: "transparent",
+  border: "1px solid transparent",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  transition: "background 0.18s ease, border-color 0.18s ease",
+};
+
+const topHoverOn = (el: HTMLElement) => {
+  el.style.background = "rgba(255,255,255,0.06)";
+  el.style.borderColor = "rgba(255,255,255,0.12)";
+};
+
+const topHoverOff = (el: HTMLElement) => {
+  el.style.background = "transparent";
+  el.style.borderColor = "transparent";
+};
+
+// ── MenuItem ─────────────────────────────────────────────────────────────────
 export const MenuItem = ({
   setActive,
   active,
@@ -22,57 +59,57 @@ export const MenuItem = ({
   active: string | null;
   item: string;
   href?: string;
-  children?: React.ReactNode;
+  children?: NavItemChild[];
 }) => {
-  const hasChildren = React.Children.count(children) > 0;
+  const hasChildren = !!(children && children.length > 0);
+  const isOpen = active === item;
 
   return (
-    <div onMouseEnter={() => setActive(item)} style={{ position: "relative" }}>
+    <div
+      onMouseEnter={() => setActive(item)}
+      style={{ position: "relative" }}
+    >
       {hasChildren ? (
-        <motion.p
+        <motion.button
           transition={{ duration: 0.3 }}
-          style={{
-            cursor: "pointer",
-            color: "#ffffff",
-            fontSize: 13,
-            fontWeight: 500,
-            fontFamily: "'DM Mono', monospace",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-            margin: 0,
-            padding: "5px 10px",
-          }}
+          style={{ ...topItemBase, margin: 0 }}
+          onMouseEnter={(e) => topHoverOn(e.currentTarget as HTMLElement)}
+          onMouseLeave={(e) => topHoverOff(e.currentTarget as HTMLElement)}
+          aria-expanded={isOpen}
+          aria-haspopup="true"
         >
           {item}
-        </motion.p>
-      ) : (
-        <Link href={href || "#"}>
-          <motion.p
-            transition={{ duration: 0.3 }}
+          <Plus
+            size={11}
+            strokeWidth={2}
             style={{
-              cursor: "pointer",
-              color: "#ffffff",
-              fontSize: 13,
-              fontWeight: 500,
-              fontFamily: "'DM Mono', monospace",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              margin: 0,
-              padding: "5px 10px",
-              textDecoration: "none",
+              transition: "transform 0.22s ease, opacity 0.2s ease",
+              transform: isOpen ? "rotate(45deg)" : "rotate(0deg)",
+              opacity: 0.95,
+              color: mkt.accent,
             }}
-          >
-            {item}
-          </motion.p>
+          />
+        </motion.button>
+      ) : (
+        <Link
+          href={href || "#"}
+          data-testid={`nav-link-${item.toLowerCase()}`}
+          style={{ ...topItemBase, textDecoration: "none" }}
+          onMouseEnter={(e) => topHoverOn(e.currentTarget as HTMLElement)}
+          onMouseLeave={(e) => topHoverOff(e.currentTarget as HTMLElement)}
+        >
+          {item}
         </Link>
       )}
+
+      {/* ── Animated dropdown (spring animation kept as-is) ── */}
       {active !== null && hasChildren && (
         <motion.div
           initial={{ opacity: 0, scale: 0.85, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={transition}
         >
-          {active === item && (
+          {isOpen && (
             <div
               style={{
                 position: "absolute",
@@ -80,30 +117,70 @@ export const MenuItem = ({
                 left: "50%",
                 transform: "translateX(-50%)",
                 paddingTop: 16,
+                zIndex: 9999,
               }}
             >
               <motion.div
                 transition={transition}
                 layoutId="active"
+                className="mkt-dropdown-tray"
                 style={{
-                  background: "#0d1514",
-                  backdropFilter: "blur(8px)",
-                  WebkitBackdropFilter: "blur(8px)",
-                  borderRadius: 16,
-                  overflow: "hidden",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+                  padding: 10,
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gridAutoFlow: "row",
+                  gap: 8,
+                  boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
+                  maxWidth: "calc(100vw - 24px)",
+                  width: "max-content",
                 }}
               >
                 <motion.div
                   layout
                   style={{
-                    width: "max-content",
-                    height: "100%",
-                    padding: 16,
+                    display: "contents",
                   }}
                 >
-                  {children}
+                  {children!.map(({ label, href: childHref, description, icon }) => (
+                    <Link
+                      key={childHref + label}
+                      href={childHref}
+                      className="mkt-menu-card"
+                    >
+                      <div
+                        className="mkt-menu-card-icon"
+                        style={{ color: mkt.accent }}
+                        aria-hidden
+                      >
+                        <NavIcon icon={icon} />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 650,
+                            color: mkt.text,
+                            lineHeight: 1.2,
+                            marginBottom: 3,
+                          }}
+                        >
+                          {label}
+                        </div>
+                        {description && (
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 450,
+                              color: mkt.textMuted,
+                              lineHeight: 1.35,
+                            }}
+                          >
+                            {description}
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
                 </motion.div>
               </motion.div>
             </div>
@@ -114,6 +191,7 @@ export const MenuItem = ({
   );
 };
 
+// ── Menu container ───────────────────────────────────────────────────────────
 export const Menu = ({
   setActive,
   children,
@@ -123,13 +201,13 @@ export const Menu = ({
 }) => {
   return (
     <nav
+      aria-label="Main navigation"
       onMouseLeave={() => setActive(null)}
       style={{
-        position: "relative",
         display: "flex",
-        justifyContent: "center",
         alignItems: "center",
-        gap: 4,
+        gap: 2,
+        flex: "0 1 auto",
       }}
     >
       {children}
@@ -137,64 +215,7 @@ export const Menu = ({
   );
 };
 
-export const ProductItem = ({
-  title,
-  description,
-  href,
-  src,
-}: {
-  title: string;
-  description: string;
-  href: string;
-  src: string;
-}) => {
-  return (
-    <a
-      href={href}
-      style={{
-        display: "flex",
-        gap: 8,
-        textDecoration: "none",
-      }}
-    >
-      <img
-        src={src}
-        width={140}
-        height={70}
-        alt={title}
-        style={{
-          flexShrink: 0,
-          borderRadius: 8,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-        }}
-      />
-      <div>
-        <h4
-          style={{
-            fontSize: 20,
-            fontWeight: 700,
-            marginBottom: 4,
-            color: "#ffffff",
-            margin: 0,
-          }}
-        >
-          {title}
-        </h4>
-        <p
-          style={{
-            color: "rgba(255,255,255,0.6)",
-            fontSize: 14,
-            maxWidth: "10rem",
-            margin: 0,
-          }}
-        >
-          {description}
-        </p>
-      </div>
-    </a>
-  );
-};
-
+// ── HoveredLink (kept as utility export) ─────────────────────────────────────
 export const HoveredLink = ({
   children,
   href,
@@ -208,7 +229,7 @@ export const HoveredLink = ({
       href={href}
       {...(rest as any)}
       style={{
-        color: "rgba(255,255,255,0.6)",
+        color: mkt.textMuted,
         textDecoration: "none",
         fontSize: 13,
         fontWeight: 500,
@@ -220,12 +241,12 @@ export const HoveredLink = ({
       }}
       onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
         const el = e.currentTarget as HTMLElement;
-        el.style.color = "#00D4C8";
+        el.style.color = mkt.accent;
         el.style.background = "rgba(255,255,255,0.05)";
       }}
       onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
         const el = e.currentTarget as HTMLElement;
-        el.style.color = "rgba(255,255,255,0.6)";
+        el.style.color = mkt.textMuted;
         el.style.background = "transparent";
       }}
     >
