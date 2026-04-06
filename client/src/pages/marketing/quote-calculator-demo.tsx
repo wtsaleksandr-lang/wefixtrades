@@ -12,7 +12,7 @@ import TrustStrip from "@/components/marketing/TrustStrip";
 import type { CalculatorData } from "@/components/quote-widget/types";
 import {
   Wrench, SprayCan, Paintbrush, Zap, Home, Search,
-  ArrowRight, Clock, DollarSign, Smartphone, PhoneOff, ChevronDown,
+  ArrowRight, Clock, DollarSign, Smartphone, ChevronDown,
 } from "lucide-react";
 
 /* ─── Trade Definitions ─── */
@@ -53,6 +53,12 @@ const TRADES: TradeConfig[] = [
         ui_template: { template_id: "multi_step_progressive" },
         calculator_type: "estimate_only",
         lead_form: { fields: { name: true, email: true, phone: true }, cta_text: "Get My Quote" },
+        serviceTypes: [
+          { value: "drain_cleaning", label: "Drain cleaning" },
+          { value: "leak_repair", label: "Leak repair" },
+          { value: "toilet_install", label: "Toilet installation" },
+          { value: "water_heater", label: "Water heater service" },
+        ],
       },
     },
   },
@@ -85,6 +91,12 @@ const TRADES: TradeConfig[] = [
         ui_template: { template_id: "multi_step_progressive" },
         calculator_type: "estimate_only",
         lead_form: { fields: { name: true, email: true, phone: true }, cta_text: "Book Now" },
+        serviceTypes: [
+          { value: "standard_clean", label: "Standard cleaning" },
+          { value: "deep_clean", label: "Deep cleaning" },
+          { value: "moveout_clean", label: "Move-out cleaning" },
+          { value: "office_clean", label: "Office cleaning" },
+        ],
       },
     },
   },
@@ -114,6 +126,12 @@ const TRADES: TradeConfig[] = [
         ui_template: { template_id: "multi_step_progressive" },
         calculator_type: "estimate_only",
         lead_form: { fields: { name: true, email: true, phone: true }, cta_text: "Get Estimate" },
+        serviceTypes: [
+          { value: "interior_painting", label: "Interior painting" },
+          { value: "exterior_painting", label: "Exterior painting" },
+          { value: "cabinet_painting", label: "Cabinet painting" },
+          { value: "touchup", label: "Touch-up service" },
+        ],
       },
     },
   },
@@ -143,6 +161,12 @@ const TRADES: TradeConfig[] = [
         ui_template: { template_id: "multi_step_progressive" },
         calculator_type: "estimate_only",
         lead_form: { fields: { name: true, email: true, phone: true }, cta_text: "Get My Quote" },
+        serviceTypes: [
+          { value: "light_fixture", label: "Light fixture installation" },
+          { value: "panel_upgrade", label: "Panel upgrade" },
+          { value: "outlet_repair", label: "Outlet repair" },
+          { value: "ev_charger", label: "EV charger install" },
+        ],
       },
     },
   },
@@ -176,6 +200,12 @@ const TRADES: TradeConfig[] = [
         ui_template: { template_id: "multi_step_progressive" },
         calculator_type: "estimate_only",
         lead_form: { fields: { name: true, email: true, phone: true }, cta_text: "Get Estimate" },
+        serviceTypes: [
+          { value: "roof_inspection", label: "Roof inspection" },
+          { value: "roof_repair", label: "Roof repair" },
+          { value: "shingle_replace", label: "Shingle replacement" },
+          { value: "gutter_service", label: "Gutter service" },
+        ],
       },
     },
   },
@@ -465,7 +495,7 @@ export default function QuoteCalculatorDemo() {
               </div>
             </Link>
 
-            {/* Secondary: Talk to Us */}
+            {/* Secondary: TradeLine Demo */}
             <Link href="/demo" style={{ textDecoration: "none", display: "block", marginBottom: 32 }}>
               <div style={{
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
@@ -483,46 +513,10 @@ export default function QuoteCalculatorDemo() {
                   e.currentTarget.style.background = "transparent";
                 }}
               >
-                Talk to Us
+                Try TradeLine 24/7 Demo
               </div>
             </Link>
 
-            {/* Cross-link */}
-            <Link href="/tools/missed-call-calculator" style={{ textDecoration: "none", display: "block" }}>
-              <div className="demo-crosslink" style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 14,
-                padding: "16px 20px",
-                borderRadius: 14,
-                border: `1px solid ${mkt.border}`,
-                background: mkt.cardBg,
-                cursor: "pointer",
-                transition: "border-color 0.2s, background 0.2s",
-              }}>
-                <div style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  background: "rgba(239,68,68,0.1)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}>
-                  <PhoneOff size={18} color="#EF4444" strokeWidth={1.8} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 650, color: mkt.text }}>
-                    Missed Call Revenue Calculator
-                  </div>
-                  <div style={{ fontSize: 13, color: mkt.textMuted }}>
-                    See how much missed calls are costing you
-                  </div>
-                </div>
-                <ArrowRight size={16} color={mkt.textFaint} />
-              </div>
-            </Link>
           </div>
 
           {/* ─── Static SEO Content ─── */}
@@ -571,6 +565,8 @@ const TRADE_SECTIONS = [
 ];
 
 function TradeDescriptions() {
+  const [activeIdx, setActiveIdx] = useState(0);
+
   return (
     <div style={{
       maxWidth: 640,
@@ -579,28 +575,86 @@ function TradeDescriptions() {
       borderTop: `1px solid ${mkt.border}`,
       marginTop: "clamp(40px, 6vw, 64px)",
     }}>
-      {TRADE_SECTIONS.map((section, i) => (
-        <div key={i} style={{ marginBottom: 32 }}>
-          <h2 style={{
-            fontSize: "clamp(18px, 2.5vw, 22px)",
-            fontWeight: 700,
-            color: colors.effortel.n300,
-            lineHeight: 1.2,
-            letterSpacing: "-0.01em",
-            margin: "0 0 10px",
-          }}>
-            {section.heading}
-          </h2>
-          <p style={{
-            fontSize: 14,
-            color: mkt.textMuted,
-            lineHeight: 1.7,
-            margin: 0,
-          }}>
-            {section.text}
-          </p>
-        </div>
-      ))}
+      <h2 style={{
+        fontSize: "clamp(18px, 2.5vw, 22px)",
+        fontWeight: 700,
+        color: colors.effortel.n300,
+        lineHeight: 1.2,
+        letterSpacing: "-0.01em",
+        margin: "0 0 16px",
+        textAlign: "center",
+      }}>
+        Instant Quote Calculator by Trade
+      </h2>
+
+      {/* Tab buttons */}
+      <div style={{
+        display: "flex",
+        gap: 6,
+        flexWrap: "wrap",
+        justifyContent: "center",
+        marginBottom: 20,
+      }}>
+        {TRADE_SECTIONS.map((section, i) => {
+          const isActive = i === activeIdx;
+          const shortLabel = section.heading.replace("Instant Quote Calculator for ", "");
+          return (
+            <button
+              key={i}
+              onClick={() => setActiveIdx(i)}
+              style={{
+                padding: "7px 14px",
+                borderRadius: 9999,
+                border: `1px solid ${isActive ? "rgba(102,232,250,0.3)" : mkt.border}`,
+                background: isActive ? "rgba(102,232,250,0.08)" : "transparent",
+                color: isActive ? mkt.accent : mkt.textMuted,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              {shortLabel}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Active tab content */}
+      <div style={{
+        background: mkt.cardBg,
+        border: `1px solid ${mkt.cardBorder}`,
+        borderRadius: 14,
+        padding: "20px 22px",
+      }}>
+        <h3 style={{
+          fontSize: 16,
+          fontWeight: 700,
+          color: colors.effortel.n300,
+          lineHeight: 1.3,
+          margin: "0 0 8px",
+        }}>
+          {TRADE_SECTIONS[activeIdx].heading}
+        </h3>
+        <p style={{
+          fontSize: 14,
+          color: mkt.textMuted,
+          lineHeight: 1.7,
+          margin: 0,
+        }}>
+          {TRADE_SECTIONS[activeIdx].text}
+        </p>
+      </div>
+
+      {/* Hidden SEO text — all trade descriptions remain in DOM for crawlers */}
+      <div style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)" }} aria-hidden="true">
+        {TRADE_SECTIONS.map((section, i) => (
+          <div key={i}>
+            <h2>{section.heading}</h2>
+            <p>{section.text}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -648,27 +702,38 @@ function DemoFaqSection() {
       borderTop: `1px solid ${mkt.border}`,
       marginTop: "clamp(32px, 5vw, 48px)",
     }}>
+      <div style={{
+        fontSize: 11,
+        fontWeight: 700,
+        color: mkt.accent,
+        letterSpacing: "0.12em",
+        textTransform: "uppercase" as const,
+        marginBottom: 14,
+        textAlign: "center",
+      }}>
+        FAQ
+      </div>
       <h2 style={{
-        fontSize: "clamp(20px, 3vw, 26px)",
+        fontSize: "clamp(22px, 3vw, 30px)",
         fontWeight: 700,
         color: colors.effortel.n300,
-        letterSpacing: "-0.02em",
+        letterSpacing: "-0.025em",
         lineHeight: 1.15,
-        margin: "0 0 20px",
+        margin: "0 0 24px",
         textAlign: "center",
       }}>
         Frequently Asked Questions
       </h2>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {DEMO_FAQ_ITEMS.map((item, i) => {
           const isOpen = openIdx === i;
           return (
             <div key={i} style={{
-              background: mkt.cardBg,
-              border: `1px solid ${mkt.cardBorder}`,
-              borderRadius: 12,
+              border: `1px solid ${mkt.border}`,
+              borderRadius: 14,
               overflow: "hidden",
+              transition: "border-color 0.2s ease",
             }}>
               <button
                 onClick={() => setOpenIdx(isOpen ? null : i)}
@@ -678,22 +743,22 @@ function DemoFaqSection() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  gap: 12,
-                  padding: "14px 16px",
-                  background: "none",
+                  gap: 16,
+                  padding: "18px 22px",
+                  background: isOpen ? mkt.surface : "transparent",
                   border: "none",
                   cursor: "pointer",
-                  color: isOpen ? colors.effortel.n200 : mkt.textMuted,
-                  fontSize: 14,
+                  color: mkt.text,
+                  fontSize: 15,
                   fontWeight: 600,
                   textAlign: "left",
                   lineHeight: 1.4,
-                  transition: "color 0.15s",
+                  transition: "background 0.2s ease",
                 }}
               >
                 <span>{item.question}</span>
                 <ChevronDown
-                  size={14}
+                  size={17}
                   color={mkt.textFaint}
                   style={{
                     flexShrink: 0,
@@ -705,10 +770,10 @@ function DemoFaqSection() {
 
               {isOpen && (
                 <div style={{
-                  padding: "0 16px 14px",
-                  fontSize: 13,
-                  color: mkt.textFaint,
-                  lineHeight: 1.65,
+                  padding: "0 22px 18px",
+                  fontSize: 14,
+                  color: mkt.textMuted,
+                  lineHeight: 1.7,
                 }}>
                   {item.answer}
                 </div>

@@ -1455,13 +1455,19 @@ const QQ_DEMO_CALCULATOR: CalculatorData = {
     ui_template: { template_id: "multi_step_progressive" },
     calculator_type: "estimate_only",
     lead_form: { fields: { name: true, email: true, phone: true }, cta_text: "Get My Quote" },
+    serviceTypes: [
+      { value: "drain_cleaning", label: "Drain cleaning" },
+      { value: "leak_repair", label: "Leak repair" },
+      { value: "toilet_install", label: "Toilet installation" },
+      { value: "water_heater", label: "Water heater service" },
+    ],
   },
 };
 
 function QQDemoSection() {
   return (
     <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="qq-demo">
-      <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Live preview</SectionLabel>
         <h2
           style={{

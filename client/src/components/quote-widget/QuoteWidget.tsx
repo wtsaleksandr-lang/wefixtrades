@@ -49,6 +49,7 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
       leadForm: calcSettings.lead_form,
       promotionsEnabled: calcSettings.promotions?.enabled === true,
       quoteRules: calcSettings.quote_rules,
+      serviceTypes: calcSettings.serviceTypes,
     };
 
     const flow = buildWidgetFlow(pricingConfig, template, flowSettings);
