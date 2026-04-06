@@ -123,7 +123,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             <div style={ftHeading}>Resources</div>
             <FtLink href="/about">About Us</FtLink>
             <FtLink href="/contact">Contact Sales</FtLink>
-            <FtLink href="/plans">Pricing</FtLink>
+            <FtLink href="/pricing">Pricing</FtLink>
             {!isAuthenticated && <FtLink href="/login">Login</FtLink>}
             {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}
           </div>

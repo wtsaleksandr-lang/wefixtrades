@@ -90,7 +90,7 @@ export const NAV_LINKS: NavItem[] = [
     ],
   },
   { label: "Templates", href: "/templates" },
-  { label: "Plans", href: "/plans" },
+  { label: "Pricing", href: "/pricing" },
   {
     label: "Resources",
     href: "/demos",

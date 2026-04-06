@@ -224,7 +224,7 @@ export default function ReviewsSection() {
             Start Free
           </Link>
           <Link
-            href="/plans"
+            href="/pricing"
             data-testid="reviews-cta-plans"
             style={{
               fontSize: 15,

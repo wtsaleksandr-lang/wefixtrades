@@ -28,7 +28,7 @@ export const FOOTER_LINKS = {
     { label: "For Cleaners", href: "/solutions/for-cleaners" },
   ],
   Resources: [
-    { label: "Plans", href: "/plans" },
+    { label: "Pricing", href: "/pricing" },
     { label: "Demo Center", href: "/demos" },
     { label: "Docs", href: "/docs" },
     { label: "Blog", href: "/blog" },

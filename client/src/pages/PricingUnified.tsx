@@ -15,7 +15,7 @@ import CheckoutModal, { type CheckoutItem } from "@/components/CheckoutModal";
    CONSTANTS
    ═══════════════════════════════════════════ */
 
-const MAX_W: CSSProperties = { maxWidth: 1200, margin: "0 auto", padding: "0 24px" };
+const MAX_W: CSSProperties = { maxWidth: 1080, margin: "0 auto", padding: "0 24px" };
 const FONT = typography.fontFamily;
 const CARD_RADIUS = 16;
 const CARD_BG = "rgba(255,255,255,0.03)";
@@ -286,7 +286,7 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout }: { bundle: BundleDe
         background: CARD_BG,
         border: hl ? `2px solid ${mkt.accent}` : CARD_BORDER,
         borderRadius: CARD_RADIUS,
-        padding: hl ? "32px 26px 28px" : "28px 26px 28px",
+        padding: "28px 26px 28px",
         display: "flex",
         flexDirection: "column",
         position: "relative",
@@ -536,7 +536,7 @@ function ServiceCard({ product, yearly, onCheckout }: { product: ProductDef; yea
         background: CARD_BG,
         border: CARD_BORDER,
         borderRadius: CARD_RADIUS,
-        padding: "24px 22px 22px",
+        padding: "28px 26px 28px",
         display: "flex",
         flexDirection: "column",
         transition: "all 0.3s ease",
@@ -827,8 +827,8 @@ export default function PricingUnified() {
           </div>
         </section>
 
-        {/* ═══ CONTROLS — I: tighter spacing ═══ */}
-        <section style={{ textAlign: "center", padding: "24px 24px 0" }}>
+        {/* ═══ CONTROLS ═══ */}
+        <section style={{ textAlign: "center", padding: "28px 24px 0" }}>
           <div style={{ ...MAX_W, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
             <BillingToggle yearly={yearly} onChange={setYearly} />
             <ViewSwitch view={view} onChange={setView} />
@@ -837,7 +837,7 @@ export default function PricingUnified() {
 
         {/* ═══ PLANS VIEW ═══ */}
         {view === "plans" && (
-          <section style={{ padding: "32px 24px 0" }}>
+          <section style={{ padding: "36px 24px 0" }}>
             <div style={MAX_W}>
 
               {/* D: Fix & Optimize callout — ABOVE bundles */}
@@ -869,7 +869,7 @@ export default function PricingUnified() {
 
         {/* ═══ SERVICES VIEW ═══ */}
         {view === "services" && (
-          <section style={{ padding: "32px 24px 0" }}>
+          <section style={{ padding: "36px 24px 0" }}>
             <div style={MAX_W}>
               {productsByCategory.map((group) => (
                 <div key={group.cat} style={{ marginBottom: 48 }}>
@@ -878,7 +878,7 @@ export default function PricingUnified() {
                     className="pricing-services-grid"
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+                      gridTemplateColumns: "repeat(2, 1fr)",
                       gap: 20,
                       alignItems: "start",
                     }}
@@ -923,9 +923,12 @@ export default function PricingUnified() {
             display: none !important;
           }
         }
-        @media (max-width: 768px) {
+        @media (max-width: 900px) {
           .pricing-services-grid {
             grid-template-columns: 1fr !important;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
           }
           .pricing-hero {
             padding-top: 32px !important;
