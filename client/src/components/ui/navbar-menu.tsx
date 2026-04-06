@@ -102,85 +102,92 @@ export const MenuItem = ({
         </Link>
       )}
 
-      {/* ── Animated dropdown (spring animation kept as-is) ── */}
+      {/* ── Animated dropdown ── */}
       {active !== null && hasChildren && isOpen && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.85, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={transition}
+        <div
           style={{
             position: "absolute",
-            top: "calc(100% + 1.2rem)",
-            left: "50%",
-            x: "-50%",
-            paddingTop: 16,
+            top: "100%",
+            left: 0,
+            right: 0,
+            display: "flex",
+            justifyContent: "center",
+            paddingTop: "1.2rem",
             zIndex: 9999,
+            pointerEvents: "none",
           }}
         >
           <motion.div
+            initial={{ opacity: 0, scale: 0.85, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={transition}
-            layoutId="active"
-            className="mkt-dropdown-tray"
-            style={{
-              padding: 10,
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gridAutoFlow: "row",
-              gap: 8,
-              boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
-              maxWidth: "calc(100vw - 24px)",
-              width: "max-content",
-            }}
+            style={{ pointerEvents: "auto" }}
           >
             <motion.div
-              layout
+              transition={transition}
+              layoutId="active"
+              className="mkt-dropdown-tray"
               style={{
-                display: "contents",
+                padding: 10,
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gridAutoFlow: "row",
+                gap: 8,
+                boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
+                maxWidth: "calc(100vw - 24px)",
+                width: "max-content",
               }}
             >
-              {children!.map(({ label, href: childHref, description, icon }) => (
-                <Link
-                  key={childHref + label}
-                  href={childHref}
-                  className="mkt-menu-card"
-                >
-                  <div
-                    className="mkt-menu-card-icon"
-                    style={{ color: mkt.accent }}
-                    aria-hidden
+              <motion.div
+                layout
+                style={{
+                  display: "contents",
+                }}
+              >
+                {children!.map(({ label, href: childHref, description, icon }) => (
+                  <Link
+                    key={childHref + label}
+                    href={childHref}
+                    className="mkt-menu-card"
                   >
-                    <NavIcon icon={icon} />
-                  </div>
-                  <div style={{ minWidth: 0 }}>
                     <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 650,
-                        color: mkt.text,
-                        lineHeight: 1.2,
-                        marginBottom: 3,
-                      }}
+                      className="mkt-menu-card-icon"
+                      style={{ color: mkt.accent }}
+                      aria-hidden
                     >
-                      {label}
+                      <NavIcon icon={icon} />
                     </div>
-                    {description && (
+                    <div style={{ minWidth: 0 }}>
                       <div
                         style={{
-                          fontSize: 12,
-                          fontWeight: 450,
-                          color: mkt.textMuted,
-                          lineHeight: 1.35,
+                          fontSize: 13,
+                          fontWeight: 650,
+                          color: mkt.text,
+                          lineHeight: 1.2,
+                          marginBottom: 3,
                         }}
                       >
-                        {description}
+                        {label}
                       </div>
-                    )}
-                  </div>
-                </Link>
-              ))}
+                      {description && (
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 450,
+                            color: mkt.textMuted,
+                            lineHeight: 1.35,
+                          }}
+                        >
+                          {description}
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </motion.div>
             </motion.div>
           </motion.div>
-        </motion.div>
+        </div>
       )}
     </div>
   );
