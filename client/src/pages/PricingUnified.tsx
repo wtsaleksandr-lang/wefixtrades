@@ -1146,14 +1146,15 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
                     onClick={() => setActiveCat(group.cat)}
                     style={{
                       flex: 1, minWidth: 0, display: "flex", alignItems: "center",
-                      justifyContent: "center", gap: 6, padding: "10px 14px", borderRadius: 9,
+                      justifyContent: "center", gap: 4, padding: "8px 6px", borderRadius: 9,
                       border: "none", background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
-                      color: isActive ? mkt.onDark : mkt.textMuted, fontSize: 13,
+                      color: isActive ? mkt.onDark : mkt.textMuted, fontSize: 12,
                       fontWeight: isActive ? 650 : 500, cursor: "pointer",
-                      transition: "all 0.18s ease", fontFamily: FONT, whiteSpace: "nowrap",
+                      transition: "all 0.18s ease", fontFamily: FONT,
+                      textAlign: "center", lineHeight: 1.25,
                     }}
                   >
-                    <Icon size={14} strokeWidth={isActive ? 2.2 : 1.8} style={{ flexShrink: 0 }} />
+                    <Icon size={13} strokeWidth={isActive ? 2.2 : 1.8} className="pricing-tab-icon" style={{ flexShrink: 0 }} />
                     {group.label}
                   </button>
                 );
@@ -1251,6 +1252,7 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
         @media (max-width: 640px) {
           .pricing-section { padding-left: 4px !important; padding-right: 4px !important; }
           .pricing-max-w { padding-left: 2px !important; padding-right: 2px !important; }
+          .pricing-tab-icon { display: none !important; }
           .pricing-decision-grid {
             grid-template-columns: repeat(2, 1fr) !important;
             gap: 6px !important;
