@@ -14,23 +14,23 @@ const SiteChatWidget = lazy(() => import("@/components/SiteChatWidget"));
 
 const ftLink: CSSProperties = {
   display: "block",
-  fontSize: 13,
+  fontSize: 12,
   fontWeight: 400,
   color: "rgba(255,255,255,0.45)",
   textDecoration: "none",
   lineHeight: 1.3,
-  padding: "5px 0",
+  padding: "4px 0",
   transition: "color 0.15s ease",
 };
 
 const ftHeading: CSSProperties = {
-  fontSize: 11,
+  fontSize: 10,
   fontWeight: 600,
   color: mkt.accent,
   textTransform: "uppercase",
   letterSpacing: "0.08em",
-  paddingBottom: 10,
-  marginBottom: 12,
+  paddingBottom: 8,
+  marginBottom: 10,
   borderBottom: "1px solid rgba(255,255,255,0.08)",
 };
 
@@ -60,7 +60,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
       }}
     >
       {/* ── Main footer grid ───────────────────────────────────────── */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 24px 0" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 20px 0" }}>
         <div className="mkt-footer-grid">
           {/* Col 1 — Products (core only) */}
           <div>
@@ -220,18 +220,12 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
         .mkt-footer-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 40px;
+          gap: 36px;
         }
         @media (max-width: 768px) {
           .mkt-footer-grid {
             grid-template-columns: 1fr 1fr;
-            gap: 32px 24px;
-          }
-        }
-        @media (max-width: 520px) {
-          .mkt-footer-grid {
-            grid-template-columns: 1fr;
-            gap: 28px;
+            gap: 24px 20px;
           }
         }
         @media (max-width: 640px) {

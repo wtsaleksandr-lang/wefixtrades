@@ -1392,17 +1392,37 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
         </div>
 
         {/* ═══ 5. FINAL CTA ═══ */}
-        <section className="pricing-section" style={{ paddingTop: 36 }}>
+        <section className="pricing-section" style={{ paddingTop: 24, paddingBottom: 8 }}>
           <div className="pricing-max-w" style={{ ...MAX_W, textAlign: "center" }}>
-            <h2 style={{ fontSize: "clamp(16px, 2.5vw, 22px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.02em", margin: "0 0 4px" }}>
+            <h2 style={{ fontSize: "clamp(15px, 2.5vw, 20px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.02em", margin: "0 0 4px" }}>
               Still not sure?
             </h2>
-            <p style={{ fontSize: 13, color: WARM_GRAY, lineHeight: 1.4, margin: "0 auto 20px", maxWidth: 360, opacity: 0.85 }}>
+            <p style={{ fontSize: 13, color: WARM_GRAY, lineHeight: 1.4, margin: "0 auto 16px", maxWidth: 340, opacity: 0.85 }}>
               Start with one tool — or choose a system and see results faster.
             </p>
-            <div className="pricing-final-cta-row" style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-              <CTAButton label="Start with Growth" highlighted onClick={() => openBundleCheckout(BUNDLE_GROWTH)} />
-              <CTAButton label="Try one tool" onClick={() => document.getElementById("pricing-services")?.scrollIntoView({ behavior: "smooth" })} />
+            <div className="pricing-final-cta-row" style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button
+                onClick={() => openBundleCheckout(BUNDLE_GROWTH)}
+                style={{
+                  flex: 1, maxWidth: 220, padding: "13px 20px", borderRadius: 12,
+                  border: "none", background: mkt.accent, color: mkt.dark,
+                  fontSize: 14, fontWeight: 700, fontFamily: FONT, cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                Start with Growth
+              </button>
+              <button
+                onClick={() => document.getElementById("pricing-services")?.scrollIntoView({ behavior: "smooth" })}
+                style={{
+                  flex: 1, maxWidth: 220, padding: "13px 20px", borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.12)", background: "transparent",
+                  color: mkt.onDark, fontSize: 14, fontWeight: 700, fontFamily: FONT,
+                  cursor: "pointer", transition: "all 0.2s ease",
+                }}
+              >
+                Try one tool
+              </button>
             </div>
           </div>
         </section>
@@ -1456,7 +1476,9 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
           }
           .pricing-final-cta-row {
             flex-direction: column !important;
-            align-items: center !important;
+          }
+          .pricing-final-cta-row button {
+            max-width: 100% !important;
           }
         }
         @media (max-width: 900px) {
