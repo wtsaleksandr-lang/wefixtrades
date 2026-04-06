@@ -1003,9 +1003,43 @@ export default function PricingUnified() {
     setCheckoutOpen(true);
   }
 
-  useEffect(() => {
-    document.title = "Pricing — WeFixTrades";
-  }, []);
+/* ── ROI anchor component ── */
+function RoiAnchor({ text }: { text: string }) {
+  return (
+    <div style={{ textAlign: "center", fontSize: 12, color: WARM_GRAY, opacity: 0.7, marginTop: 16, lineHeight: 1.5, fontStyle: "italic" }}>
+      {text}
+    </div>
+  );
+}
+
+/* ── Decision button ── */
+function DecisionButton({ label, targetId }: { label: string; targetId: string }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onClick={() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        flex: 1,
+        minWidth: 160,
+        padding: "16px 20px",
+        borderRadius: 14,
+        border: `1px solid ${hover ? "rgba(102,232,250,0.25)" : "rgba(255,255,255,0.1)"}`,
+        background: hover ? "rgba(102,232,250,0.06)" : "rgba(255,255,255,0.03)",
+        color: hover ? mkt.onDark : TEXT_STRONG,
+        fontSize: 15,
+        fontWeight: 650,
+        fontFamily: FONT,
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        textAlign: "center",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
 
   /* Bundle ordering — Growth first on mobile */
   const bundlesDesktop = [BUNDLE_STARTER, BUNDLE_GROWTH, BUNDLE_PRO];
@@ -1018,30 +1052,22 @@ export default function PricingUnified() {
     products: ALL_PRODUCTS.filter(p => p.category === cat),
   })).filter(g => g.products.length > 0);
 
+  useEffect(() => { document.title = "Pricing — WeFixTrades"; }, []);
+
   return (
     <MarketingLayout>
       <div style={{ paddingBottom: 80 }}>
 
-        {/* ═══ HERO + BILLING TOGGLE ═══ */}
+        {/* ═══ 1. HERO + BILLING TOGGLE ═══ */}
         <section className="pricing-hero" style={{ padding: "48px 24px 0" }}>
           <div style={MAX_W}>
-            <div className="pricing-hero-row" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20, flexWrap: "wrap", marginBottom: 8 }}>
+            <div className="pricing-hero-row" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20, flexWrap: "wrap", marginBottom: 4 }}>
               <div>
-                <h1
-                  style={{
-                    fontSize: "clamp(26px, 5vw, 42px)",
-                    fontWeight: 800,
-                    color: mkt.onDark,
-                    fontFamily: FONT,
-                    letterSpacing: "-0.03em",
-                    lineHeight: 1.1,
-                    margin: 0,
-                  }}
-                >
+                <h1 style={{ fontSize: "clamp(26px, 5vw, 42px)", fontWeight: 800, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.03em", lineHeight: 1.1, margin: 0 }}>
                   Simple, transparent pricing
                 </h1>
                 <p style={{ fontSize: "clamp(13px, 1.8vw, 15px)", color: WARM_GRAY, lineHeight: 1.5, margin: "6px 0 0", opacity: 0.85 }}>
-                  No hidden fees. Cancel anytime.
+                  Built for trades businesses. No contracts. You own everything.
                 </p>
               </div>
               <BillingToggle yearly={yearly} onChange={setYearly} />
@@ -1049,37 +1075,52 @@ export default function PricingUnified() {
           </div>
         </section>
 
-        {/* ═══ BLOCK 1: BUNDLES / SYSTEMS (primary offer) ═══ */}
+        {/* ═══ 2. DECISION FRAME ═══ */}
         <section style={{ padding: "28px 24px 0" }}>
           <div style={MAX_W}>
-            {/* Section header — left-aligned with inline badge */}
-            <div className="pricing-section-heading" style={{ marginBottom: 20 }}>
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <h2 style={{ fontSize: "clamp(16px, 2.5vw, 20px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, margin: "0 0 4px" }}>
+                What do you need right now?
+              </h2>
+            </div>
+            <div className="pricing-decision-row" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <DecisionButton label="Get more jobs" targetId="pricing-bundles" />
+              <DecisionButton label="Fix my website" targetId="pricing-services" />
+              <DecisionButton label="Build a new website" targetId="pricing-services" />
+            </div>
+          </div>
+        </section>
+
+        {/* ═══ 3. BUNDLES / SYSTEMS (PRIMARY) ═══ */}
+        <section id="pricing-bundles" style={{ padding: "36px 24px 0", scrollMarginTop: 80 }}>
+          <div style={MAX_W}>
+            <div className="pricing-section-heading" style={{ marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
                 <h2 style={{ fontSize: "clamp(18px, 3vw, 26px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.02em", margin: 0 }}>
                   Choose your system
                 </h2>
-                <span style={{
-                  display: "inline-flex",
-                  background: `${WARM_AMBER}18`,
-                  color: WARM_AMBER,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: "3px 10px",
-                  borderRadius: 999,
-                  letterSpacing: "0.03em",
-                  textTransform: "uppercase" as const,
-                }}>
-                  Recommended
+                <span style={{ display: "inline-flex", background: `${WARM_AMBER}18`, color: WARM_AMBER, fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 999, letterSpacing: "0.03em", textTransform: "uppercase" as const }}>
+                  Most businesses start here
                 </span>
               </div>
               <p style={{ fontSize: 13, color: WARM_GRAY, lineHeight: 1.45, margin: 0, opacity: 0.85 }}>
-                Bundled systems designed for trades businesses. Everything works together — no setup needed.
+                Everything working together — more jobs, less manual work.
               </p>
             </div>
 
-            {/* Trust strip */}
-            <div style={{ textAlign: "center", fontSize: 12, color: WARM_GRAY, opacity: 0.7, marginBottom: 20, lineHeight: 1.5 }}>
-              Used by 2,400+ trades &bull; Plumbers, HVAC, Electricians & more &bull; Built for real job workflows
+            {/* Guidance block */}
+            <div style={{
+              background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 12, padding: "14px 20px", marginBottom: 20,
+              fontSize: 13, color: mkt.textMuted, lineHeight: 1.6,
+            }}>
+              <span style={{ fontWeight: 650, color: TEXT_STRONG }}>Not sure which to pick?</span>
+              <span style={{ margin: "0 8px", opacity: 0.4 }}>·</span>
+              Just starting → Starter
+              <span style={{ margin: "0 8px", opacity: 0.4 }}>·</span>
+              Want steady jobs → Growth
+              <span style={{ margin: "0 8px", opacity: 0.4 }}>·</span>
+              Want everything automated → Pro
             </div>
 
             {/* Desktop: 3-col */}
@@ -1094,34 +1135,30 @@ export default function PricingUnified() {
                 <BundleCard key={b.id} bundle={b} yearly={yearly} ctaLabel={BUNDLE_CTA[b.id] || "Get Started"} onCheckout={() => openBundleCheckout(b)} onServiceInfo={(pid) => SERVICE_INFO[pid] && setInfoModal(SERVICE_INFO[pid])} />
               ))}
             </div>
+
+            <RoiAnchor text="One booked job can cover this entire system." />
           </div>
         </section>
 
         {/* ═══ SECTION DIVIDER ═══ */}
-        <div className="pricing-divider" style={{ ...MAX_W, marginTop: 48 }}>
+        <div style={{ ...MAX_W, marginTop: 48 }}>
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
         </div>
 
-        {/* ═══ BLOCK 2: INDIVIDUAL SERVICES (secondary) ═══ */}
-        <section style={{ padding: "40px 24px 0" }}>
+        {/* ═══ 4. INDIVIDUAL SERVICES (SECONDARY) ═══ */}
+        <section id="pricing-services" style={{ padding: "40px 24px 0", scrollMarginTop: 80 }}>
           <div style={MAX_W}>
             <PricingSectionHeading
-              title="Individual services"
-              subtitle="Need just one tool? Pick what fits your business."
+              title="Add or fix specific parts"
+              subtitle="Only need one piece? Start here."
             />
 
-            {/* Category tabs — always visible */}
+            {/* Category tabs */}
             <div className="pricing-cat-tabs-row" style={{
-              display: "flex",
-              gap: 4,
-              marginBottom: 24,
-              borderRadius: 12,
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              padding: 4,
-              overflowX: "auto",
-              WebkitOverflowScrolling: "touch" as any,
-              scrollbarWidth: "none" as any,
+              display: "flex", gap: 4, marginBottom: 24, borderRadius: 12,
+              background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+              padding: 4, overflowX: "auto",
+              WebkitOverflowScrolling: "touch" as any, scrollbarWidth: "none" as any,
             }}>
               {productsByCategory.map((group) => {
                 const isActive = activeCat === group.cat;
@@ -1131,23 +1168,12 @@ export default function PricingUnified() {
                     key={group.cat}
                     onClick={() => setActiveCat(group.cat)}
                     style={{
-                      flex: 1,
-                      minWidth: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                      padding: "10px 16px",
-                      borderRadius: 9,
-                      border: "none",
-                      background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
-                      color: isActive ? mkt.onDark : mkt.textMuted,
-                      fontSize: 13,
-                      fontWeight: isActive ? 650 : 500,
-                      cursor: "pointer",
-                      transition: "all 0.18s ease",
-                      fontFamily: FONT,
-                      whiteSpace: "nowrap",
+                      flex: 1, minWidth: 0, display: "flex", alignItems: "center",
+                      justifyContent: "center", gap: 6, padding: "10px 16px", borderRadius: 9,
+                      border: "none", background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
+                      color: isActive ? mkt.onDark : mkt.textMuted, fontSize: 13,
+                      fontWeight: isActive ? 650 : 500, cursor: "pointer",
+                      transition: "all 0.18s ease", fontFamily: FONT, whiteSpace: "nowrap",
                     }}
                   >
                     <Icon size={14} strokeWidth={isActive ? 2.2 : 1.8} style={{ flexShrink: 0 }} />
@@ -1160,15 +1186,7 @@ export default function PricingUnified() {
             {/* Active category cards */}
             {productsByCategory.filter(g => g.cat === activeCat).map((group) => (
               <div key={group.cat}>
-                <div
-                  className="pricing-services-grid"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(2, 1fr)",
-                    gap: 20,
-                    alignItems: "stretch",
-                  }}
-                >
+                <div className="pricing-services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, alignItems: "stretch" }}>
                   {group.products.map((product) => (
                     <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} onInfo={SERVICE_INFO[product.id] ? () => setInfoModal(SERVICE_INFO[product.id]) : undefined} bestFor={SERVICE_INFO[product.id]?.bestFor} />
                   ))}
@@ -1186,15 +1204,7 @@ export default function PricingUnified() {
                         Not ready for a monthly plan? Start with a one-time fix or a full website build.
                       </p>
                     </div>
-                    <div
-                      className="pricing-services-grid"
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(2, 1fr)",
-                        gap: 20,
-                        alignItems: "stretch",
-                      }}
-                    >
+                    <div className="pricing-services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, alignItems: "stretch" }}>
                       <OneTimeCard product={FIX_OPTIMIZE} yearly={yearly} onCheckout={openFixOptimizeCheckout} onInfo={() => setInfoModal(SERVICE_INFO["fix-optimize"])} bestFor={SERVICE_INFO["fix-optimize"]?.bestFor} />
                       <OneTimeCard product={SITELAUNCH} yearly={yearly} onCheckout={openSiteLaunchCheckout} onInfo={() => setInfoModal(SERVICE_INFO["sitelaunch"])} bestFor={SERVICE_INFO["sitelaunch"]?.bestFor} />
                     </div>
@@ -1202,6 +1212,27 @@ export default function PricingUnified() {
                 )}
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* ═══ SECTION DIVIDER ═══ */}
+        <div style={{ ...MAX_W, marginTop: 48 }}>
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
+        </div>
+
+        {/* ═══ 5. FINAL CTA ═══ */}
+        <section style={{ padding: "48px 24px 0" }}>
+          <div style={{ ...MAX_W, textAlign: "center" }}>
+            <h2 style={{ fontSize: "clamp(18px, 3vw, 26px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.02em", margin: "0 0 6px" }}>
+              Still not sure?
+            </h2>
+            <p style={{ fontSize: 14, color: WARM_GRAY, lineHeight: 1.5, margin: "0 auto 24px", maxWidth: 400, opacity: 0.85 }}>
+              Start with one tool — or choose a system and see results faster.
+            </p>
+            <div className="pricing-final-cta-row" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <CTAButton label="Start with Growth" highlighted onClick={() => openBundleCheckout(BUNDLE_GROWTH)} />
+              <CTAButton label="Try one tool" onClick={() => document.getElementById("pricing-services")?.scrollIntoView({ behavior: "smooth" })} />
+            </div>
           </div>
         </section>
 
@@ -1244,6 +1275,13 @@ export default function PricingUnified() {
             flex-direction: column !important;
             align-items: flex-start !important;
             text-align: left;
+          }
+          .pricing-decision-row {
+            flex-direction: column !important;
+          }
+          .pricing-final-cta-row {
+            flex-direction: column !important;
+            align-items: center !important;
           }
         }
         @media (max-width: 900px) {
