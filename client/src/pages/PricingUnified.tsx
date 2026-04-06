@@ -872,23 +872,6 @@ function ServiceCard({ product, yearly, onCheckout, onInfo }: { product: Product
 }
 
 /* ═══════════════════════════════════════════
-   SECTION LABEL
-   ═══════════════════════════════════════════ */
-
-function SectionLabel({ icon: Icon, label }: { icon: typeof Zap; label: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-      <div style={{ width: 32, height: 32, borderRadius: 8, background: mkt.accentTint, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Icon size={16} color={mkt.accent} />
-      </div>
-      <span style={{ fontSize: 14, fontWeight: 700, color: mkt.onDark, fontFamily: FONT }}>
-        {label}
-      </span>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════
    MAIN PAGE
    ═══════════════════════════════════════════ */
 
@@ -1079,76 +1062,70 @@ export default function PricingUnified() {
               subtitle="Need just one tool? Pick what fits your business."
             />
 
-            {/* Category tabs — visible on mobile, hidden on desktop */}
-            <div className="pricing-cat-tabs" style={{ display: "none", justifyContent: "center", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
+            {/* Category tabs — always visible */}
+            <div className="pricing-cat-tabs-row" style={{
+              display: "flex",
+              gap: 4,
+              marginBottom: 24,
+              borderRadius: 12,
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              padding: 4,
+              overflowX: "auto",
+              WebkitOverflowScrolling: "touch" as any,
+              scrollbarWidth: "none" as any,
+            }}>
               {productsByCategory.map((group) => {
                 const isActive = activeCat === group.cat;
+                const Icon = group.icon;
                 return (
                   <button
                     key={group.cat}
                     onClick={() => setActiveCat(group.cat)}
                     style={{
-                      padding: "7px 14px",
-                      borderRadius: 9999,
-                      border: `1px solid ${isActive ? "rgba(102,232,250,0.3)" : "rgba(255,255,255,0.08)"}`,
-                      background: isActive ? "rgba(102,232,250,0.08)" : "transparent",
-                      color: isActive ? mkt.accent : mkt.textMuted,
-                      fontSize: 12,
-                      fontWeight: 600,
+                      flex: "1 0 auto",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      padding: "10px 16px",
+                      borderRadius: 9,
+                      border: "none",
+                      background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
+                      color: isActive ? mkt.onDark : mkt.textMuted,
+                      fontSize: 13,
+                      fontWeight: isActive ? 650 : 500,
                       cursor: "pointer",
-                      transition: "all 0.15s ease",
+                      transition: "all 0.18s ease",
                       fontFamily: FONT,
+                      whiteSpace: "nowrap",
                     }}
                   >
+                    <Icon size={14} strokeWidth={isActive ? 2.2 : 1.8} style={{ flexShrink: 0 }} />
                     {group.label}
                   </button>
                 );
               })}
             </div>
 
-            {/* Desktop: all categories stacked */}
-            <div className="pricing-services-all">
-              {productsByCategory.map((group) => (
-                <div key={group.cat} style={{ marginBottom: 40 }}>
-                  <SectionLabel icon={group.icon} label={group.label} />
-                  <div
-                    className="pricing-services-grid"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(2, 1fr)",
-                      gap: 20,
-                      alignItems: "stretch",
-                    }}
-                  >
-                    {group.products.map((product) => (
-                      <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} onInfo={SERVICE_INFO[product.id] ? () => setInfoModal(SERVICE_INFO[product.id]) : undefined} />
-                    ))}
-                  </div>
+            {/* Active category cards */}
+            {productsByCategory.filter(g => g.cat === activeCat).map((group) => (
+              <div key={group.cat}>
+                <div
+                  className="pricing-services-grid"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, 1fr)",
+                    gap: 20,
+                    alignItems: "stretch",
+                  }}
+                >
+                  {group.products.map((product) => (
+                    <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} onInfo={SERVICE_INFO[product.id] ? () => setInfoModal(SERVICE_INFO[product.id]) : undefined} />
+                  ))}
                 </div>
-              ))}
-            </div>
-
-            {/* Mobile: only active category */}
-            <div className="pricing-services-tabbed" style={{ display: "none" }}>
-              {productsByCategory.filter(g => g.cat === activeCat).map((group) => (
-                <div key={group.cat}>
-                  <div
-                    className="pricing-services-grid"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr",
-                      gap: 16,
-                      maxWidth: 480,
-                      margin: "0 auto",
-                    }}
-                  >
-                    {group.products.map((product) => (
-                      <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} onInfo={SERVICE_INFO[product.id] ? () => setInfoModal(SERVICE_INFO[product.id]) : undefined} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -1212,6 +1189,8 @@ export default function PricingUnified() {
           from { opacity: 0; transform: scale(0.95); }
           to { opacity: 1; transform: scale(1); }
         }
+        /* Hide scrollbar on tabs row */
+        .pricing-cat-tabs-row::-webkit-scrollbar { display: none; }
         @media (max-width: 640px) {
           .pricing-hero-row {
             flex-direction: column !important;
@@ -1238,28 +1217,12 @@ export default function PricingUnified() {
           .pricing-hero {
             padding-top: 24px !important;
           }
-          /* Services: show tabs, hide all-categories, show tabbed */
-          .pricing-cat-tabs {
-            display: flex !important;
-          }
-          .pricing-services-all {
-            display: none !important;
-          }
-          .pricing-services-tabbed {
-            display: block !important;
-          }
           .pricing-section-heading {
             margin-bottom: 20px !important;
           }
         }
         @media (min-width: 901px) {
           .pricing-plans-mobile {
-            display: none !important;
-          }
-          .pricing-cat-tabs {
-            display: none !important;
-          }
-          .pricing-services-tabbed {
             display: none !important;
           }
         }
