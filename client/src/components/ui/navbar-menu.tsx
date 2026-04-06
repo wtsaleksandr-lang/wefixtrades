@@ -114,14 +114,12 @@ export const MenuItem = ({
             justifyContent: "center",
             paddingTop: "1.2rem",
             zIndex: 9999,
-            pointerEvents: "none",
           }}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.85, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={transition}
-            style={{ pointerEvents: "auto" }}
           >
             <motion.div
               transition={transition}
@@ -206,7 +204,6 @@ export const Menu = ({
       aria-label="Main navigation"
       onMouseLeave={() => setActive(null)}
       style={{
-        position: "relative",
         display: "flex",
         alignItems: "center",
         gap: 2,

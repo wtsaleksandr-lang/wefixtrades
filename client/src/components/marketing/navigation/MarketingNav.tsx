@@ -208,6 +208,7 @@ export function MarketingNav() {
         >
           <div
             style={{
+              position: "relative",
               maxWidth: 1280,
               margin: "0 auto",
               width: "100%",
