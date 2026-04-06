@@ -223,12 +223,13 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
         @media (max-width: 768px) {
           .mkt-footer-grid {
             grid-template-columns: 1fr 1fr;
-            gap: 28px 24px;
+            gap: 32px 24px;
           }
         }
-        @media (max-width: 400px) {
+        @media (max-width: 520px) {
           .mkt-footer-grid {
-            gap: 24px 20px;
+            grid-template-columns: 1fr;
+            gap: 28px;
           }
         }
         @media (max-width: 640px) {
