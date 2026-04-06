@@ -1,4 +1,12 @@
-import React from "react";
+import React, {
+  createContext,
+  useContext,
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
+import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import { Link } from "wouter";
 import { Plus } from "lucide-react";
@@ -7,7 +15,7 @@ import { NavIcon } from "@/components/marketing/navigation/NavIcon";
 import { mkt } from "@/theme/tokens";
 import type { CSSProperties } from "react";
 
-// ── Animation config (keep exactly as-is) ────────────────────────────────────
+// ── Animation config ─────────────────────────────────────────────────────────
 const transition = {
   type: "spring" as const,
   mass: 0.5,
@@ -17,7 +25,15 @@ const transition = {
   restSpeed: 0.001,
 };
 
-// ── Original visual styles from DesktopNavItem ───────────────────────────────
+// ── Menu context (shared between Menu + MenuItem) ────────────────────────────
+interface MenuCtx {
+  containerRef: React.RefObject<HTMLDivElement>;
+  scheduleClose: () => void;
+  cancelClose: () => void;
+}
+const MenuContext = createContext<MenuCtx | null>(null);
+
+// ── Visual styles (from DesktopNavItem) ──────────────────────────────────────
 const topItemBase: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
@@ -63,12 +79,23 @@ export const MenuItem = ({
 }) => {
   const hasChildren = !!(children && children.length > 0);
   const isOpen = active === item;
+  const ctx = useContext(MenuContext);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !ctx?.containerRef.current) {
+      setRect(null);
+      return;
+    }
+    const measure = () =>
+      setRect(ctx.containerRef.current!.getBoundingClientRect());
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [isOpen, ctx]);
 
   return (
-    <div
-      onMouseEnter={() => setActive(item)}
-      style={{ position: "static" }}
-    >
+    <div onMouseEnter={() => setActive(item)}>
       {hasChildren ? (
         <motion.button
           transition={{ duration: 0.3 }}
@@ -102,24 +129,27 @@ export const MenuItem = ({
         </Link>
       )}
 
-      {/* ── Animated dropdown ── */}
-      {active !== null && hasChildren && isOpen && (
-        <div
-          style={{
-            position: "absolute",
-            top: "100%",
-            left: 0,
-            right: 0,
-            display: "flex",
-            justifyContent: "center",
-            paddingTop: "1.2rem",
-            zIndex: 9999,
-          }}
-        >
+      {/* Dropdown — portaled to body, fixed positioning */}
+      {isOpen &&
+        hasChildren &&
+        rect &&
+        ctx &&
+        createPortal(
           <motion.div
-            initial={{ opacity: 0, scale: 0.85, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={transition}
+            onMouseEnter={ctx.cancelClose}
+            onMouseLeave={ctx.scheduleClose}
+            style={{
+              position: "fixed",
+              left: rect.left + rect.width / 2,
+              top: rect.bottom + 6,
+              transform: "translateX(-50%)",
+              width: Math.min(1080, rect.width),
+              maxWidth: "calc(100vw - 24px)",
+              zIndex: 9999,
+            }}
           >
             <motion.div
               transition={transition}
@@ -132,61 +162,56 @@ export const MenuItem = ({
                 gridAutoFlow: "row",
                 gap: 8,
                 boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
-                maxWidth: "calc(100vw - 24px)",
-                width: "max-content",
               }}
             >
-              <motion.div
-                layout
-                style={{
-                  display: "contents",
-                }}
-              >
-                {children!.map(({ label, href: childHref, description, icon }) => (
-                  <Link
-                    key={childHref + label}
-                    href={childHref}
-                    className="mkt-menu-card"
-                  >
-                    <div
-                      className="mkt-menu-card-icon"
-                      style={{ color: mkt.accent }}
-                      aria-hidden
+              <motion.div layout style={{ display: "contents" }}>
+                {children!.map(
+                  ({ label, href: childHref, description, icon }) => (
+                    <Link
+                      key={childHref + label}
+                      href={childHref}
+                      className="mkt-menu-card"
                     >
-                      <NavIcon icon={icon} />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
                       <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 650,
-                          color: mkt.text,
-                          lineHeight: 1.2,
-                          marginBottom: 3,
-                        }}
+                        className="mkt-menu-card-icon"
+                        style={{ color: mkt.accent }}
+                        aria-hidden
                       >
-                        {label}
+                        <NavIcon icon={icon} />
                       </div>
-                      {description && (
+                      <div style={{ minWidth: 0 }}>
                         <div
                           style={{
-                            fontSize: 12,
-                            fontWeight: 450,
-                            color: mkt.textMuted,
-                            lineHeight: 1.35,
+                            fontSize: 13,
+                            fontWeight: 650,
+                            color: mkt.text,
+                            lineHeight: 1.2,
+                            marginBottom: 3,
                           }}
                         >
-                          {description}
+                          {label}
                         </div>
-                      )}
-                    </div>
-                  </Link>
-                ))}
+                        {description && (
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 450,
+                              color: mkt.textMuted,
+                              lineHeight: 1.35,
+                            }}
+                          >
+                            {description}
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+                  ),
+                )}
               </motion.div>
             </motion.div>
-          </motion.div>
-        </div>
-      )}
+          </motion.div>,
+          document.body,
+        )}
     </div>
   );
 };
@@ -194,63 +219,49 @@ export const MenuItem = ({
 // ── Menu container ───────────────────────────────────────────────────────────
 export const Menu = ({
   setActive,
+  containerRef,
   children,
 }: {
   setActive: (item: string | null) => void;
+  containerRef: React.RefObject<HTMLDivElement>;
   children: React.ReactNode;
 }) => {
-  return (
-    <nav
-      aria-label="Main navigation"
-      onMouseLeave={() => setActive(null)}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 2,
-        flex: "0 1 auto",
-      }}
-    >
-      {children}
-    </nav>
-  );
-};
+  const closeTimer = useRef<number | null>(null);
 
-// ── HoveredLink (kept as utility export) ─────────────────────────────────────
-export const HoveredLink = ({
-  children,
-  href,
-  ...rest
-}: {
-  children: React.ReactNode;
-  href: string;
-} & React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  }, []);
+
+  const scheduleClose = useCallback(() => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => setActive(null), 150);
+  }, [setActive, cancelClose]);
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+
   return (
-    <Link
-      href={href}
-      {...(rest as any)}
-      style={{
-        color: mkt.textMuted,
-        textDecoration: "none",
-        fontSize: 13,
-        fontWeight: 500,
-        padding: "6px 10px",
-        borderRadius: 8,
-        display: "block",
-        transition: "color 0.15s ease, background 0.15s ease",
-        whiteSpace: "nowrap",
-      }}
-      onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-        const el = e.currentTarget as HTMLElement;
-        el.style.color = mkt.accent;
-        el.style.background = "rgba(255,255,255,0.05)";
-      }}
-      onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-        const el = e.currentTarget as HTMLElement;
-        el.style.color = mkt.textMuted;
-        el.style.background = "transparent";
-      }}
-    >
-      {children}
-    </Link>
+    <MenuContext.Provider value={{ containerRef, scheduleClose, cancelClose }}>
+      <nav
+        aria-label="Main navigation"
+        onMouseLeave={scheduleClose}
+        onMouseEnter={cancelClose}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          flex: "0 1 auto",
+        }}
+      >
+        {children}
+      </nav>
+    </MenuContext.Provider>
   );
 };

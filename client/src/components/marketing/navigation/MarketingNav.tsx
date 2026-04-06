@@ -42,6 +42,7 @@ export function MarketingNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuEpoch, setMenuEpoch] = useState(0);
   const navCardRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const menuPanelRef = useRef<HTMLDivElement>(null);
   const [menuTop, setMenuTop] = useState<number>(92);
@@ -207,8 +208,8 @@ export function MarketingNav() {
           }}
         >
           <div
+            ref={innerRef}
             style={{
-              position: "relative",
               maxWidth: 1280,
               margin: "0 auto",
               width: "100%",
@@ -223,7 +224,7 @@ export function MarketingNav() {
             <Logo />
 
             {!isMobile && (
-              <Menu setActive={setActive}>
+              <Menu setActive={setActive} containerRef={innerRef}>
                 {NAV_LINKS.map(({ label, href, children: navChildren }) => (
                   <MenuItem
                     key={href}
