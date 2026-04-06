@@ -14,7 +14,6 @@ import MarketingHome from "@/pages/marketing/home";
 import MarketingProduct from "@/pages/marketing/product";
 import MarketingPricing from "@/pages/marketing/pricing";
 import ProductIndex from "@/pages/product/ProductIndex";
-import ProductPageLegacy from "@/pages/product/ProductPage";
 import MarketingServices from "@/pages/marketing/services";
 import MarketingBundles from "@/pages/marketing/bundles";
 import MarketingTemplates from "@/pages/marketing/templates";
@@ -118,6 +117,7 @@ function Router() {
       <Route path="/products/booking-addon">{() => <Redirect to="/products/quickquotepro" />}</Route>
       <Route path="/products/fix-and-optimize">{() => <Redirect to="/pricing" />}</Route>
       <Route path="/products/:slug" component={NewProductPage} />
+      <Route path="/products" component={ProductIndex} />
 
       <Route path="/solutions/visibility" component={SolutionsVisibility} />
       <Route path="/solutions/:slug" component={SolutionPage} />
@@ -125,8 +125,8 @@ function Router() {
       <Route path="/demos" component={DemoCenter} />
       <Route path="/demos/:slug" component={DemoPage} />
 
-      <Route path="/product/:slug" component={ProductPageLegacy} />
-      <Route path="/product" component={ProductIndex} />
+      <Route path="/product/:slug">{(params) => <Redirect to={`/products/${params.slug}`} />}</Route>
+      <Route path="/product">{() => <Redirect to="/products" />}</Route>
       <Route path="/platform" component={MarketingProduct} />
       <Route path="/pricing" component={PricingUnified} />
       <Route path="/plans" component={PricingUnified} />

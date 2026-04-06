@@ -550,7 +550,7 @@ export default function HomePage() {
               );
               return (
                 <>
-                  <Link href="/product" data-testid="button-services-hero" className="cta-arrow-btn" style={{ textDecoration: "none" }}>
+                  <Link href="/products" data-testid="button-services-hero" className="cta-arrow-btn" style={{ textDecoration: "none" }}>
                     <span className="cta-arrow-btn__text">Services</span>
                     <span className="cta-arrow-btn__square" />
                     <span className="cta-arrow-btn__arrow-out"><BoldArrow /></span>

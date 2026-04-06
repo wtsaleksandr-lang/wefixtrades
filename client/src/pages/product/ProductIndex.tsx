@@ -16,7 +16,7 @@ const PRIMARY_PRODUCTS = [
       "Lead capture runs 24/7 on autopilot",
     ],
     cta: "See details & pricing",
-    href: "/product/quickquote",
+    href: "/products/quickquote",
     icon: Clock,
   },
   {
@@ -29,7 +29,7 @@ const PRIMARY_PRODUCTS = [
       "Review requests sent after every completed job",
     ],
     cta: "See details & pricing",
-    href: "/product/assistants",
+    href: "/products/assistants",
     icon: Phone,
   },
 ];
@@ -46,14 +46,14 @@ const ADDONS = [
     slug: "reputationshield",
     name: "ReputationShield",
     desc: "Automated review requests, monitoring, and alerts.",
-    href: "/product/reputationshield",
+    href: "/products/reputationshield",
     icon: Shield,
   },
   {
     slug: "socialsync",
     name: "SocialSync",
     desc: "Consistent posting and lead-gen on Facebook & Instagram.",
-    href: "/product/socialsync",
+    href: "/products/socialsync",
     icon: Share2,
   },
 ];

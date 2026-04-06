@@ -3,16 +3,16 @@ import { z } from "zod";
 
 const BASE_URL = "https://quickquotepro.com";
 const MARKETING_ROUTES = [
-  "/", "/product", "/pricing", "/services", "/bundles",
+  "/", "/products", "/pricing", "/services", "/bundles",
   "/templates", "/demo", "/docs", "/contact", "/privacy", "/terms",
   "/features/instant-quotes", "/features/booking", "/features/ai-employee",
   "/features/sms", "/features/calculator-engine",
   "/docs/embed", "/docs/domain", "/docs/booking", "/docs/ai",
   "/docs/webhooks", "/docs/troubleshooting",
-  "/product/quickquotepro", "/product/booking-addon", "/product/ai-chat",
-  "/product/ai-voice", "/product/mapguard", "/product/webboost",
-  "/product/webcare", "/product/sitelaunch", "/product/socialsync",
-  "/product/reputationshield",
+  "/products/quickquotepro", "/products/tradeline",
+  "/products/mapguard", "/products/webboost",
+  "/products/webcare", "/products/sitelaunch", "/products/socialsync",
+  "/products/reputationshield",
   "/free-audit",
 ];
 

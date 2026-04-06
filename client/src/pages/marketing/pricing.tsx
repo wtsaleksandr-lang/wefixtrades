@@ -403,7 +403,7 @@ export default function PricingPage() {
                         </ul>
 
                         <Link
-                          href={`/product/${PRICING_TO_PRODUCT_SLUG[product.id] || product.id}`}
+                          href={`/products/${PRICING_TO_PRODUCT_SLUG[product.id] || product.id}`}
                           data-testid={`pricing-learn-more-${product.id}`}
                           style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: mkt.accent, textDecoration: "none", marginTop: 16 }}
                         >
