@@ -45,6 +45,7 @@ interface ServiceInfo {
   bullets: string[];
   href: string;
   trustLine: string;
+  bestFor: string;
 }
 
 const SERVICE_INFO: Record<string, ServiceInfo> = {
@@ -54,6 +55,7 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
     bullets: ["Every call and chat answered instantly", "SMS auto-response for missed calls", "Capture leads while you\u2019re on the job"],
     href: "/products/tradeline",
     trustLine: "Used by trades to answer every call \u2014 even at 2am",
+    bestFor: "handling calls automatically",
   },
   quotequick: {
     name: "QuoteQuick\u2122",
@@ -61,6 +63,7 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
     bullets: ["Capture leads automatically", "Show pricing before customers call", "Filter serious customers only"],
     href: "/products/quickquotepro",
     trustLine: "Used by trades to capture leads before the phone even rings",
+    bestFor: "instant website quotes",
   },
   mapguard: {
     name: "MapGuard\u2122",
@@ -68,6 +71,7 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
     bullets: ["Show up when customers search nearby", "Improve your Google Business profile", "Turn searches into calls"],
     href: "/products/mapguard",
     trustLine: "Helps local businesses show up when customers search nearby",
+    bestFor: "Google Maps visibility",
   },
   reputationshield: {
     name: "ReputationShield\u2122",
@@ -75,6 +79,7 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
     bullets: ["Ask customers at the right time", "Respond to every review", "Build trust before customers call"],
     href: "/products/reputationshield",
     trustLine: "Turns completed jobs into consistent 5-star reviews",
+    bestFor: "getting more 5-star reviews",
   },
   socialsync: {
     name: "SocialSync\u2122",
@@ -82,6 +87,7 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
     bullets: ["We create and post for you", "Show real jobs and updates", "Stay visible every week"],
     href: "/products/socialsync",
     trustLine: "Keeps your business visible without you posting anything",
+    bestFor: "hands-off social media",
   },
   webboost: {
     name: "WebBoost\u2122",
@@ -89,6 +95,7 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
     bullets: ["Improve loading speed", "Fix SEO structure", "Help your site bring more leads"],
     href: "/products/webboost",
     trustLine: "Improves your site so it actually brings in work",
+    bestFor: "faster site + better rankings",
   },
   webcare: {
     name: "WebCare\u2122",
@@ -96,6 +103,7 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
     bullets: ["Keep everything updated", "Fix small issues quickly", "Make sure your site stays working"],
     href: "/products/webcare",
     trustLine: "Keeps your website running so you don\u2019t have to think about it",
+    bestFor: "ongoing website maintenance",
   },
   sitelaunch: {
     name: "SiteLaunch\u2122",
@@ -103,13 +111,22 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
     bullets: ["Custom designed, mobile-first", "SEO-ready with lead capture built in", "Live in 5 days \u2014 you own it"],
     href: "/products/sitelaunch",
     trustLine: "Built for trades who need a real website that brings in jobs",
+    bestFor: "brand new website",
   },
   "fix-optimize": {
     name: "Fix & Optimize\u2122",
     headline: "Quick website fixes and optimization",
-    bullets: ["Speed and performance audit", "Core SEO fixes applied", "Google Maps profile cleanup"],
+    bullets: [
+      "Speed optimization (Core Web Vitals)",
+      "Technical SEO fixes (meta tags, structure)",
+      "Google Maps / GBP audit + fixes",
+      "Broken links & errors cleanup",
+      "Mobile performance improvements",
+      "Basic on-page SEO improvements",
+    ],
     href: "/pricing",
     trustLine: "A fast way to fix what\u2019s holding your website back",
+    bestFor: "quick website fixes",
   },
 };
 
@@ -220,8 +237,13 @@ function ServiceInfoModal({ info, onClose }: { info: ServiceInfo; onClose: () =>
         </button>
 
         {/* Title */}
-        <div style={{ fontSize: 18, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, marginBottom: 4 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, marginBottom: 2 }}>
           {info.name}
+        </div>
+
+        {/* Best for */}
+        <div style={{ fontSize: 11, fontWeight: 600, color: WARM_GRAY, marginBottom: 12, opacity: 0.9 }}>
+          Best for: {info.bestFor}
         </div>
 
         {/* Headline */}
@@ -603,7 +625,7 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout, onServiceInfo }: { b
    ONE-TIME CARD (standardized format)
    ═══════════════════════════════════════════ */
 
-function OneTimeCard({ product, onCheckout, onInfo }: { product: ProductDef; yearly: boolean; onCheckout: () => void; onInfo?: () => void }) {
+function OneTimeCard({ product, onCheckout, onInfo, bestFor }: { product: ProductDef; yearly: boolean; onCheckout: () => void; onInfo?: () => void; bestFor?: string }) {
   const tier = product.tiers[0];
   const [hover, setHover] = useState(false);
   const isHighlighted = product.id === "sitelaunch";
@@ -620,11 +642,24 @@ function OneTimeCard({ product, onCheckout, onInfo }: { product: ProductDef; yea
         padding: CARD_PAD,
         display: "flex",
         flexDirection: "column",
+        position: "relative",
         transition: "all 0.3s ease",
         transform: hover ? "translateY(-3px)" : "none",
         boxShadow: hover ? shadows.lg : "none",
       }}
     >
+      {/* Best for badge */}
+      {bestFor && (
+        <div style={{
+          position: "absolute", top: 12, right: 12,
+          fontSize: 10, fontWeight: 600, color: mkt.textMuted,
+          background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 999, padding: "3px 10px", opacity: 0.8,
+        }}>
+          Best for: {bestFor}
+        </div>
+      )}
+
       {/* Name + info icon */}
       <div style={{ ...TITLE_STYLE, display: "flex", alignItems: "center", gap: 8 }}>
         <span>{product.name}</span>
@@ -644,7 +679,7 @@ function OneTimeCard({ product, onCheckout, onInfo }: { product: ProductDef; yea
 
       {/* Features */}
       <ul style={FEATURES_STYLE}>
-        {tier.features.filter(f => !f.startsWith("BONUS")).slice(0, 5).map((f) => (
+        {tier.features.filter(f => !f.startsWith("BONUS")).slice(0, 6).map((f) => (
           <CheckItem key={f}>{f}</CheckItem>
         ))}
       </ul>
@@ -708,7 +743,7 @@ function PricingSectionHeading({ title, subtitle, badge }: { title: string; subt
    SERVICE CARD
    ═══════════════════════════════════════════ */
 
-function ServiceCard({ product, yearly, onCheckout, onInfo }: { product: ProductDef; yearly: boolean; onCheckout: (tier: Tier) => void; onInfo?: () => void }) {
+function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product: ProductDef; yearly: boolean; onCheckout: (tier: Tier) => void; onInfo?: () => void; bestFor?: string }) {
   const [activeTier, setActiveTier] = useState(0);
   const [hover, setHover] = useState(false);
   const isTradelineProduct = product.id === "tradeline";
@@ -729,11 +764,24 @@ function ServiceCard({ product, yearly, onCheckout, onInfo }: { product: Product
         padding: CARD_PAD,
         display: "flex",
         flexDirection: "column",
+        position: "relative",
         transition: "all 0.3s ease",
         transform: hover ? "translateY(-3px)" : "none",
         boxShadow: hover ? shadows.lg : "none",
       }}
     >
+      {/* Best for badge */}
+      {bestFor && (
+        <div style={{
+          position: "absolute", top: 12, right: 12,
+          fontSize: 10, fontWeight: 600, color: mkt.textMuted,
+          background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 999, padding: "3px 10px", opacity: 0.8,
+        }}>
+          Best for: {bestFor}
+        </div>
+      )}
+
       {/* Name + info icon */}
       <div style={{ ...TITLE_STYLE, display: "flex", alignItems: "center", gap: 8 }}>
         <span>{product.name}</span>
@@ -1083,7 +1131,8 @@ export default function PricingUnified() {
                     key={group.cat}
                     onClick={() => setActiveCat(group.cat)}
                     style={{
-                      flex: "1 0 auto",
+                      flex: 1,
+                      minWidth: 0,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -1121,39 +1170,38 @@ export default function PricingUnified() {
                   }}
                 >
                   {group.products.map((product) => (
-                    <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} onInfo={SERVICE_INFO[product.id] ? () => setInfoModal(SERVICE_INFO[product.id]) : undefined} />
+                    <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} onInfo={SERVICE_INFO[product.id] ? () => setInfoModal(SERVICE_INFO[product.id]) : undefined} bestFor={SERVICE_INFO[product.id]?.bestFor} />
                   ))}
                 </div>
+
+                {/* One-time options — shown at bottom of Website tab */}
+                {group.cat === "website" && (
+                  <>
+                    <div style={{ marginTop: 40, marginBottom: 24 }}>
+                      <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginBottom: 20 }} />
+                      <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, margin: "0 0 4px" }}>
+                        One-time payment options
+                      </h3>
+                      <p style={{ fontSize: 13, color: WARM_GRAY, lineHeight: 1.45, margin: 0, opacity: 0.75 }}>
+                        Not ready for a monthly plan? Start with a one-time fix or a full website build.
+                      </p>
+                    </div>
+                    <div
+                      className="pricing-services-grid"
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(2, 1fr)",
+                        gap: 20,
+                        alignItems: "stretch",
+                      }}
+                    >
+                      <OneTimeCard product={FIX_OPTIMIZE} yearly={yearly} onCheckout={openFixOptimizeCheckout} onInfo={() => setInfoModal(SERVICE_INFO["fix-optimize"])} bestFor={SERVICE_INFO["fix-optimize"]?.bestFor} />
+                      <OneTimeCard product={SITELAUNCH} yearly={yearly} onCheckout={openSiteLaunchCheckout} onInfo={() => setInfoModal(SERVICE_INFO["sitelaunch"])} bestFor={SERVICE_INFO["sitelaunch"]?.bestFor} />
+                    </div>
+                  </>
+                )}
               </div>
             ))}
-          </div>
-        </section>
-
-        {/* ═══ SECTION DIVIDER ═══ */}
-        <div className="pricing-divider" style={{ ...MAX_W, marginTop: 8 }}>
-          <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
-        </div>
-
-        {/* ═══ BLOCK 3: ONE-TIME OPTIONS (entry point) ═══ */}
-        <section style={{ padding: "40px 24px 0" }}>
-          <div style={MAX_W}>
-            <PricingSectionHeading
-              title="One-time options"
-              subtitle="Not ready for a monthly plan? Start with a one-time fix or a full website build."
-            />
-
-            <div
-              className="pricing-services-grid"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
-                gap: 20,
-                alignItems: "start",
-              }}
-            >
-              <OneTimeCard product={FIX_OPTIMIZE} yearly={yearly} onCheckout={openFixOptimizeCheckout} onInfo={() => setInfoModal(SERVICE_INFO["fix-optimize"])} />
-              <OneTimeCard product={SITELAUNCH} yearly={yearly} onCheckout={openSiteLaunchCheckout} onInfo={() => setInfoModal(SERVICE_INFO["sitelaunch"])} />
-            </div>
           </div>
         </section>
 
