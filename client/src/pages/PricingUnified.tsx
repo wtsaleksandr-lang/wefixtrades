@@ -353,10 +353,10 @@ function BillingToggle({ yearly, onChange }: { yearly: boolean; onChange: (y: bo
       <div
         style={{
           display: "inline-flex",
-          borderRadius: 999,
-          background: "rgba(255,255,255,0.05)",
+          borderRadius: 10,
+          background: "rgba(255,255,255,0.04)",
           border: "1px solid rgba(255,255,255,0.08)",
-          padding: 3,
+          padding: 2,
         }}
       >
         {(["monthly", "yearly"] as const).map((opt) => {
@@ -369,19 +369,19 @@ function BillingToggle({ yearly, onChange }: { yearly: boolean; onChange: (y: bo
               style={{
                 position: "relative",
                 zIndex: 1,
-                padding: "8px 20px",
-                borderRadius: 999,
+                padding: "6px 14px",
+                borderRadius: 8,
                 border: "none",
                 background: active ? mkt.accent : "transparent",
                 color: active ? mkt.dark : mkt.textMuted,
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: active ? 700 : 500,
                 fontFamily: FONT,
                 cursor: "pointer",
                 transition: "all 0.25s ease",
                 display: "flex",
                 alignItems: "center",
-                gap: 8,
+                gap: 6,
               }}
             >
               {opt === "monthly" ? "Monthly" : "Yearly"}
@@ -390,10 +390,10 @@ function BillingToggle({ yearly, onChange }: { yearly: boolean; onChange: (y: bo
                   style={{
                     background: active ? "rgba(0,0,0,0.15)" : mkt.accentTint,
                     color: active ? mkt.dark : mkt.accent,
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: 800,
-                    padding: "3px 8px",
-                    borderRadius: 999,
+                    padding: "2px 6px",
+                    borderRadius: 6,
                     letterSpacing: "0.04em",
                   }}
                 >
@@ -1165,31 +1165,6 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
   );
 }
 
-/* ── Helper link (for guidance block) ── */
-function GuideLink({ label, targetId, onClick }: { label: string; targetId: string; onClick?: () => void }) {
-  return (
-    <button
-      onClick={() => {
-        onClick?.();
-        document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }}
-      style={{
-        display: "flex", alignItems: "center", gap: 8,
-        padding: "8px 14px", borderRadius: 10,
-        border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)",
-        color: mkt.textMuted, fontSize: 13, fontWeight: 550,
-        cursor: "pointer", transition: "all 0.15s ease",
-        fontFamily: FONT, textAlign: "left", width: "100%",
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(102,232,250,0.2)"; e.currentTarget.style.color = mkt.onDark; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = mkt.textMuted; }}
-    >
-      <ArrowRight size={12} style={{ flexShrink: 0, opacity: 0.5 }} />
-      {label}
-    </button>
-  );
-}
-
   /* Bundle ordering — Growth first on mobile */
   const bundlesDesktop = [BUNDLE_STARTER, BUNDLE_GROWTH, BUNDLE_PRO];
   const bundlesMobile = [BUNDLE_GROWTH, BUNDLE_STARTER, BUNDLE_PRO];
@@ -1220,7 +1195,7 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
         </section>
 
         {/* ═══ 2. DECISION FRAME ═══ */}
-        <section className="pricing-section" style={{ paddingTop: 20 }}>
+        <section className="pricing-section" style={{ paddingTop: 16 }}>
           <div className="pricing-max-w" style={MAX_W}>
             <h2 style={{ fontSize: 15, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, margin: "0 0 12px", textAlign: "center" }}>
               What do you want help with?
@@ -1237,7 +1212,7 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
         </section>
 
         {/* ═══ 3. BUNDLES (PRIMARY) ═══ */}
-        <section id="pricing-bundles" className="pricing-section" style={{ paddingTop: 32, scrollMarginTop: 80 }}>
+        <section id="pricing-bundles" className="pricing-section" style={{ paddingTop: 24, scrollMarginTop: 80 }}>
           <div className="pricing-max-w" style={MAX_W}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -1250,22 +1225,9 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
               </div>
               <BillingToggle yearly={yearly} onChange={setYearly} />
             </div>
-            <p style={{ fontSize: 13, color: WARM_GRAY, lineHeight: 1.45, margin: "0 0 16px", opacity: 0.85 }}>
+            <p style={{ fontSize: 13, color: WARM_GRAY, lineHeight: 1.45, margin: "0 0 12px", opacity: 0.85 }}>
               Everything working together — more jobs, less manual work.
             </p>
-
-            {/* Guidance block — clickable */}
-            <div style={{
-              background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 12, padding: "14px 16px", marginBottom: 20,
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 650, color: TEXT_STRONG, marginBottom: 8 }}>Not sure where to start?</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <GuideLink label="Need more leads now → Growth System" targetId="pricing-bundles" />
-                <GuideLink label="Need one specific fix → Individual services" targetId="pricing-services" />
-                <GuideLink label="Need a website from scratch → SiteLaunch" targetId="pricing-services" onClick={() => setActiveCat("website")} />
-              </div>
-            </div>
 
             {/* Desktop: 3-col */}
             <div className="pricing-plans-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, alignItems: "stretch" }}>
@@ -1464,8 +1426,8 @@ function GuideLink({ label, targetId, onClick }: { label: string; targetId: stri
         /* Hide scrollbar on tabs row */
         .pricing-cat-tabs-row::-webkit-scrollbar { display: none; }
         @media (max-width: 640px) {
-          .pricing-section { padding-left: 4px !important; padding-right: 4px !important; }
-          .pricing-max-w { padding-left: 2px !important; padding-right: 2px !important; }
+          .pricing-section { padding-left: 5px !important; padding-right: 5px !important; }
+          .pricing-max-w { padding-left: 3px !important; padding-right: 3px !important; }
           .pricing-tab-icon { display: none !important; }
           .builder-grid {
             grid-template-columns: 1fr !important;
