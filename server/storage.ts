@@ -214,6 +214,7 @@ export interface IStorage {
   upsertTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date): Promise<TradelineUsage>;
   getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined>;
   listTradeLineModeChanges(clientServiceId: number, limit?: number): Promise<TradelineModeLog[]>;
+  incrementTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date, increments: { voiceMinutes?: number; calls?: number; sms?: number }): Promise<TradelineUsage>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1379,6 +1380,35 @@ export class DatabaseStorage implements IStorage {
       .where(eq(tradelineModeLog.client_service_id, clientServiceId))
       .orderBy(desc(tradelineModeLog.created_at))
       .limit(limit);
+  }
+
+  async incrementTradeLineUsage(
+    clientServiceId: number,
+    periodStart: Date,
+    periodEnd: Date,
+    increments: { voiceMinutes?: number; calls?: number; sms?: number },
+  ): Promise<TradelineUsage> {
+    // Ensure usage row exists
+    const usage = await this.upsertTradeLineUsage(clientServiceId, periodStart, periodEnd);
+
+    const newVoiceMinutes = (usage.voice_minutes_used ?? 0) + (increments.voiceMinutes ?? 0);
+    const newCalls = (usage.calls_count ?? 0) + (increments.calls ?? 0);
+    const newSms = (usage.sms_count ?? 0) + (increments.sms ?? 0);
+    const includedMinutes = usage.included_minutes ?? 200;
+    const overage = Math.max(0, newVoiceMinutes - includedMinutes);
+
+    const [updated] = await db.update(tradelineUsage)
+      .set({
+        voice_minutes_used: newVoiceMinutes,
+        calls_count: newCalls,
+        sms_count: newSms,
+        overage_minutes: overage,
+        updated_at: new Date(),
+      })
+      .where(eq(tradelineUsage.id, usage.id))
+      .returning();
+
+    return updated;
   }
 }
 

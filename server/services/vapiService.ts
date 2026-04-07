@@ -20,6 +20,9 @@
 import { assistantSync, isReady } from "./assistant";
 import type { AssistantRequest } from "./assistant";
 import type { ChatMessage } from "./aiService";
+import { buildSystemPrompt, type TradeLineContext } from "./promptBuilder";
+import { storage } from "../storage";
+import type { TradelineConfig, ClientService, Client } from "@shared/schema";
 
 /* ─── Vapi Config ─── */
 
@@ -269,6 +272,160 @@ export function extractCallReport(event: VapiWebhookEvent): VapiCallReport {
       ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000)
       : undefined,
   };
+}
+
+/* ─── TradeLine Client Resolution ─── */
+
+/**
+ * Resolved TradeLine context for a call — contains the client, service,
+ * and TradeLine config needed for per-client prompting and logging.
+ */
+export interface ResolvedTradeLineClient {
+  clientService: ClientService;
+  client: Client;
+  config: TradelineConfig;
+}
+
+/**
+ * Attempt to resolve a TradeLine client_service from call metadata.
+ *
+ * Resolution strategies (in priority order):
+ * 1. Explicit client_service_id in Vapi call metadata (future: set via Vapi assistant metadata)
+ * 2. Future: phone number lookup (requires per-client number table)
+ *
+ * Returns null if no TradeLine context can be resolved — the call
+ * falls back to the default WeFixTrades assistant.
+ */
+export async function resolveTradeLineClient(
+  callMetadata?: Record<string, any>,
+  customerNumber?: string,
+): Promise<ResolvedTradeLineClient | null> {
+  try {
+    // Strategy 1: explicit client_service_id in metadata
+    const csId = callMetadata?.clientServiceId ?? callMetadata?.client_service_id;
+    if (csId) {
+      const numId = typeof csId === "number" ? csId : parseInt(csId);
+      if (!isNaN(numId)) {
+        return resolveByClientServiceId(numId);
+      }
+    }
+
+    // Strategy 2: phone number lookup (placeholder for future per-client routing)
+    // When per-client phone numbers are stored, look up clientService by
+    // tradelineConfig.phoneRouting.primaryBusinessNumber matching the Vapi phone number.
+    // For now, this is a no-op.
+
+    return null;
+  } catch (err) {
+    console.error("[vapi] TradeLine client resolution failed:", err);
+    return null;
+  }
+}
+
+async function resolveByClientServiceId(csId: number): Promise<ResolvedTradeLineClient | null> {
+  const cs = await storage.getClientServiceById(csId);
+  if (!cs || !cs.service_id.startsWith("tradeline")) return null;
+
+  const config = await storage.getTradeLineConfig(csId);
+  if (!config) return null;
+
+  const client = await storage.getClientById(cs.client_id);
+  if (!client) return null;
+
+  return { clientService: cs, client, config };
+}
+
+/**
+ * Build a TradeLineContext for the prompt builder from resolved client data.
+ */
+export function buildTradeLineContext(resolved: ResolvedTradeLineClient): TradeLineContext {
+  return {
+    businessName: resolved.client.business_name,
+    tradeType: resolved.client.trade_type ?? undefined,
+    serviceArea: undefined, // could be enriched from onboarding data later
+    mode: resolved.config.currentMode,
+    channels: resolved.config.channels,
+    booking: resolved.config.booking,
+    phoneRouting: resolved.config.phoneRouting,
+  };
+}
+
+/* ─── TradeLine-aware conversation handler ─── */
+
+/**
+ * Process a conversation turn with TradeLine context.
+ * Uses the per-client mode-aware prompt instead of the generic WeFixTrades prompt.
+ */
+export async function handleTradeLineConversationTurn(
+  messages: VapiTranscriptMessage[],
+  callId: string,
+  tradeLineCtx: TradeLineContext,
+): Promise<string> {
+  const chatMessages = translateTranscript(messages);
+
+  if (!chatMessages.length) {
+    const greeting = tradeLineCtx.mode === "after_hours"
+      ? `Hi, thanks for calling ${tradeLineCtx.businessName}! We're closed for the day, but I can help make sure you're looked after.`
+      : `Hi, thanks for calling ${tradeLineCtx.businessName}! How can I help you today?`;
+    return greeting;
+  }
+
+  const systemPrompt = buildSystemPrompt("vapi", undefined, undefined, undefined, tradeLineCtx);
+
+  const req: AssistantRequest = {
+    surface: "vapi",
+    messages: chatMessages,
+    sessionId: `vapi-${callId}`,
+    maxTokens: 150,
+    systemOverride: systemPrompt,
+  };
+
+  const result = await assistantSync(req);
+  return result.reply;
+}
+
+/* ─── TradeLine call logging ─── */
+
+/**
+ * Log a completed Vapi call to the tradeline_call_log table
+ * and increment usage counters for the billing period.
+ */
+export async function logTradeLineCall(
+  clientServiceId: number,
+  report: VapiCallReport,
+  recordingUrl?: string,
+): Promise<void> {
+  try {
+    // Create call log entry
+    await storage.createTradeLineCallLog({
+      client_service_id: clientServiceId,
+      vapi_call_id: report.callId !== "unknown" ? report.callId : null,
+      direction: "inbound",
+      caller_number: report.customerNumber ?? null,
+      duration_seconds: report.duration ?? 0,
+      outcome: report.endedReason === "error" ? "failed" : "answered",
+      started_at: null, // Vapi doesn't always provide start time in report
+      ended_at: new Date(),
+      summary: report.summary ?? null,
+      transcript_json: report.transcript ? { text: report.transcript } : null,
+      recording_url: recordingUrl ?? null,
+    });
+
+    // Update usage for current billing period
+    const durationMinutes = report.duration ? Math.ceil(report.duration / 60) : 0;
+    if (durationMinutes > 0) {
+      const now = new Date();
+      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+      await storage.incrementTradeLineUsage(clientServiceId, periodStart, periodEnd, {
+        voiceMinutes: durationMinutes,
+        calls: 1,
+      });
+    }
+  } catch (err) {
+    console.error("[vapi] Failed to log TradeLine call:", err);
+  }
 }
 
 /* ─── Build Vapi assistant config response ─── */

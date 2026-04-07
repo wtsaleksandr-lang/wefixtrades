@@ -19,6 +19,7 @@ import {
   supportTickets,
   passwordResetTokens,
 } from "@shared/schema";
+import { storage } from "../storage";
 
 /* ─── Helpers ─── */
 
@@ -717,6 +718,147 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       console.error("Portal ticket create error:", err);
       res.status(500).json({ error: "Failed to create ticket" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     TradeLine
+     ═══════════════════════════════════════════ */
+
+  /** Verify a TradeLine client_service belongs to the authenticated client. */
+  async function verifyTradeLineOwnership(
+    req: Request,
+    res: Response,
+    clientServiceId: number,
+  ): Promise<{ clientId: number; clientServiceId: number } | null> {
+    const clientId = await withClientId(req, res);
+    if (!clientId) return null;
+
+    const [cs] = await db
+      .select({ id: clientServices.id, client_id: clientServices.client_id, service_id: clientServices.service_id })
+      .from(clientServices)
+      .where(and(eq(clientServices.id, clientServiceId), eq(clientServices.client_id, clientId)))
+      .limit(1);
+
+    if (!cs || !cs.service_id.startsWith("tradeline")) {
+      res.status(404).json({ error: "TradeLine service not found" });
+      return null;
+    }
+
+    return { clientId, clientServiceId: cs.id };
+  }
+
+  /**
+   * GET /api/portal/tradeline/:clientServiceId
+   * Returns TradeLine config, latest usage, and recent calls.
+   */
+  app.get("/api/portal/tradeline/:clientServiceId", requireClient, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const ownership = await verifyTradeLineOwnership(req, res, csId);
+      if (!ownership) return;
+
+      const [config, usage, calls] = await Promise.all([
+        storage.getTradeLineConfig(csId),
+        storage.getTradeLineUsage(csId),
+        storage.listTradeLineCalls(csId, 10),
+      ]);
+
+      res.json({
+        config: config ?? null,
+        usage: usage ?? null,
+        recentCalls: calls,
+      });
+    } catch (err) {
+      console.error("Portal tradeline GET error:", err);
+      res.status(500).json({ error: "Failed to load TradeLine data" });
+    }
+  });
+
+  /**
+   * POST /api/portal/tradeline/:clientServiceId/mode
+   * Switch TradeLine mode (available / on_the_job / after_hours).
+   */
+  app.post("/api/portal/tradeline/:clientServiceId/mode", requireClient, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const ownership = await verifyTradeLineOwnership(req, res, csId);
+      if (!ownership) return;
+
+      const { newMode } = req.body;
+      const validModes = ["available", "on_the_job", "after_hours"];
+      if (!newMode || !validModes.includes(newMode)) {
+        return res.status(400).json({ error: "newMode must be one of: available, on_the_job, after_hours" });
+      }
+
+      const modeLog = await storage.setTradeLineMode(csId, newMode, "client");
+      const config = await storage.getTradeLineConfig(csId);
+
+      res.json({ config, modeLog });
+    } catch (err) {
+      console.error("Portal tradeline mode error:", err);
+      res.status(500).json({ error: "Failed to update mode" });
+    }
+  });
+
+  /**
+   * GET /api/portal/tradeline/:clientServiceId/calls
+   * Paginated call log list.
+   */
+  app.get("/api/portal/tradeline/:clientServiceId/calls", requireClient, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const ownership = await verifyTradeLineOwnership(req, res, csId);
+      if (!ownership) return;
+
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
+      const calls = await storage.listTradeLineCalls(csId, limit);
+
+      res.json({ calls });
+    } catch (err) {
+      console.error("Portal tradeline calls error:", err);
+      res.status(500).json({ error: "Failed to load call log" });
+    }
+  });
+
+  /**
+   * GET /api/portal/tradeline/:clientServiceId/widget-config
+   * Minimal config payload for future widget embed / hosted fallback.
+   */
+  app.get("/api/portal/tradeline/:clientServiceId/widget-config", requireClient, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const ownership = await verifyTradeLineOwnership(req, res, csId);
+      if (!ownership) return;
+
+      const config = await storage.getTradeLineConfig(csId);
+      if (!config) return res.status(404).json({ error: "TradeLine not configured" });
+
+      // Get business name from client record
+      const [client] = await db
+        .select({ business_name: clients.business_name })
+        .from(clients)
+        .where(eq(clients.id, ownership.clientId))
+        .limit(1);
+
+      res.json({
+        channels: config.channels,
+        embedMode: config.website.embedMode,
+        hostedUrl: config.website.hostedUrl || null,
+        businessName: client?.business_name ?? null,
+        mode: config.currentMode,
+      });
+    } catch (err) {
+      console.error("Portal tradeline widget-config error:", err);
+      res.status(500).json({ error: "Failed to load widget config" });
     }
   });
 

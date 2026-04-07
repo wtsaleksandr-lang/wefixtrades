@@ -31,6 +31,8 @@ export interface AssistantRequest {
   reportId?: string;
   /** Override max tokens for this request */
   maxTokens?: number;
+  /** Override the entire system prompt (used by TradeLine per-client prompting) */
+  systemOverride?: string;
 }
 
 export interface AssistantStreamResult {
@@ -59,7 +61,7 @@ async function buildContext(req: AssistantRequest): Promise<{
   const stored = await getMemory(req.sessionId).catch(() => null);
   const memoryContext = stored?.memory;
 
-  const systemPrompt = buildSystemPrompt(
+  const systemPrompt = req.systemOverride ?? buildSystemPrompt(
     req.surface,
     req.auditContext,
     memoryContext,

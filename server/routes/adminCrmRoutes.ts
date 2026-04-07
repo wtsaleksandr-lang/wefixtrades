@@ -674,4 +674,108 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to create portal account" });
     }
   });
+
+  /* ═══════════════════════════════════════════
+     TradeLine — Admin Read/Write
+     ═══════════════════════════════════════════ */
+
+  /**
+   * GET /api/admin/crm/tradeline/:clientServiceId
+   * Returns TradeLine config, latest usage, and recent calls for admin.
+   */
+  app.get("/api/admin/crm/tradeline/:clientServiceId", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const [config, usage, calls] = await Promise.all([
+        storage.getTradeLineConfig(csId),
+        storage.getTradeLineUsage(csId),
+        storage.listTradeLineCalls(csId, 10),
+      ]);
+
+      res.json({
+        clientServiceId: csId,
+        clientId: cs.client_id,
+        serviceId: cs.service_id,
+        status: cs.status,
+        config: config ?? null,
+        usage: usage ?? null,
+        recentCalls: calls,
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine GET error:", err.message);
+      res.status(500).json({ error: "Failed to load TradeLine data" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/tradeline/:clientServiceId/config
+   * Partially update TradeLine config.
+   */
+  app.post("/api/admin/crm/tradeline/:clientServiceId/config", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const partialConfig = req.body;
+      if (!partialConfig || typeof partialConfig !== "object") {
+        return res.status(400).json({ error: "Config object required" });
+      }
+
+      const updated = await storage.updateTradeLineConfig(csId, partialConfig);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "tradeline.config_updated",
+        entity_type: "client_service",
+        entity_id: csId,
+        summary: `Updated TradeLine config`,
+      });
+
+      res.json({ config: updated });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine config update error:", err.message);
+      res.status(500).json({ error: "Failed to update TradeLine config" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/tradeline/:clientServiceId/usage
+   * Returns usage rows / current period summary.
+   */
+  app.get("/api/admin/crm/tradeline/:clientServiceId/usage", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const usage = await storage.getTradeLineUsage(csId);
+      const modeChanges = await storage.listTradeLineModeChanges(csId, 20);
+
+      res.json({
+        usage: usage ?? null,
+        recentModeChanges: modeChanges,
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine usage error:", err.message);
+      res.status(500).json({ error: "Failed to load TradeLine usage" });
+    }
+  });
 }
