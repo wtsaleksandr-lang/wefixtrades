@@ -28,6 +28,9 @@ import {
   suppliers, fulfillmentTasks, onboardingSubmissions, onboardingTemplates,
   clientPayments, internalNotes, adminActivityLog,
   serviceTaskTemplates,
+  // TradeLine
+  tradelineUsage, tradelineCallLog, tradelineModeLog,
+  tradelineConfigSchema,
   type Client, type InsertClient,
   type ClientService, type InsertClientService,
   type ServiceCatalogRow, type InsertServiceCatalog,
@@ -41,6 +44,10 @@ import {
   type AdminActivityLog, type InsertAdminActivityLog,
   type ServiceTaskTemplate,
   type OnboardingTemplate,
+  type TradelineConfig,
+  type TradelineUsage, type InsertTradelineUsage,
+  type TradelineCallLog, type InsertTradelineCallLog,
+  type TradelineModeLog, type InsertTradelineModeLog,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -197,6 +204,16 @@ export interface IStorage {
     recentClients: { id: number; business_name: string; status: string; created_at: Date | null }[];
     recentTasks: { id: number; title: string; status: string; priority: string; client_id: number; client_name: string | null; due_at: Date | null }[];
   }>;
+
+  // ─── TradeLine ───
+  getTradeLineConfig(clientServiceId: number): Promise<TradelineConfig | undefined>;
+  updateTradeLineConfig(clientServiceId: number, partialConfig: Partial<TradelineConfig>): Promise<TradelineConfig>;
+  setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string): Promise<TradelineModeLog>;
+  createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog>;
+  listTradeLineCalls(clientServiceId: number, limit?: number): Promise<TradelineCallLog[]>;
+  upsertTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date): Promise<TradelineUsage>;
+  getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined>;
+  listTradeLineModeChanges(clientServiceId: number, limit?: number): Promise<TradelineModeLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1259,6 +1276,109 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { serviceCompleted, serviceActivated, clientActivated };
+  }
+
+  // ─── TradeLine ───
+
+  async getTradeLineConfig(clientServiceId: number): Promise<TradelineConfig | undefined> {
+    const cs = await this.getClientServiceById(clientServiceId);
+    if (!cs) return undefined;
+    const raw = (cs.metadata as Record<string, any>)?.tradeline;
+    if (!raw) return undefined;
+    return tradelineConfigSchema.parse(raw);
+  }
+
+  async updateTradeLineConfig(clientServiceId: number, partialConfig: Partial<TradelineConfig>): Promise<TradelineConfig> {
+    const cs = await this.getClientServiceById(clientServiceId);
+    const existing = (cs?.metadata as Record<string, any>) ?? {};
+    const currentTradeline = existing.tradeline
+      ? tradelineConfigSchema.parse(existing.tradeline)
+      : tradelineConfigSchema.parse({});
+    const merged = { ...currentTradeline, ...partialConfig };
+    const updated = { ...existing, tradeline: merged };
+    await db.update(clientServices)
+      .set({ metadata: updated, updated_at: new Date() })
+      .where(eq(clientServices.id, clientServiceId));
+    return tradelineConfigSchema.parse(merged);
+  }
+
+  async setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string): Promise<TradelineModeLog> {
+    const config = await this.getTradeLineConfig(clientServiceId) ?? tradelineConfigSchema.parse({});
+    const oldMode = config.currentMode;
+
+    // Update the config
+    await this.updateTradeLineConfig(clientServiceId, { currentMode: newMode as TradelineConfig["currentMode"] });
+
+    // Log the change
+    const [log] = await db.insert(tradelineModeLog).values({
+      client_service_id: clientServiceId,
+      old_mode: oldMode,
+      new_mode: newMode,
+      changed_by: changedBy,
+    }).returning();
+    return log;
+  }
+
+  async createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog> {
+    const [row] = await db.insert(tradelineCallLog).values(data).returning();
+    return row;
+  }
+
+  async listTradeLineCalls(clientServiceId: number, limit = 50): Promise<TradelineCallLog[]> {
+    return db.select().from(tradelineCallLog)
+      .where(eq(tradelineCallLog.client_service_id, clientServiceId))
+      .orderBy(desc(tradelineCallLog.created_at))
+      .limit(limit);
+  }
+
+  async upsertTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date): Promise<TradelineUsage> {
+    // Try to find existing usage row for this period
+    const [existing] = await db.select().from(tradelineUsage)
+      .where(and(
+        eq(tradelineUsage.client_service_id, clientServiceId),
+        eq(tradelineUsage.period_start, periodStart),
+      ))
+      .limit(1);
+
+    if (existing) {
+      const [updated] = await db.update(tradelineUsage)
+        .set({ updated_at: new Date() })
+        .where(eq(tradelineUsage.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    const [row] = await db.insert(tradelineUsage).values({
+      client_service_id: clientServiceId,
+      period_start: periodStart,
+      period_end: periodEnd,
+    }).returning();
+    return row;
+  }
+
+  async getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined> {
+    if (periodStart) {
+      const [row] = await db.select().from(tradelineUsage)
+        .where(and(
+          eq(tradelineUsage.client_service_id, clientServiceId),
+          eq(tradelineUsage.period_start, periodStart),
+        ))
+        .limit(1);
+      return row;
+    }
+    // Default: most recent period
+    const [row] = await db.select().from(tradelineUsage)
+      .where(eq(tradelineUsage.client_service_id, clientServiceId))
+      .orderBy(desc(tradelineUsage.period_start))
+      .limit(1);
+    return row;
+  }
+
+  async listTradeLineModeChanges(clientServiceId: number, limit = 50): Promise<TradelineModeLog[]> {
+    return db.select().from(tradelineModeLog)
+      .where(eq(tradelineModeLog.client_service_id, clientServiceId))
+      .orderBy(desc(tradelineModeLog.created_at))
+      .limit(limit);
   }
 }
 

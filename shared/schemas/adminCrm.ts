@@ -286,3 +286,94 @@ export const adminActivityLog = pgTable("admin_activity_log", {
 export const insertAdminActivityLogSchema = createInsertSchema(adminActivityLog).omit({ id: true, created_at: true });
 export type InsertAdminActivityLog = z.infer<typeof insertAdminActivityLogSchema>;
 export type AdminActivityLog = typeof adminActivityLog.$inferSelect;
+
+/* ─── TradeLine Config (stored in client_services.metadata) ─── */
+export const tradelineConfigSchema = z.object({
+  variant: z.enum(["call_backup", "chat", "complete"]).default("call_backup"),
+  currentMode: z.enum(["available", "on_the_job", "after_hours"]).default("available"),
+  channels: z.object({
+    voice: z.boolean().default(true),
+    websiteChat: z.boolean().default(false),
+    websiteVoice: z.boolean().default(false),
+    sms: z.boolean().default(true),
+    hostedFallback: z.boolean().default(false),
+  }).default({}),
+  businessHours: z.object({
+    timezone: z.string().default("America/Toronto"),
+    schedule: z.record(z.any()).default({}),
+  }).default({}),
+  phoneRouting: z.object({
+    primaryBusinessNumber: z.string().default(""),
+    forwardingMode: z.enum(["no_answer", "immediate", "after_hours_only"]).default("no_answer"),
+    ringTimeoutSeconds: z.number().default(20),
+  }).default({}),
+  notifications: z.object({
+    sms: z.array(z.string()).default([]),
+    email: z.array(z.string()).default([]),
+  }).default({}),
+  website: z.object({
+    embedMode: z.enum(["none", "direct_embed", "hosted_fallback"]).default("none"),
+    domainStatus: z.enum(["not_needed", "pending", "connected", "live"]).default("not_needed"),
+    hostedUrl: z.string().default(""),
+  }).default({}),
+  booking: z.object({
+    enabled: z.boolean().default(true),
+    mode: z.enum(["request_only", "book_if_available"]).default("request_only"),
+  }).default({}),
+}).default({});
+export type TradelineConfig = z.infer<typeof tradelineConfigSchema>;
+
+/* ─── TradeLine Usage ─── */
+export const tradelineUsage = pgTable("tradeline_usage", {
+  id: serial("id").primaryKey(),
+  client_service_id: integer("client_service_id").notNull().references(() => clientServices.id),
+  period_start: timestamp("period_start").notNull(),
+  period_end: timestamp("period_end").notNull(),
+  voice_minutes_used: integer("voice_minutes_used").notNull().default(0),
+  sms_count: integer("sms_count").notNull().default(0),
+  calls_count: integer("calls_count").notNull().default(0),
+  included_minutes: integer("included_minutes").notNull().default(200),
+  overage_minutes: integer("overage_minutes").notNull().default(0),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+export const insertTradelineUsageSchema = createInsertSchema(tradelineUsage).omit({ id: true, created_at: true, updated_at: true });
+export type InsertTradelineUsage = z.infer<typeof insertTradelineUsageSchema>;
+export type TradelineUsage = typeof tradelineUsage.$inferSelect;
+
+/* ─── TradeLine Call Log ─── */
+export const tradelineCallLog = pgTable("tradeline_call_log", {
+  id: serial("id").primaryKey(),
+  client_service_id: integer("client_service_id").notNull().references(() => clientServices.id),
+  vapi_call_id: varchar("vapi_call_id", { length: 100 }),
+  direction: varchar("direction", { length: 20 }).notNull().default("inbound"),
+  // inbound | outbound
+  caller_number: varchar("caller_number", { length: 30 }),
+  duration_seconds: integer("duration_seconds").default(0),
+  outcome: varchar("outcome", { length: 30 }).notNull().default("answered"),
+  // answered | missed | voicemail | failed | transferred
+  started_at: timestamp("started_at"),
+  ended_at: timestamp("ended_at"),
+  summary: text("summary"),
+  transcript_json: jsonb("transcript_json"),
+  recording_url: text("recording_url"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export const insertTradelineCallLogSchema = createInsertSchema(tradelineCallLog).omit({ id: true, created_at: true });
+export type InsertTradelineCallLog = z.infer<typeof insertTradelineCallLogSchema>;
+export type TradelineCallLog = typeof tradelineCallLog.$inferSelect;
+
+/* ─── TradeLine Mode Log ─── */
+export const tradelineModeLog = pgTable("tradeline_mode_log", {
+  id: serial("id").primaryKey(),
+  client_service_id: integer("client_service_id").notNull().references(() => clientServices.id),
+  old_mode: varchar("old_mode", { length: 30 }).notNull(),
+  new_mode: varchar("new_mode", { length: 30 }).notNull(),
+  // available | on_the_job | after_hours
+  changed_by: varchar("changed_by", { length: 30 }).notNull().default("client"),
+  // client | admin | schedule | system
+  created_at: timestamp("created_at").defaultNow(),
+});
+export const insertTradelineModeLogSchema = createInsertSchema(tradelineModeLog).omit({ id: true, created_at: true });
+export type InsertTradelineModeLog = z.infer<typeof insertTradelineModeLogSchema>;
+export type TradelineModeLog = typeof tradelineModeLog.$inferSelect;
