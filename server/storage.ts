@@ -607,7 +607,47 @@ export class DatabaseStorage implements IStorage {
 
   async updateBookingStatus(id: number, status: string): Promise<Booking | undefined> {
     const [booking] = await db.update(bookings).set({ status }).where(eq(bookings.id, id)).returning();
+
+    // Auto-trigger review request when booking is completed
+    if (booking && status === "completed") {
+      this.triggerReviewRequestForBooking(booking).catch((err) => {
+        console.error(`[storage] Review request trigger failed for booking ${id}:`, err.message);
+      });
+    }
+
     return booking;
+  }
+
+  /**
+   * Non-blocking trigger: enqueue a review request for a completed booking.
+   * Resolves client_id from the booking's calculator owner.
+   * All dedup/cooldown/eligibility checks happen inside enqueueFromBooking.
+   */
+  private async triggerReviewRequestForBooking(booking: any): Promise<void> {
+    // We need to resolve the client_id from the calculator
+    // Calculators are linked to users, and users may be linked to clients
+    const calc = await this.getCalculatorById(booking.calculator_id);
+    if (!calc) return;
+
+    // Try to find a client via the calculator's user_id
+    let clientId: number | null = null;
+    if (calc.user_id) {
+      const clientRows = await db.select({ id: clients.id }).from(clients)
+        .where(eq(clients.user_id, calc.user_id))
+        .limit(1);
+      clientId = clientRows[0]?.id || null;
+    }
+
+    if (!clientId) return; // No linked client — can't send review request
+
+    const { enqueueFromBooking } = await import("./services/reputation/reviewRequestService");
+    await enqueueFromBooking(
+      clientId,
+      booking.id,
+      booking.customer_name || null,
+      booking.customer_phone || null,
+      booking.customer_email || null,
+    );
   }
 
   async updateBooking(id: number, updates: Partial<InsertBooking>): Promise<Booking | undefined> {
