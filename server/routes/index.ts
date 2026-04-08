@@ -23,6 +23,7 @@ import { registerPortalRoutes } from "./portalRoutes";
 import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
 import { registerDemoLeadRoutes } from "./demoLeadRoutes";
 import { registerSocialSyncRoutes } from "./socialSyncRoutes";
+import { registerReputationRoutes } from "./reputationRoutes";
 import { registerMediaRoute } from "../services/socialSync/mediaService";
 
 export async function registerRoutes(
@@ -52,6 +53,7 @@ export async function registerRoutes(
   registerMissedCallLeadRoutes(app);
   registerDemoLeadRoutes(app);
   registerSocialSyncRoutes(app);
+  registerReputationRoutes(app);
   registerMediaRoute(app);
 
   return httpServer;

@@ -10,7 +10,7 @@ import { processSocialSyncQueue } from "./socialSyncWorker";
 import { generateAllDue } from "../services/socialSync/orchestrator";
 import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
 import { cleanupOldMedia } from "../services/socialSync/mediaService";
-import { processAllClientReviews } from "../services/socialSync/reviewAutomation";
+import { processAllClientReviews } from "../services/reputation/reviewOrchestrator";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;

@@ -498,18 +498,18 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
   });
 
   const { data: reviewsData } = useQuery<{ reviews: any[]; summary: any }>({
-    queryKey: [`/api/socialsync/clients/${clientId}/reviews`],
+    queryKey: [`/api/reputation/clients/${clientId}/reviews`],
     enabled: !!clientId,
   });
 
   const syncReviews = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/socialsync/clients/${clientId}/reviews/sync`);
+      const res = await apiRequest("POST", `/api/reputation/clients/${clientId}/reviews/sync`);
       return res.json();
     },
     onSuccess: (data: any) => {
       invalidateAll();
-      queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/reviews`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/reputation/clients/${clientId}/reviews`] });
       toast({ title: "Reviews synced", description: `${data.new_reviews} new, ${data.replies_posted} auto-replied` });
     },
     onError: () => toast({ title: "Review sync failed", variant: "destructive" }),
@@ -517,11 +517,11 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
 
   const approveReply = useMutation({
     mutationFn: async (reviewId: number) => {
-      const res = await apiRequest("POST", `/api/socialsync/reviews/${reviewId}/approve-reply`);
+      const res = await apiRequest("POST", `/api/reputation/reviews/${reviewId}/approve-reply`);
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/reviews`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/reputation/clients/${clientId}/reviews`] });
       toast({ title: "Reply posted" });
     },
     onError: () => toast({ title: "Reply failed", variant: "destructive" }),

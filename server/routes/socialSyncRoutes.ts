@@ -19,7 +19,7 @@ import {
   selectGoogleLocation, validateGoogleConnection,
 } from "../services/socialSync/googleBusinessService";
 import { disconnectPlatform as disconnectPlatformFn } from "../services/socialSync/connectionLifecycle";
-import { syncAndProcessReviews, processAllClientReviews } from "../services/socialSync/reviewAutomation";
+import { syncClientReviews, processAllClientReviews } from "../services/reputation/reviewOrchestrator";
 import { resolveMediaForPost } from "../services/socialSync/mediaService";
 import { decryptToken } from "../services/socialSync/tokenEncryption";
 import type { SocialSyncProfile, InsertSocialSyncTopic } from "@shared/schema";
@@ -1263,7 +1263,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const clientId = parseInt(req.params.clientId as string);
       if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
 
-      const result = await syncAndProcessReviews(clientId);
+      const result = await syncClientReviews(clientId);
       res.json(result);
     } catch (err: any) {
       console.error("[socialsync] Review sync error:", err.message);
