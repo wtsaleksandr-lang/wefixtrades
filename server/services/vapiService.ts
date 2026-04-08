@@ -489,6 +489,8 @@ export async function upsertVapiAssistant(
   systemPrompt: string,
   firstMessage: string,
   assistantName: string,
+  voiceConfig?: { provider: string; voiceId: string },
+  transcriberLanguage?: string,
 ): Promise<{ assistantId: string; created: boolean }> {
   const config = getVapiConfig();
   if (!config.apiKey) {
@@ -510,14 +512,14 @@ export async function upsertVapiAssistant(
       messages: [{ role: "system", content: systemPrompt }],
     },
     voice: {
-      provider: "11labs" as const,
-      voiceId: "21m00Tcm4TlvDq8ikWAM",
+      provider: (voiceConfig?.provider || "11labs") as "11labs",
+      voiceId: voiceConfig?.voiceId || "21m00Tcm4TlvDq8ikWAM",
     },
     firstMessage,
     transcriber: {
       provider: "deepgram" as const,
       model: "nova-2",
-      language: "en",
+      language: transcriberLanguage || "en",
     },
     serverUrl: config.serverUrl
       ? `${config.serverUrl}/api/vapi/webhook`
@@ -638,6 +640,8 @@ export async function provisionTradeLineAssistant(
         result.definition.systemPrompt,
         result.definition.firstMessage,
         name,
+        result.definition.voiceConfig,
+        result.definition.transcriberLanguage,
       );
       assistantId = upsertResult.assistantId;
 

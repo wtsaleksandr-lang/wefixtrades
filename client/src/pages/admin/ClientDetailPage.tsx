@@ -1126,6 +1126,9 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
       channels: { ...data.config.channels },
       phoneRouting: { ...data.config.phoneRouting },
       website: { ...data.config.website },
+      voice: { ...(data.config as any).voice },
+      personality: { ...(data.config as any).personality },
+      widgetStyle: { ...(data.config as any).widgetStyle },
     });
     setEditingConfig(true);
   }
@@ -1216,6 +1219,26 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                   )}
                 </div>
               )}
+
+              {/* Voice & Personality */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Voice</p>
+                  <p className="text-sm text-gray-900">{(cfg as any).voice?.label || "Professional Female"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Tone</p>
+                  <p className="text-sm text-gray-900 capitalize">{(cfg as any).personality?.tone || "friendly"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Language</p>
+                  <p className="text-sm text-gray-900 uppercase">{(cfg as any).personality?.language || "en"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Widget Style</p>
+                  <p className="text-sm text-gray-900 capitalize">{(cfg as any).widgetStyle?.preset || "clean"}</p>
+                </div>
+              </div>
 
               {/* Setup Stage + Assistant Status */}
               <div className="grid grid-cols-2 gap-3">
@@ -1435,6 +1458,86 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                     placeholder="https://..."
                     className="h-8 text-xs"
                   />
+                </div>
+              </div>
+
+              {/* Voice & Personality */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Voice Preset</label>
+                  <Select
+                    value={configDraft.voice?.presetId || "professional-female"}
+                    onValueChange={(v) => {
+                      const labels: Record<string, string> = { "professional-female": "Professional Female", "professional-male": "Professional Male", "friendly-female": "Friendly Female", "friendly-male": "Friendly Male" };
+                      setConfigDraft({ ...configDraft, voice: { ...configDraft.voice, presetId: v, label: labels[v] || v } });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="professional-female" className="text-xs">Professional Female</SelectItem>
+                      <SelectItem value="professional-male" className="text-xs">Professional Male</SelectItem>
+                      <SelectItem value="friendly-female" className="text-xs">Friendly Female</SelectItem>
+                      <SelectItem value="friendly-male" className="text-xs">Friendly Male</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Tone</label>
+                  <Select
+                    value={configDraft.personality?.tone || "friendly"}
+                    onValueChange={(v) => setConfigDraft({ ...configDraft, personality: { ...configDraft.personality, tone: v } })}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="friendly" className="text-xs">Friendly</SelectItem>
+                      <SelectItem value="professional" className="text-xs">Professional</SelectItem>
+                      <SelectItem value="direct" className="text-xs">Direct</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Language</label>
+                  <Select
+                    value={configDraft.personality?.language || "en"}
+                    onValueChange={(v) => setConfigDraft({ ...configDraft, personality: { ...configDraft.personality, language: v } })}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en" className="text-xs">English</SelectItem>
+                      <SelectItem value="es" className="text-xs">Spanish</SelectItem>
+                      <SelectItem value="fr" className="text-xs">French</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Humor</label>
+                  <Select
+                    value={configDraft.personality?.humor || "off"}
+                    onValueChange={(v) => setConfigDraft({ ...configDraft, personality: { ...configDraft.personality, humor: v } })}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="off" className="text-xs">Off</SelectItem>
+                      <SelectItem value="light" className="text-xs">Light</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Widget Style</label>
+                  <Select
+                    value={configDraft.widgetStyle?.preset || "clean"}
+                    onValueChange={(v) => setConfigDraft({ ...configDraft, widgetStyle: { ...configDraft.widgetStyle, preset: v } })}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="clean" className="text-xs">Clean</SelectItem>
+                      <SelectItem value="bold" className="text-xs">Bold</SelectItem>
+                      <SelectItem value="minimal" className="text-xs">Minimal</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

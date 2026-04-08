@@ -843,6 +843,38 @@ export function registerPortalRoutes(app: Express) {
   });
 
   /**
+   * POST /api/portal/tradeline/:clientServiceId/settings
+   * Client-facing config update for voice, personality, and widget style.
+   * Only allows updating curated fields — not raw config.
+   */
+  app.post("/api/portal/tradeline/:clientServiceId/settings", requireClient, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const ownership = await verifyTradeLineOwnership(req, res, csId);
+      if (!ownership) return;
+
+      const { voice, personality, widgetStyle } = req.body;
+      const update: Record<string, any> = {};
+
+      if (voice && typeof voice === "object") update.voice = voice;
+      if (personality && typeof personality === "object") update.personality = personality;
+      if (widgetStyle && typeof widgetStyle === "object") update.widgetStyle = widgetStyle;
+
+      if (Object.keys(update).length === 0) {
+        return res.status(400).json({ error: "No valid settings provided" });
+      }
+
+      const config = await storage.updateTradeLineConfig(csId, update);
+      res.json({ config });
+    } catch (err) {
+      console.error("Portal tradeline settings error:", err);
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  /**
    * GET /api/portal/tradeline/:clientServiceId/calls
    * Paginated call log list.
    */

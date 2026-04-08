@@ -339,6 +339,24 @@ export const tradelineConfigSchema = z.object({
     lastBuildError: z.string().default(""),
     manualOverride: z.boolean().default(false),
   }).default({}),
+  voice: z.object({
+    presetId: z.string().default("professional-female"),
+    label: z.string().default("Professional Female"),
+    provider: z.string().default("11labs"),
+    voiceId: z.string().default("21m00Tcm4TlvDq8ikWAM"),
+    language: z.string().default("en"),
+  }).default({}),
+  personality: z.object({
+    tone: z.enum(["friendly", "professional", "direct"]).default("friendly"),
+    humor: z.enum(["off", "light"]).default("off"),
+    profanity: z.boolean().default(false),
+    language: z.enum(["en", "es", "fr"]).default("en"),
+  }).default({}),
+  widgetStyle: z.object({
+    preset: z.enum(["clean", "bold", "minimal"]).default("clean"),
+    bubbleLabel: z.string().default("Need help? Ask us"),
+    accentMode: z.enum(["default", "brand"]).default("default"),
+  }).default({}),
 }).default({});
 export type TradelineConfig = z.infer<typeof tradelineConfigSchema>;
 

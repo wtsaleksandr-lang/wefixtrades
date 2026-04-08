@@ -11,6 +11,7 @@ import crypto from "crypto";
 import { storage } from "../storage";
 import { advanceSetupStage, computeSetupStage } from "@shared/schema";
 import type { TradelineConfig, Client } from "@shared/schema";
+import { getVoicePreset } from "@shared/tradelineVoices";
 
 /* ═══════════════════════════════════════════
    PART 1 — TRADE TEMPLATES
@@ -129,6 +130,12 @@ export interface AssistantInput {
   businessHours: TradelineConfig["businessHours"];
   escalationNumber: string | null;
   callbackNumber: string | null;
+  // Voice & personality settings (affect prompt + Vapi voice config)
+  voicePresetId: string;
+  personalityTone: "friendly" | "professional" | "direct";
+  humor: "off" | "light";
+  profanity: boolean;
+  language: string;
 }
 
 /**
@@ -159,13 +166,17 @@ export function buildAssistantInput(
       .filter(Boolean);
   }
 
+  // Map personality.tone → legacy tone field for backward compat
+  const personalityTone = config.personality?.tone || "friendly";
+  const mappedTone = personalityTone === "direct" ? "professional" : personalityTone;
+
   return {
     businessName: r.business_name || client.business_name,
     tradeType: r.trade_type || client.trade_type || null,
     serviceArea: r.service_area || null,
     topServices,
     pricingRanges: r.pricing_ranges || null,
-    tone,
+    tone: mappedTone as "professional" | "friendly" | "casual",
     variant: config.variant,
     mode: config.currentMode,
     channels: config.channels,
@@ -174,6 +185,11 @@ export function buildAssistantInput(
     businessHours: config.businessHours,
     escalationNumber: r.escalation_number || null,
     callbackNumber: r.callback_number || null,
+    voicePresetId: config.voice?.presetId || "professional-female",
+    personalityTone: personalityTone,
+    humor: config.personality?.humor || "off",
+    profanity: config.personality?.profanity ?? false,
+    language: config.personality?.language || "en",
   };
 }
 
@@ -192,6 +208,13 @@ export interface AssistantDefinition {
   firstMessage: string;
   /** Which channels are enabled */
   channels: TradelineConfig["channels"];
+  /** Voice config for Vapi push */
+  voiceConfig: {
+    provider: string;
+    voiceId: string;
+  };
+  /** Transcriber language for Vapi */
+  transcriberLanguage: string;
   /** Behavior rules (serialized for storage/debugging) */
   behaviorRules: {
     callFlow: string;
@@ -215,10 +238,21 @@ export function buildAssistantDefinition(input: AssistantInput): AssistantDefini
   const systemPrompt = buildFullSystemPrompt(input, template);
   const firstMessage = buildFirstMessage(input, template);
 
+  // Resolve voice preset to provider + voiceId
+  const voicePreset = getVoicePreset(input.voicePresetId);
+
+  // Map language code to Deepgram-compatible transcriber language
+  const transcriberLangMap: Record<string, string> = { en: "en", es: "es", fr: "fr" };
+
   return {
     systemPrompt,
     firstMessage,
     channels: input.channels,
+    voiceConfig: {
+      provider: voicePreset.provider,
+      voiceId: voicePreset.voiceId,
+    },
+    transcriberLanguage: transcriberLangMap[input.language] || "en",
     behaviorRules: {
       callFlow: template.callFlowNotes,
       fallback: template.fallbackBehavior,
@@ -239,13 +273,31 @@ function buildFullSystemPrompt(input: AssistantInput, template: TradeTemplate): 
   // Trade-specific knowledge
   parts.push(template.systemPromptBase);
 
-  // Tone
+  // Tone (from personality.tone, mapped through input.personalityTone)
   const toneGuide: Record<string, string> = {
     professional: "TONE: Professional and courteous. Use proper grammar, avoid slang, but stay warm and approachable.",
     friendly: "TONE: Friendly and warm. Use natural language, contractions are fine, be conversational but not too casual.",
+    direct: "TONE: Direct and efficient. Keep answers short, get to the point quickly, be respectful but don't over-explain.",
     casual: "TONE: Casual and relaxed. Talk like a mate who happens to know a lot about the trade. Keep it real.",
   };
-  parts.push(toneGuide[input.tone]);
+  parts.push(toneGuide[input.personalityTone] || toneGuide[input.tone]);
+
+  // Humor
+  if (input.humor === "light") {
+    parts.push("HUMOR: You can be subtly warm and add light humor when appropriate — brief, friendly asides only. Never be goofy or make jokes.");
+  }
+
+  // Profanity
+  if (!input.profanity) {
+    parts.push("LANGUAGE: Do not use any profanity, swearing, or crude language.");
+  }
+
+  // Language preference
+  if (input.language && input.language !== "en") {
+    const langNames: Record<string, string> = { es: "Spanish", fr: "French" };
+    const langName = langNames[input.language] || input.language;
+    parts.push(`LANGUAGE PREFERENCE: Respond in ${langName} when possible. If the caller speaks English, match their language.`);
+  }
 
   // Services
   const services = input.topServices.length > 0 ? input.topServices : template.fallbackServices;
@@ -304,6 +356,42 @@ function buildFullSystemPrompt(input: AssistantInput, template: TradeTemplate): 
 
 function buildFirstMessage(input: AssistantInput, template: TradeTemplate): string {
   const name = input.businessName;
+
+  // Spanish greetings
+  if (input.language === "es") {
+    switch (input.mode) {
+      case "available":
+        return `Hola, gracias por llamar a ${name}! En que puedo ayudarle hoy?`;
+      case "on_the_job":
+        return `Hola, gracias por llamar a ${name}! El equipo esta en un trabajo ahora mismo, pero puedo ayudarle. Que necesita?`;
+      case "after_hours":
+        return `Hola, gracias por llamar a ${name}! Estamos cerrados por hoy, pero puedo ayudarle. Que necesita?`;
+    }
+  }
+
+  // French greetings
+  if (input.language === "fr") {
+    switch (input.mode) {
+      case "available":
+        return `Bonjour, merci d'avoir appele ${name}! Comment puis-je vous aider aujourd'hui?`;
+      case "on_the_job":
+        return `Bonjour, merci d'avoir appele ${name}! L'equipe est en intervention, mais je peux vous aider. De quoi avez-vous besoin?`;
+      case "after_hours":
+        return `Bonjour, merci d'avoir appele ${name}! Nous sommes fermes pour la journee, mais je peux vous aider. De quoi avez-vous besoin?`;
+    }
+  }
+
+  // English greetings (default) — adapt to tone
+  if (input.personalityTone === "direct") {
+    switch (input.mode) {
+      case "available":
+        return `${name}, how can I help?`;
+      case "on_the_job":
+        return `${name}, the team's on a job. How can I help?`;
+      case "after_hours":
+        return `${name}, we're closed for the day. What do you need?`;
+    }
+  }
 
   switch (input.mode) {
     case "available":

@@ -1,8 +1,13 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Globe } from "lucide-react";
+import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Globe, Mic, Palette, ChevronDown, Save } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import ModeToggle from "@/components/portal/ModeToggle";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
 import {
   SERVICE_STATUS_LABELS, SERVICE_STATUS_STYLES,
   PAYMENT_STATUS_LABELS, PAYMENT_STATUS_STYLES,
@@ -74,6 +79,9 @@ interface TradeLineData {
     channels: { voice: boolean; websiteChat: boolean; websiteVoice: boolean; sms: boolean; hostedFallback: boolean };
     phoneRouting: { primaryBusinessNumber: string; forwardingMode: string; ringTimeoutSeconds: number };
     website: { embedMode: string; hostedUrl: string };
+    voice?: { presetId: string; label: string; provider: string; voiceId: string; language: string };
+    personality?: { tone: string; humor: string; profanity: boolean; language: string };
+    widgetStyle?: { preset: string; bubbleLabel: string; accentMode: string };
   } | null;
   usage: {
     voice_minutes_used: number;
@@ -126,6 +134,263 @@ function formatDate(dateStr: string | null): string {
     month: "short",
     year: "numeric",
   });
+}
+
+/* ─── Voice presets (mirrors server registry) ─── */
+const VOICE_PRESETS = [
+  { id: "professional-female", label: "Professional Female", desc: "Clear, polished tone" },
+  { id: "professional-male", label: "Professional Male", desc: "Confident, reassuring voice" },
+  { id: "friendly-female", label: "Friendly Female", desc: "Warm and approachable" },
+  { id: "friendly-male", label: "Friendly Male", desc: "Casual and natural" },
+];
+
+const TONE_OPTIONS = [
+  { value: "friendly", label: "Friendly", desc: "Warm and conversational" },
+  { value: "professional", label: "Professional", desc: "Polished and courteous" },
+  { value: "direct", label: "Direct", desc: "Short and to the point" },
+];
+
+const LANGUAGE_OPTIONS = [
+  { value: "en", label: "English" },
+  { value: "es", label: "Spanish" },
+  { value: "fr", label: "French" },
+];
+
+const WIDGET_PRESETS = [
+  { value: "clean", label: "Clean", desc: "Minimal, modern look" },
+  { value: "bold", label: "Bold", desc: "Prominent, high contrast" },
+  { value: "minimal", label: "Minimal", desc: "Subtle, lightweight" },
+];
+
+function VoiceAndStyleCard({
+  clientServiceId,
+  config,
+  onSaved,
+}: {
+  clientServiceId: number;
+  config: TradeLineData["config"];
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const [expanded, setExpanded] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Draft state
+  const [voicePresetId, setVoicePresetId] = useState(config?.voice?.presetId || "professional-female");
+  const [tone, setTone] = useState(config?.personality?.tone || "friendly");
+  const [humor, setHumor] = useState(config?.personality?.humor || "off");
+  const [profanity, setProfanity] = useState(config?.personality?.profanity ?? false);
+  const [language, setLanguage] = useState(config?.personality?.language || "en");
+  const [widgetPreset, setWidgetPreset] = useState(config?.widgetStyle?.preset || "clean");
+  const [bubbleLabel, setBubbleLabel] = useState(config?.widgetStyle?.bubbleLabel || "Need help? Ask us");
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const selectedVoice = VOICE_PRESETS.find(v => v.id === voicePresetId);
+      const res = await fetch(`/api/portal/tradeline/${clientServiceId}/settings`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          voice: { presetId: voicePresetId, label: selectedVoice?.label || voicePresetId },
+          personality: { tone, humor, profanity, language },
+          widgetStyle: { preset: widgetPreset, bubbleLabel },
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Settings saved", description: "Your voice & style preferences have been updated." });
+      onSaved();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Could not save settings. Please try again.", variant: "destructive" });
+    },
+  });
+
+  const hasChanges =
+    voicePresetId !== (config?.voice?.presetId || "professional-female") ||
+    tone !== (config?.personality?.tone || "friendly") ||
+    humor !== (config?.personality?.humor || "off") ||
+    profanity !== (config?.personality?.profanity ?? false) ||
+    language !== (config?.personality?.language || "en") ||
+    widgetPreset !== (config?.widgetStyle?.preset || "clean") ||
+    bubbleLabel !== (config?.widgetStyle?.bubbleLabel || "Need help? Ask us");
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-between w-full px-5 py-4 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <Mic className="w-4 h-4 text-teal-600" />
+          <h2 className="text-sm font-semibold text-gray-900">Voice & Style</h2>
+          <span className="text-xs text-gray-400">
+            {VOICE_PRESETS.find(v => v.id === voicePresetId)?.label} · {TONE_OPTIONS.find(t => t.value === tone)?.label}
+          </span>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      {expanded && (
+        <div className="px-5 pb-5 space-y-5 border-t border-gray-100 pt-4">
+          {/* Voice preset */}
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-2 block">Voice</label>
+            <div className="grid grid-cols-2 gap-2">
+              {VOICE_PRESETS.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setVoicePresetId(v.id)}
+                  className={`text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
+                    voicePresetId === v.id
+                      ? "border-teal-500 bg-teal-50 text-teal-900"
+                      : "border-gray-200 hover:border-gray-300 text-gray-700"
+                  }`}
+                >
+                  <span className="font-medium block">{v.label}</span>
+                  <span className="text-[11px] text-gray-500">{v.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tone */}
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-2 block">Tone</label>
+            <div className="flex gap-2">
+              {TONE_OPTIONS.map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => setTone(t.value)}
+                  className={`flex-1 text-center px-3 py-2 rounded-lg border text-sm transition-colors ${
+                    tone === t.value
+                      ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
+                      : "border-gray-200 hover:border-gray-300 text-gray-600"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">{TONE_OPTIONS.find(t => t.value === tone)?.desc}</p>
+          </div>
+
+          {/* Language */}
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-2 block">Language</label>
+            <div className="flex gap-2">
+              {LANGUAGE_OPTIONS.map((l) => (
+                <button
+                  key={l.value}
+                  type="button"
+                  onClick={() => setLanguage(l.value)}
+                  className={`px-3 py-1.5 rounded-lg border text-sm transition-colors ${
+                    language === l.value
+                      ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
+                      : "border-gray-200 hover:border-gray-300 text-gray-600"
+                  }`}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+            {language !== "en" && (
+              <p className="text-[11px] text-amber-600 mt-1">The assistant will try to respond in {LANGUAGE_OPTIONS.find(l => l.value === language)?.label}. English callers will still get English responses.</p>
+            )}
+          </div>
+
+          {/* Humor toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-xs font-medium text-gray-700">Light humor</label>
+              <p className="text-[11px] text-gray-400">Subtle warmth in responses — nothing goofy</p>
+            </div>
+            <Switch
+              checked={humor === "light"}
+              onCheckedChange={(v) => setHumor(v ? "light" : "off")}
+            />
+          </div>
+
+          {/* Widget style */}
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-2 block">Chat Widget Style</label>
+            <div className="flex gap-2">
+              {WIDGET_PRESETS.map((w) => (
+                <button
+                  key={w.value}
+                  type="button"
+                  onClick={() => setWidgetPreset(w.value)}
+                  className={`flex-1 text-center px-3 py-2 rounded-lg border text-sm transition-colors ${
+                    widgetPreset === w.value
+                      ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
+                      : "border-gray-200 hover:border-gray-300 text-gray-600"
+                  }`}
+                >
+                  {w.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Bubble label */}
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Widget Bubble Text</label>
+            <Input
+              value={bubbleLabel}
+              onChange={(e) => setBubbleLabel(e.target.value)}
+              placeholder="Need help? Ask us"
+              className="h-8 text-sm"
+              maxLength={40}
+            />
+            <p className="text-[11px] text-gray-400 mt-1">Shown on the chat bubble on your website</p>
+          </div>
+
+          {/* Advanced (profanity) */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              {showAdvanced ? "Hide advanced" : "Advanced options"}
+            </button>
+            {showAdvanced && (
+              <div className="mt-2 flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <label className="text-xs font-medium text-gray-700">Allow casual language</label>
+                  <p className="text-[11px] text-gray-400">Permits mild informal language in responses</p>
+                </div>
+                <Switch
+                  checked={profanity}
+                  onCheckedChange={setProfanity}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Save */}
+          {hasChanges && (
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="w-full h-9 text-sm bg-teal-600 hover:bg-teal-700"
+            >
+              {saveMutation.isPending ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> Saving...</>
+              ) : (
+                <><Save className="w-3.5 h-3.5 mr-1.5" /> Save Voice & Style</>
+              )}
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function PortalServiceDetail() {
@@ -227,6 +492,13 @@ export default function PortalServiceDetail() {
                     </p>
                   )}
                 </div>
+
+                {/* Voice & Style settings */}
+                <VoiceAndStyleCard
+                  clientServiceId={parseInt(serviceId!)}
+                  config={tlData.config}
+                  onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline", serviceId] })}
+                />
 
                 {/* Usage summary */}
                 {tlData.usage && (
