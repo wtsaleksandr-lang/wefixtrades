@@ -14,6 +14,11 @@ import {
 } from "../services/socialSync/instagramService";
 import { disconnectPlatform, checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
 import { clearCooldown, getCooldownSummary } from "../services/socialSync/cooldownManager";
+import {
+  validateGoogleBusinessConfig, buildGoogleOAuthUrl, handleGoogleCallback,
+  selectGoogleLocation, validateGoogleConnection,
+} from "../services/socialSync/googleBusinessService";
+import { disconnectPlatform as disconnectPlatformFn } from "../services/socialSync/connectionLifecycle";
 import { resolveMediaForPost } from "../services/socialSync/mediaService";
 import { decryptToken } from "../services/socialSync/tokenEncryption";
 import type { SocialSyncProfile, InsertSocialSyncTopic } from "@shared/schema";
@@ -933,6 +938,7 @@ export function registerSocialSyncRoutes(app: Express): void {
 
       let totalFbConnected = 0;
       let totalIgConnected = 0;
+      let totalGbpConnected = 0;
       let totalExpired = 0;
       let totalExpiringSoon = 0;
       let totalQueueFailed = 0;
@@ -955,6 +961,8 @@ export function registerSocialSyncRoutes(app: Express): void {
 
         if (fbConnected) totalFbConnected++;
         if (igConnected) totalIgConnected++;
+        const gbpConn = connections.find(c => c.platform === "google_business");
+        if (gbpConn?.connection_status === "connected" || gbpConn?.connection_status === "expiring_soon") totalGbpConnected++;
 
         const hasExpired = connections.some(c => c.connection_status === "expired");
         const hasExpiringSoon = connections.some(c => c.connection_status === "expiring_soon");
@@ -1018,6 +1026,7 @@ export function registerSocialSyncRoutes(app: Express): void {
           location: profile.location,
           fb_status: fbConn?.connection_status || "not_connected",
           ig_status: igConn?.connection_status || "not_connected",
+          gbp_status: gbpConn?.connection_status || "not_connected",
           upcoming_posts: upcomingPosts,
           published_7d: published7d,
           failed_queue: failedQueue,
@@ -1035,6 +1044,7 @@ export function registerSocialSyncRoutes(app: Express): void {
           total_autopilot: profiles.filter(p => p.autopilot).length,
           fb_connected: totalFbConnected,
           ig_connected: totalIgConnected,
+          gbp_connected: totalGbpConnected,
           expired_tokens: totalExpired,
           expiring_soon: totalExpiringSoon,
           queued_due_today: totalQueuedDueToday,
@@ -1087,6 +1097,149 @@ export function registerSocialSyncRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[socialsync] Clear cooldown error:", err.message);
       res.status(500).json({ error: "Failed to clear cooldown" });
+    }
+  });
+
+  // ─── Phase 5A: Google Business Profile Routes ───
+
+  // 36. GET Google Business connect URL
+  app.get("/api/socialsync/clients/:clientId/google-business/connect-url", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const configCheck = validateGoogleBusinessConfig();
+      if (!configCheck.valid) return res.status(503).json({ error: "Google Business not configured", missing: configCheck.missing });
+
+      const url = buildGoogleOAuthUrl(clientId);
+      res.json({ url });
+    } catch (err: any) {
+      console.error("[socialsync] Google Business connect URL error:", err.message);
+      res.status(500).json({ error: "Failed to generate connect URL" });
+    }
+  });
+
+  // 37. GET Google Business OAuth callback (browser redirect)
+  app.get("/api/socialsync/oauth/google-business/callback", async (req: Request, res: Response) => {
+    try {
+      const { code, state, error: oauthError } = req.query;
+      if (oauthError) {
+        return res.redirect(`/admin/crm/clients?gbp_error=${encodeURIComponent(String(oauthError))}`);
+      }
+      if (!code || typeof code !== "string") {
+        return res.redirect("/admin/crm/clients?gbp_error=missing_code");
+      }
+
+      let clientId: number;
+      try {
+        const decoded = JSON.parse(Buffer.from(String(state), "base64url").toString());
+        clientId = decoded.clientId;
+        if (!clientId) throw new Error("Missing clientId");
+      } catch {
+        return res.redirect("/admin/crm/clients?gbp_error=invalid_state");
+      }
+
+      const result = await handleGoogleCallback(clientId, code);
+      res.redirect(`/admin/crm/clients/${clientId}?tab=socialsync&gbp_connected=1&locations=${result.locations.length}`);
+    } catch (err: any) {
+      console.error("[socialsync] Google Business callback error:", err.message);
+      res.redirect(`/admin/crm/clients?gbp_error=${encodeURIComponent(err.message)}`);
+    }
+  });
+
+  // 38. GET discovered Google Business locations
+  app.get("/api/socialsync/clients/:clientId/google-business/locations", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const conn = connections.find(c => c.platform === "google_business");
+      if (!conn) return res.status(404).json({ error: "No Google Business connection found" });
+
+      const metadata = (conn.metadata as any) || {};
+      res.json({
+        locations: metadata.locations || [],
+        selected_location: metadata.selected_location || null,
+        external_page_id: conn.external_page_id,
+      });
+    } catch (err: any) {
+      console.error("[socialsync] Google Business locations error:", err.message);
+      res.status(500).json({ error: "Failed to load locations" });
+    }
+  });
+
+  // 39. POST select a Google Business location
+  app.post("/api/socialsync/clients/:clientId/google-business/select-location", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const { location_name } = req.body;
+      if (!location_name) return res.status(400).json({ error: "location_name is required" });
+
+      await selectGoogleLocation(clientId, location_name);
+      res.json({ ok: true, location_name });
+    } catch (err: any) {
+      console.error("[socialsync] Google Business select location error:", err.message);
+      res.status(500).json({ error: err.message || "Failed to select location" });
+    }
+  });
+
+  // 40. POST validate Google Business connection
+  app.post("/api/socialsync/clients/:clientId/google-business/validate", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const result = await validateGoogleConnection(clientId);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[socialsync] Google Business validate error:", err.message);
+      res.status(500).json({ error: "Failed to validate connection" });
+    }
+  });
+
+  // 41. POST disconnect Google Business
+  app.post("/api/socialsync/clients/:clientId/google-business/disconnect", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const result = await disconnectPlatform(clientId, "google_business");
+      if (!result.ok) return res.status(400).json({ error: result.error });
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[socialsync] Google Business disconnect error:", err.message);
+      res.status(500).json({ error: "Failed to disconnect" });
+    }
+  });
+
+  // 42. GET Google Business connection status
+  app.get("/api/socialsync/clients/:clientId/google-business/status", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const conn = connections.find(c => c.platform === "google_business");
+
+      if (!conn) return res.json({ connected: false, status: "not_connected" });
+
+      const metadata = (conn.metadata as any) || {};
+      res.json({
+        connected: conn.connection_status === "connected" || conn.connection_status === "expiring_soon",
+        status: conn.connection_status,
+        selected_location: metadata.selected_location || null,
+        locations_count: (metadata.locations || []).length,
+        token_expires_at: conn.token_expires_at,
+        last_validated_at: conn.last_validated_at,
+        has_refresh_token: !!metadata.has_refresh_token,
+        last_error: metadata.last_error || null,
+      });
+    } catch (err: any) {
+      console.error("[socialsync] Google Business status error:", err.message);
+      res.status(500).json({ error: "Failed to load status" });
     }
   });
 }

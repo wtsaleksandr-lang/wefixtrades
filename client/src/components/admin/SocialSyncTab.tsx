@@ -157,6 +157,23 @@ interface InstagramAccounts {
   connection_status: string;
 }
 
+interface GoogleBusinessStatus {
+  connected: boolean;
+  status: string;
+  selected_location: { name: string; title: string; address?: string } | null;
+  locations_count: number;
+  token_expires_at: string | null;
+  last_validated_at: string | null;
+  has_refresh_token: boolean;
+  last_error: string | null;
+}
+
+interface GoogleBusinessLocations {
+  locations: { name: string; title: string; address?: string }[];
+  selected_location: { name: string; title: string } | null;
+  external_page_id: string | null;
+}
+
 /* ─── Helpers ─── */
 
 const STATUS_COLORS: Record<string, string> = {
@@ -264,6 +281,16 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
     enabled: !!clientId && fbStatus?.connected === true,
   });
 
+  const { data: gbpStatus } = useQuery<GoogleBusinessStatus>({
+    queryKey: [`/api/socialsync/clients/${clientId}/google-business/status`],
+    enabled: !!clientId,
+  });
+
+  const { data: gbpLocations } = useQuery<GoogleBusinessLocations>({
+    queryKey: [`/api/socialsync/clients/${clientId}/google-business/locations`],
+    enabled: !!clientId && gbpStatus?.connected === true,
+  });
+
   // ─── Mutations ───
 
   function invalidateAll() {
@@ -276,6 +303,8 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
     queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/facebook/pages`] });
     queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/instagram/status`] });
     queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/instagram/accounts`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/google-business/status`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/google-business/locations`] });
   }
 
   const saveProfile = useMutation({
@@ -418,6 +447,42 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
       return res.json();
     },
     onSuccess: () => { invalidateAll(); toast({ title: "Instagram disconnected" }); },
+  });
+
+  const connectGbp = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("GET", `/api/socialsync/clients/${clientId}/google-business/connect-url`);
+      return res.json();
+    },
+    onSuccess: (data: any) => { if (data.url) window.open(data.url, "_self"); },
+    onError: () => toast({ title: "Google Business not configured", variant: "destructive" }),
+  });
+
+  const selectGbpLocation = useMutation({
+    mutationFn: async (locationName: string) => {
+      const res = await apiRequest("POST", `/api/socialsync/clients/${clientId}/google-business/select-location`, { location_name: locationName });
+      return res.json();
+    },
+    onSuccess: () => { invalidateAll(); toast({ title: "Location selected" }); },
+  });
+
+  const validateGbp = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/socialsync/clients/${clientId}/google-business/validate`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      invalidateAll();
+      toast({ title: data.valid ? "Google Business valid" : "Validation failed", description: data.error, variant: data.valid ? "default" : "destructive" });
+    },
+  });
+
+  const disconnectGbp = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/socialsync/clients/${clientId}/google-business/disconnect`);
+      return res.json();
+    },
+    onSuccess: () => { invalidateAll(); toast({ title: "Google Business disconnected" }); },
   });
 
   const prepareMedia = useMutation({
@@ -689,6 +754,78 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
             <div className="flex items-center gap-4 text-xs text-gray-400">
               {igStatus?.last_validated_at && <span>Validated: {fmtDate(igStatus.last_validated_at)}</span>}
               {igStatus?.token_expires_at && <span>Expires: {fmtDate(igStatus.token_expires_at)}</span>}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* ─── Google Business Connection Card ─── */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-gray-900">Google Business Profile</h3>
+          <div className="flex items-center gap-2">
+            {(gbpStatus?.connected) && (
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => validateGbp.mutate()} disabled={validateGbp.isPending}>
+                {validateGbp.isPending ? <RefreshCw className="w-3 h-3 animate-spin" /> : <><CheckCircle className="w-3 h-3 mr-1" /> Validate</>}
+              </Button>
+            )}
+            {gbpStatus && gbpStatus.status !== "not_connected" && gbpStatus.status !== "disconnected" && (
+              <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" onClick={() => disconnectGbp.mutate()} disabled={disconnectGbp.isPending}>
+                {disconnectGbp.isPending ? "..." : <><XCircle className="w-3 h-3 mr-1" /> Disconnect</>}
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => connectGbp.mutate()} disabled={connectGbp.isPending}>
+              {connectGbp.isPending ? "Redirecting..." : gbpStatus?.connected ? "Reconnect" : <><Link2 className="w-3.5 h-3.5 mr-1" /> Connect Google</>}
+            </Button>
+          </div>
+        </div>
+
+        {!gbpStatus || gbpStatus.status === "not_connected" || gbpStatus.status === "disconnected" ? (
+          <div className="text-center py-4">
+            <p className="text-sm text-gray-500">{gbpStatus?.status === "disconnected" ? "Google Business disconnected." : "No Google Business connected."} Click "Connect Google" to begin.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 text-sm">
+              <StatusBadge status={gbpStatus.status} />
+              {gbpStatus.locations_count > 0 && <span className="text-gray-500">{gbpStatus.locations_count} location(s)</span>}
+              {gbpStatus.has_refresh_token && <span className="text-xs text-emerald-600">Auto-refresh</span>}
+            </div>
+
+            {gbpStatus.selected_location ? (
+              <div className="flex items-center gap-2 p-2 bg-emerald-50 rounded-lg text-sm">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <span className="text-emerald-800">Publishing to: <strong>{gbpStatus.selected_location.title}</strong></span>
+                {gbpStatus.selected_location.address && <span className="text-emerald-600 text-xs">({gbpStatus.selected_location.address})</span>}
+              </div>
+            ) : gbpStatus.connected && (
+              <WarningBanner text="No location selected. Select a location below to enable publishing." />
+            )}
+
+            {gbpStatus.connected && gbpLocations && gbpLocations.locations.length > 0 && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600 block">Locations</label>
+                {gbpLocations.locations.map((loc) => (
+                  <div key={loc.name} className={`flex items-center justify-between p-2 rounded-lg border ${gbpLocations.external_page_id === loc.name ? "border-emerald-300 bg-emerald-50" : "border-gray-200"}`}>
+                    <div>
+                      <span className="text-sm font-medium">{loc.title}</span>
+                      {loc.address && <span className="text-xs text-gray-500 ml-2">{loc.address}</span>}
+                    </div>
+                    {gbpLocations.external_page_id !== loc.name ? (
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => selectGbpLocation.mutate(loc.name)} disabled={selectGbpLocation.isPending}>Select</Button>
+                    ) : (
+                      <Badge className="bg-emerald-100 text-emerald-700 text-xs">Active</Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {gbpStatus.status === "error" && gbpStatus.last_error && <WarningBanner text={`Error: ${gbpStatus.last_error}`} />}
+            {gbpStatus.status === "expired" && <WarningBanner text="Token expired. Click Reconnect." />}
+            <div className="flex items-center gap-4 text-xs text-gray-400">
+              {gbpStatus.last_validated_at && <span>Validated: {fmtDate(gbpStatus.last_validated_at)}</span>}
+              {gbpStatus.token_expires_at && <span>Expires: {fmtDate(gbpStatus.token_expires_at)}</span>}
             </div>
           </div>
         )}

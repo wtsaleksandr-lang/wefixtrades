@@ -1,12 +1,13 @@
 import { storage } from "../storage";
 import { publishToFacebook, isRateLimitError as isFbRateLimit, type PublishResult } from "../services/socialSync/facebookPublisher";
 import { publishToInstagram, isRateLimitError as isIgRateLimit, type InstagramPublishResult } from "../services/socialSync/instagramPublisher";
+import { publishToGoogleBusiness, type GooglePublishResult } from "../services/socialSync/googleBusinessPublisher";
 import { checkCooldown, recordSuccess, recordRateLimit, recordFailure } from "../services/socialSync/cooldownManager";
 import { sendAlert, buildPublishFailuresAlert, buildRateLimitedAlert, isAlertingConfigured } from "../services/socialSync/alertService";
 import type { SocialSyncPost, SocialSyncQueueItem } from "@shared/schema";
 
-/** Unified result type that both publishers can produce. */
-type AnyPublishResult = PublishResult | InstagramPublishResult;
+/** Unified result type that all publishers can produce. */
+type AnyPublishResult = PublishResult | InstagramPublishResult | GooglePublishResult;
 
 /** How long a lock can be held before it's considered stale (10 minutes). */
 const STALE_LOCK_THRESHOLD_MS = 10 * 60 * 1000;
@@ -233,6 +234,9 @@ async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boo
     case "instagram":
       result = await publishToInstagram(job.client_id, post);
       break;
+    case "google_business":
+      result = await publishToGoogleBusiness(job.client_id, post);
+      break;
     default:
       result = {
         success: false,
@@ -249,7 +253,7 @@ async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boo
   // ─── Handle result ───
   if (result.success) {
     // Normalize target ID across platforms
-    const targetId = "page_id" in result ? result.page_id : "ig_account_id" in result ? result.ig_account_id : "";
+    const targetId = "page_id" in result ? result.page_id : "ig_account_id" in result ? result.ig_account_id : "location_name" in result ? result.location_name : "";
 
     await storage.updateSocialSyncQueueItem(job.id, {
       status: "completed",
@@ -300,7 +304,8 @@ async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boo
   // Detect rate limiting for better logging
   const errorCode = "error_code" in result ? result.error_code : undefined;
   const errorSubcode = "error_subcode" in result ? result.error_subcode : undefined;
-  const isRateLimit = isFbRateLimit(errorCode) || isIgRateLimit(errorCode, errorSubcode);
+  const isGoogleRateLimit = "rate_limited" in result && (result as any).rate_limited === true;
+  const isRateLimit = isFbRateLimit(errorCode) || isIgRateLimit(errorCode, errorSubcode) || isGoogleRateLimit;
 
   if (isPermanent && !isRateLimit) {
     await failJob(job, result.error || "Unknown publish error", true, result);
@@ -418,7 +423,7 @@ async function failJob(
   });
 
   const targetId = publishResult
-    ? ("page_id" in publishResult ? publishResult.page_id : "ig_account_id" in publishResult ? publishResult.ig_account_id : "")
+    ? ("page_id" in publishResult ? publishResult.page_id : "ig_account_id" in publishResult ? publishResult.ig_account_id : "location_name" in publishResult ? publishResult.location_name : "")
     : "";
 
   await storage.updateSocialSyncPost(job.post_id, {

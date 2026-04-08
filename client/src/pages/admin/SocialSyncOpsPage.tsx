@@ -40,6 +40,7 @@ interface ClientSummary {
   location: string | null;
   fb_status: string;
   ig_status: string;
+  gbp_status: string;
   upcoming_posts: number;
   published_7d: number;
   failed_queue: number;
@@ -175,6 +176,7 @@ export default function SocialSyncOpsPage() {
             <MetricCard label="Autopilot" value={metrics.total_autopilot} />
             <MetricCard label="FB Connected" value={metrics.fb_connected} color="emerald" />
             <MetricCard label="IG Connected" value={metrics.ig_connected} color="emerald" />
+            <MetricCard label="GBP Connected" value={metrics.gbp_connected || 0} color="emerald" />
             <MetricCard label="Published 24h" value={metrics.published_24h} color="emerald" />
             <MetricCard label="Published 7d" value={metrics.published_7d} color="blue" />
             <MetricCard label="Due Today" value={metrics.queued_due_today} color="amber" />
@@ -224,6 +226,7 @@ export default function SocialSyncOpsPage() {
                   <TableHead className="text-center">Auto</TableHead>
                   <TableHead className="text-center">FB</TableHead>
                   <TableHead className="text-center">IG</TableHead>
+                  <TableHead className="text-center">GBP</TableHead>
                   <TableHead className="text-center">Upcoming</TableHead>
                   <TableHead className="text-center">Pub 7d</TableHead>
                   <TableHead className="text-center">Fails</TableHead>
@@ -252,6 +255,7 @@ export default function SocialSyncOpsPage() {
                     </TableCell>
                     <TableCell className="text-center"><ConnBadge status={c.fb_status} /></TableCell>
                     <TableCell className="text-center"><ConnBadge status={c.ig_status} /></TableCell>
+                    <TableCell className="text-center"><ConnBadge status={c.gbp_status || "not_connected"} /></TableCell>
                     <TableCell className="text-center text-sm">{c.upcoming_posts}</TableCell>
                     <TableCell className="text-center text-sm">{c.published_7d}</TableCell>
                     <TableCell className="text-center">
@@ -285,7 +289,7 @@ export default function SocialSyncOpsPage() {
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8 text-sm text-gray-500">
+                    <TableCell colSpan={13} className="text-center py-8 text-sm text-gray-500">
                       No clients match the current filter.
                     </TableCell>
                   </TableRow>
