@@ -30,6 +30,8 @@ const RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000;           // 15 minutes
 const RATE_LIMIT_REPEAT_COOLDOWN_MS = 60 * 60 * 1000;    // 60 minutes (if rate-limited again within 2 hours)
 const FAILURE_COOLDOWN_THRESHOLD = 3;                      // After 3 consecutive failures, start cooling down
 const FAILURE_COOLDOWN_MS = 30 * 60 * 1000;                // 30 minutes per failure cooldown
+const PERMANENT_FAILURE_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 hours for permanent/config failures
+const PERMANENT_FAILURE_THRESHOLD = 2;                     // 2 permanent failures → long suppression
 const RATE_LIMIT_REPEAT_WINDOW_MS = 2 * 60 * 60 * 1000;   // 2 hour window for "repeated" rate limit detection
 const ALERT_DEDUPE_WINDOW_MS = 6 * 60 * 60 * 1000;        // Don't re-alert within 6 hours
 
@@ -39,10 +41,13 @@ export interface PlatformState {
   cooldown_until: string | null;
   cooldown_reason: string | null;
   consecutive_failures: number;
+  consecutive_permanent_failures: number;
+  rate_limit_count_24h: number;
   last_failure_at: string | null;
   last_success_at: string | null;
   last_rate_limit_at: string | null;
   last_alerted_at: string | null;
+  suppressed: boolean;  // true = long-term suppression due to persistent config issues
 }
 
 export type RuntimeState = Record<string, PlatformState>;
@@ -51,10 +56,13 @@ const DEFAULT_PLATFORM_STATE: PlatformState = {
   cooldown_until: null,
   cooldown_reason: null,
   consecutive_failures: 0,
+  consecutive_permanent_failures: 0,
+  rate_limit_count_24h: 0,
   last_failure_at: null,
   last_success_at: null,
   last_rate_limit_at: null,
   last_alerted_at: null,
+  suppressed: false,
 };
 
 /* ─── State Access ─── */
@@ -95,6 +103,12 @@ export async function checkCooldown(
   if (!profile) return { coolingDown: false };
 
   const platState = getPlatformState(profile, platform);
+
+  // Suppressed = long-term block due to persistent config issues
+  if (platState.suppressed) {
+    return { coolingDown: true, reason: "suppressed_config_issue", until: undefined, minutesLeft: undefined };
+  }
+
   if (!platState.cooldown_until) return { coolingDown: false };
 
   const until = new Date(platState.cooldown_until);
@@ -128,6 +142,8 @@ export async function recordSuccess(clientId: number, platform: string): Promise
 
   const platState = getPlatformState(profile, platform);
   platState.consecutive_failures = 0;
+  platState.consecutive_permanent_failures = 0;
+  platState.suppressed = false;
   platState.last_success_at = new Date().toISOString();
   platState.cooldown_until = null;
   platState.cooldown_reason = null;
@@ -143,6 +159,12 @@ export async function recordRateLimit(clientId: number, platform: string): Promi
 
   const platState = getPlatformState(profile, platform);
   const now = new Date();
+
+  // Track rate-limit count (reset if last was >24h ago)
+  if (platState.last_rate_limit_at && (now.getTime() - new Date(platState.last_rate_limit_at).getTime()) > 24 * 60 * 60 * 1000) {
+    platState.rate_limit_count_24h = 0;
+  }
+  platState.rate_limit_count_24h = (platState.rate_limit_count_24h || 0) + 1;
 
   // Check if this is a repeated rate limit (within 2 hours)
   const isRepeat = platState.last_rate_limit_at &&
@@ -208,6 +230,42 @@ export async function recordFailure(clientId: number, platform: string): Promise
 }
 
 /**
+ * Record a permanent/config failure (invalid token, missing page, etc.).
+ * After threshold, suppresses the client/platform to stop noisy retries.
+ */
+export async function recordPermanentFailure(clientId: number, platform: string, reason: string): Promise<{ suppressed: boolean; shouldAlert: boolean }> {
+  const profile = await storage.getSocialSyncProfile(clientId);
+  if (!profile) return { suppressed: false, shouldAlert: false };
+
+  const platState = getPlatformState(profile, platform);
+  platState.consecutive_permanent_failures = (platState.consecutive_permanent_failures || 0) + 1;
+  platState.last_failure_at = new Date().toISOString();
+
+  let suppressed = false;
+  if (platState.consecutive_permanent_failures >= PERMANENT_FAILURE_THRESHOLD) {
+    platState.suppressed = true;
+    platState.cooldown_until = new Date(Date.now() + PERMANENT_FAILURE_COOLDOWN_MS).toISOString();
+    platState.cooldown_reason = `suppressed: ${reason}`;
+    suppressed = true;
+
+    await storage.createSocialSyncLog({
+      client_id: clientId,
+      entity_type: "profile",
+      entity_id: null as any,
+      action: `cooldown.${platform}.suppressed`,
+      status: "info",
+      details: { reason, consecutive_permanent: platState.consecutive_permanent_failures },
+    });
+  }
+
+  const shouldAlert = platState.consecutive_permanent_failures >= PERMANENT_FAILURE_THRESHOLD &&
+    (!platState.last_alerted_at || (Date.now() - new Date(platState.last_alerted_at).getTime()) > ALERT_DEDUPE_WINDOW_MS);
+
+  await savePlatformState(clientId, platform, platState);
+  return { suppressed, shouldAlert };
+}
+
+/**
  * Mark that an alert was sent for this client/platform.
  */
 export async function markAlerted(clientId: number, platform: string): Promise<void> {
@@ -230,6 +288,8 @@ export async function clearCooldown(clientId: number, platform: string): Promise
   platState.cooldown_until = null;
   platState.cooldown_reason = null;
   platState.consecutive_failures = 0;
+  platState.consecutive_permanent_failures = 0;
+  platState.suppressed = false;
   await savePlatformState(clientId, platform, platState);
 
   await storage.createSocialSyncLog({
@@ -263,10 +323,13 @@ export async function getCooldownSummary(clientId: number): Promise<Record<strin
     const coolingDown = until ? until > new Date() : false;
 
     result[platform] = {
-      cooling_down: coolingDown,
-      reason: coolingDown ? platState.cooldown_reason : null,
+      cooling_down: coolingDown || platState.suppressed,
+      reason: platState.suppressed ? platState.cooldown_reason || "suppressed" : (coolingDown ? platState.cooldown_reason : null),
       until: coolingDown ? platState.cooldown_until : null,
       consecutive_failures: platState.consecutive_failures || 0,
+      consecutive_permanent_failures: platState.consecutive_permanent_failures || 0,
+      rate_limit_count_24h: platState.rate_limit_count_24h || 0,
+      suppressed: platState.suppressed || false,
       last_success_at: platState.last_success_at || null,
     };
   }

@@ -184,6 +184,8 @@ export default function SocialSyncOpsPage() {
             <MetricCard label="Expired Tokens" value={metrics.expired_tokens} color={metrics.expired_tokens > 0 ? "red" : undefined} />
             <MetricCard label="Expiring Soon" value={metrics.expiring_soon} color={metrics.expiring_soon > 0 ? "amber" : undefined} />
             <MetricCard label="At Risk" value={metrics.clients_at_risk} color={metrics.clients_at_risk > 0 ? "red" : undefined} />
+            <MetricCard label="In Cooldown" value={metrics.clients_in_cooldown || 0} color={(metrics.clients_in_cooldown || 0) > 0 ? "amber" : undefined} />
+            <MetricCard label="Suppressed" value={metrics.clients_suppressed || 0} color={(metrics.clients_suppressed || 0) > 0 ? "red" : undefined} />
             <MetricCard label="Total Clients" value={clients.length} />
           </div>
         )}

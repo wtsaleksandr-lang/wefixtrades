@@ -2,7 +2,7 @@ import { storage } from "../storage";
 import { publishToFacebook, isRateLimitError as isFbRateLimit, type PublishResult } from "../services/socialSync/facebookPublisher";
 import { publishToInstagram, isRateLimitError as isIgRateLimit, type InstagramPublishResult } from "../services/socialSync/instagramPublisher";
 import { publishToGoogleBusiness, type GooglePublishResult } from "../services/socialSync/googleBusinessPublisher";
-import { checkCooldown, recordSuccess, recordRateLimit, recordFailure } from "../services/socialSync/cooldownManager";
+import { checkCooldown, recordSuccess, recordRateLimit, recordFailure, recordPermanentFailure } from "../services/socialSync/cooldownManager";
 import { sendAlert, buildPublishFailuresAlert, buildRateLimitedAlert, isAlertingConfigured } from "../services/socialSync/alertService";
 import type { SocialSyncPost, SocialSyncQueueItem } from "@shared/schema";
 
@@ -23,23 +23,24 @@ const STALE_LOCK_THRESHOLD_MS = 10 * 60 * 1000;
  * Currently supports: Facebook (real publish)
  * Other platforms: fail with "not yet implemented"
  */
-export async function processSocialSyncQueue(): Promise<{ processed: number; published: number; recovered: number; errors: string[] }> {
+export async function processSocialSyncQueue(): Promise<{ processed: number; published: number; recovered: number; skipped_cooldown: number; errors: string[] }> {
   const errors: string[] = [];
   let processed = 0;
   let published = 0;
+  let skippedCooldown = 0;
 
   // ─── Step 0: Recover stale locks ───
   const recovered = await recoverStaleLocks();
 
   // ─── Step 1: Fetch due jobs ───
   const dueJobs = await storage.fetchDueSocialSyncJobs(20);
-  if (dueJobs.length === 0) return { processed: 0, published: 0, recovered, errors: [] };
+  if (dueJobs.length === 0) return { processed: 0, published: 0, recovered, skipped_cooldown: 0, errors: [] };
 
   for (const job of dueJobs) {
     try {
       const result = await processOneJob(job);
       if (result.skipped) {
-        // Cooldown skip — don't count as processed, don't log as error
+        skippedCooldown++;
         continue;
       }
       processed++;
@@ -56,7 +57,7 @@ export async function processSocialSyncQueue(): Promise<{ processed: number; pub
     }
   }
 
-  return { processed, published, recovered, errors };
+  return { processed, published, recovered, skipped_cooldown: skippedCooldown, errors };
 }
 
 /* ─── Stale Lock Recovery ─── */
@@ -309,8 +310,8 @@ async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boo
 
   if (isPermanent && !isRateLimit) {
     await failJob(job, result.error || "Unknown publish error", true, result);
-    // Record failure for cooldown + alerting
-    const { shouldAlert } = await recordFailure(job.client_id, job.platform);
+    // Record permanent failure for suppression + alerting
+    const { shouldAlert } = await recordPermanentFailure(job.client_id, job.platform, result.error || "unknown");
     if (shouldAlert && isAlertingConfigured()) {
       const client = await storage.getClientById(job.client_id);
       await sendAlert(buildPublishFailuresAlert(job.client_id, client?.business_name || null, job.platform, 3));

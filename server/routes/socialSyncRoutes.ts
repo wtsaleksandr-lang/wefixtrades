@@ -947,6 +947,8 @@ export function registerSocialSyncRoutes(app: Express): void {
       let totalPublished7d = 0;
       let totalQueuedDueToday = 0;
       let clientsAtRisk = 0;
+      let clientsInCooldown = 0;
+      let clientsSuppressed = 0;
 
       for (const profile of profiles) {
         const clientId = profile.client_id;
@@ -1037,6 +1039,13 @@ export function registerSocialSyncRoutes(app: Express): void {
           at_risk: isAtRisk || (successRate !== null && successRate < 50),
           risk_reasons: riskReasons,
         });
+
+        // Aggregate cooldown stats
+        const cd = await getCooldownSummary(clientId);
+        const hasCooldown = Object.values(cd).some((v: any) => v.cooling_down);
+        const hasSuppressed = Object.values(cd).some((v: any) => v.suppressed);
+        if (hasCooldown) clientsInCooldown++;
+        if (hasSuppressed) clientsSuppressed++;
       }
 
       res.json({
@@ -1053,6 +1062,8 @@ export function registerSocialSyncRoutes(app: Express): void {
           published_24h: totalPublished24h,
           published_7d: totalPublished7d,
           clients_at_risk: clientsAtRisk,
+          clients_in_cooldown: clientsInCooldown,
+          clients_suppressed: clientsSuppressed,
         },
         clients: clientSummaries.sort((a, b) => {
           // At-risk first, then by published_7d descending
