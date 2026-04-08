@@ -5,6 +5,11 @@ import { storage } from "../storage";
 import { processSocialSyncQueue } from "../jobs/socialSyncWorker";
 import { generateWeekForClient, generateAllDue } from "../services/socialSync/orchestrator";
 import { regeneratePost } from "../services/socialSync/contentGenerator";
+import {
+  validateFacebookConfig, buildFacebookOAuthUrl, handleFacebookCallback,
+  selectFacebookPage, validateFacebookConnection,
+} from "../services/socialSync/facebookService";
+import { decryptToken } from "../services/socialSync/tokenEncryption";
 import type { SocialSyncProfile, InsertSocialSyncTopic } from "@shared/schema";
 
 /* ─── Seed Topic Templates ─── */
@@ -556,6 +561,165 @@ export function registerSocialSyncRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[socialsync] Calendar feed error:", err.message);
       res.status(500).json({ error: "Failed to load calendar feed" });
+    }
+  });
+
+  // ─── Phase 3A: Facebook OAuth & Connection Routes ───
+
+  // 19. GET Facebook connect URL
+  app.get("/api/socialsync/clients/:clientId/facebook/connect-url", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const configCheck = validateFacebookConfig();
+      if (!configCheck.valid) {
+        return res.status(503).json({
+          error: "Facebook integration not configured",
+          missing: configCheck.missing,
+        });
+      }
+
+      const url = buildFacebookOAuthUrl(clientId);
+      res.json({ url });
+    } catch (err: any) {
+      console.error("[socialsync] Facebook connect URL error:", err.message);
+      res.status(500).json({ error: "Failed to generate Facebook connect URL" });
+    }
+  });
+
+  // 20. GET Facebook OAuth callback (browser redirect — not JSON)
+  app.get("/api/socialsync/oauth/facebook/callback", async (req: Request, res: Response) => {
+    try {
+      const { code, state, error: oauthError, error_description } = req.query;
+
+      if (oauthError) {
+        console.error("[socialsync] Facebook OAuth denied:", oauthError, error_description);
+        return res.redirect(`/admin/crm/clients?fb_error=${encodeURIComponent(String(error_description || oauthError))}`);
+      }
+
+      if (!code || typeof code !== "string") {
+        return res.redirect("/admin/crm/clients?fb_error=missing_code");
+      }
+
+      // Decode state to get clientId
+      let clientId: number;
+      try {
+        const decoded = JSON.parse(Buffer.from(String(state), "base64url").toString());
+        clientId = decoded.clientId;
+        if (!clientId || typeof clientId !== "number") throw new Error("Invalid clientId in state");
+      } catch {
+        return res.redirect("/admin/crm/clients?fb_error=invalid_state");
+      }
+
+      const result = await handleFacebookCallback(clientId, code);
+
+      // Redirect back to the client's SocialSync tab
+      res.redirect(`/admin/crm/clients/${clientId}?tab=socialsync&fb_connected=1&pages=${result.pages.length}`);
+    } catch (err: any) {
+      console.error("[socialsync] Facebook callback error:", err.message);
+      res.redirect(`/admin/crm/clients?fb_error=${encodeURIComponent(err.message)}`);
+    }
+  });
+
+  // 21. GET discovered Facebook pages for a client
+  app.get("/api/socialsync/clients/:clientId/facebook/pages", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const fbConn = connections.find(c => c.platform === "facebook");
+
+      if (!fbConn || !fbConn.token_ref) {
+        return res.status(404).json({ error: "No Facebook connection found. Connect Facebook first." });
+      }
+
+      if (fbConn.connection_status !== "connected") {
+        return res.status(400).json({ error: `Connection status is "${fbConn.connection_status}". Reconnect required.` });
+      }
+
+      // Return pages from stored metadata (from discovery during auth)
+      const metadata = (fbConn.metadata as any) || {};
+      const discoveredPages = metadata.pages_discovered || [];
+
+      // Also include currently selected page info
+      const selectedPage = metadata.selected_page || null;
+
+      res.json({
+        pages: discoveredPages,
+        selected_page: selectedPage,
+        external_page_id: fbConn.external_page_id,
+      });
+    } catch (err: any) {
+      console.error("[socialsync] Facebook pages error:", err.message);
+      res.status(500).json({ error: "Failed to load Facebook pages" });
+    }
+  });
+
+  // 22. POST select a Facebook page as publishing target
+  app.post("/api/socialsync/clients/:clientId/facebook/select-page", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const { page_id } = req.body;
+      if (!page_id || typeof page_id !== "string") {
+        return res.status(400).json({ error: "page_id is required" });
+      }
+
+      await selectFacebookPage(clientId, page_id);
+      res.json({ ok: true, page_id });
+    } catch (err: any) {
+      console.error("[socialsync] Facebook select page error:", err.message);
+      res.status(500).json({ error: err.message || "Failed to select Facebook page" });
+    }
+  });
+
+  // 23. POST validate Facebook connection
+  app.post("/api/socialsync/clients/:clientId/facebook/validate", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const result = await validateFacebookConnection(clientId);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[socialsync] Facebook validate error:", err.message);
+      res.status(500).json({ error: "Failed to validate Facebook connection" });
+    }
+  });
+
+  // 24. GET Facebook connection status (safe: no tokens exposed)
+  app.get("/api/socialsync/clients/:clientId/facebook/status", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const fbConn = connections.find(c => c.platform === "facebook");
+
+      if (!fbConn) {
+        return res.json({ connected: false, status: "not_connected" });
+      }
+
+      const metadata = (fbConn.metadata as any) || {};
+
+      res.json({
+        connected: fbConn.connection_status === "connected",
+        status: fbConn.connection_status,
+        external_account_id: fbConn.external_account_id,
+        external_page_id: fbConn.external_page_id,
+        user_name: metadata.user_name || null,
+        selected_page: metadata.selected_page || null,
+        pages_count: (metadata.pages_discovered || []).length,
+        token_expires_at: fbConn.token_expires_at,
+        last_validated_at: fbConn.last_validated_at,
+        last_error: metadata.last_error || null,
+      });
+    } catch (err: any) {
+      console.error("[socialsync] Facebook status error:", err.message);
+      res.status(500).json({ error: "Failed to load Facebook status" });
     }
   });
 }

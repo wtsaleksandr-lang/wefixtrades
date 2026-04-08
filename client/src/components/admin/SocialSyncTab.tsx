@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Play, XCircle, RotateCcw, Calendar, Zap, AlertTriangle } from "lucide-react";
+import { RefreshCw, Play, XCircle, RotateCcw, Calendar, Zap, AlertTriangle, Link2, CheckCircle, ExternalLink } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -92,6 +92,25 @@ interface ActivityLog {
   status: string | null;
   details: any;
   created_at: string;
+}
+
+interface FacebookStatus {
+  connected: boolean;
+  status: string;
+  external_account_id: string | null;
+  external_page_id: string | null;
+  user_name: string | null;
+  selected_page: { id: string; name: string; category: string | null } | null;
+  pages_count: number;
+  token_expires_at: string | null;
+  last_validated_at: string | null;
+  last_error: string | null;
+}
+
+interface FacebookPages {
+  pages: { id: string; name: string; category: string | null }[];
+  selected_page: { id: string; name: string } | null;
+  external_page_id: string | null;
 }
 
 /* ─── Helpers ─── */
@@ -178,6 +197,16 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
     enabled: !!clientId,
   });
 
+  const { data: fbStatus } = useQuery<FacebookStatus>({
+    queryKey: [`/api/socialsync/clients/${clientId}/facebook/status`],
+    enabled: !!clientId,
+  });
+
+  const { data: fbPages } = useQuery<FacebookPages>({
+    queryKey: [`/api/socialsync/clients/${clientId}/facebook/pages`],
+    enabled: !!clientId && fbStatus?.connected === true,
+  });
+
   // ─── Mutations ───
 
   function invalidateAll() {
@@ -186,6 +215,8 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
     queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/posts`] });
     queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/queue`] });
     queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/activity`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/facebook/status`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/facebook/pages`] });
   }
 
   const saveProfile = useMutation({
@@ -263,6 +294,36 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
       return res.json();
     },
     onSuccess: () => { invalidateAll(); toast({ title: "Post enqueued" }); },
+  });
+
+  const connectFacebook = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("GET", `/api/socialsync/clients/${clientId}/facebook/connect-url`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      if (data.url) window.open(data.url, "_self");
+    },
+    onError: () => toast({ title: "Facebook not configured", description: "Check server environment variables.", variant: "destructive" }),
+  });
+
+  const selectFbPage = useMutation({
+    mutationFn: async (pageId: string) => {
+      const res = await apiRequest("POST", `/api/socialsync/clients/${clientId}/facebook/select-page`, { page_id: pageId });
+      return res.json();
+    },
+    onSuccess: () => { invalidateAll(); toast({ title: "Facebook page selected" }); },
+  });
+
+  const validateFb = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/socialsync/clients/${clientId}/facebook/validate`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      invalidateAll();
+      toast({ title: data.valid ? "Connection valid" : "Connection invalid", description: data.error || undefined, variant: data.valid ? "default" : "destructive" });
+    },
   });
 
   // ─── Render ───
@@ -359,6 +420,88 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
           {summary?.next_scheduled && <InfoBanner text={`Next scheduled: ${summary.next_scheduled.platform} on ${fmtDate(summary.next_scheduled.scheduled_for)}`} />}
           {summary?.last_generation && <InfoBanner text={`Last generation: ${fmtDate(summary.last_generation.created_at)}`} />}
         </div>
+      </Card>
+
+      {/* ─── Facebook Connection Card ─── */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-gray-900">Facebook Connection</h3>
+          <div className="flex items-center gap-2">
+            {fbStatus?.connected && (
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => validateFb.mutate()} disabled={validateFb.isPending}>
+                {validateFb.isPending ? <RefreshCw className="w-3 h-3 animate-spin" /> : <><CheckCircle className="w-3 h-3 mr-1" /> Validate</>}
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => connectFacebook.mutate()} disabled={connectFacebook.isPending}>
+              {connectFacebook.isPending ? "Redirecting..." : fbStatus?.connected ? "Reconnect" : <><Link2 className="w-3.5 h-3.5 mr-1" /> Connect Facebook</>}
+            </Button>
+          </div>
+        </div>
+
+        {!fbStatus || fbStatus.status === "not_connected" ? (
+          <div className="text-center py-4">
+            <p className="text-sm text-gray-500">No Facebook account connected. Click "Connect Facebook" to begin.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {/* Status row */}
+            <div className="flex items-center gap-3 text-sm">
+              <StatusBadge status={fbStatus.status} />
+              {fbStatus.user_name && <span className="text-gray-700">Account: <strong>{fbStatus.user_name}</strong></span>}
+              {fbStatus.pages_count > 0 && <span className="text-gray-500">{fbStatus.pages_count} page(s) found</span>}
+            </div>
+
+            {/* Selected page */}
+            {fbStatus.selected_page ? (
+              <div className="flex items-center gap-2 p-2 bg-emerald-50 rounded-lg text-sm">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <span className="text-emerald-800">Publishing to: <strong>{fbStatus.selected_page.name}</strong></span>
+                {fbStatus.selected_page.category && <span className="text-emerald-600 text-xs">({fbStatus.selected_page.category})</span>}
+              </div>
+            ) : fbStatus.connected && (
+              <WarningBanner text="No page selected. Select a page below to enable publishing." />
+            )}
+
+            {/* Page picker */}
+            {fbStatus.connected && fbPages && fbPages.pages.length > 0 && (
+              <div className="pt-2">
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Select Publishing Page</label>
+                <div className="space-y-1">
+                  {fbPages.pages.map((page) => (
+                    <div key={page.id} className={`flex items-center justify-between p-2 rounded-lg border ${fbPages.external_page_id === page.id ? "border-emerald-300 bg-emerald-50" : "border-gray-200"}`}>
+                      <div>
+                        <span className="text-sm font-medium">{page.name}</span>
+                        {page.category && <span className="text-xs text-gray-500 ml-2">{page.category}</span>}
+                      </div>
+                      {fbPages.external_page_id !== page.id && (
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => selectFbPage.mutate(page.id)} disabled={selectFbPage.isPending}>
+                          Select
+                        </Button>
+                      )}
+                      {fbPages.external_page_id === page.id && (
+                        <Badge className="bg-emerald-100 text-emerald-700 text-xs">Active</Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Error / Expiry warnings */}
+            {fbStatus.status === "error" && fbStatus.last_error && (
+              <WarningBanner text={`Error: ${fbStatus.last_error}`} />
+            )}
+            {fbStatus.status === "expired" && (
+              <WarningBanner text="Token expired. Click Reconnect to re-authorize." />
+            )}
+            {fbStatus.last_validated_at && (
+              <p className="text-xs text-gray-400">Last validated: {fmtDate(fbStatus.last_validated_at)}</p>
+            )}
+            {fbStatus.token_expires_at && (
+              <p className="text-xs text-gray-400">Token expires: {fmtDate(fbStatus.token_expires_at)}</p>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* ─── Data Tabs ─── */}
