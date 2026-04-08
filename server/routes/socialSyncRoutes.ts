@@ -12,6 +12,7 @@ import {
 import {
   discoverInstagramAccounts, selectInstagramAccount, validateInstagramConnection,
 } from "../services/socialSync/instagramService";
+import { disconnectPlatform, checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
 import { decryptToken } from "../services/socialSync/tokenEncryption";
 import type { SocialSyncProfile, InsertSocialSyncTopic } from "@shared/schema";
 
@@ -827,6 +828,49 @@ export function registerSocialSyncRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[socialsync] Instagram status error:", err.message);
       res.status(500).json({ error: "Failed to load Instagram status" });
+    }
+  });
+
+  // ─── Phase 3F: Connection Lifecycle Routes ───
+
+  // 29. POST disconnect Facebook
+  app.post("/api/socialsync/clients/:clientId/facebook/disconnect", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const result = await disconnectPlatform(clientId, "facebook");
+      if (!result.ok) return res.status(400).json({ error: result.error });
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[socialsync] Facebook disconnect error:", err.message);
+      res.status(500).json({ error: "Failed to disconnect Facebook" });
+    }
+  });
+
+  // 30. POST disconnect Instagram
+  app.post("/api/socialsync/clients/:clientId/instagram/disconnect", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const result = await disconnectPlatform(clientId, "instagram");
+      if (!result.ok) return res.status(400).json({ error: result.error });
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[socialsync] Instagram disconnect error:", err.message);
+      res.status(500).json({ error: "Failed to disconnect Instagram" });
+    }
+  });
+
+  // 31. POST manually trigger connection expiry check
+  app.post("/api/socialsync/internal/check-connection-expiry", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const result = await checkConnectionExpiry();
+      res.json(result);
+    } catch (err: any) {
+      console.error("[socialsync] Expiry check error:", err.message);
+      res.status(500).json({ error: "Failed to check connection expiry" });
     }
   });
 }

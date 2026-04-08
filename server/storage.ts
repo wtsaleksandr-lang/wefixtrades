@@ -234,6 +234,7 @@ export interface IStorage {
   listEnabledSocialSyncProfiles(): Promise<SocialSyncProfile[]>;
   listRecentSocialSyncPosts(clientId: number, limit?: number): Promise<SocialSyncPost[]>;
   fetchStaleSocialSyncLocks(thresholdMs: number): Promise<SocialSyncQueueItem[]>;
+  listAllSocialSyncConnections(): Promise<SocialSyncConnection[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1446,6 +1447,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(socialsyncPosts.client_id, clientId))
       .orderBy(desc(socialsyncPosts.created_at))
       .limit(limit);
+  }
+
+  async listAllSocialSyncConnections(): Promise<SocialSyncConnection[]> {
+    return db.select().from(socialsyncPlatformConnections)
+      .where(sql`${socialsyncPlatformConnections.connection_status} IN ('connected', 'expiring_soon')`)
+      .orderBy(socialsyncPlatformConnections.token_expires_at);
   }
 
   async fetchStaleSocialSyncLocks(thresholdMs: number): Promise<SocialSyncQueueItem[]> {

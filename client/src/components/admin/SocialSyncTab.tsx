@@ -168,6 +168,9 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "bg-emerald-50 text-emerald-700",
   not_connected: "bg-gray-100 text-gray-500",
   connected: "bg-emerald-50 text-emerald-700",
+  expiring_soon: "bg-amber-50 text-amber-700",
+  expired: "bg-red-50 text-red-700",
+  disconnected: "bg-gray-100 text-gray-500",
   success: "bg-emerald-50 text-emerald-700",
   failure: "bg-red-50 text-red-700",
   info: "bg-blue-50 text-blue-700",
@@ -393,6 +396,22 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
     },
   });
 
+  const disconnectFb = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/socialsync/clients/${clientId}/facebook/disconnect`);
+      return res.json();
+    },
+    onSuccess: () => { invalidateAll(); toast({ title: "Facebook disconnected" }); },
+  });
+
+  const disconnectIg = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/socialsync/clients/${clientId}/instagram/disconnect`);
+      return res.json();
+    },
+    onSuccess: () => { invalidateAll(); toast({ title: "Instagram disconnected" }); },
+  });
+
   // ─── Render ───
 
   const profile = summary?.profile;
@@ -494,20 +513,25 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-gray-900">Facebook Connection</h3>
           <div className="flex items-center gap-2">
-            {fbStatus?.connected && (
+            {(fbStatus?.connected || fbStatus?.status === "expiring_soon") && (
               <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => validateFb.mutate()} disabled={validateFb.isPending}>
                 {validateFb.isPending ? <RefreshCw className="w-3 h-3 animate-spin" /> : <><CheckCircle className="w-3 h-3 mr-1" /> Validate</>}
               </Button>
             )}
+            {fbStatus && fbStatus.status !== "not_connected" && fbStatus.status !== "disconnected" && (
+              <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" onClick={() => disconnectFb.mutate()} disabled={disconnectFb.isPending}>
+                {disconnectFb.isPending ? "..." : <><XCircle className="w-3 h-3 mr-1" /> Disconnect</>}
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={() => connectFacebook.mutate()} disabled={connectFacebook.isPending}>
-              {connectFacebook.isPending ? "Redirecting..." : fbStatus?.connected ? "Reconnect" : <><Link2 className="w-3.5 h-3.5 mr-1" /> Connect Facebook</>}
+              {connectFacebook.isPending ? "Redirecting..." : (fbStatus?.connected || fbStatus?.status === "expiring_soon") ? "Reconnect" : <><Link2 className="w-3.5 h-3.5 mr-1" /> Connect Facebook</>}
             </Button>
           </div>
         </div>
 
-        {!fbStatus || fbStatus.status === "not_connected" ? (
+        {!fbStatus || fbStatus.status === "not_connected" || fbStatus.status === "disconnected" ? (
           <div className="text-center py-4">
-            <p className="text-sm text-gray-500">No Facebook account connected. Click "Connect Facebook" to begin.</p>
+            <p className="text-sm text-gray-500">{fbStatus?.status === "disconnected" ? "Facebook disconnected." : "No Facebook account connected."} Click "Connect Facebook" to begin.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -561,12 +585,13 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
             {fbStatus.status === "expired" && (
               <WarningBanner text="Token expired. Click Reconnect to re-authorize." />
             )}
-            {fbStatus.last_validated_at && (
-              <p className="text-xs text-gray-400">Last validated: {fmtDate(fbStatus.last_validated_at)}</p>
+            {fbStatus.status === "expiring_soon" && (
+              <WarningBanner text="Token expiring soon. Reconnect to refresh your authorization." />
             )}
-            {fbStatus.token_expires_at && (
-              <p className="text-xs text-gray-400">Token expires: {fmtDate(fbStatus.token_expires_at)}</p>
-            )}
+            <div className="flex items-center gap-4 text-xs text-gray-400">
+              {fbStatus.last_validated_at && <span>Validated: {fmtDate(fbStatus.last_validated_at)}</span>}
+              {fbStatus.token_expires_at && <span>Expires: {fmtDate(fbStatus.token_expires_at)}</span>}
+            </div>
           </div>
         )}
       </Card>
@@ -575,11 +600,18 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
       <Card className="p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-gray-900">Instagram Connection</h3>
-          {igStatus?.connected && (
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => validateIg.mutate()} disabled={validateIg.isPending}>
-              {validateIg.isPending ? <RefreshCw className="w-3 h-3 animate-spin" /> : <><CheckCircle className="w-3 h-3 mr-1" /> Validate</>}
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {(igStatus?.connected || igStatus?.status === "expiring_soon") && (
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => validateIg.mutate()} disabled={validateIg.isPending}>
+                {validateIg.isPending ? <RefreshCw className="w-3 h-3 animate-spin" /> : <><CheckCircle className="w-3 h-3 mr-1" /> Validate</>}
+              </Button>
+            )}
+            {igStatus && igStatus.status !== "not_connected" && igStatus.status !== "disconnected" && (
+              <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" onClick={() => disconnectIg.mutate()} disabled={disconnectIg.isPending}>
+                {disconnectIg.isPending ? "..." : <><XCircle className="w-3 h-3 mr-1" /> Disconnect</>}
+              </Button>
+            )}
+          </div>
         </div>
 
         {!fbStatus?.connected ? (
@@ -631,9 +663,13 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
             {igStatus?.status === "expired" && (
               <WarningBanner text="Token expired. Reconnect Meta/Facebook to refresh." />
             )}
-            {igStatus?.last_validated_at && (
-              <p className="text-xs text-gray-400">Last validated: {fmtDate(igStatus.last_validated_at)}</p>
+            {igStatus?.status === "expiring_soon" && (
+              <WarningBanner text="Token expiring soon. Reconnect Meta/Facebook to refresh." />
             )}
+            <div className="flex items-center gap-4 text-xs text-gray-400">
+              {igStatus?.last_validated_at && <span>Validated: {fmtDate(igStatus.last_validated_at)}</span>}
+              {igStatus?.token_expires_at && <span>Expires: {fmtDate(igStatus.token_expires_at)}</span>}
+            </div>
           </div>
         )}
       </Card>

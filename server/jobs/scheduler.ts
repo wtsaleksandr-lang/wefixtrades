@@ -8,6 +8,7 @@ import { processAuditFollowups } from "./auditFollowupWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
 import { processSocialSyncQueue } from "./socialSyncWorker";
 import { generateAllDue } from "../services/socialSync/orchestrator";
+import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -151,6 +152,16 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  // SocialSync connection expiry check — runs daily at 4 AM UTC
+  cron.schedule("0 4 * * *", async () => {
+    console.log("[Scheduler] Running SocialSync connection expiry check...");
+    try {
+      await runJob("socialsync_expiry_check", checkConnectionExpiry);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_expiry_check error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
   console.log("[Scheduler] Jobs scheduled:");
   console.log("  - Daily aggregation: 02:00 UTC every day");
   console.log("  - Chat memory cleanup: 03:00 UTC every day");
@@ -160,4 +171,5 @@ export function initScheduler() {
   console.log("  - Audit follow-up worker: every minute");
   console.log("  - SocialSync queue worker: every 2 minutes");
   console.log("  - SocialSync weekly generation: 06:00 UTC every Sunday");
+  console.log("  - SocialSync expiry check: 04:00 UTC every day");
 }
