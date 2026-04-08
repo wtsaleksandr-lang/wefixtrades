@@ -36,6 +36,7 @@ export const clients = pgTable("clients", {
   contact_phone: text("contact_phone"),
   website_url: text("website_url"),
   google_place_id: text("google_place_id"),
+  widget_token: varchar("widget_token", { length: 64 }).unique(),
   last_review_sync_at: timestamp("last_review_sync_at"),
   trade_type: varchar("trade_type", { length: 100 }),
   status: varchar("status", { length: 30 }).notNull().default("lead"),

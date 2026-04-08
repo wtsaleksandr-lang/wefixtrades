@@ -97,11 +97,44 @@ export function extractTier(serviceId: string | null | undefined): ReputationTie
 
 /* ─── Per-Client Settings ─── */
 
+export interface WidgetSettings {
+  enabled: boolean;
+  type: "badge" | "carousel";
+  min_rating: number;    // 1-5, only show reviews >= this
+  max_reviews: number;   // max reviews in carousel
+  show_reviewer_name: boolean;
+  show_date: boolean;
+}
+
+export const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
+  enabled: true,
+  type: "carousel",
+  min_rating: 4,
+  max_reviews: 10,
+  show_reviewer_name: true,
+  show_date: true,
+};
+
+export function mergeWidgetSettings(
+  partial: Partial<WidgetSettings> | null | undefined,
+): WidgetSettings {
+  const base = { ...DEFAULT_WIDGET_SETTINGS };
+  if (!partial) return base;
+  if (typeof partial.enabled === "boolean") base.enabled = partial.enabled;
+  if (partial.type && ["badge", "carousel"].includes(partial.type)) base.type = partial.type;
+  if (typeof partial.min_rating === "number" && partial.min_rating >= 1 && partial.min_rating <= 5) base.min_rating = partial.min_rating;
+  if (typeof partial.max_reviews === "number" && partial.max_reviews >= 1 && partial.max_reviews <= 50) base.max_reviews = partial.max_reviews;
+  if (typeof partial.show_reviewer_name === "boolean") base.show_reviewer_name = partial.show_reviewer_name;
+  if (typeof partial.show_date === "boolean") base.show_date = partial.show_date;
+  return base;
+}
+
 export interface ReputationSettings {
   channel_preference: "email" | "sms" | "auto";
   reminders_enabled: boolean;
   review_request_delay_hours: number;
   low_rating_alerts: boolean;
+  widget?: WidgetSettings;
 }
 
 export const DEFAULT_SETTINGS: ReputationSettings = {
@@ -109,6 +142,7 @@ export const DEFAULT_SETTINGS: ReputationSettings = {
   reminders_enabled: true,
   review_request_delay_hours: 2,
   low_rating_alerts: true,
+  widget: DEFAULT_WIDGET_SETTINGS,
 };
 
 /** Merge partial settings with defaults, rejecting invalid values. */
@@ -129,6 +163,9 @@ export function mergeSettings(
   }
   if (typeof partial.low_rating_alerts === "boolean") {
     base.low_rating_alerts = partial.low_rating_alerts;
+  }
+  if (partial.widget) {
+    base.widget = mergeWidgetSettings(partial.widget);
   }
 
   return base;

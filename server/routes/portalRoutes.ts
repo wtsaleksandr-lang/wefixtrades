@@ -1030,4 +1030,86 @@ Do NOT:
       res.status(500).json({ error: "Failed to update settings" });
     }
   });
+
+  /**
+   * GET /api/portal/reputation/widget
+   * Returns widget setup info: token, embed code, current settings.
+   */
+  app.get("/api/portal/reputation/widget", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { extractTier, canAccessFeature, mergeWidgetSettings } = await import("@shared/reputationConfig");
+      const { storage } = await import("../storage");
+
+      // Check feature access
+      const svc = await storage.getClientReputationService(clientId);
+      const tier = svc ? extractTier(svc.serviceId) : null;
+
+      // Badge available on all tiers; carousel on Pro+
+      const badgeAccess = !!tier;
+      const carouselAccess = canAccessFeature(tier, "reviewWidget");
+
+      if (!tier) {
+        return res.json({ active: false, widgetAccess: false });
+      }
+
+      // Ensure widget token exists
+      const widgetToken = await storage.ensureWidgetToken(clientId);
+
+      // Load widget settings
+      const ws = mergeWidgetSettings(svc?.metadata?.reputation_settings?.widget);
+
+      // Build base URL for embed code
+      const origin = req.headers.origin || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : `${req.protocol}://${req.get("host")}`);
+
+      res.json({
+        active: true,
+        widgetToken,
+        badgeAccess,
+        carouselAccess,
+        settings: ws,
+        embedCode: {
+          badge: `<script src="${origin}/widget/embed.js" data-wft-widget="badge" data-wft-token="${widgetToken}"></script>`,
+          carousel: carouselAccess
+            ? `<script src="${origin}/widget/embed.js" data-wft-widget="carousel" data-wft-token="${widgetToken}"></script>`
+            : null,
+        },
+      });
+    } catch (err: any) {
+      console.error("[portal] widget info error:", err.message);
+      res.status(500).json({ error: "Failed to load widget info" });
+    }
+  });
+
+  /**
+   * PATCH /api/portal/reputation/widget
+   * Update widget settings.
+   */
+  app.patch("/api/portal/reputation/widget", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { mergeSettings, mergeWidgetSettings } = await import("@shared/reputationConfig");
+      const { storage } = await import("../storage");
+
+      const svc = await storage.getClientReputationService(clientId);
+      if (!svc) return res.status(404).json({ error: "No ReputationShield service found" });
+
+      const currentSettings = svc.metadata?.reputation_settings ?? {};
+      const currentWidget = currentSettings.widget ?? {};
+      const updatedWidget = mergeWidgetSettings({ ...currentWidget, ...req.body });
+      const updatedSettings = mergeSettings({ ...currentSettings, widget: updatedWidget });
+      const metadata = { ...svc.metadata, reputation_settings: updatedSettings };
+
+      await storage.updateClientServiceMetadata(clientId, svc.serviceId, metadata);
+
+      res.json({ ok: true, settings: updatedWidget });
+    } catch (err: any) {
+      console.error("[portal] widget settings error:", err.message);
+      res.status(500).json({ error: "Failed to update widget settings" });
+    }
+  });
 }

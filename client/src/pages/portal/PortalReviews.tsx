@@ -9,8 +9,9 @@ import {
 } from "@/components/ui/select";
 import {
   Star, TrendingUp, MessageSquare, Send, ShieldCheck, AlertTriangle,
-  ChevronDown, ChevronUp, Loader2, RefreshCw, ThumbsDown, Settings, Lock,
+  ChevronDown, ChevronUp, Loader2, RefreshCw, ThumbsDown, Settings, Lock, Code,
 } from "lucide-react";
+import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -229,14 +230,21 @@ export default function PortalReviews() {
             </div>
             <p className="text-sm text-gray-500">How customers see your business online</p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8"
-            onClick={() => setShowSettings(!showSettings)}
-          >
-            <Settings className="w-3.5 h-3.5 mr-1" /> Settings
-          </Button>
+          <div className="flex gap-2">
+            <Link href="/portal/reviews/widget">
+              <Button variant="outline" size="sm" className="h-8">
+                <Code className="w-3.5 h-3.5 mr-1" /> Widget
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setShowSettings(!showSettings)}
+            >
+              <Settings className="w-3.5 h-3.5 mr-1" /> Settings
+            </Button>
+          </div>
         </div>
 
         {/* Settings panel (collapsible) */}

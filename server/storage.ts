@@ -216,6 +216,9 @@ export interface IStorage {
   listClientsForReviewSync(limit?: number): Promise<Client[]>;
   getClientReputationService(clientId: number): Promise<{ serviceId: string; status: string; metadata: any } | null>;
   updateClientServiceMetadata(clientId: number, serviceId: string, metadata: Record<string, any>): Promise<void>;
+  getClientByWidgetToken(token: string): Promise<Client | undefined>;
+  ensureWidgetToken(clientId: number): Promise<string>;
+  getWidgetReviews(clientId: number, minRating: number, limit: number): Promise<{ reviewer_name: string; rating: number; review_text: string | null; published_at: Date | null; platform: string }[]>;
 
   // CRM Overview
   getCrmOverview(): Promise<{
@@ -1568,6 +1571,41 @@ export class DatabaseStorage implements IStorage {
         eq(clientServices.client_id, clientId),
         eq(clientServices.service_id, serviceId),
       ));
+  }
+
+  async getClientByWidgetToken(token: string): Promise<Client | undefined> {
+    const [row] = await db.select().from(clients)
+      .where(eq(clients.widget_token, token))
+      .limit(1);
+    return row;
+  }
+
+  async ensureWidgetToken(clientId: number): Promise<string> {
+    const [existing] = await db.select({ widget_token: clients.widget_token })
+      .from(clients).where(eq(clients.id, clientId)).limit(1);
+    if (existing?.widget_token) return existing.widget_token;
+    const token = crypto.randomUUID().replace(/-/g, "");
+    await db.update(clients).set({ widget_token: token, updated_at: new Date() })
+      .where(eq(clients.id, clientId));
+    return token;
+  }
+
+  async getWidgetReviews(clientId: number, minRating: number, limit: number): Promise<{ reviewer_name: string; rating: number; review_text: string | null; published_at: Date | null; platform: string }[]> {
+    return db.select({
+      reviewer_name: monitoredReviews.reviewer_name,
+      rating: monitoredReviews.rating,
+      review_text: monitoredReviews.review_text,
+      published_at: monitoredReviews.published_at,
+      platform: monitoredReviews.platform,
+    }).from(monitoredReviews)
+      .where(and(
+        eq(monitoredReviews.client_id, clientId),
+        sql`${monitoredReviews.rating} >= ${minRating}`,
+        sql`${monitoredReviews.review_text} IS NOT NULL`,
+        sql`length(${monitoredReviews.review_text}) > 10`,
+      ))
+      .orderBy(desc(monitoredReviews.published_at))
+      .limit(limit);
   }
 }
 
