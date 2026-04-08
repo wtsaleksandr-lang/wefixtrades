@@ -323,6 +323,45 @@ export const tradelineConfigSchema = z.object({
 }).default({});
 export type TradelineConfig = z.infer<typeof tradelineConfigSchema>;
 
+/**
+ * Returns default TradeLine config for a given service_id variant.
+ * Returns null if the service_id is not a TradeLine variant.
+ */
+export function getTradeLineDefaultConfig(serviceId: string): TradelineConfig | null {
+  switch (serviceId) {
+    case "tradeline-call-backup":
+      return tradelineConfigSchema.parse({
+        variant: "call_backup",
+        currentMode: "available",
+        channels: { voice: true, websiteChat: false, websiteVoice: false, sms: true, hostedFallback: false },
+        website: { embedMode: "none" },
+      });
+    case "tradeline-chat":
+      return tradelineConfigSchema.parse({
+        variant: "chat",
+        currentMode: "available",
+        channels: { voice: false, websiteChat: true, websiteVoice: true, sms: false, hostedFallback: false },
+        website: { embedMode: "direct_embed" },
+      });
+    case "tradeline-complete":
+      return tradelineConfigSchema.parse({
+        variant: "complete",
+        currentMode: "available",
+        channels: { voice: true, websiteChat: true, websiteVoice: true, sms: true, hostedFallback: false },
+        website: { embedMode: "direct_embed" },
+      });
+    default:
+      // Legacy "tradeline" or tier-based IDs (tradeline-starter, tradeline-pro, etc.)
+      if (serviceId === "tradeline" || serviceId.startsWith("tradeline-")) {
+        return tradelineConfigSchema.parse({
+          variant: "complete",
+          currentMode: "available",
+        });
+      }
+      return null;
+  }
+}
+
 /* ─── TradeLine Usage ─── */
 export const tradelineUsage = pgTable("tradeline_usage", {
   id: serial("id").primaryKey(),

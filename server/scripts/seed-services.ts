@@ -58,6 +58,43 @@ function buildServiceRows() {
 
 const SERVICES = buildServiceRows();
 
+/* ─── TradeLine capability variants (operational service entries) ─── */
+const TRADELINE_VARIANTS = [
+  {
+    id: "tradeline-call-backup",
+    name: "TradeLine Call Backup",
+    tagline: "AI phone fallback & missed-call handling",
+    description: "Phone call backup with AI answering when you miss. SMS notifications for every call. No website widget required.",
+    category: "leads",
+    default_price: 9700, // $97 — same as starter tier by default
+    billing_period: "monthly",
+    delivery_pattern: "always_on",
+    sort_order: 200,
+  },
+  {
+    id: "tradeline-chat",
+    name: "TradeLine Chat",
+    tagline: "Website chat & voice widget for leads",
+    description: "AI chat and voice widget for your website. Hosted fallback available. No phone call handling required.",
+    category: "leads",
+    default_price: 9700,
+    billing_period: "monthly",
+    delivery_pattern: "always_on",
+    sort_order: 201,
+  },
+  {
+    id: "tradeline-complete",
+    name: "TradeLine Complete",
+    tagline: "Full AI employee — calls, chat, voice & hosted fallback",
+    description: "Call backup + website chat + hosted fallback. Full TradeLine core experience across all channels.",
+    category: "leads",
+    default_price: 19700, // $197 — pro tier by default
+    billing_period: "monthly",
+    delivery_pattern: "always_on",
+    sort_order: 202,
+  },
+];
+
 async function main() {
   console.log("Seeding service catalog...");
 
@@ -83,7 +120,30 @@ async function main() {
     console.log(`  ✓ ${svc.name}`);
   }
 
-  console.log(`\n${SERVICES.length} services seeded.`);
+  // Seed TradeLine variants
+  for (const svc of TRADELINE_VARIANTS) {
+    await db.insert(serviceCatalog).values({
+      ...svc,
+      is_active: true,
+    }).onConflictDoUpdate({
+      target: serviceCatalog.id,
+      set: {
+        name: svc.name,
+        tagline: svc.tagline,
+        description: svc.description,
+        category: svc.category,
+        default_price: svc.default_price,
+        billing_period: svc.billing_period,
+        delivery_pattern: svc.delivery_pattern,
+        sort_order: svc.sort_order,
+        is_active: true,
+        updated_at: new Date(),
+      },
+    });
+    console.log(`  ✓ ${svc.name} (variant)`);
+  }
+
+  console.log(`\n${SERVICES.length + TRADELINE_VARIANTS.length} services seeded.`);
 
   // ─── Task Templates ───
   console.log("\nSeeding task templates...");
@@ -144,13 +204,38 @@ async function main() {
       { title: "Post-launch QA & handoff", sort_order: 10, default_handled_by: "internal", human_review_required: true },
     ],
     "tradeline": [
-      { title: "Collect onboarding info", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client" },
-      { title: "Configure AI assistant profile", sort_order: 2, default_handled_by: "internal" },
-      { title: "Set up phone forwarding / Twilio number", sort_order: 3, default_handled_by: "internal" },
-      { title: "Deploy chat widget on client website", sort_order: 4, default_handled_by: "internal" },
-      { title: "Connect Facebook/Instagram DMs", sort_order: 5, default_handled_by: "internal" },
-      { title: "Test all channels", sort_order: 6, default_handled_by: "internal" },
-      { title: "Go live & client confirmation", sort_order: 7, default_handled_by: "internal", human_review_required: true },
+      { title: "Collect onboarding info", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
+      { title: "Configure AI assistant profile", sort_order: 2, default_handled_by: "internal", is_recurring: false },
+      { title: "Set up phone forwarding / Twilio number", sort_order: 3, default_handled_by: "internal", is_recurring: false },
+      { title: "Deploy chat widget on client website", sort_order: 4, default_handled_by: "internal", is_recurring: false },
+      { title: "Connect Facebook/Instagram DMs", sort_order: 5, default_handled_by: "internal", is_recurring: false },
+      { title: "Test all channels", sort_order: 6, default_handled_by: "internal", is_recurring: false },
+      { title: "Go live & client confirmation", sort_order: 7, default_handled_by: "internal", human_review_required: true, is_recurring: false },
+    ],
+    "tradeline-call-backup": [
+      { title: "Collect onboarding details", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
+      { title: "Configure TradeLine assistant", sort_order: 2, default_handled_by: "internal", is_recurring: false },
+      { title: "Configure phone routing / fallback settings", sort_order: 3, default_handled_by: "internal", is_recurring: false },
+      { title: "Configure notifications", sort_order: 4, default_handled_by: "internal", is_recurring: false },
+      { title: "Test missed-call handling", sort_order: 5, default_handled_by: "internal", is_recurring: false },
+      { title: "QA review + go live", sort_order: 6, default_handled_by: "internal", human_review_required: true, is_recurring: false },
+    ],
+    "tradeline-chat": [
+      { title: "Collect onboarding details", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
+      { title: "Configure TradeLine assistant", sort_order: 2, default_handled_by: "internal", is_recurring: false },
+      { title: "Prepare widget or hosted fallback", sort_order: 3, default_handled_by: "internal", is_recurring: false },
+      { title: "Install widget / provision hosted link", sort_order: 4, default_handled_by: "internal", is_recurring: false },
+      { title: "Configure lead notifications", sort_order: 5, default_handled_by: "internal", is_recurring: false },
+      { title: "QA review + go live", sort_order: 6, default_handled_by: "internal", human_review_required: true, is_recurring: false },
+    ],
+    "tradeline-complete": [
+      { title: "Collect onboarding details", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
+      { title: "Configure TradeLine assistant", sort_order: 2, default_handled_by: "internal", is_recurring: false },
+      { title: "Configure phone routing", sort_order: 3, default_handled_by: "internal", is_recurring: false },
+      { title: "Prepare website widget or hosted fallback", sort_order: 4, default_handled_by: "internal", is_recurring: false },
+      { title: "Configure notifications + callback flow", sort_order: 5, default_handled_by: "internal", is_recurring: false },
+      { title: "End-to-end testing", sort_order: 6, default_handled_by: "internal", is_recurring: false },
+      { title: "QA review + go live", sort_order: 7, default_handled_by: "internal", human_review_required: true, is_recurring: false },
     ],
     "quotequick": [
       { title: "Verify calculator created via wizard", sort_order: 1, default_handled_by: "internal" },
@@ -219,6 +304,61 @@ async function main() {
         { key: "pricing_examples", label: "Rough pricing examples", type: "text", required: false },
         { key: "faqs", label: "Common questions from customers", type: "text", required: false },
         { key: "after_hours_rules", label: "After-hours handling rules", type: "text", required: false },
+      ],
+    },
+    "tradeline-call-backup": {
+      name: "TradeLine Call Backup Onboarding",
+      steps: [
+        { key: "business_name", label: "Business name", type: "text", required: true },
+        { key: "trade_type", label: "Trade type", type: "text", required: true },
+        { key: "service_area", label: "Service area", type: "text", required: true },
+        { key: "business_hours", label: "Business hours", type: "text", required: true },
+        { key: "primary_phone", label: "Primary phone number", type: "text", required: true },
+        { key: "forwarding_preference", label: "Forwarding preference (no-answer / immediate / after-hours only)", type: "select", required: true },
+        { key: "ring_timeout", label: "Ring timeout (seconds before AI answers)", type: "text", required: false },
+        { key: "top_services", label: "Top services you offer", type: "text", required: true },
+        { key: "pricing_ranges", label: "Rough pricing / quote ranges", type: "text", required: false },
+        { key: "callback_number", label: "Callback number (if different)", type: "text", required: false },
+        { key: "escalation_number", label: "Escalation number (urgent calls)", type: "text", required: false },
+        { key: "tone", label: "Tone preference (professional / friendly / casual)", type: "select", required: true },
+      ],
+    },
+    "tradeline-chat": {
+      name: "TradeLine Chat Onboarding",
+      steps: [
+        { key: "business_name", label: "Business name", type: "text", required: true },
+        { key: "trade_type", label: "Trade type", type: "text", required: true },
+        { key: "website_url", label: "Website URL", type: "text", required: true },
+        { key: "website_access", label: "Can you provide website access for install?", type: "select", required: true },
+        { key: "install_mode", label: "Preferred install mode (direct embed / hosted fallback)", type: "select", required: true },
+        { key: "brand_colors", label: "Brand colors / logo URL", type: "text", required: false },
+        { key: "top_services", label: "Top services you offer", type: "text", required: true },
+        { key: "pricing_ranges", label: "Rough pricing / quote ranges", type: "text", required: false },
+        { key: "lead_destination", label: "Where should leads go? (email / phone / both)", type: "select", required: true },
+        { key: "booking_enabled", label: "Enable booking requests?", type: "checkbox", required: false },
+        { key: "tone", label: "Tone preference (professional / friendly / casual)", type: "select", required: true },
+      ],
+    },
+    "tradeline-complete": {
+      name: "TradeLine Complete Onboarding",
+      steps: [
+        { key: "business_name", label: "Business name", type: "text", required: true },
+        { key: "trade_type", label: "Trade type", type: "text", required: true },
+        { key: "service_area", label: "Service area", type: "text", required: true },
+        { key: "business_hours", label: "Business hours", type: "text", required: true },
+        { key: "primary_phone", label: "Primary phone number", type: "text", required: true },
+        { key: "forwarding_preference", label: "Forwarding preference (no-answer / immediate / after-hours only)", type: "select", required: true },
+        { key: "ring_timeout", label: "Ring timeout (seconds before AI answers)", type: "text", required: false },
+        { key: "website_url", label: "Website URL", type: "text", required: true },
+        { key: "website_access", label: "Can you provide website access for install?", type: "select", required: true },
+        { key: "install_mode", label: "Preferred install mode (direct embed / hosted fallback)", type: "select", required: true },
+        { key: "brand_colors", label: "Brand colors / logo URL", type: "text", required: false },
+        { key: "top_services", label: "Top services you offer", type: "text", required: true },
+        { key: "pricing_ranges", label: "Rough pricing / quote ranges", type: "text", required: false },
+        { key: "lead_destination", label: "Where should leads go? (email / phone / both)", type: "select", required: true },
+        { key: "escalation_number", label: "Escalation number (urgent calls)", type: "text", required: false },
+        { key: "booking_enabled", label: "Enable booking requests?", type: "checkbox", required: false },
+        { key: "tone", label: "Tone preference (professional / friendly / casual)", type: "select", required: true },
       ],
     },
     "quotequick": {

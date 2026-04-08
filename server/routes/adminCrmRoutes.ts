@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { requireAdmin, hashPassword } from "../auth";
 import { storage } from "../storage";
+import { getTradeLineDefaultConfig } from "@shared/schema";
 import crypto from "crypto";
 
 export function registerAdminCrmRoutes(app: Express): void {
@@ -453,7 +454,10 @@ export function registerAdminCrmRoutes(app: Express): void {
       const service = await storage.getServiceById(service_id);
       if (!service) return res.status(404).json({ error: "Service not found in catalog" });
 
-      // 1. Create client_service
+      // 1. Create client_service (with TradeLine defaults if applicable)
+      const tradelineDefaults = getTradeLineDefaultConfig(service_id);
+      const metadata = tradelineDefaults ? { tradeline: tradelineDefaults } : undefined;
+
       const clientService = await storage.createClientService({
         client_id: clientId,
         service_id,
@@ -462,6 +466,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         fulfillment_mode: fulfillment_mode || "internal",
         price_cents: price_override ?? service.default_price,
         billing_period: service.billing_period,
+        metadata,
       });
 
       // 2. Create invoice

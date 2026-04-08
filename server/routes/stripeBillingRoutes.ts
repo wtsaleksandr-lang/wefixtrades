@@ -11,6 +11,7 @@ import Stripe from "stripe";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
+import { getTradeLineDefaultConfig } from "@shared/schema";
 
 function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -227,6 +228,9 @@ async function provisionOrConfirmService(
     return;
   }
 
+  const tradelineDefaults = getTradeLineDefaultConfig(serviceId);
+  const metadata = tradelineDefaults ? { tradeline: tradelineDefaults } : undefined;
+
   const clientService = await storage.createClientService({
     client_id: clientId,
     service_id: serviceId,
@@ -235,6 +239,7 @@ async function provisionOrConfirmService(
     fulfillment_mode: "internal",
     price_cents: service.default_price,
     billing_period: service.billing_period,
+    metadata,
   });
 
   // Create paid payment record
