@@ -27,6 +27,12 @@ export const reviewRequests = pgTable("review_requests", {
   delivery_result: jsonb("delivery_result"),                   // Response from SMS/email provider
   failure_reason: text("failure_reason"),
   dedup_key: varchar("dedup_key", { length: 128 }),            // Prevents duplicate sends
+  // Attribution
+  attributed_review_id: integer("attributed_review_id"),       // FK to reviews.id if matched
+  attribution_confidence: varchar("attribution_confidence", { length: 20 }),
+  // high | medium | low | null
+  attribution_reason: text("attribution_reason"),              // e.g. "name_match + timing"
+  attributed_at: timestamp("attributed_at"),
   attempts: integer("attempts").notNull().default(0),
   max_attempts: integer("max_attempts").notNull().default(2),
   created_at: timestamp("created_at").defaultNow(),

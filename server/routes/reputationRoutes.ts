@@ -13,6 +13,7 @@ import { syncClientReviews, processAllClientReviews } from "../services/reputati
 import { getGoogleAccessToken } from "../services/socialSync/googleBusinessService";
 import { postGBPReply } from "../services/reputation/gbpReviewIngestion";
 import { enqueueFromBooking, processReviewRequests, getReviewLink } from "../services/reputation/reviewRequestService";
+import { getAttributionInsights, runAttributionForClient } from "../services/reputation/reviewAttribution";
 
 export function registerReputationRoutes(app: Express): void {
 
@@ -235,6 +236,36 @@ export function registerReputationRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[reputation] Review request status error:", err.message);
       res.status(500).json({ error: "Failed to load status" });
+    }
+  });
+
+  // ─── Attribution Routes ───
+
+  // 10. GET attribution insights for a client
+  app.get("/api/reputation/clients/:clientId/attribution", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const insights = await getAttributionInsights(clientId);
+      res.json(insights);
+    } catch (err: any) {
+      console.error("[reputation] Attribution insights error:", err.message);
+      res.status(500).json({ error: "Failed to load attribution insights" });
+    }
+  });
+
+  // 11. POST run attribution backfill for a client
+  app.post("/api/reputation/clients/:clientId/attribution/backfill", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const result = await runAttributionForClient(clientId);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[reputation] Attribution backfill error:", err.message);
+      res.status(500).json({ error: "Failed to run attribution" });
     }
   });
 }

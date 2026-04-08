@@ -35,6 +35,7 @@ export const reviews = pgTable("reviews", {
   // Metadata
   escalation_flag: boolean("escalation_flag").notNull().default(false),
   alerted_at: timestamp("alerted_at"),                         // When operator alert was sent for this review
+  attributed_request_id: integer("attributed_request_id"),     // FK to review_requests.id if matched
   metadata: jsonb("metadata"),                                 // Platform-specific raw data
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),

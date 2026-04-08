@@ -541,6 +541,16 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
     enabled: !!clientId,
   });
 
+  const { data: attrInsights } = useQuery<{
+    requests_sent: number; likely_attributed: number; estimated_response_rate: number | null;
+    high_confidence: number; medium_confidence: number; low_confidence: number;
+    avg_days_to_review: number | null;
+    recent_attributions: { review_id: number; request_id: number; reviewer_name: string | null; customer_name: string | null; star_rating: number | null; confidence: string; days_between: number }[];
+  }>({
+    queryKey: [`/api/reputation/clients/${clientId}/attribution`],
+    enabled: !!clientId,
+  });
+
   const [rrForm, setRrForm] = useState({ customer_name: "", customer_phone: "", customer_email: "" });
 
   const enqueueRR = useMutation({
@@ -1183,6 +1193,48 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
                   <p className="text-sm font-semibold text-gray-400">{rrStatus.summary.skipped}</p>
                   <p className="text-[10px] text-gray-500">Skipped</p>
                 </div>
+              </div>
+            )}
+
+            {/* Attribution Insights */}
+            {attrInsights && attrInsights.likely_attributed > 0 && (
+              <div className="mb-3 p-3 bg-emerald-50 rounded-lg">
+                <p className="text-xs font-medium text-emerald-800 mb-1">Likely Review Attribution (estimated)</p>
+                <div className="grid grid-cols-4 gap-2 mb-2">
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-emerald-700">{attrInsights.estimated_response_rate != null ? `${attrInsights.estimated_response_rate}%` : "—"}</p>
+                    <p className="text-[10px] text-emerald-600">Est. response rate</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-emerald-700">{attrInsights.likely_attributed}</p>
+                    <p className="text-[10px] text-emerald-600">Likely matches</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-gray-700">{attrInsights.requests_sent}</p>
+                    <p className="text-[10px] text-gray-500">Requests sent</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-gray-700">{attrInsights.avg_days_to_review != null ? `${attrInsights.avg_days_to_review}d` : "—"}</p>
+                    <p className="text-[10px] text-gray-500">Avg days to review</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 text-[10px] text-emerald-600 mb-1">
+                  <span>High: {attrInsights.high_confidence}</span>
+                  <span>Medium: {attrInsights.medium_confidence}</span>
+                  <span>Low: {attrInsights.low_confidence}</span>
+                </div>
+                {attrInsights.recent_attributions.length > 0 && (
+                  <div className="space-y-1 mt-2 pt-2 border-t border-emerald-200">
+                    {attrInsights.recent_attributions.slice(0, 5).map((a, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <span className="text-emerald-800">{a.customer_name || "?"} → {a.reviewer_name || "?"} {"★".repeat(a.star_rating || 0)}</span>
+                        <span className={`px-1 py-0.5 rounded text-[10px] ${a.confidence === "high" ? "bg-emerald-200 text-emerald-800" : a.confidence === "medium" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"}`}>
+                          {a.confidence} · {a.days_between}d
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

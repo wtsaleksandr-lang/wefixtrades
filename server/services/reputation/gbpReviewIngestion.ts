@@ -11,6 +11,7 @@ import { classifyReview, generateReply, shouldAutoReply, type ReplyContext } fro
 import {
   sendAlert, buildNegativeReviewAlert, buildEscalatedReviewAlert, isAlertingConfigured,
 } from "../socialSync/alertService";
+import { attemptAttribution } from "./reviewAttribution";
 import type { Review } from "@shared/schema";
 
 const GBP_API_V4 = "https://mybusiness.googleapis.com/v4";
@@ -142,6 +143,11 @@ export async function syncGBPReviews(
       } as any);
 
       if (isNew) result.new_reviews++;
+
+      // Attribution: try to match this review to a sent request
+      if (isNew) {
+        try { await attemptAttribution(review); } catch { /* non-blocking */ }
+      }
 
       // Alert for new negative/escalated reviews (dedup: only if not yet alerted)
       if (isNew && !review.alerted_at && isAlertingConfigured()) {
