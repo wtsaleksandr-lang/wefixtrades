@@ -54,6 +54,16 @@ async function sendFollowup(rr: ReviewRequest): Promise<{ sent: boolean; error?:
     return { sent: false, error: `Terminal status: ${fresh.status}` };
   }
 
+  // Stop condition: client has reminders disabled
+  if (fresh.client_id) {
+    try {
+      const svc = await storage.getClientReputationService(fresh.client_id);
+      if (svc?.metadata?.reputation_settings?.reminders_enabled === false) {
+        return { sent: false, error: "Reminders disabled by client" };
+      }
+    } catch { /* proceed if lookup fails */ }
+  }
+
   // Stop condition: sequence already complete
   if (fresh.sequence_step >= MAX_SEQUENCE_STEP) {
     // Mark as completed — we've sent all follow-ups

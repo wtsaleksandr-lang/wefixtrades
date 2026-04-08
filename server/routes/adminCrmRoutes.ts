@@ -1088,6 +1088,16 @@ export function registerAdminCrmRoutes(app: Express): void {
         client = await storage.getClientById(review.client_id);
       }
 
+      // Feature gating: check if client's plan includes AI drafts
+      if (review.client_id) {
+        const { extractTier, canAccessFeature } = await import("@shared/reputationConfig");
+        const svc = await storage.getClientReputationService(review.client_id);
+        const tier = svc ? extractTier(svc.serviceId) : null;
+        if (!canAccessFeature(tier, "aiDrafts")) {
+          return res.status(403).json({ error: "AI response drafts require the Pro plan or higher", upgrade: true });
+        }
+      }
+
       const { generateReviewDraft } = await import("../services/reviewDraftService");
       const toneOverride = req.body?.tone as string | undefined;
       const validTones = ["positive", "negative", "neutral"];
@@ -1153,6 +1163,82 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[admin-crm] Save draft error:", err.message);
       res.status(500).json({ error: "Failed to save draft" });
+    }
+  });
+
+  // ═══════════════════════════════════════════════
+  // ReputationShield Config (Admin)
+  // ═══════════════════════════════════════════════
+
+  /**
+   * GET /api/admin/crm/clients/:id/reputation-config
+   * View a client's ReputationShield tier, features, and settings.
+   */
+  app.get("/api/admin/crm/clients/:id/reputation-config", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id as string);
+      const { extractTier, mergeSettings, TIER_FEATURES, TIER_LABELS } = await import("@shared/reputationConfig");
+
+      const svc = await storage.getClientReputationService(clientId);
+      if (!svc) {
+        return res.json({ active: false, tier: null, features: {}, settings: null, serviceId: null });
+      }
+
+      const tier = extractTier(svc.serviceId);
+      const settings = mergeSettings(svc.metadata?.reputation_settings);
+      const features = tier ? TIER_FEATURES[tier] : {};
+
+      res.json({
+        active: true,
+        tier,
+        tierLabel: tier ? TIER_LABELS[tier] : null,
+        serviceId: svc.serviceId,
+        status: svc.status,
+        features,
+        settings,
+        metadata: svc.metadata,
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] Reputation config error:", err.message);
+      res.status(500).json({ error: "Failed to load config" });
+    }
+  });
+
+  /**
+   * PATCH /api/admin/crm/clients/:id/reputation-config
+   * Update a client's ReputationShield settings (admin override).
+   */
+  app.patch("/api/admin/crm/clients/:id/reputation-config", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id as string);
+      const { mergeSettings } = await import("@shared/reputationConfig");
+
+      const svc = await storage.getClientReputationService(clientId);
+      if (!svc) {
+        return res.status(404).json({ error: "No ReputationShield service found for this client" });
+      }
+
+      const current = svc.metadata?.reputation_settings ?? {};
+      const updated = mergeSettings({ ...current, ...req.body });
+      const metadata = { ...svc.metadata, reputation_settings: updated };
+
+      await storage.updateClientServiceMetadata(clientId, svc.serviceId, metadata);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "reputation.settings_updated",
+        entity_type: "client",
+        entity_id: clientId,
+        summary: `Updated ReputationShield settings for client #${clientId}`,
+        metadata: { fields: Object.keys(req.body) },
+      });
+
+      res.json({ ok: true, settings: updated });
+    } catch (err: any) {
+      console.error("[admin-crm] Reputation config update error:", err.message);
+      res.status(500).json({ error: "Failed to update config" });
     }
   });
 }

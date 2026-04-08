@@ -214,6 +214,8 @@ export interface IStorage {
   getMonitoredReviewStats(clientId?: number): Promise<{ total: number; averageRating: number; newCount: number; withResponse: number; byRating: Record<number, number> }>;
   markMonitoredReviewsAcknowledged(ids: number[]): Promise<void>;
   listClientsForReviewSync(limit?: number): Promise<Client[]>;
+  getClientReputationService(clientId: number): Promise<{ serviceId: string; status: string; metadata: any } | null>;
+  updateClientServiceMetadata(clientId: number, serviceId: string, metadata: Record<string, any>): Promise<void>;
 
   // CRM Overview
   getCrmOverview(): Promise<{
@@ -1542,6 +1544,30 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(sql`${clients.last_review_sync_at} ASC NULLS FIRST`)
       .limit(limit);
+  }
+
+  async getClientReputationService(clientId: number): Promise<{ serviceId: string; status: string; metadata: any } | null> {
+    const [row] = await db.select({
+      serviceId: clientServices.service_id,
+      status: clientServices.status,
+      metadata: clientServices.metadata,
+    }).from(clientServices)
+      .where(and(
+        eq(clientServices.client_id, clientId),
+        sql`${clientServices.service_id} LIKE 'reputationshield-%'`,
+        sql`${clientServices.status} IN ('active', 'onboarding', 'pending')`,
+      ))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async updateClientServiceMetadata(clientId: number, serviceId: string, metadata: Record<string, any>): Promise<void> {
+    await db.update(clientServices)
+      .set({ metadata, updated_at: new Date() })
+      .where(and(
+        eq(clientServices.client_id, clientId),
+        eq(clientServices.service_id, serviceId),
+      ));
   }
 }
 

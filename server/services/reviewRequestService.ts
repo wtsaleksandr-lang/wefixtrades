@@ -55,11 +55,29 @@ export async function createPostJobReviewRequest(
   // Generate review URL
   const reviewUrl = generateGoogleReviewLink(googlePlaceId);
 
-  // Determine channel (prefer email, fallback to sms)
-  const channel = booking.customer_email ? "email" : "sms";
+  // Load client settings if available
+  let settings: { channel_preference: string; review_request_delay_hours: number } | null = null;
+  if (clientId) {
+    try {
+      const { mergeSettings } = await import("@shared/reputationConfig");
+      const svc = await storage.getClientReputationService(clientId);
+      if (svc?.metadata?.reputation_settings) {
+        settings = mergeSettings(svc.metadata.reputation_settings);
+      }
+    } catch { /* use defaults */ }
+  }
 
-  // Schedule — send immediately for now (delay can be increased later)
-  const runAt = new Date();
+  // Determine channel from settings or fallback
+  let channel: "email" | "sms" = booking.customer_email ? "email" : "sms";
+  if (settings?.channel_preference === "sms" && booking.customer_phone) {
+    channel = "sms";
+  } else if (settings?.channel_preference === "email" && booking.customer_email) {
+    channel = "email";
+  }
+
+  // Schedule with configurable delay
+  const delayHours = settings?.review_request_delay_hours ?? 2;
+  const runAt = new Date(Date.now() + delayHours * 60 * 60 * 1000);
 
   const reviewRequest = await storage.createReviewRequest({
     client_id: clientId ?? null,

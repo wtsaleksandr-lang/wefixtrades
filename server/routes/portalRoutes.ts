@@ -955,4 +955,79 @@ Do NOT:
       res.status(500).json({ error: "Failed to load feedback" });
     }
   });
+
+  /**
+   * GET /api/portal/reputation/config
+   * Returns client's ReputationShield tier, features, and settings.
+   */
+  app.get("/api/portal/reputation/config", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { extractTier, canAccessFeature, mergeSettings, TIER_LABELS, FEATURE_LABELS, FEATURE_MIN_TIER, TIER_FEATURES } = await import("@shared/reputationConfig");
+      const { storage } = await import("../storage");
+
+      const svc = await storage.getClientReputationService(clientId);
+      if (!svc) {
+        return res.json({ active: false, tier: null, features: {}, settings: null });
+      }
+
+      const tier = extractTier(svc.serviceId);
+      const settings = mergeSettings(svc.metadata?.reputation_settings);
+      const features = tier ? TIER_FEATURES[tier] : {};
+
+      // Build upgrade hints for locked features
+      const upgradeHints: Record<string, string> = {};
+      if (tier) {
+        for (const [feature, minTier] of Object.entries(FEATURE_MIN_TIER)) {
+          if (!canAccessFeature(tier, feature as any)) {
+            upgradeHints[feature] = `Available on ${TIER_LABELS[minTier as keyof typeof TIER_LABELS]} plan`;
+          }
+        }
+      }
+
+      res.json({
+        active: true,
+        tier,
+        tierLabel: tier ? TIER_LABELS[tier] : null,
+        features,
+        settings,
+        upgradeHints,
+      });
+    } catch (err: any) {
+      console.error("[portal] reputation config error:", err.message);
+      res.status(500).json({ error: "Failed to load config" });
+    }
+  });
+
+  /**
+   * PATCH /api/portal/reputation/settings
+   * Update client's ReputationShield settings (channel, reminders, etc).
+   */
+  app.patch("/api/portal/reputation/settings", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { mergeSettings } = await import("@shared/reputationConfig");
+      const { storage } = await import("../storage");
+
+      const svc = await storage.getClientReputationService(clientId);
+      if (!svc) {
+        return res.status(404).json({ error: "No ReputationShield service found" });
+      }
+
+      const current = svc.metadata?.reputation_settings ?? {};
+      const updated = mergeSettings({ ...current, ...req.body });
+      const metadata = { ...svc.metadata, reputation_settings: updated };
+
+      await storage.updateClientServiceMetadata(clientId, svc.serviceId, metadata);
+
+      res.json({ ok: true, settings: updated });
+    } catch (err: any) {
+      console.error("[portal] reputation settings error:", err.message);
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
 }
