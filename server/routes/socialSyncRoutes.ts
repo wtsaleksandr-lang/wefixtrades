@@ -3,6 +3,8 @@ import crypto from "crypto";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
 import { processSocialSyncQueue } from "../jobs/socialSyncWorker";
+import { generateWeekForClient, generateAllDue } from "../services/socialSync/orchestrator";
+import { regeneratePost } from "../services/socialSync/contentGenerator";
 import type { SocialSyncProfile, InsertSocialSyncTopic } from "@shared/schema";
 
 /* ─── Seed Topic Templates ─── */
@@ -334,6 +336,84 @@ export function registerSocialSyncRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[socialsync] List activity error:", err.message);
       res.status(500).json({ error: "Failed to list activity logs" });
+    }
+  });
+
+  // ─── Phase 2B: AI Generation Endpoints ───
+
+  // 11. POST generate a full week of content for a client
+  app.post("/api/socialsync/clients/:clientId/generate-week", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const result = await generateWeekForClient(clientId);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[socialsync] Generate week error:", err.message);
+      res.status(500).json({ error: "Failed to generate weekly content" });
+    }
+  });
+
+  // 12. POST batch-generate for all due autopilot clients
+  app.post("/api/socialsync/internal/generate-all-due", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const result = await generateAllDue();
+      res.json(result);
+    } catch (err: any) {
+      console.error("[socialsync] Generate all due error:", err.message);
+      res.status(500).json({ error: "Failed to generate batch content" });
+    }
+  });
+
+  // 13. POST regenerate a specific post
+  app.post("/api/socialsync/posts/:postId/regenerate", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const postId = parseInt(req.params.postId as string);
+      if (isNaN(postId)) return res.status(400).json({ error: "Invalid post ID" });
+
+      const result = await regeneratePost(postId);
+      if (result.error) return res.status(400).json({ error: result.error });
+      if (result.rejected) return res.json({ rejected: true, reason: result.rejectionReason });
+
+      res.status(201).json(result.post);
+    } catch (err: any) {
+      console.error("[socialsync] Regenerate post error:", err.message);
+      res.status(500).json({ error: "Failed to regenerate post" });
+    }
+  });
+
+  // 14. GET calendar feed (JSON) for a client's upcoming scheduled posts
+  app.get("/api/socialsync/clients/:clientId/calendar-feed", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      // Get all posts that are queued, ready, or published with a scheduled_for date
+      const allPosts = await storage.listSocialSyncPosts(clientId, { limit: 100 });
+      const calendarItems = allPosts
+        .filter(p => p.scheduled_for && ["ready", "queued", "published", "publishing"].includes(p.status))
+        .map(p => ({
+          id: p.id,
+          platform: p.platform,
+          status: p.status,
+          scheduled_for: p.scheduled_for,
+          published_at: p.published_at,
+          post_text: p.post_text.slice(0, 120) + (p.post_text.length > 120 ? "..." : ""),
+          caption: p.caption,
+          hashtags: p.hashtags,
+          topic_id: p.topic_id,
+        }))
+        .sort((a, b) => new Date(a.scheduled_for!).getTime() - new Date(b.scheduled_for!).getTime());
+
+      res.json({
+        client_id: clientId,
+        count: calendarItems.length,
+        items: calendarItems,
+      });
+    } catch (err: any) {
+      console.error("[socialsync] Calendar feed error:", err.message);
+      res.status(500).json({ error: "Failed to load calendar feed" });
     }
   });
 }

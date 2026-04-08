@@ -7,6 +7,7 @@ import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
 import { processSocialSyncQueue } from "./socialSyncWorker";
+import { generateAllDue } from "../services/socialSync/orchestrator";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -139,6 +140,17 @@ export function initScheduler() {
     }
   });
 
+  // SocialSync content generation — runs weekly on Sunday at 6 AM UTC
+  // Generates the upcoming week's content for all autopilot clients
+  cron.schedule("0 6 * * 0", async () => {
+    console.log("[Scheduler] Running SocialSync weekly content generation...");
+    try {
+      await runJob("socialsync_weekly_generation", generateAllDue);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_weekly_generation error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
   console.log("[Scheduler] Jobs scheduled:");
   console.log("  - Daily aggregation: 02:00 UTC every day");
   console.log("  - Chat memory cleanup: 03:00 UTC every day");
@@ -147,4 +159,5 @@ export function initScheduler() {
   console.log("  - Follow-up jobs worker: every minute");
   console.log("  - Audit follow-up worker: every minute");
   console.log("  - SocialSync queue worker: every 2 minutes");
+  console.log("  - SocialSync weekly generation: 06:00 UTC every Sunday");
 }
