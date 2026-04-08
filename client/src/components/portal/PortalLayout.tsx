@@ -10,7 +10,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+const PortalChatWidget = lazy(() => import("./PortalChatWidget"));
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/portal", icon: LayoutDashboard },
@@ -173,6 +175,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           {children}
         </main>
       </div>
+
+      {/* Global portal AI assistant */}
+      <Suspense fallback={null}>
+        <PortalChatWidget />
+      </Suspense>
     </div>
   );
 }
