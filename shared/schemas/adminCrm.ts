@@ -35,6 +35,7 @@ export const clients = pgTable("clients", {
   contact_email: text("contact_email"),
   contact_phone: text("contact_phone"),
   website_url: text("website_url"),
+  google_place_id: text("google_place_id"),
   trade_type: varchar("trade_type", { length: 100 }),
   status: varchar("status", { length: 30 }).notNull().default("lead"),
   // lead | onboarding | active | paused | churned
@@ -286,3 +287,68 @@ export const adminActivityLog = pgTable("admin_activity_log", {
 export const insertAdminActivityLogSchema = createInsertSchema(adminActivityLog).omit({ id: true, created_at: true });
 export type InsertAdminActivityLog = z.infer<typeof insertAdminActivityLogSchema>;
 export type AdminActivityLog = typeof adminActivityLog.$inferSelect;
+
+/* ─── Review Requests ─── */
+export const reviewRequests = pgTable("review_requests", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").references(() => clients.id),
+  booking_id: integer("booking_id"),           // plain int — avoids cross-schema FK
+  lead_id: integer("lead_id"),
+
+  // Customer info (denormalized — survives booking deletion)
+  customer_name: text("customer_name"),
+  customer_email: text("customer_email"),
+  customer_phone: text("customer_phone"),
+
+  // Trigger: job_complete | quote_sent | call_complete | manual
+  trigger_source: varchar("trigger_source", { length: 30 }).notNull(),
+
+  // Channel: email | sms
+  channel: varchar("channel", { length: 20 }).notNull().default("email"),
+
+  // Lifecycle status:
+  // pending | sent | clicked | routed_positive | routed_negative | feedback_captured | completed | failed | stopped
+  status: varchar("status", { length: 30 }).notNull().default("pending"),
+
+  // Sentiment (filled after customer interaction): positive | neutral | negative | null
+  sentiment: varchar("sentiment", { length: 20 }),
+
+  // Review link data
+  google_place_id: text("google_place_id"),
+  review_url: text("review_url"),
+
+  // Private feedback (for negative sentiment)
+  internal_feedback: text("internal_feedback"),
+
+  // Sequence: 0=initial, 1=reminder_1, 2=reminder_2
+  sequence_step: integer("sequence_step").notNull().default(0),
+
+  // Scheduling & timestamps
+  run_at: timestamp("run_at").notNull(),
+  sent_at: timestamp("sent_at"),
+  clicked_at: timestamp("clicked_at"),
+  completed_at: timestamp("completed_at"),
+  next_followup_at: timestamp("next_followup_at"),
+
+  // Retry
+  attempts: integer("attempts").default(0),
+  max_attempts: integer("max_attempts").default(3),
+  last_error: text("last_error"),
+
+  // Template data
+  payload: jsonb("payload"),
+
+  // Dedup: unique per booking or per manual+client+contact+date
+  idempotency_key: varchar("idempotency_key", { length: 255 }).unique(),
+
+  // Public access token for review funnel page
+  access_token: varchar("access_token", { length: 64 }).unique(),
+
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+export const insertReviewRequestSchema = createInsertSchema(reviewRequests).omit({
+  id: true, created_at: true, updated_at: true,
+});
+export type InsertReviewRequest = z.infer<typeof insertReviewRequestSchema>;
+export type ReviewRequest = typeof reviewRequests.$inferSelect;

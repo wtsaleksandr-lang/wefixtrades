@@ -70,6 +70,7 @@ import ProfilePage from "@/pages/admin/ProfilePage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import ChangePasswordPage from "@/pages/admin/ChangePasswordPage";
 import OnboardingForm from "@/pages/OnboardingForm";
+import ReviewFunnel from "@/pages/ReviewFunnel";
 import RequireClient from "@/components/auth/RequireClient";
 import PortalDashboard from "@/pages/portal/PortalDashboard";
 import PortalServices from "@/pages/portal/PortalServices";
@@ -174,6 +175,7 @@ function Router() {
       <Route path="/quote-demo">{() => <Redirect to="/tools/quote-demo" />}</Route>
       <Route path="/free-audit">{() => <Redirect to="/tools/free-audit" />}</Route>
       <Route path="/onboarding/:token" component={OnboardingForm} />
+      <Route path="/review/:token" component={ReviewFunnel} />
       <Route path="/audit/report/:id" component={SharedAuditReport} />
       <Route path="/wizard" component={Wizard} />
       <Route path="/calculator" component={Calculator} />

@@ -674,4 +674,91 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to create portal account" });
     }
   });
+
+  // ═══════════════════════════════════════════════
+  // Review Requests
+  // ═══════════════════════════════════════════════
+
+  app.get("/api/admin/crm/review-requests", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = req.query.clientId ? parseInt(req.query.clientId as string) : undefined;
+      const status = req.query.status as string | undefined;
+      const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+      const rows = await storage.listReviewRequests({ clientId, status, limit, offset });
+      res.json({ data: rows });
+    } catch (err: any) {
+      console.error("[admin-crm] List review requests error:", err.message);
+      res.status(500).json({ error: "Failed to list review requests" });
+    }
+  });
+
+  app.post("/api/admin/crm/review-requests", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { client_id, customer_name, customer_email, customer_phone, channel, job_label } = req.body;
+      if (!client_id || !customer_name) {
+        return res.status(400).json({ error: "client_id and customer_name are required" });
+      }
+
+      const { createManualReviewRequest, processReviewRequest } = await import("../services/reviewRequestService");
+      const result = await createManualReviewRequest({
+        clientId: client_id,
+        customerName: customer_name,
+        customerEmail: customer_email,
+        customerPhone: customer_phone,
+        channel,
+        jobLabel: job_label,
+      });
+
+      if (!result.created) {
+        return res.status(409).json({ error: result.reason });
+      }
+
+      // Send immediately
+      if (result.reviewRequest) {
+        processReviewRequest(result.reviewRequest).catch((err: any) => {
+          console.error("[admin-crm] Review request send error:", err.message);
+        });
+      }
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review_request.created",
+        entity_type: "review_request",
+        entity_id: result.reviewRequest?.id ?? null,
+        summary: `Manual review request for "${customer_name}" (client ${client_id})`,
+      });
+
+      res.status(201).json({ created: true, id: result.reviewRequest?.id });
+    } catch (err: any) {
+      console.error("[admin-crm] Create review request error:", err.message);
+      res.status(500).json({ error: "Failed to create review request" });
+    }
+  });
+
+  app.patch("/api/admin/crm/review-requests/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const updated = await storage.updateReviewRequest(id, req.body);
+      if (!updated) return res.status(404).json({ error: "Review request not found" });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review_request.updated",
+        entity_type: "review_request",
+        entity_id: id,
+        summary: `Updated review request #${id}`,
+        metadata: { fields: Object.keys(req.body) },
+      });
+
+      res.json(updated);
+    } catch (err: any) {
+      console.error("[admin-crm] Update review request error:", err.message);
+      res.status(500).json({ error: "Failed to update review request" });
+    }
+  });
 }

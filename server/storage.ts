@@ -41,6 +41,8 @@ import {
   type AdminActivityLog, type InsertAdminActivityLog,
   type ServiceTaskTemplate,
   type OnboardingTemplate,
+  reviewRequests,
+  type ReviewRequest, type InsertReviewRequest,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -185,6 +187,17 @@ export interface IStorage {
   // Activity log
   logAdminActivity(data: InsertAdminActivityLog): Promise<AdminActivityLog>;
   listAdminActivity(opts?: { entityType?: string; entityId?: number; limit?: number }): Promise<AdminActivityLog[]>;
+
+  // ─── Review Requests ───
+  createReviewRequest(data: InsertReviewRequest): Promise<ReviewRequest>;
+  findReviewRequestByIdempotencyKey(key: string): Promise<ReviewRequest | undefined>;
+  getReviewRequestByToken(token: string): Promise<ReviewRequest | undefined>;
+  getReviewRequestById(id: number): Promise<ReviewRequest | undefined>;
+  fetchDueReviewRequests(limit?: number): Promise<ReviewRequest[]>;
+  updateReviewRequest(id: number, updates: Record<string, any>): Promise<ReviewRequest | undefined>;
+  listReviewRequests(opts?: { clientId?: number; status?: string; limit?: number; offset?: number }): Promise<ReviewRequest[]>;
+  stopReviewRequestsForBooking(bookingId: number): Promise<void>;
+  findClientByUserId(userId: number): Promise<Client | undefined>;
 
   // CRM Overview
   getCrmOverview(): Promise<{
@@ -1259,6 +1272,84 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { serviceCompleted, serviceActivated, clientActivated };
+  }
+
+  // ═══════════════════════════════════════════════
+  // Review Requests
+  // ═══════════════════════════════════════════════
+
+  async createReviewRequest(data: InsertReviewRequest): Promise<ReviewRequest> {
+    const [row] = await db.insert(reviewRequests).values(data).returning();
+    return row;
+  }
+
+  async findReviewRequestByIdempotencyKey(key: string): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.idempotency_key, key))
+      .limit(1);
+    return row;
+  }
+
+  async getReviewRequestByToken(token: string): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.access_token, token))
+      .limit(1);
+    return row;
+  }
+
+  async getReviewRequestById(id: number): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.id, id))
+      .limit(1);
+    return row;
+  }
+
+  async fetchDueReviewRequests(limit = 20): Promise<ReviewRequest[]> {
+    const now = new Date();
+    return db.select().from(reviewRequests)
+      .where(and(
+        eq(reviewRequests.status, "pending"),
+        lte(reviewRequests.run_at, now),
+        sql`${reviewRequests.attempts} < ${reviewRequests.max_attempts}`,
+      ))
+      .orderBy(reviewRequests.run_at)
+      .limit(limit);
+  }
+
+  async updateReviewRequest(id: number, updates: Record<string, any>): Promise<ReviewRequest | undefined> {
+    const [row] = await db.update(reviewRequests)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(reviewRequests.id, id))
+      .returning();
+    return row;
+  }
+
+  async listReviewRequests(opts: { clientId?: number; status?: string; limit?: number; offset?: number } = {}): Promise<ReviewRequest[]> {
+    const { clientId, status, limit = 50, offset = 0 } = opts;
+    const conditions = [];
+    if (clientId) conditions.push(eq(reviewRequests.client_id, clientId));
+    if (status) conditions.push(eq(reviewRequests.status, status));
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(reviewRequests)
+      .where(where)
+      .orderBy(desc(reviewRequests.created_at))
+      .limit(limit).offset(offset);
+  }
+
+  async stopReviewRequestsForBooking(bookingId: number): Promise<void> {
+    await db.update(reviewRequests)
+      .set({ status: "stopped", updated_at: new Date() })
+      .where(and(
+        eq(reviewRequests.booking_id, bookingId),
+        sql`${reviewRequests.status} IN ('pending', 'sent')`,
+      ));
+  }
+
+  async findClientByUserId(userId: number): Promise<Client | undefined> {
+    const [row] = await db.select().from(clients)
+      .where(eq(clients.user_id, userId))
+      .limit(1);
+    return row;
   }
 }
 
