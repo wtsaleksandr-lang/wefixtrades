@@ -23,6 +23,7 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TaskCard, ClientTasksEmptyState, isOverdue, type TaskItem } from "@/components/admin/TaskCard";
+import SocialSyncTab from "@/components/admin/SocialSyncTab";
 
 /* ─── Types ─── */
 interface Client {
@@ -518,11 +519,12 @@ export default function ClientDetailPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="services">
-          <TabsList className="w-full grid grid-cols-4">
+          <TabsList className="w-full grid grid-cols-5">
             <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
+            <TabsTrigger value="socialsync">SocialSync</TabsTrigger>
           </TabsList>
 
           {/* ─── Services Tab ─── */}
@@ -862,6 +864,11 @@ export default function ClientDetailPage() {
             {notes?.length === 0 && (
               <p className="text-sm text-gray-500 text-center py-4">No notes yet.</p>
             )}
+          </TabsContent>
+
+          {/* ─── SocialSync Tab ─── */}
+          <TabsContent value="socialsync" className="mt-4">
+            <SocialSyncTab clientId={clientId} />
           </TabsContent>
 
         </Tabs>

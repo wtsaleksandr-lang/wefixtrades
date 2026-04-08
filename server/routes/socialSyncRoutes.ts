@@ -383,6 +383,148 @@ export function registerSocialSyncRoutes(app: Express): void {
     }
   });
 
+  // 15. PATCH update topic status (reject/archive)
+  app.patch("/api/socialsync/topics/:topicId/status", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const topicId = parseInt(req.params.topicId as string);
+      if (isNaN(topicId)) return res.status(400).json({ error: "Invalid topic ID" });
+
+      const { status } = req.body;
+      if (!status || !["active", "used", "archived", "rejected"].includes(status)) {
+        return res.status(400).json({ error: "Invalid status. Must be: active, used, archived, rejected" });
+      }
+
+      const topic = await storage.updateSocialSyncTopic(topicId, { status });
+      if (!topic) return res.status(404).json({ error: "Topic not found" });
+
+      await storage.createSocialSyncLog({
+        client_id: topic.client_id,
+        entity_type: "topic",
+        entity_id: topic.id,
+        action: `topic.${status}`,
+        status: "success",
+        details: { new_status: status },
+      });
+
+      res.json(topic);
+    } catch (err: any) {
+      console.error("[socialsync] Update topic status error:", err.message);
+      res.status(500).json({ error: "Failed to update topic status" });
+    }
+  });
+
+  // 16. PATCH update post status (ready/cancelled/rejected)
+  app.patch("/api/socialsync/posts/:postId/status", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const postId = parseInt(req.params.postId as string);
+      if (isNaN(postId)) return res.status(400).json({ error: "Invalid post ID" });
+
+      const { status } = req.body;
+      if (!status || !["draft", "ready", "cancelled"].includes(status)) {
+        return res.status(400).json({ error: "Invalid status. Must be: draft, ready, cancelled" });
+      }
+
+      const post = await storage.updateSocialSyncPost(postId, { status } as any);
+      if (!post) return res.status(404).json({ error: "Post not found" });
+
+      await storage.createSocialSyncLog({
+        client_id: post.client_id,
+        entity_type: "post",
+        entity_id: post.id,
+        action: `post.${status}`,
+        status: "success",
+        details: { new_status: status },
+      });
+
+      res.json(post);
+    } catch (err: any) {
+      console.error("[socialsync] Update post status error:", err.message);
+      res.status(500).json({ error: "Failed to update post status" });
+    }
+  });
+
+  // 17. POST retry a failed queue item
+  app.post("/api/socialsync/queue/:queueId/retry", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const queueId = parseInt(req.params.queueId as string);
+      if (isNaN(queueId)) return res.status(400).json({ error: "Invalid queue ID" });
+
+      await storage.updateSocialSyncQueueItem(queueId, {
+        status: "pending",
+        locked_at: null,
+        last_error: null,
+        updated_at: new Date(),
+      });
+
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[socialsync] Retry queue item error:", err.message);
+      res.status(500).json({ error: "Failed to retry queue item" });
+    }
+  });
+
+  // 18. GET summary/overview for a client's SocialSync state
+  app.get("/api/socialsync/clients/:clientId/summary", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const [profile, topics, posts, queue, logs] = await Promise.all([
+        storage.getSocialSyncProfile(clientId),
+        storage.listSocialSyncTopics(clientId),
+        storage.listSocialSyncPosts(clientId, { limit: 100 }),
+        storage.listSocialSyncQueue(clientId),
+        storage.listSocialSyncLogs(clientId, 10),
+      ]);
+
+      const activeTopics = topics.filter(t => t.status === "active").length;
+      const draftPosts = posts.filter(p => p.status === "draft").length;
+      const readyPosts = posts.filter(p => p.status === "ready").length;
+      const queuedPosts = posts.filter(p => p.status === "queued").length;
+      const publishedPosts = posts.filter(p => p.status === "published").length;
+      const failedPosts = posts.filter(p => p.status === "failed").length;
+
+      const pendingQueue = queue.filter(q => q.status === "pending").length;
+      const failedQueue = queue.filter(q => q.status === "failed").length;
+      const completedQueue = queue.filter(q => q.status === "completed").length;
+
+      const nextScheduled = posts
+        .filter(p => p.scheduled_for && ["queued", "ready"].includes(p.status))
+        .sort((a, b) => new Date(a.scheduled_for!).getTime() - new Date(b.scheduled_for!).getTime())[0];
+
+      const lastGeneration = logs.find(l => l.action === "week.generated" || l.action === "topics.seed_generated");
+
+      res.json({
+        profile: profile || null,
+        stats: {
+          active_topics: activeTopics,
+          total_topics: topics.length,
+          draft_posts: draftPosts,
+          ready_posts: readyPosts,
+          queued_posts: queuedPosts,
+          published_posts: publishedPosts,
+          failed_posts: failedPosts,
+          pending_queue: pendingQueue,
+          failed_queue: failedQueue,
+          completed_queue: completedQueue,
+        },
+        next_scheduled: nextScheduled ? {
+          id: nextScheduled.id,
+          platform: nextScheduled.platform,
+          scheduled_for: nextScheduled.scheduled_for,
+        } : null,
+        last_generation: lastGeneration ? {
+          action: lastGeneration.action,
+          created_at: lastGeneration.created_at,
+          details: lastGeneration.details,
+        } : null,
+      });
+    } catch (err: any) {
+      console.error("[socialsync] Summary error:", err.message);
+      res.status(500).json({ error: "Failed to load summary" });
+    }
+  });
+
   // 14. GET calendar feed (JSON) for a client's upcoming scheduled posts
   app.get("/api/socialsync/clients/:clientId/calendar-feed", requireAdmin, async (req: Request, res: Response) => {
     try {
