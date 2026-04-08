@@ -1,6 +1,7 @@
 import { storage } from "../../storage";
 import { generateTopics } from "./topicGenerator";
 import { generatePostFromTopic, type ContentGenerationResult } from "./contentGenerator";
+import { checkContentMix } from "./qualityGate";
 import type { SocialSyncProfile, SocialSyncTopic } from "@shared/schema";
 
 /* ─── Frequency mapping ─── */
@@ -180,13 +181,37 @@ export async function generateWeekForClient(
     return result;
   }
 
-  // 4. Distribute topics across platforms
-  const pairs = distributeTopicsAcrossPlatforms(topicsToUse.slice(0, postsToGenerate), platforms);
+  // 4. Content mix guard — filter topics to avoid bad sequences
+  const recentPosts = await storage.listRecentSocialSyncPosts(clientId, 10);
+  const recentTopicTypes = recentPosts
+    .filter(p => p.topic_id)
+    .map(p => {
+      // Extract topic type from recent posts (stored in topics table)
+      const matchingTopic = [...availableTopics, ...(topicsToUse)].find(t => t.id === p.topic_id);
+      return matchingTopic?.type || "unknown";
+    })
+    .filter(t => t !== "unknown");
 
-  // 5. Generate schedule slots
+  const filteredTopics: SocialSyncTopic[] = [];
+  const usedTypes: string[] = [...recentTopicTypes];
+  for (const topic of topicsToUse.slice(0, postsToGenerate + 5)) { // Check more than needed
+    if (filteredTopics.length >= postsToGenerate) break;
+    const mixCheck = checkContentMix(topic.type, usedTypes);
+    if (mixCheck.ok) {
+      filteredTopics.push(topic);
+      usedTypes.unshift(topic.type);
+    } else {
+      result.errors.push(`Topic skipped (mix guard): ${mixCheck.adjustment}`);
+    }
+  }
+
+  // 5. Distribute topics across platforms
+  const pairs = distributeTopicsAcrossPlatforms(filteredTopics, platforms);
+
+  // 6. Generate schedule slots
   const scheduleSlots = generateScheduleSlots(pairs.length, new Date());
 
-  // 6. Generate posts
+  // 7. Generate posts
   const MAX_RETRIES = 1;
   for (let i = 0; i < pairs.length; i++) {
     const { topic, platform } = pairs[i];

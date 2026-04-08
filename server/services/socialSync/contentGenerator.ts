@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { chat } from "../aiService";
 import { storage } from "../../storage";
+import { evaluateQuality, type QualityResult } from "./qualityGate";
 import type { SocialSyncProfile, SocialSyncTopic, SocialSyncPost } from "@shared/schema";
 
 /* ─── Platform-specific constraints ─── */
@@ -90,73 +91,7 @@ ${avoidList}
 Respond with ONLY the JSON object.`;
 }
 
-/* ─── Quality validation ─── */
-
-interface QualityCheck {
-  passed: boolean;
-  reason?: string;
-  score: number;
-}
-
-function validatePostQuality(
-  postText: string,
-  hashtags: string[],
-  platform: string,
-  recentHashes: Set<string>,
-): QualityCheck {
-  const config = PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.facebook;
-
-  // Minimum length
-  if (postText.length < 30) {
-    return { passed: false, reason: "Post text too short (< 30 chars)", score: 0 };
-  }
-
-  // Maximum length
-  if (postText.length > config.maxLength + 200) {
-    return { passed: false, reason: `Post text too long (${postText.length} > ${config.maxLength})`, score: 20 };
-  }
-
-  // Too many hashtags
-  if (hashtags.length > config.maxHashtags + 5) {
-    return { passed: false, reason: `Too many hashtags (${hashtags.length})`, score: 30 };
-  }
-
-  // Duplicate hash check
-  const hash = crypto.createHash("sha256").update(postText.trim().toLowerCase()).digest("hex");
-  if (recentHashes.has(hash)) {
-    return { passed: false, reason: "Exact duplicate of recent post", score: 0 };
-  }
-
-  // Banned phrases check
-  const bannedPhrases = [
-    "did you know?",
-    "in today's fast-paced world",
-    "let's dive in",
-    "without further ado",
-    "game changer",
-    "synergy",
-    "leverage our",
-    "unlock the power",
-    "revolutionize",
-    "as a homeowner, you",
-  ];
-  const lower = postText.toLowerCase();
-  for (const phrase of bannedPhrases) {
-    if (lower.includes(phrase)) {
-      return { passed: false, reason: `Contains banned phrase: "${phrase}"`, score: 25 };
-    }
-  }
-
-  // Score calculation
-  let score = 60;
-  if (postText.length >= 100) score += 10;
-  if (postText.length <= config.maxLength) score += 10;
-  if (hashtags.length > 0 && hashtags.length <= config.maxHashtags) score += 10;
-  if (!lower.includes("click here")) score += 5;
-  if (lower.split("\n").length > 1) score += 5; // Has paragraph breaks
-
-  return { passed: true, score: Math.min(100, score) };
-}
+/* ─── Quality validation (delegated to qualityGate.ts) ─── */
 
 /* ─── Main generation function ─── */
 
@@ -176,8 +111,6 @@ export async function generatePostFromTopic(
   // Get recent posts for dedup
   const recentPosts = await storage.listRecentSocialSyncPosts(profile.client_id, 30);
   const recentTexts = recentPosts.map(p => p.post_text);
-  const recentHashes = new Set(recentPosts.map(p => p.duplicate_hash).filter(Boolean) as string[]);
-
   const systemPrompt = buildContentSystemPrompt(profile, platform);
   const userPrompt = buildContentUserPrompt(topic, platform, recentTexts);
 
@@ -214,20 +147,33 @@ export async function generatePostFromTopic(
     .filter((h: string) => h.length > 0 && h.length <= 30)
     .slice(0, config.maxHashtags);
 
-  // Quality check
-  const quality = validatePostQuality(postText, hashtags, platform, recentHashes);
-  if (!quality.passed) {
+  // Quality gate evaluation
+  const quality = await evaluateQuality(
+    postText, hashtags, platform, profile, topic,
+    recentPosts.map(p => ({ post_text: p.post_text })),
+    true, // enable AI self-review
+  );
+
+  if (quality.verdict === "reject") {
     return {
       post: null,
       rejected: true,
-      rejectionReason: quality.reason,
+      rejectionReason: `Quality rejected (score ${quality.score}): ${quality.reasons.join("; ")}`,
+    };
+  }
+
+  if (quality.verdict === "regenerate") {
+    return {
+      post: null,
+      rejected: true,
+      rejectionReason: `Quality below threshold (score ${quality.score}): ${quality.reasons.join("; ")}`,
     };
   }
 
   // Compute duplicate hash
   const duplicateHash = crypto.createHash("sha256").update(postText.trim().toLowerCase()).digest("hex");
 
-  // Save post
+  // Save post with quality metadata
   const post = await storage.createSocialSyncPost({
     client_id: profile.client_id,
     topic_id: topic.id,

@@ -714,7 +714,11 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
                       <div className="flex items-center gap-2">
                         <StatusBadge status={p.status} />
                         <span className="text-xs font-medium text-gray-500 capitalize">{p.platform}</span>
-                        {p.quality_score != null && <span className="text-xs text-gray-400">Q:{p.quality_score}</span>}
+                        {p.quality_score != null && (
+                          <span className={`text-xs ${p.quality_score >= 70 ? "text-emerald-600" : p.quality_score >= 50 ? "text-amber-600" : "text-red-500"}`}>
+                            Q:{p.quality_score}
+                          </span>
+                        )}
                         {p.platform === "instagram" && (
                           (p.media_plan?.image_url || p.media_plan?.public_image_url || p.media_plan?.url)
                             ? <span className="text-xs text-emerald-600">IMG</span>
