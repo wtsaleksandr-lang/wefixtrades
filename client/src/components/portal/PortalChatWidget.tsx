@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Send, X, MessageCircle, Sparkles } from "lucide-react";
+import { Send, X, Sparkles } from "lucide-react";
 import {
   readSSEStream, sendChatMessage,
   loadPortalMessages, savePortalMessages,
@@ -9,31 +9,11 @@ import {
 import { usePortalPageContext } from "@/hooks/usePortalPageContext";
 import { useAuth } from "@/hooks/useAuth";
 
-/* ─── Types ─── */
-interface StructuredResponse {
-  message: string;
-  suggestions?: string[];
-  next_step?: string;
-  ui_intent?: { type: string; payload?: any };
-}
-
 /* ─── Constants ─── */
 const GREETING: ChatMessage = {
   role: "assistant",
   content: "Hey! I'm your portal assistant. Ask me about your services, billing, setup — anything.",
 };
-
-/** Try to parse a structured JSON response, fall back to plain text */
-function parseResponse(text: string): StructuredResponse {
-  const trimmed = text.trim();
-  if (trimmed.startsWith("{")) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (typeof parsed.message === "string") return parsed;
-    } catch { /* not JSON — treat as plain text */ }
-  }
-  return { message: text };
-}
 
 export default function PortalChatWidget() {
   const { user } = useAuth();
@@ -81,13 +61,12 @@ export default function PortalChatWidget() {
     return () => el.removeEventListener("wheel", onWheel);
   }, [open]);
 
-  // Show default suggestions when chat opens and last message is from assistant
+  // Show default suggestions when chat opens or page changes
   useEffect(() => {
     if (open && !streaming && messages.length > 0) {
       const last = messages[messages.length - 1];
       if (last.role === "assistant" && last.content) {
-        const parsed = parseResponse(last.content);
-        setActiveSuggestions(parsed.suggestions ?? defaultSuggestions);
+        setActiveSuggestions(defaultSuggestions);
       }
     }
   }, [open, page]);
@@ -137,13 +116,9 @@ export default function PortalChatWidget() {
         });
       });
 
-      // Parse structured response for suggestions
-      const parsed = parseResponse(fullText);
-      if (parsed.suggestions?.length) {
-        setActiveSuggestions(parsed.suggestions);
-      } else {
-        setActiveSuggestions(defaultSuggestions.slice(0, 2));
-      }
+      // Show page-specific default suggestions after response completes
+      // Future: parse meta SSE event for server-generated suggestions (Phase 7)
+      setActiveSuggestions(defaultSuggestions.slice(0, 2));
     } catch {
       setMessages(prev => {
         const copy = [...prev];

@@ -5,7 +5,6 @@
  */
 
 import { useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
 
 export interface PortalPageHints {
   /** Human-readable label for the widget header */
@@ -54,7 +53,6 @@ function getDefaultSuggestions(page: string): string[] {
 
 export function usePortalPageContext(): PortalPageHints {
   const [location] = useLocation();
-  const _queryClient = useQueryClient();
 
   const { label, page, onboardingId } = derivePageHints(location);
   const suggestions = getDefaultSuggestions(page);
