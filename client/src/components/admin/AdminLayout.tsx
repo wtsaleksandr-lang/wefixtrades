@@ -14,6 +14,7 @@ import {
   DollarSign,
   Sparkles,
   Wrench,
+  Share2,
   User,
   Settings,
   KeyRound,
@@ -50,6 +51,7 @@ const NAV_ITEMS = [
   { label: "Billing", href: "/admin/crm/billing", icon: CreditCard },
   { label: "Suppliers", href: "/admin/crm/suppliers", icon: Factory },
   { label: "Services", href: "/admin/crm/services", icon: Wrench },
+  { label: "SocialSync", href: "/admin/crm/socialsync", icon: Share2 },
 ];
 
 const SECONDARY_ITEMS = [

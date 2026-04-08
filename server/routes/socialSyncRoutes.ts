@@ -910,4 +910,119 @@ export function registerSocialSyncRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to prepare media" });
     }
   });
+
+  // ─── Phase 4C: Operations Dashboard Endpoint ───
+
+  // 33. GET cross-client operations overview
+  app.get("/api/socialsync/ops/overview", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const profiles = await storage.listEnabledSocialSyncProfiles();
+      const allConnections = await storage.listAllSocialSyncConnections();
+
+      // Get all profiles (including disabled) for total count
+      const allProfiles: any[] = [];
+      for (const p of profiles) {
+        allProfiles.push(p);
+      }
+
+      // Build per-client summaries
+      const clientSummaries: any[] = [];
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+
+      let totalFbConnected = 0;
+      let totalIgConnected = 0;
+      let totalExpired = 0;
+      let totalExpiringSoon = 0;
+      let totalQueueFailed = 0;
+      let totalPublished24h = 0;
+      let totalPublished7d = 0;
+      let totalQueuedDueToday = 0;
+      let clientsAtRisk = 0;
+
+      for (const profile of profiles) {
+        const clientId = profile.client_id;
+        const connections = await storage.listSocialSyncConnections(clientId);
+        const posts = await storage.listSocialSyncPosts(clientId, { limit: 50 });
+        const queue = await storage.listSocialSyncQueue(clientId);
+
+        const fbConn = connections.find(c => c.platform === "facebook");
+        const igConn = connections.find(c => c.platform === "instagram");
+
+        const fbConnected = fbConn?.connection_status === "connected" || fbConn?.connection_status === "expiring_soon";
+        const igConnected = igConn?.connection_status === "connected" || igConn?.connection_status === "expiring_soon";
+
+        if (fbConnected) totalFbConnected++;
+        if (igConnected) totalIgConnected++;
+
+        const hasExpired = connections.some(c => c.connection_status === "expired");
+        const hasExpiringSoon = connections.some(c => c.connection_status === "expiring_soon");
+        if (hasExpired) totalExpired++;
+        if (hasExpiringSoon) totalExpiringSoon++;
+
+        const failedQueue = queue.filter(q => q.status === "failed").length;
+        totalQueueFailed += failedQueue;
+
+        const published24h = posts.filter(p => p.published_at && (now - new Date(p.published_at).getTime()) < day).length;
+        const published7d = posts.filter(p => p.published_at && (now - new Date(p.published_at).getTime()) < 7 * day).length;
+        totalPublished24h += published24h;
+        totalPublished7d += published7d;
+
+        const queuedDueToday = queue.filter(q => q.status === "pending" && new Date(q.run_at).getTime() < now + day).length;
+        totalQueuedDueToday += queuedDueToday;
+
+        const upcomingPosts = posts.filter(p => p.scheduled_for && ["queued", "ready"].includes(p.status)).length;
+
+        // Risk assessment
+        const isAtRisk = hasExpired || failedQueue > 0 || (upcomingPosts === 0 && profile.autopilot);
+        if (isAtRisk) clientsAtRisk++;
+
+        const riskReasons: string[] = [];
+        if (hasExpired) riskReasons.push("expired_token");
+        if (hasExpiringSoon) riskReasons.push("expiring_soon");
+        if (failedQueue > 0) riskReasons.push(`${failedQueue}_queue_failures`);
+        if (upcomingPosts === 0 && profile.autopilot) riskReasons.push("no_upcoming_posts");
+        if (!fbConnected && !igConnected) riskReasons.push("no_connections");
+
+        clientSummaries.push({
+          client_id: clientId,
+          enabled: profile.enabled,
+          autopilot: profile.autopilot,
+          niche: profile.niche,
+          location: profile.location,
+          fb_status: fbConn?.connection_status || "not_connected",
+          ig_status: igConn?.connection_status || "not_connected",
+          upcoming_posts: upcomingPosts,
+          published_7d: published7d,
+          failed_queue: failedQueue,
+          at_risk: isAtRisk,
+          risk_reasons: riskReasons,
+        });
+      }
+
+      res.json({
+        metrics: {
+          total_enabled: profiles.length,
+          total_autopilot: profiles.filter(p => p.autopilot).length,
+          fb_connected: totalFbConnected,
+          ig_connected: totalIgConnected,
+          expired_tokens: totalExpired,
+          expiring_soon: totalExpiringSoon,
+          queued_due_today: totalQueuedDueToday,
+          queue_failures: totalQueueFailed,
+          published_24h: totalPublished24h,
+          published_7d: totalPublished7d,
+          clients_at_risk: clientsAtRisk,
+        },
+        clients: clientSummaries.sort((a, b) => {
+          // At-risk first, then by published_7d descending
+          if (a.at_risk !== b.at_risk) return a.at_risk ? -1 : 1;
+          return b.published_7d - a.published_7d;
+        }),
+      });
+    } catch (err: any) {
+      console.error("[socialsync] Ops overview error:", err.message);
+      res.status(500).json({ error: "Failed to load operations overview" });
+    }
+  });
 }

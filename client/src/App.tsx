@@ -69,6 +69,7 @@ import ServicesPage from "@/pages/admin/ServicesPage";
 import ProfilePage from "@/pages/admin/ProfilePage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import ChangePasswordPage from "@/pages/admin/ChangePasswordPage";
+import SocialSyncOpsPage from "@/pages/admin/SocialSyncOpsPage";
 import OnboardingForm from "@/pages/OnboardingForm";
 import RequireClient from "@/components/auth/RequireClient";
 import PortalDashboard from "@/pages/portal/PortalDashboard";
@@ -86,6 +87,7 @@ function Router() {
       <Route path="/" component={MarketingHome} />
 
       <Route path="/admin/ai">{() => <RequirePortal><AiDashboard /></RequirePortal>}</Route>
+      <Route path="/admin/crm/socialsync">{() => <RequirePortal><SocialSyncOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/clients/:id">{() => <RequirePortal><ClientDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/clients">{() => <RequirePortal><ClientsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/inbox">{() => <RequirePortal><InboxPage /></RequirePortal>}</Route>
