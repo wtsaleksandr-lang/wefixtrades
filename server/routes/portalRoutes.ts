@@ -746,6 +746,9 @@ export function registerPortalRoutes(app: Express) {
       // Determine page hint from context
       const page = context?.service_name ? "onboarding" : (context?.surface === "help" ? "help" : "overview");
 
+      // Extract submission ID if the embedded AiChatPanel sent it
+      const onboardingId = typeof context?.submission_id === "number" ? context.submission_id : undefined;
+
       // Build onboarding hints if present
       const onboardingHints = context?.current_responses
         ? { currentResponses: context.current_responses }
@@ -753,7 +756,7 @@ export function registerPortalRoutes(app: Express) {
 
       // Assemble portal context from DB (graceful fallback if it fails)
       const portalContext = await assemblePortalContext(
-        userId, page, undefined, onboardingHints,
+        userId, page, onboardingId, onboardingHints,
       ).catch(() => undefined);
 
       const result = await assistantSync({

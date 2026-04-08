@@ -8,6 +8,7 @@ import {
 } from "@/lib/chatHelpers";
 import { usePortalPageContext } from "@/hooks/usePortalPageContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useOnboardingResponses } from "@/context/OnboardingContext";
 
 /* ─── Constants ─── */
 const GREETING: ChatMessage = {
@@ -18,6 +19,7 @@ const GREETING: ChatMessage = {
 export default function PortalChatWidget() {
   const { user } = useAuth();
   const { label, page, onboardingId, suggestions: defaultSuggestions } = usePortalPageContext();
+  const { responses: onboardingResponses } = useOnboardingResponses();
 
   const [open, setOpen] = useState(() => loadPortalOpenState());
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -95,6 +97,9 @@ export default function PortalChatWidget() {
         sessionId: sessionId.current,
         page,
         onboardingId,
+        currentResponses: onboardingId && Object.keys(onboardingResponses).length > 0
+          ? onboardingResponses
+          : undefined,
       });
 
       if (!res.ok) {

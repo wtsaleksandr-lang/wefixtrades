@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const PortalChatWidget = lazy(() => import("./PortalChatWidget"));
+import { OnboardingProvider } from "@/context/OnboardingContext";
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/portal", icon: LayoutDashboard },
@@ -56,6 +57,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const initials = (user?.name || user?.email || "C").charAt(0).toUpperCase();
 
   return (
+    <OnboardingProvider>
     <div className="flex h-screen bg-[#F6F7F9] overflow-hidden">
       {/* Mobile overlay */}
       {mobileOpen && (
@@ -181,5 +183,6 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         <PortalChatWidget />
       </Suspense>
     </div>
+    </OnboardingProvider>
   );
 }

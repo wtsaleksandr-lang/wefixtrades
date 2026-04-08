@@ -375,28 +375,71 @@ function buildPortalModeContext(ctx: PortalContext): string {
     case "portal_onboarding": {
       if (!ctx.onboarding) return "";
       const ob = ctx.onboarding;
-      const fieldList = ob.fields
-        .map((f) => `- ${f.label}${f.required ? " (required)" : " (optional)"}`)
-        .join("\n");
-      const currentValues = Object.keys(ob.currentResponses).length > 0
-        ? Object.entries(ob.currentResponses)
-            .filter(([, v]) => v !== "" && v !== false && v != null)
-            .map(([k, v]) => `- ${k}: ${v}`)
-            .join("\n") || "None filled yet."
-        : "None filled yet.";
 
-      return `\n=== ONBOARDING CONTEXT ===
-Service: ${ob.serviceName} (${ob.serviceId})
-Onboarding status: ${ob.onboardingStatus}
-Progress: ${ob.completedCount}/${ob.totalCount} fields completed
+      // Categorise fields into four buckets
+      const filledRequired: string[] = [];
+      const missingRequired: string[] = [];
+      const filledOptional: string[] = [];
+      const missingOptional: string[] = [];
 
-Form fields:
-${fieldList}
+      for (const f of ob.fields) {
+        const v = ob.currentResponses[f.key];
+        const filled = v !== undefined && v !== "" && v !== false && v !== null;
+        if (f.required) {
+          if (filled) filledRequired.push(f.label);
+          else missingRequired.push(f.label);
+        } else {
+          if (filled) filledOptional.push(f.label);
+          else missingOptional.push(f.label);
+        }
+      }
 
-What the client has filled in so far:
-${currentValues}
+      const requiredTotal = filledRequired.length + missingRequired.length;
+      const lines: string[] = [
+        `\n=== ONBOARDING CONTEXT ===`,
+        `Service: ${ob.serviceName} (${ob.serviceId})`,
+        `Status: ${ob.onboardingStatus}`,
+        `Required fields: ${filledRequired.length}/${requiredTotal} complete`,
+        ``,
+      ];
 
-Your #1 job is helping them complete this form. If they haven't started, proactively say: "You still need to fill in [X, Y, Z] — want help with any of those?" Guide them through each field in plain English. Never auto-submit or override their input.`;
+      // Required fields breakdown
+      if (filledRequired.length > 0) {
+        lines.push(`Completed (required): ${filledRequired.join(", ")}`);
+      }
+      if (missingRequired.length > 0) {
+        lines.push(`STILL NEEDED (required): ${missingRequired.join(", ")}`);
+      } else {
+        lines.push(`All required fields done — form is ready to submit.`);
+      }
+
+      // Optional fields (only show if there are any)
+      if (filledOptional.length > 0) {
+        lines.push(`Completed (optional): ${filledOptional.join(", ")}`);
+      }
+      if (missingOptional.length > 0) {
+        lines.push(`Not filled (optional): ${missingOptional.join(", ")}`);
+      }
+
+      // Show filled values so AI can refer to them accurately
+      const filledEntries = ob.fields
+        .filter((f) => {
+          const v = ob.currentResponses[f.key];
+          return v !== undefined && v !== "" && v !== false && v !== null;
+        })
+        .map((f) => `  ${f.label}: ${ob.currentResponses[f.key]}`);
+      if (filledEntries.length > 0) {
+        lines.push(``, `Values filled in so far:`, ...filledEntries);
+      }
+
+      lines.push(
+        ``,
+        `Your #1 job: help them complete this form. When asked "what's left?" or "what do I still need?" — answer precisely using the field data above.`,
+        `If required fields are missing, name them. If the form is ready, tell them they can submit.`,
+        `Never auto-submit or override their input.`,
+      );
+
+      return lines.join("\n");
     }
 
     case "portal_billing": {

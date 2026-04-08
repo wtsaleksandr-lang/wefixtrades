@@ -4,6 +4,7 @@ import { useRoute, Link } from "wouter";
 import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, MessageCircle, Send, RefreshCw } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { getFieldConfig } from "@/config/onboardingFields";
+import { useOnboardingResponses } from "@/context/OnboardingContext";
 
 interface Step {
   key: string;
@@ -46,12 +47,14 @@ function HelpModal({ field, onClose }: { field: { label: string; example?: strin
 
 /* ─── AI Chat Panel ─── */
 function AiChatPanel({
+  submissionId,
   serviceName,
   serviceId,
   steps,
   responses,
   onClose,
 }: {
+  submissionId: number;
   serviceName: string;
   serviceId: string;
   steps: Step[];
@@ -82,6 +85,7 @@ function AiChatPanel({
         body: JSON.stringify({
           messages: updated.map((m) => ({ role: m.role, content: m.content })),
           context: {
+            submission_id: submissionId,
             service_name: serviceName,
             service_id: serviceId,
             fields: steps.map((s) => ({ key: s.key, label: s.label, required: s.required })),
@@ -147,9 +151,11 @@ function AiChatPanel({
 export default function PortalOnboarding() {
   const [, params] = useRoute("/portal/onboarding/:id");
   const submissionId = params?.id;
+  const submissionIdNum = parseInt(submissionId || "", 10);
 
   const queryClient = useQueryClient();
   const [responses, setResponses] = useState<Record<string, any>>({});
+  const { setResponses: syncToContext } = useOnboardingResponses();
   const [validationError, setValidationError] = useState<string | null>(null);
   const [helpField, setHelpField] = useState<{ label: string; example?: string; helperText?: string } | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -173,6 +179,11 @@ export default function PortalOnboarding() {
       setResponses(existing);
     }
   }, [data]);
+
+  // Sync live form state to context so PortalChatWidget can read it
+  useEffect(() => { syncToContext(responses); }, [responses]);
+  // Clear context when leaving this page
+  useEffect(() => () => { syncToContext({}); }, []);
 
   const [draftSaved, setDraftSaved] = useState(false);
 
@@ -407,6 +418,7 @@ export default function PortalOnboarding() {
       {/* AI Chat Panel */}
       {data && chatOpen && (
         <AiChatPanel
+          submissionId={submissionIdNum}
           serviceName={data.service_name ?? "service"}
           serviceId={data.service_id ?? ""}
           steps={data.steps}
