@@ -14,6 +14,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { HelpCue } from "@/components/admin/ServiceOps";
 import {
   Star, TrendingUp, AlertTriangle, MessageSquare, Eye, CheckCircle2, RefreshCw,
   Sparkles, Copy, Save, Loader2, FileText, ShieldAlert, Send,
@@ -291,9 +292,15 @@ export default function ReviewsPage() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <StatCard label="Total Reviews" value={stats?.total ?? "—"} icon={Star} color="bg-blue-500" />
           <StatCard label="Avg Rating" value={stats ? `${stats.averageRating}★` : "—"} icon={TrendingUp} color="bg-emerald-500" />
-          <StatCard label="New / Unseen" value={stats?.newCount ?? "—"} icon={Eye} color="bg-violet-500" />
-          <StatCard label="No Response" value={noResponse} icon={MessageSquare} color="bg-amber-500" />
-          <StatCard label="Low Rating" value={lowRating} icon={AlertTriangle} color="bg-red-500" />
+          <HelpCue text="Reviews detected by monitoring that haven't been acknowledged by admin yet.">
+            <StatCard label="New / Unseen" value={stats?.newCount ?? "—"} icon={Eye} color="bg-violet-500" />
+          </HelpCue>
+          <HelpCue text="Public reviews without an owner response. Responding improves trust and SEO.">
+            <StatCard label="No Response" value={noResponse} icon={MessageSquare} color="bg-amber-500" />
+          </HelpCue>
+          <HelpCue text="1-2 star reviews without a public response. These need attention first.">
+            <StatCard label="Low Rating" value={lowRating} icon={AlertTriangle} color="bg-red-500" />
+          </HelpCue>
         </div>
 
         {/* Rating distribution bar */}

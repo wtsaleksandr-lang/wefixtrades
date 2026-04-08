@@ -1490,4 +1490,70 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.status(500).json({ error: err.message });
     }
   });
+
+  /**
+   * GET /api/admin/crm/clients/:id/reputation-ops
+   * Operational delivery status for a client's ReputationShield service.
+   * Returns task-by-task status to power the admin delivery panel.
+   */
+  app.get("/api/admin/crm/clients/:id/reputation-ops", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id as string);
+      const client = await storage.getClientById(clientId);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+
+      const { extractTier, mergeSettings, canAccessFeature } = await import("@shared/reputationConfig");
+      const { hasGoogleConnection, isGoogleOAuthConfigured } = await import("../services/googleBusinessService");
+
+      const svc = await storage.getClientReputationService(clientId);
+      const tier = svc ? extractTier(svc.serviceId) : null;
+      const settings = svc ? mergeSettings(svc.metadata?.reputation_settings) : null;
+      const ws = settings?.widget;
+
+      // Gather operational data
+      const googleConnected = tier ? await hasGoogleConnection(clientId) : false;
+      const missingGoogleName = tier ? await storage.countReviewsMissingGoogleName(clientId) : 0;
+
+      // Review stats
+      const [reviewStats] = await (await import("../db")).db.select({
+        total: (await import("drizzle-orm")).sql<number>`count(*)::int`,
+        noResponse: (await import("drizzle-orm")).sql<number>`count(*) filter (where ${(await import("@shared/schema")).monitoredReviews.response_text} is null and ${(await import("@shared/schema")).monitoredReviews.rating} <= 2)::int`,
+      }).from((await import("@shared/schema")).monitoredReviews)
+        .where((await import("drizzle-orm")).eq((await import("@shared/schema")).monitoredReviews.client_id, clientId));
+
+      // Request stats
+      const [requestStats] = await (await import("../db")).db.select({
+        total: (await import("drizzle-orm")).sql<number>`count(*)::int`,
+      }).from((await import("@shared/schema")).reviewRequests)
+        .where((await import("drizzle-orm")).eq((await import("@shared/schema")).reviewRequests.client_id, clientId));
+
+      res.json({
+        hasService: !!svc,
+        tier,
+        serviceStatus: svc?.status ?? null,
+        tasks: {
+          googlePlaceId: { value: client.google_place_id, done: !!client.google_place_id },
+          facebookPageUrl: { value: client.facebook_page_url, done: !!client.facebook_page_url },
+          googleConnected: { done: googleConnected, oauthConfigured: isGoogleOAuthConfigured() },
+          widgetEnabled: { done: !!ws?.enabled, type: ws?.type ?? null },
+          widgetToken: { value: client.widget_token, done: !!client.widget_token },
+          remindersEnabled: { done: settings?.reminders_enabled ?? false },
+          reportsEnabled: { done: settings?.report_enabled ?? false },
+          lowRatingAlerts: { done: settings?.low_rating_alerts ?? false },
+          aiDraftsAvailable: { done: canAccessFeature(tier, "aiDrafts") },
+          googlePostingAvailable: { done: googleConnected && canAccessFeature(tier, "competitorTracking") },
+          channelPreference: { value: settings?.channel_preference ?? "auto" },
+        },
+        stats: {
+          totalReviews: reviewStats?.total ?? 0,
+          lowRatingNoResponse: reviewStats?.noResponse ?? 0,
+          totalRequests: requestStats?.total ?? 0,
+          missingGoogleName,
+        },
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] reputation-ops error:", err.message);
+      res.status(500).json({ error: "Failed to load operational status" });
+    }
+  });
 }

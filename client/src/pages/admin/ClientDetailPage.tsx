@@ -23,6 +23,7 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TaskCard, ClientTasksEmptyState, isOverdue, type TaskItem } from "@/components/admin/TaskCard";
+import { ServiceOpsCard, ServiceOpsSection, HelpCue, HelpText, type OpsStatus } from "@/components/admin/ServiceOps";
 
 /* ─── Types ─── */
 interface Client {
@@ -518,9 +519,10 @@ export default function ClientDetailPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="services">
-          <TabsList className="w-full grid grid-cols-4">
+          <TabsList className="w-full grid grid-cols-5">
             <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            <TabsTrigger value="reputation">Reputation</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
           </TabsList>
@@ -827,6 +829,11 @@ export default function ClientDetailPage() {
             </Card>
           </TabsContent>
 
+          {/* ─── Reputation Tab ─── */}
+          <TabsContent value="reputation" className="mt-4">
+            <ReputationOpsPanel clientId={client.id} />
+          </TabsContent>
+
           {/* ─── Notes Tab ─── */}
           <TabsContent value="notes" className="mt-4 space-y-3">
             <Card className="p-4">
@@ -1011,5 +1018,162 @@ export default function ClientDetailPage() {
         </Dialog>
       </div>
     </AdminLayout>
+  );
+}
+
+/* ─── Reputation Ops Panel (inline component) ─── */
+
+function ReputationOpsPanel({ clientId }: { clientId: number }) {
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ["/api/admin/crm/clients", clientId, "reputation-ops"],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/crm/clients/${clientId}/reputation-ops`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return <div className="flex justify-center py-8"><Skeleton className="h-40 w-full" /></div>;
+  }
+
+  if (!data?.hasService) {
+    return (
+      <Card className="p-6 text-center text-gray-500 text-sm">
+        <ShieldCheck className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+        No ReputationShield service active for this client.
+      </Card>
+    );
+  }
+
+  const t = data.tasks;
+  const s = data.stats;
+
+  function taskStatus(done: boolean, blocked?: boolean, optional?: boolean): OpsStatus {
+    if (done) return "done";
+    if (blocked) return "blocked";
+    if (optional) return "optional";
+    return "not_started";
+  }
+
+  const setupTasks = [
+    { done: t.googlePlaceId.done, title: "Google Business Profile linked" },
+    { done: t.facebookPageUrl.done, title: "Facebook page URL added" },
+    { done: t.googleConnected.done, title: "Google account connected (for posting)" },
+    { done: t.widgetEnabled.done, title: "Review widget enabled" },
+    { done: t.widgetToken.done, title: "Widget token generated" },
+  ];
+  const setupDone = setupTasks.filter((t) => t.done).length;
+
+  const opsTasks = [
+    { done: t.remindersEnabled.done, title: "Follow-up reminders" },
+    { done: t.reportsEnabled.done, title: "Monthly reports" },
+    { done: t.lowRatingAlerts.done, title: "Low-rating alerts" },
+    { done: t.aiDraftsAvailable.done, title: "AI response drafts" },
+  ];
+  const opsDone = opsTasks.filter((t) => t.done).length;
+
+  return (
+    <div className="space-y-4">
+      {/* Tier + status header */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Badge variant="secondary" className="text-xs bg-[#F0F7F4] text-[#2D6A4F]">
+          {data.tier ? data.tier.charAt(0).toUpperCase() + data.tier.slice(1) : "—"} Plan
+        </Badge>
+        <Badge variant="secondary" className={`text-xs ${data.serviceStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+          {data.serviceStatus}
+        </Badge>
+        {s.lowRatingNoResponse > 0 && (
+          <Badge variant="secondary" className="text-xs bg-red-50 text-red-700">
+            {s.lowRatingNoResponse} low-rating reviews need response
+          </Badge>
+        )}
+      </div>
+
+      {/* Setup tasks */}
+      <ServiceOpsSection title="Setup & Connection" subtitle="Required for full service delivery" completedCount={setupDone} totalCount={setupTasks.length}>
+        <ServiceOpsCard
+          title="Google Business Profile"
+          status={taskStatus(t.googlePlaceId.done)}
+          description={t.googlePlaceId.done ? `Place ID: ${t.googlePlaceId.value}` : "Required for review monitoring and response posting."}
+          nextStep={!t.googlePlaceId.done ? "Add the client's Google Place ID in their profile settings." : undefined}
+        />
+        <ServiceOpsCard
+          title="Facebook Page URL"
+          status={taskStatus(t.facebookPageUrl.done, false, true)}
+          description={t.facebookPageUrl.done ? t.facebookPageUrl.value : "Optional. Enables Facebook review monitoring and routing."}
+          nextStep={!t.facebookPageUrl.done ? "Ask the client for their Facebook business page URL." : undefined}
+          waitingOn={!t.facebookPageUrl.done ? "client" : null}
+        />
+        <ServiceOpsCard
+          title="Google Account Connected"
+          status={taskStatus(t.googleConnected.done, false, !t.googleConnected.oauthConfigured)}
+          description={t.googleConnected.done ? "Connected — can post responses to Google." : t.googleConnected.oauthConfigured ? "Not connected. Required for direct response posting." : "Google OAuth not configured on server."}
+          nextStep={!t.googleConnected.done && t.googleConnected.oauthConfigured ? "Send the Google connection link to the client or connect from their profile." : undefined}
+        />
+        <ServiceOpsCard
+          title="Review Widget"
+          status={taskStatus(t.widgetEnabled.done)}
+          description={t.widgetEnabled.done ? `Enabled (${t.widgetEnabled.type || "badge"} type)` : "Widget shows reviews on the client's website."}
+          nextStep={!t.widgetEnabled.done ? "Enable the widget in client settings and install the embed code on their site." : undefined}
+          waitingOn={t.widgetEnabled.done ? null : "internal"}
+        />
+      </ServiceOpsSection>
+
+      {/* Operational features */}
+      <ServiceOpsSection title="Active Features" subtitle="Automated service components" completedCount={opsDone} totalCount={opsTasks.length}>
+        <ServiceOpsCard
+          title="Follow-up Reminders"
+          status={taskStatus(t.remindersEnabled.done)}
+          description="Automatic follow-ups when customers don't respond to review requests."
+        />
+        <ServiceOpsCard
+          title="Monthly Reports"
+          status={taskStatus(t.reportsEnabled.done)}
+          description="Periodic email report showing review growth and reputation metrics."
+        />
+        <ServiceOpsCard
+          title="Low-Rating Alerts"
+          status={taskStatus(t.lowRatingAlerts.done)}
+          description="Instant email alert when a 1-2 star review is detected."
+        />
+        <ServiceOpsCard
+          title="AI Response Drafts"
+          status={taskStatus(t.aiDraftsAvailable.done)}
+          description={t.aiDraftsAvailable.done ? "Available — AI can draft responses for reviews." : "Requires Pro plan or higher."}
+        />
+        <ServiceOpsCard
+          title="Channel Preference"
+          status="done"
+          description={`Review requests sent via: ${t.channelPreference.value}. Auto = SMS preferred (higher conversion), with email fallback.`}
+        />
+      </ServiceOpsSection>
+
+      {/* Operational health */}
+      {(s.totalReviews > 0 || s.totalRequests > 0) && (
+        <ServiceOpsSection title="Operational Health">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <div className="text-lg font-semibold text-gray-900">{s.totalReviews}</div>
+              <div className="text-[11px] text-gray-500">Reviews Tracked</div>
+            </div>
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <div className="text-lg font-semibold text-gray-900">{s.totalRequests}</div>
+              <div className="text-[11px] text-gray-500">Requests Sent</div>
+            </div>
+            <div className={`text-center p-3 rounded-lg ${s.lowRatingNoResponse > 0 ? "bg-red-50" : "bg-gray-50"}`}>
+              <div className={`text-lg font-semibold ${s.lowRatingNoResponse > 0 ? "text-red-700" : "text-gray-900"}`}>{s.lowRatingNoResponse}</div>
+              <div className="text-[11px] text-gray-500">Low-Rating Unresponded</div>
+            </div>
+            <div className={`text-center p-3 rounded-lg ${s.missingGoogleName > 0 ? "bg-amber-50" : "bg-gray-50"}`}>
+              <div className="text-lg font-semibold text-gray-900">{s.missingGoogleName}</div>
+              <HelpCue text="Reviews without a Google API identifier cannot be posted to. A re-sync may recover them.">
+                <span className="text-[11px] text-gray-500">Missing Post ID</span>
+              </HelpCue>
+            </div>
+          </div>
+        </ServiceOpsSection>
+      )}
+    </div>
   );
 }
