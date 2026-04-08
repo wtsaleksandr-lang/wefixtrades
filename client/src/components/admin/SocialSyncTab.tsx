@@ -527,6 +527,48 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
     onError: () => toast({ title: "Reply failed", variant: "destructive" }),
   });
 
+  const { data: rrStatus } = useQuery<{
+    readiness: string; blockers: string[]; review_link: string | null;
+    review_link_configured: boolean; gbp_connected: boolean;
+    summary: { total: number; sent: number; pending: number; failed: number; skipped: number };
+  }>({
+    queryKey: [`/api/reputation/clients/${clientId}/review-requests/status`],
+    enabled: !!clientId,
+  });
+
+  const { data: rrList } = useQuery<{ requests: any[]; summary: any }>({
+    queryKey: [`/api/reputation/clients/${clientId}/review-requests`],
+    enabled: !!clientId,
+  });
+
+  const [rrForm, setRrForm] = useState({ customer_name: "", customer_phone: "", customer_email: "" });
+
+  const enqueueRR = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", `/api/reputation/clients/${clientId}/review-requests/enqueue`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/reputation/clients/${clientId}/review-requests`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/reputation/clients/${clientId}/review-requests/status`] });
+      setRrForm({ customer_name: "", customer_phone: "", customer_email: "" });
+      toast({ title: "Review request enqueued" });
+    },
+    onError: (err: any) => toast({ title: "Failed to enqueue", description: err.message, variant: "destructive" }),
+  });
+
+  const processRR = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/reputation/internal/process-review-requests");
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/reputation/clients/${clientId}/review-requests`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/reputation/clients/${clientId}/review-requests/status`] });
+      toast({ title: "Processed", description: `${data.sent} sent, ${data.failed} failed` });
+    },
+  });
+
   // ─── Render ───
 
   const profile = summary?.profile;
@@ -1086,6 +1128,104 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
               </div>
             ) : (
               <p className="text-sm text-gray-500 text-center py-6">No reviews yet. Click "Sync Reviews" to fetch from Google Business.</p>
+            )}
+          </Card>
+
+          {/* ─── Review Requests Section ─── */}
+          <Card className="mt-3 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-gray-900">Review Requests</h4>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={() => processRR.mutate()} disabled={processRR.isPending}>
+                  {processRR.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "Process Pending"}
+                </Button>
+              </div>
+            </div>
+
+            {/* Readiness banner */}
+            {rrStatus && (
+              <div className={`mb-3 px-3 py-2 rounded-lg text-xs ${
+                rrStatus.readiness === "active" ? "bg-emerald-50 text-emerald-800" :
+                rrStatus.readiness === "ready" ? "bg-blue-50 text-blue-800" :
+                rrStatus.readiness === "blocked" ? "bg-red-50 text-red-700" :
+                "bg-amber-50 text-amber-700"
+              }`}>
+                {rrStatus.readiness === "active" && <><CheckCircle className="w-3.5 h-3.5 inline mr-1" />Active — review requests are being sent</>}
+                {rrStatus.readiness === "ready" && <><CheckCircle className="w-3.5 h-3.5 inline mr-1" />Ready — automation configured, no requests sent yet</>}
+                {rrStatus.readiness === "blocked" && <><AlertTriangle className="w-3.5 h-3.5 inline mr-1" />Blocked: {rrStatus.blockers.join(", ")}</>}
+                {rrStatus.readiness === "limited" && <><AlertTriangle className="w-3.5 h-3.5 inline mr-1" />Limited — backend ready but no completed bookings yet</>}
+                {rrStatus.review_link && (
+                  <span className="ml-2 text-gray-500">Link: {rrStatus.review_link.slice(0, 50)}...</span>
+                )}
+              </div>
+            )}
+
+            {/* Summary stats */}
+            {rrStatus?.summary && (
+              <div className="grid grid-cols-5 gap-2 mb-3">
+                <div className="text-center p-1.5 bg-gray-50 rounded">
+                  <p className="text-sm font-semibold">{rrStatus.summary.total}</p>
+                  <p className="text-[10px] text-gray-500">Total</p>
+                </div>
+                <div className="text-center p-1.5 bg-gray-50 rounded">
+                  <p className="text-sm font-semibold text-emerald-700">{rrStatus.summary.sent}</p>
+                  <p className="text-[10px] text-gray-500">Sent</p>
+                </div>
+                <div className="text-center p-1.5 bg-gray-50 rounded">
+                  <p className="text-sm font-semibold text-amber-700">{rrStatus.summary.pending}</p>
+                  <p className="text-[10px] text-gray-500">Pending</p>
+                </div>
+                <div className="text-center p-1.5 bg-gray-50 rounded">
+                  <p className="text-sm font-semibold text-red-600">{rrStatus.summary.failed}</p>
+                  <p className="text-[10px] text-gray-500">Failed</p>
+                </div>
+                <div className="text-center p-1.5 bg-gray-50 rounded">
+                  <p className="text-sm font-semibold text-gray-400">{rrStatus.summary.skipped}</p>
+                  <p className="text-[10px] text-gray-500">Skipped</p>
+                </div>
+              </div>
+            )}
+
+            {/* Manual enqueue form */}
+            <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+              <p className="text-xs font-medium text-gray-600 mb-2">Send Review Request</p>
+              <div className="grid grid-cols-3 gap-2">
+                <Input placeholder="Customer name" value={rrForm.customer_name} onChange={(e) => setRrForm({ ...rrForm, customer_name: e.target.value })} className="text-xs h-8" />
+                <Input placeholder="Phone" value={rrForm.customer_phone} onChange={(e) => setRrForm({ ...rrForm, customer_phone: e.target.value })} className="text-xs h-8" />
+                <Input placeholder="Email" value={rrForm.customer_email} onChange={(e) => setRrForm({ ...rrForm, customer_email: e.target.value })} className="text-xs h-8" />
+              </div>
+              <div className="flex justify-end mt-2">
+                <Button size="sm" className="h-7 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]"
+                  disabled={!rrForm.customer_name || (!rrForm.customer_phone && !rrForm.customer_email) || enqueueRR.isPending || rrStatus?.readiness === "blocked"}
+                  onClick={() => enqueueRR.mutate({ customer_name: rrForm.customer_name, customer_phone: rrForm.customer_phone || undefined, customer_email: rrForm.customer_email || undefined })}
+                >
+                  {enqueueRR.isPending ? "Sending..." : "Enqueue Request"}
+                </Button>
+              </div>
+            </div>
+
+            {/* Request history */}
+            {rrList?.requests && rrList.requests.length > 0 ? (
+              <div className="divide-y divide-gray-100">
+                {rrList.requests.slice(0, 20).map((r: any) => (
+                  <div key={r.id} className="py-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{r.customer_name || "Unknown"}</span>
+                        <StatusBadge status={r.status} />
+                        <span className="text-[10px] text-gray-400 capitalize">{r.channel}</span>
+                        <span className="text-[10px] text-gray-400">{r.source_type}</span>
+                      </div>
+                      <span className="text-[10px] text-gray-400">{r.sent_at ? fmtDate(r.sent_at) : r.run_at ? `Scheduled: ${fmtDate(r.run_at)}` : ""}</span>
+                    </div>
+                    {r.failure_reason && (
+                      <p className="text-[10px] text-red-500 mt-0.5">{r.failure_reason}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 text-center py-3">No review requests yet.</p>
             )}
           </Card>
         </TabsContent>

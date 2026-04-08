@@ -186,4 +186,55 @@ export function registerReputationRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to process review requests" });
     }
   });
+
+  // 9. GET review request readiness + summary for a client
+  app.get("/api/reputation/clients/:clientId/review-requests/status", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const reviewLink = await getReviewLink(clientId);
+      const requests = await storage.listReviewRequests(clientId, 100);
+
+      const total = requests.length;
+      const sent = requests.filter(r => r.status === "sent" || r.status === "delivered").length;
+      const pending = requests.filter(r => r.status === "pending").length;
+      const failed = requests.filter(r => r.status === "failed").length;
+      const skipped = requests.filter(r => r.status === "skipped").length;
+
+      // Check GBP connection
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const gbp = connections.find(c => c.platform === "google_business");
+      const gbpConnected = gbp?.connection_status === "connected" || gbp?.connection_status === "expiring_soon";
+
+      // Readiness assessment
+      let readiness: "ready" | "blocked" | "limited" | "active";
+      const blockers: string[] = [];
+
+      if (!reviewLink) blockers.push("No review link configured");
+      if (!gbpConnected) blockers.push("Google Business not connected");
+
+      if (blockers.length > 0) {
+        readiness = "blocked";
+      } else if (sent > 0) {
+        readiness = "active";
+      } else if (total === 0) {
+        readiness = "limited";
+      } else {
+        readiness = "ready";
+      }
+
+      res.json({
+        readiness,
+        blockers,
+        review_link: reviewLink,
+        review_link_configured: !!reviewLink,
+        gbp_connected: gbpConnected,
+        summary: { total, sent, pending, failed, skipped },
+      });
+    } catch (err: any) {
+      console.error("[reputation] Review request status error:", err.message);
+      res.status(500).json({ error: "Failed to load status" });
+    }
+  });
 }
