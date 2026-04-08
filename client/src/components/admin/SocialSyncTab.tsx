@@ -70,6 +70,14 @@ interface Post {
   scheduled_for: string | null;
   published_at: string | null;
   failure_reason: string | null;
+  media_plan: {
+    image_url?: string;
+    public_image_url?: string;
+    url?: string;
+    prompt?: string;
+    image_source?: string;
+    type?: string;
+  } | null;
   publish_result: {
     platform?: string;
     remote_post_id?: string;
@@ -412,6 +420,18 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
     onSuccess: () => { invalidateAll(); toast({ title: "Instagram disconnected" }); },
   });
 
+  const prepareMedia = useMutation({
+    mutationFn: async (postId: number) => {
+      const res = await apiRequest("POST", `/api/socialsync/posts/${postId}/prepare-media`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      invalidateAll();
+      toast({ title: data.resolved ? "Media ready" : "Media failed", description: data.error || `Source: ${data.source}`, variant: data.resolved ? "default" : "destructive" });
+    },
+    onError: () => toast({ title: "Media preparation failed", variant: "destructive" }),
+  });
+
   // ─── Render ───
 
   const profile = summary?.profile;
@@ -695,8 +715,18 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
                         <StatusBadge status={p.status} />
                         <span className="text-xs font-medium text-gray-500 capitalize">{p.platform}</span>
                         {p.quality_score != null && <span className="text-xs text-gray-400">Q:{p.quality_score}</span>}
+                        {p.platform === "instagram" && (
+                          (p.media_plan?.image_url || p.media_plan?.public_image_url || p.media_plan?.url)
+                            ? <span className="text-xs text-emerald-600">IMG</span>
+                            : <span className="text-xs text-amber-600">No media</span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
+                        {p.platform === "instagram" && !p.media_plan?.image_url && !p.media_plan?.public_image_url && !p.media_plan?.url && ["draft", "ready", "queued"].includes(p.status) && (
+                          <Button size="sm" variant="ghost" className="h-7 text-xs text-blue-600" onClick={() => prepareMedia.mutate(p.id)} disabled={prepareMedia.isPending}>
+                            {prepareMedia.isPending ? "..." : "Gen Image"}
+                          </Button>
+                        )}
                         {p.status === "draft" && (
                           <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => updatePostStatus.mutate({ id: p.id, status: "ready" })}>
                             Mark Ready

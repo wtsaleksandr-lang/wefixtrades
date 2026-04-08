@@ -18,6 +18,7 @@
  * the linked Facebook page).
  */
 import { getInstagramPublishCredentials } from "./instagramService";
+import { ensureMediaReady } from "./mediaService";
 import type { SocialSyncPost } from "@shared/schema";
 
 const GRAPH_API_BASE = "https://graph.facebook.com/v21.0";
@@ -198,13 +199,22 @@ export async function publishToInstagram(
 
   const { token, igAccountId } = credentials;
 
-  // 2. Validate image URL
-  const imageUrl = extractImageUrl(post);
+  // 2. Resolve image URL — try existing URL first, then generate if possible
+  let imageUrl = extractImageUrl(post);
   if (!imageUrl) {
-    return emptyResult(
-      "Instagram publishing requires a public image URL in media_plan.image_url. Text-only posts are not supported by Instagram's API.",
-      true,
-    );
+    const mediaResult = await ensureMediaReady(post);
+    imageUrl = mediaResult.imageUrl;
+    if (!imageUrl) {
+      return emptyResult(
+        mediaResult.error || "Instagram publishing requires a public image URL. Text-only posts are not supported by Instagram's API.",
+        true,
+      );
+    }
+    // Re-read the post to get updated media_plan
+    const updatedPost = await (await import("../../storage")).storage.getSocialSyncPostById(post.id);
+    if (updatedPost) {
+      post = updatedPost;
+    }
   }
 
   // 3. Build caption

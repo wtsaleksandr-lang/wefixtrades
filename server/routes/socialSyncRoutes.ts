@@ -13,6 +13,7 @@ import {
   discoverInstagramAccounts, selectInstagramAccount, validateInstagramConnection,
 } from "../services/socialSync/instagramService";
 import { disconnectPlatform, checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
+import { resolveMediaForPost } from "../services/socialSync/mediaService";
 import { decryptToken } from "../services/socialSync/tokenEncryption";
 import type { SocialSyncProfile, InsertSocialSyncTopic } from "@shared/schema";
 
@@ -871,6 +872,42 @@ export function registerSocialSyncRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[socialsync] Expiry check error:", err.message);
       res.status(500).json({ error: "Failed to check connection expiry" });
+    }
+  });
+
+  // ─── Phase 4A: Media Pipeline Routes ───
+
+  // 32. POST prepare media for a post (generate/resolve image)
+  app.post("/api/socialsync/posts/:postId/prepare-media", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const postId = parseInt(req.params.postId as string);
+      if (isNaN(postId)) return res.status(400).json({ error: "Invalid post ID" });
+
+      const post = await storage.getSocialSyncPostById(postId);
+      if (!post) return res.status(404).json({ error: "Post not found" });
+
+      const result = await resolveMediaForPost(post);
+
+      if (result.resolved) {
+        await storage.createSocialSyncLog({
+          client_id: post.client_id,
+          entity_type: "post",
+          entity_id: post.id,
+          action: "media.resolved",
+          status: "success",
+          details: { source: result.source, public_url: result.public_url },
+        });
+      }
+
+      res.json({
+        resolved: result.resolved,
+        public_url: result.public_url,
+        source: result.source,
+        error: result.error || null,
+      });
+    } catch (err: any) {
+      console.error("[socialsync] Prepare media error:", err.message);
+      res.status(500).json({ error: "Failed to prepare media" });
     }
   });
 }
