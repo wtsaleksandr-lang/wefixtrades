@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { requireAdmin, hashPassword } from "../auth";
 import { storage } from "../storage";
-import { getTradeLineDefaultConfig, getTradeLineReadiness } from "@shared/schema";
+import { getTradeLineDefaultConfig, getTradeLineReadiness, advanceSetupStage } from "@shared/schema";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
 import crypto from "crypto";
 
@@ -762,6 +762,11 @@ export function registerAdminCrmRoutes(app: Express): void {
         config: config ?? null,
         usage: usage ?? null,
         recentCalls: calls,
+        // Convenience fields for UI
+        setupStage: config?.setupStage ?? "not_started",
+        assistantStatus: config?.assistant?.status ?? "not_built",
+        assistantError: config?.assistant?.lastBuildError || null,
+        assistantBuiltAt: config?.assistant?.lastBuiltAt || null,
       });
     } catch (err: any) {
       console.error("[admin-crm] TradeLine GET error:", err.message);
@@ -897,10 +902,16 @@ export function registerAdminCrmRoutes(app: Express): void {
         return res.status(400).json({ error: "embedMode must be direct_embed or hosted_fallback" });
       }
 
+      // Read current config to safely advance stage (never regress)
+      const currentConfig = await storage.getTradeLineConfig(csId);
+      const safeStage = currentConfig
+        ? advanceSetupStage(currentConfig.setupStage, "configuring")
+        : "configuring";
+
       const config = await storage.updateTradeLineConfig(csId, {
         website: { accessAvailable, embedMode },
         channels: { hostedFallback: embedMode === "hosted_fallback" },
-        setupStage: "configuring",
+        setupStage: safeStage,
       });
 
       await storage.logAdminActivity({
@@ -1009,6 +1020,14 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       const { provisionTradeLineAssistant } = await import("../services/vapiService");
       const result = await provisionTradeLineAssistant(csId);
+
+      if (result.error) {
+        return res.status(422).json({
+          error: result.error,
+          skipped: false,
+          assistantId: null,
+        });
+      }
 
       res.json({
         assistantId: result.assistantId,

@@ -8,6 +8,7 @@
  */
 
 import { storage } from "../storage";
+import { advanceSetupStage, computeSetupStage } from "@shared/schema";
 import type { TradelineConfig, Client } from "@shared/schema";
 
 /* ═══════════════════════════════════════════
@@ -332,22 +333,22 @@ export interface BuildResult {
   input: AssistantInput;
   skipped: boolean;
   skipReason?: string;
-  /** True if config was updated with new assistant data */
   configUpdated: boolean;
 }
 
 /**
  * Build a TradeLine assistant definition for a client service.
  *
- * Steps:
- * 1. Load TradeLine config
- * 2. Load client data
- * 3. Load onboarding answers
- * 4. Build structured input
- * 5. Select template
- * 6. Generate final definition
+ * Lifecycle:
+ * 1. Load config + client + onboarding
+ * 2. Check safety (manual override, idempotency)
+ * 3. Set assistant.status = "building"
+ * 4. Build definition
+ * 5. On success: status = "built", clear error, store hash/template
+ * 6. On failure: status = "failed", store error message
+ * 7. Auto-advance setupStage if appropriate
  *
- * Does NOT push to Vapi — call pushAssistantToVapi() separately.
+ * Does NOT push to Vapi — call provisionTradeLineAssistant() for that.
  */
 export async function buildTradeLineAssistant(
   clientServiceId: number,
@@ -371,14 +372,8 @@ export async function buildTradeLineAssistant(
   const submission = submissions.find(s => s.client_service_id === clientServiceId);
   const responses = (submission?.responses as Record<string, any>) ?? null;
 
-  // Safety: check if config was manually edited (has a vapiAssistantId with a
-  // different input hash, indicating manual customization)
-  const existingMeta = (cs.metadata as Record<string, any>)?.tradeline;
-  const existingHash = existingMeta?.assistant?.inputHash;
-  const existingManualOverride = existingMeta?.assistant?.manualOverride === true;
-
-  if (existingManualOverride) {
-    // Build definition anyway for comparison but mark as skipped
+  // Safety: manual override flag
+  if (config.assistant.manualOverride) {
     const input = buildAssistantInput(config, client, responses);
     const definition = buildAssistantDefinition(input);
     return {
@@ -390,12 +385,12 @@ export async function buildTradeLineAssistant(
     };
   }
 
-  // 4-6. Build structured input → select template → generate definition
+  // 4. Build structured input → select template → generate definition
   const input = buildAssistantInput(config, client, responses);
   const definition = buildAssistantDefinition(input);
 
-  // Idempotency: skip if input hasn't changed
-  if (existingHash && existingHash === definition.inputHash) {
+  // Idempotency: skip if input hash unchanged
+  if (config.assistant.inputHash && config.assistant.inputHash === definition.inputHash) {
     return {
       definition,
       input,
@@ -405,30 +400,41 @@ export async function buildTradeLineAssistant(
     };
   }
 
-  // Store the assistant definition in config metadata
+  // 5. Set status to "building"
   await storage.updateTradeLineConfig(clientServiceId, {
-    // We use the deep-merge storage, so this adds/updates the 'assistant' sub-key
-    // without wiping other tradeline config fields
-  } as any);
+    assistant: { status: "building" },
+  });
 
-  // Store assistant metadata in the raw metadata (outside zod schema, in the
-  // wider metadata envelope) to avoid schema coupling
-  const rawMeta = (cs.metadata as Record<string, any>) ?? {};
-  rawMeta.tradeline = rawMeta.tradeline ?? {};
-  rawMeta.tradeline.assistant = {
-    templateId: definition.templateId,
-    inputHash: definition.inputHash,
-    firstMessage: definition.firstMessage,
-    builtAt: new Date().toISOString(),
-    manualOverride: false,
-  };
+  try {
+    // 6. Store successful build
+    const newStage = computeSetupStage({ ...config, assistant: { ...config.assistant, status: "built" } });
 
-  await storage.updateClientServiceMetadata(clientServiceId, rawMeta);
+    await storage.updateTradeLineConfig(clientServiceId, {
+      assistant: {
+        status: "built",
+        templateId: definition.templateId,
+        inputHash: definition.inputHash,
+        lastBuiltAt: new Date().toISOString(),
+        lastBuildError: "",
+      },
+      setupStage: newStage,
+    });
 
-  return {
-    definition,
-    input,
-    skipped: false,
-    configUpdated: true,
-  };
+    return {
+      definition,
+      input,
+      skipped: false,
+      configUpdated: true,
+    };
+  } catch (err: any) {
+    // 7. Store failure
+    await storage.updateTradeLineConfig(clientServiceId, {
+      assistant: {
+        status: "failed",
+        lastBuildError: err.message || "Unknown build error",
+      },
+    }).catch(() => {}); // Don't let error-logging fail the whole operation
+
+    throw err; // Re-throw so caller knows it failed
+  }
 }

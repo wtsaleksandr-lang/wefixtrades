@@ -330,6 +330,15 @@ export const tradelineConfigSchema = z.object({
     enabled: z.boolean().default(true),
     mode: z.enum(["request_only", "book_if_available"]).default("request_only"),
   }).default({}),
+  assistant: z.object({
+    status: z.enum(["not_built", "building", "built", "failed"]).default("not_built"),
+    templateId: z.string().default(""),
+    inputHash: z.string().default(""),
+    vapiAssistantId: z.string().default(""),
+    lastBuiltAt: z.string().default(""),
+    lastBuildError: z.string().default(""),
+    manualOverride: z.boolean().default(false),
+  }).default({}),
 }).default({});
 export type TradelineConfig = z.infer<typeof tradelineConfigSchema>;
 
@@ -406,6 +415,11 @@ export function getTradeLineReadiness(config: TradelineConfig): { ready: boolean
     // direct_embed: no extra check — admin confirms install via fulfillment task
   }
 
+  // Assistant check
+  if (config.assistant.status !== "built") {
+    issues.push(`Assistant is "${config.assistant.status}" — must be "built"`);
+  }
+
   return { ready: issues.length === 0, issues };
 }
 
@@ -468,6 +482,63 @@ export function mapOnboardingToTradeLineConfig(
   config.setupStage = "configuring";
 
   return config as Partial<TradelineConfig>;
+}
+
+/**
+ * Stage ordering for safe auto-advancement.
+ * Only advances forward — never regresses.
+ */
+const STAGE_ORDER: TradelineConfig["setupStage"][] = [
+  "not_started",
+  "onboarding",
+  "configuring",
+  "awaiting_website_access",
+  "awaiting_client_action",
+  "ready_for_testing",
+  "live",
+];
+
+/**
+ * Advance setupStage forward only — never regresses.
+ * Returns the new stage, or the current stage if target is behind.
+ */
+export function advanceSetupStage(
+  current: TradelineConfig["setupStage"],
+  target: TradelineConfig["setupStage"],
+): TradelineConfig["setupStage"] {
+  const currentIdx = STAGE_ORDER.indexOf(current);
+  const targetIdx = STAGE_ORDER.indexOf(target);
+  return targetIdx > currentIdx ? target : current;
+}
+
+/**
+ * Compute the appropriate setupStage based on current config state.
+ * Does not regress — only advances from the current stage.
+ */
+export function computeSetupStage(config: TradelineConfig): TradelineConfig["setupStage"] {
+  let stage = config.setupStage;
+  const needsWebsite = config.variant === "chat" || config.variant === "complete";
+
+  // If we have an assistant built and config looks complete, suggest ready_for_testing
+  if (config.assistant.status === "built") {
+    const readiness = getTradeLineReadiness({
+      ...config,
+      // Temporarily override stage to avoid circular check
+      setupStage: "ready_for_testing",
+    });
+    // Filter out assistant check since we just confirmed it's built
+    const realIssues = readiness.issues.filter(i => !i.includes("Assistant is"));
+    if (realIssues.length === 0) {
+      stage = advanceSetupStage(stage, "ready_for_testing");
+    }
+  }
+
+  // If website access is needed but not yet determined
+  if (needsWebsite && config.website.accessAvailable === null && config.website.embedMode === "direct_embed") {
+    stage = advanceSetupStage(stage, "awaiting_website_access");
+  }
+
+  return stage;
 }
 
 /* ─── TradeLine Usage ─── */

@@ -20,6 +20,7 @@ import {
   passwordResetTokens,
   getTradeLineReadiness,
   mapOnboardingToTradeLineConfig,
+  advanceSetupStage,
 } from "@shared/schema";
 import { storage } from "../storage";
 
@@ -599,6 +600,10 @@ export function registerPortalRoutes(app: Express) {
               const config = await storage.getTradeLineConfig(cs.id);
               if (config) {
                 const updates = mapOnboardingToTradeLineConfig(responses, config.variant);
+                // Use safe stage advancement — never regress
+                if (updates.setupStage) {
+                  updates.setupStage = advanceSetupStage(config.setupStage, updates.setupStage);
+                }
                 if (Object.keys(updates).length > 0) {
                   await storage.updateTradeLineConfig(cs.id, updates);
                 }
@@ -800,6 +805,7 @@ export function registerPortalRoutes(app: Express) {
         recentCalls: calls,
         setupStage: config?.setupStage ?? "not_started",
         readiness: config ? getTradeLineReadiness(config) : null,
+        assistantStatus: config?.assistant?.status ?? "not_built",
       });
     } catch (err) {
       console.error("Portal tradeline GET error:", err);

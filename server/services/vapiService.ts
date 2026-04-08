@@ -588,12 +588,34 @@ export async function provisionTradeLineAssistant(
   skipped: boolean;
   skipReason?: string;
   definition?: import("./tradelineTemplates").AssistantDefinition;
+  error?: string;
 }> {
   // Lazy import to avoid circular dependency
   const { buildTradeLineAssistant } = await import("./tradelineTemplates");
 
-  // 1. Build the assistant definition
-  const result = await buildTradeLineAssistant(clientServiceId);
+  let result;
+  try {
+    // 1. Build the assistant definition (handles status: building → built/failed)
+    result = await buildTradeLineAssistant(clientServiceId);
+  } catch (err: any) {
+    // Build failed — status already set to "failed" inside buildTradeLineAssistant
+    console.error(`[tradeline] Assistant build failed for service #${clientServiceId}:`, err.message);
+
+    await storage.logAdminActivity({
+      actor_type: "system",
+      actor_name: "TradeLine Template Engine",
+      action: "tradeline.assistant_build_failed",
+      entity_type: "client_service",
+      entity_id: clientServiceId,
+      summary: `Assistant build failed: ${err.message}`,
+    });
+
+    return {
+      assistantId: null,
+      skipped: false,
+      error: err.message,
+    };
+  }
 
   if (result.skipped) {
     return {
@@ -609,30 +631,51 @@ export async function provisionTradeLineAssistant(
   let assistantId: string | null = null;
 
   if (vapiConfig.apiKey) {
-    const name = `TradeLine — ${result.input.businessName}`;
-    const upsertResult = await upsertVapiAssistant(
-      clientServiceId,
-      result.definition.systemPrompt,
-      result.definition.firstMessage,
-      name,
-    );
-    assistantId = upsertResult.assistantId;
+    try {
+      const name = `TradeLine — ${result.input.businessName}`;
+      const upsertResult = await upsertVapiAssistant(
+        clientServiceId,
+        result.definition.systemPrompt,
+        result.definition.firstMessage,
+        name,
+      );
+      assistantId = upsertResult.assistantId;
 
-    // 3. Store the Vapi assistant ID in metadata
-    const cs = await storage.getClientServiceById(clientServiceId);
-    const rawMeta = (cs?.metadata as Record<string, any>) ?? {};
-    rawMeta.tradeline = rawMeta.tradeline ?? {};
-    rawMeta.tradeline.assistant = {
-      ...rawMeta.tradeline.assistant,
-      vapiAssistantId: assistantId,
-    };
-    await storage.updateClientServiceMetadata(clientServiceId, rawMeta);
+      // Store the Vapi assistant ID in config
+      await storage.updateTradeLineConfig(clientServiceId, {
+        assistant: { vapiAssistantId: assistantId },
+      });
+    } catch (err: any) {
+      // Vapi push failed — mark assistant as failed
+      console.error(`[vapi] Push to Vapi failed for service #${clientServiceId}:`, err.message);
+      await storage.updateTradeLineConfig(clientServiceId, {
+        assistant: {
+          status: "failed",
+          lastBuildError: `Vapi push failed: ${err.message}`,
+        },
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "system",
+        actor_name: "TradeLine Template Engine",
+        action: "tradeline.vapi_push_failed",
+        entity_type: "client_service",
+        entity_id: clientServiceId,
+        summary: `Vapi push failed: ${err.message}`,
+      });
+
+      return {
+        assistantId: null,
+        skipped: false,
+        error: `Vapi push failed: ${err.message}`,
+        definition: result.definition,
+      };
+    }
   } else {
     console.warn("[vapi] VAPI_API_KEY not set — assistant built but not pushed to Vapi");
   }
 
-  // 4. Log the build
-  const cs = await storage.getClientServiceById(clientServiceId);
+  // 3. Log success
   await storage.logAdminActivity({
     actor_type: "system",
     actor_name: "TradeLine Template Engine",
@@ -644,7 +687,6 @@ export async function provisionTradeLineAssistant(
       templateId: result.definition.templateId,
       inputHash: result.definition.inputHash,
       vapiAssistantId: assistantId,
-      clientId: cs?.client_id,
     },
   });
 
