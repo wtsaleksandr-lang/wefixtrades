@@ -219,6 +219,7 @@ export interface IStorage {
   getClientByWidgetToken(token: string): Promise<Client | undefined>;
   ensureWidgetToken(clientId: number): Promise<string>;
   getWidgetReviews(clientId: number, minRating: number, limit: number): Promise<{ reviewer_name: string; rating: number; review_text: string | null; published_at: Date | null; platform: string }[]>;
+  countReviewsMissingGoogleName(clientId?: number): Promise<number>;
 
   // CRM Overview
   getCrmOverview(): Promise<{
@@ -1450,6 +1451,10 @@ export class DatabaseStorage implements IStorage {
       if (data.raw_payload) {
         updates.raw_payload = data.raw_payload;
       }
+      // Backfill google_review_name if we now have it but didn't before
+      if (data.google_review_name && !existing.google_review_name) {
+        updates.google_review_name = data.google_review_name;
+      }
 
       const [updated] = await db.update(monitoredReviews)
         .set(updates)
@@ -1606,6 +1611,18 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(desc(monitoredReviews.published_at))
       .limit(limit);
+  }
+
+  async countReviewsMissingGoogleName(clientId?: number): Promise<number> {
+    const conditions = [
+      eq(monitoredReviews.platform, "google"),
+      sql`${monitoredReviews.google_review_name} IS NULL`,
+      sql`${monitoredReviews.response_text} IS NULL`,
+    ];
+    if (clientId) conditions.push(eq(monitoredReviews.client_id, clientId));
+    const [row] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(monitoredReviews).where(and(...conditions));
+    return row?.count ?? 0;
   }
 }
 

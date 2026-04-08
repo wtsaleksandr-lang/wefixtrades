@@ -12,6 +12,8 @@
  */
 
 import { storage } from "../storage";
+import { sendLowRatingAlert } from "../lib/lowRatingAlert";
+import { mergeSettings } from "@shared/reputationConfig";
 import {
   fetchGoogleReviews,
   fetchFacebookReviews,
@@ -78,6 +80,28 @@ async function processReviews(
           summary: `New ${normalized.rating}★ ${platform} review for ${client.business_name} by ${normalized.reviewerName}`,
           metadata: { client_id: client.id, rating: normalized.rating, reviewer: normalized.reviewerName, hasText: !!normalized.reviewText, platform },
         });
+
+        // Send low-rating alert email if enabled
+        if (normalized.rating <= 2 && client.contact_email) {
+          try {
+            const svc = await storage.getClientReputationService(client.id);
+            const settings = mergeSettings(svc?.metadata?.reputation_settings);
+            if (settings.low_rating_alerts) {
+              const baseUrl = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "";
+              await sendLowRatingAlert({
+                contactEmail: client.contact_email,
+                businessName: client.business_name,
+                reviewerName: normalized.reviewerName,
+                rating: normalized.rating,
+                reviewText: normalized.reviewText,
+                platform,
+                portalUrl: baseUrl,
+              });
+            }
+          } catch (alertErr: any) {
+            console.error(`[ReviewMonitor] Alert email error for client ${client.id}:`, alertErr.message);
+          }
+        }
       } else if (review.response_added) {
         result.updatedReviews++;
         await storage.logAdminActivity({

@@ -148,7 +148,7 @@ export interface ReputationSettings {
 }
 
 export const DEFAULT_SETTINGS: ReputationSettings = {
-  channel_preference: "email",
+  channel_preference: "auto",
   reminders_enabled: true,
   review_request_delay_hours: 2,
   low_rating_alerts: true,

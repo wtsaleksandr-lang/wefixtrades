@@ -1311,12 +1311,85 @@ export function registerAdminCrmRoutes(app: Express): void {
    * GET /api/admin/crm/clients/:id/google-status
    * Check if a client has a Google Business connection.
    */
+  /**
+   * GET /api/admin/crm/clients/:id/google-status
+   * Detailed Google Business connection status.
+   */
   app.get("/api/admin/crm/clients/:id/google-status", requireAdmin, async (req: Request, res: Response) => {
     try {
       const clientId = parseInt(req.params.id as string);
-      const { hasGoogleConnection, isGoogleOAuthConfigured } = await import("../services/googleBusinessService");
-      const connected = await hasGoogleConnection(clientId);
-      res.json({ connected, oauthConfigured: isGoogleOAuthConfigured() });
+      const { isGoogleOAuthConfigured } = await import("../services/googleBusinessService");
+      const client = await storage.getClientById(clientId);
+      const creds = client?.google_credentials as any;
+      const connected = !!(creds?.refresh_token || creds?.access_token);
+
+      res.json({
+        oauthConfigured: isGoogleOAuthConfigured(),
+        connected,
+        connectedAt: creds?.connected_at || null,
+        hasRefreshToken: !!creds?.refresh_token,
+        tokenExpiry: creds?.expiry_date ? new Date(creds.expiry_date).toISOString() : null,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/clients/:id/google-disconnect
+   * Disconnect Google Business for a client. Clears stored credentials.
+   */
+  app.post("/api/admin/crm/clients/:id/google-disconnect", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id as string);
+      await storage.updateClient(clientId, { google_credentials: null } as any);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "google.disconnected",
+        entity_type: "client",
+        entity_id: clientId,
+        summary: `Google Business Profile disconnected for client #${clientId}`,
+      });
+
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[admin-crm] Google disconnect error:", err.message);
+      res.status(500).json({ error: "Failed to disconnect" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/monitored-reviews/:id/post-eligibility
+   * Check if a review can be posted to Google (for UI gating).
+   */
+  app.get("/api/admin/crm/monitored-reviews/:id/post-eligibility", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const reviewId = parseInt(req.params.id as string);
+      const review = await storage.getMonitoredReviewById(reviewId);
+      if (!review) return res.status(404).json({ error: "Not found" });
+
+      const issues: string[] = [];
+      if (review.platform !== "google") issues.push("Only Google reviews can be posted to");
+      if (!review.google_review_name) issues.push("Missing Google review identifier (review may predate posting support)");
+      if (review.response_text) issues.push("Response already exists");
+      if (!review.client_id) issues.push("No associated client");
+
+      let googleConnected = false;
+      if (review.client_id && issues.length === 0) {
+        const { hasGoogleConnection } = await import("../services/googleBusinessService");
+        googleConnected = await hasGoogleConnection(review.client_id);
+        if (!googleConnected) issues.push("Google Business not connected for this client");
+      }
+
+      res.json({
+        eligible: issues.length === 0,
+        issues,
+        googleConnected,
+        hasReviewName: !!review.google_review_name,
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -1401,6 +1474,20 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[admin-crm] Post to Google error:", err.message);
       res.status(500).json({ error: "Failed to post response to Google" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/monitored-reviews/backfill-status
+   * Count of Google reviews missing google_review_name (can't post to).
+   */
+  app.get("/api/admin/crm/monitored-reviews/backfill-status", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = req.query.clientId ? parseInt(req.query.clientId as string) : undefined;
+      const missingCount = await storage.countReviewsMissingGoogleName(clientId);
+      res.json({ missingGoogleName: missingCount });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 }

@@ -70,12 +70,18 @@ export async function createPostJobReviewRequest(
     } catch { /* use defaults */ }
   }
 
-  // Determine channel from settings or fallback
-  let channel: "email" | "sms" = booking.customer_email ? "email" : "sms";
-  if (settings?.channel_preference === "sms" && booking.customer_phone) {
+  // Determine channel: "auto" prefers SMS (higher conversion), falls back to email
+  const pref = settings?.channel_preference ?? "auto";
+  let channel: "email" | "sms";
+  if (pref === "sms" && booking.customer_phone) {
     channel = "sms";
-  } else if (settings?.channel_preference === "email" && booking.customer_email) {
+  } else if (pref === "email" && booking.customer_email) {
     channel = "email";
+  } else if (pref === "auto") {
+    // Auto: prefer SMS when phone is available (3-5x better conversion)
+    channel = booking.customer_phone ? "sms" : booking.customer_email ? "email" : "email";
+  } else {
+    channel = booking.customer_email ? "email" : "sms";
   }
 
   // Schedule with configurable delay
