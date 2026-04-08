@@ -8,8 +8,8 @@
  */
 
 import { streamChat, chat, validateConfig, getModel, type ChatMessage, type ChatOptions } from "./aiService";
-import { buildSystemPrompt, type ChatSurface, type AuditContext, type MemoryContext, type PageContext } from "./promptBuilder";
-import { getMemory, saveMemory, extractMemorySignals } from "./chatMemory";
+import { buildSystemPrompt, type ChatSurface, type AuditContext, type MemoryContext, type PageContext, type PortalContext } from "./promptBuilder";
+import { getMemory, getMemoryByUserId, saveMemory, extractMemorySignals } from "./chatMemory";
 import { logUsage } from "./usageTracker";
 import { evaluateAndArchive } from "./conversationArchiver";
 
@@ -27,6 +27,8 @@ export interface AssistantRequest {
   auditContext?: AuditContext;
   /** Admin page context (only for surface="admin") */
   pageContext?: PageContext;
+  /** Portal page context (only for surface="portal") */
+  portalContext?: PortalContext;
   /** Report ID to load context from DB */
   reportId?: string;
   /** Override max tokens for this request */
@@ -56,7 +58,11 @@ async function buildContext(req: AssistantRequest): Promise<{
   chatMessages: ChatMessage[];
   memoryContext?: MemoryContext;
 }> {
-  const stored = await getMemory(req.sessionId).catch(() => null);
+  // For portal surface, try user-scoped memory if session lookup fails
+  const stored = await getMemory(req.sessionId).catch(() => null)
+    || (req.surface === "portal" && req.userId
+        ? await getMemoryByUserId(req.userId).catch(() => null)
+        : null);
   const memoryContext = stored?.memory;
 
   const systemPrompt = buildSystemPrompt(
@@ -64,6 +70,7 @@ async function buildContext(req: AssistantRequest): Promise<{
     req.auditContext,
     memoryContext,
     req.pageContext,
+    req.portalContext,
   );
 
   const chatMessages = req.messages.slice(-20);

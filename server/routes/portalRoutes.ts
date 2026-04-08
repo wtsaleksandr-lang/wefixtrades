@@ -2,7 +2,8 @@ import type { Express, Request, Response } from "express";
 import { requireClient, hashPassword, verifyPassword } from "../auth";
 import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { chat as aiChat } from "../services/aiService";
+import { assistantSync } from "../services/assistant";
+import { assemblePortalContext } from "../services/portalAssistantContext";
 import { authRateLimiter } from "../services/rateLimiter";
 import {
   clients,
@@ -738,75 +739,36 @@ export function registerPortalRoutes(app: Express) {
         .filter((m: any) => m && typeof m.content === "string" && allowedRoles.has(m.role))
         .slice(-10);
 
-      let systemPrompt: string;
+      // Derive identity from session — NEVER from payload
+      const userId = req.user!.id;
+      const sessionId = `portal_${userId}`;
 
-      if (context?.surface === "help") {
-        // General help context
-        systemPrompt = `You are a helpful support assistant for WeFixTrades, a company that provides digital marketing services for trade businesses (plumbers, electricians, builders, etc.).
+      // Determine page hint from context
+      const page = context?.service_name ? "onboarding" : (context?.surface === "help" ? "help" : "overview");
 
-Services include: MapGuard (Google Business Profile), MapSetup (one-time GBP optimization), TradeLine (AI phone/chat), QuoteQuick (quote calculators), RankFlow (ongoing SEO), AdFlow (done-for-you ads), ReputationShield (review management), SocialSync (social media), SiteLaunch (website builds), WebCare (website maintenance), and WebFix (one-time website fixes).
+      // Build onboarding hints if present
+      const onboardingHints = context?.current_responses
+        ? { currentResponses: context.current_responses }
+        : undefined;
 
-Your job:
-- Answer questions about how services work
-- Explain billing, onboarding, and service delivery
-- Help clients understand their portal and dashboard
-- Keep answers short and practical (2-4 sentences)
-- Use Australian English
-- If you don't know something specific to their account, suggest they submit a ticket
+      // Assemble portal context from DB (graceful fallback if it fails)
+      const portalContext = await assemblePortalContext(
+        userId, page, undefined, onboardingHints,
+      ).catch(() => undefined);
 
-Do NOT:
-- Make up account-specific details (balances, dates, statuses)
-- Provide legal or financial advice
-- Discuss internal pricing or margins`;
-      } else {
-        // Onboarding context
-        const fieldList = (context?.fields ?? [])
-          .map((f: { key: string; label: string; required: boolean }) =>
-            `- ${f.label}${f.required ? " (required)" : " (optional)"}`)
-          .join("\n");
-
-        const currentValues = context?.current_responses
-          ? Object.entries(context.current_responses)
-              .filter(([, v]) => v !== "" && v !== false)
-              .map(([k, v]) => `- ${k}: ${v}`)
-              .join("\n")
-          : "None filled yet.";
-
-        systemPrompt = `You are a helpful onboarding assistant for WeFixTrades, a company that provides digital marketing and trade business services.
-
-The client is filling out an onboarding form for: ${context?.service_name ?? "a service"} (${context?.service_id ?? ""}).
-
-The form fields are:
-${fieldList}
-
-What the client has filled in so far:
-${currentValues}
-
-Your job:
-- Help explain what each field means in simple terms
-- Suggest answers based on the client's business
-- Ask clarifying questions to help them think
-- Keep answers short and practical (1-3 sentences)
-- Use Australian English
-- Never auto-submit or override their input
-- If they seem stuck, ask "What services bring you most jobs?" or similar to get them started
-
-Do NOT:
-- Make up specific business details
-- Provide legal or financial advice
-- Discuss pricing of WeFixTrades services`;
-      }
-
-      const reply = await aiChat({
-        system: systemPrompt,
+      const result = await assistantSync({
+        surface: "portal",
         messages: sanitizedMessages.map((m: { role: string; content: string }) => ({
           role: m.role as "user" | "assistant",
           content: m.content,
         })),
+        sessionId,
+        userId,
+        portalContext,
         maxTokens: 300,
       });
 
-      res.json({ reply });
+      res.json({ reply: result.reply });
     } catch (err) {
       console.error("Portal AI chat error:", err);
       res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
