@@ -345,7 +345,7 @@ export type TradelineUsage = typeof tradelineUsage.$inferSelect;
 export const tradelineCallLog = pgTable("tradeline_call_log", {
   id: serial("id").primaryKey(),
   client_service_id: integer("client_service_id").notNull().references(() => clientServices.id),
-  vapi_call_id: varchar("vapi_call_id", { length: 100 }),
+  vapi_call_id: varchar("vapi_call_id", { length: 100 }).unique(),
   direction: varchar("direction", { length: 20 }).notNull().default("inbound"),
   // inbound | outbound
   caller_number: varchar("caller_number", { length: 30 }),

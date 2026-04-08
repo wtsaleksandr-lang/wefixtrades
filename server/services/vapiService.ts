@@ -396,10 +396,17 @@ export async function logTradeLineCall(
   recordingUrl?: string,
 ): Promise<void> {
   try {
-    // Create call log entry
-    await storage.createTradeLineCallLog({
+    const vapiCallId = report.callId !== "unknown" ? report.callId : null;
+
+    if (!vapiCallId) {
+      console.warn("[vapi] Call has no vapi_call_id — cannot guarantee idempotency, skipping log");
+      return;
+    }
+
+    // Idempotent insert — returns null if this vapi_call_id was already logged
+    const inserted = await storage.createTradeLineCallLog({
       client_service_id: clientServiceId,
-      vapi_call_id: report.callId !== "unknown" ? report.callId : null,
+      vapi_call_id: vapiCallId,
       direction: "inbound",
       caller_number: report.customerNumber ?? null,
       duration_seconds: report.duration ?? 0,
@@ -411,7 +418,12 @@ export async function logTradeLineCall(
       recording_url: recordingUrl ?? null,
     });
 
-    // Update usage for current billing period
+    if (!inserted) {
+      console.log(`[vapi] Duplicate call log skipped for vapi_call_id=${report.callId}`);
+      return; // Do NOT increment usage for duplicate webhooks
+    }
+
+    // Update usage for current billing period — only on first insert
     const durationMinutes = report.duration ? Math.ceil(report.duration / 60) : 0;
     if (durationMinutes > 0) {
       const now = new Date();

@@ -209,7 +209,7 @@ export interface IStorage {
   getTradeLineConfig(clientServiceId: number): Promise<TradelineConfig | undefined>;
   updateTradeLineConfig(clientServiceId: number, partialConfig: Partial<TradelineConfig>): Promise<TradelineConfig>;
   setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string): Promise<TradelineModeLog>;
-  createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog>;
+  createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog | null>;
   listTradeLineCalls(clientServiceId: number, limit?: number): Promise<TradelineCallLog[]>;
   upsertTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date): Promise<TradelineUsage>;
   getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined>;
@@ -1320,9 +1320,12 @@ export class DatabaseStorage implements IStorage {
     return log;
   }
 
-  async createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog> {
-    const [row] = await db.insert(tradelineCallLog).values(data).returning();
-    return row;
+  async createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog | null> {
+    // Idempotent: skip if a row with the same vapi_call_id already exists
+    const rows = await db.insert(tradelineCallLog).values(data)
+      .onConflictDoNothing({ target: tradelineCallLog.vapi_call_id })
+      .returning();
+    return rows[0] ?? null;
   }
 
   async listTradeLineCalls(clientServiceId: number, limit = 50): Promise<TradelineCallLog[]> {
