@@ -45,11 +45,14 @@ interface TradeLineData {
     currentMode: string;
     variant: string;
     channels: { voice: boolean; websiteChat: boolean; sms: boolean };
+    setupStage?: string;
   } | null;
+  setupStage?: string;
   usage: {
     voice_minutes_used: number;
     calls_count: number;
     included_minutes: number;
+    overage_minutes?: number;
   } | null;
 }
 
@@ -237,53 +240,73 @@ export default function PortalDashboard() {
           )}
 
           {/* TradeLine card */}
-          {tradeLineService && tlData?.config && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
-                    <PhoneCall className="w-5 h-5 text-teal-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900">TradeLine</h3>
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-emerald-50 text-emerald-700 mt-0.5">
-                      {tlData.config.variant.replace(/_/g, " ")}
-                    </span>
-                  </div>
-                </div>
-                <Link href={`/portal/services/${tradeLineService.id}`}>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors">
-                    Details <ExternalLink className="w-3 h-3" />
-                  </span>
-                </Link>
-              </div>
+          {tradeLineService && tlData?.config && (() => {
+            const stage = tlData.setupStage || tlData.config.setupStage || tradeLineService.status;
+            const statusBadge = stage === "live"
+              ? { label: "Live", cls: "bg-emerald-50 text-emerald-700" }
+              : stage === "ready_for_testing"
+              ? { label: "Ready for testing", cls: "bg-amber-50 text-amber-700" }
+              : { label: "Setting up", cls: "bg-gray-100 text-gray-600" };
 
-              <div className="mt-4 pt-3 border-t border-gray-100 space-y-3">
-                <ModeToggle
-                  currentMode={tlData.config.currentMode as any}
-                  clientServiceId={tradeLineService.id}
-                  apiBase="/api/portal/tradeline"
-                  onModeChanged={() => {
-                    // No-op: next query refresh will pick up the change
-                  }}
-                />
-                {tlData.usage && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center gap-2">
-                      <PhoneCall className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-sm text-gray-600">{tlData.usage.calls_count} calls</span>
+            return (
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
+                      <PhoneCall className="w-5 h-5 text-teal-600" />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-sm text-gray-600">
-                        {tlData.usage.voice_minutes_used}/{tlData.usage.included_minutes} min
-                      </span>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">TradeLine</h3>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-teal-50 text-teal-700">
+                          {tlData.config.variant.replace(/_/g, " ")}
+                        </span>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${statusBadge.cls}`}>
+                          {statusBadge.label}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                )}
+                  <Link href={`/portal/services/${tradeLineService.id}`}>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors">
+                      Details <ExternalLink className="w-3 h-3" />
+                    </span>
+                  </Link>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-gray-100 space-y-3">
+                  <ModeToggle
+                    currentMode={tlData.config.currentMode as any}
+                    clientServiceId={tradeLineService.id}
+                    apiBase="/api/portal/tradeline"
+                    onModeChanged={() => {}}
+                  />
+                  {tlData.usage && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Monthly usage</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center gap-2">
+                          <PhoneCall className="w-3.5 h-3.5 text-gray-400" />
+                          <span className="text-sm text-gray-600">{tlData.usage.calls_count} calls</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5 text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            {tlData.usage.voice_minutes_used} / {tlData.usage.included_minutes} minutes used
+                          </span>
+                        </div>
+                      </div>
+                      {(tlData.usage.overage_minutes ?? 0) > 0 && (
+                        <p className="text-xs text-amber-600 mt-1.5">
+                          {tlData.usage.overage_minutes} overage minutes
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Recent activity */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

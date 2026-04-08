@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, MessageCircle, Send, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, MessageCircle, Send, RefreshCw, Settings2, Zap } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { getFieldConfig } from "@/config/onboardingFields";
 
@@ -269,24 +269,10 @@ export default function PortalOnboarding() {
         )}
 
         {data && isSubmitted && (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-            <CheckCircle2 className="w-12 h-12 text-[#2D6A4F] mx-auto mb-4" />
-            <h1 className="text-lg font-semibold text-gray-900">Setup Form Submitted</h1>
-            <p className="text-sm text-gray-500 mt-2">
-              Your information for <span className="font-medium">{data.service_name}</span> has been submitted.
-              Our team will review it and get started.
-            </p>
-            {data.approved_at && (
-              <p className="text-xs text-emerald-600 mt-3">
-                Approved on {new Date(data.approved_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
-              </p>
-            )}
-            <Link href="/portal/services">
-              <button className="mt-6 px-4 py-2 text-sm font-medium text-[#2D6A4F] bg-[#F0F7F4] rounded-lg hover:bg-[#e0efe8] transition-colors">
-                Back to Services
-              </button>
-            </Link>
-          </div>
+          <PortalSetupProgress
+            serviceName={data.service_name ?? "service"}
+            approvedAt={data.approved_at}
+          />
         )}
 
         {data && !isSubmitted && (
@@ -369,10 +355,10 @@ export default function PortalOnboarding() {
                 >
                   {submitMutation.isPending ? (
                     <span className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
+                      <Loader2 className="w-4 h-4 animate-spin" /> Setting up...
                     </span>
                   ) : (
-                    "Submit"
+                    "Finish Setup"
                   )}
                 </button>
               </div>
@@ -415,6 +401,73 @@ export default function PortalOnboarding() {
         />
       )}
     </PortalLayout>
+  );
+}
+
+/* ─── Post-Submit Progress ─── */
+function PortalSetupProgress({ serviceName, approvedAt }: { serviceName: string; approvedAt: string | null }) {
+  const [stage, setStage] = useState(0);
+
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setStage(1), 800),
+      setTimeout(() => setStage(2), 2000),
+      setTimeout(() => setStage(3), 3500),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  const steps = [
+    { label: "Configuration received", done: stage >= 0 },
+    { label: "System being built", done: stage >= 1 },
+    { label: "Connecting channels", done: stage >= 2 },
+    { label: "Finalizing", done: stage >= 3 },
+  ];
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+      <div className="w-12 h-12 rounded-full bg-[#F0F7F4] flex items-center justify-center mx-auto mb-5">
+        <Settings2 className={`w-6 h-6 text-[#2D6A4F] ${stage < 3 ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
+      </div>
+      <h1 className="text-lg font-semibold text-gray-900">Your system is being prepared</h1>
+      <p className="text-sm text-gray-500 mt-1.5 mb-6">This takes about 1–2 minutes</p>
+
+      <div className="text-left space-y-3 max-w-xs mx-auto mb-6">
+        {steps.map((s, i) => (
+          <div key={i} className="flex items-center gap-3">
+            {s.done ? (
+              <CheckCircle2 className="w-4 h-4 text-[#2D6A4F] flex-shrink-0" />
+            ) : (
+              <Loader2 className="w-4 h-4 text-gray-300 animate-spin flex-shrink-0" />
+            )}
+            <span className={`text-sm ${s.done ? "text-gray-700" : "text-gray-400"}`}>
+              {s.label}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {approvedAt && (
+        <p className="text-xs text-emerald-600 mb-4">
+          Approved on {new Date(approvedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
+        </p>
+      )}
+
+      {stage >= 3 && (
+        <>
+          <div className="bg-[#F0F7F4] rounded-lg p-3 mb-4">
+            <p className="text-sm text-[#2D6A4F] font-medium flex items-center justify-center gap-1.5">
+              <Zap className="w-3.5 h-3.5" /> Setup complete
+            </p>
+          </div>
+          <Link href="/portal/services">
+            <button className="px-4 py-2 text-sm font-medium text-[#2D6A4F] bg-[#F0F7F4] rounded-lg hover:bg-[#e0efe8] transition-colors">
+              Back to Services
+            </button>
+          </Link>
+        </>
+      )}
+    </div>
   );
 }
 

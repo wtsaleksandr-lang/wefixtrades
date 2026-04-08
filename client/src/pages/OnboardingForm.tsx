@@ -3,12 +3,12 @@ import { useRoute } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, ArrowRight, Settings2, Zap } from "lucide-react";
 
 interface Step {
   key: string;
   label: string;
-  type: "text" | "checkbox" | "upload" | "form";
+  type: "text" | "checkbox" | "upload" | "form" | "select";
   required: boolean;
 }
 
@@ -21,6 +21,106 @@ interface FormData {
   submittedAt: string | null;
 }
 
+/* ─── Helper text for known onboarding field keys ─── */
+const FIELD_HINTS: Record<string, string> = {
+  trade_type: "e.g. Plumber, Electrician, HVAC, Roofer",
+  service_area: "e.g. London, Greater Manchester, within 30 miles",
+  top_services: "e.g. drain cleaning, panel upgrade, furnace repair",
+  pricing_ranges: "e.g. £50–£200 for small jobs, £500+ for installs",
+  business_hours: "e.g. Mon–Fri 8am–6pm, Sat 9am–1pm",
+  primary_phone: "Your main business number",
+  escalation_number: "For urgent or overflow calls",
+  website_url: "e.g. https://yoursite.co.uk",
+  brand_colors: "e.g. #003366, or just describe: dark blue",
+  ring_timeout: "Seconds before AI picks up (default 20)",
+  callback_number: "If different from your main number",
+};
+
+/* ─── Step grouping: split fields into logical wizard pages ─── */
+const STEP_GROUPS = [
+  {
+    title: "Business Info",
+    keys: ["business_name", "trade_type", "service_area"],
+  },
+  {
+    title: "Work Details",
+    keys: ["top_services", "pricing_ranges", "business_hours"],
+  },
+  {
+    title: "Contact & Setup",
+    keys: [
+      "primary_phone", "escalation_number", "callback_number",
+      "forwarding_preference", "ring_timeout",
+      "website_url", "website_access", "install_mode",
+      "brand_colors", "lead_destination",
+      "booking_enabled", "tone",
+    ],
+  },
+];
+
+function getStepGroup(step: Step): number {
+  for (let i = 0; i < STEP_GROUPS.length; i++) {
+    if (STEP_GROUPS[i].keys.includes(step.key)) return i;
+  }
+  return STEP_GROUPS.length - 1; // default to last group
+}
+
+/* ─── Post-submit progress animation ─── */
+function SetupProgress({ serviceName }: { serviceName: string }) {
+  const [stage, setStage] = useState(0);
+
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setStage(1), 800),
+      setTimeout(() => setStage(2), 2000),
+      setTimeout(() => setStage(3), 3500),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  const steps = [
+    { label: "Configuration received", done: stage >= 0 },
+    { label: "System being built", done: stage >= 1 },
+    { label: "Connecting channels", done: stage >= 2 },
+    { label: "Finalizing", done: stage >= 3 },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#F6F7F9] flex items-center justify-center p-4">
+      <Card className="max-w-md w-full p-8 text-center">
+        <div className="w-12 h-12 rounded-full bg-[#F0F7F4] flex items-center justify-center mx-auto mb-5">
+          <Settings2 className={`w-6 h-6 text-[#2D6A4F] ${stage < 3 ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
+        </div>
+        <h1 className="text-lg font-semibold text-gray-900">Your system is being prepared</h1>
+        <p className="text-sm text-gray-500 mt-1.5 mb-6">This takes about 1–2 minutes</p>
+
+        <div className="text-left space-y-3 mb-6">
+          {steps.map((s, i) => (
+            <div key={i} className="flex items-center gap-3">
+              {s.done ? (
+                <CheckCircle2 className="w-4.5 h-4.5 text-[#2D6A4F] flex-shrink-0" />
+              ) : (
+                <Loader2 className="w-4.5 h-4.5 text-gray-300 animate-spin flex-shrink-0" />
+              )}
+              <span className={`text-sm ${s.done ? "text-gray-700" : "text-gray-400"}`}>
+                {s.label}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {stage >= 3 && (
+          <div className="bg-[#F0F7F4] rounded-lg p-3 mt-2">
+            <p className="text-sm text-[#2D6A4F] font-medium flex items-center justify-center gap-1.5">
+              <Zap className="w-3.5 h-3.5" /> Setup complete — you can close this page
+            </p>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 export default function OnboardingForm() {
   const [, params] = useRoute("/onboarding/:token");
   const token = params?.token || "";
@@ -31,6 +131,7 @@ export default function OnboardingForm() {
   const [responses, setResponses] = useState<Record<string, any>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
 
   // Load form data
   useEffect(() => {
@@ -42,7 +143,6 @@ export default function OnboardingForm() {
       })
       .then((d: FormData) => {
         setData(d);
-        // Pre-fill existing responses
         const existing: Record<string, any> = {};
         if (d.responses) {
           for (const [key, val] of Object.entries(d.responses)) {
@@ -58,23 +158,53 @@ export default function OnboardingForm() {
       .finally(() => setLoading(false));
   }, [token]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!data || submitting) return;
+  // Group steps into wizard pages
+  const groupedSteps = data
+    ? STEP_GROUPS.map((group, idx) => ({
+        ...group,
+        fields: data.steps.filter((s) => getStepGroup(s) === idx),
+      })).filter((g) => g.fields.length > 0)
+    : [];
 
-    // Validate required fields
-    const missing = data.steps.filter(
+  const totalSteps = groupedSteps.length;
+  const currentGroup = groupedSteps[currentStep];
+
+  function validateCurrentStep(): boolean {
+    if (!currentGroup) return true;
+    const missing = currentGroup.fields.filter(
       (s) => s.required && !responses[s.key] && responses[s.key] !== true
     );
     if (missing.length > 0) {
       setError(`Please fill in: ${missing.map((s) => s.label).join(", ")}`);
-      return;
+      return false;
     }
-
     setError(null);
+    return true;
+  }
+
+  function goNext() {
+    if (!validateCurrentStep()) return;
+    if (currentStep < totalSteps - 1) {
+      setCurrentStep(currentStep + 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  function goBack() {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+      setError(null);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!data || submitting) return;
+    if (!validateCurrentStep()) return;
+
     setSubmitting(true);
 
-    // Build responses with timestamps
     const formatted: Record<string, { value: any; completed_at: string }> = {};
     for (const [key, value] of Object.entries(responses)) {
       if (value !== "" && value !== false) {
@@ -100,7 +230,7 @@ export default function OnboardingForm() {
     }
   }
 
-  // Loading state
+  // Loading
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F6F7F9] flex items-center justify-center">
@@ -109,7 +239,7 @@ export default function OnboardingForm() {
     );
   }
 
-  // Error state (form not found)
+  // Error (form not found)
   if (!data) {
     return (
       <div className="min-h-screen bg-[#F6F7F9] flex items-center justify-center p-4">
@@ -122,28 +252,19 @@ export default function OnboardingForm() {
     );
   }
 
-  // Thank you state
+  // Post-submit progress
   if (submitted) {
-    return (
-      <div className="min-h-screen bg-[#F6F7F9] flex items-center justify-center p-4">
-        <Card className="max-w-md w-full p-8 text-center">
-          <CheckCircle2 className="w-12 h-12 text-[#2D6A4F] mx-auto mb-4" />
-          <h1 className="text-lg font-semibold text-gray-900">Thank you!</h1>
-          <p className="text-sm text-gray-500 mt-2">
-            Your onboarding information has been submitted. Our team will review it and get started on your {data.serviceName} setup.
-          </p>
-          <p className="text-xs text-gray-400 mt-4">You can close this page.</p>
-        </Card>
-      </div>
-    );
+    return <SetupProgress serviceName={data.serviceName} />;
   }
 
-  // Form
+  const isLastStep = currentStep === totalSteps - 1;
+
+  // Multi-step form
   return (
     <div className="min-h-screen bg-[#F6F7F9] py-8 px-4">
       <div className="max-w-lg mx-auto space-y-4">
         {/* Header */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-2">
           <div className="flex items-center justify-center gap-2 mb-3">
             <div className="w-7 h-7 rounded-lg bg-[#1a1f1e] border border-[rgba(102,232,250,0.15)] flex items-center justify-center">
               <svg viewBox="0 0 22 22" width={14} height={14} fill="none">
@@ -156,10 +277,32 @@ export default function OnboardingForm() {
             </div>
             <span className="text-sm font-bold text-gray-900">We<span className="text-[#2D6A4F]">Fix</span>Trades</span>
           </div>
-          <h1 className="text-xl font-semibold text-gray-900">{data.serviceName}</h1>
-          <p className="text-sm text-gray-500 mt-1">Onboarding for {data.clientName}</p>
-          <p className="text-xs text-gray-400 mt-1">Please fill in the details below so we can get started.</p>
+          <p className="text-sm text-gray-500">
+            We'll set everything up for you based on your answers.
+          </p>
         </div>
+
+        {/* Progress indicator */}
+        <div className="flex items-center gap-3 px-1">
+          <div className="flex-1 flex gap-1.5">
+            {groupedSteps.map((_, i) => (
+              <div
+                key={i}
+                className={`h-1.5 flex-1 rounded-full transition-colors ${
+                  i <= currentStep ? "bg-[#2D6A4F]" : "bg-gray-200"
+                }`}
+              />
+            ))}
+          </div>
+          <span className="text-xs text-gray-400 whitespace-nowrap">
+            Step {currentStep + 1} of {totalSteps}
+          </span>
+        </div>
+
+        {/* Step title */}
+        <h2 className="text-lg font-semibold text-gray-900 px-1">
+          {currentGroup?.title}
+        </h2>
 
         {/* Error banner */}
         {error && (
@@ -168,10 +311,10 @@ export default function OnboardingForm() {
           </Card>
         )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <Card className="p-5 space-y-4">
-            {data.steps.map((step) => (
+        {/* Current step fields */}
+        <form onSubmit={isLastStep ? handleSubmit : (e) => { e.preventDefault(); goNext(); }}>
+          <Card className="p-5 space-y-5">
+            {currentGroup?.fields.map((step) => (
               <div key={step.key}>
                 {step.type === "checkbox" ? (
                   <label className="flex items-start gap-3 cursor-pointer min-h-[44px] py-1">
@@ -181,17 +324,26 @@ export default function OnboardingForm() {
                       onChange={(e) => setResponses({ ...responses, [step.key]: e.target.checked })}
                       className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#2D6A4F] focus:ring-[#2D6A4F]"
                     />
-                    <span className="text-sm text-gray-700">
-                      {step.label}
-                      {step.required && <span className="text-red-400 ml-1">*</span>}
-                    </span>
+                    <div>
+                      <span className="text-sm text-gray-700">
+                        {step.label}
+                        {step.required && <span className="text-red-400 ml-1">*</span>}
+                      </span>
+                      {FIELD_HINTS[step.key] && (
+                        <p className="text-xs text-gray-400 mt-0.5">{FIELD_HINTS[step.key]}</p>
+                      )}
+                    </div>
                   </label>
                 ) : (
                   <div>
                     <label className="text-xs font-medium text-gray-600 mb-1 block">
                       {step.label}
                       {step.required && <span className="text-red-400 ml-1">*</span>}
+                      {!step.required && <span className="text-gray-400 ml-1">(optional)</span>}
                     </label>
+                    {FIELD_HINTS[step.key] && (
+                      <p className="text-xs text-gray-400 mb-1.5">{FIELD_HINTS[step.key]}</p>
+                    )}
                     <Input
                       value={responses[step.key] || ""}
                       onChange={(e) => setResponses({ ...responses, [step.key]: e.target.value })}
@@ -203,19 +355,41 @@ export default function OnboardingForm() {
             ))}
           </Card>
 
-          <Button
-            type="submit"
-            disabled={submitting}
-            className="w-full mt-4 bg-[#2D6A4F] hover:bg-[#1B4332] min-h-[44px]"
-          >
-            {submitting ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
-              </span>
-            ) : (
-              "Submit"
+          {/* Navigation */}
+          <div className="flex items-center gap-3 mt-4">
+            {currentStep > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={goBack}
+                className="min-h-[44px]"
+              >
+                Back
+              </Button>
             )}
-          </Button>
+            {isLastStep ? (
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 bg-[#2D6A4F] hover:bg-[#1B4332] min-h-[44px]"
+              >
+                {submitting ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Setting up...
+                  </span>
+                ) : (
+                  "Finish Setup"
+                )}
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                className="flex-1 bg-[#2D6A4F] hover:bg-[#1B4332] min-h-[44px]"
+              >
+                Continue <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            )}
+          </div>
         </form>
 
         <p className="text-[11px] text-gray-400 text-center">

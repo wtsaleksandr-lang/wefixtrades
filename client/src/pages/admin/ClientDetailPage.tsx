@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard, Copy, ExternalLink, ClipboardCheck, UserPlus, ShieldCheck,
-  PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Loader2, Save,
+  PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Loader2, Save, AlertCircle, CheckCircle2,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -1042,6 +1042,11 @@ interface TLAdminData {
     ended_at: string | null;
     created_at: string | null;
   }[];
+  // Orchestration convenience fields
+  setupStage?: string;
+  assistantStatus?: string;
+  assistantError?: string | null;
+  assistantBuiltAt?: string | null;
 }
 
 function TLCallIcon({ outcome }: { outcome: string }) {
@@ -1169,6 +1174,57 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                   )}
                 </div>
               )}
+
+              {/* Setup Stage + Assistant Status */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Setup Stage</p>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
+                    (data.setupStage || cfg.setupStage) === "live" ? "bg-emerald-50 text-emerald-700"
+                    : (data.setupStage || cfg.setupStage) === "ready_for_testing" ? "bg-amber-50 text-amber-700"
+                    : "bg-gray-100 text-gray-600"
+                  }`}>
+                    {(data.setupStage || cfg.setupStage || "not_started").replace(/_/g, " ")}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Assistant</p>
+                  {(data.assistantStatus || cfg.assistant?.status) === "built" ? (
+                    <div>
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+                        <CheckCircle2 className="w-3 h-3" /> Built
+                      </span>
+                      {(cfg.assistant?.templateId) && (
+                        <p className="text-xs text-gray-500 mt-0.5 capitalize">
+                          Template: {cfg.assistant.templateId}
+                        </p>
+                      )}
+                      {data.assistantBuiltAt && (
+                        <p className="text-[10px] text-gray-400 mt-0.5">
+                          {new Date(data.assistantBuiltAt).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      )}
+                    </div>
+                  ) : (data.assistantStatus || cfg.assistant?.status) === "failed" ? (
+                    <div>
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600">
+                        <AlertCircle className="w-3 h-3" /> Build failed
+                      </span>
+                      {data.assistantError && (
+                        <p className="text-[10px] text-red-500 mt-0.5 truncate max-w-[200px]" title={data.assistantError}>
+                          {data.assistantError}
+                        </p>
+                      )}
+                    </div>
+                  ) : (data.assistantStatus || cfg.assistant?.status) === "building" ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Building...
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-500">Not built</span>
+                  )}
+                </div>
+              </div>
 
               {/* Usage */}
               {data.usage && (

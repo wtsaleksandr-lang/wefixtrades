@@ -81,6 +81,11 @@ export default function ModeToggle({ currentMode, clientServiceId, apiBase, onMo
           {MODES.find((m) => m.value === active)?.desc}
         </span>
       )}
+      {active === "on_the_job" && !mutation.isPending && (
+        <span className="text-[10px] text-gray-400 leading-tight">
+          Your system handles all calls and messages automatically.
+        </span>
+      )}
     </div>
   );
 }
