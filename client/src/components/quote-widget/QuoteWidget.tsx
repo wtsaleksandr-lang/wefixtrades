@@ -1,7 +1,7 @@
-import { useMemo, useEffect, useRef } from 'react';
-import { ChevronLeft, ArrowRight } from 'lucide-react';
+import { useMemo, useEffect, useRef, Component, type ReactNode } from 'react';
+import { ChevronLeft, ArrowRight, AlertTriangle } from 'lucide-react';
 import { trackEvent } from '@/lib/trackEvent';
-import { validatePricingConfig } from '@shared/pricingConfig';
+import { validatePricingConfig, CALL_FOR_QUOTE_FALLBACK } from '@shared/pricingConfig';
 import { getTemplateById } from '@shared/templateLibrary';
 import { buildWidgetFlow, type FlowBuilderSettings } from '@shared/widgetFlowBuilder';
 import { getWidgetTheme } from '@/theme/widgetTheme';
@@ -13,6 +13,37 @@ import { evaluateVisibility } from './visibility';
 import type { CalculatorData, WidgetConfig } from './types';
 
 import { eff } from './designTokens';
+
+/* ─── Error Boundary ─── */
+
+interface ErrorBoundaryState { error: Error | null }
+
+class WidgetErrorBoundary extends Component<{ children: ReactNode; businessName?: string }, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error) {
+    console.error('[QuoteWidget] Render error:', error);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{
+          maxWidth: '576px', margin: '0 auto', padding: '40px 24px',
+          textAlign: 'center', fontFamily: eff.font,
+        }}>
+          <AlertTriangle style={{ width: 32, height: 32, color: '#d97706', margin: '0 auto 16px' }} />
+          <p style={{ fontSize: '16px', fontWeight: 600, color: eff.text, margin: '0 0 8px' }}>
+            Something went wrong loading this calculator
+          </p>
+          <p style={{ fontSize: '14px', color: eff.textBody, margin: 0 }}>
+            Please refresh the page or contact {this.props.businessName || 'the business'} directly.
+          </p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /* ─── Public Props (matches CalculatorWidget interface) ─── */
 
@@ -32,13 +63,22 @@ interface QuoteWidgetProps {
  */
 export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidgetProps) {
   const config = useMemo<WidgetConfig>(() => {
-    const validation = validatePricingConfig(calculator.pricing_config);
+    // Guard: missing or null pricing_config falls back to call-for-quote
+    const rawPricing = calculator.pricing_config ?? CALL_FOR_QUOTE_FALLBACK;
+    const validation = validatePricingConfig(rawPricing);
+    if (!validation.valid) {
+      console.warn('[QuoteWidget] Invalid pricing config, using fallback:', validation.errors);
+    }
     const pricingConfig = validation.config;
 
     const calcSettings = (calculator.calculator_settings || {}) as Record<string, any>;
     const uiTemplate = calcSettings.ui_template || {};
     const templateId: string = uiTemplate.template_id || 'classic_single';
+    // Guard: invalid template ID falls back to classic_single
     const template = getTemplateById(templateId) || getTemplateById('classic_single')!;
+    if (!getTemplateById(templateId)) {
+      console.warn(`[QuoteWidget] Unknown template "${templateId}", using classic_single`);
+    }
 
     const bookingSettings = calcSettings.booking_settings || {};
     const flowSettings: FlowBuilderSettings = {
@@ -53,6 +93,16 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
     };
 
     const flow = buildWidgetFlow(pricingConfig, template, flowSettings);
+
+    // Guard: empty steps — ensure at least lead_capture + confirmation
+    if (!flow.steps || flow.steps.length === 0) {
+      console.warn('[QuoteWidget] Flow produced 0 steps, injecting minimal flow');
+      flow.steps = [
+        { id: 'price_reveal', type: 'price_reveal', title: 'Your Estimate', questions: [], config: { show_progress: true, can_skip: false, auto_advance: false } },
+        { id: 'lead_capture', type: 'lead_capture', title: 'Get your detailed quote', questions: [], config: { show_progress: true, can_skip: false, auto_advance: false } },
+        { id: 'confirmation', type: 'confirmation', title: "You're all set!", questions: [], config: { show_progress: false, can_skip: false, auto_advance: false } },
+      ];
+    }
 
     return { calculator, pricingConfig, template, flow, isEmbed };
   }, [calculator, isEmbed]);
@@ -71,18 +121,20 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
   }, [calculator.id, calculator.slug]);
 
   return (
-    <WidgetProvider config={config}>
-      <div
-        className="mx-auto w-full"
-        style={{
-          maxWidth: '576px',
-          fontFamily: eff.font,
-          color: eff.text,
-        }}
-      >
-        <WidgetCard theme={theme} calculator={calculator} />
-      </div>
-    </WidgetProvider>
+    <WidgetErrorBoundary businessName={calculator.business_name}>
+      <WidgetProvider config={config}>
+        <div
+          className="mx-auto w-full"
+          style={{
+            maxWidth: '576px',
+            fontFamily: eff.font,
+            color: eff.text,
+          }}
+        >
+          <WidgetCard theme={theme} calculator={calculator} />
+        </div>
+      </WidgetProvider>
+    </WidgetErrorBoundary>
   );
 }
 

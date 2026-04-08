@@ -22,10 +22,14 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
   // Derive estimate directly from current inputs. useMemo ensures
   // recalculation only when inputs or pricing config actually change,
   // and avoids the stale-dependency bug of useEffect + recalculate().
-  const estimate = useMemo(
-    () => calculateEstimate(config.pricingConfig, estimateInputs),
-    [config.pricingConfig, estimateInputs],
-  );
+  const estimate = useMemo(() => {
+    const result = calculateEstimate(config.pricingConfig, estimateInputs);
+    // Guard: ensure total is never NaN for display
+    if (!Number.isFinite(result.total)) {
+      return { ...result, total: 0 };
+    }
+    return result;
+  }, [config.pricingConfig, estimateInputs]);
 
   const trackedRef = useRef(false);
   useEffect(() => {
