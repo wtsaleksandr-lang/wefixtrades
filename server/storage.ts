@@ -1542,7 +1542,7 @@ export class DatabaseStorage implements IStorage {
   async listClientsForReviewSync(limit = 20): Promise<Client[]> {
     return db.select().from(clients)
       .where(and(
-        isNotNull(clients.google_place_id),
+        sql`(${clients.google_place_id} IS NOT NULL OR ${clients.facebook_page_url} IS NOT NULL)`,
         sql`${clients.status} IN ('active', 'onboarding')`,
       ))
       .orderBy(sql`${clients.last_review_sync_at} ASC NULLS FIRST`)

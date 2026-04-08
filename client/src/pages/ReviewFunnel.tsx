@@ -10,10 +10,11 @@ interface ReviewData {
   status: string;
   sentiment: string | null;
   reviewUrl: string | null;
+  facebookReviewUrl: string | null;
   hasFeedback: boolean;
 }
 
-type PageState = "loading" | "error" | "gate" | "positive" | "negative" | "submitted" | "already_done";
+type PageState = "loading" | "error" | "gate" | "choose_platform" | "positive" | "negative" | "submitted" | "already_done";
 
 export default function ReviewFunnel() {
   const [, params] = useRoute("/review/:token");
@@ -50,10 +51,27 @@ export default function ReviewFunnel() {
   async function handleSentiment(sentiment: "positive" | "negative") {
     setSubmitting(true);
     try {
+      if (sentiment === "positive" && data?.reviewUrl && data?.facebookReviewUrl) {
+        // Both platforms available — show choice screen (don't POST yet)
+        setPageState("choose_platform");
+        setSubmitting(false);
+        return;
+      }
+      await sendSentiment(sentiment);
+    } catch {
+      setPageState("error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function sendSentiment(sentiment: string, platform?: string) {
+    setSubmitting(true);
+    try {
       const res = await fetch(`/api/review/${token}/respond`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sentiment }),
+        body: JSON.stringify({ sentiment, platform }),
       });
       const result = await res.json();
       if (!res.ok) {
@@ -63,7 +81,7 @@ export default function ReviewFunnel() {
         }
         throw new Error(result.error);
       }
-      if (sentiment === "positive") {
+      if (sentiment === "positive" || sentiment === "neutral") {
         if (result.reviewUrl) {
           setData((d) => d ? { ...d, reviewUrl: result.reviewUrl } : d);
         }
@@ -157,6 +175,46 @@ export default function ReviewFunnel() {
           >
             <MessageSquare size={18} /> I had an issue
           </Button>
+        </div>
+      </Wrapper>
+    );
+  }
+
+  if (pageState === "choose_platform") {
+    return (
+      <Wrapper>
+        <CheckCircle2 size={40} style={{ color: "#22C55E", marginBottom: 16 }} />
+        <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px", color: "#1a1a2e" }}>
+          Great to hear!
+        </h2>
+        <p style={{ color: "#555", fontSize: 14, lineHeight: 1.6, margin: "0 0 20px" }}>
+          Where would you like to leave your review for <strong>{data?.businessName}</strong>?
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <button
+            onClick={() => sendSentiment("positive", "google")}
+            disabled={submitting}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              background: "#fff", border: "1px solid #E5E7EB", borderRadius: 10,
+              padding: "14px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+              color: "#1a1a2e", transition: "border-color 0.2s",
+            }}
+          >
+            <span style={{ fontSize: 20 }}>G</span> Leave a Google Review
+          </button>
+          <button
+            onClick={() => sendSentiment("positive", "facebook")}
+            disabled={submitting}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              background: "#fff", border: "1px solid #E5E7EB", borderRadius: 10,
+              padding: "14px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+              color: "#1a1a2e", transition: "border-color 0.2s",
+            }}
+          >
+            <span style={{ fontSize: 20, color: "#1877F2" }}>f</span> Leave a Facebook Review
+          </button>
         </div>
       </Wrapper>
     );

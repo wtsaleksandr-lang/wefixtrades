@@ -14,6 +14,7 @@
 import { storage } from "../storage";
 import {
   fetchGoogleReviews,
+  fetchFacebookReviews,
   normalizeReview,
   reviewDedupKey,
 } from "../lib/outscraper";
@@ -34,38 +35,23 @@ interface SyncResult {
   error?: string;
 }
 
-async function syncClientReviews(client: Client): Promise<SyncResult> {
-  const result: SyncResult = {
-    clientId: client.id,
-    businessName: client.business_name,
-    newReviews: 0,
-    updatedReviews: 0,
-    totalFetched: 0,
-  };
-
-  if (!client.google_place_id) {
-    result.error = "No google_place_id";
-    return result;
-  }
-
-  // Fetch reviews from Outscraper
-  const rawReviews = await fetchGoogleReviews(client.google_place_id, REVIEWS_PER_CLIENT);
-  if (!rawReviews) {
-    result.error = "Outscraper fetch returned null (API key missing or request failed)";
-    return result;
-  }
-
-  result.totalFetched = rawReviews.length;
-
+/** Process a batch of raw reviews for a client + platform. */
+async function processReviews(
+  client: Client,
+  rawReviews: import("../lib/outscraper").OutscraperReview[],
+  platform: string,
+  placeIdKey: string,
+  result: SyncResult,
+): Promise<void> {
   for (const raw of rawReviews) {
     const normalized = normalizeReview(raw);
-    const dedupKey = reviewDedupKey(client.google_place_id, normalized);
+    const dedupKey = reviewDedupKey(placeIdKey, normalized);
 
     try {
       const { review, isNew } = await storage.upsertMonitoredReview({
         client_id: client.id,
-        google_place_id: client.google_place_id,
-        platform: "google",
+        google_place_id: placeIdKey,
+        platform,
         dedup_key: dedupKey,
         external_review_id: normalized.externalId,
         reviewer_name: normalized.reviewerName,
@@ -81,8 +67,6 @@ async function syncClientReviews(client: Client): Promise<SyncResult> {
 
       if (isNew) {
         result.newReviews++;
-
-        // Log admin activity for new review
         await storage.logAdminActivity({
           actor_type: "system",
           actor_id: null,
@@ -90,21 +74,11 @@ async function syncClientReviews(client: Client): Promise<SyncResult> {
           action: normalized.rating <= 2 ? "review.new_negative" : "review.new",
           entity_type: "monitored_review",
           entity_id: review.id,
-          summary: `New ${normalized.rating}★ review for ${client.business_name} by ${normalized.reviewerName}`,
-          metadata: {
-            client_id: client.id,
-            rating: normalized.rating,
-            reviewer: normalized.reviewerName,
-            hasText: !!normalized.reviewText,
-            platform: "google",
-          },
+          summary: `New ${normalized.rating}★ ${platform} review for ${client.business_name} by ${normalized.reviewerName}`,
+          metadata: { client_id: client.id, rating: normalized.rating, reviewer: normalized.reviewerName, hasText: !!normalized.reviewText, platform },
         });
-      } else if (review.response_added && !normalized.responseText) {
-        // response_added was already true before this sync — no new event
       } else if (review.response_added) {
         result.updatedReviews++;
-
-        // Log admin activity for new owner response
         await storage.logAdminActivity({
           actor_type: "system",
           actor_id: null,
@@ -112,21 +86,53 @@ async function syncClientReviews(client: Client): Promise<SyncResult> {
           action: "review.response_added",
           entity_type: "monitored_review",
           entity_id: review.id,
-          summary: `Owner response added for ${normalized.rating}★ review on ${client.business_name}`,
-          metadata: {
-            client_id: client.id,
-            rating: normalized.rating,
-            reviewer: normalized.reviewerName,
-            platform: "google",
-          },
+          summary: `Owner response added for ${normalized.rating}★ ${platform} review on ${client.business_name}`,
+          metadata: { client_id: client.id, rating: normalized.rating, reviewer: normalized.reviewerName, platform },
         });
       }
     } catch (err: any) {
-      console.error(`[ReviewMonitor] Error upserting review for client ${client.id}:`, err.message);
+      console.error(`[ReviewMonitor] Error upserting ${platform} review for client ${client.id}:`, err.message);
+    }
+  }
+}
+
+async function syncClientReviews(client: Client): Promise<SyncResult> {
+  const result: SyncResult = {
+    clientId: client.id,
+    businessName: client.business_name,
+    newReviews: 0,
+    updatedReviews: 0,
+    totalFetched: 0,
+  };
+
+  if (!client.google_place_id && !client.facebook_page_url) {
+    result.error = "No google_place_id or facebook_page_url";
+    return result;
+  }
+
+  // Google reviews
+  if (client.google_place_id) {
+    const rawGoogle = await fetchGoogleReviews(client.google_place_id, REVIEWS_PER_CLIENT);
+    if (rawGoogle) {
+      result.totalFetched += rawGoogle.length;
+      await processReviews(client, rawGoogle, "google", client.google_place_id, result);
     }
   }
 
-  // Update client sync timestamp
+  // Facebook reviews
+  if (client.facebook_page_url) {
+    try {
+      const rawFb = await fetchFacebookReviews(client.facebook_page_url, REVIEWS_PER_CLIENT);
+      if (rawFb) {
+        result.totalFetched += rawFb.length;
+        await processReviews(client, rawFb, "facebook", `fb:${client.facebook_page_url}`, result);
+      }
+    } catch (err: any) {
+      console.error(`[ReviewMonitor] Facebook fetch error for client ${client.id}:`, err.message);
+    }
+  }
+
+  // Update sync timestamp
   try {
     await storage.updateClient(client.id, { last_review_sync_at: new Date() });
   } catch (err: any) {

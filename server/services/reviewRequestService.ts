@@ -5,7 +5,7 @@
 
 import crypto from "crypto";
 import { storage } from "../storage";
-import { generateGoogleReviewLink } from "../lib/reviewLink";
+import { generateGoogleReviewLink, generateFacebookReviewLink } from "../lib/reviewLink";
 import { sendReviewRequestEmail } from "../lib/reviewRequestEmail";
 import { isTwilioConfigured, sendSMS, checkRateLimit, storeSmsMessage } from "../twilioClient";
 import type { Booking, Calculator, ReviewRequest } from "@shared/schema";
@@ -43,17 +43,20 @@ export async function createPostJobReviewRequest(
   // Resolve client via calculator.user_id → clients.user_id
   let clientId: number | undefined;
   let googlePlaceId: string | null = null;
+  let facebookPageUrl: string | null = null;
 
   if (calculator.user_id) {
     const client = await storage.findClientByUserId(calculator.user_id);
     if (client) {
       clientId = client.id;
       googlePlaceId = client.google_place_id ?? null;
+      facebookPageUrl = client.facebook_page_url ?? null;
     }
   }
 
-  // Generate review URL
+  // Generate review URLs
   const reviewUrl = generateGoogleReviewLink(googlePlaceId);
+  const facebookReviewUrl = generateFacebookReviewLink(facebookPageUrl);
 
   // Load client settings if available
   let settings: { channel_preference: string; review_request_delay_hours: number } | null = null;
@@ -92,6 +95,8 @@ export async function createPostJobReviewRequest(
     sentiment: null,
     google_place_id: googlePlaceId,
     review_url: reviewUrl,
+    facebook_review_url: facebookReviewUrl ?? null,
+    routed_platform: null,
     internal_feedback: null,
     sequence_step: 0,
     run_at: runAt,
@@ -143,11 +148,13 @@ export async function createManualReviewRequest(opts: {
     return { created: false, reason: "Review request already exists for today" };
   }
 
-  // Resolve place_id from client if not provided
+  // Resolve review destinations from client
   let googlePlaceId = opts.googlePlaceId ?? null;
-  if (!googlePlaceId) {
-    const client = await storage.getClientById(opts.clientId);
-    googlePlaceId = client?.google_place_id ?? null;
+  let facebookReviewUrl: string | null = null;
+  const client = await storage.getClientById(opts.clientId);
+  if (client) {
+    if (!googlePlaceId) googlePlaceId = client.google_place_id ?? null;
+    facebookReviewUrl = generateFacebookReviewLink(client.facebook_page_url);
   }
 
   const reviewUrl = generateGoogleReviewLink(googlePlaceId);
@@ -166,6 +173,8 @@ export async function createManualReviewRequest(opts: {
     sentiment: null,
     google_place_id: googlePlaceId,
     review_url: reviewUrl,
+    facebook_review_url: facebookReviewUrl,
+    routed_platform: null,
     internal_feedback: null,
     sequence_step: 0,
     run_at: new Date(),
@@ -199,6 +208,7 @@ export async function createQrReviewRequest(
   const client = await storage.getClientById(clientId);
   const googlePlaceId = client?.google_place_id ?? null;
   const reviewUrl = generateGoogleReviewLink(googlePlaceId);
+  const facebookReviewUrl = generateFacebookReviewLink(client?.facebook_page_url);
 
   const reviewRequest = await storage.createReviewRequest({
     client_id: clientId,
@@ -213,6 +223,8 @@ export async function createQrReviewRequest(
     sentiment: null,
     google_place_id: googlePlaceId,
     review_url: reviewUrl,
+    facebook_review_url: facebookReviewUrl ?? null,
+    routed_platform: null,
     internal_feedback: null,
     sequence_step: 0,
     run_at: new Date(),

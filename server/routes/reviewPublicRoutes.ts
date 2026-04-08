@@ -38,6 +38,7 @@ export function registerReviewPublicRoutes(app: Express): void {
         status: rr.status === "sent" ? "clicked" : rr.status,
         sentiment: rr.sentiment,
         reviewUrl: rr.review_url,
+        facebookReviewUrl: rr.facebook_review_url || null,
         hasFeedback: !!rr.internal_feedback,
       });
     } catch (err: any) {
@@ -71,16 +72,26 @@ export function registerReviewPublicRoutes(app: Express): void {
       }
 
       if (sentiment === "positive" || sentiment === "neutral") {
+        // Determine which platform the customer chose (default: google)
+        const platform = req.body.platform === "facebook" ? "facebook" : "google";
+
         await storage.updateReviewRequest(rr.id, {
           sentiment,
           status: "routed_positive",
           completed_at: new Date(),
           next_followup_at: null,
+          routed_platform: platform,
         });
+
+        const reviewUrl = platform === "facebook"
+          ? (rr.facebook_review_url || rr.review_url || null)
+          : (rr.review_url || null);
+
         res.json({
           ok: true,
           sentiment,
-          reviewUrl: rr.review_url || null,
+          reviewUrl,
+          platform,
         });
       } else {
         // negative

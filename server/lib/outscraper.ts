@@ -138,6 +138,79 @@ export async function fetchGoogleReviews(
 }
 
 /**
+ * Fetch Facebook page reviews via Outscraper.
+ * Uses the same reviews-v3 endpoint with the Facebook page URL as query.
+ *
+ * @param facebookPageUrl Full Facebook page URL (e.g., https://facebook.com/mybusiness)
+ * @param limit Max reviews to fetch
+ */
+export async function fetchFacebookReviews(
+  facebookPageUrl: string,
+  limit = 30,
+): Promise<OutscraperReview[] | null> {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    console.warn("[outscraper] OUTSCRAPER_API_KEY not set");
+    return null;
+  }
+  if (!facebookPageUrl) {
+    console.warn("[outscraper] No facebookPageUrl provided");
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    query: facebookPageUrl,
+    reviewsLimit: String(limit),
+    sort: "newest",
+  });
+  const url = `${API_BASE}/maps/reviews-v3?${params}`;
+
+  const { signal, clear } = withSignal(25000);
+  let r: globalThis.Response;
+  let rawText: string;
+
+  try {
+    r = await fetch(url, {
+      method: "GET",
+      headers: { "X-API-KEY": apiKey },
+      signal,
+    });
+    rawText = await r.text();
+  } catch (err: any) {
+    console.error("[outscraper] fetchFacebookReviews error:", err.message);
+    return null;
+  } finally {
+    clear();
+  }
+
+  if (!r.ok) {
+    console.error("[outscraper] Facebook reviews non-OK:", r.status, rawText.slice(0, 500));
+    return null;
+  }
+
+  let data: any;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    console.error("[outscraper] Invalid JSON from Facebook reviews");
+    return null;
+  }
+
+  let rawReviews = data?.data;
+  if (data?.status === "Pending" && data?.results_location) {
+    rawReviews = await pollResults(data.results_location);
+  }
+
+  const reviews: any[] = Array.isArray(rawReviews)
+    ? rawReviews.flat()
+    : Array.isArray(data)
+      ? data.flat()
+      : [];
+
+  return reviews as OutscraperReview[];
+}
+
+/**
  * Normalize a raw Outscraper review into a consistent shape.
  */
 export function normalizeReview(raw: OutscraperReview): {

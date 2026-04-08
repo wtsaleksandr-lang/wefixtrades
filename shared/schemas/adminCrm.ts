@@ -36,6 +36,7 @@ export const clients = pgTable("clients", {
   contact_phone: text("contact_phone"),
   website_url: text("website_url"),
   google_place_id: text("google_place_id"),
+  facebook_page_url: text("facebook_page_url"),
   widget_token: varchar("widget_token", { length: 64 }).unique(),
   last_review_sync_at: timestamp("last_review_sync_at"),
   trade_type: varchar("trade_type", { length: 100 }),
@@ -318,6 +319,8 @@ export const reviewRequests = pgTable("review_requests", {
   // Review link data
   google_place_id: text("google_place_id"),
   review_url: text("review_url"),
+  facebook_review_url: text("facebook_review_url"),
+  routed_platform: varchar("routed_platform", { length: 20 }), // google | facebook | null
 
   // Private feedback (for negative sentiment)
   internal_feedback: text("internal_feedback"),
