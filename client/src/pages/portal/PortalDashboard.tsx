@@ -37,6 +37,7 @@ interface QuoteQuickData {
 interface TradeLineService {
   id: number;
   service_id: string;
+  status: string;
 }
 
 interface TradeLineData {
@@ -98,7 +99,7 @@ export default function PortalDashboard() {
   });
 
   const tradeLineService = (portalServices ?? []).find(
-    (s: any) => s.service_id?.startsWith("tradeline") && s.status !== "cancelled"
+    (s) => s.service_id?.startsWith("tradeline") && s.status !== "cancelled"
   );
 
   const { data: tlData } = useQuery<TradeLineData>({

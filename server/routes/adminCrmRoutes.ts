@@ -753,6 +753,46 @@ export function registerAdminCrmRoutes(app: Express): void {
   });
 
   /**
+   * POST /api/admin/crm/tradeline/:clientServiceId/mode
+   * Switch TradeLine mode (admin-initiated).
+   */
+  app.post("/api/admin/crm/tradeline/:clientServiceId/mode", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const { newMode } = req.body;
+      const validModes = ["available", "on_the_job", "after_hours"];
+      if (!newMode || !validModes.includes(newMode)) {
+        return res.status(400).json({ error: "newMode must be one of: available, on_the_job, after_hours" });
+      }
+
+      const modeLog = await storage.setTradeLineMode(csId, newMode, "admin");
+      const config = await storage.getTradeLineConfig(csId);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "tradeline.mode_changed",
+        entity_type: "client_service",
+        entity_id: csId,
+        summary: `Changed TradeLine mode to ${newMode}`,
+      });
+
+      res.json({ config, modeLog });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine mode change error:", err.message);
+      res.status(500).json({ error: "Failed to change mode" });
+    }
+  });
+
+  /**
    * GET /api/admin/crm/tradeline/:clientServiceId/usage
    * Returns usage rows / current period summary.
    */

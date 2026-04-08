@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Globe, MessageSquare } from "lucide-react";
+import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Globe } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import ModeToggle from "@/components/portal/ModeToggle";
 import {
