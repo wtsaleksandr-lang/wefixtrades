@@ -45,6 +45,7 @@ interface ClientSummary {
   failed_queue: number;
   success_rate: number | null;
   ig_missing_media: number;
+  cooldown: Record<string, { cooling_down: boolean; reason: string | null; until: string | null; consecutive_failures: number }>;
   at_risk: boolean;
   risk_reasons: string[];
 }
@@ -259,6 +260,11 @@ export default function SocialSyncOpsPage() {
                         : <span className="text-xs text-gray-300">0</span>}
                     </TableCell>
                     <TableCell>
+                      {Object.entries(c.cooldown || {}).some(([_, v]) => v.cooling_down) && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 mr-1">
+                          Cooldown
+                        </span>
+                      )}
                       {c.at_risk ? (
                         <div className="flex items-center gap-1">
                           <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />

@@ -18,6 +18,7 @@ export const socialsyncProfiles = pgTable("socialsync_profiles", {
   autopilot: boolean("autopilot").notNull().default(false),
   platform_preferences: jsonb("platform_preferences"),         // string[] e.g. ["facebook","instagram"]
   service_focus: jsonb("service_focus"),                        // string[] subset of services to emphasize
+  runtime_state: jsonb("runtime_state"),                        // per-platform cooldown & health tracking (managed by worker)
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });

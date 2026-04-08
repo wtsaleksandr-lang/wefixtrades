@@ -13,6 +13,7 @@ import {
   discoverInstagramAccounts, selectInstagramAccount, validateInstagramConnection,
 } from "../services/socialSync/instagramService";
 import { disconnectPlatform, checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
+import { clearCooldown, getCooldownSummary } from "../services/socialSync/cooldownManager";
 import { resolveMediaForPost } from "../services/socialSync/mediaService";
 import { decryptToken } from "../services/socialSync/tokenEncryption";
 import type { SocialSyncProfile, InsertSocialSyncTopic } from "@shared/schema";
@@ -1022,6 +1023,7 @@ export function registerSocialSyncRoutes(app: Express): void {
           failed_queue: failedQueue,
           success_rate: successRate,
           ig_missing_media: igPostsMissingMedia,
+          cooldown: await getCooldownSummary(clientId),
           at_risk: isAtRisk || (successRate !== null && successRate < 50),
           risk_reasons: riskReasons,
         });
@@ -1050,6 +1052,41 @@ export function registerSocialSyncRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[socialsync] Ops overview error:", err.message);
       res.status(500).json({ error: "Failed to load operations overview" });
+    }
+  });
+
+  // ─── Phase 4E: Cooldown & Health Routes ───
+
+  // 34. GET client cooldown/health state
+  app.get("/api/socialsync/clients/:clientId/health", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const cooldowns = await getCooldownSummary(clientId);
+      res.json({ client_id: clientId, platforms: cooldowns });
+    } catch (err: any) {
+      console.error("[socialsync] Health check error:", err.message);
+      res.status(500).json({ error: "Failed to load health state" });
+    }
+  });
+
+  // 35. POST clear cooldown for a client/platform
+  app.post("/api/socialsync/clients/:clientId/clear-cooldown", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const { platform } = req.body;
+      if (!platform || typeof platform !== "string") {
+        return res.status(400).json({ error: "platform is required" });
+      }
+
+      await clearCooldown(clientId, platform);
+      res.json({ ok: true, client_id: clientId, platform });
+    } catch (err: any) {
+      console.error("[socialsync] Clear cooldown error:", err.message);
+      res.status(500).json({ error: "Failed to clear cooldown" });
     }
   });
 }

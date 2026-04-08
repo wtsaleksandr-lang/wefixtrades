@@ -1,6 +1,8 @@
 import { storage } from "../storage";
 import { publishToFacebook, isRateLimitError as isFbRateLimit, type PublishResult } from "../services/socialSync/facebookPublisher";
 import { publishToInstagram, isRateLimitError as isIgRateLimit, type InstagramPublishResult } from "../services/socialSync/instagramPublisher";
+import { checkCooldown, recordSuccess, recordRateLimit, recordFailure } from "../services/socialSync/cooldownManager";
+import { sendAlert, buildPublishFailuresAlert, buildRateLimitedAlert, isAlertingConfigured } from "../services/socialSync/alertService";
 import type { SocialSyncPost, SocialSyncQueueItem } from "@shared/schema";
 
 /** Unified result type that both publishers can produce. */
@@ -35,6 +37,10 @@ export async function processSocialSyncQueue(): Promise<{ processed: number; pub
   for (const job of dueJobs) {
     try {
       const result = await processOneJob(job);
+      if (result.skipped) {
+        // Cooldown skip — don't count as processed, don't log as error
+        continue;
+      }
       processed++;
       if (result.published) published++;
       if (result.error) errors.push(`Job ${job.id}: ${result.error}`);
@@ -156,7 +162,14 @@ function validateBeforePublish(
 
 /* ─── Single Job Processing ─── */
 
-async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boolean; error?: string }> {
+async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boolean; error?: string; skipped?: boolean }> {
+  // ─── Cooldown check ───
+  const cooldown = await checkCooldown(job.client_id, job.platform);
+  if (cooldown.coolingDown) {
+    // Skip this job without marking it failed — it will be retried later
+    return { published: false, skipped: true, error: `Client ${job.client_id}/${job.platform} in cooldown (${cooldown.minutesLeft}min left: ${cooldown.reason})` };
+  }
+
   // ─── Lock ───
   await storage.updateSocialSyncQueueItem(job.id, {
     status: "locked",
@@ -273,6 +286,9 @@ async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boo
       },
     });
 
+    // Record success for cooldown manager
+    await recordSuccess(job.client_id, job.platform);
+
     return { published: true };
   }
 
@@ -288,16 +304,33 @@ async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boo
 
   if (isPermanent && !isRateLimit) {
     await failJob(job, result.error || "Unknown publish error", true, result);
+    // Record failure for cooldown + alerting
+    const { shouldAlert } = await recordFailure(job.client_id, job.platform);
+    if (shouldAlert && isAlertingConfigured()) {
+      const client = await storage.getClientById(job.client_id);
+      await sendAlert(buildPublishFailuresAlert(job.client_id, client?.business_name || null, job.platform, 3));
+    }
   } else {
     // Rate-limited or transient — release for retry
+    if (isRateLimit) {
+      const { cooldownMinutes } = await recordRateLimit(job.client_id, job.platform);
+      // Alert on repeated rate limits
+      if (isAlertingConfigured()) {
+        const client = await storage.getClientById(job.client_id);
+        await sendAlert(buildRateLimitedAlert(job.client_id, client?.business_name || null, job.platform));
+      }
+    } else {
+      await recordFailure(job.client_id, job.platform);
+    }
+
     const note = isRateLimit
-      ? `Rate limited (code ${errorCode}). Will retry. Attempt ${attempts}/${maxAttempts}`
+      ? `Rate limited (code ${errorCode}). Client in cooldown. Attempt ${attempts}/${maxAttempts}`
       : `Attempt ${attempts}/${maxAttempts} failed (${errorCode ? `code ${errorCode}` : "transient"}): ${result.error}`;
 
     await storage.updateSocialSyncQueueItem(job.id, {
       status: "pending",
       locked_at: null,
-      attempts: isRateLimit ? attempts : attempts, // Don't count rate limits differently for now
+      attempts,
       last_error: result.error,
       worker_note: note,
       updated_at: new Date(),
@@ -309,7 +342,7 @@ async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boo
       client_id: job.client_id,
       entity_type: "queue",
       entity_id: job.id,
-      action: "queue.retry",
+      action: isRateLimit ? "queue.rate_limited" : "queue.retry",
       status: "info",
       details: {
         post_id: job.post_id,
@@ -317,7 +350,8 @@ async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boo
         attempt: attempts,
         max_attempts: maxAttempts,
         error: result.error,
-        error_code: result.error_code,
+        error_code: errorCode,
+        rate_limited: isRateLimit,
       },
     });
   }
