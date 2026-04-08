@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw } from "lucide-react";
+import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw, PhoneCall, Clock } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { TASK_STATUS_STYLES, TASK_STATUS_LABELS, statusLabel } from "@/config/portalLabels";
+import ModeToggle from "@/components/portal/ModeToggle";
 
 interface OverviewData {
   business_name: string;
@@ -30,6 +31,24 @@ interface QuoteQuickData {
     total_views: number;
     total_leads: number;
     status: string;
+  } | null;
+}
+
+interface TradeLineService {
+  id: number;
+  service_id: string;
+}
+
+interface TradeLineData {
+  config: {
+    currentMode: string;
+    variant: string;
+    channels: { voice: boolean; websiteChat: boolean; sms: boolean };
+  } | null;
+  usage: {
+    voice_minutes_used: number;
+    calls_count: number;
+    included_minutes: number;
   } | null;
 }
 
@@ -66,6 +85,30 @@ export default function PortalDashboard() {
       if (!res.ok) return { calculator: null };
       return res.json();
     },
+  });
+
+  // Find TradeLine service from the services list
+  const { data: portalServices } = useQuery<TradeLineService[]>({
+    queryKey: ["/api/portal/services"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/services", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const tradeLineService = (portalServices ?? []).find(
+    (s: any) => s.service_id?.startsWith("tradeline") && s.status !== "cancelled"
+  );
+
+  const { data: tlData } = useQuery<TradeLineData>({
+    queryKey: ["/api/portal/tradeline", tradeLineService?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/portal/tradeline/${tradeLineService!.id}`, { credentials: "include" });
+      if (!res.ok) return { config: null, usage: null };
+      return res.json();
+    },
+    enabled: !!tradeLineService,
   });
 
   return (
@@ -188,6 +231,55 @@ export default function PortalDashboard() {
                 >
                   Set up QuoteQuick
                 </a>
+              </div>
+            </div>
+          )}
+
+          {/* TradeLine card */}
+          {tradeLineService && tlData?.config && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
+                    <PhoneCall className="w-5 h-5 text-teal-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">TradeLine</h3>
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-emerald-50 text-emerald-700 mt-0.5">
+                      {tlData.config.variant.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                </div>
+                <Link href={`/portal/services/${tradeLineService.id}`}>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors">
+                    Details <ExternalLink className="w-3 h-3" />
+                  </span>
+                </Link>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-gray-100 space-y-3">
+                <ModeToggle
+                  currentMode={tlData.config.currentMode as any}
+                  clientServiceId={tradeLineService.id}
+                  apiBase="/api/portal/tradeline"
+                  onModeChanged={() => {
+                    // No-op: next query refresh will pick up the change
+                  }}
+                />
+                {tlData.usage && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center gap-2">
+                      <PhoneCall className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="text-sm text-gray-600">{tlData.usage.calls_count} calls</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="text-sm text-gray-600">
+                        {tlData.usage.voice_minutes_used}/{tlData.usage.included_minutes} min
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

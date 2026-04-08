@@ -1,7 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw } from "lucide-react";
+import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Globe, MessageSquare } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import ModeToggle from "@/components/portal/ModeToggle";
 import {
   SERVICE_STATUS_LABELS, SERVICE_STATUS_STYLES,
   PAYMENT_STATUS_LABELS, PAYMENT_STATUS_STYLES,
@@ -55,6 +56,48 @@ interface ServiceDetail {
   payments: PaymentRow[];
 }
 
+interface TradeLineCallRow {
+  id: number;
+  direction: string;
+  caller_number: string | null;
+  duration_seconds: number;
+  outcome: string;
+  summary: string | null;
+  ended_at: string | null;
+  created_at: string | null;
+}
+
+interface TradeLineData {
+  config: {
+    currentMode: string;
+    variant: string;
+    channels: { voice: boolean; websiteChat: boolean; websiteVoice: boolean; sms: boolean; hostedFallback: boolean };
+    phoneRouting: { primaryBusinessNumber: string; forwardingMode: string; ringTimeoutSeconds: number };
+    website: { embedMode: string; hostedUrl: string };
+  } | null;
+  usage: {
+    voice_minutes_used: number;
+    calls_count: number;
+    sms_count: number;
+    included_minutes: number;
+    overage_minutes: number;
+  } | null;
+  recentCalls: TradeLineCallRow[];
+}
+
+function CallIcon({ outcome }: { outcome: string }) {
+  switch (outcome) {
+    case "answered":
+      return <PhoneIncoming className="w-4 h-4 text-emerald-500" />;
+    case "missed":
+      return <PhoneMissed className="w-4 h-4 text-red-500" />;
+    case "failed":
+      return <PhoneOff className="w-4 h-4 text-gray-400" />;
+    default:
+      return <PhoneCall className="w-4 h-4 text-gray-400" />;
+  }
+}
+
 function TaskIcon({ status }: { status: string }) {
   switch (status) {
     case "delivered":
@@ -89,6 +132,8 @@ export default function PortalServiceDetail() {
   const [, params] = useRoute("/portal/services/:id");
   const serviceId = params?.id;
 
+  const queryClient = useQueryClient();
+
   const { data, isLoading, error, refetch } = useQuery<ServiceDetail>({
     queryKey: ["/api/portal/services", serviceId],
     queryFn: async () => {
@@ -97,6 +142,18 @@ export default function PortalServiceDetail() {
       return res.json();
     },
     enabled: !!serviceId,
+  });
+
+  const isTradeLine = data?.service.service_id?.startsWith("tradeline");
+
+  const { data: tlData } = useQuery<TradeLineData>({
+    queryKey: ["/api/portal/tradeline", serviceId],
+    queryFn: async () => {
+      const res = await fetch(`/api/portal/tradeline/${serviceId}`, { credentials: "include" });
+      if (!res.ok) return { config: null, usage: null, recentCalls: [] };
+      return res.json();
+    },
+    enabled: !!serviceId && !!isTradeLine,
   });
 
   return (
@@ -148,6 +205,125 @@ export default function PortalServiceDetail() {
                 </span>
               </div>
             </div>
+
+            {/* TradeLine section */}
+            {isTradeLine && tlData?.config && (
+              <>
+                {/* Mode control */}
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <h2 className="text-sm font-semibold text-gray-900 mb-3">Current Mode</h2>
+                  <ModeToggle
+                    currentMode={tlData.config.currentMode as any}
+                    clientServiceId={parseInt(serviceId!)}
+                    apiBase="/api/portal/tradeline"
+                    onModeChanged={() => {
+                      queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline", serviceId] });
+                    }}
+                  />
+                  {tlData.config.channels.voice && (
+                    <p className="text-xs text-gray-400 mt-3 flex items-center gap-1.5">
+                      <PhoneCall className="w-3 h-3" />
+                      Your phone rings first. If you miss it, TradeLine steps in.
+                    </p>
+                  )}
+                </div>
+
+                {/* Usage summary */}
+                {tlData.usage && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-5">
+                    <h2 className="text-sm font-semibold text-gray-900 mb-3">This Month</h2>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Calls</p>
+                        <p className="text-lg font-semibold text-gray-900">{tlData.usage.calls_count}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Voice Minutes</p>
+                        <p className="text-lg font-semibold text-gray-900">
+                          {tlData.usage.voice_minutes_used}
+                          <span className="text-sm font-normal text-gray-400">/{tlData.usage.included_minutes}</span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">SMS</p>
+                        <p className="text-lg font-semibold text-gray-900">{tlData.usage.sms_count}</p>
+                      </div>
+                    </div>
+                    {tlData.usage.overage_minutes > 0 && (
+                      <p className="text-xs text-amber-600 mt-2">
+                        {tlData.usage.overage_minutes} overage minutes this period
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Recent calls */}
+                {tlData.recentCalls.length > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-100">
+                      <h2 className="text-sm font-semibold text-gray-900">Recent Calls</h2>
+                    </div>
+                    <ul className="divide-y divide-gray-50">
+                      {tlData.recentCalls.map((call) => (
+                        <li key={call.id} className="px-5 py-3 flex items-start gap-3">
+                          <div className="mt-0.5 shrink-0">
+                            <CallIcon outcome={call.outcome} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-700">
+                                {call.caller_number || "Unknown caller"}
+                              </span>
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded capitalize ${
+                                call.outcome === "answered" ? "bg-emerald-50 text-emerald-700"
+                                : call.outcome === "missed" ? "bg-red-50 text-red-700"
+                                : "bg-gray-100 text-gray-600"
+                              }`}>
+                                {call.outcome}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-400">
+                              {call.duration_seconds > 0 && (
+                                <span>{Math.floor(call.duration_seconds / 60)}:{String(call.duration_seconds % 60).padStart(2, "0")}</span>
+                              )}
+                              {call.ended_at && (
+                                <span>{formatDate(call.ended_at)}</span>
+                              )}
+                            </div>
+                            {call.summary && (
+                              <p className="text-xs text-gray-500 mt-1 line-clamp-2">{call.summary}</p>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Widget / hosted info */}
+                {(tlData.config.website.embedMode !== "none" || tlData.config.website.hostedUrl) && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-5">
+                    <h2 className="text-sm font-semibold text-gray-900 mb-2">Website Integration</h2>
+                    <div className="space-y-2 text-sm text-gray-600">
+                      {tlData.config.website.embedMode !== "none" && (
+                        <div className="flex items-center gap-2">
+                          <Globe className="w-3.5 h-3.5 text-gray-400" />
+                          <span>Embed mode: <span className="font-medium capitalize">{tlData.config.website.embedMode.replace(/_/g, " ")}</span></span>
+                        </div>
+                      )}
+                      {tlData.config.website.hostedUrl && (
+                        <div className="flex items-center gap-2">
+                          <Globe className="w-3.5 h-3.5 text-gray-400" />
+                          <a href={tlData.config.website.hostedUrl} target="_blank" rel="noopener noreferrer" className="text-[#2D6A4F] hover:underline text-xs truncate">
+                            {tlData.config.website.hostedUrl}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Onboarding status */}
             {data.onboarding && data.onboarding.status !== "approved" && (

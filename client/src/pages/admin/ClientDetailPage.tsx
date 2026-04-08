@@ -19,10 +19,12 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard, Copy, ExternalLink, ClipboardCheck, UserPlus, ShieldCheck,
+  PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Loader2, Save,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TaskCard, ClientTasksEmptyState, isOverdue, type TaskItem } from "@/components/admin/TaskCard";
+import ModeToggle from "@/components/portal/ModeToggle";
 
 /* ─── Types ─── */
 interface Client {
@@ -650,6 +652,11 @@ export default function ClientDetailPage() {
                 )}
               </div>
             </Card>
+
+            {/* TradeLine panels for any TradeLine services */}
+            {services?.filter(s => s.service_id.startsWith("tradeline")).map(s => (
+              <TradeLineAdminPanel key={`tl-${s.id}`} clientServiceId={s.id} serviceName={s.service_name || s.service_id} />
+            ))}
           </TabsContent>
 
           {/* ─── Tasks Tab ─── */}
@@ -1011,5 +1018,342 @@ export default function ClientDetailPage() {
         </Dialog>
       </div>
     </AdminLayout>
+  );
+}
+
+/* ─── TradeLine Admin Panel ─── */
+
+interface TLAdminData {
+  config: Record<string, any> | null;
+  usage: {
+    voice_minutes_used: number;
+    calls_count: number;
+    sms_count: number;
+    included_minutes: number;
+    overage_minutes: number;
+  } | null;
+  recentCalls: {
+    id: number;
+    direction: string;
+    caller_number: string | null;
+    duration_seconds: number;
+    outcome: string;
+    summary: string | null;
+    ended_at: string | null;
+    created_at: string | null;
+  }[];
+}
+
+function TLCallIcon({ outcome }: { outcome: string }) {
+  switch (outcome) {
+    case "answered": return <PhoneIncoming className="w-3.5 h-3.5 text-emerald-500" />;
+    case "missed": return <PhoneMissed className="w-3.5 h-3.5 text-red-500" />;
+    case "failed": return <PhoneOff className="w-3.5 h-3.5 text-gray-400" />;
+    default: return <PhoneCall className="w-3.5 h-3.5 text-gray-400" />;
+  }
+}
+
+function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId: number; serviceName: string }) {
+  const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data, isLoading } = useQuery<TLAdminData>({
+    queryKey: [`/api/admin/crm/tradeline/${clientServiceId}`],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/crm/tradeline/${clientServiceId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load TradeLine data");
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  // Config editing state
+  const [editingConfig, setEditingConfig] = useState(false);
+  const [configDraft, setConfigDraft] = useState<Record<string, any>>({});
+
+  function startEditing() {
+    if (!data?.config) return;
+    setConfigDraft({
+      variant: data.config.variant,
+      channels: { ...data.config.channels },
+      phoneRouting: { ...data.config.phoneRouting },
+      website: { ...data.config.website },
+    });
+    setEditingConfig(true);
+  }
+
+  const saveConfig = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/crm/tradeline/${clientServiceId}/config`, configDraft);
+      return res.json();
+    },
+    onSuccess: () => {
+      setEditingConfig(false);
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/tradeline/${clientServiceId}`] });
+      toast({ title: "Config saved", description: "TradeLine configuration updated" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save config" });
+    },
+  });
+
+  const cfg = data?.config;
+
+  return (
+    <Card className="mt-3">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between w-full p-4 text-left min-h-[44px]"
+      >
+        <span className="flex items-center gap-2 text-sm font-medium text-gray-900">
+          <PhoneCall className="w-4 h-4 text-teal-600" />
+          {serviceName} — TradeLine Config
+        </span>
+        {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+      </button>
+
+      {open && (
+        <div className="border-t border-gray-100 p-4 space-y-4">
+          {isLoading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+            </div>
+          )}
+
+          {cfg && !editingConfig && (
+            <>
+              {/* Mode + variant */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Mode</p>
+                  <ModeToggle
+                    currentMode={cfg.currentMode}
+                    clientServiceId={clientServiceId}
+                    apiBase="/api/admin/crm/tradeline"
+                    onModeChanged={() => {
+                      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/tradeline/${clientServiceId}`] });
+                    }}
+                  />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Variant</p>
+                  <p className="text-sm text-gray-900 capitalize">{(cfg.variant || "").replace(/_/g, " ")}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Channels</p>
+                  <div className="flex flex-wrap gap-1">
+                    {cfg.channels?.voice && <Badge variant="outline" className="text-[10px]">Voice</Badge>}
+                    {cfg.channels?.websiteChat && <Badge variant="outline" className="text-[10px]">Chat</Badge>}
+                    {cfg.channels?.websiteVoice && <Badge variant="outline" className="text-[10px]">Web Voice</Badge>}
+                    {cfg.channels?.sms && <Badge variant="outline" className="text-[10px]">SMS</Badge>}
+                    {cfg.channels?.hostedFallback && <Badge variant="outline" className="text-[10px]">Hosted</Badge>}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Phone Routing</p>
+                  <p className="text-sm text-gray-900 capitalize">{(cfg.phoneRouting?.forwardingMode || "").replace(/_/g, " ")}</p>
+                  {cfg.phoneRouting?.primaryBusinessNumber && (
+                    <p className="text-xs text-gray-500">{cfg.phoneRouting.primaryBusinessNumber}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Website embed */}
+              {cfg.website?.embedMode !== "none" && (
+                <div className="text-sm">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Website</p>
+                  <span className="capitalize">{cfg.website.embedMode?.replace(/_/g, " ")}</span>
+                  {cfg.website.hostedUrl && (
+                    <span className="text-xs text-gray-500 ml-2">{cfg.website.hostedUrl}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Usage */}
+              {data.usage && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Current Period Usage</p>
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500">Calls</p>
+                      <p className="text-lg font-semibold">{data.usage.calls_count}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500">Voice Min</p>
+                      <p className="text-lg font-semibold">
+                        {data.usage.voice_minutes_used}
+                        <span className="text-xs font-normal text-gray-400">/{data.usage.included_minutes}</span>
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500">SMS</p>
+                      <p className="text-lg font-semibold">{data.usage.sms_count}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500">Overage</p>
+                      <p className={`text-lg font-semibold ${data.usage.overage_minutes > 0 ? "text-amber-600" : ""}`}>
+                        {data.usage.overage_minutes}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Recent calls */}
+              {data.recentCalls.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Recent Calls</p>
+                  <div className="border border-gray-100 rounded-lg overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-left text-[10px] text-gray-400 border-b border-gray-100">
+                          <th className="px-3 py-2 font-medium w-6"></th>
+                          <th className="px-3 py-2 font-medium">Caller</th>
+                          <th className="px-3 py-2 font-medium">Outcome</th>
+                          <th className="px-3 py-2 font-medium">Duration</th>
+                          <th className="px-3 py-2 font-medium">Time</th>
+                          <th className="px-3 py-2 font-medium">Summary</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {data.recentCalls.map((c) => (
+                          <tr key={c.id}>
+                            <td className="px-3 py-2"><TLCallIcon outcome={c.outcome} /></td>
+                            <td className="px-3 py-2 text-gray-700">{c.caller_number || "-"}</td>
+                            <td className="px-3 py-2">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${
+                                c.outcome === "answered" ? "bg-emerald-50 text-emerald-700"
+                                : c.outcome === "missed" ? "bg-red-50 text-red-700"
+                                : "bg-gray-100 text-gray-600"
+                              }`}>{c.outcome}</span>
+                            </td>
+                            <td className="px-3 py-2 text-gray-500">
+                              {c.duration_seconds > 0
+                                ? `${Math.floor(c.duration_seconds / 60)}:${String(c.duration_seconds % 60).padStart(2, "0")}`
+                                : "-"}
+                            </td>
+                            <td className="px-3 py-2 text-gray-400 whitespace-nowrap">{c.ended_at ? fmtDate(c.ended_at) : "-"}</td>
+                            <td className="px-3 py-2 text-gray-500 max-w-[200px] truncate">{c.summary || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={startEditing}>
+                  <Pencil className="w-3 h-3 mr-1" /> Edit Config
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* Editing mode */}
+          {cfg && editingConfig && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Variant</label>
+                  <Select value={configDraft.variant} onValueChange={(v) => setConfigDraft({ ...configDraft, variant: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="call_backup" className="text-xs">Call Backup</SelectItem>
+                      <SelectItem value="chat" className="text-xs">Chat</SelectItem>
+                      <SelectItem value="complete" className="text-xs">Complete</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Phone Routing</label>
+                  <Select
+                    value={configDraft.phoneRouting?.forwardingMode || "no_answer"}
+                    onValueChange={(v) => setConfigDraft({ ...configDraft, phoneRouting: { ...configDraft.phoneRouting, forwardingMode: v } })}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no_answer" className="text-xs">No Answer</SelectItem>
+                      <SelectItem value="immediate" className="text-xs">Immediate</SelectItem>
+                      <SelectItem value="after_hours_only" className="text-xs">After Hours Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-600">Primary Business Number</label>
+                <Input
+                  value={configDraft.phoneRouting?.primaryBusinessNumber || ""}
+                  onChange={(e) => setConfigDraft({ ...configDraft, phoneRouting: { ...configDraft.phoneRouting, primaryBusinessNumber: e.target.value } })}
+                  placeholder="+1234567890"
+                  className="h-8 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Channels</label>
+                <div className="flex flex-wrap gap-3">
+                  {(["voice", "websiteChat", "websiteVoice", "sms", "hostedFallback"] as const).map((ch) => (
+                    <label key={ch} className="flex items-center gap-1.5 text-xs text-gray-700">
+                      <Switch
+                        checked={configDraft.channels?.[ch] ?? false}
+                        onCheckedChange={(v) => setConfigDraft({
+                          ...configDraft,
+                          channels: { ...configDraft.channels, [ch]: v },
+                        })}
+                      />
+                      <span className="capitalize">{ch.replace(/([A-Z])/g, " $1").trim()}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Website Embed Mode</label>
+                  <Select
+                    value={configDraft.website?.embedMode || "none"}
+                    onValueChange={(v) => setConfigDraft({ ...configDraft, website: { ...configDraft.website, embedMode: v } })}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none" className="text-xs">None</SelectItem>
+                      <SelectItem value="direct_embed" className="text-xs">Direct Embed</SelectItem>
+                      <SelectItem value="hosted_fallback" className="text-xs">Hosted Fallback</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Hosted URL</label>
+                  <Input
+                    value={configDraft.website?.hostedUrl || ""}
+                    onChange={(e) => setConfigDraft({ ...configDraft, website: { ...configDraft.website, hostedUrl: e.target.value } })}
+                    placeholder="https://..."
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button
+                  size="sm"
+                  className="h-7 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]"
+                  onClick={() => saveConfig.mutate()}
+                  disabled={saveConfig.isPending}
+                >
+                  <Save className="w-3 h-3 mr-1" />
+                  {saveConfig.isPending ? "Saving..." : "Save"}
+                </Button>
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setEditingConfig(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
   );
 }
