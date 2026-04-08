@@ -15,18 +15,18 @@ export default function DocsEmbed() {
       <DocH2>Quick Start — 2 Steps</DocH2>
       <Step n={1} title="Copy your embed code">
         Open your Dashboard → select your calculator → click <strong>Deploy</strong>. Copy the script snippet shown.
-        <CodeBlock lang="html" code={`<script src="https://cdn.quickquotepro.com/widget.js"
-  data-calculator-id="YOUR_CALC_ID"
+        <CodeBlock lang="html" code={`<script src="https://YOUR_DOMAIN/embed-widget.js"
+  data-calculator-slug="your-business-slug"
   async>
 </script>
-<div id="qqp-widget"></div>`} />
+<div id="quotequick-widget"></div>`} />
       </Step>
       <Step n={2} title="Paste into your website">
-        Paste the code into any page where you want the calculator to appear — in the body, inside a content block, or a custom HTML section. That's it. The widget loads automatically.
+        Paste the code into any page where you want the calculator to appear — in the body, inside a content block, or a custom HTML section. That's it. The widget loads automatically and resizes to fit.
       </Step>
 
       <InfoBox type="tip">
-        <strong>Fastest option:</strong> Skip embedding entirely. Share your free hosted link (e.g. <code>quickquotepro.com/your-business</code>) via email, Instagram bio, or Google Business profile — no website needed.
+        <strong>Fastest option:</strong> Skip embedding entirely. Share your free hosted link (e.g. <code>your-slug.estimate.ai</code>) via email, Instagram bio, or Google Business profile — no website needed.
       </InfoBox>
 
       <DocH2>Three Embed Options</DocH2>
@@ -35,7 +35,11 @@ export default function DocsEmbed() {
       <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
         Every calculator gets a free public URL. No embedding required.
       </p>
-      <CodeBlock lang="text" code={`https://quickquotepro.com/your-business-name`} />
+      <CodeBlock lang="text" code={`https://your-slug.estimate.ai`} />
+      <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 12 }}>
+        Or use the direct link:
+      </p>
+      <CodeBlock lang="text" code={`https://YOUR_DOMAIN/calculator?slug=your-business-slug`} />
       <Checklist items={[
         "Share in emails, text messages, or social bios",
         "Works immediately — no website changes needed",
@@ -47,25 +51,25 @@ export default function DocsEmbed() {
         Renders the full calculator directly on your page. Best for service pages.
       </p>
       <CodeBlock lang="html" code={`<!-- Place in your page <body>, where you want it to appear -->
-<script src="https://cdn.quickquotepro.com/widget.js"
-  data-calculator-id="YOUR_CALC_ID"
-  data-theme="light"
+<script src="https://YOUR_DOMAIN/embed-widget.js"
+  data-calculator-slug="your-business-slug"
   async>
 </script>
-<div id="qqp-widget" style="max-width: 680px; margin: 0 auto;"></div>`} />
+<div id="quotequick-widget" style="max-width: 600px; margin: 0 auto;"></div>`} />
 
       <DocH3>Option 3 — Popup Button</DocH3>
       <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
         Adds a "Get a Quote" button. When clicked, the calculator opens as a modal overlay.
       </p>
-      <CodeBlock lang="html" code={`<script src="https://cdn.quickquotepro.com/widget.js"
-  data-calculator-id="YOUR_CALC_ID"
+      <CodeBlock lang="html" code={`<script src="https://YOUR_DOMAIN/embed-widget.js"
+  data-calculator-slug="your-business-slug"
   data-mode="popup"
   data-button-label="Get a Free Quote"
+  data-accent-color="#394247"
   async>
 </script>`} />
       <InfoBox type="info">
-        The button automatically appears at the bottom-right of your page. You can change the label, color, and position in your Dashboard → Deploy → Popup settings.
+        The button appears at the bottom-right of your page. Customize the label and color via the data attributes above.
       </InfoBox>
 
       <DocH2>Platform-Specific Steps</DocH2>
@@ -133,10 +137,10 @@ export default function DocsEmbed() {
 
       <DocH2>Common Issues</DocH2>
       <Checklist items={[
-        "Widget not showing? Check that your Calculator ID is correct (copy from Dashboard → Deploy)",
-        "Blank space? The widget div height defaults to auto — set a min-height if needed",
-        "Button popup not appearing? Ensure the script tag has data-mode=\"popup\" set",
-        "Need HTTPS? All our scripts load over HTTPS by default — no changes needed",
+        "Widget not showing? Check that data-calculator-slug matches your slug from the Dashboard",
+        "Widget too tall or short? The iframe auto-resizes, but you can set a max-height on the container div",
+        "Popup not appearing? Make sure the script has data-mode=\"popup\" set",
+        "Fonts look different? The widget loads Inter as a fallback. Custom branding fonts require Pro plan",
       ]} />
 
     </DocsLayout>
