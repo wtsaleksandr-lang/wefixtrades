@@ -110,10 +110,10 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
   }, [result, canPublish]);
 
   const embedId = result?.slug || publishData.embed_id || slug;
-  const scriptEmbed = `<script src="${origin}/embed.js" data-calculator="${embedId}"></script>\n<div id="quote-tool-${embedId}"></div>`;
-  const iframeEmbed = `<iframe src="${calcUrl}?embed=true" width="100%" height="650" frameborder="0" style="border:none;border-radius:16px;max-width:480px;"></iframe>`;
-  const buttonEmbed = `<script src="${origin}/embed.js" data-calculator="${embedId}" data-mode="modal"></script>\n<button onclick="QuickQuote.open('${embedId}')">Get a Free Quote</button>`;
-  const embedCode = embedTab === 'script' ? scriptEmbed : embedTab === 'iframe' ? iframeEmbed : buttonEmbed;
+  const scriptEmbed = `<script src="${origin}/embed-widget.js"\n  data-calculator-slug="${embedId}"\n  async>\n</script>\n<div id="quotequick-widget"></div>`;
+  const iframeEmbed = `<iframe\n  src="${calcUrl}&embed=true"\n  width="100%" height="650"\n  frameborder="0"\n  style="border:none;border-radius:16px;max-width:576px;">\n</iframe>`;
+  const popupEmbed = `<script src="${origin}/embed-widget.js"\n  data-calculator-slug="${embedId}"\n  data-mode="popup"\n  data-button-label="Get a Free Quote"\n  async>\n</script>`;
+  const embedCode = embedTab === 'script' ? scriptEmbed : embedTab === 'iframe' ? iframeEmbed : popupEmbed;
 
   const readinessChecks = [
     { label: 'Pricing validated', passed: pricingExists, key: 'pricing' },
@@ -122,10 +122,10 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
   ];
 
   const TABS: { id: DeployTab; label: string; icon: any; pro?: boolean }[] = [
-    { id: 'hosted', label: 'Hosted Page', icon: <Globe style={{ width: '14px', height: '14px' }} /> },
-    { id: 'embed', label: 'Embed', icon: <Code2 style={{ width: '14px', height: '14px' }} /> },
+    { id: 'hosted', label: 'Share a Link', icon: <Globe style={{ width: '14px', height: '14px' }} /> },
+    { id: 'embed', label: 'Add to Website', icon: <Code2 style={{ width: '14px', height: '14px' }} /> },
     { id: 'custom', label: 'Custom Domain', icon: <Server style={{ width: '14px', height: '14px' }} />, pro: true },
-    { id: 'install', label: 'Done-For-You', icon: <Wrench style={{ width: '14px', height: '14px' }} />, pro: true },
+    { id: 'install', label: 'We Install It', icon: <Wrench style={{ width: '14px', height: '14px' }} />, pro: true },
   ];
 
   const domainStatus = publishData.custom_domain_status;
@@ -507,27 +507,28 @@ function HostedPageTab({ subdomain, hostedUrl, calcUrl, slug, isPublished }: {
           <Globe style={{ width: '14px', height: '14px', color: '#059669' }} />
         </div>
         <div>
-          <p style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, margin: 0 }}>Instant Hosted Page</p>
-          <p style={{ fontSize: '11px', color: p.colors.muted, margin: 0 }}>Live immediately with SSL</p>
+          <p style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, margin: 0 }}>Share your quote link</p>
+          <p style={{ fontSize: '11px', color: p.colors.muted, margin: 0 }}>No website needed — share anywhere</p>
         </div>
       </div>
+
+      <p style={{ fontSize: '13px', color: p.colors.body, margin: '0 0 10px', lineHeight: 1.5 }}>
+        Use this link in emails, texts, your Google Business profile, or social media bios. Customers click it and get an instant quote.
+      </p>
 
       <div style={{
         padding: '14px', borderRadius: p.radius.md,
         background: '#F0FDF4', border: '1px solid #A7F3D030',
         marginBottom: '12px',
       }}>
-        <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 4px' }}>
-          Your subdomain
+        <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.muted, textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 4px' }}>
+          Your quote page link
         </p>
         <p data-testid="text-hosted-url" style={{
-          fontSize: '15px', fontWeight: 700, color: '#059669',
+          fontSize: '14px', fontWeight: 700, color: '#059669',
           margin: '0 0 2px', fontFamily: 'monospace', wordBreak: 'break-all',
         }}>
           {subdomain}
-        </p>
-        <p style={{ fontSize: '11px', color: p.colors.muted, margin: 0 }}>
-          Auto-generated from your business name. No setup needed.
         </p>
       </div>
 
@@ -576,8 +577,8 @@ function EmbedTab({ embedTab, setEmbedTab, embedCode, showInstall, setShowInstal
           <Code2 style={{ width: '14px', height: '14px', color: p.colors.accent }} />
         </div>
         <div>
-          <p style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, margin: 0 }}>Embed on Your Website</p>
-          <p style={{ fontSize: '11px', color: p.colors.muted, margin: 0 }}>Add your calculator to any site</p>
+          <p style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, margin: 0 }}>Add to your website</p>
+          <p style={{ fontSize: '11px', color: p.colors.muted, margin: 0 }}>Paste one snippet into your site</p>
         </div>
       </div>
 
@@ -586,9 +587,9 @@ function EmbedTab({ embedTab, setEmbedTab, embedCode, showInstall, setShowInstal
         border: `1px solid ${p.colors.border}`, marginBottom: '10px',
       }}>
         {([
-          { id: 'script' as const, label: 'Script', rec: true },
+          { id: 'script' as const, label: 'Inline Widget', rec: true },
           { id: 'iframe' as const, label: 'Iframe' },
-          { id: 'button' as const, label: 'Button' },
+          { id: 'button' as const, label: 'Popup Button' },
         ]).map(tab => (
           <button key={tab.id} data-testid={`embed-tab-${tab.id}`}
             onClick={() => setEmbedTab(tab.id)}
@@ -605,13 +606,19 @@ function EmbedTab({ embedTab, setEmbedTab, embedCode, showInstall, setShowInstal
         ))}
       </div>
 
+      <p style={{ fontSize: '12px', color: p.colors.muted, margin: '0 0 10px', lineHeight: 1.5 }}>
+        {embedTab === 'script' ? 'Paste this where you want the calculator to appear on your page.' :
+         embedTab === 'iframe' ? 'Use this if the script option doesn\u2019t work with your site builder.' :
+         'Adds a floating \u201cGet a Free Quote\u201d button to your website.'}
+      </p>
+
       <div data-testid="embed-code-block" style={{
         padding: '14px', borderRadius: p.radius.md,
         background: '#111827', border: 'none', marginBottom: '14px',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <span style={{ fontSize: '11px', fontWeight: 600, color: '#9CA3AF', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-            {embedTab === 'script' ? 'HTML — Script Embed' : embedTab === 'iframe' ? 'HTML — Iframe Embed' : 'HTML — Button Trigger'}
+            {embedTab === 'script' ? 'Copy and paste into your page' : embedTab === 'iframe' ? 'Copy and paste into your page' : 'Copy and paste before </body>'}
           </span>
           <CopyBtn text={embedCode} size="small" label="Copy Code" />
         </div>
