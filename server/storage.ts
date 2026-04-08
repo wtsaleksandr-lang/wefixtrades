@@ -41,6 +41,15 @@ import {
   type AdminActivityLog, type InsertAdminActivityLog,
   type ServiceTaskTemplate,
   type OnboardingTemplate,
+  // SocialSync
+  socialsyncProfiles, socialsyncTopics, socialsyncPosts,
+  socialsyncPublishQueue, socialsyncActivityLogs, socialsyncPlatformConnections,
+  type SocialSyncProfile, type InsertSocialSyncProfile,
+  type SocialSyncTopic, type InsertSocialSyncTopic,
+  type SocialSyncPost, type InsertSocialSyncPost,
+  type SocialSyncQueueItem, type InsertSocialSyncQueueItem,
+  type SocialSyncActivityLog, type InsertSocialSyncActivityLog,
+  type SocialSyncConnection, type InsertSocialSyncConnection,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -197,6 +206,31 @@ export interface IStorage {
     recentClients: { id: number; business_name: string; status: string; created_at: Date | null }[];
     recentTasks: { id: number; title: string; status: string; priority: string; client_id: number; client_name: string | null; due_at: Date | null }[];
   }>;
+
+  // ─── SocialSync ───
+  upsertSocialSyncProfile(data: InsertSocialSyncProfile): Promise<SocialSyncProfile>;
+  getSocialSyncProfile(clientId: number): Promise<SocialSyncProfile | undefined>;
+
+  createSocialSyncTopic(data: InsertSocialSyncTopic): Promise<SocialSyncTopic>;
+  createSocialSyncTopics(data: InsertSocialSyncTopic[]): Promise<SocialSyncTopic[]>;
+  listSocialSyncTopics(clientId: number, status?: string): Promise<SocialSyncTopic[]>;
+  updateSocialSyncTopic(id: number, updates: Partial<InsertSocialSyncTopic>): Promise<SocialSyncTopic | undefined>;
+
+  createSocialSyncPost(data: InsertSocialSyncPost): Promise<SocialSyncPost>;
+  listSocialSyncPosts(clientId: number, opts?: { status?: string; platform?: string; limit?: number; offset?: number }): Promise<SocialSyncPost[]>;
+  getSocialSyncPostById(id: number): Promise<SocialSyncPost | undefined>;
+  updateSocialSyncPost(id: number, updates: Partial<InsertSocialSyncPost>): Promise<SocialSyncPost | undefined>;
+
+  enqueueSocialSyncJob(data: InsertSocialSyncQueueItem): Promise<SocialSyncQueueItem>;
+  fetchDueSocialSyncJobs(limit?: number): Promise<SocialSyncQueueItem[]>;
+  updateSocialSyncQueueItem(id: number, updates: Record<string, any>): Promise<void>;
+  listSocialSyncQueue(clientId: number): Promise<SocialSyncQueueItem[]>;
+
+  createSocialSyncLog(data: InsertSocialSyncActivityLog): Promise<SocialSyncActivityLog>;
+  listSocialSyncLogs(clientId: number, limit?: number): Promise<SocialSyncActivityLog[]>;
+
+  upsertSocialSyncConnection(data: InsertSocialSyncConnection): Promise<SocialSyncConnection>;
+  listSocialSyncConnections(clientId: number): Promise<SocialSyncConnection[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1259,6 +1293,144 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { serviceCompleted, serviceActivated, clientActivated };
+  }
+
+  // ─── SocialSync ───
+
+  async upsertSocialSyncProfile(data: InsertSocialSyncProfile): Promise<SocialSyncProfile> {
+    const [row] = await db.insert(socialsyncProfiles).values(data)
+      .onConflictDoUpdate({ target: socialsyncProfiles.client_id, set: { ...data, updated_at: new Date() } })
+      .returning();
+    return row;
+  }
+
+  async getSocialSyncProfile(clientId: number): Promise<SocialSyncProfile | undefined> {
+    const [row] = await db.select().from(socialsyncProfiles)
+      .where(eq(socialsyncProfiles.client_id, clientId))
+      .limit(1);
+    return row;
+  }
+
+  async createSocialSyncTopic(data: InsertSocialSyncTopic): Promise<SocialSyncTopic> {
+    const [row] = await db.insert(socialsyncTopics).values(data).returning();
+    return row;
+  }
+
+  async createSocialSyncTopics(data: InsertSocialSyncTopic[]): Promise<SocialSyncTopic[]> {
+    if (data.length === 0) return [];
+    return db.insert(socialsyncTopics).values(data).returning();
+  }
+
+  async listSocialSyncTopics(clientId: number, status?: string): Promise<SocialSyncTopic[]> {
+    const conditions = [eq(socialsyncTopics.client_id, clientId)];
+    if (status) conditions.push(eq(socialsyncTopics.status, status));
+    return db.select().from(socialsyncTopics)
+      .where(and(...conditions))
+      .orderBy(desc(socialsyncTopics.created_at));
+  }
+
+  async updateSocialSyncTopic(id: number, updates: Partial<InsertSocialSyncTopic>): Promise<SocialSyncTopic | undefined> {
+    const [row] = await db.update(socialsyncTopics)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(socialsyncTopics.id, id))
+      .returning();
+    return row;
+  }
+
+  async createSocialSyncPost(data: InsertSocialSyncPost): Promise<SocialSyncPost> {
+    const [row] = await db.insert(socialsyncPosts).values(data).returning();
+    return row;
+  }
+
+  async listSocialSyncPosts(clientId: number, opts: { status?: string; platform?: string; limit?: number; offset?: number } = {}): Promise<SocialSyncPost[]> {
+    const { status, platform, limit = 50, offset = 0 } = opts;
+    const conditions = [eq(socialsyncPosts.client_id, clientId)];
+    if (status) conditions.push(eq(socialsyncPosts.status, status));
+    if (platform) conditions.push(eq(socialsyncPosts.platform, platform));
+    return db.select().from(socialsyncPosts)
+      .where(and(...conditions))
+      .orderBy(desc(socialsyncPosts.created_at))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getSocialSyncPostById(id: number): Promise<SocialSyncPost | undefined> {
+    const [row] = await db.select().from(socialsyncPosts)
+      .where(eq(socialsyncPosts.id, id))
+      .limit(1);
+    return row;
+  }
+
+  async updateSocialSyncPost(id: number, updates: Partial<InsertSocialSyncPost>): Promise<SocialSyncPost | undefined> {
+    const [row] = await db.update(socialsyncPosts)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(socialsyncPosts.id, id))
+      .returning();
+    return row;
+  }
+
+  async enqueueSocialSyncJob(data: InsertSocialSyncQueueItem): Promise<SocialSyncQueueItem> {
+    const [row] = await db.insert(socialsyncPublishQueue).values(data).returning();
+    return row;
+  }
+
+  async fetchDueSocialSyncJobs(limit = 20): Promise<SocialSyncQueueItem[]> {
+    const now = new Date();
+    return db.select().from(socialsyncPublishQueue)
+      .where(and(
+        eq(socialsyncPublishQueue.status, "pending"),
+        lte(socialsyncPublishQueue.run_at, now),
+        sql`${socialsyncPublishQueue.attempts} < ${socialsyncPublishQueue.max_attempts}`,
+        sql`${socialsyncPublishQueue.locked_at} IS NULL`,
+      ))
+      .orderBy(socialsyncPublishQueue.run_at)
+      .limit(limit);
+  }
+
+  async updateSocialSyncQueueItem(id: number, updates: Record<string, any>): Promise<void> {
+    await db.update(socialsyncPublishQueue).set(updates).where(eq(socialsyncPublishQueue.id, id));
+  }
+
+  async listSocialSyncQueue(clientId: number): Promise<SocialSyncQueueItem[]> {
+    return db.select().from(socialsyncPublishQueue)
+      .where(eq(socialsyncPublishQueue.client_id, clientId))
+      .orderBy(desc(socialsyncPublishQueue.created_at));
+  }
+
+  async createSocialSyncLog(data: InsertSocialSyncActivityLog): Promise<SocialSyncActivityLog> {
+    const [row] = await db.insert(socialsyncActivityLogs).values(data).returning();
+    return row;
+  }
+
+  async listSocialSyncLogs(clientId: number, limit = 50): Promise<SocialSyncActivityLog[]> {
+    return db.select().from(socialsyncActivityLogs)
+      .where(eq(socialsyncActivityLogs.client_id, clientId))
+      .orderBy(desc(socialsyncActivityLogs.created_at))
+      .limit(limit);
+  }
+
+  async upsertSocialSyncConnection(data: InsertSocialSyncConnection): Promise<SocialSyncConnection> {
+    const existing = await db.select().from(socialsyncPlatformConnections)
+      .where(and(
+        eq(socialsyncPlatformConnections.client_id, data.client_id),
+        eq(socialsyncPlatformConnections.platform, data.platform),
+      ))
+      .limit(1);
+    if (existing.length > 0) {
+      const [row] = await db.update(socialsyncPlatformConnections)
+        .set({ ...data, updated_at: new Date() })
+        .where(eq(socialsyncPlatformConnections.id, existing[0].id))
+        .returning();
+      return row;
+    }
+    const [row] = await db.insert(socialsyncPlatformConnections).values(data).returning();
+    return row;
+  }
+
+  async listSocialSyncConnections(clientId: number): Promise<SocialSyncConnection[]> {
+    return db.select().from(socialsyncPlatformConnections)
+      .where(eq(socialsyncPlatformConnections.client_id, clientId))
+      .orderBy(socialsyncPlatformConnections.platform);
   }
 }
 

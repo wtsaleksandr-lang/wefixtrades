@@ -6,6 +6,7 @@ import { processNotificationQueue } from "./notificationWorker";
 import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
+import { processSocialSyncQueue } from "./socialSyncWorker";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -129,6 +130,15 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  // SocialSync publish queue — runs every 2 minutes
+  cron.schedule("*/2 * * * *", async () => {
+    try {
+      await runJob("socialsync_queue_worker", processSocialSyncQueue);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_queue_worker error:", err.message);
+    }
+  });
+
   console.log("[Scheduler] Jobs scheduled:");
   console.log("  - Daily aggregation: 02:00 UTC every day");
   console.log("  - Chat memory cleanup: 03:00 UTC every day");
@@ -136,4 +146,5 @@ export function initScheduler() {
   console.log("  - Notification queue worker: every minute");
   console.log("  - Follow-up jobs worker: every minute");
   console.log("  - Audit follow-up worker: every minute");
+  console.log("  - SocialSync queue worker: every 2 minutes");
 }
