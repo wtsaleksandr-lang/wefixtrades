@@ -192,15 +192,31 @@ function WidgetCard({
         overflow: 'hidden',
       }}
     >
+      {/* Responsive padding overrides */}
+      <style>{`
+        .eff-widget-header { padding: 20px 28px; }
+        .eff-widget-progress { padding: 20px 28px 0; }
+        .eff-widget-body { padding: 28px; }
+        .eff-widget-nav { padding: 20px 28px; }
+        .eff-widget-help { top: 28px; right: 28px; }
+        @media (max-width: 480px) {
+          .eff-widget-header { padding: 16px 20px; }
+          .eff-widget-progress { padding: 16px 20px 0; }
+          .eff-widget-body { padding: 20px; }
+          .eff-widget-nav { padding: 16px 20px; }
+          .eff-widget-help { top: 20px; right: 20px; }
+        }
+      `}</style>
+
       {/* ─── Header ─── */}
       {(calculator.business_name || calculator.logo_url) && (
         <div
+          className="eff-widget-header"
           style={{
-            padding: '24px 32px',
             borderBottom: `1px solid ${eff.buttonBorder}`,
             display: 'flex',
             alignItems: 'center',
-            gap: '16px',
+            gap: '14px',
           }}
         >
           {calculator.logo_url && (
@@ -208,8 +224,8 @@ function WidgetCard({
               src={calculator.logo_url}
               alt={calculator.business_name}
               style={{
-                height: '40px',
-                width: '40px',
+                height: '36px',
+                width: '36px',
                 borderRadius: eff.radiusMd,
                 objectFit: 'contain',
               }}
@@ -241,26 +257,25 @@ function WidgetCard({
 
       {/* ─── Progress Bar ─── */}
       {showProgress && (
-        <div style={{ padding: '24px 32px 0' }}>
+        <div className="eff-widget-progress">
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: '8px',
+            marginBottom: '6px',
           }}>
             <span style={{
               fontSize: '12px',
               fontWeight: 600,
               color: eff.textBody,
-              letterSpacing: '0.02em',
-              fontFamily: eff.fontMono,
-              textTransform: 'uppercase' as const,
+              letterSpacing: '0.01em',
+              fontFamily: eff.font,
             }}>
-              Step {currentStepIndex + 1} / {visibleStepCount}
+              Step {currentStepIndex + 1} of {visibleStepCount}
             </span>
           </div>
           <div style={{
-            height: '4px',
+            height: '3px',
             borderRadius: '2px',
             background: eff.bg,
             overflow: 'hidden',
@@ -279,12 +294,10 @@ function WidgetCard({
       )}
 
       {/* ─── Step Content ─── */}
-      <div style={{ padding: '32px', position: 'relative' }}>
+      <div className="eff-widget-body" style={{ position: 'relative' }}>
         {currentStep.help && (
-          <div style={{
+          <div className="eff-widget-help" style={{
             position: 'absolute',
-            top: '32px',
-            right: '32px',
             zIndex: 10,
           }}>
             <StepHelp help={currentStep.help} />
@@ -296,9 +309,9 @@ function WidgetCard({
       {/* ─── Navigation ─── */}
       {(showBack || showNext || canSkip) && (
         <div
+          className="eff-widget-nav"
           style={{
             borderTop: `1px solid ${eff.buttonBorder}`,
-            padding: '24px 32px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',

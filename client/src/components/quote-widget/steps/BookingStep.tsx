@@ -147,7 +147,7 @@ export default function BookingStep({ step, accentColor }: BookingStepProps) {
               No slots available for this date. Try another day.
             </p>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
               {booking.availableSlots.map((slot) => {
                 const active = selectedTime === slot;
                 return (

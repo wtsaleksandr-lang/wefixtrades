@@ -47,8 +47,8 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
       )}
 
       <div style={{
-        maxWidth: '320px',
-        margin: '24px auto 0',
+        maxWidth: '380px',
+        margin: '20px auto 0',
         display: 'flex',
         flexDirection: 'column',
         gap: '8px',
@@ -100,11 +100,11 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
         fontSize: '13px',
         color: eff.textBody,
         textAlign: 'center',
-        margin: '24px 0 0',
+        margin: '16px 0 0',
         lineHeight: 1.5,
       }}>
         {leadSubmitted
-          ? "Check your email for a copy of your estimate. We'll follow up within 24 hours."
+          ? "Check your email for your estimate. We'll follow up within 24 hours."
           : "We'll reach out shortly to discuss your project."}
       </p>
 
@@ -116,7 +116,8 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
       {/* QuoteQuick pitch — demo mode only */}
       {isDemo && leadSubmitted && (
         <div style={{
-          marginTop: '24px',
+          maxWidth: '380px',
+          margin: '24px auto 0',
           padding: '20px',
           borderRadius: eff.radiusLg,
           border: `1px solid ${eff.buttonBorder}`,

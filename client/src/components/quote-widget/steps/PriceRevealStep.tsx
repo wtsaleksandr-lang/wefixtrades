@@ -100,14 +100,14 @@ function ExactPriceBlock({
           fontWeight: 600,
           color: eff.textBody,
           textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-          margin: '0 0 8px',
-          fontFamily: eff.fontMono,
+          letterSpacing: '0.04em',
+          margin: '0 0 6px',
+          fontFamily: eff.font,
         }}>
           Your Estimate
         </p>
         <p style={{
-          fontSize: '40px',
+          fontSize: 'clamp(28px, 8vw, 36px)',
           fontWeight: 800,
           color: eff.text,
           margin: 0,
@@ -183,19 +183,19 @@ function RangeBlock({
         fontWeight: 600,
         color: eff.textBody,
         textTransform: 'uppercase',
-        letterSpacing: '0.06em',
-        margin: '0 0 8px',
-        fontFamily: eff.fontMono,
+        letterSpacing: '0.04em',
+        margin: '0 0 6px',
+        fontFamily: eff.font,
       }}>
         Estimated Range
       </p>
       <p style={{
-        fontSize: '36px',
+        fontSize: 'clamp(24px, 7vw, 32px)',
         fontWeight: 800,
         color: eff.text,
         margin: '0 0 8px',
         fontFamily: eff.fontMono,
-        lineHeight: 1,
+        lineHeight: 1.1,
         letterSpacing: '-0.02em',
       }}>
         ${rangeMin.toLocaleString()} &ndash; ${rangeMax.toLocaleString()}
