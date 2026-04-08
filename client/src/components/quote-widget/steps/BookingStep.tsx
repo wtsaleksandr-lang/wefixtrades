@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { CalendarDays, Clock, Loader2, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, Clock, Loader2 } from 'lucide-react';
 import { useWidgetState } from '../useWidgetState';
 import { eff, stepTitleStyle, stepSubtitleStyle, inputStyle, primaryButtonStyle, labelStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
@@ -220,7 +220,7 @@ export default function BookingStep({ step, accentColor }: BookingStepProps) {
             onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
           {error && (
-            <p style={{ fontSize: '13px', color: '#dc2626', margin: 0 }}>{error}</p>
+            <p style={{ fontSize: '13px', color: eff.error, margin: 0 }}>{error}</p>
           )}
           <button
             type="button"

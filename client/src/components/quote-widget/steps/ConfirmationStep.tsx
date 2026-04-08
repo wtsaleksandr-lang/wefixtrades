@@ -27,13 +27,13 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
         width: '56px',
         height: '56px',
         borderRadius: '50%',
-        background: '#f0fdf4',
+        background: eff.successBg,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         margin: '0 auto 20px',
       }}>
-        <CircleCheck style={{ width: 28, height: 28, color: '#16a34a' }} />
+        <CircleCheck style={{ width: 28, height: 28, color: eff.success }} />
       </div>
 
       <h3 style={{ ...stepTitleStyle, textAlign: 'center', fontSize: '20px' }}>
@@ -60,7 +60,7 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
             color: eff.text,
             background: '#fff',
           }}>
-            <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0, color: '#16a34a' }} />
+            <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0, color: eff.success }} />
             <span>Estimate sent to your email</span>
           </div>
         )}
@@ -77,7 +77,7 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
             color: eff.text,
             background: '#fff',
           }}>
-            <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0, color: '#16a34a' }} />
+            <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0, color: eff.success }} />
             <span>
               Appointment booked: {bookingData.selectedDate} at {bookingData.selectedTime}
             </span>

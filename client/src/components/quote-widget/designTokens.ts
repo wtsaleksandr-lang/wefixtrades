@@ -18,7 +18,12 @@ export const eff = {
   radiusMd: '0.75em',
   radiusLg: '1em',
   radiusXl: '1.5em',
-  radius2xl: '1.5em',
+  radius2xl: '1.75em',
+  /** Semantic color for validation errors */
+  error: '#dc2626',
+  /** Semantic color for success states */
+  success: '#16a34a',
+  successBg: '#f0fdf4',
 } as const;
 
 /** Shared style for step titles */
@@ -92,6 +97,14 @@ export const inputStyle: React.CSSProperties = {
   outline: 'none',
   transition: 'border-color 0.15s, box-shadow 0.15s',
   boxSizing: 'border-box' as const,
+};
+
+/** Shared style for inline error messages */
+export const errorTextStyle: React.CSSProperties = {
+  fontSize: '13px',
+  color: eff.error,
+  margin: '4px 0 0',
+  lineHeight: 1.4,
 };
 
 /** Shared style for selectable option rows (checkbox/radio) */

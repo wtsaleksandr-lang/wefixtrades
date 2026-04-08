@@ -192,8 +192,9 @@ function WidgetCard({
         overflow: 'hidden',
       }}
     >
-      {/* Responsive padding overrides */}
+      {/* Widget baseline styles */}
       <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
         .eff-widget-header { padding: 20px 28px; }
         .eff-widget-progress { padding: 20px 28px 0; }
         .eff-widget-body { padding: 28px; }

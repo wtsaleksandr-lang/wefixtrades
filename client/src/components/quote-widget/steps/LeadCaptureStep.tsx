@@ -182,13 +182,13 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
             onChange={(e) => { updateLead('email', e.target.value); setFieldErrors(p => ({ ...p, email: undefined })); setError(null); }}
             style={{
               ...inputStyle,
-              ...(fieldErrors.email ? { borderColor: '#dc2626' } : {}),
+              ...(fieldErrors.email ? { borderColor: eff.error } : {}),
             }}
             onFocus={(e) => { e.currentTarget.style.borderColor = fieldErrors.email ? '#dc2626' : eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = fieldErrors.email ? '#dc2626' : eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
           {fieldErrors.email && (
-            <p style={{ fontSize: '12px', color: '#dc2626', margin: '4px 0 0' }}>{fieldErrors.email}</p>
+            <p style={{ fontSize: '12px', color: eff.error, margin: '4px 0 0' }}>{fieldErrors.email}</p>
           )}
         </div>
 
@@ -205,13 +205,13 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
             onChange={(e) => { updateLead('phone', e.target.value); setFieldErrors(p => ({ ...p, phone: undefined })); setError(null); }}
             style={{
               ...inputStyle,
-              ...(fieldErrors.phone ? { borderColor: '#dc2626' } : {}),
+              ...(fieldErrors.phone ? { borderColor: eff.error } : {}),
             }}
             onFocus={(e) => { e.currentTarget.style.borderColor = fieldErrors.phone ? '#dc2626' : eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = fieldErrors.phone ? '#dc2626' : eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
           {fieldErrors.phone && (
-            <p style={{ fontSize: '12px', color: '#dc2626', margin: '4px 0 0' }}>{fieldErrors.phone}</p>
+            <p style={{ fontSize: '12px', color: eff.error, margin: '4px 0 0' }}>{fieldErrors.phone}</p>
           )}
         </div>
 
@@ -254,7 +254,7 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
         </label>
 
         {error && (
-          <p style={{ fontSize: '14px', color: '#dc2626', margin: 0 }}>{error}</p>
+          <p style={{ fontSize: '14px', color: eff.error, margin: 0 }}>{error}</p>
         )}
 
         <button

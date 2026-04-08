@@ -3,7 +3,7 @@ import { Phone, Shield } from 'lucide-react';
 import { trackEvent } from '@/lib/trackEvent';
 import { useWidgetState } from '../useWidgetState';
 import { calculateEstimate } from '@shared/calculateEstimate';
-import { eff, stepTitleStyle, stepSubtitleStyle } from '../designTokens';
+import { eff, stepTitleStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
 
 interface PriceRevealStepProps {
@@ -110,7 +110,7 @@ function ExactPriceBlock({
       background: eff.bgSecondary,
       padding: '32px 24px',
     }}>
-      <div style={{ textAlign: 'center', marginBottom: breakdown.length > 0 ? '24px' : 0 }}>
+      <div style={{ textAlign: 'center', marginBottom: breakdown.length > 0 ? '20px' : 0 }}>
         <p style={{
           fontSize: '12px',
           fontWeight: 600,
