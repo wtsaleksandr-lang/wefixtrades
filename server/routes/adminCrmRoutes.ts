@@ -3,6 +3,7 @@ import { requireAdmin, hashPassword } from "../auth";
 import { storage } from "../storage";
 import { getTradeLineDefaultConfig, getTradeLineReadiness, advanceSetupStage } from "@shared/schema";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
+import { getTaskAutomation } from "../services/taskAutomation";
 import crypto from "crypto";
 
 export function registerAdminCrmRoutes(app: Express): void {
@@ -232,6 +233,73 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.json({ ...task, cascade });
     } catch (err: any) {
       res.status(500).json({ error: "Failed to update fulfillment task" });
+    }
+  });
+
+  app.post("/api/admin/crm/fulfillment/:id/process", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+
+      // Load the task (use updateFulfillmentTask with empty update to get current state)
+      const task = await storage.updateFulfillmentTask(id, {});
+      if (!task) return res.status(404).json({ error: "Fulfillment task not found" });
+
+      // Look up automation
+      const automation = getTaskAutomation(task.title);
+      if (!automation) {
+        return res.status(400).json({ error: "This task cannot be automated", title: task.title });
+      }
+
+      // Mark running
+      await storage.updateFulfillmentTask(id, { automation_status: "running" });
+
+      let result;
+      try {
+        result = await automation.handler(task);
+      } catch (err: any) {
+        await storage.updateFulfillmentTask(id, {
+          automation_status: "failed",
+          last_action: `Error: ${err.message}`,
+          last_action_at: new Date(),
+        });
+        return res.status(500).json({ error: `Automation failed: ${err.message}` });
+      }
+
+      // Update task based on result
+      const updates: Record<string, any> = {
+        automation_status: result.success ? "completed" : "failed",
+        last_action: result.message,
+        last_action_at: new Date(),
+      };
+
+      // Auto tasks get marked delivered on success
+      let cascade;
+      if (automation.type === "auto" && result.success) {
+        updates.status = "delivered";
+        updates.completed_at = new Date();
+      }
+
+      const updatedTask = await storage.updateFulfillmentTask(id, updates);
+
+      // Run completion cascade if auto-delivered
+      if (updates.status === "delivered" && updatedTask?.client_service_id) {
+        cascade = await storage.checkAndCompleteService(updatedTask.client_service_id);
+      }
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: `fulfillment.process.${automation.action}`,
+        entity_type: "fulfillment_task",
+        entity_id: id,
+        summary: `Processed task "${task.title}" (${automation.type}): ${result.message}`,
+      });
+
+      res.json({ task: updatedTask, result, cascade });
+    } catch (err: any) {
+      console.error("[admin-crm] Process task error:", err.message);
+      res.status(500).json({ error: "Failed to process task" });
     }
   });
 
