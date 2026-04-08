@@ -4,48 +4,70 @@ Practical QA guide for running a full Stripe sandbox simulation.
 
 ---
 
-## Prerequisites
+## Quick Start
 
-### 1. Stripe Test Key
+```bash
+# 1. Seed services (if not done)
+npx tsx server/scripts/seed-services.ts
 
-Set environment variable:
-```
-STRIPE_SECRET_KEY=sk_test_...
-```
+# 2. Sync Stripe prices (requires STRIPE_SECRET_KEY=sk_test_...)
+STRIPE_SECRET_KEY=sk_test_... npx tsx server/scripts/sync-stripe.ts
 
-### 2. Sync Stripe Products/Prices
-
-Run once to create Stripe products and prices for all services:
-```
-npx tsx server/scripts/sync-stripe.ts
-```
-
-This populates `stripe_price_id` on `service_catalog` for:
-- `tradeline-call-backup` ($97/mo)
-- `tradeline-chat` ($97/mo)
-- `tradeline-complete` ($197/mo)
-
-**Verify**: Check DB — all three must have non-null `stripe_price_id`.
-
-### 3. SMTP (optional)
-
-For onboarding email delivery, configure SMTP env vars. If not set, emails will be skipped silently (logged as warning). Testing can proceed without SMTP.
-
-### 4. Dev Server Running
-
-```
+# 3. Start dev server
 npm run dev
-```
 
-Server should be accessible at `http://localhost:5000`.
+# 4. Run automated test
+npx tsx server/scripts/test-tradeline-flow.ts
+```
 
 ---
 
-## Test Scenarios
+## Prerequisites
 
-### A. Self-Serve Checkout Flow (tradeline-call-backup)
+| Requirement | How to check | Fix |
+|-------------|-------------|-----|
+| Service catalog seeded | DB: `SELECT id FROM service_catalog WHERE id LIKE 'tradeline%'` | `npx tsx server/scripts/seed-services.ts` |
+| Stripe prices synced | DB: `SELECT id, stripe_price_id FROM service_catalog WHERE id LIKE 'tradeline%'` | `STRIPE_SECRET_KEY=sk_test_... npx tsx server/scripts/sync-stripe.ts` |
+| Dev server running | `curl http://localhost:5000/api/vapi/status` | `npm run dev` |
+| STRIPE_SECRET_KEY set | Env var present | Set `STRIPE_SECRET_KEY=sk_test_...` |
+| SMTP (optional) | Onboarding emails will be logged but not sent if not configured | Set SMTP env vars |
+| VAPI_API_KEY (optional) | Assistant build works locally without it; Vapi push is skipped | Set `VAPI_API_KEY=...` |
 
-**1. Initiate checkout**
+---
+
+## Automated Test Script
+
+```bash
+npx tsx server/scripts/test-tradeline-flow.ts
+```
+
+**What it tests:**
+
+**Scenario 1 — tradeline-complete (self-serve checkout)**
+1. Public checkout → creates client + service + payment + onboarding + tasks
+2. Simulated webhook → marks payment paid, creates portal account
+3. Verifies: config defaults, notifications populated, 7 tasks created
+4. Submits onboarding via public link → maps config, triggers assistant build
+5. Verifies: phone routing mapped, setupStage advanced, assistant built
+6. Readiness check → reports issues
+7. Marks tasks delivered → go-live → setupStage=live, service=active
+
+**Scenario 2 — tradeline-call-backup (admin provision)**
+1. Admin creates client + provisions service
+2. Verifies: portal account, onboarding email, config defaults
+3. Sets phone routing via config update
+4. Triggers manual assistant build
+5. Marks tasks delivered → go-live
+
+Both scenarios clean up test data on completion.
+
+---
+
+## Manual Test Scenarios
+
+### A. tradeline-complete — Self-Serve Checkout (Primary)
+
+#### Step 1: Initiate checkout
 ```
 POST /api/public/checkout
 {
@@ -53,43 +75,34 @@ POST /api/public/checkout
   "contact_name": "John Test",
   "contact_email": "john@test-plumbing.example.com",
   "contact_phone": "+447700900123",
-  "items": ["tradeline-call-backup"]
+  "items": ["tradeline-complete"]
 }
 ```
 
-**Expected response**: `{ checkout_url, session_id }`
+**Expected**: `{ checkout_url, session_id }`
 
-**2. Verify pre-provision (before payment)**
-
-Check DB:
-- [ ] `clients` row exists: status="onboarding", source="website"
-- [ ] `client_services` row exists: status="pending", service_id="tradeline-call-backup"
-- [ ] `client_services.metadata.tradeline.variant` = "call_backup"
-- [ ] `client_services.metadata.tradeline.setupStage` = "not_started"
-- [ ] `client_services.metadata.tradeline.notifications.email` = ["john@test-plumbing.example.com"]
-- [ ] `client_services.metadata.tradeline.notifications.sms` = ["+447700900123"]
-- [ ] `client_payments` row: status="pending"
-- [ ] `onboarding_submissions` row: status="not_sent"
-- [ ] `fulfillment_tasks`: 6 rows, all status="not_started"
-
-**3. Complete payment in Stripe**
+#### Step 2: Complete payment
 
 Open `checkout_url` in browser, use Stripe test card `4242 4242 4242 4242`.
+Or: forward webhooks via `stripe listen --forward-to localhost:5000/api/billing/webhook`
 
-**4. Verify post-payment (webhook fires)**
+#### Step 3: Verify provisioning
 
-Check DB:
-- [ ] `client_payments` row: status="paid", paid_at set
-- [ ] `onboarding_submissions` row: status="sent" (if SMTP configured)
-- [ ] `users` row created with role="client", email matching client
-- [ ] `clients.user_id` linked to new user
-- [ ] `admin_activity_log` has entries for "checkout.initiated", "portal.auto_created"
+| Check | Expected |
+|-------|----------|
+| `client_services` row | status=pending, variant=complete, setupStage=not_started |
+| `client_services.metadata.tradeline.assistant.status` | not_built |
+| `client_services.metadata.tradeline.notifications` | email + phone populated |
+| `client_payments` | status=paid |
+| `onboarding_submissions` | status=sent (if SMTP) or not_sent |
+| `fulfillment_tasks` | 7 rows, all not_started |
+| `clients.user_id` | linked (portal account created) |
 
-**5. Complete onboarding form**
+#### Step 4: Submit onboarding
 
-Submit onboarding via portal or public link:
-```
-PUT /api/portal/onboarding/:id
+Via public link (`GET /api/onboarding/:token` then `POST /api/onboarding/:token`) or portal.
+
+```json
 {
   "responses": {
     "business_name": "Test Plumbing Co",
@@ -99,212 +112,185 @@ PUT /api/portal/onboarding/:id
     "primary_phone": "+447700900456",
     "forwarding_preference": "no-answer",
     "ring_timeout": "25",
+    "website_url": "https://test-plumbing.example.com",
+    "website_access": "yes",
+    "install_mode": "direct embed",
     "top_services": "Emergency plumbing, Boiler repair",
-    "pricing_ranges": "£50-£200",
-    "tone": "professional"
-  },
-  "mode": "submit"
+    "pricing_ranges": "£50-£300",
+    "escalation_number": "+447700900999",
+    "booking_enabled": "true",
+    "tone": "friendly"
+  }
 }
 ```
 
-**Expected auto-mapping to TradeLine config**:
-- [ ] `phoneRouting.primaryBusinessNumber` = "+447700900456"
-- [ ] `phoneRouting.forwardingMode` = "no_answer"
-- [ ] `phoneRouting.ringTimeoutSeconds` = 25
-- [ ] `setupStage` = "configuring"
+**Expected after submit**:
+
+| Check | Expected |
+|-------|----------|
+| `phoneRouting.primaryBusinessNumber` | +447700900456 |
+| `phoneRouting.forwardingMode` | no_answer |
+| `phoneRouting.ringTimeoutSeconds` | 25 |
+| `website.accessAvailable` | true |
+| `website.embedMode` | direct_embed |
+| `booking.enabled` | true |
+| `setupStage` | configuring or ready_for_testing |
+| `assistant.status` | built (after ~1s) |
+| `assistant.templateId` | plumbing |
+
+#### Step 5: Check readiness
+
+```
+GET /api/admin/crm/tradeline/:csId/readiness
+```
+
+**Expected**: `{ ready: true/false, issues: [...] }`
+
+#### Step 6: Go-live
+
+```bash
+# Mark all tasks delivered first
+PATCH /api/admin/crm/fulfillment/:taskId  { "status": "delivered" }
+# (repeat for each of the 7 tasks)
+
+# Set stage if not already advanced
+POST /api/admin/crm/tradeline/:csId/config  { "setupStage": "ready_for_testing" }
+
+# Go-live
+POST /api/admin/crm/tradeline/:csId/go-live
+```
+
+**Expected**: `{ config: { setupStage: "live", ... } }`
+**Also**: `client_services.status` = active (from task cascade)
 
 ---
 
-### B. Self-Serve Checkout Flow (tradeline-chat)
+### B. tradeline-call-backup — Admin Provision
 
-**1. Initiate checkout** with `items: ["tradeline-chat"]`
-
-**2. Verify defaults**:
-- [ ] `variant` = "chat"
-- [ ] `channels.websiteChat` = true, `channels.voice` = false
-- [ ] `website.embedMode` = "direct_embed"
-
-**3. Complete payment + onboarding** with:
-```json
-{
-  "website_url": "https://test-plumbing.example.com",
-  "website_access": "yes",
-  "install_mode": "direct embed",
-  "brand_colors": "#0066cc",
-  "lead_destination": "both",
-  "booking_enabled": "true"
-}
+#### Step 1: Create client + provision
+```
+POST /api/admin/crm/clients  { "business_name": "Test Electrics", ... }
+POST /api/admin/crm/clients/:id/provision  { "service_id": "tradeline-call-backup" }
 ```
 
-**Expected auto-mapping**:
-- [ ] `website.accessAvailable` = true
-- [ ] `website.embedMode` = "direct_embed"
-- [ ] `booking.enabled` = true
-- [ ] `setupStage` = "configuring"
+**Expected response** includes: `clientService`, `payment`, `onboarding` (status=sent), `tasksCreated: 6`, `portalAccount`
+
+#### Step 2: Configure + build
+```
+POST /api/admin/crm/tradeline/:csId/config
+{ "phoneRouting": { "primaryBusinessNumber": "+447700900456" }, "setupStage": "ready_for_testing" }
+
+POST /api/admin/crm/tradeline/:csId/build-assistant
+```
+
+#### Step 3: Deliver tasks + go-live
+Same as Scenario A steps 5-6, but with 6 tasks.
 
 ---
 
-### C. Admin Provision Flow (tradeline-complete)
+### C. tradeline-chat — Hosted Fallback Path
 
-**1. Provision**
-```
-POST /api/admin/crm/clients/:id/provision
-{ "service_id": "tradeline-complete" }
-```
+#### Step 1: Provision (self-serve or admin)
 
-**Expected response**: includes `clientService`, `payment`, `onboarding`, `tasksCreated: 7`, `portalAccount`
-
-**2. Verify**:
-- [ ] `client_services` row with variant="complete", all channels=true
-- [ ] `notifications.email` and `notifications.sms` populated from client contact
-- [ ] `client_payments` row: status="pending" (manual billing)
-- [ ] `onboarding_submissions` row: status="sent" (email auto-sent)
-- [ ] `fulfillment_tasks`: 7 rows
-- [ ] `users` row created (or existing linked)
-- [ ] `portalAccount` in response shows email + temporary_password (if new)
-
----
-
-### D. Install Path Decision
-
-**Set direct embed**:
-```
-POST /api/admin/crm/tradeline/:csId/install-path
-{ "accessAvailable": true, "embedMode": "direct_embed" }
-```
-
-**Verify**:
-- [ ] `website.accessAvailable` = true
-- [ ] `website.embedMode` = "direct_embed"
-- [ ] `setupStage` = "configuring"
-
-**Set hosted fallback**:
+#### Step 2: Set hosted fallback path
 ```
 POST /api/admin/crm/tradeline/:csId/install-path
 { "accessAvailable": false, "embedMode": "hosted_fallback" }
 ```
 
-**Verify**:
-- [ ] `website.accessAvailable` = false
-- [ ] `website.embedMode` = "hosted_fallback"
-- [ ] `channels.hostedFallback` = true
-
----
-
-### E. Readiness Check
-
-**Check readiness (should fail)**:
-```
-GET /api/admin/crm/tradeline/:csId/readiness
-```
-
-**Expected** (for call-backup before setup):
-```json
-{
-  "ready": false,
-  "issues": [
-    "Setup stage is \"not_started\" — must be \"ready_for_testing\" or \"live\"",
-    "Primary business phone number is required"
-  ]
-}
-```
-
-**Fix issues** — update config:
+#### Step 3: Configure hosted URL
 ```
 POST /api/admin/crm/tradeline/:csId/config
 {
-  "phoneRouting": { "primaryBusinessNumber": "+447700900456" },
+  "website": { "hostedUrl": "https://app.wefixtrades.com/tl/test-client", "domainStatus": "connected" },
   "setupStage": "ready_for_testing"
 }
 ```
 
-**Re-check readiness**: should return `{ "ready": true, "issues": [] }`
+#### Step 4: Build + deliver tasks + go-live
+Same pattern as above.
 
 ---
 
-### F. Go-Live
+## Expected System Outcomes — Step by Step
 
-**Attempt go-live with tasks pending (should fail)**:
-```
-POST /api/admin/crm/tradeline/:csId/go-live
-```
+### After checkout created (pre-payment)
 
-**Expected**: 400 with issues including "X fulfillment task(s) still pending or in progress"
+| Record | State |
+|--------|-------|
+| `clients` | status=onboarding, source=website |
+| `client_services` | status=pending, metadata.tradeline populated |
+| `client_payments` | status=pending |
+| `onboarding_submissions` | status=not_sent |
+| `fulfillment_tasks` | 6-7 rows, status=not_started |
+| `setupStage` | not_started |
+| `assistant.status` | not_built |
 
-**Mark all tasks delivered** via:
-```
-PATCH /api/admin/crm/fulfillment/:taskId
-{ "status": "delivered" }
-```
-(repeat for each task)
+### After payment completed (webhook)
 
-**Retry go-live**:
-```
-POST /api/admin/crm/tradeline/:csId/go-live
-```
+| Record | State |
+|--------|-------|
+| `client_payments` | status=paid, paid_at set |
+| `onboarding_submissions` | status=sent (if SMTP) |
+| `users` | portal account created, linked to client |
+| `admin_activity_log` | portal.auto_created entry |
 
-**Expected**: 200 with updated config, `setupStage` = "live"
+### After onboarding submitted
 
-**Verify cascade**:
-- [ ] Last task delivery triggers `checkAndCompleteService`
-- [ ] `client_services.status` = "active"
-- [ ] `clients.status` = "active" (if all services done)
+| Record | State |
+|--------|-------|
+| `onboarding_submissions` | status=submitted, responses populated |
+| `metadata.tradeline` config | phone/website/booking fields mapped from answers |
+| `setupStage` | configuring (or ready_for_testing if everything valid) |
+| `assistant.status` | building → built (or failed) |
+| `assistant.templateId` | plumbing/electrical/hvac/generic |
+| `admin_activity_log` | tradeline.assistant_built entry |
 
----
+### After readiness passes
 
-### G. Portal Visibility
+| Check | Requirement |
+|-------|-------------|
+| `setupStage` | ready_for_testing or live |
+| Phone number | set (call-backup/complete) |
+| Website embed | set and valid (chat/complete) |
+| `assistant.status` | built |
+| Fulfillment tasks | all delivered or cancelled |
 
-**Login** with auto-created portal credentials.
+### After go-live
 
-**Check services**:
-```
-GET /api/portal/services
-```
-- [ ] TradeLine service visible with correct name
-
-**Check TradeLine detail**:
-```
-GET /api/portal/tradeline/:csId
-```
-- [ ] Returns config, usage, recentCalls, setupStage, readiness
-
-**Switch mode**:
-```
-POST /api/portal/tradeline/:csId/mode
-{ "newMode": "on_the_job" }
-```
-- [ ] Mode changes to "on_the_job"
-- [ ] `tradeline_mode_log` entry created
+| Record | State |
+|--------|-------|
+| `setupStage` | live |
+| `client_services.status` | active (from task cascade) |
+| `clients.status` | active (if all services done) |
 
 ---
 
-## Quick Verification Queries
+## Verification Queries
 
 ```sql
--- Check TradeLine services
-SELECT id, client_id, service_id, status,
-       metadata->'tradeline'->>'variant' as variant,
-       metadata->'tradeline'->>'setupStage' as stage,
-       metadata->'tradeline'->'notifications' as notifications
-FROM client_services WHERE service_id LIKE 'tradeline%';
+-- Full TradeLine state
+SELECT cs.id, cs.service_id, cs.status,
+  metadata->'tradeline'->>'variant' as variant,
+  metadata->'tradeline'->>'setupStage' as stage,
+  metadata->'tradeline'->'assistant'->>'status' as assistant_status,
+  metadata->'tradeline'->'assistant'->>'templateId' as template,
+  metadata->'tradeline'->'assistant'->>'lastBuildError' as build_error,
+  metadata->'tradeline'->'phoneRouting'->>'primaryBusinessNumber' as phone
+FROM client_services cs WHERE cs.service_id LIKE 'tradeline%';
 
--- Check portal accounts
-SELECT c.id, c.business_name, c.user_id, u.email, u.role
-FROM clients c LEFT JOIN users u ON c.user_id = u.id
-WHERE c.user_id IS NOT NULL;
-
--- Check onboarding status
-SELECT os.id, os.client_service_id, os.status, os.sent_at, os.submitted_at
-FROM onboarding_submissions os
-JOIN client_services cs ON os.client_service_id = cs.id
-WHERE cs.service_id LIKE 'tradeline%';
-
--- Check task progress
-SELECT ft.client_service_id, ft.title, ft.status, ft.sort_order
+-- Task progress
+SELECT ft.client_service_id, ft.title, ft.status
 FROM fulfillment_tasks ft
 JOIN client_services cs ON ft.client_service_id = cs.id
 WHERE cs.service_id LIKE 'tradeline%'
 ORDER BY ft.client_service_id, ft.sort_order;
+
+-- Activity log for TradeLine
+SELECT action, summary, created_at
+FROM admin_activity_log
+WHERE action LIKE 'tradeline.%'
+ORDER BY created_at DESC LIMIT 20;
 ```
 
 ---
@@ -313,9 +299,11 @@ ORDER BY ft.client_service_id, ft.sort_order;
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
-| Checkout returns "price not configured" | `stripe_price_id` not set | Run `npx tsx server/scripts/sync-stripe.ts` |
-| Onboarding email not received | SMTP not configured | Check SMTP env vars; email is logged as skipped |
-| Portal login fails | No portal account | Check `clients.user_id` is linked; call provision endpoint again |
-| Readiness check always fails on stage | setupStage not advanced | Set via config update or submit onboarding (auto-advances to "configuring") |
-| Go-live fails on tasks | Tasks not delivered | Mark all tasks as delivered via PATCH endpoint |
-| Webhook not firing | Stripe CLI not running | Run `stripe listen --forward-to localhost:5000/api/billing/webhook` |
+| Checkout returns "price not configured" | `stripe_price_id` not set | Run `sync-stripe.ts` |
+| Webhook returns 503 | `STRIPE_SECRET_KEY` not set | Set env var |
+| Onboarding email not sent | SMTP not configured | Check SMTP env vars; use public link directly |
+| Config not mapped after onboarding | Used wrong endpoint | Use `POST /api/onboarding/:token` (public) or `PUT /api/portal/onboarding/:id` (portal) |
+| Assistant status = "failed" | Build error | Check `assistant.lastBuildError` in config; try `POST /build-assistant` |
+| Go-live fails: "assistant not built" | Auto-build failed or skipped | Run `POST /build-assistant` manually |
+| Go-live fails: "tasks pending" | Not all tasks delivered | Mark remaining tasks as delivered |
+| Go-live fails: "stage not ready" | setupStage not advanced | Set via config: `{ "setupStage": "ready_for_testing" }` |
