@@ -126,30 +126,30 @@ const p = platformTheme;
 const TOTAL_STEPS = 6;
 
 const STEP_TITLES = [
-  'Business & Trade Setup',
-  'Design Your Calculator',
-  'Pricing Logic',
-  'Capture Leads',
-  'Validate Your Pricing',
-  'Publish & Share',
+  'What does your business do?',
+  'Make it yours',
+  'Set your pricing',
+  'Lead capture setup',
+  'Test your pricing',
+  'You\u2019re live!',
 ];
 const STEP_SUBTITLES = [
-  'Name your business and choose your trade. Takes about 1 minute.',
-  'Set your colour, logo, and layout style. Takes about 30 seconds.',
-  'Enter your rates — AI builds the pricing logic for you. Takes about 1 minute.',
-  'Choose what info to collect from customers. Quick.',
-  'Run two test scenarios to confirm your pricing is right.',
-  'Copy your link and start capturing leads today.',
+  'Pick your trade and we\u2019ll set everything up for you.',
+  'Brand color, logo, and layout — 30 seconds.',
+  'Enter your rates. AI builds the pricing logic.',
+  'Choose what info to collect. Quick.',
+  'Run two test quotes to confirm your numbers.',
+  'Copy your link and start getting leads.',
 ];
 const STEP_HINTS = [
-  'Next: customise your calculator appearance',
-  'Next: set up your pricing logic',
-  'Next: configure your lead capture form',
-  'Next: validate pricing with real scenarios',
-  'Next: publish and share your calculator',
+  'Next: brand your calculator',
+  'Next: set your pricing',
+  'Next: lead capture settings',
+  'Next: test your pricing',
+  'Almost done — preview and publish',
   '',
 ];
-const STEP_TIME = ['~1 min', '~30 sec', '~1 min', '~30 sec', '~1 min', '~10 sec'];
+const STEP_TIME = ['~1 min', '~30 sec', '~1 min', '~30 sec', '~1 min', ''];
 
 export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const savedResult = loadResult();
@@ -731,17 +731,14 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               id="business-name" testId="input-business-name"
               label="Business Name" required
               value={ws.businessName} onChange={v => set('businessName', v)}
-              placeholder="e.g. Sunshine Cleaning Co."
+              placeholder="e.g. Metro Plumbing Co."
               error={validationErrors.businessName}
             />
 
-            <div style={{ marginTop: '24px', marginBottom: '12px' }}>
-              <label style={{ ...p.typography.label, display: 'block', marginBottom: '6px' }}>
-                Service Category <span style={{ color: p.colors.danger }}>*</span>
+            <div style={{ marginTop: '20px', marginBottom: '10px' }}>
+              <label style={{ ...p.typography.label, display: 'block', marginBottom: '4px' }}>
+                What kind of work do you do? <span style={{ color: p.colors.danger }}>*</span>
               </label>
-              <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.5 }}>
-                Choose your core service area.
-              </p>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '16px' }}>
@@ -1426,25 +1423,18 @@ function Shell({ children, step, total, onHelp, title, subtitle, generating, gen
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.04em', color: p.colors.muted }}>
-              Step {step + 1} of {total}
+            <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.02em', color: p.colors.muted }}>
+              {step >= total - 1 ? 'Final step' : `Step ${step + 1} of ${total}`}
             </span>
-            {stepTime && (
+            {step >= 3 && step < total - 1 && (
               <span style={{
-                fontSize: '11px', fontWeight: 600, color: '#64748B',
-                background: '#F8FAFC', border: '1px solid #E2E8F0',
+                fontSize: '11px', fontWeight: 600, color: '#059669',
+                background: '#ECFDF5', border: '1px solid #A7F3D0',
                 padding: '2px 8px', borderRadius: 20,
               }}>
-                ⏱ {stepTime}
+                Almost done
               </span>
             )}
-            <span style={{
-              fontSize: '11px', fontWeight: 600, color: '#64748B',
-              background: '#F8FAFC', border: '1px solid #E2E8F0',
-              padding: '2px 8px', borderRadius: 20,
-            }}>
-              Total: ~3 min
-            </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{

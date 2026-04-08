@@ -30,10 +30,16 @@ export default function Wizard() {
           lineHeight: 1.3, letterSpacing: '-0.01em',
           marginBottom: '6px',
         }}>
-          Set Up Your Instant Quote Engine
+          Get your quote calculator live in 5 minutes
         </h1>
         <p style={{ fontSize: '14px', color: p.colors.muted, lineHeight: 1.5 }}>
-          Customize your automated quoting system in minutes.
+          Pick your trade, set your rates, and start getting leads. No code needed.
+        </p>
+        <p style={{
+          fontSize: '12px', color: p.colors.muted, lineHeight: 1.5,
+          marginTop: '6px', opacity: 0.7,
+        }}>
+          Free 14-day trial &middot; No credit card required
         </p>
       </div>
       <div style={{
