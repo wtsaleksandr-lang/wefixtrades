@@ -8,6 +8,9 @@
 import { storage } from "../../storage";
 import { getGoogleAccessToken } from "../socialSync/googleBusinessService";
 import { classifyReview, generateReply, shouldAutoReply, type ReplyContext } from "./reviewCore";
+import {
+  sendAlert, buildNegativeReviewAlert, buildEscalatedReviewAlert, isAlertingConfigured,
+} from "../socialSync/alertService";
 import type { Review } from "@shared/schema";
 
 const GBP_API_V4 = "https://mybusiness.googleapis.com/v4";
@@ -139,6 +142,22 @@ export async function syncGBPReviews(
       } as any);
 
       if (isNew) result.new_reviews++;
+
+      // Alert for new negative/escalated reviews (dedup: only if not yet alerted)
+      if (isNew && !review.alerted_at && isAlertingConfigured()) {
+        const shouldAlert = classification.sentiment === "urgent" || classification.sentiment === "negative";
+        if (shouldAlert) {
+          try {
+            const client = await storage.getClientById(clientId);
+            const snippet = raw.comment || "(no text)";
+            const alert = classification.escalation
+              ? buildEscalatedReviewAlert(clientId, client?.business_name || null, "google_business", stars, raw.reviewer?.displayName || null, snippet)
+              : buildNegativeReviewAlert(clientId, client?.business_name || null, "google_business", stars, raw.reviewer?.displayName || null, snippet);
+            await sendAlert(alert);
+            await storage.updateReview(review.id, { alerted_at: new Date() } as any);
+          } catch { /* Alert failure shouldn't block review processing */ }
+        }
+      }
 
       if (hasOwnerReply || review.reply_status === "auto_replied" || review.reply_status === "manually_replied") {
         continue;

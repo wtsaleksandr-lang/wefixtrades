@@ -34,6 +34,7 @@ export const reviews = pgTable("reviews", {
   has_existing_owner_reply: boolean("has_existing_owner_reply").notNull().default(false),
   // Metadata
   escalation_flag: boolean("escalation_flag").notNull().default(false),
+  alerted_at: timestamp("alerted_at"),                         // When operator alert was sent for this review
   metadata: jsonb("metadata"),                                 // Platform-specific raw data
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),

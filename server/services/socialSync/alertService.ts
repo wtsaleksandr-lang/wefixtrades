@@ -39,7 +39,7 @@ export function isAlertingConfigured(): boolean {
 /* ─── Types ─── */
 
 export interface AlertPayload {
-  type: "token_expired" | "publish_failures" | "no_recent_publishes" | "media_failures" | "rate_limited";
+  type: "token_expired" | "publish_failures" | "no_recent_publishes" | "media_failures" | "rate_limited" | "negative_review" | "escalated_review";
   client_id: number;
   business_name: string | null;
   platform: string;
@@ -162,6 +162,36 @@ export function buildRateLimitedAlert(clientId: number, businessName: string | n
     platform,
     summary: `Repeated rate limiting on ${platform} for ${businessName || `Client #${clientId}`}. Client is in cooldown.`,
     details: { platform },
+    admin_url: buildAdminUrl(clientId),
+  };
+}
+
+export function buildNegativeReviewAlert(
+  clientId: number, businessName: string | null, platform: string,
+  rating: number, reviewerName: string | null, snippet: string,
+): AlertPayload {
+  return {
+    type: "negative_review",
+    client_id: clientId,
+    business_name: businessName,
+    platform,
+    summary: `${rating}-star review from ${reviewerName || "anonymous"} on ${platform} for ${businessName || `Client #${clientId}`}.`,
+    details: { rating, reviewer: reviewerName, snippet: snippet.slice(0, 200) },
+    admin_url: buildAdminUrl(clientId),
+  };
+}
+
+export function buildEscalatedReviewAlert(
+  clientId: number, businessName: string | null, platform: string,
+  rating: number, reviewerName: string | null, snippet: string,
+): AlertPayload {
+  return {
+    type: "escalated_review",
+    client_id: clientId,
+    business_name: businessName,
+    platform,
+    summary: `ESCALATED ${rating}-star review from ${reviewerName || "anonymous"} on ${platform} for ${businessName || `Client #${clientId}`}. Contains risk keywords.`,
+    details: { rating, reviewer: reviewerName, snippet: snippet.slice(0, 200), escalated: true },
     admin_url: buildAdminUrl(clientId),
   };
 }

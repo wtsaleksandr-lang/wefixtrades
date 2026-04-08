@@ -1013,6 +1013,18 @@ export function registerSocialSyncRoutes(app: Express): void {
           riskReasons.push("no_recent_publishes");
         }
 
+        // Review health
+        let unresolvedNegativeReviews = 0;
+        try {
+          const clientReviews = await storage.listReviews(clientId, { needsReply: true, limit: 50 });
+          unresolvedNegativeReviews = clientReviews.filter(r =>
+            (r.sentiment === "negative" || r.sentiment === "urgent") &&
+            !r.has_existing_owner_reply &&
+            r.reply_status !== "auto_replied" && r.reply_status !== "manually_replied"
+          ).length;
+          if (unresolvedNegativeReviews > 0) riskReasons.push(`${unresolvedNegativeReviews}_unresolved_negative_reviews`);
+        } catch { /* skip */ }
+
         // Get client business name
         let businessName: string | null = null;
         try {
@@ -1035,6 +1047,7 @@ export function registerSocialSyncRoutes(app: Express): void {
           failed_queue: failedQueue,
           success_rate: successRate,
           ig_missing_media: igPostsMissingMedia,
+          unresolved_negative_reviews: unresolvedNegativeReviews,
           cooldown: await getCooldownSummary(clientId),
           at_risk: isAtRisk || (successRate !== null && successRate < 50),
           risk_reasons: riskReasons,
