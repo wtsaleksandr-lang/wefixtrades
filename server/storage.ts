@@ -69,6 +69,7 @@ export interface IStorage {
   upsertDeploymentStatus(data: InsertDeploymentStatus): Promise<DeploymentStatus>;
 
   getAllCalculatorsWithEmail(): Promise<Calculator[]>;
+  getAllCalculatorsForAdmin(): Promise<any[]>;
   upsertAnalyticsSummary(data: InsertAnalyticsSummary): Promise<AnalyticsSummary>;
   getAnalyticsSummary(calculatorId: number): Promise<AnalyticsSummary | undefined>;
   getDailyEventCounts(calculatorId: number, date: Date): Promise<{ views: number; leads: number; quotes: number }>;
@@ -369,6 +370,33 @@ export class DatabaseStorage implements IStorage {
 
   async getAllCalculatorsWithEmail(): Promise<Calculator[]> {
     return db.select().from(calculators).where(isNotNull(calculators.owner_email));
+  }
+
+  async getAllCalculatorsForAdmin(): Promise<any[]> {
+    const allCalcs = await db.select({
+      id: calculators.id,
+      user_id: calculators.user_id,
+      business_name: calculators.business_name,
+      trade_type: calculators.trade_type,
+      slug: calculators.slug,
+      owner_email: calculators.owner_email,
+      plan_tier: calculators.plan_tier,
+      total_views: calculators.total_views,
+      created_at: calculators.created_at,
+    }).from(calculators).orderBy(desc(calculators.created_at));
+
+    const results = [];
+    for (const calc of allCalcs) {
+      const deploy = await this.getDeploymentStatus(calc.id);
+      const [leadRow] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(leads).where(eq(leads.calculator_id, calc.id));
+      results.push({
+        ...calc,
+        total_leads: leadRow?.count ?? 0,
+        status: deploy?.status ?? 'draft',
+      });
+    }
+    return results;
   }
 
   async upsertAnalyticsSummary(data: InsertAnalyticsSummary): Promise<AnalyticsSummary> {

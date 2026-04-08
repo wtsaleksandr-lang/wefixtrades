@@ -674,4 +674,64 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to create portal account" });
     }
   });
+
+  /* ═══════════════════════════════════════════
+     QuoteQuick Admin Overview
+     ═══════════════════════════════════════════ */
+
+  /**
+   * GET /api/admin/crm/quotequick/overview
+   * Returns all calculators with their status, client linkage, and basic metrics.
+   */
+  app.get("/api/admin/crm/quotequick/overview", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const allCalcs = await storage.getAllCalculatorsForAdmin();
+      res.json({ calculators: allCalcs });
+    } catch (err: any) {
+      console.error("[admin-crm] QuoteQuick overview error:", err.message);
+      res.status(500).json({ error: "Failed to load QuoteQuick overview" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/clients/:id/quotequick
+   * Returns QuoteQuick calculator data for a specific client (via user_id linkage).
+   */
+  app.get("/api/admin/crm/clients/:id/quotequick", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id as string);
+      const client = await storage.getClientById(clientId);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+
+      if (!client.user_id) {
+        return res.json({ calculators: [], message: "Client has no linked user account" });
+      }
+
+      const calcs = await storage.getCalculatorsByUserId(client.user_id);
+      const results = [];
+
+      for (const calc of calcs) {
+        const deploy = await storage.getDeploymentStatus(calc.id);
+        const leadCount = await storage.getLeadCountSince(calc.id, new Date(0));
+        results.push({
+          id: calc.id,
+          business_name: calc.business_name,
+          trade_type: calc.trade_type,
+          slug: calc.slug,
+          plan_tier: calc.plan_tier ?? 'free',
+          total_views: calc.total_views ?? 0,
+          total_leads: leadCount,
+          status: deploy?.status ?? 'draft',
+          created_at: calc.created_at,
+          calculator_url: `/calculator?slug=${calc.slug}`,
+          edit_url: `/EditCalculator?token=${calc.edit_token}`,
+        });
+      }
+
+      res.json({ calculators: results });
+    } catch (err: any) {
+      console.error("[admin-crm] Client QuoteQuick error:", err.message);
+      res.status(500).json({ error: "Failed to load client QuoteQuick data" });
+    }
+  });
 }
