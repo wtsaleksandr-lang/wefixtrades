@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { trackEvent } from '@/lib/trackEvent';
 import { Send, CheckCircle2, Loader2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -38,6 +38,8 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; phone?: string }>({});
+  // Ref-based guard prevents double-submit across re-renders
+  const submitLockRef = useRef(false);
 
   const smsConsent = state.lead.smsConsent;
 
@@ -71,39 +73,47 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (submitting || leadSubmitted) return;
+    if (submitting || leadSubmitted || submitLockRef.current) return;
 
     if (!validateFields()) return;
 
+    submitLockRef.current = true;
     setSubmitting(true);
     setError(null);
 
     try {
       const isDemo = config.calculator.id === 0;
 
+      // Ensure answers is always a non-null object
+      const safeAnswers = (answers && typeof answers === 'object') ? answers : {};
+
+      // Ensure quote_amount is a finite number or null
+      const rawTotal = estimate?.total;
+      const safeQuoteAmount = (rawTotal != null && Number.isFinite(rawTotal)) ? rawTotal : null;
+
       const endpoint = isDemo ? '/api/demo-leads' : '/api/leads';
       const body = isDemo
         ? {
-            email: leadData.email || null,
-            name: leadData.name || null,
-            phone: leadData.phone || null,
-            company: leadData.company || null,
+            email: leadData.email.trim() || null,
+            name: leadData.name.trim() || null,
+            phone: leadData.phone.trim() || null,
+            company: leadData.company.trim() || null,
             trade: (config.calculator.slug || '').replace('demo-', ''),
             demoBusinessName: config.calculator.business_name || null,
-            quoteAmount: estimate?.total ?? null,
-            answers: answers,
+            quoteAmount: safeQuoteAmount,
+            answers: safeAnswers,
             smsConsent: smsConsent,
             source_tool: "demo",
             source_page: typeof window !== "undefined" ? window.location.pathname : null,
           }
         : {
             calculator_id: config.calculator.id,
-            name: leadData.name || null,
-            email: leadData.email || null,
-            phone: leadData.phone || null,
-            company: leadData.company || null,
-            quote_amount: estimate?.total ?? null,
-            answers: answers,
+            name: leadData.name.trim() || null,
+            email: leadData.email.trim() || null,
+            phone: leadData.phone.trim() || null,
+            company: leadData.company.trim() || null,
+            quote_amount: safeQuoteAmount,
+            answers: safeAnswers,
             sms_consent: smsConsent,
             consent_timestamp: smsConsent ? new Date().toISOString() : null,
           };
@@ -125,9 +135,11 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
 
       dispatch({ type: 'MARK_LEAD_SUBMITTED' });
       if (config.calculator.id === 0) {
-        trackEvent("demo_lead_submitted", { trade: (config.calculator.slug || "").replace("demo-", ""), quoteAmount: estimate?.total ?? null });
+        trackEvent("demo_lead_submitted", { trade: (config.calculator.slug || "").replace("demo-", ""), quoteAmount: safeQuoteAmount });
       }
     } catch (err) {
+      // Allow retry on failure
+      submitLockRef.current = false;
       if (err instanceof DOMException && err.name === 'AbortError') {
         setError('Request timed out. Please try again.');
       } else {
