@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { CalendarDays, Clock, Loader2, CheckCircle2 } from 'lucide-react';
 import { useWidgetState } from '../useWidgetState';
 import { eff, stepTitleStyle, stepSubtitleStyle, inputStyle, primaryButtonStyle, labelStyle } from '../designTokens';
@@ -16,45 +16,77 @@ interface BookingStepProps {
  * and the existing GET /api/bookings/availability endpoint.
  */
 export default function BookingStep({ step, accentColor }: BookingStepProps) {
-  const { config, state, dispatch } = useWidgetState();
+  const { config, state, dispatch, nextStep } = useWidgetState();
   const booking = state.booking;
   const { selectedDate, selectedTime, customer } = booking.data;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submitLockRef = useRef(false);
 
   const handleConfirmBooking = useCallback(async () => {
+    if (submitLockRef.current || submitting) return;
+    submitLockRef.current = true;
     setSubmitting(true);
     setError(null);
     try {
+      const trimmedName = customer.name.trim();
+      if (!trimmedName) {
+        setError('Name is required.');
+        submitLockRef.current = false;
+        return;
+      }
+      if (!selectedDate || !selectedTime) {
+        setError('Please select a date and time.');
+        submitLockRef.current = false;
+        return;
+      }
+
+      // Ensure quote_amount preserves 0 as valid
+      const rawTotal = state.estimate?.total;
+      const safeQuoteAmount = (rawTotal != null && Number.isFinite(rawTotal)) ? rawTotal : undefined;
+
       const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           calculator_id: config.calculator.id,
-          customer_name: customer.name,
-          customer_email: customer.email || undefined,
-          customer_phone: customer.phone || undefined,
+          customer_name: trimmedName,
+          customer_email: customer.email.trim() || undefined,
+          customer_phone: customer.phone.trim() || undefined,
           date: selectedDate,
           time: selectedTime,
-          quote_amount: state.estimate?.total ?? undefined,
+          quote_amount: safeQuoteAmount,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data?.error || 'Booking failed. Please try again.');
+        submitLockRef.current = false;
         return;
       }
       dispatch({ type: 'CONFIRM_BOOKING' });
+      // Advance to confirmation step
+      nextStep();
     } catch {
+      submitLockRef.current = false;
       setError('Network error. Please try again.');
     } finally {
       setSubmitting(false);
     }
-  }, [config.calculator.id, customer, selectedDate, selectedTime, state.estimate, dispatch]);
+  }, [config.calculator.id, customer, selectedDate, selectedTime, state.estimate, dispatch, nextStep, submitting]);
+
+  // Today's date in local timezone (not UTC) for min date enforcement
+  const todayLocal = new Date();
+  const todayStr = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`;
 
   // Fetch available slots when date changes
   useEffect(() => {
     if (!selectedDate || !config.calculator.id) return;
+    // Guard: reject past dates
+    if (selectedDate < todayStr) {
+      dispatch({ type: 'SET_AVAILABLE_SLOTS', slots: [] });
+      return;
+    }
     dispatch({ type: 'SET_LOADING_SLOTS', value: true });
     dispatch({ type: 'SET_BOOKING_TIME', time: '' });
 
@@ -71,28 +103,10 @@ export default function BookingStep({ step, accentColor }: BookingStepProps) {
       });
   }, [selectedDate, config.calculator.id, dispatch]);
 
-  if (booking.confirmed) {
-    return (
-      <div style={{ textAlign: 'center', padding: '24px 0' }}>
-        <div style={{
-          width: '48px',
-          height: '48px',
-          borderRadius: '50%',
-          background: eff.bg,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 16px',
-        }}>
-          <CheckCircle2 style={{ width: 24, height: 24, color: eff.buttonBg }} />
-        </div>
-        <h3 style={{ ...stepTitleStyle, textAlign: 'center' }}>Booking Confirmed</h3>
-        <p style={{ ...stepSubtitleStyle, textAlign: 'center' }}>
-          {selectedDate} at {selectedTime}
-        </p>
-      </div>
-    );
-  }
+  // Auto-advance if user navigates back to a confirmed booking
+  useEffect(() => {
+    if (booking.confirmed) nextStep();
+  }, [booking.confirmed, nextStep]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -108,7 +122,7 @@ export default function BookingStep({ step, accentColor }: BookingStepProps) {
         <input
           type="date"
           value={selectedDate}
-          min={new Date().toISOString().split('T')[0]}
+          min={todayStr}
           onChange={(e) => dispatch({ type: 'SET_BOOKING_DATE', date: e.target.value })}
           style={inputStyle}
           onFocus={(e) => { e.currentTarget.style.borderColor = eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}

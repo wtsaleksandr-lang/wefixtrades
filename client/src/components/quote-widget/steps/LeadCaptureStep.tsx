@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { trackEvent } from '@/lib/trackEvent';
-import { Send, CheckCircle2, Loader2 } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { calculateEstimate } from '@shared/calculateEstimate';
 import { useWidgetState } from '../useWidgetState';
@@ -27,6 +27,7 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
     updateLead,
     estimateInputs,
     answers,
+    nextStep,
   } = useWidgetState();
 
   // Derive current estimate for quote_amount (same pattern as PriceRevealStep)
@@ -137,6 +138,8 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
       if (config.calculator.id === 0) {
         trackEvent("demo_lead_submitted", { trade: (config.calculator.slug || "").replace("demo-", ""), quoteAmount: safeQuoteAmount });
       }
+      // Advance to next step (booking or confirmation)
+      nextStep();
     } catch (err) {
       // Allow retry on failure
       submitLockRef.current = false;
@@ -150,37 +153,10 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
     }
   }
 
-  // ─── Already submitted state ───
-  if (leadSubmitted) {
-    return (
-      <div role="status" aria-live="polite" style={{ textAlign: 'center', padding: '24px 0' }}>
-        <div style={{
-          width: '56px',
-          height: '56px',
-          borderRadius: '50%',
-          background: eff.bg,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 16px',
-        }}>
-          <CheckCircle2 style={{ width: 28, height: 28, color: eff.buttonBg }} />
-        </div>
-        <h3 style={{ ...stepTitleStyle, textAlign: 'center' }}>
-          {config.calculator.lead_thank_you_message || 'Thank you!'}
-        </h3>
-        <p style={{ ...stepSubtitleStyle, textAlign: 'center' }}>
-          You'll receive your quote by email within a few minutes.
-        </p>
-        <a href="/tools" style={{
-          display: 'inline-block', marginTop: 12,
-          fontSize: '13px', color: eff.buttonBg, textDecoration: 'none', fontWeight: 600,
-        }}>
-          Explore more free tools &rarr;
-        </a>
-      </div>
-    );
-  }
+  // ─── Already submitted: auto-advance if user navigates back here ───
+  useEffect(() => {
+    if (leadSubmitted) nextStep();
+  }, [leadSubmitted, nextStep]);
 
   // ─── Form ───
   return (
