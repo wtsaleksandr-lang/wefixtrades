@@ -43,10 +43,28 @@ const PERMANENT_ERROR_CODES = new Set([
 
 const PERMANENT_ERROR_SUBCODE = new Set([
   2207024,   // Media URL not reachable
-  2207050,   // Rate limit on content publishing (treat as transient? No — typically means daily limit)
 ]);
 
+/** Rate limit codes — retryable with backoff. */
+const RATE_LIMIT_CODES = new Set([
+  4,         // Application request limit
+  17,        // User request limit
+  32,        // Page request limit
+]);
+
+const RATE_LIMIT_SUBCODES = new Set([
+  2207050,   // Content publishing rate limit (daily)
+]);
+
+export function isRateLimitError(errorCode?: number, errorSubcode?: number): boolean {
+  if (errorCode && RATE_LIMIT_CODES.has(errorCode)) return true;
+  if (errorSubcode && RATE_LIMIT_SUBCODES.has(errorSubcode)) return true;
+  return false;
+}
+
 function classifyError(errorCode?: number, errorSubcode?: number): boolean {
+  // Rate limits are transient, not permanent
+  if (isRateLimitError(errorCode, errorSubcode)) return false;
   if (errorCode && PERMANENT_ERROR_CODES.has(errorCode)) return true;
   if (errorSubcode && PERMANENT_ERROR_SUBCODE.has(errorSubcode)) return true;
   return false;

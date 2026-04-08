@@ -32,8 +32,22 @@ const PERMANENT_ERROR_CODES = new Set([
   506,  // Duplicate post
 ]);
 
+/** Rate limit error codes — retryable with backoff. */
+const RATE_LIMIT_CODES = new Set([
+  4,    // Application request limit reached
+  17,   // User request limit reached
+  32,   // Page request limit reached
+  613,  // Calls to this API have exceeded the rate limit
+]);
+
+export function isRateLimitError(errorCode: number | undefined): boolean {
+  if (!errorCode) return false;
+  return RATE_LIMIT_CODES.has(errorCode);
+}
+
 function isPermanentError(errorCode: number | undefined): boolean {
   if (!errorCode) return false;
+  if (RATE_LIMIT_CODES.has(errorCode)) return false; // Rate limits are transient
   return PERMANENT_ERROR_CODES.has(errorCode);
 }
 

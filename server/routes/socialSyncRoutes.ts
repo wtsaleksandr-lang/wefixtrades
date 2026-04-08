@@ -984,8 +984,33 @@ export function registerSocialSyncRoutes(app: Express): void {
         if (upcomingPosts === 0 && profile.autopilot) riskReasons.push("no_upcoming_posts");
         if (!fbConnected && !igConnected) riskReasons.push("no_connections");
 
+        // Publish success rate
+        const totalAttempted = posts.filter(p => ["published", "failed"].includes(p.status)).length;
+        const totalSucceeded = posts.filter(p => p.status === "published").length;
+        const successRate = totalAttempted > 0 ? Math.round((totalSucceeded / totalAttempted) * 100) : null;
+
+        // Media issues
+        const igPostsMissingMedia = posts.filter(p =>
+          p.platform === "instagram" && ["draft", "ready", "queued"].includes(p.status) &&
+          !(p.media_plan as any)?.image_url
+        ).length;
+        if (igPostsMissingMedia > 0) riskReasons.push(`${igPostsMissingMedia}_ig_missing_media`);
+
+        // No recent publishes (autopilot on, but nothing published in 7 days)
+        if (profile.autopilot && published7d === 0 && totalAttempted > 0) {
+          riskReasons.push("no_recent_publishes");
+        }
+
+        // Get client business name
+        let businessName: string | null = null;
+        try {
+          const client = await storage.getClientById(clientId);
+          businessName = client?.business_name || null;
+        } catch { /* skip */ }
+
         clientSummaries.push({
           client_id: clientId,
+          business_name: businessName,
           enabled: profile.enabled,
           autopilot: profile.autopilot,
           niche: profile.niche,
@@ -995,7 +1020,9 @@ export function registerSocialSyncRoutes(app: Express): void {
           upcoming_posts: upcomingPosts,
           published_7d: published7d,
           failed_queue: failedQueue,
-          at_risk: isAtRisk,
+          success_rate: successRate,
+          ig_missing_media: igPostsMissingMedia,
+          at_risk: isAtRisk || (successRate !== null && successRate < 50),
           risk_reasons: riskReasons,
         });
       }

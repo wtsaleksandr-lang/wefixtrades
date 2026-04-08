@@ -1,6 +1,6 @@
 import { storage } from "../storage";
-import { publishToFacebook, type PublishResult } from "../services/socialSync/facebookPublisher";
-import { publishToInstagram, type InstagramPublishResult } from "../services/socialSync/instagramPublisher";
+import { publishToFacebook, isRateLimitError as isFbRateLimit, type PublishResult } from "../services/socialSync/facebookPublisher";
+import { publishToInstagram, isRateLimitError as isIgRateLimit, type InstagramPublishResult } from "../services/socialSync/instagramPublisher";
 import type { SocialSyncPost, SocialSyncQueueItem } from "@shared/schema";
 
 /** Unified result type that both publishers can produce. */
@@ -281,15 +281,25 @@ async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boo
   const maxAttempts = job.max_attempts || 3;
   const isPermanent = result.permanent_failure || attempts >= maxAttempts;
 
-  if (isPermanent) {
+  // Detect rate limiting for better logging
+  const errorCode = "error_code" in result ? result.error_code : undefined;
+  const errorSubcode = "error_subcode" in result ? result.error_subcode : undefined;
+  const isRateLimit = isFbRateLimit(errorCode) || isIgRateLimit(errorCode, errorSubcode);
+
+  if (isPermanent && !isRateLimit) {
     await failJob(job, result.error || "Unknown publish error", true, result);
   } else {
+    // Rate-limited or transient — release for retry
+    const note = isRateLimit
+      ? `Rate limited (code ${errorCode}). Will retry. Attempt ${attempts}/${maxAttempts}`
+      : `Attempt ${attempts}/${maxAttempts} failed (${errorCode ? `code ${errorCode}` : "transient"}): ${result.error}`;
+
     await storage.updateSocialSyncQueueItem(job.id, {
       status: "pending",
       locked_at: null,
-      attempts,
+      attempts: isRateLimit ? attempts : attempts, // Don't count rate limits differently for now
       last_error: result.error,
-      worker_note: `Attempt ${attempts}/${maxAttempts} failed (${result.error_code ? `code ${result.error_code}` : "transient"}): ${result.error}`,
+      worker_note: note,
       updated_at: new Date(),
     });
 

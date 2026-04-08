@@ -35,6 +35,7 @@ interface ClientSummary {
   client_id: number;
   enabled: boolean;
   autopilot: boolean;
+  business_name: string | null;
   niche: string | null;
   location: string | null;
   fb_status: string;
@@ -42,6 +43,8 @@ interface ClientSummary {
   upcoming_posts: number;
   published_7d: number;
   failed_queue: number;
+  success_rate: number | null;
+  ig_missing_media: number;
   at_risk: boolean;
   risk_reasons: string[];
 }
@@ -214,8 +217,9 @@ export default function SocialSyncOpsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">ID</TableHead>
-                  <TableHead>Niche</TableHead>
+                  <TableHead>Client</TableHead>
                   <TableHead>Location</TableHead>
+                  <TableHead className="text-center">Rate</TableHead>
                   <TableHead className="text-center">Auto</TableHead>
                   <TableHead className="text-center">FB</TableHead>
                   <TableHead className="text-center">IG</TableHead>
@@ -230,8 +234,18 @@ export default function SocialSyncOpsPage() {
                 {filtered.map((c) => (
                   <TableRow key={c.client_id} className={c.at_risk ? "bg-red-50/50" : ""}>
                     <TableCell className="text-xs font-mono">{c.client_id}</TableCell>
-                    <TableCell className="text-sm capitalize">{c.niche || "—"}</TableCell>
+                    <TableCell>
+                      <span className="text-sm">{c.business_name || c.niche || "—"}</span>
+                      {c.business_name && c.niche && <span className="text-[10px] text-gray-400 block capitalize">{c.niche}</span>}
+                    </TableCell>
                     <TableCell className="text-xs text-gray-500">{c.location || "—"}</TableCell>
+                    <TableCell className="text-center">
+                      {c.success_rate !== null ? (
+                        <span className={`text-xs font-medium ${c.success_rate >= 80 ? "text-emerald-600" : c.success_rate >= 50 ? "text-amber-600" : "text-red-600"}`}>
+                          {c.success_rate}%
+                        </span>
+                      ) : <span className="text-xs text-gray-300">—</span>}
+                    </TableCell>
                     <TableCell className="text-center">
                       {c.autopilot ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500 mx-auto" /> : <XCircle className="w-3.5 h-3.5 text-gray-300 mx-auto" />}
                     </TableCell>
@@ -265,7 +279,7 @@ export default function SocialSyncOpsPage() {
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-sm text-gray-500">
+                    <TableCell colSpan={12} className="text-center py-8 text-sm text-gray-500">
                       No clients match the current filter.
                     </TableCell>
                   </TableRow>
@@ -281,7 +295,7 @@ export default function SocialSyncOpsPage() {
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-mono text-gray-500">#{c.client_id}</span>
-                    <span className="text-sm font-medium capitalize">{c.niche || "—"}</span>
+                    <span className="text-sm font-medium">{c.business_name || c.niche || "—"}</span>
                   </div>
                   <Link href={`/admin/crm/clients/${c.client_id}?tab=socialsync`}>
                     <Button size="sm" variant="ghost" className="h-7 text-xs"><ExternalLink className="w-3 h-3" /></Button>

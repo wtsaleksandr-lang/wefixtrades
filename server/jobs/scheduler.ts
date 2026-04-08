@@ -9,6 +9,7 @@ import { cleanupExpiredMemory } from "../services/chatMemory";
 import { processSocialSyncQueue } from "./socialSyncWorker";
 import { generateAllDue } from "../services/socialSync/orchestrator";
 import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
+import { cleanupOldMedia } from "../services/socialSync/mediaService";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -172,4 +173,16 @@ export function initScheduler() {
   console.log("  - SocialSync queue worker: every 2 minutes");
   console.log("  - SocialSync weekly generation: 06:00 UTC every Sunday");
   console.log("  - SocialSync expiry check: 04:00 UTC every day");
+
+  // SocialSync media cleanup — runs daily at 5 AM UTC
+  cron.schedule("0 5 * * *", async () => {
+    console.log("[Scheduler] Running SocialSync media cleanup...");
+    try {
+      await runJob("socialsync_media_cleanup", cleanupOldMedia);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_media_cleanup error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  console.log("  - SocialSync media cleanup: 05:00 UTC every day");
 }
