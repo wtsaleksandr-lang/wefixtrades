@@ -1,6 +1,10 @@
 import { storage } from "../storage";
 import { publishToFacebook, type PublishResult } from "../services/socialSync/facebookPublisher";
+import { publishToInstagram, type InstagramPublishResult } from "../services/socialSync/instagramPublisher";
 import type { SocialSyncPost, SocialSyncQueueItem } from "@shared/schema";
+
+/** Unified result type that both publishers can produce. */
+type AnyPublishResult = PublishResult | InstagramPublishResult;
 
 /** How long a lock can be held before it's considered stale (10 minutes). */
 const STALE_LOCK_THRESHOLD_MS = 10 * 60 * 1000;
@@ -208,10 +212,13 @@ async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boo
   });
 
   // ─── Publish ───
-  let result: PublishResult;
+  let result: AnyPublishResult;
   switch (job.platform) {
     case "facebook":
       result = await publishToFacebook(job.client_id, post);
+      break;
+    case "instagram":
+      result = await publishToInstagram(job.client_id, post);
       break;
     default:
       result = {
@@ -228,6 +235,9 @@ async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boo
 
   // ─── Handle result ───
   if (result.success) {
+    // Normalize target ID across platforms
+    const targetId = "page_id" in result ? result.page_id : "ig_account_id" in result ? result.ig_account_id : "";
+
     await storage.updateSocialSyncQueueItem(job.id, {
       status: "completed",
       locked_at: null,
@@ -242,8 +252,9 @@ async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boo
       publish_result: {
         platform: result.platform,
         remote_post_id: result.remote_post_id,
-        page_id: result.page_id,
+        target_id: targetId,
         published_at: result.published_at,
+        ...("container_id" in result && result.container_id ? { container_id: result.container_id } : {}),
         response_summary: result.raw_response_summary || null,
       },
     } as any);
@@ -258,7 +269,7 @@ async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boo
         queue_id: job.id,
         platform: result.platform,
         remote_post_id: result.remote_post_id,
-        page_id: result.page_id,
+        target_id: targetId,
       },
     });
 
@@ -346,7 +357,7 @@ async function failJob(
   job: SocialSyncQueueItem,
   error: string,
   isPermanent: boolean,
-  publishResult?: PublishResult,
+  publishResult?: AnyPublishResult,
 ): Promise<void> {
   const attempts = (job.attempts || 0) + 1;
   const maxAttempts = job.max_attempts || 3;
@@ -362,6 +373,10 @@ async function failJob(
     updated_at: new Date(),
   });
 
+  const targetId = publishResult
+    ? ("page_id" in publishResult ? publishResult.page_id : "ig_account_id" in publishResult ? publishResult.ig_account_id : "")
+    : "";
+
   await storage.updateSocialSyncPost(job.post_id, {
     status: "failed",
     failure_reason: error,
@@ -369,7 +384,7 @@ async function failJob(
       platform: publishResult.platform,
       error: publishResult.error,
       error_code: publishResult.error_code,
-      page_id: publishResult.page_id,
+      target_id: targetId,
       permanent: isPermanent,
       response_summary: publishResult.raw_response_summary || null,
     } : { error, permanent: isPermanent },
