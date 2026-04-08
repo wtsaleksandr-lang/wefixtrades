@@ -174,6 +174,24 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   for (const serviceId of serviceIds) {
     await provisionOrConfirmService(session, clientId, serviceId, baseUrl);
   }
+
+  // Ensure portal login exists after payment is confirmed
+  try {
+    const { created, tempPassword } = await storage.ensurePortalAccount(clientId);
+    if (created) {
+      console.log(`[billing-webhook] Auto-created portal account for client #${clientId} (temp password generated)`);
+      await storage.logAdminActivity({
+        actor_type: "system",
+        actor_name: "Stripe Webhook",
+        action: "portal.auto_created",
+        entity_type: "client",
+        entity_id: clientId,
+        summary: `Auto-created portal account after payment`,
+      });
+    }
+  } catch (err: any) {
+    console.warn(`[billing-webhook] Could not auto-create portal account for client #${clientId}: ${err.message}`);
+  }
 }
 
 /** Handle a single service within a checkout session */
@@ -241,6 +259,19 @@ async function provisionOrConfirmService(
     billing_period: service.billing_period,
     metadata,
   });
+
+  // Auto-populate TradeLine notifications from client contact info
+  if (tradelineDefaults) {
+    const client = await storage.getClientById(clientId);
+    if (client) {
+      const notifications: { email: string[]; sms: string[] } = { email: [], sms: [] };
+      if (client.contact_email) notifications.email.push(client.contact_email);
+      if (client.contact_phone) notifications.sms.push(client.contact_phone);
+      if (notifications.email.length || notifications.sms.length) {
+        await storage.updateTradeLineConfig(clientService.id, { notifications });
+      }
+    }
+  }
 
   // Create paid payment record
   await storage.createClientPayment({

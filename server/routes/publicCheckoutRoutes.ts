@@ -124,6 +124,16 @@ export function registerPublicCheckoutRoutes(app: Express): void {
           metadata,
         });
 
+        // Auto-populate TradeLine notifications from client contact info
+        if (tradelineDefaults) {
+          const notifications: { email: string[]; sms: string[] } = { email: [], sms: [] };
+          if (client.contact_email) notifications.email.push(client.contact_email);
+          if (client.contact_phone) notifications.sms.push(client.contact_phone);
+          if (notifications.email.length || notifications.sms.length) {
+            await storage.updateTradeLineConfig(cs.id, { notifications });
+          }
+        }
+
         // Create pending payment record (webhook will mark it paid)
         await storage.createClientPayment({
           client_id: client.id,

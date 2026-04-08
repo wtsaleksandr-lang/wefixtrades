@@ -19,6 +19,7 @@ import {
   supportTickets,
   passwordResetTokens,
   getTradeLineReadiness,
+  mapOnboardingToTradeLineConfig,
 } from "@shared/schema";
 import { storage } from "../storage";
 
@@ -589,6 +590,25 @@ export function registerPortalRoutes(app: Express) {
           .update(onboardingSubmissions)
           .set({ responses, status: "submitted", submitted_at: new Date(), updated_at: new Date() })
           .where(eq(onboardingSubmissions.id, submissionId));
+
+        // Map onboarding answers into TradeLine config if applicable
+        if (submission.client_service_id) {
+          try {
+            const cs = await storage.getClientServiceById(submission.client_service_id);
+            if (cs && cs.service_id.startsWith("tradeline")) {
+              const config = await storage.getTradeLineConfig(cs.id);
+              if (config) {
+                const updates = mapOnboardingToTradeLineConfig(responses, config.variant);
+                if (Object.keys(updates).length > 0) {
+                  await storage.updateTradeLineConfig(cs.id, updates);
+                }
+              }
+            }
+          } catch (err) {
+            console.warn("Portal onboarding: failed to map TradeLine config:", err);
+          }
+        }
+
         res.json({ ok: true, status: "submitted", mode: "submit" });
       }
     } catch (err) {

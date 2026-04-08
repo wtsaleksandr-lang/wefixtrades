@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { requireAdmin, hashPassword } from "../auth";
 import { storage } from "../storage";
 import { getTradeLineDefaultConfig, getTradeLineReadiness } from "@shared/schema";
+import { sendOnboardingEmail } from "../lib/onboardingEmail";
 import crypto from "crypto";
 
 export function registerAdminCrmRoutes(app: Express): void {
@@ -469,6 +470,16 @@ export function registerAdminCrmRoutes(app: Express): void {
         metadata,
       });
 
+      // Auto-populate TradeLine notifications from client contact info
+      if (tradelineDefaults) {
+        const notifications: { email: string[]; sms: string[] } = { email: [], sms: [] };
+        if (client.contact_email) notifications.email.push(client.contact_email);
+        if (client.contact_phone) notifications.sms.push(client.contact_phone);
+        if (notifications.email.length || notifications.sms.length) {
+          await storage.updateTradeLineConfig(clientService.id, { notifications });
+        }
+      }
+
       // 2. Create invoice
       const payment = await storage.createClientPayment({
         client_id: clientId,
@@ -491,6 +502,24 @@ export function registerAdminCrmRoutes(app: Express): void {
           status: "not_sent",
           actor_type: "human",
         });
+
+        // Send onboarding email immediately
+        if (onboarding?.access_token && client.contact_email) {
+          const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+          const sent = await sendOnboardingEmail({
+            client,
+            serviceName: service.name,
+            accessToken: onboarding.access_token,
+            baseUrl,
+          });
+          if (sent) {
+            await storage.updateOnboardingSubmission(onboarding.id, {
+              status: "sent",
+              sent_at: new Date(),
+            });
+            onboarding = { ...onboarding, status: "sent" };
+          }
+        }
       }
 
       // 4. Create tasks from template
@@ -530,11 +559,32 @@ export function registerAdminCrmRoutes(app: Express): void {
         metadata: { service_id, tasks_created: tasks.length, has_onboarding: !!onboarding },
       });
 
+      // 7. Ensure portal login exists
+      let portalAccount = null;
+      try {
+        const result = await storage.ensurePortalAccount(clientId);
+        if (result.created) {
+          portalAccount = { email: result.user.email, temporary_password: result.tempPassword };
+          await storage.logAdminActivity({
+            actor_type: "human",
+            actor_id: (req.user as any)?.id,
+            actor_name: (req.user as any)?.name || (req.user as any)?.email,
+            action: "portal.auto_created",
+            entity_type: "client",
+            entity_id: clientId,
+            summary: `Auto-created portal account for ${result.user.email}`,
+          });
+        }
+      } catch (err: any) {
+        console.warn(`[admin-crm] Could not auto-create portal account: ${err.message}`);
+      }
+
       res.status(201).json({
         clientService,
         payment,
         onboarding,
         tasksCreated: tasks.length,
+        portalAccount,
       });
     } catch (err: any) {
       console.error("[admin-crm] Provision error:", err.message);
@@ -912,6 +962,14 @@ export function registerAdminCrmRoutes(app: Express): void {
       if (!config) return res.status(400).json({ error: "TradeLine config not initialized" });
 
       const readiness = getTradeLineReadiness(config);
+
+      // Also check that all setup tasks are in an acceptable state
+      const pendingTaskCount = await storage.countPendingTasks(csId);
+      if (pendingTaskCount > 0) {
+        readiness.issues.push(`${pendingTaskCount} fulfillment task(s) still pending or in progress`);
+        readiness.ready = false;
+      }
+
       if (!readiness.ready) {
         return res.status(400).json({ error: "Not ready for go-live", issues: readiness.issues });
       }

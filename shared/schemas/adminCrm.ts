@@ -409,6 +409,67 @@ export function getTradeLineReadiness(config: TradelineConfig): { ready: boolean
   return { ready: issues.length === 0, issues };
 }
 
+/**
+ * Extract TradeLine config updates from onboarding form responses.
+ * Returns a partial TradelineConfig that can be deep-merged into the existing config.
+ * Only maps fields that directly reduce manual setup work.
+ */
+export function mapOnboardingToTradeLineConfig(
+  responses: Record<string, any>,
+  variant: "call_backup" | "chat" | "complete",
+): Partial<TradelineConfig> {
+  const config: Record<string, any> = {};
+
+  // Phone routing (call_backup + complete)
+  if (variant === "call_backup" || variant === "complete") {
+    const phoneRouting: Record<string, any> = {};
+    if (responses.primary_phone) phoneRouting.primaryBusinessNumber = responses.primary_phone;
+    if (responses.forwarding_preference) {
+      const fwdMap: Record<string, string> = {
+        "no-answer": "no_answer", "no_answer": "no_answer",
+        "immediate": "immediate",
+        "after-hours only": "after_hours_only", "after_hours_only": "after_hours_only", "after-hours-only": "after_hours_only",
+      };
+      const mapped = fwdMap[responses.forwarding_preference.toLowerCase()];
+      if (mapped) phoneRouting.forwardingMode = mapped;
+    }
+    if (responses.ring_timeout) {
+      const timeout = parseInt(responses.ring_timeout);
+      if (!isNaN(timeout) && timeout > 0) phoneRouting.ringTimeoutSeconds = timeout;
+    }
+    if (Object.keys(phoneRouting).length) config.phoneRouting = phoneRouting;
+  }
+
+  // Website (chat + complete)
+  if (variant === "chat" || variant === "complete") {
+    const website: Record<string, any> = {};
+    if (responses.website_access != null) {
+      const raw = String(responses.website_access).toLowerCase();
+      website.accessAvailable = raw === "yes" || raw === "true";
+    }
+    if (responses.install_mode) {
+      const modeRaw = String(responses.install_mode).toLowerCase().replace(/\s+/g, "_");
+      if (modeRaw.includes("direct") || modeRaw.includes("embed")) {
+        website.embedMode = "direct_embed";
+      } else if (modeRaw.includes("hosted") || modeRaw.includes("fallback")) {
+        website.embedMode = "hosted_fallback";
+      }
+    }
+    if (Object.keys(website).length) config.website = website;
+  }
+
+  // Booking
+  if (responses.booking_enabled != null) {
+    const raw = String(responses.booking_enabled).toLowerCase();
+    config.booking = { enabled: raw === "yes" || raw === "true" || raw === "on" };
+  }
+
+  // Advance setupStage to "configuring" since onboarding is done
+  config.setupStage = "configuring";
+
+  return config as Partial<TradelineConfig>;
+}
+
 /* ─── TradeLine Usage ─── */
 export const tradelineUsage = pgTable("tradeline_usage", {
   id: serial("id").primaryKey(),

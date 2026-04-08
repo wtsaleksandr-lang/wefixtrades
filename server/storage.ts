@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { hashPassword } from "./auth";
 import { db } from "./db";
 import {
   calculators, leads, analyticsEvents, deploymentStatus,
@@ -204,6 +205,12 @@ export interface IStorage {
     recentClients: { id: number; business_name: string; status: string; created_at: Date | null }[];
     recentTasks: { id: number; title: string; status: string; priority: string; client_id: number; client_name: string | null; due_at: Date | null }[];
   }>;
+
+  // Portal account
+  ensurePortalAccount(clientId: number): Promise<{ user: User; created: boolean; tempPassword?: string }>;
+
+  // Fulfillment helpers
+  countPendingTasks(clientServiceId: number): Promise<number>;
 
   // ─── TradeLine ───
   getTradeLineConfig(clientServiceId: number): Promise<TradelineConfig | undefined>;
@@ -730,6 +737,48 @@ export class DatabaseStorage implements IStorage {
     return row?.total ?? 0;
   }
 
+  /**
+   * Ensure the client has a portal login. If one already exists, returns it.
+   * Otherwise creates a user record with a temp password and links it.
+   * Returns { user, created, tempPassword? }.
+   */
+  async ensurePortalAccount(clientId: number): Promise<{ user: User; created: boolean; tempPassword?: string }> {
+    const client = await this.getClientById(clientId);
+    if (!client) throw new Error(`Client ${clientId} not found`);
+
+    // Already linked
+    if (client.user_id) {
+      const existing = await this.getUserById(client.user_id);
+      if (existing) return { user: existing, created: false };
+    }
+
+    const email = client.contact_email;
+    if (!email) throw new Error(`Client ${clientId} has no contact email`);
+
+    // Check if user with this email already exists
+    const existingByEmail = await this.getUserByEmail(email.toLowerCase().trim());
+    if (existingByEmail) {
+      if (existingByEmail.role === "client") {
+        await this.updateClient(clientId, { user_id: existingByEmail.id });
+        return { user: existingByEmail, created: false };
+      }
+      // Non-client role — don't overwrite, skip silently
+      throw new Error(`User with email ${email} exists with role "${existingByEmail.role}"`);
+    }
+
+    // Create new portal user
+    const tempPassword = crypto.randomBytes(6).toString("base64url");
+    const user = await this.createUser({
+      email: email.toLowerCase().trim(),
+      password_hash: hashPassword(tempPassword),
+      name: client.contact_name || client.business_name,
+      role: "client",
+    });
+    await this.updateClient(clientId, { user_id: user.id });
+
+    return { user, created: true, tempPassword };
+  }
+
   async getCalculatorsByUserId(userId: number): Promise<Calculator[]> {
     return db.select().from(calculators).where(eq(calculators.user_id, userId)).orderBy(desc(calculators.id));
   }
@@ -1203,6 +1252,20 @@ export class DatabaseStorage implements IStorage {
   async getServiceById(serviceId: string): Promise<ServiceCatalogRow | undefined> {
     const [row] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, serviceId)).limit(1);
     return row;
+  }
+
+  /**
+   * Count non-delivered, non-cancelled tasks for a client service.
+   * Used by go-live validation to ensure setup tasks are complete.
+   */
+  async countPendingTasks(clientServiceId: number): Promise<number> {
+    const [row] = await db.select({ total: sql<number>`count(*)::int` })
+      .from(fulfillmentTasks)
+      .where(and(
+        eq(fulfillmentTasks.client_service_id, clientServiceId),
+        sql`${fulfillmentTasks.status} NOT IN ('delivered', 'cancelled')`,
+      ));
+    return row?.total ?? 0;
   }
 
   // ─── Check completion cascade ───
