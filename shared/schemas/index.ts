@@ -8,3 +8,4 @@ export * from "./db";
 export * from "./adminCrm";
 export * from "./socialSync";
 export * from "./reviews";
+export * from "./reviewRequests";

@@ -54,6 +54,9 @@ import {
   reviews as reviewsTable, reviewSyncLogs,
   type Review, type InsertReview,
   type ReviewSyncLog, type InsertReviewSyncLog,
+  // Review Requests
+  reviewRequests,
+  type ReviewRequest, type InsertReviewRequest,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -246,6 +249,13 @@ export interface IStorage {
   getReviewByExternalId(clientId: number, platform: string, externalId: string): Promise<Review | undefined>;
   updateReview(id: number, updates: Partial<InsertReview>): Promise<Review | undefined>;
   createReviewSyncLog(data: InsertReviewSyncLog): Promise<ReviewSyncLog>;
+
+  // ─── Review Requests ───
+  createReviewRequest(data: InsertReviewRequest): Promise<ReviewRequest>;
+  fetchDueReviewRequests(limit?: number): Promise<ReviewRequest[]>;
+  updateReviewRequest(id: number, updates: Record<string, any>): Promise<void>;
+  listReviewRequests(clientId: number, limit?: number): Promise<ReviewRequest[]>;
+  getReviewRequestByDedupKey(key: string): Promise<ReviewRequest | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1524,6 +1534,43 @@ export class DatabaseStorage implements IStorage {
 
   async createReviewSyncLog(data: InsertReviewSyncLog): Promise<ReviewSyncLog> {
     const [row] = await db.insert(reviewSyncLogs).values(data).returning();
+    return row;
+  }
+
+  // ─── Review Requests ───
+
+  async createReviewRequest(data: InsertReviewRequest): Promise<ReviewRequest> {
+    const [row] = await db.insert(reviewRequests).values(data).returning();
+    return row;
+  }
+
+  async fetchDueReviewRequests(limit = 20): Promise<ReviewRequest[]> {
+    const now = new Date();
+    return db.select().from(reviewRequests)
+      .where(and(
+        eq(reviewRequests.status, "pending"),
+        lte(reviewRequests.run_at, now),
+        sql`${reviewRequests.attempts} < ${reviewRequests.max_attempts}`,
+      ))
+      .orderBy(reviewRequests.run_at)
+      .limit(limit);
+  }
+
+  async updateReviewRequest(id: number, updates: Record<string, any>): Promise<void> {
+    await db.update(reviewRequests).set({ ...updates, updated_at: new Date() }).where(eq(reviewRequests.id, id));
+  }
+
+  async listReviewRequests(clientId: number, limit = 50): Promise<ReviewRequest[]> {
+    return db.select().from(reviewRequests)
+      .where(eq(reviewRequests.client_id, clientId))
+      .orderBy(desc(reviewRequests.created_at))
+      .limit(limit);
+  }
+
+  async getReviewRequestByDedupKey(key: string): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.dedup_key, key))
+      .limit(1);
     return row;
   }
 }

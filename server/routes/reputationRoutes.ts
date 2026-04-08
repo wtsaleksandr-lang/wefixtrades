@@ -12,6 +12,7 @@ import { storage } from "../storage";
 import { syncClientReviews, processAllClientReviews } from "../services/reputation/reviewOrchestrator";
 import { getGoogleAccessToken } from "../services/socialSync/googleBusinessService";
 import { postGBPReply } from "../services/reputation/gbpReviewIngestion";
+import { enqueueFromBooking, processReviewRequests, getReviewLink } from "../services/reputation/reviewRequestService";
 
 export function registerReputationRoutes(app: Express): void {
 
@@ -108,6 +109,81 @@ export function registerReputationRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[reputation] Batch review process error:", err.message);
       res.status(500).json({ error: "Failed to process reviews" });
+    }
+  });
+
+  // ─── Review Request Routes ───
+
+  // 5. POST enqueue a review request manually
+  app.post("/api/reputation/clients/:clientId/review-requests/enqueue", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const { booking_id, customer_name, customer_phone, customer_email } = req.body;
+      if (!customer_name) return res.status(400).json({ error: "customer_name is required" });
+      if (!customer_phone && !customer_email) return res.status(400).json({ error: "customer_phone or customer_email required" });
+
+      const result = await enqueueFromBooking(
+        clientId,
+        booking_id || 0,
+        customer_name,
+        customer_phone || null,
+        customer_email || null,
+      );
+
+      if (!result.enqueued) return res.status(400).json({ error: result.reason });
+      res.status(201).json({ ok: true });
+    } catch (err: any) {
+      console.error("[reputation] Enqueue review request error:", err.message);
+      res.status(500).json({ error: "Failed to enqueue review request" });
+    }
+  });
+
+  // 6. GET review requests for a client
+  app.get("/api/reputation/clients/:clientId/review-requests", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const requests = await storage.listReviewRequests(clientId, Math.min(100, parseInt(req.query.limit as string) || 50));
+
+      const summary = {
+        total: requests.length,
+        sent: requests.filter(r => r.status === "sent").length,
+        pending: requests.filter(r => r.status === "pending").length,
+        failed: requests.filter(r => r.status === "failed").length,
+      };
+
+      res.json({ requests, summary });
+    } catch (err: any) {
+      console.error("[reputation] List review requests error:", err.message);
+      res.status(500).json({ error: "Failed to list review requests" });
+    }
+  });
+
+  // 7. GET review link for a client
+  app.get("/api/reputation/clients/:clientId/review-link", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const link = await getReviewLink(clientId);
+      res.json({ review_link: link, configured: !!link });
+    } catch (err: any) {
+      console.error("[reputation] Review link error:", err.message);
+      res.status(500).json({ error: "Failed to get review link" });
+    }
+  });
+
+  // 8. POST process pending review requests manually
+  app.post("/api/reputation/internal/process-review-requests", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const result = await processReviewRequests();
+      res.json(result);
+    } catch (err: any) {
+      console.error("[reputation] Process review requests error:", err.message);
+      res.status(500).json({ error: "Failed to process review requests" });
     }
   });
 }

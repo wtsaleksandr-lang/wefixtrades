@@ -11,6 +11,7 @@ import { generateAllDue } from "../services/socialSync/orchestrator";
 import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
 import { cleanupOldMedia } from "../services/socialSync/mediaService";
 import { processAllClientReviews } from "../services/reputation/reviewOrchestrator";
+import { processReviewRequests } from "../services/reputation/reviewRequestService";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -198,4 +199,15 @@ export function initScheduler() {
   }, { timezone: "UTC" });
 
   console.log("  - SocialSync review automation: every 6 hours");
+
+  // Review request delivery — runs every 15 minutes
+  cron.schedule("*/15 * * * *", async () => {
+    try {
+      await runJob("review_request_delivery", processReviewRequests);
+    } catch (err: any) {
+      console.error("[Scheduler] review_request_delivery error:", err.message);
+    }
+  });
+
+  console.log("  - Review request delivery: every 15 minutes");
 }
