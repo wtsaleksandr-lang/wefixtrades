@@ -271,7 +271,7 @@ export default function EditCalculator() {
     const allowedKeys = [
       'business_name', 'tagline', 'logo_url', 'owner_email', 'owner_phone',
       'website_url', 'primary_color', 'cta_button_text', 'lead_thank_you_message',
-      'theme_overrides', 'pricing_config',
+      'theme_overrides', 'pricing_config', 'calculator_settings',
     ];
     const updates: Record<string, any> = {};
     for (const key of allowedKeys) {

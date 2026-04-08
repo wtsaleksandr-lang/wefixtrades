@@ -10,6 +10,33 @@ function generateToken(): string {
   return randomBytes(24).toString("hex");
 }
 
+/**
+ * Deep merge for calculator_settings JSONB updates.
+ * Merges nested objects instead of replacing them, so a PATCH with
+ * { appearance: { accent_color: '#ff0000' } } preserves other appearance fields.
+ * Arrays are replaced wholesale (not concatenated).
+ */
+function deepMergeSettings(base: Record<string, any>, patch: Record<string, any>): Record<string, any> {
+  const result = { ...base };
+  for (const key of Object.keys(patch)) {
+    const baseVal = base[key];
+    const patchVal = patch[key];
+    if (
+      patchVal !== null &&
+      typeof patchVal === 'object' &&
+      !Array.isArray(patchVal) &&
+      baseVal !== null &&
+      typeof baseVal === 'object' &&
+      !Array.isArray(baseVal)
+    ) {
+      result[key] = deepMergeSettings(baseVal, patchVal);
+    } else {
+      result[key] = patchVal;
+    }
+  }
+  return result;
+}
+
 async function generateUniqueSlug(businessName?: string): Promise<string> {
   const base = businessName ? slugify(businessName) : randomBytes(6).toString("hex");
   const existing = await storage.getCalculatorBySlug(base);
@@ -223,38 +250,46 @@ export function registerCalculatorRoutes(app: Express): void {
 
       if (updates.calculator_settings) {
         const currentSettings = (calculator.calculator_settings as any) || {};
+        // Deep merge: preserve nested objects that aren't being replaced
+        const merged = deepMergeSettings(currentSettings, updates.calculator_settings as Record<string, any>);
         try {
-          updates.calculator_settings = calculatorSettingsSchema.parse({
-            ...currentSettings,
-            ...updates.calculator_settings,
-          });
+          updates.calculator_settings = calculatorSettingsSchema.parse(merged);
         } catch (err: any) {
           return res.status(400).json({ error: "Invalid calculator_settings", details: err?.message });
         }
       }
 
-      const updated = await storage.updateCalculator(calculator.id, updates);
+      let updated = await storage.updateCalculator(calculator.id, updates);
 
+      // Post-save: handle publish state transitions
       let autoRepublished = false;
-      if (pricingChanged) {
+      const savedSettings = (updated?.calculator_settings as any) || {};
+      const publish = savedSettings.publish || {};
+
+      if (publish.status === 'published') {
         const deployment = await storage.getDeploymentStatus(calculator.id);
-        if (deployment?.auto_republish) {
-          const settings = (updated?.calculator_settings as any) || {};
-          const publish = settings.publish || {};
-          if (publish.status === 'published') {
-            await storage.updateCalculator(calculator.id, {
-              calculator_settings: {
-                ...settings,
-                publish: { ...publish, published_at: Date.now(), last_modified: null },
-              },
-            });
-            await storage.upsertDeploymentStatus({
-              calculator_id: calculator.id,
-              status: 'live',
-              last_published_at: new Date(),
-            });
-            autoRepublished = true;
-          }
+        if (pricingChanged && deployment?.auto_republish) {
+          // Auto-republish: mark as freshly published, clear modified flag
+          updated = await storage.updateCalculator(calculator.id, {
+            calculator_settings: {
+              ...savedSettings,
+              publish: { ...publish, published_at: Date.now(), last_modified: null },
+            },
+          });
+          await storage.upsertDeploymentStatus({
+            calculator_id: calculator.id,
+            status: 'live',
+            last_published_at: new Date(),
+          });
+          autoRepublished = true;
+        } else {
+          // Not auto-republished: mark as edited since last publish
+          updated = await storage.updateCalculator(calculator.id, {
+            calculator_settings: {
+              ...savedSettings,
+              publish: { ...publish, last_modified: Date.now() },
+            },
+          });
         }
       }
 
@@ -280,12 +315,20 @@ export function registerCalculatorRoutes(app: Express): void {
         return res.status(400).json({ error: "Already duplicated" });
       }
 
-      const newSlug = await generateUniqueSlug();
+      const newSlug = await generateUniqueSlug(calculator.business_name);
       const newToken = generateToken();
       const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
       const newCalc = await storage.duplicateCalculator(calculator.id, newSlug, newToken, newExpiry);
       if (!newCalc) return res.status(500).json({ error: "Failed to duplicate" });
+
+      // Create deployment status for the new calculator
+      await storage.upsertDeploymentStatus({
+        calculator_id: newCalc.id,
+        status: 'live',
+        last_published_at: new Date(),
+        auto_republish: true,
+      });
 
       res.json({
         success: true,

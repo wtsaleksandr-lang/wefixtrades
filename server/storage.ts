@@ -227,6 +227,7 @@ export class DatabaseStorage implements IStorage {
     await db.update(calculators).set({ is_duplicated: true }).where(eq(calculators.id, id));
 
     const [newCalc] = await db.insert(calculators).values({
+      user_id: original.user_id,
       slug: newSlug,
       business_name: original.business_name,
       trade_type: original.trade_type,
@@ -246,6 +247,7 @@ export class DatabaseStorage implements IStorage {
       is_duplicated: false,
       total_views: 0,
       show_powered_by_badge: original.show_powered_by_badge,
+      plan_tier: original.plan_tier,
     }).returning();
     return newCalc;
   }
