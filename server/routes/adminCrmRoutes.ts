@@ -1070,4 +1070,86 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to trigger sync" });
     }
   });
+
+  /**
+   * POST /api/admin/crm/monitored-reviews/:id/draft-response
+   * Generate an AI draft response for a review.
+   * Stores the draft on the review record for later editing/use.
+   */
+  app.post("/api/admin/crm/monitored-reviews/:id/draft-response", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const review = await storage.getMonitoredReviewById(id);
+      if (!review) return res.status(404).json({ error: "Review not found" });
+
+      // Load client context for business name + trade
+      let client = null;
+      if (review.client_id) {
+        client = await storage.getClientById(review.client_id);
+      }
+
+      const { generateReviewDraft } = await import("../services/reviewDraftService");
+      const result = await generateReviewDraft(review, client);
+
+      // Persist the draft
+      await storage.updateMonitoredReview(review.id, {
+        draft_response: result.draft,
+        draft_generated_at: new Date(),
+        draft_model: result.model,
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review.draft_generated",
+        entity_type: "monitored_review",
+        entity_id: id,
+        summary: `AI draft response generated for ${review.rating}★ review by ${review.reviewer_name}`,
+        metadata: {
+          tone: result.tone,
+          model: result.model,
+          generated: result.generated,
+          error: result.error || null,
+        },
+      });
+
+      res.json({
+        draft: result.draft,
+        tone: result.tone,
+        model: result.model,
+        generated: result.generated,
+        error: result.error || null,
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] Draft response error:", err.message);
+      res.status(500).json({ error: "Failed to generate draft response" });
+    }
+  });
+
+  /**
+   * PATCH /api/admin/crm/monitored-reviews/:id/draft-response
+   * Save an admin-edited draft response.
+   */
+  app.patch("/api/admin/crm/monitored-reviews/:id/draft-response", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const { draft_response } = req.body;
+      if (typeof draft_response !== "string") {
+        return res.status(400).json({ error: "draft_response string is required" });
+      }
+
+      const review = await storage.getMonitoredReviewById(id);
+      if (!review) return res.status(404).json({ error: "Review not found" });
+
+      await storage.updateMonitoredReview(review.id, {
+        draft_response: draft_response.trim().slice(0, 2000),
+      });
+
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[admin-crm] Save draft error:", err.message);
+      res.status(500).json({ error: "Failed to save draft" });
+    }
+  });
 }

@@ -206,6 +206,8 @@ export interface IStorage {
 
   // ─── Monitored Reviews ───
   upsertMonitoredReview(data: InsertMonitoredReview): Promise<{ review: MonitoredReview; isNew: boolean }>;
+  getMonitoredReviewById(id: number): Promise<MonitoredReview | undefined>;
+  updateMonitoredReview(id: number, updates: Record<string, any>): Promise<MonitoredReview | undefined>;
   findMonitoredReviewByDedupKey(dedupKey: string): Promise<MonitoredReview | undefined>;
   listMonitoredReviews(opts?: { clientId?: number; platform?: string; isNew?: boolean; minRating?: number; maxRating?: number; limit?: number; offset?: number }): Promise<MonitoredReview[]>;
   countMonitoredReviews(opts?: { clientId?: number; isNew?: boolean }): Promise<number>;
@@ -1454,6 +1456,21 @@ export class DatabaseStorage implements IStorage {
     // Insert new
     const [row] = await db.insert(monitoredReviews).values(data).returning();
     return { review: row, isNew: true };
+  }
+
+  async getMonitoredReviewById(id: number): Promise<MonitoredReview | undefined> {
+    const [row] = await db.select().from(monitoredReviews)
+      .where(eq(monitoredReviews.id, id))
+      .limit(1);
+    return row;
+  }
+
+  async updateMonitoredReview(id: number, updates: Record<string, any>): Promise<MonitoredReview | undefined> {
+    const [row] = await db.update(monitoredReviews)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(monitoredReviews.id, id))
+      .returning();
+    return row;
   }
 
   async findMonitoredReviewByDedupKey(dedupKey: string): Promise<MonitoredReview | undefined> {

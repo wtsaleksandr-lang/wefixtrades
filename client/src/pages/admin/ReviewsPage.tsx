@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Star, TrendingUp, AlertTriangle, MessageSquare, Eye, CheckCircle2, RefreshCw,
+  Sparkles, Copy, Save, Loader2,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +37,9 @@ interface MonitoredReview {
   first_seen_at: string;
   last_synced_at: string;
   raw_payload: any;
+  draft_response: string | null;
+  draft_generated_at: string | null;
+  draft_model: string | null;
 }
 
 interface ReviewStats {
@@ -112,6 +116,8 @@ export default function ReviewsPage() {
   const [ratingFilter, setRatingFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState<MonitoredReview | null>(null);
+  const [draftText, setDraftText] = useState("");
+  const [draftEdited, setDraftEdited] = useState(false);
 
   // Build query params
   const buildParams = () => {
@@ -169,6 +175,34 @@ export default function ReviewsPage() {
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/monitored-reviews"] });
       }, 5000);
+    },
+  });
+
+  const draftMutation = useMutation({
+    mutationFn: async (reviewId: number) => {
+      const res = await apiRequest("POST", `/api/admin/crm/monitored-reviews/${reviewId}/draft-response`);
+      return res.json();
+    },
+    onSuccess: (data: { draft: string; tone: string; generated: boolean; error?: string }) => {
+      setDraftText(data.draft);
+      setDraftEdited(false);
+      if (selected) {
+        setSelected({ ...selected, draft_response: data.draft, draft_generated_at: new Date().toISOString() });
+      }
+      if (!data.generated) {
+        toast({ title: "AI unavailable", description: "Using fallback response. You can edit it." });
+      }
+    },
+  });
+
+  const saveDraftMutation = useMutation({
+    mutationFn: async ({ id, draft }: { id: number; draft: string }) => {
+      const res = await apiRequest("PATCH", `/api/admin/crm/monitored-reviews/${id}/draft-response`, { draft_response: draft });
+      return res.json();
+    },
+    onSuccess: () => {
+      setDraftEdited(false);
+      toast({ title: "Draft saved" });
     },
   });
 
@@ -331,7 +365,7 @@ export default function ReviewsPage() {
                   <TableRow
                     key={r.id}
                     className="cursor-pointer hover:bg-gray-50"
-                    onClick={() => setSelected(r)}
+                    onClick={() => { setSelected(r); setDraftText(r.draft_response || ""); setDraftEdited(false); }}
                   >
                     <TableCell>
                       {r.is_new && (
@@ -366,7 +400,9 @@ export default function ReviewsPage() {
         </Card>
 
         {/* Detail dialog */}
-        <Dialog open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null); }}>
+        <Dialog open={!!selected} onOpenChange={(open) => {
+          if (!open) { setSelected(null); setDraftText(""); setDraftEdited(false); }
+        }}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -420,6 +456,71 @@ export default function ReviewsPage() {
                     <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
                       <p className="text-sm text-amber-700">No response yet — consider replying to this review.</p>
                     </div>
+                  )}
+                </div>
+
+                {/* AI Draft Response */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs font-medium text-gray-500">AI Draft Response</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      disabled={draftMutation.isPending}
+                      onClick={() => draftMutation.mutate(selected.id)}
+                    >
+                      {draftMutation.isPending ? (
+                        <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Drafting...</>
+                      ) : draftText ? (
+                        <><Sparkles className="w-3 h-3 mr-1" /> Regenerate</>
+                      ) : (
+                        <><Sparkles className="w-3 h-3 mr-1" /> Draft Response</>
+                      )}
+                    </Button>
+                  </div>
+                  {draftText ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={draftText}
+                        onChange={(e) => { setDraftText(e.target.value); setDraftEdited(true); }}
+                        rows={4}
+                        className="w-full p-3 text-sm border rounded-lg resize-vertical focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => {
+                            navigator.clipboard.writeText(draftText);
+                            toast({ title: "Copied to clipboard" });
+                          }}
+                        >
+                          <Copy className="w-3 h-3 mr-1" /> Copy
+                        </Button>
+                        {draftEdited && (
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]"
+                            disabled={saveDraftMutation.isPending}
+                            onClick={() => saveDraftMutation.mutate({ id: selected.id, draft: draftText })}
+                          >
+                            <Save className="w-3 h-3 mr-1" /> Save Edit
+                          </Button>
+                        )}
+                      </div>
+                      {selected.draft_generated_at && (
+                        <p className="text-[11px] text-gray-400">
+                          Generated {formatDate(selected.draft_generated_at)}
+                          {selected.draft_model && ` · ${selected.draft_model}`}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400 italic">
+                      Click "Draft Response" to generate an AI response for this review.
+                    </p>
                   )}
                 </div>
 

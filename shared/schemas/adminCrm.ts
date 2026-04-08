@@ -388,6 +388,11 @@ export const monitoredReviews = pgTable("monitored_reviews", {
   is_new: boolean("is_new").notNull().default(true),           // true until admin acknowledges
   response_added: boolean("response_added").notNull().default(false), // set when response_text first appears
 
+  // AI draft response
+  draft_response: text("draft_response"),
+  draft_generated_at: timestamp("draft_generated_at"),
+  draft_model: varchar("draft_model", { length: 60 }),
+
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
