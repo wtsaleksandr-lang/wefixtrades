@@ -70,6 +70,14 @@ interface Post {
   scheduled_for: string | null;
   published_at: string | null;
   failure_reason: string | null;
+  publish_result: {
+    platform?: string;
+    remote_post_id?: string;
+    page_id?: string;
+    error?: string;
+    error_code?: number;
+    permanent?: boolean;
+  } | null;
   created_at: string;
 }
 
@@ -676,11 +684,23 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
                       </div>
                     </div>
                     <p className="text-sm text-gray-800 line-clamp-2">{p.post_text}</p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                    <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-gray-400">
                       {p.scheduled_for && <span><Calendar className="w-3 h-3 inline mr-0.5" />{fmtDate(p.scheduled_for)}</span>}
+                      {p.published_at && <span className="text-emerald-600">Published {fmtDate(p.published_at)}</span>}
+                      {p.publish_result?.remote_post_id && (
+                        <span className="text-blue-500" title={p.publish_result.remote_post_id}>
+                          <ExternalLink className="w-3 h-3 inline mr-0.5" />ID: {p.publish_result.remote_post_id.split("_").pop()}
+                        </span>
+                      )}
                       {p.hashtags && (p.hashtags as string[]).length > 0 && <span>#{(p.hashtags as string[]).slice(0, 3).join(" #")}</span>}
-                      {p.failure_reason && <span className="text-red-500">{p.failure_reason.slice(0, 60)}</span>}
                     </div>
+                    {p.failure_reason && (
+                      <div className="mt-1 px-2 py-1 bg-red-50 rounded text-xs text-red-600">
+                        {p.failure_reason}
+                        {p.publish_result?.error_code && <span className="ml-1 text-red-400">(code {p.publish_result.error_code})</span>}
+                        {p.publish_result?.permanent && <span className="ml-1 font-medium">[permanent]</span>}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -751,23 +771,28 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
             {queue && queue.length > 0 ? (
               <div className="divide-y divide-gray-100">
                 {queue.slice(0, 30).map((q) => (
-                  <div key={q.id} className="p-3 flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-0.5">
+                  <div key={q.id} className="p-3">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <div className="flex items-center gap-2">
                         <StatusBadge status={q.status} />
                         <span className="text-xs font-medium text-gray-500 capitalize">{q.platform}</span>
                         <span className="text-xs text-gray-400">Post #{q.post_id}</span>
+                        {q.status === "locked" && <span className="text-xs text-purple-600 font-medium">Publishing...</span>}
                       </div>
-                      <div className="text-xs text-gray-400">
-                        Run at: {fmtDate(q.run_at)} | Attempts: {q.attempts}/{q.max_attempts}
-                        {q.last_error && <span className="text-red-500 ml-2">{q.last_error.slice(0, 50)}</span>}
-                        {q.worker_note && <span className="text-blue-500 ml-2">{q.worker_note.slice(0, 50)}</span>}
-                      </div>
+                      {q.status === "failed" && (
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => retryQueue.mutate(q.id)}>
+                          <RotateCcw className="w-3 h-3 mr-1" /> Retry
+                        </Button>
+                      )}
                     </div>
-                    {q.status === "failed" && (
-                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => retryQueue.mutate(q.id)}>
-                        <RotateCcw className="w-3 h-3 mr-1" /> Retry
-                      </Button>
+                    <div className="text-xs text-gray-400">
+                      Run at: {fmtDate(q.run_at)} | Attempts: {q.attempts}/{q.max_attempts}
+                    </div>
+                    {q.last_error && (
+                      <div className="mt-1 px-2 py-1 bg-red-50 rounded text-xs text-red-600">{q.last_error}</div>
+                    )}
+                    {q.worker_note && (
+                      <div className="mt-1 px-2 py-1 bg-blue-50 rounded text-xs text-blue-600">{q.worker_note}</div>
                     )}
                   </div>
                 ))}
