@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRoute } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CheckCircle2, Loader2, AlertCircle, ArrowRight, Settings2, Zap } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, ArrowRight, Settings2, Zap, AlertTriangle } from "lucide-react";
 
 interface Step {
   key: string;
@@ -31,6 +31,8 @@ const FIELD_HINTS: Record<string, string> = {
   primary_phone: "Your main business number",
   escalation_number: "For urgent or overflow calls",
   website_url: "e.g. https://yoursite.co.uk",
+  website_access: "If yes, we'll install it for you. If not, we'll give you a hosted version — no problem.",
+  install_mode: "Direct embed goes on your site. Hosted fallback is a page we create for you.",
   brand_colors: "e.g. #003366, or just describe: dark blue",
   ring_timeout: "Seconds before AI picks up (default 20)",
   callback_number: "If different from your main number",
@@ -65,51 +67,91 @@ function getStepGroup(step: Step): number {
   return STEP_GROUPS.length - 1; // default to last group
 }
 
-/* ─── Post-submit progress animation ─── */
-function SetupProgress({ serviceName }: { serviceName: string }) {
-  const [stage, setStage] = useState(0);
+/* ─── Post-submit progress — polls real backend status ─── */
+function SetupProgress({ token }: { token: string }) {
+  const [status, setStatus] = useState<{
+    onboardingStatus: string;
+    assistantStatus: string;
+    setupStage: string;
+    buildError: string | null;
+  }>({ onboardingStatus: "submitted", assistantStatus: "not_built", setupStage: "not_started", buildError: null });
+
+  const isTerminal = status.setupStage === "ready_for_testing"
+    || status.setupStage === "live"
+    || status.assistantStatus === "failed";
+
+  const poll = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/onboarding/${token}/status`);
+      if (res.ok) setStatus(await res.json());
+    } catch { /* ignore network blips */ }
+  }, [token]);
 
   useEffect(() => {
-    const timers = [
-      setTimeout(() => setStage(1), 800),
-      setTimeout(() => setStage(2), 2000),
-      setTimeout(() => setStage(3), 3500),
-    ];
-    return () => timers.forEach(clearTimeout);
-  }, []);
+    poll(); // immediate first fetch
+    const id = setInterval(poll, 2500);
+    return () => clearInterval(id);
+  }, [poll]);
+
+  // Stop polling once terminal
+  useEffect(() => {
+    if (isTerminal) return;
+  }, [isTerminal]);
 
   const steps = [
-    { label: "Configuration received", done: stage >= 0 },
-    { label: "System being built", done: stage >= 1 },
-    { label: "Connecting channels", done: stage >= 2 },
-    { label: "Finalizing", done: stage >= 3 },
+    { label: "Configuration received", done: status.onboardingStatus === "submitted" || status.onboardingStatus === "approved" },
+    { label: "System being built", done: status.assistantStatus === "building" || status.assistantStatus === "built" },
+    { label: "Connecting channels", done: status.assistantStatus === "built" },
+    { label: "Ready", done: status.setupStage === "ready_for_testing" || status.setupStage === "live" },
   ];
+
+  const allDone = steps.every(s => s.done);
+  const failed = status.assistantStatus === "failed";
 
   return (
     <div className="min-h-screen bg-[#F6F7F9] flex items-center justify-center p-4">
       <Card className="max-w-md w-full p-8 text-center">
         <div className="w-12 h-12 rounded-full bg-[#F0F7F4] flex items-center justify-center mx-auto mb-5">
-          <Settings2 className={`w-6 h-6 text-[#2D6A4F] ${stage < 3 ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
+          {failed ? (
+            <AlertTriangle className="w-6 h-6 text-amber-500" />
+          ) : (
+            <Settings2 className={`w-6 h-6 text-[#2D6A4F] ${!allDone ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
+          )}
         </div>
-        <h1 className="text-lg font-semibold text-gray-900">Your system is being prepared</h1>
-        <p className="text-sm text-gray-500 mt-1.5 mb-6">This takes about 1–2 minutes</p>
+
+        <h1 className="text-lg font-semibold text-gray-900">
+          {failed ? "Something needs attention" : allDone ? "Your system is ready" : "Your system is being prepared"}
+        </h1>
+        <p className="text-sm text-gray-500 mt-1.5 mb-6">
+          {failed ? "We hit a snag while setting things up." : allDone ? "Everything is configured." : "This usually takes about a minute."}
+        </p>
 
         <div className="text-left space-y-3 mb-6">
           {steps.map((s, i) => (
             <div key={i} className="flex items-center gap-3">
               {s.done ? (
-                <CheckCircle2 className="w-4.5 h-4.5 text-[#2D6A4F] flex-shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-[#2D6A4F] flex-shrink-0" />
+              ) : failed ? (
+                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
               ) : (
-                <Loader2 className="w-4.5 h-4.5 text-gray-300 animate-spin flex-shrink-0" />
+                <Loader2 className="w-4 h-4 text-gray-300 animate-spin flex-shrink-0" />
               )}
-              <span className={`text-sm ${s.done ? "text-gray-700" : "text-gray-400"}`}>
+              <span className={`text-sm ${s.done ? "text-gray-700" : failed ? "text-amber-600" : "text-gray-400"}`}>
                 {s.label}
               </span>
             </div>
           ))}
         </div>
 
-        {stage >= 3 && (
+        {failed && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
+            <p className="text-sm text-amber-700">
+              Our team has been notified and will take care of this. You can close this page.
+            </p>
+          </div>
+        )}
+
+        {allDone && (
           <div className="bg-[#F0F7F4] rounded-lg p-3 mt-2">
             <p className="text-sm text-[#2D6A4F] font-medium flex items-center justify-center gap-1.5">
               <Zap className="w-3.5 h-3.5" /> Setup complete — you can close this page
@@ -254,7 +296,7 @@ export default function OnboardingForm() {
 
   // Post-submit progress
   if (submitted) {
-    return <SetupProgress serviceName={data.serviceName} />;
+    return <SetupProgress token={token} />;
   }
 
   const isLastStep = currentStep === totalSteps - 1;

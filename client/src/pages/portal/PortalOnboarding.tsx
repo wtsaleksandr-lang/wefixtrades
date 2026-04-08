@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, MessageCircle, Send, RefreshCw, Settings2, Zap } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, MessageCircle, Send, RefreshCw, Settings2, Zap, AlertTriangle } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { getFieldConfig } from "@/config/onboardingFields";
 
@@ -14,6 +14,7 @@ interface Step {
 
 interface OnboardingData {
   id: number;
+  client_service_id: number | null;
   status: string;
   service_name: string | null;
   service_id: string | null;
@@ -270,7 +271,7 @@ export default function PortalOnboarding() {
 
         {data && isSubmitted && (
           <PortalSetupProgress
-            serviceName={data.service_name ?? "service"}
+            clientServiceId={data.client_service_id}
             approvedAt={data.approved_at}
           />
         )}
@@ -404,43 +405,83 @@ export default function PortalOnboarding() {
   );
 }
 
-/* ─── Post-Submit Progress ─── */
-function PortalSetupProgress({ serviceName, approvedAt }: { serviceName: string; approvedAt: string | null }) {
-  const [stage, setStage] = useState(0);
+/* ─── Post-Submit Progress — polls real backend status ─── */
+function PortalSetupProgress({ clientServiceId, approvedAt }: { clientServiceId: number | null; approvedAt: string | null }) {
+  const [status, setStatus] = useState<{
+    assistantStatus: string;
+    setupStage: string;
+  }>({ assistantStatus: "not_built", setupStage: "not_started" });
+
+  const isTradeLine = !!clientServiceId;
+  const isTerminal = status.setupStage === "ready_for_testing"
+    || status.setupStage === "live"
+    || status.assistantStatus === "failed";
 
   useEffect(() => {
-    const timers = [
-      setTimeout(() => setStage(1), 800),
-      setTimeout(() => setStage(2), 2000),
-      setTimeout(() => setStage(3), 3500),
-    ];
-    return () => timers.forEach(clearTimeout);
-  }, []);
+    if (!isTradeLine) return;
+    let active = true;
+    async function poll() {
+      try {
+        const res = await fetch(`/api/portal/tradeline/${clientServiceId}`, { credentials: "include" });
+        if (res.ok && active) {
+          const data = await res.json();
+          setStatus({
+            assistantStatus: data.assistantStatus ?? data.config?.assistant?.status ?? "not_built",
+            setupStage: data.setupStage ?? data.config?.setupStage ?? "not_started",
+          });
+        }
+      } catch { /* ignore */ }
+    }
+    poll();
+    const id = setInterval(poll, 2500);
+    return () => { active = false; clearInterval(id); };
+  }, [clientServiceId, isTradeLine]);
 
-  const steps = [
-    { label: "Configuration received", done: stage >= 0 },
-    { label: "System being built", done: stage >= 1 },
-    { label: "Connecting channels", done: stage >= 2 },
-    { label: "Finalizing", done: stage >= 3 },
+  // Stop polling once terminal
+  useEffect(() => {
+    // cleanup handled by the interval's active flag
+  }, [isTerminal]);
+
+  const steps = isTradeLine ? [
+    { label: "Configuration received", done: true },
+    { label: "System being built", done: status.assistantStatus === "building" || status.assistantStatus === "built" },
+    { label: "Connecting channels", done: status.assistantStatus === "built" },
+    { label: "Ready", done: status.setupStage === "ready_for_testing" || status.setupStage === "live" },
+  ] : [
+    { label: "Configuration received", done: true },
+    { label: "Team notified", done: true },
   ];
+
+  const allDone = steps.every(s => s.done);
+  const failed = status.assistantStatus === "failed";
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
       <div className="w-12 h-12 rounded-full bg-[#F0F7F4] flex items-center justify-center mx-auto mb-5">
-        <Settings2 className={`w-6 h-6 text-[#2D6A4F] ${stage < 3 ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
+        {failed ? (
+          <AlertTriangle className="w-6 h-6 text-amber-500" />
+        ) : (
+          <Settings2 className={`w-6 h-6 text-[#2D6A4F] ${!allDone ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
+        )}
       </div>
-      <h1 className="text-lg font-semibold text-gray-900">Your system is being prepared</h1>
-      <p className="text-sm text-gray-500 mt-1.5 mb-6">This takes about 1–2 minutes</p>
+      <h1 className="text-lg font-semibold text-gray-900">
+        {failed ? "Something needs attention" : allDone ? "Your system is ready" : "Your system is being prepared"}
+      </h1>
+      <p className="text-sm text-gray-500 mt-1.5 mb-6">
+        {failed ? "We hit a snag while setting things up." : allDone ? "Everything is configured." : "This usually takes about a minute."}
+      </p>
 
       <div className="text-left space-y-3 max-w-xs mx-auto mb-6">
         {steps.map((s, i) => (
           <div key={i} className="flex items-center gap-3">
             {s.done ? (
               <CheckCircle2 className="w-4 h-4 text-[#2D6A4F] flex-shrink-0" />
+            ) : failed ? (
+              <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
             ) : (
               <Loader2 className="w-4 h-4 text-gray-300 animate-spin flex-shrink-0" />
             )}
-            <span className={`text-sm ${s.done ? "text-gray-700" : "text-gray-400"}`}>
+            <span className={`text-sm ${s.done ? "text-gray-700" : failed ? "text-amber-600" : "text-gray-400"}`}>
               {s.label}
             </span>
           </div>
@@ -453,19 +494,20 @@ function PortalSetupProgress({ serviceName, approvedAt }: { serviceName: string;
         </p>
       )}
 
-      {stage >= 3 && (
-        <>
-          <div className="bg-[#F0F7F4] rounded-lg p-3 mb-4">
-            <p className="text-sm text-[#2D6A4F] font-medium flex items-center justify-center gap-1.5">
-              <Zap className="w-3.5 h-3.5" /> Setup complete
-            </p>
-          </div>
-          <Link href="/portal/services">
-            <button className="px-4 py-2 text-sm font-medium text-[#2D6A4F] bg-[#F0F7F4] rounded-lg hover:bg-[#e0efe8] transition-colors">
-              Back to Services
-            </button>
-          </Link>
-        </>
+      {failed && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+          <p className="text-sm text-amber-700">
+            Our team has been notified and will take care of this.
+          </p>
+        </div>
+      )}
+
+      {(allDone || failed) && (
+        <Link href="/portal/services">
+          <button className="px-4 py-2 text-sm font-medium text-[#2D6A4F] bg-[#F0F7F4] rounded-lg hover:bg-[#e0efe8] transition-colors">
+            Back to Services
+          </button>
+        </Link>
       )}
     </div>
   );

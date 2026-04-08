@@ -1058,6 +1058,48 @@ function TLCallIcon({ outcome }: { outcome: string }) {
   }
 }
 
+/* ─── Rebuild Assistant Button ─── */
+function RebuildAssistantButton({ clientServiceId, queryKey }: { clientServiceId: number; queryKey: string }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const rebuild = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/crm/tradeline/${clientServiceId}/build-assistant`, {});
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Rebuild failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [queryKey] });
+      toast({
+        title: data.skipped ? "Skipped" : "Assistant rebuilt",
+        description: data.skipped ? data.skipReason : `Template: ${data.templateId}`,
+      });
+    },
+    onError: (err: any) => {
+      queryClient.invalidateQueries({ queryKey: [queryKey] });
+      toast({ title: "Rebuild failed", description: err.message });
+    },
+  });
+
+  return (
+    <button
+      onClick={() => rebuild.mutate()}
+      disabled={rebuild.isPending}
+      className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-white bg-[#2D6A4F] rounded-md hover:bg-[#1B4332] disabled:opacity-60 transition-colors"
+    >
+      {rebuild.isPending ? (
+        <><Loader2 className="w-3 h-3 animate-spin" /> Rebuilding...</>
+      ) : (
+        <><RefreshCw className="w-3 h-3" /> Rebuild Assistant</>
+      )}
+    </button>
+  );
+}
+
 function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId: number; serviceName: string }) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -1215,13 +1257,17 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                           {data.assistantError}
                         </p>
                       )}
+                      <RebuildAssistantButton clientServiceId={clientServiceId} queryKey={`/api/admin/crm/tradeline/${clientServiceId}`} />
                     </div>
                   ) : (data.assistantStatus || cfg.assistant?.status) === "building" ? (
                     <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600">
                       <Loader2 className="w-3 h-3 animate-spin" /> Building...
                     </span>
                   ) : (
-                    <span className="text-xs text-gray-500">Not built</span>
+                    <div>
+                      <span className="text-xs text-gray-500">Not built</span>
+                      <RebuildAssistantButton clientServiceId={clientServiceId} queryKey={`/api/admin/crm/tradeline/${clientServiceId}`} />
+                    </div>
                   )}
                 </div>
               </div>

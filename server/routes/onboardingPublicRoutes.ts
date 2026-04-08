@@ -113,4 +113,42 @@ export function registerOnboardingPublicRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to submit onboarding form" });
     }
   });
+
+  /**
+   * GET /api/onboarding/:token/status
+   * Lightweight public endpoint for polling TradeLine setup progress.
+   * Returns only non-sensitive status fields.
+   */
+  app.get("/api/onboarding/:token/status", async (req: Request, res: Response) => {
+    try {
+      const token = req.params.token as string;
+      const data = await storage.getOnboardingByToken(token);
+      if (!data) return res.status(404).json({ error: "Not found" });
+
+      const { submission } = data;
+      let assistantStatus = "not_built";
+      let setupStage = "not_started";
+      let buildError: string | null = null;
+
+      if (submission.client_service_id) {
+        const config = await storage.getTradeLineConfig(submission.client_service_id);
+        if (config) {
+          assistantStatus = config.assistant?.status ?? "not_built";
+          setupStage = config.setupStage ?? "not_started";
+          if (assistantStatus === "failed") {
+            buildError = config.assistant?.lastBuildError || "Build failed";
+          }
+        }
+      }
+
+      res.json({
+        onboardingStatus: submission.status,
+        assistantStatus,
+        setupStage,
+        buildError,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to check status" });
+    }
+  });
 }

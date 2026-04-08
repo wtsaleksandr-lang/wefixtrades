@@ -527,6 +527,7 @@ export function registerPortalRoutes(app: Express) {
 
       res.json({
         id: submission.id,
+        client_service_id: submission.client_service_id,
         status: submission.status === "not_sent" || submission.status === "sent" ? "viewed" : submission.status,
         service_name: svc?.name ?? null,
         service_id: cs?.service_id ?? null,
