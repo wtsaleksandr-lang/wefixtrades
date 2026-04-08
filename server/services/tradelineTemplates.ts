@@ -7,6 +7,7 @@
  * Flow: onboarding data → structured config → template selection → merge → final definition
  */
 
+import crypto from "crypto";
 import { storage } from "../storage";
 import { advanceSetupStage, computeSetupStage } from "@shared/schema";
 import type { TradelineConfig, Client } from "@shared/schema";
@@ -319,7 +320,6 @@ function buildFirstMessage(input: AssistantInput, template: TradeTemplate): stri
  * If the hash matches the previous build, no Vapi update is needed.
  */
 function computeInputHash(input: AssistantInput): string {
-  const crypto = require("crypto");
   const serialized = JSON.stringify(input, Object.keys(input).sort());
   return crypto.createHash("sha256").update(serialized).digest("hex").slice(0, 16);
 }

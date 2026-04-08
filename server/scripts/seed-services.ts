@@ -245,6 +245,12 @@ async function main() {
   };
 
   for (const [serviceId, tasks] of Object.entries(TASK_TEMPLATES)) {
+    // Skip if service doesn't exist in catalog (avoids FK violation)
+    const svc = await db.select({ id: serviceCatalog.id }).from(serviceCatalog).where(eq(serviceCatalog.id, serviceId)).limit(1);
+    if (svc.length === 0) {
+      console.log(`  ○ ${serviceId} — skipped (not in service_catalog)`);
+      continue;
+    }
     // Delete existing templates for this service, then re-insert
     await db.delete(serviceTaskTemplates).where(eq(serviceTaskTemplates.service_id, serviceId));
     for (const t of tasks) {
@@ -419,6 +425,12 @@ async function main() {
   };
 
   for (const [serviceId, template] of Object.entries(ONBOARDING)) {
+    // Skip if service doesn't exist in catalog (avoids FK violation)
+    const svc = await db.select({ id: serviceCatalog.id }).from(serviceCatalog).where(eq(serviceCatalog.id, serviceId)).limit(1);
+    if (svc.length === 0) {
+      console.log(`  ○ ${template.name} — skipped (${serviceId} not in service_catalog)`);
+      continue;
+    }
     // Delete existing, re-insert
     await db.delete(onboardingTemplates).where(eq(onboardingTemplates.service_id, serviceId));
     await db.insert(onboardingTemplates).values({
