@@ -1112,4 +1112,126 @@ Do NOT:
       res.status(500).json({ error: "Failed to update widget settings" });
     }
   });
+
+  // ═══════════════════════════════════════════════
+  // Manual Review Requests + QR
+  // ═══════════════════════════════════════════════
+
+  /** Rate limit: max 20 manual requests per client per day. */
+  const manualRequestCounts = new Map<string, { count: number; resets: number }>();
+  const MANUAL_DAILY_LIMIT = 20;
+
+  function checkManualRateLimit(clientId: number): boolean {
+    const key = `manual:${clientId}`;
+    const now = Date.now();
+    const entry = manualRequestCounts.get(key);
+    if (!entry || now > entry.resets) {
+      manualRequestCounts.set(key, { count: 1, resets: now + 24 * 60 * 60 * 1000 });
+      return true;
+    }
+    if (entry.count >= MANUAL_DAILY_LIMIT) return false;
+    entry.count++;
+    return true;
+  }
+
+  /**
+   * POST /api/portal/reputation/request-review
+   * Client sends a review request to a specific customer.
+   */
+  app.post("/api/portal/reputation/request-review", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { customer_name, customer_email, customer_phone, job_label } = req.body;
+
+      if (!customer_name || typeof customer_name !== "string" || customer_name.trim().length < 2) {
+        return res.status(400).json({ error: "Customer name is required" });
+      }
+      if (!customer_email && !customer_phone) {
+        return res.status(400).json({ error: "Email or phone number is required" });
+      }
+
+      // Rate limit
+      if (!checkManualRateLimit(clientId)) {
+        return res.status(429).json({ error: "Daily limit reached (20 review requests per day). Try again tomorrow." });
+      }
+
+      const { createManualReviewRequest, processReviewRequest } = await import("../services/reviewRequestService");
+
+      const result = await createManualReviewRequest({
+        clientId,
+        customerName: customer_name.trim(),
+        customerEmail: customer_email?.trim() || undefined,
+        customerPhone: customer_phone?.trim() || undefined,
+        jobLabel: job_label?.trim() || undefined,
+        triggerSource: "portal_manual",
+      });
+
+      if (!result.created) {
+        return res.status(409).json({ error: result.reason });
+      }
+
+      // Send immediately
+      if (result.reviewRequest) {
+        processReviewRequest(result.reviewRequest).catch((err: any) => {
+          console.error("[portal] Review request send error:", err.message);
+        });
+      }
+
+      res.status(201).json({ ok: true, id: result.reviewRequest?.id });
+    } catch (err: any) {
+      console.error("[portal] request-review error:", err.message);
+      res.status(500).json({ error: "Failed to send review request" });
+    }
+  });
+
+  /**
+   * GET /api/portal/reputation/qr
+   * Returns the client's QR review collection URL and widget token.
+   */
+  app.get("/api/portal/reputation/qr", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { storage } = await import("../storage");
+      const widgetToken = await storage.ensureWidgetToken(clientId);
+
+      const origin = req.headers.origin
+        || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : `${req.protocol}://${req.get("host")}`);
+
+      const qrUrl = `${origin}/review/qr/${widgetToken}`;
+
+      res.json({ qrUrl, widgetToken });
+    } catch (err: any) {
+      console.error("[portal] qr config error:", err.message);
+      res.status(500).json({ error: "Failed to load QR config" });
+    }
+  });
+
+  /**
+   * GET /api/portal/reputation/request-stats
+   * Source breakdown for review requests.
+   */
+  app.get("/api/portal/reputation/request-stats", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const [row] = await db.select({
+        total: sql<number>`count(*)::int`,
+        job_complete: sql<number>`count(*) filter (where ${reviewRequests.trigger_source} = 'job_complete')::int`,
+        portal_manual: sql<number>`count(*) filter (where ${reviewRequests.trigger_source} = 'portal_manual')::int`,
+        admin_manual: sql<number>`count(*) filter (where ${reviewRequests.trigger_source} = 'manual')::int`,
+        qr_scan: sql<number>`count(*) filter (where ${reviewRequests.trigger_source} = 'qr_scan')::int`,
+      }).from(reviewRequests)
+        .where(eq(reviewRequests.client_id, clientId));
+
+      res.json(row || { total: 0, job_complete: 0, portal_manual: 0, admin_manual: 0, qr_scan: 0 });
+    } catch (err: any) {
+      console.error("[portal] request-stats error:", err.message);
+      res.status(500).json({ error: "Failed to load stats" });
+    }
+  });
 }

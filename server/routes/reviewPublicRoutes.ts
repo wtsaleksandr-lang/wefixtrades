@@ -136,4 +136,54 @@ export function registerReviewPublicRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to submit feedback" });
     }
   });
+
+  /**
+   * GET /api/review/qr/:widgetToken
+   * QR code landing — creates a new review request and returns the access token
+   * for the sentiment gate. The frontend redirects to /review/:accessToken.
+   *
+   * Rate limited: max 60 QR sessions per widget token per hour.
+   */
+  const qrRateLimits = new Map<string, { count: number; resets: number }>();
+  const QR_HOURLY_LIMIT = 60;
+
+  app.get("/api/review/qr/:widgetToken", async (req: Request, res: Response) => {
+    try {
+      const widgetToken = req.params.widgetToken;
+      if (!widgetToken || widgetToken.length < 16) {
+        return res.status(400).json({ error: "Invalid token" });
+      }
+
+      // Rate limit per widget token
+      const now = Date.now();
+      const rl = qrRateLimits.get(widgetToken);
+      if (rl && now < rl.resets) {
+        if (rl.count >= QR_HOURLY_LIMIT) {
+          return res.status(429).json({ error: "Too many scans. Please try again later." });
+        }
+        rl.count++;
+      } else {
+        qrRateLimits.set(widgetToken, { count: 1, resets: now + 60 * 60 * 1000 });
+      }
+
+      // Look up client
+      const client = await storage.getClientByWidgetToken(widgetToken);
+      if (!client) {
+        return res.status(404).json({ error: "Business not found" });
+      }
+
+      // Create QR review request
+      const { createQrReviewRequest } = await import("../services/reviewRequestService");
+      const rr = await createQrReviewRequest(client.id);
+
+      // Return the access token so frontend can redirect to the sentiment gate
+      res.json({
+        accessToken: rr.access_token,
+        businessName: client.business_name,
+      });
+    } catch (err: any) {
+      console.error("[review-funnel] QR landing error:", err.message);
+      res.status(500).json({ error: "Something went wrong. Please try again." });
+    }
+  });
 }

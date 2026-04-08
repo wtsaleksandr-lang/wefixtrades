@@ -4,12 +4,14 @@ import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   Star, TrendingUp, MessageSquare, Send, ShieldCheck, AlertTriangle,
   ChevronDown, ChevronUp, Loader2, RefreshCw, ThumbsDown, Settings, Lock, Code,
+  QrCode, UserPlus, CheckCircle2,
 } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
@@ -119,6 +121,9 @@ export default function PortalReviews() {
   const [expandedReview, setExpandedReview] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [requestForm, setRequestForm] = useState({ customer_name: "", customer_email: "", customer_phone: "", job_label: "" });
+  const [requestSent, setRequestSent] = useState(false);
 
   // Config / tier
   const { data: config } = useQuery<ConfigData>({
@@ -171,6 +176,42 @@ export default function PortalReviews() {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/reputation/config"] });
       toast({ title: "Settings saved" });
     },
+  });
+
+  const requestMutation = useMutation({
+    mutationFn: async (data: typeof requestForm) => {
+      const res = await apiRequest("POST", "/api/portal/reputation/request-review", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      setRequestSent(true);
+      setRequestForm({ customer_name: "", customer_email: "", customer_phone: "", job_label: "" });
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/reputation/overview"] });
+      setTimeout(() => setRequestSent(false), 5000);
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed", description: err.message || "Could not send review request" });
+    },
+  });
+
+  const { data: qrData } = useQuery<{ qrUrl: string; widgetToken: string }>({
+    queryKey: ["/api/portal/reputation/qr"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/reputation/qr", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!config?.active,
+  });
+
+  const { data: requestStats } = useQuery<{ total: number; job_complete: number; portal_manual: number; admin_manual: number; qr_scan: number }>({
+    queryKey: ["/api/portal/reputation/request-stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/reputation/request-stats", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!config?.active,
   });
 
   const reviews = reviewsData?.data ?? [];
@@ -388,6 +429,151 @@ export default function PortalReviews() {
             )}
           </>
         ) : null}
+
+        {/* Request a Review + QR Code */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Manual Request */}
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-blue-500" />
+                <p className="text-sm font-medium text-gray-900">Request a Review</p>
+              </div>
+              {requestStats && requestStats.portal_manual > 0 && (
+                <span className="text-xs text-gray-400">{requestStats.portal_manual} sent</span>
+              )}
+            </div>
+            {!showRequestForm ? (
+              <div>
+                <p className="text-xs text-gray-500 mb-3">Send a review request to a specific customer by email or text.</p>
+                <Button size="sm" className="bg-[#2D6A4F] hover:bg-[#1B4332]" onClick={() => setShowRequestForm(true)}>
+                  <Send className="w-3.5 h-3.5 mr-1" /> Send Review Request
+                </Button>
+              </div>
+            ) : requestSent ? (
+              <div className="flex items-center gap-2 text-green-700 bg-green-50 rounded-lg p-3">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span className="text-sm">Review request sent! Your customer will receive it shortly.</span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Input
+                  placeholder="Customer name *"
+                  value={requestForm.customer_name}
+                  onChange={(e) => setRequestForm({ ...requestForm, customer_name: e.target.value })}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  placeholder="Email address"
+                  type="email"
+                  value={requestForm.customer_email}
+                  onChange={(e) => setRequestForm({ ...requestForm, customer_email: e.target.value })}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  placeholder="Phone number"
+                  type="tel"
+                  value={requestForm.customer_phone}
+                  onChange={(e) => setRequestForm({ ...requestForm, customer_phone: e.target.value })}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  placeholder="Job description (optional)"
+                  value={requestForm.job_label}
+                  onChange={(e) => setRequestForm({ ...requestForm, job_label: e.target.value })}
+                  className="h-9 text-sm"
+                />
+                {(!requestForm.customer_email && !requestForm.customer_phone) && requestForm.customer_name.length > 0 && (
+                  <p className="text-xs text-amber-600">Enter an email or phone number to send the request.</p>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="bg-[#2D6A4F] hover:bg-[#1B4332]"
+                    disabled={!requestForm.customer_name.trim() || (!requestForm.customer_email && !requestForm.customer_phone) || requestMutation.isPending}
+                    onClick={() => requestMutation.mutate(requestForm)}
+                  >
+                    {requestMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1" />}
+                    Send
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowRequestForm(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* QR Code */}
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <QrCode className="w-4 h-4 text-violet-500" />
+                <p className="text-sm font-medium text-gray-900">QR Review Code</p>
+              </div>
+              {requestStats && requestStats.qr_scan > 0 && (
+                <span className="text-xs text-gray-400">{requestStats.qr_scan} scans</span>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mb-3">
+              Customers scan this code after a job to leave a review. Add it to business cards, invoices, or show it on your phone.
+            </p>
+            {qrData?.qrUrl ? (
+              <div className="space-y-3">
+                <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-center">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrData.qrUrl)}&margin=8`}
+                    alt="QR Code"
+                    width={180}
+                    height={180}
+                    className="block"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    onClick={() => {
+                      const a = document.createElement("a");
+                      a.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrData.qrUrl)}&margin=16&format=png`;
+                      a.download = "review-qr-code.png";
+                      a.click();
+                      toast({ title: "QR code downloaded" });
+                    }}
+                  >
+                    Download PNG
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    onClick={() => {
+                      navigator.clipboard.writeText(qrData.qrUrl);
+                      toast({ title: "Link copied" });
+                    }}
+                  >
+                    Copy Link
+                  </Button>
+                </div>
+                <p className="text-[11px] text-gray-400">Works on any phone camera. No app needed.</p>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-400 italic">Loading QR code...</div>
+            )}
+          </Card>
+        </div>
+
+        {/* Source breakdown */}
+        {requestStats && requestStats.total > 0 && (
+          <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+            <span>Review requests by source:</span>
+            {requestStats.job_complete > 0 && <Badge variant="secondary" className="text-[10px]">Post-job: {requestStats.job_complete}</Badge>}
+            {requestStats.portal_manual > 0 && <Badge variant="secondary" className="text-[10px]">Manual: {requestStats.portal_manual}</Badge>}
+            {requestStats.qr_scan > 0 && <Badge variant="secondary" className="text-[10px]">QR scan: {requestStats.qr_scan}</Badge>}
+            {requestStats.admin_manual > 0 && <Badge variant="secondary" className="text-[10px]">Admin: {requestStats.admin_manual}</Badge>}
+          </div>
+        )}
 
         {/* Recent Reviews */}
         <div>

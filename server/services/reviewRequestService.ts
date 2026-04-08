@@ -126,15 +126,17 @@ export async function createManualReviewRequest(opts: {
   channel?: "email" | "sms";
   googlePlaceId?: string;
   jobLabel?: string;
+  triggerSource?: string;
 }): Promise<{ created: boolean; reason?: string; reviewRequest?: ReviewRequest }> {
   if (!opts.customerEmail && !opts.customerPhone) {
     return { created: false, reason: "No customer contact info" };
   }
 
-  // Idempotency: one per client + contact + date
+  // Idempotency: one per client + contact + date + source
   const dateStr = new Date().toISOString().slice(0, 10);
   const contactKey = opts.customerEmail || opts.customerPhone || "";
-  const idempotencyKey = `manual:${opts.clientId}:${contactKey}:${dateStr}`;
+  const source = opts.triggerSource || "manual";
+  const idempotencyKey = `${source}:${opts.clientId}:${contactKey}:${dateStr}`;
 
   const existing = await storage.findReviewRequestByIdempotencyKey(idempotencyKey);
   if (existing) {
@@ -158,7 +160,7 @@ export async function createManualReviewRequest(opts: {
     customer_name: opts.customerName,
     customer_email: opts.customerEmail ?? null,
     customer_phone: opts.customerPhone ?? null,
-    trigger_source: "manual",
+    trigger_source: source,
     channel,
     status: "pending",
     sentiment: null,
@@ -171,6 +173,7 @@ export async function createManualReviewRequest(opts: {
     max_attempts: 3,
     payload: {
       job_label: opts.jobLabel ?? null,
+      trigger_source: source,
     },
     idempotency_key: idempotencyKey,
     access_token: generateAccessToken(),
@@ -182,6 +185,53 @@ export async function createManualReviewRequest(opts: {
   });
 
   return { created: true, reviewRequest };
+}
+
+/**
+ * Create a review request from a QR code scan (walk-in, no contact info needed).
+ * The customer scans the QR → lands on the sentiment gate page directly.
+ * No email/SMS is sent — the "delivery" is the QR scan itself.
+ */
+export async function createQrReviewRequest(
+  clientId: number,
+): Promise<ReviewRequest> {
+  // Resolve client data
+  const client = await storage.getClientById(clientId);
+  const googlePlaceId = client?.google_place_id ?? null;
+  const reviewUrl = generateGoogleReviewLink(googlePlaceId);
+
+  const reviewRequest = await storage.createReviewRequest({
+    client_id: clientId,
+    booking_id: null,
+    lead_id: null,
+    customer_name: null,
+    customer_email: null,
+    customer_phone: null,
+    trigger_source: "qr_scan",
+    channel: "qr",
+    status: "sent", // Already "delivered" — the customer is on the page
+    sentiment: null,
+    google_place_id: googlePlaceId,
+    review_url: reviewUrl,
+    internal_feedback: null,
+    sequence_step: 0,
+    run_at: new Date(),
+    sent_at: new Date(),
+    attempts: 1,
+    max_attempts: 1,
+    payload: {
+      business_name: client?.business_name ?? null,
+      trigger_source: "qr_scan",
+    },
+    idempotency_key: null, // QR scans are not idempotent — each scan is a new session
+    access_token: generateAccessToken(),
+    clicked_at: null,
+    completed_at: null,
+    next_followup_at: null,
+    last_error: null,
+  });
+
+  return reviewRequest;
 }
 
 /**
