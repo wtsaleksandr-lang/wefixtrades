@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { trackEvent } from '@/lib/trackEvent';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Lock } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { calculateEstimate } from '@shared/calculateEstimate';
 import { useWidgetState } from '../useWidgetState';
@@ -160,27 +160,15 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
 
   // ─── Form ───
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {step.title && <h3 style={stepTitleStyle}>{step.title}</h3>}
-      {step.subtitle && <p style={stepSubtitleStyle}>{step.subtitle}</p>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div>
+        <h3 style={stepTitleStyle}>Where should we send your quote?</h3>
+        <p style={{ ...stepSubtitleStyle, margin: '6px 0 0' }}>
+          We'll email you a detailed breakdown. No account needed.
+        </p>
+      </div>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <div>
-          <label htmlFor="lead-name" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
-            Name
-          </label>
-          <input
-            id="lead-name"
-            type="text"
-            placeholder="Your name"
-            value={leadData.name}
-            onChange={(e) => updateLead('name', e.target.value)}
-            style={inputStyle}
-            onFocus={(e) => { e.currentTarget.style.borderColor = eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
-          />
-        </div>
-
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div>
           <label htmlFor="lead-email" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
             Email
@@ -189,6 +177,7 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
             id="lead-email"
             type="email"
             placeholder="you@example.com"
+            autoComplete="email"
             value={leadData.email}
             onChange={(e) => { updateLead('email', e.target.value); setFieldErrors(p => ({ ...p, email: undefined })); setError(null); }}
             style={{
@@ -205,12 +194,13 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
 
         <div>
           <label htmlFor="lead-phone" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
-            Phone
+            Phone <span style={{ fontWeight: 400, color: eff.textBody }}>(optional)</span>
           </label>
           <input
             id="lead-phone"
             type="tel"
             placeholder="(555) 123-4567"
+            autoComplete="tel"
             value={leadData.phone}
             onChange={(e) => { updateLead('phone', e.target.value); setFieldErrors(p => ({ ...p, phone: undefined })); setError(null); }}
             style={{
@@ -226,15 +216,16 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
         </div>
 
         <div>
-          <label htmlFor="lead-company" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
-            Company <span style={{ fontWeight: 400, color: eff.textBody }}>(optional)</span>
+          <label htmlFor="lead-name" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
+            Name <span style={{ fontWeight: 400, color: eff.textBody }}>(optional)</span>
           </label>
           <input
-            id="lead-company"
+            id="lead-name"
             type="text"
-            placeholder="Company name"
-            value={leadData.company}
-            onChange={(e) => updateLead('company', e.target.value)}
+            placeholder="Your name"
+            autoComplete="name"
+            value={leadData.name}
+            onChange={(e) => updateLead('name', e.target.value)}
             style={inputStyle}
             onFocus={(e) => { e.currentTarget.style.borderColor = eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
@@ -245,8 +236,8 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
         <label style={{
           display: 'flex',
           alignItems: 'flex-start',
-          gap: '12px',
-          padding: '8px 0',
+          gap: '10px',
+          padding: '4px 0',
           cursor: 'pointer',
         }}>
           <Checkbox
@@ -258,8 +249,7 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
             style={{ marginTop: '2px' }}
           />
           <span style={{ fontSize: '13px', color: eff.textBody, lineHeight: 1.5 }}>
-            I agree to receive text messages about my quote from this business.
-            Message &amp; data rates may apply.
+            Send me text updates about my quote.
           </span>
         </label>
 
@@ -284,8 +274,23 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
           ) : (
             <Send style={{ width: 16, height: 16 }} />
           )}
-          {config.calculator.cta_button_text || 'Get My Quote'}
+          {config.calculator.cta_button_text || 'Send My Quote'}
         </button>
+
+        {/* Trust line */}
+        <p style={{
+          fontSize: '12px',
+          color: eff.textBody,
+          textAlign: 'center',
+          margin: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '5px',
+        }}>
+          <Lock style={{ width: 11, height: 11, opacity: 0.6 }} />
+          Your info is shared only with this business.
+        </p>
       </form>
     </div>
   );

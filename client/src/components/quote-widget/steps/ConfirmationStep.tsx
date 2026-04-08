@@ -1,4 +1,4 @@
-import { CheckCircle2, PartyPopper, ArrowRight, Search } from 'lucide-react';
+import { CheckCircle2, ArrowRight, Search, CircleCheck } from 'lucide-react';
 import { useWidgetState } from '../useWidgetState';
 import { eff, stepTitleStyle } from '../designTokens';
 import NextStepSuggestions from '@/components/marketing/NextStepSuggestions';
@@ -22,29 +22,23 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
   const bookingData = state.booking.data;
 
   return (
-    <div style={{ textAlign: 'center', padding: '24px 0' }}>
+    <div style={{ textAlign: 'center', padding: '16px 0' }}>
       <div style={{
-        width: '64px',
-        height: '64px',
+        width: '56px',
+        height: '56px',
         borderRadius: '50%',
-        background: eff.bg,
+        background: '#f0fdf4',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        margin: '0 auto 24px',
+        margin: '0 auto 20px',
       }}>
-        <PartyPopper style={{ width: 32, height: 32, color: eff.buttonBg }} />
+        <CircleCheck style={{ width: 28, height: 28, color: '#16a34a' }} />
       </div>
 
-      <h3 style={{ ...stepTitleStyle, textAlign: 'center', fontSize: '22px' }}>
-        {step.title || config.calculator.lead_thank_you_message || "You're all set!"}
+      <h3 style={{ ...stepTitleStyle, textAlign: 'center', fontSize: '20px' }}>
+        {config.calculator.lead_thank_you_message || "Quote sent successfully"}
       </h3>
-
-      {step.subtitle && (
-        <p style={{ fontSize: '14px', color: eff.textBody, margin: '8px 0 0', lineHeight: 1.5 }}>
-          {step.subtitle}
-        </p>
-      )}
 
       <div style={{
         maxWidth: '380px',
@@ -61,12 +55,13 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
             gap: '10px',
             borderRadius: eff.radiusMd,
             border: `1px solid ${eff.buttonBorder}`,
-            padding: '12px 16px',
+            padding: '14px 16px',
             fontSize: '14px',
             color: eff.text,
+            background: '#fff',
           }}>
-            <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0, color: eff.buttonBg }} />
-            <span>Quote details sent to your email</span>
+            <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0, color: '#16a34a' }} />
+            <span>Estimate sent to your email</span>
           </div>
         )}
 
@@ -77,20 +72,21 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
             gap: '10px',
             borderRadius: eff.radiusMd,
             border: `1px solid ${eff.buttonBorder}`,
-            padding: '12px 16px',
+            padding: '14px 16px',
             fontSize: '14px',
             color: eff.text,
+            background: '#fff',
           }}>
-            <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0, color: eff.buttonBg }} />
+            <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0, color: '#16a34a' }} />
             <span>
-              Booking confirmed for {bookingData.selectedDate} at {bookingData.selectedTime}
+              Appointment booked: {bookingData.selectedDate} at {bookingData.selectedTime}
             </span>
           </div>
         )}
 
         {!leadSubmitted && !bookingConfirmed && (
           <p style={{ fontSize: '14px', color: eff.textBody, textAlign: 'center', margin: 0 }}>
-            Thank you for using our estimator. We'll be in touch soon.
+            Thank you for your interest. We'll be in touch shortly.
           </p>
         )}
       </div>
@@ -101,10 +97,10 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
         color: eff.textBody,
         textAlign: 'center',
         margin: '16px 0 0',
-        lineHeight: 1.5,
+        lineHeight: 1.6,
       }}>
         {leadSubmitted
-          ? "Check your email for your estimate. We'll follow up within 24 hours."
+          ? "Check your inbox for a copy of your estimate. We typically respond within a few hours."
           : "We'll reach out shortly to discuss your project."}
       </p>
 

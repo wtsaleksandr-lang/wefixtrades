@@ -1,5 +1,5 @@
 import { useMemo, useEffect, useRef } from 'react';
-import { Phone } from 'lucide-react';
+import { Phone, Shield } from 'lucide-react';
 import { trackEvent } from '@/lib/trackEvent';
 import { useWidgetState } from '../useWidgetState';
 import { calculateEstimate } from '@shared/calculateEstimate';
@@ -40,9 +40,8 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
   }, []);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {step.title && <h3 style={stepTitleStyle}>{step.title}</h3>}
-      {step.subtitle && <p style={stepSubtitleStyle}>{step.subtitle}</p>}
 
       {!estimate && (
         <div style={{
@@ -71,6 +70,23 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
           breakdown={estimate.breakdown}
           callUs={estimate.callUs}
         />
+      )}
+
+      {/* Trust microcopy */}
+      {estimate && estimate.type !== 'call_for_quote' && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '8px',
+          fontSize: '13px',
+          color: eff.textBody,
+          lineHeight: 1.5,
+        }}>
+          <Shield style={{ width: 14, height: 14, flexShrink: 0, marginTop: '2px', opacity: 0.7 }} />
+          <span>
+            Instant estimate based on your inputs. Final pricing may vary based on your specific project. No obligation.
+          </span>
+        </div>
       )}
     </div>
   );

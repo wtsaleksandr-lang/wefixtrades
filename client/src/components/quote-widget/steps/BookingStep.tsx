@@ -109,9 +109,13 @@ export default function BookingStep({ step, accentColor }: BookingStepProps) {
   }, [booking.confirmed, nextStep]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {step.title && <h3 style={stepTitleStyle}>{step.title}</h3>}
-      {step.subtitle && <p style={stepSubtitleStyle}>{step.subtitle}</p>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div>
+        <h3 style={stepTitleStyle}>Want to schedule a visit?</h3>
+        <p style={{ ...stepSubtitleStyle, margin: '6px 0 0' }}>
+          Pick a time that works for you. This is optional — you can also skip and we'll follow up by email.
+        </p>
+      </div>
 
       {/* Date picker */}
       <div>
@@ -184,11 +188,11 @@ export default function BookingStep({ step, accentColor }: BookingStepProps) {
         <div style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '16px',
+          gap: '14px',
           borderTop: `1px solid ${eff.buttonBorder}`,
-          paddingTop: '24px',
+          paddingTop: '20px',
         }}>
-          <p style={{ fontSize: '14px', fontWeight: 600, color: eff.text, margin: 0 }}>Your details</p>
+          <p style={{ fontSize: '14px', fontWeight: 600, color: eff.text, margin: 0 }}>Confirm your details</p>
           <input
             placeholder="Name"
             value={customer.name}
@@ -229,7 +233,7 @@ export default function BookingStep({ step, accentColor }: BookingStepProps) {
             onMouseEnter={(e) => { e.currentTarget.style.background = eff.buttonBgHover; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = eff.buttonBg; }}
           >
-            {submitting ? 'Booking...' : 'Confirm Booking'}
+            {submitting ? 'Booking...' : 'Book This Time'}
           </button>
         </div>
       )}
