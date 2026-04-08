@@ -7,6 +7,7 @@ import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
 import { processReviewFollowups } from "./reviewFollowupWorker";
 import { processReviewMonitoring } from "./reviewMonitorWorker";
+import { processReputationReports } from "./reputationReportWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
 
 const MAX_RETRIES = 3;
@@ -136,6 +137,16 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  // Reputation reports — runs daily at 9 AM UTC, sends periodic reports to eligible clients
+  cron.schedule("0 9 * * *", async () => {
+    console.log("[Scheduler] Running reputation reports...");
+    try {
+      await runJob("reputation_reports", processReputationReports);
+    } catch (err: any) {
+      console.error("[Scheduler] reputation_reports cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
   // Chat memory cleanup — runs daily at 3 AM UTC, removes expired 7-day records
   cron.schedule("0 3 * * *", async () => {
     console.log("[Scheduler] Running chat memory cleanup...");
@@ -158,4 +169,5 @@ export function initScheduler() {
   console.log("  - Audit follow-up worker: every minute");
   console.log("  - Review follow-up worker: every minute");
   console.log("  - Review monitoring: every 6 hours");
+  console.log("  - Reputation reports: 09:00 UTC daily");
 }

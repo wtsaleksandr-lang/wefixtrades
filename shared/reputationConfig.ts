@@ -129,11 +129,21 @@ export function mergeWidgetSettings(
   return base;
 }
 
+export type ReportFrequency = "weekly" | "biweekly" | "monthly";
+
+/** Report frequency by tier. */
+export const TIER_REPORT_FREQUENCY: Record<ReputationTier, ReportFrequency> = {
+  basic: "monthly",
+  pro: "biweekly",
+  premium: "weekly",
+};
+
 export interface ReputationSettings {
   channel_preference: "email" | "sms" | "auto";
   reminders_enabled: boolean;
   review_request_delay_hours: number;
   low_rating_alerts: boolean;
+  report_enabled: boolean;
   widget?: WidgetSettings;
 }
 
@@ -142,6 +152,7 @@ export const DEFAULT_SETTINGS: ReputationSettings = {
   reminders_enabled: true,
   review_request_delay_hours: 2,
   low_rating_alerts: true,
+  report_enabled: true,
   widget: DEFAULT_WIDGET_SETTINGS,
 };
 
@@ -163,6 +174,9 @@ export function mergeSettings(
   }
   if (typeof partial.low_rating_alerts === "boolean") {
     base.low_rating_alerts = partial.low_rating_alerts;
+  }
+  if (typeof partial.report_enabled === "boolean") {
+    base.report_enabled = partial.report_enabled;
   }
   if (partial.widget) {
     base.widget = mergeWidgetSettings(partial.widget);
