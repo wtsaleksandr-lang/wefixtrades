@@ -3,7 +3,7 @@ import DocsLayout, { Step, CodeBlock, Accordion, InfoBox, DocH2, DocH3, Checklis
 import { mkt } from "@/theme/tokens";
 
 export default function DocsEmbed() {
-  useEffect(() => { document.title = "Embed Guide — QuickQuotePro Docs"; }, []);
+  useEffect(() => { document.title = "Embed Guide — QuoteQuick Pro Docs"; }, []);
 
   return (
     <DocsLayout

@@ -146,7 +146,7 @@ export const TRADELINE: ProductDef = {
 export const QUOTEQUICK: ProductDef = {
   id: "quotequick",
   name: "QuoteQuick™",
-  tagline: "Instant quote calculator for your website",
+  tagline: "Instant quotes on your website. Qualified leads in your inbox.",
   category: "leads",
   tiers: [
     {
@@ -155,8 +155,11 @@ export const QUOTEQUICK: ProductDef = {
       price: 49,
       billingPeriod: "monthly",
       features: [
-        "Embeddable quote tool",
-        "Lead capture",
+        "Instant quote widget on your site",
+        "Lead capture with every quote",
+        "Email notifications",
+        "Lead dashboard",
+        "Embed on any website",
       ],
     },
     {
@@ -167,9 +170,12 @@ export const QUOTEQUICK: ProductDef = {
       highlighted: true,
       badge: "Most Popular",
       features: [
-        "Advanced logic rules",
-        "Custom styling",
-        "Booking integration",
+        "Everything in Starter, plus:",
+        "Online booking integration",
+        "Automated email + SMS follow-ups",
+        "Custom branding + styling",
+        "Coupon codes + promotions",
+        "Webhook / CRM integration",
       ],
     },
   ],

@@ -459,14 +459,14 @@ export default function QuoteCalculatorDemo() {
                     lineHeight: 1.2,
                     marginBottom: 4,
                   }}>
-                    Get QuoteQuick for Your Business
+                    Start Your 14-Day Free Trial
                   </div>
                   <div style={{
                     fontSize: 14,
                     color: "rgba(13,21,20,0.6)",
                     fontWeight: 500,
                   }}>
-                    From $49/mo · Live in under 10 minutes · No code needed
+                    No credit card required · Live in 5 minutes · From $49/mo
                   </div>
                 </div>
                 <div style={{
