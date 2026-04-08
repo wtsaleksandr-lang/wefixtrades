@@ -679,20 +679,71 @@ export function registerAdminCrmRoutes(app: Express): void {
   // Review Requests
   // ═══════════════════════════════════════════════
 
+  const REVIEW_TERMINAL_STATUSES = [
+    "completed", "stopped", "failed",
+    "routed_positive", "routed_negative", "feedback_captured",
+  ];
+
+  /**
+   * GET /api/admin/crm/review-requests
+   * List with filters: status, clientId, triggerSource, hasFeedback, dueForFollowup
+   */
   app.get("/api/admin/crm/review-requests", requireAdmin, async (req: Request, res: Response) => {
     try {
       const clientId = req.query.clientId ? parseInt(req.query.clientId as string) : undefined;
       const status = req.query.status as string | undefined;
+      const triggerSource = req.query.triggerSource as string | undefined;
+      const hasFeedback = req.query.hasFeedback === "true" ? true : req.query.hasFeedback === "false" ? false : undefined;
+      const dueForFollowup = req.query.dueForFollowup === "true" ? true : undefined;
       const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
       const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
-      const rows = await storage.listReviewRequests({ clientId, status, limit, offset });
-      res.json({ data: rows });
+
+      const filterOpts = { clientId, status, triggerSource, hasFeedback, dueForFollowup };
+      const [data, total] = await Promise.all([
+        storage.listReviewRequests({ ...filterOpts, limit, offset }),
+        storage.countReviewRequests(filterOpts),
+      ]);
+      res.json({ data, total });
     } catch (err: any) {
       console.error("[admin-crm] List review requests error:", err.message);
       res.status(500).json({ error: "Failed to list review requests" });
     }
   });
 
+  /**
+   * GET /api/admin/crm/review-requests/stats
+   * Operational summary: counts by status + due for followup.
+   */
+  app.get("/api/admin/crm/review-requests/stats", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const stats = await storage.getReviewRequestStats();
+      res.json(stats);
+    } catch (err: any) {
+      console.error("[admin-crm] Review request stats error:", err.message);
+      res.status(500).json({ error: "Failed to get stats" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/review-requests/:id
+   * Single review request detail.
+   */
+  app.get("/api/admin/crm/review-requests/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const rr = await storage.getReviewRequestById(id);
+      if (!rr) return res.status(404).json({ error: "Review request not found" });
+      res.json(rr);
+    } catch (err: any) {
+      console.error("[admin-crm] Get review request error:", err.message);
+      res.status(500).json({ error: "Failed to get review request" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/review-requests
+   * Create a manual review request + send immediately.
+   */
   app.post("/api/admin/crm/review-requests", requireAdmin, async (req: Request, res: Response) => {
     try {
       const { client_id, customer_name, customer_email, customer_phone, channel, job_label } = req.body;
@@ -738,11 +789,165 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  /**
+   * POST /api/admin/crm/review-requests/:id/stop
+   * Stop a review request and cancel all pending follow-ups.
+   * Only allowed if not already in a terminal state.
+   */
+  app.post("/api/admin/crm/review-requests/:id/stop", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const rr = await storage.getReviewRequestById(id);
+      if (!rr) return res.status(404).json({ error: "Review request not found" });
+
+      if (REVIEW_TERMINAL_STATUSES.includes(rr.status)) {
+        return res.status(400).json({ error: `Cannot stop — already in terminal status: ${rr.status}` });
+      }
+
+      const updated = await storage.updateReviewRequest(id, {
+        status: "stopped",
+        next_followup_at: null,
+        completed_at: new Date(),
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review_request.stopped",
+        entity_type: "review_request",
+        entity_id: id,
+        summary: `Stopped review request #${id} (was: ${rr.status}, step ${rr.sequence_step})`,
+      });
+
+      res.json(updated);
+    } catch (err: any) {
+      console.error("[admin-crm] Stop review request error:", err.message);
+      res.status(500).json({ error: "Failed to stop review request" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/review-requests/:id/resend
+   * Re-send the initial review request email.
+   * Only allowed if the request is in a failed or stopped state.
+   * Resets to sent status and schedules next follow-up.
+   */
+  app.post("/api/admin/crm/review-requests/:id/resend", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const rr = await storage.getReviewRequestById(id);
+      if (!rr) return res.status(404).json({ error: "Review request not found" });
+
+      // Only allow resend from failed or stopped
+      if (!["failed", "stopped"].includes(rr.status)) {
+        return res.status(400).json({ error: `Cannot resend — status is "${rr.status}". Only failed or stopped requests can be resent.` });
+      }
+
+      // Reset to pending so processReviewRequest can handle it
+      await storage.updateReviewRequest(id, {
+        status: "pending",
+        run_at: new Date(),
+        attempts: 0,
+        last_error: null,
+        sequence_step: 0,
+        next_followup_at: null,
+        completed_at: null,
+      });
+
+      const refreshed = await storage.getReviewRequestById(id);
+      if (refreshed) {
+        const { processReviewRequest } = await import("../services/reviewRequestService");
+        processReviewRequest(refreshed).catch((err: any) => {
+          console.error("[admin-crm] Review resend error:", err.message);
+        });
+      }
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review_request.resent",
+        entity_type: "review_request",
+        entity_id: id,
+        summary: `Resent review request #${id} (was: ${rr.status})`,
+      });
+
+      res.json({ ok: true, id });
+    } catch (err: any) {
+      console.error("[admin-crm] Resend review request error:", err.message);
+      res.status(500).json({ error: "Failed to resend review request" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/review-requests/:id/nudge
+   * Manually trigger the next follow-up step immediately.
+   * Only works if the request is in 'sent' status with sequence_step < 2.
+   */
+  app.post("/api/admin/crm/review-requests/:id/nudge", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const rr = await storage.getReviewRequestById(id);
+      if (!rr) return res.status(404).json({ error: "Review request not found" });
+
+      if (rr.status !== "sent") {
+        return res.status(400).json({ error: `Cannot nudge — status is "${rr.status}". Only sent requests can be nudged.` });
+      }
+
+      if (rr.sequence_step >= 2) {
+        return res.status(400).json({ error: "Sequence already complete (step 2 reached). Cannot nudge further." });
+      }
+
+      // Set next_followup_at to now so the worker picks it up immediately
+      await storage.updateReviewRequest(id, {
+        next_followup_at: new Date(),
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review_request.nudged",
+        entity_type: "review_request",
+        entity_id: id,
+        summary: `Nudged review request #${id} to send step ${rr.sequence_step + 1} immediately`,
+      });
+
+      res.json({ ok: true, id, nextStep: rr.sequence_step + 1 });
+    } catch (err: any) {
+      console.error("[admin-crm] Nudge review request error:", err.message);
+      res.status(500).json({ error: "Failed to nudge review request" });
+    }
+  });
+
+  /**
+   * PATCH /api/admin/crm/review-requests/:id
+   * Generic update — guarded against unsafe transitions.
+   */
   app.patch("/api/admin/crm/review-requests/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id as string);
-      const updated = await storage.updateReviewRequest(id, req.body);
-      if (!updated) return res.status(404).json({ error: "Review request not found" });
+      const rr = await storage.getReviewRequestById(id);
+      if (!rr) return res.status(404).json({ error: "Review request not found" });
+
+      // Guard: don't allow status changes via raw PATCH — use action endpoints instead
+      if (req.body.status) {
+        return res.status(400).json({ error: "Use /stop, /resend, or /nudge endpoints to change status" });
+      }
+
+      // Allow updating safe fields only
+      const safeFields = ["customer_name", "customer_email", "customer_phone", "channel", "google_place_id", "review_url"];
+      const updates: Record<string, any> = {};
+      for (const key of safeFields) {
+        if (req.body[key] !== undefined) updates[key] = req.body[key];
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+
+      const updated = await storage.updateReviewRequest(id, updates);
 
       await storage.logAdminActivity({
         actor_type: "human",
@@ -751,8 +956,8 @@ export function registerAdminCrmRoutes(app: Express): void {
         action: "review_request.updated",
         entity_type: "review_request",
         entity_id: id,
-        summary: `Updated review request #${id}`,
-        metadata: { fields: Object.keys(req.body) },
+        summary: `Updated review request #${id} fields: ${Object.keys(updates).join(", ")}`,
+        metadata: { fields: Object.keys(updates) },
       });
 
       res.json(updated);

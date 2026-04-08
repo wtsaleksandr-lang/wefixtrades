@@ -196,7 +196,9 @@ export interface IStorage {
   fetchDueReviewRequests(limit?: number): Promise<ReviewRequest[]>;
   fetchDueReviewFollowups(limit?: number): Promise<ReviewRequest[]>;
   updateReviewRequest(id: number, updates: Record<string, any>): Promise<ReviewRequest | undefined>;
-  listReviewRequests(opts?: { clientId?: number; status?: string; limit?: number; offset?: number }): Promise<ReviewRequest[]>;
+  listReviewRequests(opts?: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean; limit?: number; offset?: number }): Promise<ReviewRequest[]>;
+  countReviewRequests(opts?: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean }): Promise<number>;
+  getReviewRequestStats(): Promise<{ total: number; pending: number; sent: number; clicked: number; routed_positive: number; routed_negative: number; feedback_captured: number; completed: number; failed: number; stopped: number; due_for_followup: number }>;
   stopReviewRequestsForBooking(bookingId: number): Promise<void>;
   findClientByUserId(userId: number): Promise<Client | undefined>;
 
@@ -1338,16 +1340,55 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  async listReviewRequests(opts: { clientId?: number; status?: string; limit?: number; offset?: number } = {}): Promise<ReviewRequest[]> {
-    const { clientId, status, limit = 50, offset = 0 } = opts;
+  private buildReviewRequestConditions(opts: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean }) {
     const conditions = [];
-    if (clientId) conditions.push(eq(reviewRequests.client_id, clientId));
-    if (status) conditions.push(eq(reviewRequests.status, status));
-    const where = conditions.length ? and(...conditions) : undefined;
+    if (opts.clientId) conditions.push(eq(reviewRequests.client_id, opts.clientId));
+    if (opts.status) conditions.push(eq(reviewRequests.status, opts.status));
+    if (opts.triggerSource) conditions.push(eq(reviewRequests.trigger_source, opts.triggerSource));
+    if (opts.hasFeedback === true) conditions.push(sql`${reviewRequests.internal_feedback} IS NOT NULL`);
+    if (opts.hasFeedback === false) conditions.push(sql`${reviewRequests.internal_feedback} IS NULL`);
+    if (opts.dueForFollowup) {
+      conditions.push(eq(reviewRequests.status, "sent"));
+      conditions.push(sql`${reviewRequests.next_followup_at} IS NOT NULL`);
+      conditions.push(lte(reviewRequests.next_followup_at, new Date()));
+      conditions.push(sql`${reviewRequests.sequence_step} < 2`);
+    }
+    return conditions.length ? and(...conditions) : undefined;
+  }
+
+  async listReviewRequests(opts: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean; limit?: number; offset?: number } = {}): Promise<ReviewRequest[]> {
+    const { limit = 50, offset = 0 } = opts;
+    const where = this.buildReviewRequestConditions(opts);
     return db.select().from(reviewRequests)
       .where(where)
       .orderBy(desc(reviewRequests.created_at))
       .limit(limit).offset(offset);
+  }
+
+  async countReviewRequests(opts: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean } = {}): Promise<number> {
+    const where = this.buildReviewRequestConditions(opts);
+    const [row] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(reviewRequests)
+      .where(where);
+    return row?.count ?? 0;
+  }
+
+  async getReviewRequestStats(): Promise<{ total: number; pending: number; sent: number; clicked: number; routed_positive: number; routed_negative: number; feedback_captured: number; completed: number; failed: number; stopped: number; due_for_followup: number }> {
+    const now = new Date();
+    const [row] = await db.select({
+      total: sql<number>`count(*)::int`,
+      pending: sql<number>`count(*) filter (where ${reviewRequests.status} = 'pending')::int`,
+      sent: sql<number>`count(*) filter (where ${reviewRequests.status} = 'sent')::int`,
+      clicked: sql<number>`count(*) filter (where ${reviewRequests.status} = 'clicked')::int`,
+      routed_positive: sql<number>`count(*) filter (where ${reviewRequests.status} = 'routed_positive')::int`,
+      routed_negative: sql<number>`count(*) filter (where ${reviewRequests.status} = 'routed_negative')::int`,
+      feedback_captured: sql<number>`count(*) filter (where ${reviewRequests.status} = 'feedback_captured')::int`,
+      completed: sql<number>`count(*) filter (where ${reviewRequests.status} = 'completed')::int`,
+      failed: sql<number>`count(*) filter (where ${reviewRequests.status} = 'failed')::int`,
+      stopped: sql<number>`count(*) filter (where ${reviewRequests.status} = 'stopped')::int`,
+      due_for_followup: sql<number>`count(*) filter (where ${reviewRequests.status} = 'sent' and ${reviewRequests.next_followup_at} is not null and ${reviewRequests.next_followup_at} <= ${now} and ${reviewRequests.sequence_step} < 2)::int`,
+    }).from(reviewRequests);
+    return row || { total: 0, pending: 0, sent: 0, clicked: 0, routed_positive: 0, routed_negative: 0, feedback_captured: 0, completed: 0, failed: 0, stopped: 0, due_for_followup: 0 };
   }
 
   async stopReviewRequestsForBooking(bookingId: number): Promise<void> {
