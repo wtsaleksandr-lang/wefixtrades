@@ -104,13 +104,24 @@ export function registerCalculatorRoutes(app: Express): void {
       const pricingValidation = validatePricingConfig(parsed.data.pricing_config);
       const validatedPricingConfig = pricingValidation.config;
 
-      let validatedSettings = parsed.data.calculator_settings || null;
+      let validatedSettings: any = parsed.data.calculator_settings || null;
       if (parsed.data.calculator_settings) {
         try {
           validatedSettings = calculatorSettingsSchema.parse(parsed.data.calculator_settings);
         } catch (err: any) {
           return res.status(400).json({ error: "Invalid calculator_settings", details: err?.message });
         }
+      }
+
+      // Ensure publish.status is 'published' for new live calculators
+      if (validatedSettings) {
+        const publish = (validatedSettings as any).publish || {};
+        (validatedSettings as any).publish = {
+          ...publish,
+          status: 'published',
+          published_at: Date.now(),
+          slug,
+        };
       }
 
       const calculator = await storage.createCalculator({
@@ -184,6 +195,7 @@ export function registerCalculatorRoutes(app: Express): void {
   const lookupQuery = z.object({
     slug: z.string().optional(),
     token: z.string().optional(),
+    preview: z.string().optional(),
   }).refine(d => d.slug || d.token, { message: "slug or token required" });
 
   app.get("/api/calculators/lookup", async (req, res) => {
@@ -191,11 +203,14 @@ export function registerCalculatorRoutes(app: Express): void {
       const parsed = lookupQuery.safeParse(req.query);
       if (!parsed.success) return res.status(400).json({ error: "slug or token required" });
 
-      const { slug, token } = parsed.data;
+      const { slug, token, preview } = parsed.data;
 
       let calculator;
+      let isTokenAccess = false;
+
       if (token) {
         calculator = await storage.getCalculatorByToken(token);
+        isTokenAccess = true;
       } else if (slug) {
         calculator = await storage.getCalculatorBySlug(slug);
       }
@@ -206,22 +221,48 @@ export function registerCalculatorRoutes(app: Express): void {
 
       const isExpired = new Date() > new Date(calculator.token_expires_at);
 
-      if (token && isExpired) {
-        res.json({
-          calculator: {
-            id: calculator.id,
-            slug: calculator.slug,
-            business_name: calculator.business_name,
-            is_token_expired: true,
-            is_duplicated: calculator.is_duplicated,
-            token_expires_at: calculator.token_expires_at,
-          },
-        });
-      } else {
-        res.json({
-          calculator: { ...calculator, is_token_expired: isExpired },
+      // Token-based access (edit page) — return full config with expiry info
+      if (isTokenAccess) {
+        if (isExpired) {
+          return res.json({
+            calculator: {
+              id: calculator.id,
+              slug: calculator.slug,
+              business_name: calculator.business_name,
+              is_token_expired: true,
+              is_duplicated: calculator.is_duplicated,
+              token_expires_at: calculator.token_expires_at,
+            },
+          });
+        }
+        return res.json({
+          calculator: { ...calculator, is_token_expired: false, is_preview: false },
         });
       }
+
+      // Preview access via slug + preview token
+      if (preview) {
+        const previewCalc = await storage.getCalculatorByToken(preview);
+        if (previewCalc && previewCalc.id === calculator.id) {
+          const previewExpired = new Date() > new Date(previewCalc.token_expires_at);
+          if (!previewExpired) {
+            return res.json({
+              calculator: { ...calculator, is_token_expired: false, is_preview: true },
+            });
+          }
+        }
+        // Invalid or expired preview token — fall through to public check
+      }
+
+      // Public slug access — check if calculator is live
+      const deployment = await storage.getDeploymentStatus(calculator.id);
+      if (deployment && deployment.status !== 'live') {
+        return res.status(404).json({ error: "This calculator is not currently available." });
+      }
+
+      res.json({
+        calculator: { ...calculator, is_token_expired: isExpired, is_preview: false },
+      });
     } catch (error: any) {
       console.error("Get calculator error:", error);
       res.status(500).json({ error: "Failed to get calculator" });

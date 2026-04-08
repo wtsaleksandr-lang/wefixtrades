@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, AlertTriangle, Check, Copy, ExternalLink, RefreshCw, Lock, Building2, Palette, MessageSquare, Save, Clock, DollarSign, ChevronDown, ChevronUp, Plus, Trash2, GripVertical, Calculator } from 'lucide-react';
+import { Loader2, AlertTriangle, Check, Copy, ExternalLink, RefreshCw, Lock, Building2, Palette, MessageSquare, Save, Clock, DollarSign, ChevronDown, ChevronUp, Plus, Trash2, GripVertical, Calculator, Eye } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -432,8 +432,11 @@ export default function EditCalculator() {
         </div>
 
         <div className="flex gap-2 mb-7 flex-wrap animate-fade-in-up animation-delay-100">
+          <a href={`${calcUrl}&preview=${token}`} target="_blank" rel="noopener noreferrer">
+            <Button size="sm" variant="outline" data-testid="link-preview-calculator"><Eye className="mr-1.5 w-3.5 h-3.5" /> Preview</Button>
+          </a>
           <a href={calcUrl} target="_blank" rel="noopener noreferrer">
-            <Button size="sm" variant="outline" data-testid="link-view-calculator"><ExternalLink className="mr-1.5 w-3.5 h-3.5" /> View Calculator</Button>
+            <Button size="sm" variant="outline" data-testid="link-view-calculator"><ExternalLink className="mr-1.5 w-3.5 h-3.5" /> View Live</Button>
           </a>
           <a href={leadsUrl}>
             <Button size="sm" variant="outline" data-testid="link-view-leads">View Leads</Button>

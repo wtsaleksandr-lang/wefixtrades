@@ -11,19 +11,25 @@ export default function Calculator() {
   const params = new URLSearchParams(window.location.search);
   const slug = params.get('slug');
   const isEmbed = params.get('embed') === 'true';
+  const previewToken = params.get('preview');
 
   const { data: calculator, isLoading, error } = useQuery<any>({
-    queryKey: ['/api/calculators/lookup', { slug }],
+    queryKey: ['/api/calculators/lookup', { slug, preview: previewToken }],
     queryFn: async () => {
       if (!slug) throw new Error('No slug');
-      const res = await fetch(`/api/calculators/lookup?slug=${slug}`);
+      const lookupParams = new URLSearchParams({ slug });
+      if (previewToken) lookupParams.set('preview', previewToken);
+      const res = await fetch(`/api/calculators/lookup?${lookupParams}`);
       const data = await res.json();
       if (!res.ok || !data.calculator) throw new Error(data.error || 'Calculator not found.');
-      fetch('/api/calculators/track-view', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ calculator_id: data.calculator.id }),
-      });
+      // Only track views for public (non-preview) access
+      if (!data.calculator.is_preview) {
+        fetch('/api/calculators/track-view', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ calculator_id: data.calculator.id }),
+        });
+      }
       return data.calculator;
     },
     enabled: !!slug,
@@ -73,8 +79,26 @@ export default function Calculator() {
     calculator?.primary_color ||
     '#6366f1';
 
+  const isPreview = calculator?.is_preview === true;
+
   return (
     <div className={isEmbed ? '' : 'min-h-screen bg-slate-50 py-8 px-4'}>
+      {isPreview && !isEmbed && (
+        <div style={{
+          maxWidth: '576px',
+          margin: '0 auto 12px',
+          padding: '10px 16px',
+          borderRadius: '10px',
+          background: '#fefce8',
+          border: '1px solid #fde68a',
+          fontSize: '13px',
+          color: '#92400e',
+          fontWeight: 500,
+          textAlign: 'center',
+        }}>
+          Preview mode — this calculator is not live yet. Only you can see this.
+        </div>
+      )}
       <QuoteWidget calculator={calculator} isEmbed={isEmbed} />
       {showChatBubble && (
         <AIChatBubble
