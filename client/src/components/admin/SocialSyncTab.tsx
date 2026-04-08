@@ -497,6 +497,36 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
     onError: () => toast({ title: "Media preparation failed", variant: "destructive" }),
   });
 
+  const { data: reviewsData } = useQuery<{ reviews: any[]; summary: any }>({
+    queryKey: [`/api/socialsync/clients/${clientId}/reviews`],
+    enabled: !!clientId,
+  });
+
+  const syncReviews = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/socialsync/clients/${clientId}/reviews/sync`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      invalidateAll();
+      queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/reviews`] });
+      toast({ title: "Reviews synced", description: `${data.new_reviews} new, ${data.replies_posted} auto-replied` });
+    },
+    onError: () => toast({ title: "Review sync failed", variant: "destructive" }),
+  });
+
+  const approveReply = useMutation({
+    mutationFn: async (reviewId: number) => {
+      const res = await apiRequest("POST", `/api/socialsync/reviews/${reviewId}/approve-reply`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/reviews`] });
+      toast({ title: "Reply posted" });
+    },
+    onError: () => toast({ title: "Reply failed", variant: "destructive" }),
+  });
+
   // ─── Render ───
 
   const profile = summary?.profile;
@@ -833,10 +863,11 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
 
       {/* ─── Data Tabs ─── */}
       <Tabs defaultValue="posts">
-        <TabsList className="w-full grid grid-cols-4">
+        <TabsList className="w-full grid grid-cols-5">
           <TabsTrigger value="posts">Posts ({posts?.length || 0})</TabsTrigger>
           <TabsTrigger value="topics">Topics ({topics?.length || 0})</TabsTrigger>
           <TabsTrigger value="queue">Queue ({queue?.length || 0})</TabsTrigger>
+          <TabsTrigger value="reviews">Reviews</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
         </TabsList>
 
@@ -1006,6 +1037,55 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
               </div>
             ) : (
               <p className="text-sm text-gray-500 text-center py-6">No queue items.</p>
+            )}
+          </Card>
+        </TabsContent>
+
+        {/* Reviews */}
+        <TabsContent value="reviews" className="mt-3">
+          <Card>
+            <div className="flex items-center justify-between p-3 border-b border-gray-100">
+              <div className="text-xs text-gray-500">
+                {reviewsData?.summary && (
+                  <span>{reviewsData.summary.needs_reply} need reply &middot; {reviewsData.summary.negative} negative &middot; {reviewsData.summary.auto_replied} auto-replied &middot; {reviewsData.summary.draft_ready} drafts</span>
+                )}
+              </div>
+              <Button size="sm" variant="outline" onClick={() => syncReviews.mutate()} disabled={syncReviews.isPending}>
+                {syncReviews.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "Sync Reviews"}
+              </Button>
+            </div>
+            {reviewsData?.reviews && reviewsData.reviews.length > 0 ? (
+              <div className="divide-y divide-gray-100">
+                {reviewsData.reviews.slice(0, 30).map((r: any) => (
+                  <div key={r.id} className={`p-3 ${r.escalation_flag ? "bg-red-50/50" : ""}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{r.reviewer_name || "Anonymous"}</span>
+                        <span className="text-xs">{"★".repeat(r.star_rating || 0)}{"☆".repeat(5 - (r.star_rating || 0))}</span>
+                        <StatusBadge status={r.sentiment || "neutral"} />
+                        <StatusBadge status={r.reply_status} />
+                        {r.escalation_flag && <span className="text-[10px] text-red-600 font-medium">ESCALATED</span>}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {r.reply_status === "draft_ready" && r.reply_text && (
+                          <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-700" onClick={() => approveReply.mutate(r.id)} disabled={approveReply.isPending}>
+                            Post Reply
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    {r.review_text && <p className="text-sm text-gray-700 line-clamp-2 mb-1">{r.review_text}</p>}
+                    {r.reply_text && (
+                      <div className="mt-1 px-2 py-1.5 bg-blue-50 rounded text-xs text-blue-800">
+                        <span className="font-medium">Draft reply: </span>{r.reply_text.slice(0, 150)}{r.reply_text.length > 150 ? "..." : ""}
+                      </div>
+                    )}
+                    {r.has_existing_owner_reply && <span className="text-[10px] text-gray-400">Owner already replied</span>}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-6">No reviews yet. Click "Sync Reviews" to fetch from Google Business.</p>
             )}
           </Card>
         </TabsContent>

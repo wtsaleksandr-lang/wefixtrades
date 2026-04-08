@@ -10,6 +10,7 @@ import { processSocialSyncQueue } from "./socialSyncWorker";
 import { generateAllDue } from "../services/socialSync/orchestrator";
 import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
 import { cleanupOldMedia } from "../services/socialSync/mediaService";
+import { processAllClientReviews } from "../services/socialSync/reviewAutomation";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -185,4 +186,16 @@ export function initScheduler() {
   }, { timezone: "UTC" });
 
   console.log("  - SocialSync media cleanup: 05:00 UTC every day");
+
+  // SocialSync review automation — runs every 6 hours
+  cron.schedule("0 */6 * * *", async () => {
+    console.log("[Scheduler] Running SocialSync review automation...");
+    try {
+      await runJob("socialsync_review_automation", processAllClientReviews);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_review_automation error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  console.log("  - SocialSync review automation: every 6 hours");
 }

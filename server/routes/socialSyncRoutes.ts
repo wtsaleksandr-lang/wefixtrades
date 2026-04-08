@@ -19,6 +19,7 @@ import {
   selectGoogleLocation, validateGoogleConnection,
 } from "../services/socialSync/googleBusinessService";
 import { disconnectPlatform as disconnectPlatformFn } from "../services/socialSync/connectionLifecycle";
+import { syncAndProcessReviews, processAllClientReviews } from "../services/socialSync/reviewAutomation";
 import { resolveMediaForPost } from "../services/socialSync/mediaService";
 import { decryptToken } from "../services/socialSync/tokenEncryption";
 import type { SocialSyncProfile, InsertSocialSyncTopic } from "@shared/schema";
@@ -1240,6 +1241,110 @@ export function registerSocialSyncRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[socialsync] Google Business status error:", err.message);
       res.status(500).json({ error: "Failed to load status" });
+    }
+  });
+
+  // ─── Phase 5B: Review Automation Routes ───
+
+  // 43. POST sync reviews for a client
+  app.post("/api/socialsync/clients/:clientId/reviews/sync", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const result = await syncAndProcessReviews(clientId);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[socialsync] Review sync error:", err.message);
+      res.status(500).json({ error: "Failed to sync reviews" });
+    }
+  });
+
+  // 44. GET reviews for a client
+  app.get("/api/socialsync/clients/:clientId/reviews", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const needsReply = req.query.needs_reply === "true" ? true : req.query.needs_reply === "false" ? false : undefined;
+      const reviews = await storage.listReviews(clientId, {
+        platform: req.query.platform as string,
+        needsReply,
+        limit: Math.min(100, parseInt(req.query.limit as string) || 50),
+      });
+
+      const summary = {
+        total: reviews.length,
+        needs_reply: reviews.filter(r => r.needs_reply && !r.has_existing_owner_reply).length,
+        negative: reviews.filter(r => r.sentiment === "negative" || r.sentiment === "urgent").length,
+        auto_replied: reviews.filter(r => r.reply_status === "auto_replied").length,
+        draft_ready: reviews.filter(r => r.reply_status === "draft_ready").length,
+        escalated: reviews.filter(r => r.escalation_flag).length,
+      };
+
+      res.json({ reviews, summary });
+    } catch (err: any) {
+      console.error("[socialsync] List reviews error:", err.message);
+      res.status(500).json({ error: "Failed to list reviews" });
+    }
+  });
+
+  // 45. POST approve and post a draft reply
+  app.post("/api/socialsync/reviews/:reviewId/approve-reply", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const reviewId = parseInt(req.params.reviewId as string);
+      if (isNaN(reviewId)) return res.status(400).json({ error: "Invalid review ID" });
+
+      // Use the db directly for a single review lookup by ID
+      const { db } = await import("../db");
+      const { reviews: reviewsTable } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [review] = await db.select().from(reviewsTable).where(eq(reviewsTable.id, reviewId)).limit(1);
+      if (!review) return res.status(404).json({ error: "Review not found" });
+
+      const replyText = req.body.reply_text || review.reply_text;
+      if (!replyText) return res.status(400).json({ error: "No reply text available" });
+
+      // Get Google credentials
+      const credentials = await getGoogleAccessToken(review.client_id);
+      if (!credentials) return res.status(400).json({ error: "No Google Business connection" });
+
+      const GBP_API_V4 = "https://mybusiness.googleapis.com/v4";
+      const url = `${GBP_API_V4}/${credentials.locationName}/reviews/${review.external_review_id}/reply`;
+      const apiRes = await fetch(url, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${credentials.token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ comment: replyText }),
+      });
+
+      const data = await apiRes.json().catch(() => ({})) as any;
+      if (!apiRes.ok) {
+        await storage.updateReview(reviewId, { reply_status: "failed", reply_result: { error: data?.error?.message, status: apiRes.status } } as any);
+        return res.status(500).json({ error: data?.error?.message || "Reply post failed" });
+      }
+
+      await storage.updateReview(reviewId, {
+        reply_text: replyText,
+        reply_status: "manually_replied",
+        reply_posted_at: new Date(),
+        reply_result: { status: apiRes.status },
+      } as any);
+
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[socialsync] Approve reply error:", err.message);
+      res.status(500).json({ error: "Failed to post reply" });
+    }
+  });
+
+  // 46. POST batch process all client reviews
+  app.post("/api/socialsync/internal/process-reviews", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const result = await processAllClientReviews();
+      res.json(result);
+    } catch (err: any) {
+      console.error("[socialsync] Batch review process error:", err.message);
+      res.status(500).json({ error: "Failed to process reviews" });
     }
   });
 }

@@ -50,6 +50,10 @@ import {
   type SocialSyncQueueItem, type InsertSocialSyncQueueItem,
   type SocialSyncActivityLog, type InsertSocialSyncActivityLog,
   type SocialSyncConnection, type InsertSocialSyncConnection,
+  // Reviews
+  reviews as reviewsTable, reviewSyncLogs,
+  type Review, type InsertReview,
+  type ReviewSyncLog, type InsertReviewSyncLog,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -235,6 +239,13 @@ export interface IStorage {
   listRecentSocialSyncPosts(clientId: number, limit?: number): Promise<SocialSyncPost[]>;
   fetchStaleSocialSyncLocks(thresholdMs: number): Promise<SocialSyncQueueItem[]>;
   listAllSocialSyncConnections(): Promise<SocialSyncConnection[]>;
+
+  // ─── Reviews ───
+  upsertReview(data: InsertReview): Promise<Review>;
+  listReviews(clientId: number, opts?: { platform?: string; needsReply?: boolean; limit?: number }): Promise<Review[]>;
+  getReviewByExternalId(clientId: number, platform: string, externalId: string): Promise<Review | undefined>;
+  updateReview(id: number, updates: Partial<InsertReview>): Promise<Review | undefined>;
+  createReviewSyncLog(data: InsertReviewSyncLog): Promise<ReviewSyncLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1464,6 +1475,56 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(socialsyncPublishQueue.locked_at)
       .limit(50);
+  }
+
+  // ─── Reviews ───
+
+  async upsertReview(data: InsertReview): Promise<Review> {
+    const existing = await this.getReviewByExternalId(data.client_id, data.platform, data.external_review_id);
+    if (existing) {
+      const [row] = await db.update(reviewsTable)
+        .set({ ...data, updated_at: new Date() })
+        .where(eq(reviewsTable.id, existing.id))
+        .returning();
+      return row;
+    }
+    const [row] = await db.insert(reviewsTable).values(data).returning();
+    return row;
+  }
+
+  async listReviews(clientId: number, opts: { platform?: string; needsReply?: boolean; limit?: number } = {}): Promise<Review[]> {
+    const { platform, needsReply, limit = 50 } = opts;
+    const conditions = [eq(reviewsTable.client_id, clientId)];
+    if (platform) conditions.push(eq(reviewsTable.platform, platform));
+    if (needsReply !== undefined) conditions.push(eq(reviewsTable.needs_reply, needsReply));
+    return db.select().from(reviewsTable)
+      .where(and(...conditions))
+      .orderBy(desc(reviewsTable.review_time))
+      .limit(limit);
+  }
+
+  async getReviewByExternalId(clientId: number, platform: string, externalId: string): Promise<Review | undefined> {
+    const [row] = await db.select().from(reviewsTable)
+      .where(and(
+        eq(reviewsTable.client_id, clientId),
+        eq(reviewsTable.platform, platform),
+        eq(reviewsTable.external_review_id, externalId),
+      ))
+      .limit(1);
+    return row;
+  }
+
+  async updateReview(id: number, updates: Partial<InsertReview>): Promise<Review | undefined> {
+    const [row] = await db.update(reviewsTable)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(reviewsTable.id, id))
+      .returning();
+    return row;
+  }
+
+  async createReviewSyncLog(data: InsertReviewSyncLog): Promise<ReviewSyncLog> {
+    const [row] = await db.insert(reviewSyncLogs).values(data).returning();
+    return row;
   }
 }
 
