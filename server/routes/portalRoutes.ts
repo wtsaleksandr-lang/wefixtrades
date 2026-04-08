@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { requireClient, hashPassword, verifyPassword } from "../auth";
 import { db } from "../db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { chat as aiChat } from "../services/aiService";
 import { authRateLimiter } from "../services/rateLimiter";
 import {
@@ -18,6 +18,8 @@ import {
   deploymentStatus,
   supportTickets,
   passwordResetTokens,
+  reviewRequests,
+  monitoredReviews,
 } from "@shared/schema";
 
 /* ─── Helpers ─── */
@@ -810,6 +812,147 @@ Do NOT:
     } catch (err) {
       console.error("Portal AI chat error:", err);
       res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
+    }
+  });
+
+  // ═══════════════════════════════════════════════
+  // ReputationShield — Client Portal
+  // ═══════════════════════════════════════════════
+
+  /**
+   * GET /api/portal/reputation/overview
+   * Summary metrics for the client's reputation status.
+   */
+  app.get("/api/portal/reputation/overview", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      // Reviews stats
+      const [reviewStats] = await db.select({
+        total: sql<number>`count(*)::int`,
+        averageRating: sql<number>`coalesce(round(avg(${monitoredReviews.rating})::numeric, 2), 0)::float`,
+        withResponse: sql<number>`count(*) filter (where ${monitoredReviews.response_text} is not null)::int`,
+        last30Days: sql<number>`count(*) filter (where ${monitoredReviews.first_seen_at} >= ${thirtyDaysAgo})::int`,
+        last7Days: sql<number>`count(*) filter (where ${monitoredReviews.first_seen_at} >= ${sevenDaysAgo})::int`,
+        lowRatingNoResponse: sql<number>`count(*) filter (where ${monitoredReviews.rating} <= 2 and ${monitoredReviews.response_text} is null)::int`,
+        withDraft: sql<number>`count(*) filter (where ${monitoredReviews.draft_response} is not null)::int`,
+      }).from(monitoredReviews)
+        .where(eq(monitoredReviews.client_id, clientId));
+
+      // Review requests stats
+      const [requestStats] = await db.select({
+        totalSent: sql<number>`count(*) filter (where ${reviewRequests.status} != 'pending')::int`,
+        pendingFollowups: sql<number>`count(*) filter (where ${reviewRequests.status} = 'sent' and ${reviewRequests.next_followup_at} is not null)::int`,
+        routedPositive: sql<number>`count(*) filter (where ${reviewRequests.status} = 'routed_positive')::int`,
+        feedbackCaptured: sql<number>`count(*) filter (where ${reviewRequests.status} = 'feedback_captured')::int`,
+      }).from(reviewRequests)
+        .where(eq(reviewRequests.client_id, clientId));
+
+      // Private feedback count
+      const [feedbackCount] = await db.select({
+        total: sql<number>`count(*) filter (where ${reviewRequests.internal_feedback} is not null)::int`,
+      }).from(reviewRequests)
+        .where(eq(reviewRequests.client_id, clientId));
+
+      const noResponse = (reviewStats?.total ?? 0) - (reviewStats?.withResponse ?? 0);
+
+      res.json({
+        reviews: {
+          total: reviewStats?.total ?? 0,
+          averageRating: reviewStats?.averageRating ?? 0,
+          last30Days: reviewStats?.last30Days ?? 0,
+          last7Days: reviewStats?.last7Days ?? 0,
+          withoutResponse: noResponse,
+          lowRatingNoResponse: reviewStats?.lowRatingNoResponse ?? 0,
+          withDraft: reviewStats?.withDraft ?? 0,
+        },
+        requests: {
+          totalSent: requestStats?.totalSent ?? 0,
+          pendingFollowups: requestStats?.pendingFollowups ?? 0,
+          routedPositive: requestStats?.routedPositive ?? 0,
+          feedbackCaptured: feedbackCount?.total ?? 0,
+        },
+      });
+    } catch (err: any) {
+      console.error("[portal] reputation overview error:", err.message);
+      res.status(500).json({ error: "Failed to load reputation data" });
+    }
+  });
+
+  /**
+   * GET /api/portal/reputation/reviews
+   * Recent public reviews for the client.
+   */
+  app.get("/api/portal/reputation/reviews", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const limit = Math.min(50, parseInt(req.query.limit as string) || 20);
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+
+      const rows = await db.select({
+        id: monitoredReviews.id,
+        reviewer_name: monitoredReviews.reviewer_name,
+        rating: monitoredReviews.rating,
+        review_text: monitoredReviews.review_text,
+        published_at: monitoredReviews.published_at,
+        response_text: monitoredReviews.response_text,
+        response_date: monitoredReviews.response_date,
+        is_new: monitoredReviews.is_new,
+        draft_response: monitoredReviews.draft_response,
+        platform: monitoredReviews.platform,
+        first_seen_at: monitoredReviews.first_seen_at,
+      }).from(monitoredReviews)
+        .where(eq(monitoredReviews.client_id, clientId))
+        .orderBy(desc(monitoredReviews.published_at))
+        .limit(limit).offset(offset);
+
+      const [countRow] = await db.select({ total: sql<number>`count(*)::int` })
+        .from(monitoredReviews)
+        .where(eq(monitoredReviews.client_id, clientId));
+
+      res.json({ data: rows, total: countRow?.total ?? 0 });
+    } catch (err: any) {
+      console.error("[portal] reputation reviews error:", err.message);
+      res.status(500).json({ error: "Failed to load reviews" });
+    }
+  });
+
+  /**
+   * GET /api/portal/reputation/feedback
+   * Private feedback captured through the sentiment gate.
+   */
+  app.get("/api/portal/reputation/feedback", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const rows = await db.select({
+        id: reviewRequests.id,
+        customer_name: reviewRequests.customer_name,
+        internal_feedback: reviewRequests.internal_feedback,
+        sentiment: reviewRequests.sentiment,
+        trigger_source: reviewRequests.trigger_source,
+        created_at: reviewRequests.created_at,
+        completed_at: reviewRequests.completed_at,
+      }).from(reviewRequests)
+        .where(and(
+          eq(reviewRequests.client_id, clientId),
+          sql`${reviewRequests.internal_feedback} is not null`,
+        ))
+        .orderBy(desc(reviewRequests.completed_at))
+        .limit(20);
+
+      res.json({ data: rows });
+    } catch (err: any) {
+      console.error("[portal] reputation feedback error:", err.message);
+      res.status(500).json({ error: "Failed to load feedback" });
     }
   });
 }

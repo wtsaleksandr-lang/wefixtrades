@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   Menu,
   LogOut,
+  Star,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
@@ -24,6 +25,7 @@ import {
 const NAV_ITEMS = [
   { label: "Overview", href: "/portal", icon: LayoutDashboard },
   { label: "Services", href: "/portal/services", icon: Wrench },
+  { label: "Reviews", href: "/portal/reviews", icon: Star },
   { label: "Billing", href: "/portal/billing", icon: CreditCard },
   { label: "Help", href: "/portal/help", icon: HelpCircle },
   { label: "Settings", href: "/portal/settings", icon: Settings },
