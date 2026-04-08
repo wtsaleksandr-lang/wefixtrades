@@ -25,6 +25,7 @@ export function registerReviewPublicRoutes(app: Express): void {
         await storage.updateReviewRequest(rr.id, {
           status: "clicked",
           clicked_at: new Date(),
+          next_followup_at: null,
         });
       }
 
@@ -74,6 +75,7 @@ export function registerReviewPublicRoutes(app: Express): void {
           sentiment,
           status: "routed_positive",
           completed_at: new Date(),
+          next_followup_at: null,
         });
         res.json({
           ok: true,
@@ -85,6 +87,7 @@ export function registerReviewPublicRoutes(app: Express): void {
         await storage.updateReviewRequest(rr.id, {
           sentiment: "negative",
           status: "routed_negative",
+          next_followup_at: null,
         });
         res.json({
           ok: true,
@@ -124,6 +127,7 @@ export function registerReviewPublicRoutes(app: Express): void {
         internal_feedback: message.trim().slice(0, 5000),
         status: "feedback_captured",
         completed_at: new Date(),
+        next_followup_at: null,
       });
 
       res.json({ ok: true });

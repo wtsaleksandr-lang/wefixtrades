@@ -5,6 +5,7 @@ import { sendWeeklyReports } from "./weeklyReport";
 import { processNotificationQueue } from "./notificationWorker";
 import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
+import { processReviewFollowups } from "./reviewFollowupWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
 
 const MAX_RETRIES = 3;
@@ -116,6 +117,14 @@ export function initScheduler() {
     }
   });
 
+  cron.schedule("* * * * *", async () => {
+    try {
+      await processReviewFollowups();
+    } catch (err: any) {
+      console.error("[Scheduler] review_followup_worker error:", err.message);
+    }
+  });
+
   // Chat memory cleanup — runs daily at 3 AM UTC, removes expired 7-day records
   cron.schedule("0 3 * * *", async () => {
     console.log("[Scheduler] Running chat memory cleanup...");
@@ -136,4 +145,5 @@ export function initScheduler() {
   console.log("  - Notification queue worker: every minute");
   console.log("  - Follow-up jobs worker: every minute");
   console.log("  - Audit follow-up worker: every minute");
+  console.log("  - Review follow-up worker: every minute");
 }

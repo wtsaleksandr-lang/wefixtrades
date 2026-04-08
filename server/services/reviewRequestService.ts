@@ -183,6 +183,9 @@ export async function processReviewRequest(rr: ReviewRequest): Promise<{ sent: b
 
   const baseUrl = getBaseUrl();
 
+  // Schedule first follow-up 1 day after initial send
+  const FIRST_FOLLOWUP_DELAY_MS = 1 * 24 * 60 * 60 * 1000;
+
   if (rr.channel === "email") {
     const result = await sendReviewRequestEmail(rr, baseUrl);
     if (result.ok) {
@@ -190,6 +193,7 @@ export async function processReviewRequest(rr: ReviewRequest): Promise<{ sent: b
         status: "sent",
         sent_at: new Date(),
         attempts: (rr.attempts || 0) + 1,
+        next_followup_at: new Date(Date.now() + FIRST_FOLLOWUP_DELAY_MS),
       });
       return { sent: true };
     } else {
@@ -259,6 +263,7 @@ export async function processReviewRequest(rr: ReviewRequest): Promise<{ sent: b
         status: "sent",
         sent_at: new Date(),
         attempts: (rr.attempts || 0) + 1,
+        next_followup_at: new Date(Date.now() + FIRST_FOLLOWUP_DELAY_MS),
       });
       return { sent: true };
     } catch (err: any) {

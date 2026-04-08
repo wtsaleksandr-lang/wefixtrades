@@ -194,6 +194,7 @@ export interface IStorage {
   getReviewRequestByToken(token: string): Promise<ReviewRequest | undefined>;
   getReviewRequestById(id: number): Promise<ReviewRequest | undefined>;
   fetchDueReviewRequests(limit?: number): Promise<ReviewRequest[]>;
+  fetchDueReviewFollowups(limit?: number): Promise<ReviewRequest[]>;
   updateReviewRequest(id: number, updates: Record<string, any>): Promise<ReviewRequest | undefined>;
   listReviewRequests(opts?: { clientId?: number; status?: string; limit?: number; offset?: number }): Promise<ReviewRequest[]>;
   stopReviewRequestsForBooking(bookingId: number): Promise<void>;
@@ -1313,6 +1314,19 @@ export class DatabaseStorage implements IStorage {
         sql`${reviewRequests.attempts} < ${reviewRequests.max_attempts}`,
       ))
       .orderBy(reviewRequests.run_at)
+      .limit(limit);
+  }
+
+  async fetchDueReviewFollowups(limit = 20): Promise<ReviewRequest[]> {
+    const now = new Date();
+    return db.select().from(reviewRequests)
+      .where(and(
+        eq(reviewRequests.status, "sent"),
+        sql`${reviewRequests.next_followup_at} IS NOT NULL`,
+        lte(reviewRequests.next_followup_at, now),
+        sql`${reviewRequests.sequence_step} < 2`,
+      ))
+      .orderBy(reviewRequests.next_followup_at)
       .limit(limit);
   }
 
