@@ -966,4 +966,108 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to update review request" });
     }
   });
+
+  // ═══════════════════════════════════════════════
+  // Monitored Reviews
+  // ═══════════════════════════════════════════════
+
+  /**
+   * GET /api/admin/crm/monitored-reviews
+   * List public reviews with filters.
+   */
+  app.get("/api/admin/crm/monitored-reviews", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = req.query.clientId ? parseInt(req.query.clientId as string) : undefined;
+      const platform = req.query.platform as string | undefined;
+      const isNew = req.query.isNew === "true" ? true : req.query.isNew === "false" ? false : undefined;
+      const minRating = req.query.minRating ? parseInt(req.query.minRating as string) : undefined;
+      const maxRating = req.query.maxRating ? parseInt(req.query.maxRating as string) : undefined;
+      const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+
+      const [data, total] = await Promise.all([
+        storage.listMonitoredReviews({ clientId, platform, isNew, minRating, maxRating, limit, offset }),
+        storage.countMonitoredReviews({ clientId, isNew }),
+      ]);
+      res.json({ data, total });
+    } catch (err: any) {
+      console.error("[admin-crm] List monitored reviews error:", err.message);
+      res.status(500).json({ error: "Failed to list monitored reviews" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/monitored-reviews/stats
+   * Review monitoring summary: counts, average rating, distribution.
+   */
+  app.get("/api/admin/crm/monitored-reviews/stats", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = req.query.clientId ? parseInt(req.query.clientId as string) : undefined;
+      const stats = await storage.getMonitoredReviewStats(clientId);
+      res.json(stats);
+    } catch (err: any) {
+      console.error("[admin-crm] Monitored review stats error:", err.message);
+      res.status(500).json({ error: "Failed to get stats" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/monitored-reviews/acknowledge
+   * Mark reviews as acknowledged (is_new = false).
+   */
+  app.post("/api/admin/crm/monitored-reviews/acknowledge", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "ids array is required" });
+      }
+      await storage.markMonitoredReviewsAcknowledged(ids);
+      res.json({ ok: true, acknowledged: ids.length });
+    } catch (err: any) {
+      console.error("[admin-crm] Acknowledge reviews error:", err.message);
+      res.status(500).json({ error: "Failed to acknowledge reviews" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/monitored-reviews/sync
+   * Trigger an immediate review sync for a specific client.
+   */
+  app.post("/api/admin/crm/monitored-reviews/sync", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { client_id } = req.body;
+      if (!client_id) return res.status(400).json({ error: "client_id is required" });
+
+      const client = await storage.getClientById(client_id);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+      if (!client.google_place_id) {
+        return res.status(400).json({ error: "Client has no google_place_id configured" });
+      }
+
+      // Fire sync in background
+      const { processReviewMonitoring } = await import("../jobs/reviewMonitorWorker");
+      // We can't easily sync a single client through the batch function,
+      // so we update the sync timestamp to null to make it highest priority, then run
+      await storage.updateClient(client_id, { last_review_sync_at: null as any });
+
+      processReviewMonitoring().catch((err: any) => {
+        console.error("[admin-crm] Manual review sync error:", err.message);
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review_monitoring.manual_sync",
+        entity_type: "client",
+        entity_id: client_id,
+        summary: `Triggered manual review sync for ${client.business_name}`,
+      });
+
+      res.json({ ok: true, message: "Sync triggered" });
+    } catch (err: any) {
+      console.error("[admin-crm] Manual review sync error:", err.message);
+      res.status(500).json({ error: "Failed to trigger sync" });
+    }
+  });
 }

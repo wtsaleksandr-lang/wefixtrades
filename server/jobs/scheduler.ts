@@ -6,6 +6,7 @@ import { processNotificationQueue } from "./notificationWorker";
 import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
 import { processReviewFollowups } from "./reviewFollowupWorker";
+import { processReviewMonitoring } from "./reviewMonitorWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
 
 const MAX_RETRIES = 3;
@@ -125,6 +126,16 @@ export function initScheduler() {
     }
   });
 
+  // Review monitoring — runs every 6 hours, fetches new Google reviews for clients
+  cron.schedule("0 */6 * * *", async () => {
+    console.log("[Scheduler] Running review monitoring...");
+    try {
+      await runJob("review_monitoring", processReviewMonitoring);
+    } catch (err: any) {
+      console.error("[Scheduler] review_monitoring cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
   // Chat memory cleanup — runs daily at 3 AM UTC, removes expired 7-day records
   cron.schedule("0 3 * * *", async () => {
     console.log("[Scheduler] Running chat memory cleanup...");
@@ -146,4 +157,5 @@ export function initScheduler() {
   console.log("  - Follow-up jobs worker: every minute");
   console.log("  - Audit follow-up worker: every minute");
   console.log("  - Review follow-up worker: every minute");
+  console.log("  - Review monitoring: every 6 hours");
 }

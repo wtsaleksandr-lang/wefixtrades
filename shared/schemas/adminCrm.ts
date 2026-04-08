@@ -36,6 +36,7 @@ export const clients = pgTable("clients", {
   contact_phone: text("contact_phone"),
   website_url: text("website_url"),
   google_place_id: text("google_place_id"),
+  last_review_sync_at: timestamp("last_review_sync_at"),
   trade_type: varchar("trade_type", { length: 100 }),
   status: varchar("status", { length: 30 }).notNull().default("lead"),
   // lead | onboarding | active | paused | churned
@@ -352,3 +353,46 @@ export const insertReviewRequestSchema = createInsertSchema(reviewRequests).omit
 });
 export type InsertReviewRequest = z.infer<typeof insertReviewRequestSchema>;
 export type ReviewRequest = typeof reviewRequests.$inferSelect;
+
+/* ─── Monitored Reviews ─── */
+export const monitoredReviews = pgTable("monitored_reviews", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").references(() => clients.id),
+  google_place_id: text("google_place_id").notNull(),
+
+  // Platform: "google" (extensible to yelp, facebook, etc.)
+  platform: varchar("platform", { length: 30 }).notNull().default("google"),
+
+  // Dedup key: "placeId:externalId" or "placeId:reviewer:rating:date"
+  dedup_key: varchar("dedup_key", { length: 512 }).notNull().unique(),
+
+  // External identifiers
+  external_review_id: text("external_review_id"),
+
+  // Review content
+  reviewer_name: text("reviewer_name").notNull(),
+  rating: integer("rating").notNull(),
+  review_text: text("review_text"),
+  published_at: timestamp("published_at"),
+
+  // Owner response
+  response_text: text("response_text"),
+  response_date: timestamp("response_date"),
+
+  // Tracking
+  raw_payload: jsonb("raw_payload"),
+  first_seen_at: timestamp("first_seen_at").defaultNow(),
+  last_synced_at: timestamp("last_synced_at").defaultNow(),
+
+  // Change detection flags
+  is_new: boolean("is_new").notNull().default(true),           // true until admin acknowledges
+  response_added: boolean("response_added").notNull().default(false), // set when response_text first appears
+
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+export const insertMonitoredReviewSchema = createInsertSchema(monitoredReviews).omit({
+  id: true, created_at: true, updated_at: true, first_seen_at: true, last_synced_at: true,
+});
+export type InsertMonitoredReview = z.infer<typeof insertMonitoredReviewSchema>;
+export type MonitoredReview = typeof monitoredReviews.$inferSelect;

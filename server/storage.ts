@@ -43,6 +43,8 @@ import {
   type OnboardingTemplate,
   reviewRequests,
   type ReviewRequest, type InsertReviewRequest,
+  monitoredReviews,
+  type MonitoredReview, type InsertMonitoredReview,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -201,6 +203,15 @@ export interface IStorage {
   getReviewRequestStats(): Promise<{ total: number; pending: number; sent: number; clicked: number; routed_positive: number; routed_negative: number; feedback_captured: number; completed: number; failed: number; stopped: number; due_for_followup: number }>;
   stopReviewRequestsForBooking(bookingId: number): Promise<void>;
   findClientByUserId(userId: number): Promise<Client | undefined>;
+
+  // ─── Monitored Reviews ───
+  upsertMonitoredReview(data: InsertMonitoredReview): Promise<{ review: MonitoredReview; isNew: boolean }>;
+  findMonitoredReviewByDedupKey(dedupKey: string): Promise<MonitoredReview | undefined>;
+  listMonitoredReviews(opts?: { clientId?: number; platform?: string; isNew?: boolean; minRating?: number; maxRating?: number; limit?: number; offset?: number }): Promise<MonitoredReview[]>;
+  countMonitoredReviews(opts?: { clientId?: number; isNew?: boolean }): Promise<number>;
+  getMonitoredReviewStats(clientId?: number): Promise<{ total: number; averageRating: number; newCount: number; withResponse: number; byRating: Record<number, number> }>;
+  markMonitoredReviewsAcknowledged(ids: number[]): Promise<void>;
+  listClientsForReviewSync(limit?: number): Promise<Client[]>;
 
   // CRM Overview
   getCrmOverview(): Promise<{
@@ -1405,6 +1416,115 @@ export class DatabaseStorage implements IStorage {
       .where(eq(clients.user_id, userId))
       .limit(1);
     return row;
+  }
+
+  // ═══════════════════════════════════════════════
+  // Monitored Reviews
+  // ═══════════════════════════════════════════════
+
+  async upsertMonitoredReview(data: InsertMonitoredReview): Promise<{ review: MonitoredReview; isNew: boolean }> {
+    // Check if already exists
+    const existing = await this.findMonitoredReviewByDedupKey(data.dedup_key);
+    if (existing) {
+      // Update if response was added or review text changed
+      const updates: Record<string, any> = { last_synced_at: new Date(), updated_at: new Date() };
+      let changed = false;
+
+      if (data.response_text && !existing.response_text) {
+        updates.response_text = data.response_text;
+        updates.response_date = data.response_date;
+        updates.response_added = true;
+        changed = true;
+      }
+      if (data.review_text && data.review_text !== existing.review_text) {
+        updates.review_text = data.review_text;
+        changed = true;
+      }
+      if (data.raw_payload) {
+        updates.raw_payload = data.raw_payload;
+      }
+
+      const [updated] = await db.update(monitoredReviews)
+        .set(updates)
+        .where(eq(monitoredReviews.id, existing.id))
+        .returning();
+      return { review: updated, isNew: false };
+    }
+
+    // Insert new
+    const [row] = await db.insert(monitoredReviews).values(data).returning();
+    return { review: row, isNew: true };
+  }
+
+  async findMonitoredReviewByDedupKey(dedupKey: string): Promise<MonitoredReview | undefined> {
+    const [row] = await db.select().from(monitoredReviews)
+      .where(eq(monitoredReviews.dedup_key, dedupKey))
+      .limit(1);
+    return row;
+  }
+
+  async listMonitoredReviews(opts: { clientId?: number; platform?: string; isNew?: boolean; minRating?: number; maxRating?: number; limit?: number; offset?: number } = {}): Promise<MonitoredReview[]> {
+    const { clientId, platform, isNew, minRating, maxRating, limit = 50, offset = 0 } = opts;
+    const conditions = [];
+    if (clientId) conditions.push(eq(monitoredReviews.client_id, clientId));
+    if (platform) conditions.push(eq(monitoredReviews.platform, platform));
+    if (isNew !== undefined) conditions.push(eq(monitoredReviews.is_new, isNew));
+    if (minRating) conditions.push(sql`${monitoredReviews.rating} >= ${minRating}`);
+    if (maxRating) conditions.push(sql`${monitoredReviews.rating} <= ${maxRating}`);
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(monitoredReviews)
+      .where(where)
+      .orderBy(desc(monitoredReviews.published_at))
+      .limit(limit).offset(offset);
+  }
+
+  async countMonitoredReviews(opts: { clientId?: number; isNew?: boolean } = {}): Promise<number> {
+    const conditions = [];
+    if (opts.clientId) conditions.push(eq(monitoredReviews.client_id, opts.clientId));
+    if (opts.isNew !== undefined) conditions.push(eq(monitoredReviews.is_new, opts.isNew));
+    const where = conditions.length ? and(...conditions) : undefined;
+    const [row] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(monitoredReviews).where(where);
+    return row?.count ?? 0;
+  }
+
+  async getMonitoredReviewStats(clientId?: number): Promise<{ total: number; averageRating: number; newCount: number; withResponse: number; byRating: Record<number, number> }> {
+    const cond = clientId ? eq(monitoredReviews.client_id, clientId) : undefined;
+    const [row] = await db.select({
+      total: sql<number>`count(*)::int`,
+      averageRating: sql<number>`coalesce(round(avg(${monitoredReviews.rating})::numeric, 2), 0)::float`,
+      newCount: sql<number>`count(*) filter (where ${monitoredReviews.is_new} = true)::int`,
+      withResponse: sql<number>`count(*) filter (where ${monitoredReviews.response_text} is not null)::int`,
+      r1: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 1)::int`,
+      r2: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 2)::int`,
+      r3: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 3)::int`,
+      r4: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 4)::int`,
+      r5: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 5)::int`,
+    }).from(monitoredReviews).where(cond);
+    return {
+      total: row?.total ?? 0,
+      averageRating: row?.averageRating ?? 0,
+      newCount: row?.newCount ?? 0,
+      withResponse: row?.withResponse ?? 0,
+      byRating: { 1: row?.r1 ?? 0, 2: row?.r2 ?? 0, 3: row?.r3 ?? 0, 4: row?.r4 ?? 0, 5: row?.r5 ?? 0 },
+    };
+  }
+
+  async markMonitoredReviewsAcknowledged(ids: number[]): Promise<void> {
+    if (ids.length === 0) return;
+    await db.update(monitoredReviews)
+      .set({ is_new: false, updated_at: new Date() })
+      .where(sql`${monitoredReviews.id} = ANY(ARRAY[${sql.raw(ids.join(","))}]::int[])`);
+  }
+
+  async listClientsForReviewSync(limit = 20): Promise<Client[]> {
+    return db.select().from(clients)
+      .where(and(
+        isNotNull(clients.google_place_id),
+        sql`${clients.status} IN ('active', 'onboarding')`,
+      ))
+      .orderBy(sql`${clients.last_review_sync_at} ASC NULLS FIRST`)
+      .limit(limit);
   }
 }
 
