@@ -54,6 +54,7 @@ async function processReviews(
         platform,
         dedup_key: dedupKey,
         external_review_id: normalized.externalId,
+        google_review_name: normalized.googleReviewName,
         reviewer_name: normalized.reviewerName,
         rating: normalized.rating,
         review_text: normalized.reviewText,

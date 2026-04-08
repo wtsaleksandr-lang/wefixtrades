@@ -1241,4 +1241,166 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to update config" });
     }
   });
+
+  // ═══════════════════════════════════════════════
+  // Google Business Connection + Review Posting
+  // ═══════════════════════════════════════════════
+
+  /**
+   * GET /api/admin/crm/google/connect?clientId=X
+   * Initiates Google OAuth flow for a client.
+   */
+  app.get("/api/admin/crm/google/connect", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.query.clientId as string);
+      if (!clientId) return res.status(400).json({ error: "clientId required" });
+
+      const { isGoogleOAuthConfigured, getGoogleAuthUrl } = await import("../services/googleBusinessService");
+      if (!isGoogleOAuthConfigured()) {
+        return res.status(503).json({ error: "Google OAuth is not configured on this server" });
+      }
+
+      const state = JSON.stringify({ clientId, adminId: (req.user as any)?.id });
+      const authUrl = getGoogleAuthUrl(state);
+      res.json({ authUrl });
+    } catch (err: any) {
+      console.error("[admin-crm] Google connect error:", err.message);
+      res.status(500).json({ error: "Failed to initiate Google connection" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/google/callback?code=...&state=...
+   * Google OAuth callback — exchanges code for tokens.
+   */
+  app.get("/api/admin/crm/google/callback", async (req: Request, res: Response) => {
+    try {
+      const code = req.query.code as string;
+      const stateStr = req.query.state as string;
+      if (!code || !stateStr) return res.status(400).send("Missing code or state");
+
+      let state: { clientId: number; adminId?: number };
+      try { state = JSON.parse(stateStr); } catch { return res.status(400).send("Invalid state"); }
+
+      const { handleGoogleCallback } = await import("../services/googleBusinessService");
+      const result = await handleGoogleCallback(code, state.clientId);
+
+      if (result.ok) {
+        await storage.logAdminActivity({
+          actor_type: "human",
+          actor_id: state.adminId ?? null,
+          actor_name: null,
+          action: "google.connected",
+          entity_type: "client",
+          entity_id: state.clientId,
+          summary: `Google Business Profile connected for client #${state.clientId}`,
+        });
+
+        // Redirect back to admin CRM
+        res.redirect(`/admin/crm/clients/${state.clientId}?google_connected=true`);
+      } else {
+        res.redirect(`/admin/crm/clients/${state.clientId}?google_error=${encodeURIComponent(result.error || "Unknown error")}`);
+      }
+    } catch (err: any) {
+      console.error("[admin-crm] Google callback error:", err.message);
+      res.status(500).send("Google connection failed");
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/clients/:id/google-status
+   * Check if a client has a Google Business connection.
+   */
+  app.get("/api/admin/crm/clients/:id/google-status", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id as string);
+      const { hasGoogleConnection, isGoogleOAuthConfigured } = await import("../services/googleBusinessService");
+      const connected = await hasGoogleConnection(clientId);
+      res.json({ connected, oauthConfigured: isGoogleOAuthConfigured() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/monitored-reviews/:id/post-to-google
+   * Post a draft response to Google for a monitored review.
+   */
+  app.post("/api/admin/crm/monitored-reviews/:id/post-to-google", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const reviewId = parseInt(req.params.id as string);
+      const review = await storage.getMonitoredReviewById(reviewId);
+      if (!review) return res.status(404).json({ error: "Review not found" });
+
+      // Must be a Google review
+      if (review.platform !== "google") {
+        return res.status(400).json({ error: "Only Google reviews can be posted to. This is a " + review.platform + " review." });
+      }
+
+      // Must have a client
+      if (!review.client_id) {
+        return res.status(400).json({ error: "Review has no associated client" });
+      }
+
+      // Feature gating: posting requires Scale/Premium tier
+      const { extractTier, canAccessFeature } = await import("@shared/reputationConfig");
+      const svc = await storage.getClientReputationService(review.client_id);
+      const tier = svc ? extractTier(svc.serviceId) : null;
+      // For now, posting is available to all tiers with Google connection (can be gated later)
+
+      // Get the response text
+      const responseText = (req.body.response_text || review.draft_response || "").trim();
+      if (!responseText || responseText.length < 5) {
+        return res.status(400).json({ error: "Response text is required (minimum 5 characters)" });
+      }
+
+      // Need Google review name for posting
+      if (!review.google_review_name) {
+        return res.status(400).json({
+          error: "This review does not have a Google API identifier. It may have been collected before posting support was added, or the identifier was not available from the review source.",
+          code: "NO_REVIEW_NAME",
+        });
+      }
+
+      // Check Google connection
+      const { hasGoogleConnection, postGoogleReviewReply } = await import("../services/googleBusinessService");
+      const connected = await hasGoogleConnection(review.client_id);
+      if (!connected) {
+        return res.status(400).json({
+          error: "Google Business Profile is not connected for this client. Connect it first via Settings.",
+          code: "NOT_CONNECTED",
+        });
+      }
+
+      // Post the reply
+      const postResult = await postGoogleReviewReply(review.client_id, review.google_review_name, responseText);
+      if (!postResult.ok) {
+        return res.status(502).json({ error: postResult.error, code: "POST_FAILED" });
+      }
+
+      // Update local record
+      await storage.updateMonitoredReview(reviewId, {
+        response_text: responseText,
+        response_date: new Date(),
+        posted_via: "reputationshield",
+        posted_at: new Date(),
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review.response_posted",
+        entity_type: "monitored_review",
+        entity_id: reviewId,
+        summary: `Posted response to Google for ${review.rating}★ review by ${review.reviewer_name}`,
+        metadata: { platform: "google", clientId: review.client_id },
+      });
+
+      res.json({ ok: true, postedAt: new Date().toISOString() });
+    } catch (err: any) {
+      console.error("[admin-crm] Post to Google error:", err.message);
+      res.status(500).json({ error: "Failed to post response to Google" });
+    }
+  });
 }

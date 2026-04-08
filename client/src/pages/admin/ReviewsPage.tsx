@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Star, TrendingUp, AlertTriangle, MessageSquare, Eye, CheckCircle2, RefreshCw,
-  Sparkles, Copy, Save, Loader2, FileText, ShieldAlert,
+  Sparkles, Copy, Save, Loader2, FileText, ShieldAlert, Send,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +40,9 @@ interface MonitoredReview {
   draft_response: string | null;
   draft_generated_at: string | null;
   draft_model: string | null;
+  google_review_name: string | null;
+  posted_via: string | null;
+  posted_at: string | null;
 }
 
 interface ReviewStats {
@@ -232,6 +235,27 @@ export default function ReviewsPage() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/monitored-reviews"] });
       toast({ title: "Draft saved" });
+    },
+  });
+
+  const postToGoogleMutation = useMutation({
+    mutationFn: async ({ id, text }: { id: number; text: string }) => {
+      const res = await apiRequest("POST", `/api/admin/crm/monitored-reviews/${id}/post-to-google`, { response_text: text });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to post");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      if (selected) {
+        setSelected({ ...selected, response_text: draftText, posted_via: "reputationshield", posted_at: new Date().toISOString() });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/monitored-reviews"] });
+      toast({ title: "Response posted to Google" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to post", description: err.message });
     },
   });
 
@@ -481,9 +505,12 @@ export default function ReviewsPage() {
                       <p className="text-sm text-green-800 leading-relaxed whitespace-pre-wrap">
                         {selected.response_text}
                       </p>
-                      {selected.response_date && (
-                        <p className="text-xs text-green-500 mt-2">Posted {formatDate(selected.response_date)}</p>
-                      )}
+                      <div className="flex items-center gap-2 mt-2 text-xs text-green-500">
+                        {selected.response_date && <span>Posted {formatDate(selected.response_date)}</span>}
+                        {selected.posted_via === "reputationshield" && (
+                          <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px] font-medium">via ReputationShield</span>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <p className="text-sm text-gray-400 italic">No public response yet.</p>
@@ -574,6 +601,20 @@ export default function ReviewsPage() {
                               <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Saving...</>
                             ) : (
                               <><Save className="w-3 h-3 mr-1" /> Save Draft</>
+                            )}
+                          </Button>
+                        )}
+                        {selected.platform === "google" && selected.google_review_name && !selected.response_text && (
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                            disabled={postToGoogleMutation.isPending || !draftText.trim()}
+                            onClick={() => postToGoogleMutation.mutate({ id: selected.id, text: draftText })}
+                          >
+                            {postToGoogleMutation.isPending ? (
+                              <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Posting...</>
+                            ) : (
+                              <><Send className="w-3 h-3 mr-1" /> Post to Google</>
                             )}
                           </Button>
                         )}

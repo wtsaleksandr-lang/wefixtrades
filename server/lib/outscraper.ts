@@ -221,6 +221,7 @@ export function normalizeReview(raw: OutscraperReview): {
   publishedAt: Date | null;
   responseText: string | null;
   responseDate: Date | null;
+  googleReviewName: string | null;
   rawPayload: Record<string, any>;
 } {
   const rating = typeof raw.review_rating === "number"
@@ -237,6 +238,11 @@ export function normalizeReview(raw: OutscraperReview): {
     ? new Date(raw.owner_answer_timestamp)
     : null;
 
+  // Outscraper may return a Google review name like "accounts/.../locations/.../reviews/..."
+  const googleReviewName = raw.review_id && raw.review_id.startsWith("accounts/")
+    ? raw.review_id
+    : null;
+
   return {
     externalId: raw.review_id || raw.author_id || null,
     reviewerName: raw.author_title || "Anonymous",
@@ -245,6 +251,7 @@ export function normalizeReview(raw: OutscraperReview): {
     publishedAt,
     responseText,
     responseDate,
+    googleReviewName,
     rawPayload: raw,
   };
 }

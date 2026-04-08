@@ -37,6 +37,7 @@ export const clients = pgTable("clients", {
   website_url: text("website_url"),
   google_place_id: text("google_place_id"),
   facebook_page_url: text("facebook_page_url"),
+  google_credentials: jsonb("google_credentials"), // OAuth tokens for Google Business API
   widget_token: varchar("widget_token", { length: 64 }).unique(),
   last_review_sync_at: timestamp("last_review_sync_at"),
   trade_type: varchar("trade_type", { length: 100 }),
@@ -372,6 +373,7 @@ export const monitoredReviews = pgTable("monitored_reviews", {
 
   // External identifiers
   external_review_id: text("external_review_id"),
+  google_review_name: text("google_review_name"), // Google API resource name for reply posting
 
   // Review content
   reviewer_name: text("reviewer_name").notNull(),
@@ -396,6 +398,10 @@ export const monitoredReviews = pgTable("monitored_reviews", {
   draft_response: text("draft_response"),
   draft_generated_at: timestamp("draft_generated_at"),
   draft_model: varchar("draft_model", { length: 60 }),
+
+  // Response posting tracking
+  posted_via: varchar("posted_via", { length: 30 }), // "reputationshield" | "manual" | null
+  posted_at: timestamp("posted_at"),
 
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
