@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Star, TrendingUp, AlertTriangle, MessageSquare, Eye, CheckCircle2, RefreshCw,
-  Sparkles, Copy, Save, Loader2,
+  Sparkles, Copy, Save, Loader2, FileText, ShieldAlert,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +49,8 @@ interface ReviewStats {
   withResponse: number;
   byRating: Record<number, number>;
 }
+
+type DraftTone = "auto" | "positive" | "negative" | "neutral";
 
 function RatingStars({ rating }: { rating: number }) {
   return (
@@ -109,6 +111,11 @@ function truncate(text: string | null, maxLen: number): string {
   return text.length > maxLen ? text.slice(0, maxLen) + "…" : text;
 }
 
+/** Whether this review needs urgent attention (low rating, no public response). */
+function needsAttention(r: MonitoredReview): boolean {
+  return r.rating <= 2 && !r.response_text;
+}
+
 export default function ReviewsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -118,6 +125,23 @@ export default function ReviewsPage() {
   const [selected, setSelected] = useState<MonitoredReview | null>(null);
   const [draftText, setDraftText] = useState("");
   const [draftEdited, setDraftEdited] = useState(false);
+  const [draftTone, setDraftTone] = useState<DraftTone>("auto");
+  const [copied, setCopied] = useState(false);
+
+  const openReview = (r: MonitoredReview) => {
+    setSelected(r);
+    setDraftText(r.draft_response || "");
+    setDraftEdited(false);
+    setDraftTone("auto");
+    setCopied(false);
+  };
+
+  const closeReview = () => {
+    setSelected(null);
+    setDraftText("");
+    setDraftEdited(false);
+    setCopied(false);
+  };
 
   // Build query params
   const buildParams = () => {
@@ -130,9 +154,6 @@ export default function ReviewsPage() {
       params.set("maxRating", ratingFilter);
     }
     if (statusFilter === "new") params.set("isNew", "true");
-    if (statusFilter === "no_response") {
-      // API doesn't have this filter directly — we'll filter client-side
-    }
     return params.toString();
   };
 
@@ -179,18 +200,22 @@ export default function ReviewsPage() {
   });
 
   const draftMutation = useMutation({
-    mutationFn: async (reviewId: number) => {
-      const res = await apiRequest("POST", `/api/admin/crm/monitored-reviews/${reviewId}/draft-response`);
+    mutationFn: async ({ reviewId, tone }: { reviewId: number; tone: DraftTone }) => {
+      const body = tone !== "auto" ? { tone } : undefined;
+      const res = await apiRequest("POST", `/api/admin/crm/monitored-reviews/${reviewId}/draft-response`, body);
       return res.json();
     },
     onSuccess: (data: { draft: string; tone: string; generated: boolean; error?: string }) => {
       setDraftText(data.draft);
       setDraftEdited(false);
+      setCopied(false);
       if (selected) {
-        setSelected({ ...selected, draft_response: data.draft, draft_generated_at: new Date().toISOString() });
+        setSelected({ ...selected, draft_response: data.draft, draft_generated_at: new Date().toISOString(), draft_model: data.generated ? "ai" : "fallback" });
       }
       if (!data.generated) {
         toast({ title: "AI unavailable", description: "Using fallback response. You can edit it." });
+      } else {
+        toast({ title: "Draft generated" });
       }
     },
   });
@@ -202,18 +227,32 @@ export default function ReviewsPage() {
     },
     onSuccess: () => {
       setDraftEdited(false);
+      if (selected) {
+        setSelected({ ...selected, draft_response: draftText });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/monitored-reviews"] });
       toast({ title: "Draft saved" });
     },
   });
 
-  // Client-side filter for no_response
+  // Client-side filters
   let reviews = listData?.data ?? [];
   if (statusFilter === "no_response") {
     reviews = reviews.filter((r) => !r.response_text);
   }
+  if (statusFilter === "needs_attention") {
+    reviews = reviews.filter((r) => needsAttention(r));
+  }
+  if (statusFilter === "has_draft") {
+    reviews = reviews.filter((r) => !!r.draft_response);
+  }
 
   const noResponse = stats ? stats.total - stats.withResponse : 0;
   const lowRating = stats ? (stats.byRating[1] ?? 0) + (stats.byRating[2] ?? 0) : 0;
+
+  const isLowRating = selected ? selected.rating <= 2 : false;
+  const hasPublicResponse = selected ? !!selected.response_text : false;
+  const hasDraft = !!draftText;
 
   return (
     <AdminLayout pageContext={{ page: "reviews" }}>
@@ -226,36 +265,11 @@ export default function ReviewsPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <StatCard
-            label="Total Reviews"
-            value={stats?.total ?? "—"}
-            icon={Star}
-            color="bg-blue-500"
-          />
-          <StatCard
-            label="Avg Rating"
-            value={stats ? `${stats.averageRating}★` : "—"}
-            icon={TrendingUp}
-            color="bg-emerald-500"
-          />
-          <StatCard
-            label="New / Unseen"
-            value={stats?.newCount ?? "—"}
-            icon={Eye}
-            color="bg-violet-500"
-          />
-          <StatCard
-            label="No Response"
-            value={noResponse}
-            icon={MessageSquare}
-            color="bg-amber-500"
-          />
-          <StatCard
-            label="Low Rating"
-            value={lowRating}
-            icon={AlertTriangle}
-            color="bg-red-500"
-          />
+          <StatCard label="Total Reviews" value={stats?.total ?? "—"} icon={Star} color="bg-blue-500" />
+          <StatCard label="Avg Rating" value={stats ? `${stats.averageRating}★` : "—"} icon={TrendingUp} color="bg-emerald-500" />
+          <StatCard label="New / Unseen" value={stats?.newCount ?? "—"} icon={Eye} color="bg-violet-500" />
+          <StatCard label="No Response" value={noResponse} icon={MessageSquare} color="bg-amber-500" />
+          <StatCard label="Low Rating" value={lowRating} icon={AlertTriangle} color="bg-red-500" />
         </div>
 
         {/* Rating distribution bar */}
@@ -303,13 +317,15 @@ export default function ReviewsPage() {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[160px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Reviews</SelectItem>
               <SelectItem value="new">New / Unseen</SelectItem>
               <SelectItem value="no_response">No Response</SelectItem>
+              <SelectItem value="needs_attention">Needs Attention</SelectItem>
+              <SelectItem value="has_draft">Has Draft</SelectItem>
             </SelectContent>
           </Select>
           {stats && stats.newCount > 0 && (
@@ -339,7 +355,7 @@ export default function ReviewsPage() {
                 <TableHead>Rating</TableHead>
                 <TableHead className="hidden md:table-cell">Review</TableHead>
                 <TableHead className="hidden sm:table-cell">Date</TableHead>
-                <TableHead>Response</TableHead>
+                <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -351,7 +367,7 @@ export default function ReviewsPage() {
                     <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-48" /></TableCell>
                     <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   </TableRow>
                 ))
               ) : reviews.length === 0 ? (
@@ -364,13 +380,15 @@ export default function ReviewsPage() {
                 reviews.map((r) => (
                   <TableRow
                     key={r.id}
-                    className="cursor-pointer hover:bg-gray-50"
-                    onClick={() => { setSelected(r); setDraftText(r.draft_response || ""); setDraftEdited(false); }}
+                    className={`cursor-pointer hover:bg-gray-50 ${needsAttention(r) ? "bg-red-50/40" : ""}`}
+                    onClick={() => openReview(r)}
                   >
                     <TableCell>
-                      {r.is_new && (
+                      {r.is_new ? (
                         <span className="inline-block w-2 h-2 rounded-full bg-blue-500" title="New" />
-                      )}
+                      ) : needsAttention(r) ? (
+                        <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       <div className="font-medium text-sm text-gray-900">{r.reviewer_name}</div>
@@ -386,11 +404,15 @@ export default function ReviewsPage() {
                       {formatDate(r.published_at)}
                     </TableCell>
                     <TableCell>
-                      {r.response_text ? (
-                        <Badge variant="secondary" className="text-xs bg-green-50 text-green-700">Replied</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-xs bg-gray-50 text-gray-400">None</Badge>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {r.response_text ? (
+                          <Badge variant="secondary" className="text-xs bg-green-50 text-green-700">Replied</Badge>
+                        ) : r.draft_response ? (
+                          <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-600">Draft</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs bg-gray-50 text-gray-400">None</Badge>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -400,18 +422,29 @@ export default function ReviewsPage() {
         </Card>
 
         {/* Detail dialog */}
-        <Dialog open={!!selected} onOpenChange={(open) => {
-          if (!open) { setSelected(null); setDraftText(""); setDraftEdited(false); }
-        }}>
-          <DialogContent className="sm:max-w-lg">
+        <Dialog open={!!selected} onOpenChange={(open) => { if (!open) closeReview(); }}>
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <RatingStars rating={selected?.rating ?? 0} />
                 <span className="text-sm text-gray-500">by {selected?.reviewer_name}</span>
+                {selected && needsAttention(selected) && (
+                  <Badge className="text-xs bg-red-100 text-red-700 ml-auto">Needs attention</Badge>
+                )}
               </DialogTitle>
             </DialogHeader>
             {selected && (
               <div className="space-y-4">
+                {/* Low-rating alert for 1-2 star reviews without response */}
+                {isLowRating && !hasPublicResponse && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 flex items-start gap-2">
+                    <ShieldAlert className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                    <p className="text-sm text-red-700">
+                      This is a low-rating review with no public response. A prompt, professional reply can help with recovery and shows future customers you care.
+                    </p>
+                  </div>
+                )}
+
                 {/* Review text */}
                 <div>
                   <p className="text-xs font-medium text-gray-500 mb-1">Review</p>
@@ -440,64 +473,95 @@ export default function ReviewsPage() {
                   </div>
                 </div>
 
-                {/* Owner response */}
+                {/* Owner response (public) */}
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-1">Owner Response</p>
+                  <p className="text-xs font-medium text-gray-500 mb-1">Public Response</p>
                   {selected.response_text ? (
                     <div className="bg-green-50 border border-green-100 rounded-lg p-3">
                       <p className="text-sm text-green-800 leading-relaxed whitespace-pre-wrap">
                         {selected.response_text}
                       </p>
                       {selected.response_date && (
-                        <p className="text-xs text-green-500 mt-2">{formatDate(selected.response_date)}</p>
+                        <p className="text-xs text-green-500 mt-2">Posted {formatDate(selected.response_date)}</p>
                       )}
                     </div>
                   ) : (
-                    <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
-                      <p className="text-sm text-amber-700">No response yet — consider replying to this review.</p>
-                    </div>
+                    <p className="text-sm text-gray-400 italic">No public response yet.</p>
                   )}
                 </div>
 
                 {/* AI Draft Response */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs font-medium text-gray-500">AI Draft Response</p>
+                <div className={`rounded-lg ${isLowRating && !hasPublicResponse ? "ring-1 ring-red-200 p-3 bg-red-50/30" : ""}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-medium text-gray-500">AI Draft</p>
+                      {hasDraft && !draftEdited && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">
+                          Draft only — not posted
+                        </span>
+                      )}
+                      {draftEdited && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">
+                          Unsaved changes
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tone selector + generate button */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <Select value={draftTone} onValueChange={(v) => setDraftTone(v as DraftTone)}>
+                      <SelectTrigger className="h-7 text-xs w-[130px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">Auto tone</SelectItem>
+                        <SelectItem value="positive">Warm</SelectItem>
+                        <SelectItem value="neutral">Professional</SelectItem>
+                        <SelectItem value="negative">Recovery</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="h-7 text-xs"
+                      variant={isLowRating && !hasPublicResponse && !hasDraft ? "default" : "outline"}
+                      className={`h-7 text-xs ${isLowRating && !hasPublicResponse && !hasDraft ? "bg-[#2D6A4F] hover:bg-[#1B4332]" : ""}`}
                       disabled={draftMutation.isPending}
-                      onClick={() => draftMutation.mutate(selected.id)}
+                      onClick={() => draftMutation.mutate({ reviewId: selected.id, tone: draftTone })}
                     >
                       {draftMutation.isPending ? (
                         <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Drafting...</>
-                      ) : draftText ? (
+                      ) : hasDraft ? (
                         <><Sparkles className="w-3 h-3 mr-1" /> Regenerate</>
                       ) : (
                         <><Sparkles className="w-3 h-3 mr-1" /> Draft Response</>
                       )}
                     </Button>
                   </div>
-                  {draftText ? (
+
+                  {hasDraft ? (
                     <div className="space-y-2">
                       <textarea
                         value={draftText}
-                        onChange={(e) => { setDraftText(e.target.value); setDraftEdited(true); }}
+                        onChange={(e) => { setDraftText(e.target.value); setDraftEdited(true); setCopied(false); }}
                         rows={4}
-                        className="w-full p-3 text-sm border rounded-lg resize-vertical focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        className="w-full p-3 text-sm border rounded-lg resize-vertical focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
                       />
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs"
                           onClick={() => {
                             navigator.clipboard.writeText(draftText);
+                            setCopied(true);
                             toast({ title: "Copied to clipboard" });
                           }}
                         >
-                          <Copy className="w-3 h-3 mr-1" /> Copy
+                          {copied ? (
+                            <><CheckCircle2 className="w-3 h-3 mr-1 text-green-600" /> Copied</>
+                          ) : (
+                            <><Copy className="w-3 h-3 mr-1" /> Copy</>
+                          )}
                         </Button>
                         {draftEdited && (
                           <Button
@@ -506,7 +570,11 @@ export default function ReviewsPage() {
                             disabled={saveDraftMutation.isPending}
                             onClick={() => saveDraftMutation.mutate({ id: selected.id, draft: draftText })}
                           >
-                            <Save className="w-3 h-3 mr-1" /> Save Edit
+                            {saveDraftMutation.isPending ? (
+                              <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Saving...</>
+                            ) : (
+                              <><Save className="w-3 h-3 mr-1" /> Save Draft</>
+                            )}
                           </Button>
                         )}
                       </div>
@@ -519,7 +587,9 @@ export default function ReviewsPage() {
                     </div>
                   ) : (
                     <p className="text-sm text-gray-400 italic">
-                      Click "Draft Response" to generate an AI response for this review.
+                      {isLowRating && !hasPublicResponse
+                        ? "Draft a recovery response to address this review."
+                        : "Click \"Draft Response\" to generate an AI response."}
                     </p>
                   )}
                 </div>

@@ -1089,7 +1089,10 @@ export function registerAdminCrmRoutes(app: Express): void {
       }
 
       const { generateReviewDraft } = await import("../services/reviewDraftService");
-      const result = await generateReviewDraft(review, client);
+      const toneOverride = req.body?.tone as string | undefined;
+      const validTones = ["positive", "negative", "neutral"];
+      const tone = toneOverride && validTones.includes(toneOverride) ? toneOverride as any : undefined;
+      const result = await generateReviewDraft(review, client, tone);
 
       // Persist the draft
       await storage.updateMonitoredReview(review.id, {

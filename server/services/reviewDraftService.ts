@@ -115,12 +115,14 @@ export interface DraftResult {
 
 /**
  * Generate an AI draft response for a monitored review.
+ * @param toneOverride — if provided, overrides the auto-classified tone
  */
 export async function generateReviewDraft(
   review: MonitoredReview,
   client: Client | null,
+  toneOverride?: ReviewTone,
 ): Promise<DraftResult> {
-  const tone = classifyTone(review.rating);
+  const tone = toneOverride || classifyTone(review.rating);
   const model = getModel();
   const businessName = client?.business_name || "our team";
   const tradeType = client?.trade_type || null;
