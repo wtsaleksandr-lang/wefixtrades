@@ -9,6 +9,9 @@ import {
   validateFacebookConfig, buildFacebookOAuthUrl, handleFacebookCallback,
   selectFacebookPage, validateFacebookConnection,
 } from "../services/socialSync/facebookService";
+import {
+  discoverInstagramAccounts, selectInstagramAccount, validateInstagramConnection,
+} from "../services/socialSync/instagramService";
 import { decryptToken } from "../services/socialSync/tokenEncryption";
 import type { SocialSyncProfile, InsertSocialSyncTopic } from "@shared/schema";
 
@@ -720,6 +723,110 @@ export function registerSocialSyncRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[socialsync] Facebook status error:", err.message);
       res.status(500).json({ error: "Failed to load Facebook status" });
+    }
+  });
+
+  // ─── Phase 3B: Instagram Connection Routes ───
+
+  // 25. GET discovered Instagram business accounts
+  app.get("/api/socialsync/clients/:clientId/instagram/accounts", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const result = await discoverInstagramAccounts(clientId);
+      if (result.error && result.accounts.length === 0) {
+        return res.status(400).json({ error: result.error, accounts: [] });
+      }
+
+      // Also get current IG connection if any
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const igConn = connections.find(c => c.platform === "instagram");
+
+      res.json({
+        accounts: result.accounts.map(a => ({
+          id: a.id,
+          username: a.username,
+          name: a.name,
+          profile_picture_url: a.profile_picture_url,
+          followers_count: a.followers_count,
+          facebook_page_id: a.facebook_page_id,
+          facebook_page_name: a.facebook_page_name,
+        })),
+        selected_account_id: igConn?.external_account_id || null,
+        connection_status: igConn?.connection_status || "not_connected",
+      });
+    } catch (err: any) {
+      console.error("[socialsync] Instagram accounts error:", err.message);
+      res.status(500).json({ error: "Failed to load Instagram accounts" });
+    }
+  });
+
+  // 26. POST select an Instagram business account
+  app.post("/api/socialsync/clients/:clientId/instagram/select-account", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const { account_id } = req.body;
+      if (!account_id || typeof account_id !== "string") {
+        return res.status(400).json({ error: "account_id is required" });
+      }
+
+      await selectInstagramAccount(clientId, account_id);
+      res.json({ ok: true, account_id });
+    } catch (err: any) {
+      console.error("[socialsync] Instagram select account error:", err.message);
+      res.status(500).json({ error: err.message || "Failed to select Instagram account" });
+    }
+  });
+
+  // 27. POST validate Instagram connection
+  app.post("/api/socialsync/clients/:clientId/instagram/validate", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const result = await validateInstagramConnection(clientId);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[socialsync] Instagram validate error:", err.message);
+      res.status(500).json({ error: "Failed to validate Instagram connection" });
+    }
+  });
+
+  // 28. GET Instagram connection status (safe: no tokens)
+  app.get("/api/socialsync/clients/:clientId/instagram/status", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const igConn = connections.find(c => c.platform === "instagram");
+
+      if (!igConn) {
+        return res.json({ connected: false, status: "not_connected" });
+      }
+
+      const metadata = (igConn.metadata as any) || {};
+
+      res.json({
+        connected: igConn.connection_status === "connected",
+        status: igConn.connection_status,
+        account_id: igConn.external_account_id,
+        username: metadata.username || null,
+        name: metadata.name || null,
+        profile_picture_url: metadata.profile_picture_url || null,
+        followers_count: metadata.followers_count ?? null,
+        facebook_page_id: igConn.external_page_id,
+        facebook_page_name: metadata.facebook_page_name || null,
+        token_expires_at: igConn.token_expires_at,
+        last_validated_at: igConn.last_validated_at,
+        last_error: metadata.last_error || null,
+      });
+    } catch (err: any) {
+      console.error("[socialsync] Instagram status error:", err.message);
+      res.status(500).json({ error: "Failed to load Instagram status" });
     }
   });
 }

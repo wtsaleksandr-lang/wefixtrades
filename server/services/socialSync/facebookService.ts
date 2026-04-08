@@ -52,6 +52,9 @@ const REQUIRED_SCOPES = [
   "pages_read_engagement",
   "pages_manage_posts",
   "pages_read_user_content",
+  // Instagram scopes — requested during the same Meta OAuth flow
+  "instagram_basic",
+  "instagram_content_publish",
 ].join(",");
 
 export function buildFacebookOAuthUrl(clientId: number): string {
@@ -133,12 +136,21 @@ interface FacebookUser {
   name: string;
 }
 
+export interface InstagramBusinessAccount {
+  id: string;             // Instagram Graph API ID (not the same as IG username)
+  name: string | null;
+  username: string | null;
+  profile_picture_url: string | null;
+  followers_count: number | null;
+}
+
 export interface FacebookPage {
   id: string;
   name: string;
   category: string | null;
   access_token: string; // Page-level access token
   tasks: string[];      // Permissions like MANAGE, CREATE_CONTENT, etc.
+  instagram_business_account: InstagramBusinessAccount | null;
 }
 
 export async function fetchFacebookUser(accessToken: string): Promise<FacebookUser> {
@@ -151,20 +163,30 @@ export async function fetchFacebookUser(accessToken: string): Promise<FacebookUs
 }
 
 export async function fetchFacebookPages(userAccessToken: string): Promise<FacebookPage[]> {
-  const res = await fetch(`${GRAPH_API_BASE}/me/accounts?fields=id,name,category,access_token,tasks&limit=100&access_token=${userAccessToken}`);
+  const res = await fetch(`${GRAPH_API_BASE}/me/accounts?fields=id,name,category,access_token,tasks,instagram_business_account{id,name,username,profile_picture_url,followers_count,ig_id}&limit=100&access_token=${userAccessToken}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(`Failed to fetch Facebook pages: ${(err as any)?.error?.message || res.statusText}`);
   }
 
   const data = await res.json() as any;
-  const pages: FacebookPage[] = (data.data || []).map((p: any) => ({
-    id: p.id,
-    name: p.name,
-    category: p.category || null,
-    access_token: p.access_token,
-    tasks: p.tasks || [],
-  }));
+  const pages: FacebookPage[] = (data.data || []).map((p: any) => {
+    const igBiz = p.instagram_business_account || null;
+    return {
+      id: p.id,
+      name: p.name,
+      category: p.category || null,
+      access_token: p.access_token,
+      tasks: p.tasks || [],
+      instagram_business_account: igBiz ? {
+        id: igBiz.id,
+        name: igBiz.name || null,
+        username: igBiz.username || null,
+        profile_picture_url: igBiz.profile_picture_url || null,
+        followers_count: igBiz.followers_count ?? null,
+      } : null,
+    };
+  });
 
   return pages;
 }
@@ -222,7 +244,10 @@ export async function handleFacebookCallback(
     last_validated_at: new Date(),
     metadata: {
       user_name: user.name,
-      pages_discovered: pages.map(p => ({ id: p.id, name: p.name, category: p.category })),
+      pages_discovered: pages.map(p => ({
+        id: p.id, name: p.name, category: p.category,
+        instagram_business_account: p.instagram_business_account,
+      })),
       connected_at: new Date().toISOString(),
       token_type: longToken.expires_in ? "long_lived" : "short_lived",
     },

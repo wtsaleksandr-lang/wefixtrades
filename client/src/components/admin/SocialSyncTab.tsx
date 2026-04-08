@@ -113,6 +113,34 @@ interface FacebookPages {
   external_page_id: string | null;
 }
 
+interface InstagramStatus {
+  connected: boolean;
+  status: string;
+  account_id: string | null;
+  username: string | null;
+  name: string | null;
+  profile_picture_url: string | null;
+  followers_count: number | null;
+  facebook_page_id: string | null;
+  facebook_page_name: string | null;
+  token_expires_at: string | null;
+  last_validated_at: string | null;
+  last_error: string | null;
+}
+
+interface InstagramAccounts {
+  accounts: {
+    id: string;
+    username: string | null;
+    name: string | null;
+    followers_count: number | null;
+    facebook_page_id: string;
+    facebook_page_name: string;
+  }[];
+  selected_account_id: string | null;
+  connection_status: string;
+}
+
 /* ─── Helpers ─── */
 
 const STATUS_COLORS: Record<string, string> = {
@@ -207,6 +235,16 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
     enabled: !!clientId && fbStatus?.connected === true,
   });
 
+  const { data: igStatus } = useQuery<InstagramStatus>({
+    queryKey: [`/api/socialsync/clients/${clientId}/instagram/status`],
+    enabled: !!clientId,
+  });
+
+  const { data: igAccounts } = useQuery<InstagramAccounts>({
+    queryKey: [`/api/socialsync/clients/${clientId}/instagram/accounts`],
+    enabled: !!clientId && fbStatus?.connected === true,
+  });
+
   // ─── Mutations ───
 
   function invalidateAll() {
@@ -217,6 +255,8 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
     queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/activity`] });
     queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/facebook/status`] });
     queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/facebook/pages`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/instagram/status`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/socialsync/clients/${clientId}/instagram/accounts`] });
   }
 
   const saveProfile = useMutation({
@@ -323,6 +363,25 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
     onSuccess: (data: any) => {
       invalidateAll();
       toast({ title: data.valid ? "Connection valid" : "Connection invalid", description: data.error || undefined, variant: data.valid ? "default" : "destructive" });
+    },
+  });
+
+  const selectIgAccount = useMutation({
+    mutationFn: async (accountId: string) => {
+      const res = await apiRequest("POST", `/api/socialsync/clients/${clientId}/instagram/select-account`, { account_id: accountId });
+      return res.json();
+    },
+    onSuccess: () => { invalidateAll(); toast({ title: "Instagram account selected" }); },
+  });
+
+  const validateIg = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/socialsync/clients/${clientId}/instagram/validate`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      invalidateAll();
+      toast({ title: data.valid ? "Instagram valid" : "Instagram invalid", description: data.error || undefined, variant: data.valid ? "default" : "destructive" });
     },
   });
 
@@ -499,6 +558,73 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
             )}
             {fbStatus.token_expires_at && (
               <p className="text-xs text-gray-400">Token expires: {fmtDate(fbStatus.token_expires_at)}</p>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* ─── Instagram Connection Card ─── */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-gray-900">Instagram Connection</h3>
+          {igStatus?.connected && (
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => validateIg.mutate()} disabled={validateIg.isPending}>
+              {validateIg.isPending ? <RefreshCw className="w-3 h-3 animate-spin" /> : <><CheckCircle className="w-3 h-3 mr-1" /> Validate</>}
+            </Button>
+          )}
+        </div>
+
+        {!fbStatus?.connected ? (
+          <div className="text-center py-4">
+            <p className="text-sm text-gray-500">Connect Facebook first — Instagram uses the same Meta authorization.</p>
+          </div>
+        ) : !igAccounts || igAccounts.accounts.length === 0 ? (
+          <div className="text-center py-4 space-y-1">
+            <p className="text-sm text-gray-500">No Instagram business/professional accounts found.</p>
+            <p className="text-xs text-gray-400">Instagram publishing requires a business or professional account linked to a Facebook page.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {/* Current selection */}
+            {igStatus?.connected && igStatus.username && (
+              <div className="flex items-center gap-2 p-2 bg-emerald-50 rounded-lg text-sm">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <span className="text-emerald-800">Publishing to: <strong>@{igStatus.username}</strong></span>
+                {igStatus.followers_count != null && <span className="text-emerald-600 text-xs">({igStatus.followers_count.toLocaleString()} followers)</span>}
+                {igStatus.facebook_page_name && <span className="text-emerald-600 text-xs">via {igStatus.facebook_page_name}</span>}
+              </div>
+            )}
+
+            {/* Account picker */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-600 block">Available Instagram Accounts</label>
+              {igAccounts.accounts.map((acc) => (
+                <div key={acc.id} className={`flex items-center justify-between p-2 rounded-lg border ${igAccounts.selected_account_id === acc.id ? "border-emerald-300 bg-emerald-50" : "border-gray-200"}`}>
+                  <div>
+                    <span className="text-sm font-medium">{acc.username ? `@${acc.username}` : acc.name || acc.id}</span>
+                    {acc.followers_count != null && <span className="text-xs text-gray-500 ml-2">{acc.followers_count.toLocaleString()} followers</span>}
+                    <span className="text-xs text-gray-400 ml-2">via {acc.facebook_page_name}</span>
+                  </div>
+                  {igAccounts.selected_account_id !== acc.id ? (
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => selectIgAccount.mutate(acc.id)} disabled={selectIgAccount.isPending}>
+                      Select
+                    </Button>
+                  ) : (
+                    <Badge className="bg-emerald-100 text-emerald-700 text-xs">Active</Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Error / Expiry */}
+            {igStatus?.status === "error" && igStatus.last_error && (
+              <WarningBanner text={`Error: ${igStatus.last_error}`} />
+            )}
+            {igStatus?.status === "expired" && (
+              <WarningBanner text="Token expired. Reconnect Meta/Facebook to refresh." />
+            )}
+            {igStatus?.last_validated_at && (
+              <p className="text-xs text-gray-400">Last validated: {fmtDate(igStatus.last_validated_at)}</p>
             )}
           </div>
         )}
