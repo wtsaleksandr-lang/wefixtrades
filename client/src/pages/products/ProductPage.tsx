@@ -3407,7 +3407,7 @@ export default function ProductPage() {
                 ) : isQuoteQuick ? (
                   <>Stop Losing Leads to a{" "}<span style={{ color: mkt.accent }}>Contact Form.</span></>
                 ) : isReputationShield ? (
-                  <>Get More 5-Star Reviews —{" "}<span style={{ color: mkt.accent }}>Without Lifting a Finger</span></>
+                  <>Turn Every Completed Job Into a{" "}<span style={{ color: mkt.accent }}>5-Star Google Review</span></>
                 ) : isSiteLaunch ? (
                   <>Get a Trade Website That Brings You Jobs —{" "}<span style={{ color: mkt.accent }}>Live in 5 Days</span></>
                 ) : isWebCare ? (
@@ -3442,7 +3442,7 @@ export default function ProductPage() {
                 ) : isQuoteQuick ? (
                   "Give customers an instant price on your website using your real service rates \u2014 and capture every lead automatically. No callbacks. No quoting delays."
                 ) : isReputationShield ? (
-                  "ReputationShield sends review requests, responds to every review, and builds your reputation automatically \u2014 so customers trust you before they even call."
+                  "Automatic SMS + email review requests after every job. Unhappy customers caught privately before they go public. AI-drafted responses posted to Google in one click. Monthly reports that prove it\u2019s working."
                 ) : isSiteLaunch ? (
                   "We build your website from scratch \u2014 custom designed, mobile-first, SEO-ready, with lead capture built in. One-time fee. No contracts. You own the site."
                 ) : isWebCare ? (
@@ -3924,9 +3924,9 @@ export default function ProductPage() {
           />
         ) : isReputationShield ? (
           <CTASection
-            heading="Start building your reputation today."
-            subtext="More reviews. Better rating. More calls. Start now and turn completed jobs into more trust, more reviews, and more calls."
-            ctaLabel="Start ReputationShield"
+            heading="Your next 5-star review is one completed job away."
+            subtext="Start collecting reviews automatically. Catch complaints privately. Respond with AI. See the proof every month. From $79/mo — no contracts."
+            ctaLabel="Start Getting Reviews — Free Trial"
             ctaHref="/Wizard"
           />
         ) : isSocialSync ? (

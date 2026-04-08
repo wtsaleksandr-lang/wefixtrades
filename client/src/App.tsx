@@ -41,6 +41,7 @@ import MissedCallCalculatorTrade from "@/pages/marketing/missed-call-calculator-
 import QuoteCalculatorDemo from "@/pages/marketing/quote-calculator-demo";
 import ToolsHub from "@/pages/marketing/tools-hub";
 import SharedAuditReport from "@/pages/marketing/SharedAuditReport";
+import CompareNiceJob from "@/pages/marketing/CompareNiceJob";
 import NewProductPage from "@/pages/products/ProductPage";
 import MapGuardPage from "@/pages/products/mapguard";
 import SolutionPage from "@/pages/solutions/SolutionPage";
@@ -114,6 +115,7 @@ function Router() {
       <Route path="/portal/settings">{() => <RequireClient><PortalSettings /></RequireClient>}</Route>
       <Route path="/portal">{() => <RequireClient><PortalDashboard /></RequireClient>}</Route>
 
+      <Route path="/compare/reputationshield-vs-nicejob" component={CompareNiceJob} />
       <Route path="/products/mapguard" component={MapGuardPage} />
       {/* TradeLine consolidation — old routes redirect to unified product */}
       <Route path="/products/assistants">{() => <Redirect to="/products/tradeline" />}</Route>
