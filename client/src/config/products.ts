@@ -52,7 +52,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Your always-on lead handling system. TradeLine answers calls and chats 24/7, provides instant estimates, books jobs, sends follow-ups, and requests reviews — automatically.",
     category: "ai",
     heroVisualType: "chat",
-    primaryCTA: { label: "Try Free for 14 Days", href: "/Wizard" },
+    primaryCTA: { label: "Get Started", href: "/pricing" },
     secondaryCTA: { label: "See It in Action", href: "/demo" },
     highlights: [
       "24/7 call and chat answering \u2014 AI picks up every call, day or night. No voicemail.",

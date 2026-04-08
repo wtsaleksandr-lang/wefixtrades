@@ -258,11 +258,15 @@ export default function PortalServiceDetail() {
                 )}
 
                 {/* Recent calls */}
-                {tlData.recentCalls.length > 0 && (
-                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div className="px-5 py-4 border-b border-gray-100">
-                      <h2 className="text-sm font-semibold text-gray-900">Recent Calls</h2>
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <h2 className="text-sm font-semibold text-gray-900">Recent Calls</h2>
+                  </div>
+                  {tlData.recentCalls.length === 0 ? (
+                    <div className="px-5 py-8 text-center text-sm text-gray-400">
+                      No calls yet. Activity will appear here once your system is live.
                     </div>
+                  ) : (
                     <ul className="divide-y divide-gray-50">
                       {tlData.recentCalls.map((call) => (
                         <li key={call.id} className="px-5 py-3 flex items-start gap-3">
@@ -297,18 +301,22 @@ export default function PortalServiceDetail() {
                         </li>
                       ))}
                     </ul>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {/* Widget / hosted info */}
                 {(tlData.config.website.embedMode !== "none" || tlData.config.website.hostedUrl) && (
                   <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <h2 className="text-sm font-semibold text-gray-900 mb-2">Website Integration</h2>
+                    <h2 className="text-sm font-semibold text-gray-900 mb-2">Website Setup</h2>
                     <div className="space-y-2 text-sm text-gray-600">
                       {tlData.config.website.embedMode !== "none" && (
                         <div className="flex items-center gap-2">
                           <Globe className="w-3.5 h-3.5 text-gray-400" />
-                          <span>Embed mode: <span className="font-medium capitalize">{tlData.config.website.embedMode.replace(/_/g, " ")}</span></span>
+                          <span>Install type: <span className="font-medium">{
+                            tlData.config.website.embedMode === "direct_embed" ? "Installed on your website"
+                            : tlData.config.website.embedMode === "hosted_fallback" ? "Hosted version"
+                            : tlData.config.website.embedMode.replace(/_/g, " ")
+                          }</span></span>
                         </div>
                       )}
                       {tlData.config.website.hostedUrl && (

@@ -281,7 +281,7 @@ export default function PortalDashboard() {
                     apiBase="/api/portal/tradeline"
                     onModeChanged={() => {}}
                   />
-                  {tlData.usage && (
+                  {tlData.usage ? (
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Monthly usage</p>
                       <div className="grid grid-cols-2 gap-4">
@@ -301,7 +301,10 @@ export default function PortalDashboard() {
                           {tlData.usage.overage_minutes} overage minutes
                         </p>
                       )}
+                      <p className="text-[10px] text-gray-300 mt-2">Minutes = total time your AI spends on calls this month.</p>
                     </div>
+                  ) : (
+                    <p className="text-xs text-gray-400">No activity yet this month.</p>
                   )}
                 </div>
               </div>

@@ -3,9 +3,9 @@ import { useMutation } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
 const MODES = [
-  { value: "available", label: "Available", desc: "AI only when you miss", color: "bg-emerald-500" },
-  { value: "on_the_job", label: "On the Job", desc: "AI handles all calls", color: "bg-amber-500" },
-  { value: "after_hours", label: "After Hours", desc: "AI + voicemail mode", color: "bg-indigo-500" },
+  { value: "available", label: "Available", desc: "AI answers when you miss a call", color: "bg-emerald-500" },
+  { value: "on_the_job", label: "On the Job", desc: "AI handles all calls and messages", color: "bg-amber-500" },
+  { value: "after_hours", label: "After Hours", desc: "AI takes messages until next business day", color: "bg-indigo-500" },
 ] as const;
 
 type Mode = (typeof MODES)[number]["value"];
@@ -79,8 +79,7 @@ export default function ModeToggle({ currentMode, clientServiceId, apiBase, onMo
       {!mutation.isPending && (
         <span className="text-[10px] text-gray-400">
           {MODES.find((m) => m.value === active)?.desc}
-          {active === "on_the_job" && " — your system handles all calls and messages automatically."}
-          <span className="text-gray-300 ml-1">You can change this anytime.</span>
+          <span className="text-gray-300"> · You can change this anytime.</span>
         </span>
       )}
     </div>
