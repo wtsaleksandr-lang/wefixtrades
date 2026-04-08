@@ -553,6 +553,31 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
 
   const [rrForm, setRrForm] = useState({ customer_name: "", customer_phone: "", customer_email: "" });
 
+  const { data: rlConfig } = useQuery<{
+    effective_link: string | null; source: string; manual_link: string | null;
+    place_id: string | null; gbp_connected: boolean; location_name: string | null;
+  }>({
+    queryKey: [`/api/reputation/clients/${clientId}/review-link/config`],
+    enabled: !!clientId,
+  });
+
+  const [rlEdit, setRlEdit] = useState({ review_link: "", place_id: "" });
+  const [rlEditing, setRlEditing] = useState(false);
+
+  const saveReviewLink = useMutation({
+    mutationFn: async (data: { review_link?: string; place_id?: string }) => {
+      const res = await apiRequest("PUT", `/api/reputation/clients/${clientId}/review-link/config`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/reputation/clients/${clientId}/review-link/config`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/reputation/clients/${clientId}/review-requests/status`] });
+      setRlEditing(false);
+      toast({ title: "Review link saved" });
+    },
+    onError: (err: any) => toast({ title: "Save failed", description: err.message, variant: "destructive" }),
+  });
+
   const enqueueRR = useMutation({
     mutationFn: async (data: any) => {
       const res = await apiRequest("POST", `/api/reputation/clients/${clientId}/review-requests/enqueue`, data);
@@ -1152,7 +1177,7 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
               </div>
             </div>
 
-            {/* Readiness banner */}
+            {/* Readiness + Review Link Config */}
             {rrStatus && (
               <div className={`mb-3 px-3 py-2 rounded-lg text-xs ${
                 rrStatus.readiness === "active" ? "bg-emerald-50 text-emerald-800" :
@@ -1161,14 +1186,59 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
                 "bg-amber-50 text-amber-700"
               }`}>
                 {rrStatus.readiness === "active" && <><CheckCircle className="w-3.5 h-3.5 inline mr-1" />Active — review requests are being sent</>}
-                {rrStatus.readiness === "ready" && <><CheckCircle className="w-3.5 h-3.5 inline mr-1" />Ready — automation configured, no requests sent yet</>}
+                {rrStatus.readiness === "ready" && <><CheckCircle className="w-3.5 h-3.5 inline mr-1" />Ready — automation configured</>}
                 {rrStatus.readiness === "blocked" && <><AlertTriangle className="w-3.5 h-3.5 inline mr-1" />Blocked: {rrStatus.blockers.join(", ")}</>}
-                {rrStatus.readiness === "limited" && <><AlertTriangle className="w-3.5 h-3.5 inline mr-1" />Limited — backend ready but no completed bookings yet</>}
-                {rrStatus.review_link && (
-                  <span className="ml-2 text-gray-500">Link: {rrStatus.review_link.slice(0, 50)}...</span>
-                )}
+                {rrStatus.readiness === "limited" && <><AlertTriangle className="w-3.5 h-3.5 inline mr-1" />Limited — no completed bookings yet</>}
               </div>
             )}
+
+            {/* Review Link Config */}
+            <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-medium text-gray-600">Google Review Link</p>
+                {!rlEditing && (
+                  <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => {
+                    setRlEdit({ review_link: rlConfig?.manual_link || "", place_id: rlConfig?.place_id || "" });
+                    setRlEditing(true);
+                  }}>Edit</Button>
+                )}
+              </div>
+              {!rlEditing ? (
+                <div>
+                  {rlConfig?.effective_link ? (
+                    <div className="flex items-center gap-2">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${rlConfig.source === "manual" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                        {rlConfig.source}
+                      </span>
+                      <a href={rlConfig.effective_link} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline truncate max-w-sm">
+                        {rlConfig.effective_link}
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-red-500">No review link configured. Click Edit to set one.</p>
+                  )}
+                  {rlConfig?.location_name && <p className="text-[10px] text-gray-400 mt-0.5">Location: {rlConfig.location_name}</p>}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-[10px] text-gray-500">Review Link URL (e.g. https://g.page/r/...)</label>
+                    <Input value={rlEdit.review_link} onChange={(e) => setRlEdit({ ...rlEdit, review_link: e.target.value })} className="text-xs h-8" placeholder="https://g.page/r/YOUR_ID/review" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500">Google Place ID (alternative — auto-generates link)</label>
+                    <Input value={rlEdit.place_id} onChange={(e) => setRlEdit({ ...rlEdit, place_id: e.target.value })} className="text-xs h-8" placeholder="ChIJ..." />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setRlEditing(false)}>Cancel</Button>
+                    <Button size="sm" className="h-7 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]"
+                      onClick={() => saveReviewLink.mutate({ review_link: rlEdit.review_link || undefined, place_id: rlEdit.place_id || undefined })}
+                      disabled={saveReviewLink.isPending}
+                    >{saveReviewLink.isPending ? "Saving..." : "Save"}</Button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Summary stats */}
             {rrStatus?.summary && (

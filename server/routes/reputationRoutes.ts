@@ -12,7 +12,7 @@ import { storage } from "../storage";
 import { syncClientReviews, processAllClientReviews } from "../services/reputation/reviewOrchestrator";
 import { getGoogleAccessToken } from "../services/socialSync/googleBusinessService";
 import { postGBPReply } from "../services/reputation/gbpReviewIngestion";
-import { enqueueFromBooking, processReviewRequests, getReviewLink } from "../services/reputation/reviewRequestService";
+import { enqueueFromBooking, processReviewRequests, getReviewLink, getReviewLinkConfig, updateReviewLinkConfig, validateReviewLink } from "../services/reputation/reviewRequestService";
 import { getAttributionInsights, runAttributionForClient } from "../services/reputation/reviewAttribution";
 
 export function registerReputationRoutes(app: Express): void {
@@ -266,6 +266,63 @@ export function registerReputationRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[reputation] Attribution backfill error:", err.message);
       res.status(500).json({ error: "Failed to run attribution" });
+    }
+  });
+
+  // ─── Review Link Management Routes ───
+
+  // 12. GET review link configuration
+  app.get("/api/reputation/clients/:clientId/review-link/config", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const config = await getReviewLinkConfig(clientId);
+      res.json(config);
+    } catch (err: any) {
+      console.error("[reputation] Review link config error:", err.message);
+      res.status(500).json({ error: "Failed to load review link config" });
+    }
+  });
+
+  // 13. PUT update review link configuration
+  app.put("/api/reputation/clients/:clientId/review-link/config", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const { review_link, place_id } = req.body;
+
+      // Validate review_link if provided
+      if (review_link) {
+        const validation = validateReviewLink(review_link);
+        if (!validation.valid) {
+          return res.status(400).json({ error: validation.error });
+        }
+      }
+
+      await updateReviewLinkConfig(clientId, {
+        review_link: review_link !== undefined ? review_link : undefined,
+        place_id: place_id !== undefined ? place_id : undefined,
+      });
+
+      const updated = await getReviewLinkConfig(clientId);
+      res.json(updated);
+    } catch (err: any) {
+      console.error("[reputation] Review link update error:", err.message);
+      res.status(500).json({ error: err.message || "Failed to update review link" });
+    }
+  });
+
+  // 14. POST validate a review link
+  app.post("/api/reputation/review-link/validate", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { url } = req.body;
+      if (!url) return res.status(400).json({ error: "url is required" });
+      const result = validateReviewLink(url);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: "Validation failed" });
     }
   });
 }

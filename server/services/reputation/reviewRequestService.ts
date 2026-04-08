@@ -34,21 +34,100 @@ export async function getReviewLink(clientId: number): Promise<string | null> {
   if (!gbp) return null;
 
   const metadata = (gbp.metadata as any) || {};
-  // Check for explicitly configured review link
+  // 1. Explicit manual review link (highest priority)
   if (metadata.review_link) return metadata.review_link;
 
-  // Check for place_id to build link
+  // 2. Derived from place_id
   if (metadata.place_id) {
     return `https://search.google.com/local/writereview?placeid=${metadata.place_id}`;
   }
 
-  // If we have the location title, use a search-based fallback
-  const selectedLocation = metadata.selected_location;
-  if (selectedLocation?.title) {
-    return `https://search.google.com/local/writereview?placeid=${encodeURIComponent(selectedLocation.title)}`;
+  return null;
+}
+
+/**
+ * Get detailed review link configuration state.
+ */
+export async function getReviewLinkConfig(clientId: number): Promise<{
+  effective_link: string | null;
+  source: "manual" | "derived" | "missing";
+  manual_link: string | null;
+  place_id: string | null;
+  gbp_connected: boolean;
+  location_name: string | null;
+}> {
+  const connections = await storage.listSocialSyncConnections(clientId);
+  const gbp = connections.find(c => c.platform === "google_business");
+  const metadata = (gbp?.metadata as any) || {};
+
+  const manualLink = metadata.review_link || null;
+  const placeId = metadata.place_id || null;
+  const gbpConnected = gbp?.connection_status === "connected" || gbp?.connection_status === "expiring_soon";
+  const locationName = metadata.selected_location?.title || null;
+
+  let effectiveLink: string | null = null;
+  let source: "manual" | "derived" | "missing" = "missing";
+
+  if (manualLink) {
+    effectiveLink = manualLink;
+    source = "manual";
+  } else if (placeId) {
+    effectiveLink = `https://search.google.com/local/writereview?placeid=${placeId}`;
+    source = "derived";
   }
 
-  return null;
+  return { effective_link: effectiveLink, source, manual_link: manualLink, place_id: placeId, gbp_connected: gbpConnected, location_name: locationName };
+}
+
+/**
+ * Update review link configuration.
+ */
+export async function updateReviewLinkConfig(
+  clientId: number,
+  updates: { review_link?: string | null; place_id?: string | null },
+): Promise<void> {
+  const connections = await storage.listSocialSyncConnections(clientId);
+  const gbp = connections.find(c => c.platform === "google_business");
+  if (!gbp) throw new Error("No Google Business connection found. Connect GBP first.");
+
+  const metadata = (gbp.metadata as any) || {};
+
+  if (updates.review_link !== undefined) {
+    metadata.review_link = updates.review_link || null;
+    metadata.review_link_updated_at = new Date().toISOString();
+  }
+  if (updates.place_id !== undefined) {
+    metadata.place_id = updates.place_id || null;
+  }
+
+  await storage.upsertSocialSyncConnection({
+    ...gbp,
+    metadata,
+  } as any);
+}
+
+/**
+ * Validate a review link URL.
+ */
+export function validateReviewLink(url: string): { valid: boolean; error?: string } {
+  if (!url || typeof url !== "string" || url.trim().length === 0) {
+    return { valid: false, error: "Review link is empty" };
+  }
+
+  try {
+    const parsed = new URL(url.trim());
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return { valid: false, error: "Link must use https:// or http://" };
+    }
+    // Check it looks like a Google review link
+    const isGoogleReview = parsed.hostname.includes("google.com") || parsed.hostname.includes("g.page");
+    if (!isGoogleReview) {
+      return { valid: false, error: "Link does not appear to be a Google review URL. Expected google.com or g.page domain." };
+    }
+    return { valid: true };
+  } catch {
+    return { valid: false, error: "Invalid URL format" };
+  }
 }
 
 /* ─── Message Templates ─── */
