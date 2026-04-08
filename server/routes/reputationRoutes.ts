@@ -325,4 +325,115 @@ export function registerReputationRoutes(app: Express): void {
       res.status(500).json({ error: "Validation failed" });
     }
   });
+
+  // ─── Phase 6B: ReputationShield Dashboard ───
+
+  // 15. GET reputation dashboard metrics for a client
+  app.get("/api/reputation/clients/:clientId/dashboard", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const allReviews = await storage.listReviews(clientId, { limit: 200 });
+      const requests = await storage.listReviewRequests(clientId, 200);
+
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+      const thirtyDays = 30 * day;
+
+      // Review metrics
+      const recentReviews = allReviews.filter(r => r.review_time && (now - new Date(r.review_time).getTime()) < thirtyDays);
+      const ratings = allReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+      const recentRatings = recentReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+      const avgRating = ratings.length > 0 ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10 : null;
+      const avgRatingRecent = recentRatings.length > 0 ? Math.round((recentRatings.reduce((a, b) => a + b, 0) / recentRatings.length) * 10) / 10 : null;
+
+      // Reply metrics
+      const replied = allReviews.filter(r => r.reply_status === "auto_replied" || r.reply_status === "manually_replied" || r.has_existing_owner_reply);
+      const needsReply = allReviews.filter(r => r.needs_reply && !r.has_existing_owner_reply && r.reply_status !== "auto_replied" && r.reply_status !== "manually_replied");
+      const replyRate = allReviews.length > 0 ? Math.round((replied.length / allReviews.length) * 100) : null;
+
+      // Sentiment
+      const negative = allReviews.filter(r => r.sentiment === "negative" || r.sentiment === "urgent");
+      const unresolvedNegative = negative.filter(r => r.needs_reply && r.reply_status !== "auto_replied" && r.reply_status !== "manually_replied" && !r.has_existing_owner_reply);
+      const escalated = allReviews.filter(r => r.escalation_flag);
+
+      // Request metrics
+      const sentRequests = requests.filter(r => r.status === "sent" || r.status === "delivered");
+      const attributed = sentRequests.filter(r => r.attributed_review_id);
+      const responseRate = sentRequests.length > 0 ? Math.round((attributed.length / sentRequests.length) * 100) : null;
+
+      // Avg days to review
+      const daysList: number[] = [];
+      for (const req of attributed) {
+        if (req.sent_at) {
+          const matchedReview = allReviews.find(r => r.id === req.attributed_review_id);
+          if (matchedReview?.review_time) {
+            const d = (new Date(matchedReview.review_time).getTime() - new Date(req.sent_at).getTime()) / day;
+            if (d >= 0) daysList.push(d);
+          }
+        }
+      }
+      const avgDaysToReview = daysList.length > 0 ? Math.round((daysList.reduce((a, b) => a + b, 0) / daysList.length) * 10) / 10 : null;
+
+      // Weekly trend (last 8 weeks)
+      const weeklyTrend: { week: string; reviews: number; avg_rating: number | null }[] = [];
+      for (let i = 7; i >= 0; i--) {
+        const weekStart = now - (i + 1) * 7 * day;
+        const weekEnd = now - i * 7 * day;
+        const weekReviews = allReviews.filter(r => r.review_time && new Date(r.review_time).getTime() >= weekStart && new Date(r.review_time).getTime() < weekEnd);
+        const wRatings = weekReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+        weeklyTrend.push({
+          week: new Date(weekStart).toISOString().slice(0, 10),
+          reviews: weekReviews.length,
+          avg_rating: wRatings.length > 0 ? Math.round((wRatings.reduce((a, b) => a + b, 0) / wRatings.length) * 10) / 10 : null,
+        });
+      }
+
+      // Readiness / health
+      const rlConfig = await getReviewLinkConfig(clientId);
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const gbp = connections.find(c => c.platform === "google_business");
+
+      const issues: string[] = [];
+      if (!rlConfig.effective_link) issues.push("No review link configured");
+      if (!gbp || (gbp.connection_status !== "connected" && gbp.connection_status !== "expiring_soon")) issues.push("Google Business not connected");
+      if (unresolvedNegative.length > 0) issues.push(`${unresolvedNegative.length} negative reviews need attention`);
+      if (requests.filter(r => r.status === "failed").length > 0) issues.push("Some review requests failed");
+      const draftReady = allReviews.filter(r => r.reply_status === "draft_ready").length;
+      if (draftReady > 0) issues.push(`${draftReady} reply drafts awaiting posting`);
+
+      let health: "healthy" | "active" | "at_risk" | "blocked" | "limited";
+      if (issues.some(i => i.includes("not connected") || i.includes("No review link"))) health = "blocked";
+      else if (unresolvedNegative.length > 0) health = "at_risk";
+      else if (allReviews.length > 0 && sentRequests.length > 0) health = "healthy";
+      else if (allReviews.length > 0 || sentRequests.length > 0) health = "active";
+      else health = "limited";
+
+      res.json({
+        health,
+        issues,
+        metrics: {
+          total_reviews: allReviews.length,
+          reviews_30d: recentReviews.length,
+          avg_rating: avgRating,
+          avg_rating_30d: avgRatingRecent,
+          reply_rate: replyRate,
+          auto_replied: allReviews.filter(r => r.reply_status === "auto_replied").length,
+          manually_replied: allReviews.filter(r => r.reply_status === "manually_replied").length,
+          drafts_pending: draftReady,
+          unresolved_negative: unresolvedNegative.length,
+          escalated: escalated.length,
+          requests_sent: sentRequests.length,
+          likely_attributed: attributed.length,
+          estimated_response_rate: responseRate,
+          avg_days_to_review: avgDaysToReview,
+        },
+        weekly_trend: weeklyTrend,
+      });
+    } catch (err: any) {
+      console.error("[reputation] Dashboard error:", err.message);
+      res.status(500).json({ error: "Failed to load dashboard" });
+    }
+  });
 }

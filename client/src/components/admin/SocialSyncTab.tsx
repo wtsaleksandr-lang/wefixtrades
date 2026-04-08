@@ -541,6 +541,20 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
     enabled: !!clientId,
   });
 
+  const { data: repDashboard } = useQuery<{
+    health: string; issues: string[];
+    metrics: {
+      total_reviews: number; reviews_30d: number; avg_rating: number | null; avg_rating_30d: number | null;
+      reply_rate: number | null; auto_replied: number; manually_replied: number; drafts_pending: number;
+      unresolved_negative: number; escalated: number; requests_sent: number; likely_attributed: number;
+      estimated_response_rate: number | null; avg_days_to_review: number | null;
+    };
+    weekly_trend: { week: string; reviews: number; avg_rating: number | null }[];
+  }>({
+    queryKey: [`/api/reputation/clients/${clientId}/dashboard`],
+    enabled: !!clientId,
+  });
+
   const { data: attrInsights } = useQuery<{
     requests_sent: number; likely_attributed: number; estimated_response_rate: number | null;
     high_confidence: number; medium_confidence: number; low_confidence: number;
@@ -1120,6 +1134,94 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
 
         {/* Reviews */}
         <TabsContent value="reviews" className="mt-3">
+          {/* ReputationShield Dashboard */}
+          {repDashboard && (
+            <Card className="mb-3 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-semibold text-gray-900">ReputationShield Overview</h4>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                  repDashboard.health === "healthy" ? "bg-emerald-50 text-emerald-700" :
+                  repDashboard.health === "active" ? "bg-blue-50 text-blue-700" :
+                  repDashboard.health === "at_risk" ? "bg-amber-50 text-amber-700" :
+                  repDashboard.health === "blocked" ? "bg-red-50 text-red-700" :
+                  "bg-gray-100 text-gray-500"
+                }`}>{repDashboard.health}</span>
+              </div>
+
+              {/* Metric cards */}
+              <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-3">
+                <div className="text-center p-2 bg-gray-50 rounded">
+                  <p className="text-lg font-bold">{repDashboard.metrics.avg_rating ?? "—"}</p>
+                  <p className="text-[10px] text-gray-500">Avg Rating</p>
+                </div>
+                <div className="text-center p-2 bg-gray-50 rounded">
+                  <p className="text-lg font-bold">{repDashboard.metrics.total_reviews}</p>
+                  <p className="text-[10px] text-gray-500">Total Reviews</p>
+                </div>
+                <div className="text-center p-2 bg-gray-50 rounded">
+                  <p className="text-lg font-bold text-emerald-700">{repDashboard.metrics.reviews_30d}</p>
+                  <p className="text-[10px] text-gray-500">Last 30d</p>
+                </div>
+                <div className="text-center p-2 bg-gray-50 rounded">
+                  <p className="text-lg font-bold">{repDashboard.metrics.reply_rate != null ? `${repDashboard.metrics.reply_rate}%` : "—"}</p>
+                  <p className="text-[10px] text-gray-500">Reply Rate</p>
+                </div>
+                <div className="text-center p-2 bg-gray-50 rounded">
+                  <p className={`text-lg font-bold ${repDashboard.metrics.unresolved_negative > 0 ? "text-red-600" : "text-gray-700"}`}>{repDashboard.metrics.unresolved_negative}</p>
+                  <p className="text-[10px] text-gray-500">Unresolved Neg</p>
+                </div>
+                <div className="text-center p-2 bg-gray-50 rounded">
+                  <p className="text-lg font-bold text-blue-700">{repDashboard.metrics.estimated_response_rate != null ? `${repDashboard.metrics.estimated_response_rate}%` : "—"}</p>
+                  <p className="text-[10px] text-gray-500">Est. Response</p>
+                </div>
+              </div>
+
+              {/* Reply breakdown + request stats */}
+              <div className="flex flex-wrap gap-3 text-xs text-gray-500 mb-3">
+                <span>Auto-replied: {repDashboard.metrics.auto_replied}</span>
+                <span>Manual: {repDashboard.metrics.manually_replied}</span>
+                <span>Drafts: {repDashboard.metrics.drafts_pending}</span>
+                <span>Requests sent: {repDashboard.metrics.requests_sent}</span>
+                <span>Likely attributed: {repDashboard.metrics.likely_attributed}</span>
+                {repDashboard.metrics.avg_days_to_review && <span>Avg {repDashboard.metrics.avg_days_to_review}d to review</span>}
+              </div>
+
+              {/* Weekly trend */}
+              {repDashboard.weekly_trend.length > 0 && (
+                <div className="mb-2">
+                  <p className="text-[10px] text-gray-400 mb-1">Weekly reviews (last 8 weeks)</p>
+                  <div className="flex items-end gap-1 h-10">
+                    {repDashboard.weekly_trend.map((w, i) => {
+                      const max = Math.max(...repDashboard.weekly_trend.map(t => t.reviews), 1);
+                      const height = w.reviews > 0 ? Math.max(4, (w.reviews / max) * 40) : 2;
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-center" title={`${w.week}: ${w.reviews} reviews${w.avg_rating ? `, avg ${w.avg_rating}★` : ""}`}>
+                          <div className={`w-full rounded-t ${w.reviews > 0 ? "bg-emerald-400" : "bg-gray-200"}`} style={{ height: `${height}px` }} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-1 mt-0.5">
+                    {repDashboard.weekly_trend.map((w, i) => (
+                      <div key={i} className="flex-1 text-center text-[8px] text-gray-400">{w.reviews}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Issues */}
+              {repDashboard.issues.length > 0 && (
+                <div className="space-y-1">
+                  {repDashboard.issues.map((issue, i) => (
+                    <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 rounded text-xs text-amber-800">
+                      <AlertTriangle className="w-3 h-3 flex-shrink-0" />{issue}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
+
           <Card>
             <div className="flex items-center justify-between p-3 border-b border-gray-100">
               <div className="text-xs text-gray-500">
