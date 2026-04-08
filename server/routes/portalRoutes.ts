@@ -18,6 +18,7 @@ import {
   deploymentStatus,
   supportTickets,
   passwordResetTokens,
+  getTradeLineReadiness,
 } from "@shared/schema";
 import { storage } from "../storage";
 
@@ -770,6 +771,8 @@ export function registerPortalRoutes(app: Express) {
         config: config ?? null,
         usage: usage ?? null,
         recentCalls: calls,
+        setupStage: config?.setupStage ?? "not_started",
+        readiness: config ? getTradeLineReadiness(config) : null,
       });
     } catch (err) {
       console.error("Portal tradeline GET error:", err);

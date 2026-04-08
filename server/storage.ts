@@ -1292,10 +1292,22 @@ export class DatabaseStorage implements IStorage {
   async updateTradeLineConfig(clientServiceId: number, partialConfig: Partial<TradelineConfig>): Promise<TradelineConfig> {
     const cs = await this.getClientServiceById(clientServiceId);
     const existing = (cs?.metadata as Record<string, any>) ?? {};
-    const currentTradeline = existing.tradeline
+    const current = existing.tradeline
       ? tradelineConfigSchema.parse(existing.tradeline)
       : tradelineConfigSchema.parse({});
-    const merged = { ...currentTradeline, ...partialConfig };
+
+    // Deep merge: for plain-object sub-keys (channels, website, phoneRouting, etc.)
+    // spread-merge instead of overwriting, so partial updates don't wipe sibling fields.
+    const merged: Record<string, any> = { ...current };
+    for (const [key, value] of Object.entries(partialConfig)) {
+      const cur = (current as Record<string, any>)[key];
+      if (value != null && typeof value === "object" && !Array.isArray(value) && cur && typeof cur === "object" && !Array.isArray(cur)) {
+        merged[key] = { ...cur, ...value };
+      } else {
+        merged[key] = value;
+      }
+    }
+
     const updated = { ...existing, tradeline: merged };
     await db.update(clientServices)
       .set({ metadata: updated, updated_at: new Date() })

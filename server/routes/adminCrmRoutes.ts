@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { requireAdmin, hashPassword } from "../auth";
 import { storage } from "../storage";
-import { getTradeLineDefaultConfig } from "@shared/schema";
+import { getTradeLineDefaultConfig, getTradeLineReadiness } from "@shared/schema";
 import crypto from "crypto";
 
 export function registerAdminCrmRoutes(app: Express): void {
@@ -821,6 +821,117 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[admin-crm] TradeLine usage error:", err.message);
       res.status(500).json({ error: "Failed to load TradeLine usage" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/tradeline/:clientServiceId/install-path
+   * Set website install decision (direct embed vs hosted fallback).
+   */
+  app.post("/api/admin/crm/tradeline/:clientServiceId/install-path", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const { accessAvailable, embedMode } = req.body;
+      if (typeof accessAvailable !== "boolean") {
+        return res.status(400).json({ error: "accessAvailable (boolean) is required" });
+      }
+      const validModes = ["direct_embed", "hosted_fallback"];
+      if (!embedMode || !validModes.includes(embedMode)) {
+        return res.status(400).json({ error: "embedMode must be direct_embed or hosted_fallback" });
+      }
+
+      const config = await storage.updateTradeLineConfig(csId, {
+        website: { accessAvailable, embedMode },
+        channels: { hostedFallback: embedMode === "hosted_fallback" },
+        setupStage: "configuring",
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "tradeline.install_path_set",
+        entity_type: "client_service",
+        entity_id: csId,
+        summary: `Set install path: ${embedMode} (access: ${accessAvailable})`,
+      });
+
+      res.json({ config });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine install-path error:", err.message);
+      res.status(500).json({ error: "Failed to set install path" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/tradeline/:clientServiceId/readiness
+   * Check whether TradeLine config is ready for go-live.
+   */
+  app.get("/api/admin/crm/tradeline/:clientServiceId/readiness", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const config = await storage.getTradeLineConfig(csId);
+      if (!config) return res.json({ ready: false, issues: ["TradeLine config not initialized"] });
+
+      res.json(getTradeLineReadiness(config));
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine readiness error:", err.message);
+      res.status(500).json({ error: "Failed to check readiness" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/tradeline/:clientServiceId/go-live
+   * Validate readiness and mark TradeLine as live.
+   */
+  app.post("/api/admin/crm/tradeline/:clientServiceId/go-live", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const config = await storage.getTradeLineConfig(csId);
+      if (!config) return res.status(400).json({ error: "TradeLine config not initialized" });
+
+      const readiness = getTradeLineReadiness(config);
+      if (!readiness.ready) {
+        return res.status(400).json({ error: "Not ready for go-live", issues: readiness.issues });
+      }
+
+      const updated = await storage.updateTradeLineConfig(csId, { setupStage: "live" });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "tradeline.go_live",
+        entity_type: "client_service",
+        entity_id: csId,
+        summary: `Marked TradeLine as live`,
+      });
+
+      res.json({ config: updated });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine go-live error:", err.message);
+      res.status(500).json({ error: "Failed to go live" });
     }
   });
 }

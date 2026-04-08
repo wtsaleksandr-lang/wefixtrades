@@ -291,6 +291,15 @@ export type AdminActivityLog = typeof adminActivityLog.$inferSelect;
 export const tradelineConfigSchema = z.object({
   variant: z.enum(["call_backup", "chat", "complete"]).default("call_backup"),
   currentMode: z.enum(["available", "on_the_job", "after_hours"]).default("available"),
+  setupStage: z.enum([
+    "not_started",
+    "onboarding",
+    "configuring",
+    "awaiting_website_access",
+    "awaiting_client_action",
+    "ready_for_testing",
+    "live",
+  ]).default("not_started"),
   channels: z.object({
     voice: z.boolean().default(true),
     websiteChat: z.boolean().default(false),
@@ -315,6 +324,7 @@ export const tradelineConfigSchema = z.object({
     embedMode: z.enum(["none", "direct_embed", "hosted_fallback"]).default("none"),
     domainStatus: z.enum(["not_needed", "pending", "connected", "live"]).default("not_needed"),
     hostedUrl: z.string().default(""),
+    accessAvailable: z.boolean().nullable().default(null),
   }).default({}),
   booking: z.object({
     enabled: z.boolean().default(true),
@@ -360,6 +370,43 @@ export function getTradeLineDefaultConfig(serviceId: string): TradelineConfig | 
       }
       return null;
   }
+}
+
+/**
+ * Check whether a TradeLine config is ready for go-live.
+ * Pure logic — no DB calls.
+ */
+export function getTradeLineReadiness(config: TradelineConfig): { ready: boolean; issues: string[] } {
+  const issues: string[] = [];
+  const needsVoice = config.variant === "call_backup" || config.variant === "complete";
+  const needsWebsite = config.variant === "chat" || config.variant === "complete";
+
+  // Stage check
+  if (config.setupStage !== "ready_for_testing" && config.setupStage !== "live") {
+    issues.push(`Setup stage is "${config.setupStage}" — must be "ready_for_testing" or "live"`);
+  }
+
+  // Voice checks
+  if (needsVoice && !config.phoneRouting.primaryBusinessNumber) {
+    issues.push("Primary business phone number is required");
+  }
+
+  // Website checks
+  if (needsWebsite) {
+    if (config.website.embedMode === "none") {
+      issues.push("Website embed mode not set — choose direct embed or hosted fallback");
+    } else if (config.website.embedMode === "hosted_fallback") {
+      if (!config.website.hostedUrl) {
+        issues.push("Hosted fallback URL is required");
+      }
+      if (config.website.domainStatus !== "connected" && config.website.domainStatus !== "live") {
+        issues.push(`Hosted domain status is "${config.website.domainStatus}" — must be "connected" or "live"`);
+      }
+    }
+    // direct_embed: no extra check — admin confirms install via fulfillment task
+  }
+
+  return { ready: issues.length === 0, issues };
 }
 
 /* ─── TradeLine Usage ─── */
