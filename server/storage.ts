@@ -212,6 +212,9 @@ export interface IStorage {
   // Fulfillment helpers
   countPendingTasks(clientServiceId: number): Promise<number>;
 
+  // Raw metadata
+  updateClientServiceMetadata(clientServiceId: number, metadata: Record<string, any>): Promise<void>;
+
   // ─── TradeLine ───
   getTradeLineConfig(clientServiceId: number): Promise<TradelineConfig | undefined>;
   updateTradeLineConfig(clientServiceId: number, partialConfig: Partial<TradelineConfig>): Promise<TradelineConfig>;
@@ -916,6 +919,17 @@ export class DatabaseStorage implements IStorage {
   async updateClientService(id: number, updates: Partial<InsertClientService>): Promise<ClientService | undefined> {
     const [row] = await db.update(clientServices).set({ ...updates, updated_at: new Date() }).where(eq(clientServices.id, id)).returning();
     return row;
+  }
+
+  /**
+   * Update the raw metadata JSONB for a client service.
+   * Unlike updateTradeLineConfig (which deep-merges the tradeline sub-key),
+   * this replaces the entire metadata object.
+   */
+  async updateClientServiceMetadata(clientServiceId: number, metadata: Record<string, any>): Promise<void> {
+    await db.update(clientServices)
+      .set({ metadata, updated_at: new Date() })
+      .where(eq(clientServices.id, clientServiceId));
   }
 
   async getActiveServiceCount(): Promise<number> {

@@ -992,4 +992,34 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to go live" });
     }
   });
+
+  /**
+   * POST /api/admin/crm/tradeline/:clientServiceId/build-assistant
+   * Manually trigger assistant build + Vapi push for a TradeLine service.
+   */
+  app.post("/api/admin/crm/tradeline/:clientServiceId/build-assistant", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const { provisionTradeLineAssistant } = await import("../services/vapiService");
+      const result = await provisionTradeLineAssistant(csId);
+
+      res.json({
+        assistantId: result.assistantId,
+        skipped: result.skipped,
+        skipReason: result.skipReason,
+        templateId: result.definition?.templateId,
+        inputHash: result.definition?.inputHash,
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine build-assistant error:", err.message);
+      res.status(500).json({ error: err.message || "Failed to build assistant" });
+    }
+  });
 }

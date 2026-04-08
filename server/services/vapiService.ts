@@ -471,3 +471,186 @@ export function buildAssistantConfig(): Record<string, any> {
     },
   };
 }
+
+/* ─── Per-Client Vapi Assistant CRUD ─── */
+
+const VAPI_API_BASE = "https://api.vapi.ai";
+
+/**
+ * Create or update a Vapi assistant for a specific TradeLine client service.
+ *
+ * If the client service already has a vapiAssistantId in metadata,
+ * updates the existing assistant. Otherwise creates a new one.
+ *
+ * Returns the Vapi assistant ID.
+ */
+export async function upsertVapiAssistant(
+  clientServiceId: number,
+  systemPrompt: string,
+  firstMessage: string,
+  assistantName: string,
+): Promise<{ assistantId: string; created: boolean }> {
+  const config = getVapiConfig();
+  if (!config.apiKey) {
+    throw new Error("VAPI_API_KEY not configured — cannot manage assistants");
+  }
+
+  // Check for existing assistant ID in metadata
+  const cs = await storage.getClientServiceById(clientServiceId);
+  const rawMeta = (cs?.metadata as Record<string, any>) ?? {};
+  const existingId = rawMeta?.tradeline?.assistant?.vapiAssistantId;
+
+  const assistantPayload = {
+    name: assistantName,
+    model: {
+      provider: "custom-llm" as const,
+      url: config.serverUrl
+        ? `${config.serverUrl}/api/vapi/conversation`
+        : "/api/vapi/conversation",
+      messages: [{ role: "system", content: systemPrompt }],
+    },
+    voice: {
+      provider: "11labs" as const,
+      voiceId: "21m00Tcm4TlvDq8ikWAM",
+    },
+    firstMessage,
+    transcriber: {
+      provider: "deepgram" as const,
+      model: "nova-2",
+      language: "en",
+    },
+    serverUrl: config.serverUrl
+      ? `${config.serverUrl}/api/vapi/webhook`
+      : undefined,
+    metadata: {
+      client_service_id: String(clientServiceId),
+      source: "tradeline_template_engine",
+    },
+  };
+
+  if (existingId) {
+    // Update existing assistant
+    const resp = await fetch(`${VAPI_API_BASE}/assistant/${existingId}`, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(assistantPayload),
+    });
+
+    if (!resp.ok) {
+      const body = await resp.text();
+      // If assistant was deleted externally, fall through to create
+      if (resp.status === 404) {
+        console.warn(`[vapi] Assistant ${existingId} not found — will create new`);
+      } else {
+        throw new Error(`Vapi assistant update failed (${resp.status}): ${body}`);
+      }
+    } else {
+      console.log(`[vapi] Updated assistant ${existingId} for service #${clientServiceId}`);
+      return { assistantId: existingId, created: false };
+    }
+  }
+
+  // Create new assistant
+  const resp = await fetch(`${VAPI_API_BASE}/assistant`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(assistantPayload),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Vapi assistant creation failed (${resp.status}): ${body}`);
+  }
+
+  const data = await resp.json();
+  const newId = data.id;
+  if (!newId) throw new Error("Vapi returned no assistant ID");
+
+  console.log(`[vapi] Created assistant ${newId} for service #${clientServiceId}`);
+  return { assistantId: newId, created: true };
+}
+
+/**
+ * Full pipeline: build assistant definition → push to Vapi → store ID in metadata.
+ *
+ * This is the main entry point for automated assistant provisioning.
+ */
+export async function provisionTradeLineAssistant(
+  clientServiceId: number,
+): Promise<{
+  assistantId: string | null;
+  skipped: boolean;
+  skipReason?: string;
+  definition?: import("./tradelineTemplates").AssistantDefinition;
+}> {
+  // Lazy import to avoid circular dependency
+  const { buildTradeLineAssistant } = await import("./tradelineTemplates");
+
+  // 1. Build the assistant definition
+  const result = await buildTradeLineAssistant(clientServiceId);
+
+  if (result.skipped) {
+    return {
+      assistantId: null,
+      skipped: true,
+      skipReason: result.skipReason,
+      definition: result.definition,
+    };
+  }
+
+  // 2. Push to Vapi (if API key is configured)
+  const vapiConfig = getVapiConfig();
+  let assistantId: string | null = null;
+
+  if (vapiConfig.apiKey) {
+    const name = `TradeLine — ${result.input.businessName}`;
+    const upsertResult = await upsertVapiAssistant(
+      clientServiceId,
+      result.definition.systemPrompt,
+      result.definition.firstMessage,
+      name,
+    );
+    assistantId = upsertResult.assistantId;
+
+    // 3. Store the Vapi assistant ID in metadata
+    const cs = await storage.getClientServiceById(clientServiceId);
+    const rawMeta = (cs?.metadata as Record<string, any>) ?? {};
+    rawMeta.tradeline = rawMeta.tradeline ?? {};
+    rawMeta.tradeline.assistant = {
+      ...rawMeta.tradeline.assistant,
+      vapiAssistantId: assistantId,
+    };
+    await storage.updateClientServiceMetadata(clientServiceId, rawMeta);
+  } else {
+    console.warn("[vapi] VAPI_API_KEY not set — assistant built but not pushed to Vapi");
+  }
+
+  // 4. Log the build
+  const cs = await storage.getClientServiceById(clientServiceId);
+  await storage.logAdminActivity({
+    actor_type: "system",
+    actor_name: "TradeLine Template Engine",
+    action: "tradeline.assistant_built",
+    entity_type: "client_service",
+    entity_id: clientServiceId,
+    summary: `Built assistant (template: ${result.definition.templateId}, hash: ${result.definition.inputHash})${assistantId ? ` → Vapi ID: ${assistantId}` : " (Vapi not configured)"}`,
+    metadata: {
+      templateId: result.definition.templateId,
+      inputHash: result.definition.inputHash,
+      vapiAssistantId: assistantId,
+      clientId: cs?.client_id,
+    },
+  });
+
+  return {
+    assistantId,
+    skipped: false,
+    definition: result.definition,
+  };
+}

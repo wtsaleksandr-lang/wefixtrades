@@ -603,6 +603,13 @@ export function registerPortalRoutes(app: Express) {
                   await storage.updateTradeLineConfig(cs.id, updates);
                 }
               }
+
+              // Trigger assistant build (non-blocking)
+              import("../services/vapiService").then(({ provisionTradeLineAssistant }) => {
+                provisionTradeLineAssistant(cs.id).catch(err =>
+                  console.warn(`[tradeline] Auto-build assistant failed for service #${cs.id}:`, err.message),
+                );
+              });
             }
           } catch (err) {
             console.warn("Portal onboarding: failed to map TradeLine config:", err);
