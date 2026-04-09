@@ -7,3 +7,4 @@ export * from "./calculator";
 export * from "./db";
 export * from "./adminCrm";
 export * from "./mapguard";
+export * from "./mapguardMonitoring";

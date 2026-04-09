@@ -27,6 +27,14 @@ import {
   MAPGUARD_STATUS_TRANSITIONS,
   type MapguardTaskStatus,
 } from "@shared/mapguardTypes";
+import {
+  getLatestSnapshot,
+  getSnapshotHistory,
+  getMonitoringSummary,
+  runMapguardScan,
+  getActiveMapguardClients,
+  runMapguardBatchScan,
+} from "../services/mapguardMonitor";
 
 export function registerMapguardRoutes(app: Express) {
 
@@ -371,6 +379,76 @@ export function registerMapguardRoutes(app: Express) {
       }
       console.error("[mapguard] reject error:", err);
       res.status(500).json({ error: "Failed to reject result" });
+    }
+  });
+
+  /* ═══ MONITORING ENDPOINTS ═══ */
+
+  /* ─── Get monitoring summary for a client ─── */
+  app.get("/api/mapguard/clients/:clientId/monitoring", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const summary = await getMonitoringSummary(clientId);
+      res.json(summary);
+    } catch (err: any) {
+      console.error("[mapguard] monitoring summary error:", err);
+      res.status(500).json({ error: "Failed to get monitoring summary" });
+    }
+  });
+
+  /* ─── Get snapshot history for a client ─── */
+  app.get("/api/mapguard/clients/:clientId/snapshots", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 12;
+      const snapshots = await getSnapshotHistory(clientId, limit);
+      res.json(snapshots);
+    } catch (err: any) {
+      console.error("[mapguard] snapshot history error:", err);
+      res.status(500).json({ error: "Failed to get snapshot history" });
+    }
+  });
+
+  /* ─── Trigger manual scan for a single client ─── */
+  app.post("/api/mapguard/clients/:clientId/scan", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      // Find client in active mapguard clients
+      const activeClients = await getActiveMapguardClients();
+      const client = activeClients.find(c => c.client_id === clientId);
+
+      if (!client) {
+        return res.status(404).json({ error: "Client not found or does not have an active MapGuard service" });
+      }
+
+      const result = await runMapguardScan(client);
+      res.json({
+        snapshot_id: result.snapshot.id,
+        score: result.snapshot.score_total,
+        grade: result.snapshot.score_grade,
+        changes: result.changes,
+        tasks_created: result.tasksCreated,
+      });
+    } catch (err: any) {
+      console.error("[mapguard] manual scan error:", err);
+      res.status(500).json({ error: "Failed to run scan" });
+    }
+  });
+
+  /* ─── Trigger batch scan (all clients) ─── */
+  app.post("/api/mapguard/scan/batch", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const result = await runMapguardBatchScan();
+      res.json(result);
+    } catch (err: any) {
+      console.error("[mapguard] batch scan error:", err);
+      res.status(500).json({ error: "Failed to run batch scan" });
     }
   });
 
