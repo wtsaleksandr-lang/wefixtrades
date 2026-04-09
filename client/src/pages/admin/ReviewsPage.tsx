@@ -15,9 +15,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { HelpCue } from "@/components/admin/ServiceOps";
+import ShareableReviewCard, { isShareable } from "@/components/admin/ShareableReviewCard";
 import {
   Star, TrendingUp, AlertTriangle, MessageSquare, Eye, CheckCircle2, RefreshCw,
-  Sparkles, Copy, Save, Loader2, FileText, ShieldAlert, Send,
+  Sparkles, Copy, Save, Loader2, FileText, ShieldAlert, Send, Image as ImageIcon,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -131,6 +132,7 @@ export default function ReviewsPage() {
   const [draftEdited, setDraftEdited] = useState(false);
   const [draftTone, setDraftTone] = useState<DraftTone>("auto");
   const [copied, setCopied] = useState(false);
+  const [shareMode, setShareMode] = useState(false);
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -159,6 +161,7 @@ export default function ReviewsPage() {
     setDraftText("");
     setDraftEdited(false);
     setCopied(false);
+    setShareMode(false);
   };
 
   // Build query params
@@ -566,17 +569,33 @@ export default function ReviewsPage() {
 
         {/* Detail dialog */}
         <Dialog open={!!selected} onOpenChange={(open) => { if (!open) closeReview(); }}>
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogContent className={`${shareMode ? "sm:max-w-2xl" : "sm:max-w-lg"} max-h-[90vh] overflow-y-auto`}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <RatingStars rating={selected?.rating ?? 0} />
-                <span className="text-sm text-gray-500">by {selected?.reviewer_name}</span>
-                {selected && needsAttention(selected) && (
+                {shareMode ? (
+                  <span className="text-sm font-semibold text-gray-900">Create Share Image</span>
+                ) : (
+                  <>
+                    <RatingStars rating={selected?.rating ?? 0} />
+                    <span className="text-sm text-gray-500">by {selected?.reviewer_name}</span>
+                  </>
+                )}
+                {selected && !shareMode && needsAttention(selected) && (
                   <Badge className="text-xs bg-red-100 text-red-700 ml-auto">Needs attention</Badge>
                 )}
               </DialogTitle>
             </DialogHeader>
-            {selected && (
+            {selected && shareMode && (
+              <ShareableReviewCard
+                businessName={(selected.raw_payload as any)?.place_name || ""}
+                reviewerName={selected.reviewer_name}
+                rating={selected.rating}
+                text={selected.review_text || ""}
+                platform={selected.platform}
+                onClose={() => setShareMode(false)}
+              />
+            )}
+            {selected && !shareMode && (
               <div className="space-y-4">
                 {/* Low-rating alert for 1-2 star reviews without response */}
                 {isLowRating && !hasPublicResponse && (
@@ -778,6 +797,15 @@ export default function ReviewsPage() {
                   >
                     <RefreshCw className="w-4 h-4 mr-1" /> Sync Now
                   </Button>
+                  {isShareable(selected) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShareMode(true)}
+                    >
+                      <ImageIcon className="w-4 h-4 mr-1" /> Share Image
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
