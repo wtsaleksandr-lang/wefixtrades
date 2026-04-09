@@ -62,6 +62,18 @@ export interface PageContext {
   serviceNames?: string[];
   onboardingStatus?: string;
   pinnedNotes?: Array<{ content: string; actor_type: string }>;
+  // Billing enrichment
+  pendingPaymentsCount?: number;
+  failedPaymentsCount?: number;
+  overduePaymentsCount?: number;
+  topPendingPayments?: Array<{ client_name: string; amount_cents: number; due_at: string | null }>;
+  // Suppliers enrichment
+  supplierCount?: number;
+  activeSupplierCount?: number;
+  supplierTypes?: Record<string, number>;
+  // Services enrichment
+  serviceCatalogCount?: number;
+  topServicesByClients?: Array<{ name: string; activeClients: number }>;
 }
 
 export interface MemoryContext {
@@ -254,6 +266,36 @@ STRICT RULES:
   }
   if (ctx.waitingOnCounts && Object.keys(ctx.waitingOnCounts).length) {
     lines.push(`Tasks waiting on: ${Object.entries(ctx.waitingOnCounts).map(([k, v]) => `${k}=${v}`).join(", ")}`);
+  }
+
+  // Billing payment detail
+  if (ctx.pendingPaymentsCount != null) lines.push(`Pending payments: ${ctx.pendingPaymentsCount}`);
+  if (ctx.failedPaymentsCount != null && ctx.failedPaymentsCount > 0) lines.push(`Failed payments: ${ctx.failedPaymentsCount}`);
+  if (ctx.overduePaymentsCount != null && ctx.overduePaymentsCount > 0) lines.push(`Overdue (past due date): ${ctx.overduePaymentsCount}`);
+  if (ctx.topPendingPayments?.length) {
+    lines.push(`\nPending payment detail:`);
+    ctx.topPendingPayments.forEach((p, i) => {
+      const dueStr = p.due_at
+        ? ` — due ${new Date(p.due_at) < new Date() ? "OVERDUE" : new Date(p.due_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+        : "";
+      lines.push(`${i + 1}. ${p.client_name}: $${(p.amount_cents / 100).toFixed(2)}${dueStr}`);
+    });
+  }
+
+  // Supplier roster
+  if (ctx.supplierCount != null) lines.push(`Total suppliers: ${ctx.supplierCount}`);
+  if (ctx.activeSupplierCount != null) lines.push(`Active suppliers: ${ctx.activeSupplierCount}`);
+  if (ctx.supplierTypes && Object.keys(ctx.supplierTypes).length) {
+    lines.push(`Supplier types: ${Object.entries(ctx.supplierTypes).map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`).join(", ")}`);
+  }
+
+  // Service catalog stats
+  if (ctx.serviceCatalogCount != null) lines.push(`Services in catalog: ${ctx.serviceCatalogCount}`);
+  if (ctx.topServicesByClients?.length) {
+    lines.push(`\nTop services by active clients:`);
+    ctx.topServicesByClients.forEach((s, i) => {
+      lines.push(`${i + 1}. ${s.name} — ${s.activeClients} active client${s.activeClients !== 1 ? "s" : ""}`);
+    });
   }
 
   // Pinned internal notes (client detail)

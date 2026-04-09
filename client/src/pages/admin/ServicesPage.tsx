@@ -75,8 +75,18 @@ export default function ServicesPage() {
     };
   });
 
+  const topByClients = [...merged]
+    .sort((a, b) => b.activeClients - a.activeClients)
+    .filter((s) => s.activeClients > 0)
+    .slice(0, 6)
+    .map((s) => ({ name: s.name, activeClients: s.activeClients }));
+
   return (
-    <AdminLayout pageContext={{ page: "services" }}>
+    <AdminLayout pageContext={{
+      page: "services",
+      serviceCatalogCount: merged.length,
+      topServicesByClients: topByClients.length > 0 ? topByClients : undefined,
+    }}>
       <div className="max-w-5xl mx-auto space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Services</h2>

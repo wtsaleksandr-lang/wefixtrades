@@ -41,6 +41,18 @@ export interface AdminPageContext {
   serviceNames?: string[];
   onboardingStatus?: string;
   pinnedNotes?: Array<{ content: string; actor_type: string }>;
+  // Billing enrichment
+  pendingPaymentsCount?: number;
+  failedPaymentsCount?: number;
+  overduePaymentsCount?: number;
+  topPendingPayments?: Array<{ client_name: string; amount_cents: number; due_at: string | null }>;
+  // Suppliers enrichment
+  supplierCount?: number;
+  activeSupplierCount?: number;
+  supplierTypes?: Record<string, number>;
+  // Services enrichment
+  serviceCatalogCount?: number;
+  topServicesByClients?: Array<{ name: string; activeClients: number }>;
 }
 
 /* ─── Suggested prompts per page ─── */

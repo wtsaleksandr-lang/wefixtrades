@@ -64,8 +64,20 @@ export default function SuppliersPage() {
     },
   });
 
+  const activeSuppliers = (suppliers ?? []).filter((s) => s.is_active);
+  const supplierTypeMap = (suppliers ?? []).reduce<Record<string, number>>((acc, s) => {
+    acc[s.type] = (acc[s.type] || 0) + 1;
+    return acc;
+  }, {});
+
   return (
-    <AdminLayout pageContext={{ page: "suppliers" }}>
+    <AdminLayout pageContext={{
+      page: "suppliers",
+      supplierCount: suppliers?.length,
+      activeSupplierCount: activeSuppliers.length,
+      supplierNames: activeSuppliers.map((s) => s.name),
+      supplierTypes: Object.keys(supplierTypeMap).length > 0 ? supplierTypeMap : undefined,
+    }}>
       <div className="max-w-5xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
