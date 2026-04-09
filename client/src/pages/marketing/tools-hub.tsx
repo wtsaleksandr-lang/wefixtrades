@@ -4,8 +4,8 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { usePageMeta } from "@/lib/usePageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import { useFaqSchema } from "@/lib/useFaqSchema";
-import TrustStrip from "@/components/marketing/TrustStrip";
-import { Search, PhoneMissed, Calculator, ChevronRight, ChevronDown } from "lucide-react";
+import { Search, PhoneMissed, Calculator, ChevronRight, ChevronDown, Sparkles } from "lucide-react";
+import { mkt } from "@/theme/tokens";
 
 const TOOLS = [
   {
@@ -14,6 +14,7 @@ const TOOLS = [
     title: "Google Business Audit",
     description:
       "Free instant audit of your Google Business Profile and website. See how you stack up against competitors in your area.",
+    tag: "Most popular",
   },
   {
     href: "/tools/missed-call-calculator",
@@ -21,6 +22,7 @@ const TOOLS = [
     title: "Missed Call Revenue Calculator",
     description:
       "Calculate how much revenue your trade business loses from missed calls every month — and how to recover it.",
+    tag: null,
   },
   {
     href: "/tools/quote-demo",
@@ -28,6 +30,7 @@ const TOOLS = [
     title: "Instant Quote Demo",
     description:
       "Try our live quote calculator widget. See how instant quoting can convert more website visitors into booked jobs.",
+    tag: null,
   },
 ];
 
@@ -80,6 +83,7 @@ export default function ToolsHub() {
   useFaqSchema(faqSchemaItems);
 
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [hoveredCard, setHoveredCard] = useState<number | null>(null);
 
   return (
     <MarketingLayout>
@@ -87,132 +91,162 @@ export default function ToolsHub() {
         style={{
           maxWidth: 960,
           margin: "0 auto",
-          padding: "clamp(24px, 5vw, 40px) clamp(16px, 4vw, 24px) clamp(40px, 8vw, 80px)",
+          padding: "clamp(24px, 5vw, 48px) clamp(16px, 4vw, 24px) clamp(48px, 8vw, 96px)",
         }}
       >
         {/* Breadcrumb */}
         <nav
           aria-label="breadcrumb"
-          style={{ fontSize: 14, color: "#6b7280", marginBottom: "clamp(16px, 3vw, 24px)" }}
+          style={{ fontSize: 13, color: mkt.textFaint, marginBottom: "clamp(20px, 3vw, 32px)" }}
         >
-          <Link href="/" style={{ color: "#6b7280", textDecoration: "none" }}>
+          <Link href="/" style={{ color: mkt.textMuted, textDecoration: "none" }}>
             Home
           </Link>
-          <span style={{ margin: "0 8px" }}>/</span>
-          <span style={{ color: "#111827" }}>Free Tools</span>
+          <span style={{ margin: "0 8px", opacity: 0.4 }}>/</span>
+          <span style={{ color: mkt.text }}>Free Tools</span>
         </nav>
 
-        <h1
-          style={{
-            fontSize: "clamp(28px, 5vw, 44px)",
-            fontWeight: 900,
-            letterSpacing: "-0.02em",
-            color: "#111827",
-            marginBottom: 10,
-            lineHeight: 1.1,
-          }}
-        >
-          Free Tools for Trade Businesses
-        </h1>
-
-        <p
-          style={{
-            fontSize: "clamp(15px, 2.5vw, 18px)",
-            color: "#4b5563",
-            maxWidth: 600,
-            marginBottom: "clamp(28px, 5vw, 48px)",
-            lineHeight: 1.6,
-          }}
-        >
-          Everything you need to understand your online performance, calculate
-          lost revenue, and see what instant quoting looks like — all free, no
-          signup required.
-        </p>
+        {/* Hero */}
+        <div style={{ marginBottom: "clamp(36px, 6vw, 56px)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <Sparkles size={16} color={mkt.accent} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: mkt.accent, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              No signup required
+            </span>
+          </div>
+          <h1
+            style={{
+              fontSize: "clamp(30px, 5vw, 48px)",
+              fontWeight: 900,
+              letterSpacing: "-0.025em",
+              color: mkt.onDark,
+              marginBottom: 14,
+              lineHeight: 1.08,
+            }}
+          >
+            Free Tools for Trade Businesses
+          </h1>
+          <p
+            style={{
+              fontSize: "clamp(15px, 2.5vw, 18px)",
+              color: mkt.textMuted,
+              maxWidth: 560,
+              lineHeight: 1.65,
+            }}
+          >
+            Understand your online performance, calculate lost revenue, and see
+            what instant quoting looks like — all free.
+          </p>
+        </div>
 
         {/* Tool Cards */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-            gap: "clamp(16px, 3vw, 24px)",
+            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+            gap: "clamp(16px, 3vw, 20px)",
+            marginBottom: "clamp(48px, 8vw, 80px)",
           }}
         >
-          {TOOLS.map((tool) => (
-            <Link key={tool.href} href={tool.href} style={{ textDecoration: "none" }}>
-              <div
-                style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 16,
-                  padding: "clamp(20px, 3vw, 28px)",
-                  background: "#fff",
-                  height: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 14,
-                  transition: "box-shadow 0.2s, border-color 0.2s",
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.boxShadow =
-                    "0 4px 24px rgba(0,0,0,0.08)";
-                  (e.currentTarget as HTMLDivElement).style.borderColor = "#3b82f6";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
-                  (e.currentTarget as HTMLDivElement).style.borderColor = "#e5e7eb";
-                }}
-              >
+          {TOOLS.map((tool, i) => {
+            const isHovered = hoveredCard === i;
+            return (
+              <Link key={tool.href} href={tool.href} style={{ textDecoration: "none" }}>
                 <div
+                  onMouseEnter={() => setHoveredCard(i)}
+                  onMouseLeave={() => setHoveredCard(null)}
                   style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 12,
-                    background: "#eff6ff",
+                    border: `1px solid ${isHovered ? mkt.accent : mkt.border}`,
+                    borderRadius: 16,
+                    padding: "clamp(22px, 3vw, 28px)",
+                    background: isHovered ? mkt.surfaceAlt : mkt.surface,
+                    height: "100%",
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    flexDirection: "column",
+                    gap: 16,
+                    transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                    cursor: "pointer",
+                    boxShadow: isHovered
+                      ? `0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px ${mkt.accent}`
+                      : "0 1px 3px rgba(0,0,0,0.12)",
+                    transform: isHovered ? "translateY(-4px)" : "translateY(0)",
+                    position: "relative",
+                    overflow: "hidden",
                   }}
                 >
-                  <tool.icon size={20} color="#3b82f6" />
+                  {/* Tag */}
+                  {tool.tag && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: 14,
+                        right: 14,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: mkt.accent,
+                        background: mkt.accentTint,
+                        padding: "3px 8px",
+                        borderRadius: 6,
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      {tool.tag}
+                    </span>
+                  )}
+
+                  <div
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 12,
+                      background: mkt.accentTint,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "background 0.25s",
+                      ...(isHovered ? { background: mkt.accentGlow } : {}),
+                    }}
+                  >
+                    <tool.icon size={20} color={mkt.accent} />
+                  </div>
+
+                  <h2 style={{ fontSize: "clamp(17px, 2.5vw, 19px)", fontWeight: 700, color: mkt.onDark, margin: 0 }}>
+                    {tool.title}
+                  </h2>
+
+                  <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6, margin: 0, flex: 1 }}>
+                    {tool.description}
+                  </p>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: mkt.accent,
+                      transition: "gap 0.2s",
+                      ...(isHovered ? { gap: 8 } : {}),
+                    }}
+                  >
+                    Try it free <ChevronRight size={16} style={{ transition: "transform 0.2s", transform: isHovered ? "translateX(2px)" : "none" }} />
+                  </div>
                 </div>
-
-                <h2 style={{ fontSize: "clamp(17px, 2.5vw, 20px)", fontWeight: 700, color: "#111827", margin: 0 }}>
-                  {tool.title}
-                </h2>
-
-                <p style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6, margin: 0, flex: 1 }}>
-                  {tool.description}
-                </p>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: "#3b82f6",
-                  }}
-                >
-                  Try it free <ChevronRight size={16} />
-                </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
-
-        {/* Trust Strip */}
-        <TrustStrip theme="light" />
 
         {/* FAQ */}
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
           <h2
             style={{
-              fontSize: "clamp(20px, 3vw, 26px)",
-              fontWeight: 700,
-              color: "#111827",
+              fontSize: "clamp(22px, 3vw, 28px)",
+              fontWeight: 800,
+              color: mkt.onDark,
               marginBottom: "clamp(16px, 3vw, 24px)",
-              letterSpacing: "-0.01em",
+              letterSpacing: "-0.02em",
             }}
           >
             Frequently asked questions
@@ -225,10 +259,11 @@ export default function ToolsHub() {
                 <div
                   key={i}
                   style={{
-                    border: "1px solid #e5e7eb",
+                    border: `1px solid ${mkt.border}`,
                     borderRadius: 12,
                     overflow: "hidden",
-                    background: "#fff",
+                    background: mkt.surface,
+                    transition: "border-color 0.2s",
                   }}
                 >
                   <button
@@ -248,14 +283,14 @@ export default function ToolsHub() {
                       fontFamily: "inherit",
                       fontSize: 15,
                       fontWeight: 600,
-                      color: "#111827",
+                      color: mkt.onDark,
                       lineHeight: 1.4,
                     }}
                   >
                     {item.question}
                     <ChevronDown
                       size={16}
-                      color="#9ca3af"
+                      color={mkt.textFaint}
                       style={{
                         flexShrink: 0,
                         transition: "transform 0.2s",
@@ -268,7 +303,7 @@ export default function ToolsHub() {
                       style={{
                         padding: "0 16px 14px",
                         fontSize: 14,
-                        color: "#6b7280",
+                        color: mkt.textMuted,
                         lineHeight: 1.65,
                       }}
                     >
