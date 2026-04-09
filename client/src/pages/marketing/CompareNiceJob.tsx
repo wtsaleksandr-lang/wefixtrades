@@ -106,34 +106,53 @@ export default function CompareNiceJob() {
           </div>
         </Card>
 
+        {/* The Shield explained */}
+        <div style={{ background: "#F0FFF4", borderRadius: 12, padding: 32, marginBottom: 32 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+            <Shield className="w-8 h-8 text-emerald-600 shrink-0 mt-1" />
+            <div>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e", marginBottom: 8 }}>The "Shield" — our biggest differentiator</h3>
+              <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.7, marginBottom: 12 }}>
+                When a customer is unhappy, they see a private feedback form — not the Google review page.
+                You get their complaint directly. Google doesn't. You have a chance to make it right before it becomes a 1-star review.
+              </p>
+              <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.7 }}>
+                NiceJob has a similar "review funnel." But ReputationShield adds AI response drafting and direct Google posting on top — so when a review does go public, you can respond professionally in seconds.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Bottom line */}
-        <div style={{ background: "#F9FAFB", borderRadius: 12, padding: 32, marginBottom: 48 }}>
+        <div style={{ background: "#F9FAFB", borderRadius: 12, padding: 32, marginBottom: 32 }}>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1a1a2e", marginBottom: 12 }}>The bottom line</h2>
-          <p style={{ fontSize: 15, color: "#374151", lineHeight: 1.7, marginBottom: 16 }}>
-            NiceJob is a solid tool for automated review collection. If that's all you need, it works fine.
+          <p style={{ fontSize: 15, color: "#374151", lineHeight: 1.7, marginBottom: 12 }}>
+            NiceJob is a solid tool for automated review collection. If all you need is "send review requests after jobs," it works.
           </p>
-          <p style={{ fontSize: 15, color: "#374151", lineHeight: 1.7, marginBottom: 16 }}>
-            ReputationShield does everything NiceJob does — plus AI response drafting, direct Google posting, QR code field collection, low-rating alerts, and source tracking. For $4/mo more.
+          <p style={{ fontSize: 15, color: "#374151", lineHeight: 1.7, marginBottom: 12 }}>
+            ReputationShield does that too — plus AI response drafting, direct Google posting, QR code field collection, low-rating alerts, monthly reports, and source tracking. For $4/mo more.
           </p>
-          <p style={{ fontSize: 15, color: "#374151", lineHeight: 1.7 }}>
-            Both products have no contracts and transparent pricing. The difference is what happens after the review request is sent.
+          <p style={{ fontSize: 15, color: "#374151", lineHeight: 1.7, fontWeight: 600 }}>
+            The difference: what happens after the review request is sent.
           </p>
         </div>
 
-        {/* Podium comparison teaser */}
+        {/* Podium / Birdeye comparison */}
         <Card className="p-6 mb-12" style={{ borderLeft: "4px solid #00D4C8" }}>
-          <h3 style={{ fontSize: 17, fontWeight: 600, color: "#1a1a2e", marginBottom: 8 }}>What about Podium or Birdeye?</h3>
-          <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.6 }}>
-            Podium starts at <strong>$399/mo</strong> with annual contracts and a sales-led process. Birdeye starts at <strong>$299/mo</strong> with setup fees.
-            ReputationShield offers the core review features trades businesses actually need — automated requests, monitoring, AI responses, and Google posting — at <strong>$79–$179/mo</strong> with no contracts and no sales calls.
-            If you're a plumber, electrician, or HVAC tech with one location, you don't need enterprise software priced for franchise chains.
+          <h3 style={{ fontSize: 17, fontWeight: 600, color: "#1a1a2e", marginBottom: 8 }}>What about Podium ($399/mo) or Birdeye ($299/mo)?</h3>
+          <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.6, marginBottom: 12 }}>
+            Both are built for multi-location chains and require annual contracts + sales calls to even see pricing.
+            They offer webchat, payments, social media management — features most trades businesses don't need.
+          </p>
+          <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.6 }}>
+            ReputationShield focuses on what actually grows your reputation: <strong>review requests, monitoring, AI responses, Google posting, and private feedback protection</strong> — at <strong>$79–$179/mo</strong>, no contracts, no sales calls, sign up and start today.
           </p>
         </Card>
 
         {/* CTA */}
         <div style={{ textAlign: "center" }}>
-          <h2 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a2e", marginBottom: 12 }}>Ready to start getting more reviews?</h2>
-          <p style={{ fontSize: 15, color: "#6B7280", marginBottom: 24 }}>No contracts. No sales calls. Start your free trial today.</p>
+          <h2 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a2e", marginBottom: 12 }}>Your next 5-star review is one completed job away.</h2>
+          <p style={{ fontSize: 15, color: "#6B7280", marginBottom: 24 }}>No contracts. No sales calls. No setup fees. Start your free trial today.</p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <Link href="/Wizard">
               <Button style={{ background: "#00D4C8", color: "#1a1a2e", fontWeight: 700, padding: "14px 28px", borderRadius: 10, fontSize: 15 }}>

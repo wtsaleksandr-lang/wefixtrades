@@ -334,14 +334,14 @@ export const PRODUCT_PAGES: ProductPage[] = [
       "QR codes let techs collect reviews in person, right after the job",
     ],
     outcomes: [
-      { title: "More 5-star reviews", desc: "Automated requests after every job mean you never forget to ask. SMS gets 3\u20135x more responses than email alone." },
-      { title: "Fewer public complaints", desc: "The private feedback shield catches unhappy customers before they leave a 1-star review on Google." },
-      { title: "Faster, better responses", desc: "AI drafts professional replies in seconds. On the Scale plan, post them directly to Google without copy-paste." },
+      { title: "More 5-star reviews, automatically", desc: "Every completed job triggers a friendly SMS or email. Smart reminders follow up. QR codes let techs collect reviews on-site. No awkward asking." },
+      { title: "Fewer public complaints", desc: "Unhappy customers see a private feedback form \u2014 not the Google review page. You get the complaint. Google doesn\u2019t. You fix it before it goes public." },
+      { title: "Respond faster than your competitors", desc: "AI drafts professional replies in seconds. Edit if you want, then post directly to Google. Low-rating alerts notify you instantly so you can respond the same day." },
     ],
     howItWorks: [
-      { title: "Job complete \u2192 request sent", desc: "When a job is marked complete, your customer gets a friendly text or email asking about their experience. No awkward asks." },
-      { title: "Happy \u2192 Google. Unhappy \u2192 private.", desc: "Happy customers are sent straight to leave a Google or Facebook review. Unhappy customers share their feedback privately \u2014 so you can fix it first." },
-      { title: "Reviews grow. You see proof.", desc: "Your reviews increase month over month. AI helps you respond. Monthly reports show the numbers. The widget shows it on your website." },
+      { title: "You finish a job", desc: "Your customer gets a friendly text asking about their experience. No awkward conversations. It just happens." },
+      { title: "The shield decides", desc: "Happy? They go straight to Google or Facebook to leave a review. Unhappy? They tell you privately first \u2014 not the internet." },
+      { title: "Your reputation grows", desc: "More reviews. Better responses. Monthly reports in your inbox. A widget on your website showing your best reviews to every visitor." },
     ],
     bestFor: ["Plumbers", "HVAC Technicians", "Electricians", "Roofers", "Cleaners", "Landscapers", "Painters", "General Contractors"],
     visuals: [

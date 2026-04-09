@@ -1798,29 +1798,29 @@ function RSWhatWeDoSection() {
   const blocks = [
     {
       icon: Send,
-      label: "Get more reviews",
+      label: "Collect reviews automatically",
       items: [
-        "Automatic SMS/email requests",
-        "Sent at the right moment",
-        "No manual follow-up needed",
+        "SMS + email requests sent after every completed job",
+        "Smart follow-up reminders if customers forget",
+        "QR codes for field techs to collect reviews in person",
       ],
     },
     {
       icon: MessageCircle,
-      label: "Respond to every review",
+      label: "Respond with AI + post to Google",
       items: [
-        "We write and post responses for you",
-        "Positive or negative \u2014 handled professionally",
-        "You don\u2019t have to touch a thing",
+        "AI drafts professional, human-sounding responses",
+        "Edit and post directly to Google — no copy-paste",
+        "Low-rating reviews flagged with instant email alerts",
       ],
     },
     {
       icon: ShieldCheck,
-      label: "Protect your reputation",
+      label: "The private feedback shield",
       items: [
-        "Catch issues early",
-        "Improve customer experience",
-        "Prevent bad reviews before they happen",
+        "Unhappy customers see a private feedback form — not Google",
+        "You get the complaint and a chance to fix it first",
+        "Complaints stay private. Your public rating stays strong.",
       ],
     },
   ];
@@ -1904,11 +1904,13 @@ function RSWhatWeDoSection() {
 /* ---------- ReputationShield: Comparison ---------- */
 function RSComparisonSection() {
   const rows = [
-    { feature: "We do the work", rs: true, tools: false },
-    { feature: "Responses written for you", rs: true, tools: false },
-    { feature: "No setup or learning", rs: true, tools: false },
-    { feature: "Works after every job", rs: true, tools: "You configure" },
-    { feature: "Built for trades", rs: true, tools: false },
+    { feature: "Catches complaints privately before Google", rs: true, tools: false },
+    { feature: "AI drafts + posts responses to Google", rs: true, tools: false },
+    { feature: "SMS review requests (3\u20135x better response rate)", rs: true, tools: "Email only" },
+    { feature: "QR codes for field collection", rs: true, tools: false },
+    { feature: "Monthly proof-of-ROI report", rs: true, tools: "You check manually" },
+    { feature: "No contracts, transparent pricing", rs: true, tools: "Sales call required" },
+    { feature: "Built specifically for trades", rs: true, tools: "Generic SMB" },
   ];
 
   const renderCell = (val: boolean | string) =>
@@ -1936,10 +1938,7 @@ function RSComparisonSection() {
           This isn't another dashboard you have to manage.
         </h2>
         <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 32 }}>
-          Most review tools still expect you to do the work. ReputationShield is a service — we handle it for you.
-        </p>
-        <p style={{ fontSize: 14, fontWeight: 600, color: mkt.text, marginBottom: 32, marginTop: -16, lineHeight: 1.5 }}>
-          Most review tools give you another dashboard to manage. ReputationShield gives you results without extra work.
+          Most review tools give you a login and expect you to do the work. ReputationShield does the work — you just keep doing good jobs.
         </p>
 
         <div
@@ -2057,18 +2056,19 @@ function RSPricingIntro() {
           marginBottom: 8,
         }}
       >
-        Simple monthly pricing.
+        Pick the plan that matches where you are.
       </h2>
       <p
         style={{
           fontSize: 15,
           color: mkt.onDarkFaint,
-          maxWidth: 480,
+          maxWidth: 520,
           margin: "0 auto",
           lineHeight: 1.6,
         }}
       >
-        No contracts. Cancel anytime. No hidden fees.
+        Every plan includes automated review requests, private feedback shield, monitoring, and alerts.
+        No contracts. No setup fees. Cancel anytime.
       </p>
     </>
   );
@@ -3592,10 +3592,10 @@ export default function ProductPage() {
                 "No contracts",
                 "We post for you every week",
               ] : isReputationShield ? [
-                "Built for trades businesses",
-                "Done-for-you (we handle everything)",
-                "No contracts",
+                "Built for plumbers, electricians, HVAC",
                 "Works automatically after every job",
+                "No contracts \u00B7 Cancel anytime",
+                "From $79/mo",
               ] : isQuoteQuick ? [
                 "Built for trades businesses",
                 "Works on WordPress, Wix, Squarespace, Webflow, or plain HTML",
