@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RefreshCw, Play, XCircle, RotateCcw, Calendar, Zap, AlertTriangle, Link2, CheckCircle, ExternalLink } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import ServiceOpsHeader from "./ServiceOpsHeader";
 
 /* ─── Types ─── */
 
@@ -713,6 +714,18 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
           {summary?.last_generation && <InfoBanner text={`Last generation: ${fmtDate(summary.last_generation.created_at)}`} />}
         </div>
       </Card>
+
+      {/* ─── Service Delivery Status ─── */}
+      <ServiceOpsHeader
+        clientId={clientId}
+        serviceFilter="socialsync"
+        helpCues={[
+          { condition: !profile.enabled, text: "Enable SocialSync above to start generating content." },
+          { condition: profile.enabled && !profile.autopilot, text: "Turn on Autopilot to generate content automatically each week." },
+          { condition: !!profile.enabled && !!profile.autopilot && !fbStatus?.connected && !igStatus?.connected && !gbpStatus?.connected, text: "Connect at least one platform below to start publishing." },
+          { condition: !!stats && stats.failed_queue > 0, text: "Some posts failed to publish. Check the Queue tab for details." },
+        ]}
+      />
 
       {/* ─── Facebook Connection Card ─── */}
       <Card className="p-4">
