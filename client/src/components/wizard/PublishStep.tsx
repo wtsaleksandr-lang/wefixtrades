@@ -511,6 +511,28 @@ function HostedPageTab({ subdomain, hostedUrl, calcUrl, slug, isPublished }: {
 }) {
   return (
     <div data-testid="tab-hosted">
+      {/* Post-publish nudge */}
+      {isPublished && (
+        <>
+          <style>{`
+            @keyframes eff-nudge-pulse {
+              0%, 100% { box-shadow: 0 0 0 0 rgba(5,150,105,0.3); }
+              50% { box-shadow: 0 0 0 6px rgba(5,150,105,0); }
+            }
+          `}</style>
+          <div style={{
+            padding: '12px 14px', borderRadius: p.radius.md, marginBottom: '14px',
+            background: '#ECFDF5', border: '1.5px solid #059669',
+            animation: 'eff-nudge-pulse 2s ease-in-out 3',
+            display: 'flex', alignItems: 'center', gap: '10px',
+          }}>
+            <Send style={{ width: '16px', height: '16px', color: '#059669', flexShrink: 0 }} />
+            <p style={{ fontSize: '13px', fontWeight: 600, color: '#065F46', margin: 0, lineHeight: 1.4 }}>
+              Share this link to start getting leads
+            </p>
+          </div>
+        </>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
         <div style={{
           width: '28px', height: '28px', borderRadius: '6px',

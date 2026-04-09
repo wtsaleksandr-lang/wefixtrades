@@ -260,6 +260,26 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
         </div>
       )}
 
+      {/* Zero-view nudge: calculator is live but no one has seen it */}
+      {status === 'live' && stats.total_views === 0 && (
+        <div data-testid="nudge-zero-views" style={{
+          display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px',
+          background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: p.radius.sm,
+          marginBottom: 24,
+        }}>
+          <Eye style={{ width: 16, height: 16, color: '#D97706', flexShrink: 0, marginTop: 1 }} />
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#92400E', margin: '0 0 4px' }}>
+              Your calculator is live, but no one has seen it yet.
+            </p>
+            <p style={{ fontSize: 12, color: '#A16207', margin: '0 0 8px', lineHeight: 1.5 }}>
+              Copy your link or add it to your website to start getting quote requests.
+            </p>
+            {hosted_url && <CopyButton text={hosted_url} />}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 16, marginBottom: 32, flexWrap: 'wrap' }}>
         <StatCard label="Leads this week" value={stats.leads_this_week} />
         <StatCard label="Conversion rate" value={`${stats.conversion_rate}%`} />
