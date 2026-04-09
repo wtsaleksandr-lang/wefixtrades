@@ -1064,6 +1064,21 @@ Do NOT:
         image_url: (p.media_plan as any)?.image_url || null,
       }));
 
+      // Upcoming scheduled posts
+      const upcomingPosts = queuedPosts
+        .filter(p => p.scheduled_for && new Date(p.scheduled_for).getTime() > now)
+        .sort((a, b) => new Date(a.scheduled_for!).getTime() - new Date(b.scheduled_for!).getTime())
+        .slice(0, 12)
+        .map(p => ({
+          id: p.id,
+          platform: p.platform === "google_business" ? "Google Business" : p.platform.charAt(0).toUpperCase() + p.platform.slice(1),
+          caption: (p.caption || p.post_text).slice(0, 120) + ((p.caption || p.post_text).length > 120 ? "..." : ""),
+          scheduled_for: new Date(p.scheduled_for!).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+          scheduled_date: new Date(p.scheduled_for!).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }),
+          has_image: !!(p.media_plan as any)?.image_url,
+          image_url: (p.media_plan as any)?.image_url || null,
+        }));
+
       res.json({
         status,
         summary: {
@@ -1079,6 +1094,7 @@ Do NOT:
         } : null,
         platforms,
         recent_posts: recentPosts,
+        upcoming_posts: upcomingPosts,
       });
     } catch (err: any) {
       console.error("Portal SocialSync report error:", err);

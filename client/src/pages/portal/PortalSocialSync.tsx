@@ -25,6 +25,15 @@ interface SocialSyncReport {
     has_image: boolean;
     image_url: string | null;
   }[];
+  upcoming_posts: {
+    id: number;
+    platform: string;
+    caption: string;
+    scheduled_for: string;
+    scheduled_date: string;
+    has_image: boolean;
+    image_url: string | null;
+  }[];
 }
 
 const STATUS_MESSAGES: Record<string, { headline: string; sub: string }> = {
@@ -165,6 +174,39 @@ export default function PortalSocialSync() {
                   </div>
                 </div>
               ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Upcoming Posts */}
+        {data.upcoming_posts.length > 0 && (
+          <Card className="p-5">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Coming Up</h3>
+            <div className="space-y-2">
+              {data.upcoming_posts.map((post, i) => {
+                const showDate = i === 0 || post.scheduled_date !== data.upcoming_posts[i - 1].scheduled_date;
+                return (
+                  <div key={post.id}>
+                    {showDate && (
+                      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mt-2 mb-1 first:mt-0">{post.scheduled_date}</p>
+                    )}
+                    <div className="flex gap-3 py-2 border-b border-gray-50 last:border-0">
+                      {post.has_image && post.image_url ? (
+                        <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                          <img src={post.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                        </div>
+                      ) : null}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-[10px] font-medium text-gray-500">{post.platform}</span>
+                          <span className="text-[10px] text-gray-400">{post.scheduled_for}</span>
+                        </div>
+                        <p className="text-sm text-gray-600 line-clamp-1">{post.caption}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Card>
         )}
