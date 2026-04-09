@@ -10,7 +10,7 @@
 import { streamChat, chat, validateConfig, getModel, type ChatMessage, type ChatOptions } from "./aiService";
 import { buildSystemPrompt, type ChatSurface, type AuditContext, type MemoryContext, type PageContext, type PortalContext } from "./promptBuilder";
 import { getMemory, getMemoryByUserId, saveMemory, extractMemorySignals } from "./chatMemory";
-import { getOrCreateThread, loadThreadMessages, appendTurn, derivePageContext } from "./threadService";
+import { getOrCreateThread, loadThreadMessages, appendTurn, appendMessage, derivePageContext } from "./threadService";
 import { logUsage } from "./usageTracker";
 import { evaluateAndArchive } from "./conversationArchiver";
 
@@ -36,6 +36,8 @@ export interface AssistantRequest {
   maxTokens?: number;
   /** Resolved thread ID (set internally by buildContext for portal) */
   _threadId?: number;
+  /** True when buildContext detected the user message is already in the thread */
+  _isDuplicateTurn?: boolean;
 }
 
 export interface AssistantStreamResult {
@@ -86,6 +88,7 @@ async function buildContext(req: AssistantRequest): Promise<{
         && lastThreadMsg.content === lastClientMsg.content;
 
       // Merge: thread history + new user message (if not duplicate)
+      req._isDuplicateTurn = isDuplicate;
       const merged = isNewUserTurn && !isDuplicate
         ? [...threadMessages, lastClientMsg]
         : threadMessages.length > 0 ? threadMessages : clientMessages;
@@ -139,10 +142,16 @@ function createOnComplete(req: AssistantRequest, chatMessages: ChatMessage[]) {
 
     // Thread persistence (portal): save user message + assistant reply
     if (req._threadId) {
-      const lastUserMsg = chatMessages[chatMessages.length - 1];
-      if (lastUserMsg?.role === "user") {
-        await appendTurn(req._threadId, lastUserMsg.content, fullReply)
+      if (req._isDuplicateTurn) {
+        // User message already in thread (retry) — only append the assistant reply
+        await appendMessage(req._threadId, "assistant", fullReply)
           .catch((err) => console.error("[assistant] Thread append error:", err));
+      } else {
+        const lastUserMsg = chatMessages[chatMessages.length - 1];
+        if (lastUserMsg?.role === "user") {
+          await appendTurn(req._threadId, lastUserMsg.content, fullReply)
+            .catch((err) => console.error("[assistant] Thread append error:", err));
+        }
       }
     }
 
