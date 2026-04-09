@@ -18,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard, Copy, ExternalLink, ClipboardCheck, UserPlus, ShieldCheck,
+  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard, Copy, ExternalLink, ClipboardCheck, UserPlus, ShieldCheck, Calculator, Eye,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -209,6 +209,17 @@ export default function ClientDetailPage() {
 
   const { data: catalog } = useQuery<ServiceCatalogItem[]>({
     queryKey: ["/api/admin/crm/services"],
+  });
+
+  // QuoteQuick calculator data for this client
+  const { data: qqData } = useQuery<{ calculators: Array<{
+    id: number; business_name: string; trade_type: string; slug: string;
+    plan_tier: string; total_views: number; total_leads: number;
+    status: string; created_at: string;
+    calculator_url: string; edit_url: string;
+  }> }>({
+    queryKey: [`/api/admin/crm/clients/${clientId}/quotequick`],
+    enabled: !!clientId,
   });
 
   // Mutations
@@ -650,6 +661,57 @@ export default function ClientDetailPage() {
                 )}
               </div>
             </Card>
+
+            {/* QuoteQuick Calculator Section */}
+            {qqData && qqData.calculators && qqData.calculators.length > 0 && (
+              <Card className="mt-4">
+                <div className="p-4 border-b border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="w-4 h-4 text-indigo-500" />
+                    <h3 className="text-sm font-semibold text-gray-900">QuoteQuick Calculators</h3>
+                  </div>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {qqData.calculators.map((calc) => (
+                    <div key={calc.id} className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900">{calc.business_name}</p>
+                          <div className="flex items-center flex-wrap gap-2 mt-1">
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                              calc.status === "live" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
+                            }`}>
+                              {calc.status === "live" ? "Live" : "Draft"}
+                            </span>
+                            <span className="text-[11px] text-gray-400 capitalize">{calc.trade_type}</span>
+                            <span className="text-[11px] text-gray-400 capitalize">{calc.plan_tier} plan</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-500 shrink-0">
+                          <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{calc.total_views}</span>
+                          <span className="flex items-center gap-1"><UserPlus className="w-3 h-3" />{calc.total_leads}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 mt-2.5">
+                        <a href={calc.calculator_url} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 transition-colors">
+                          <Globe className="w-3 h-3" /> View Live
+                        </a>
+                        <a href={calc.edit_url} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-[#2D6A4F] hover:underline">
+                          <Pencil className="w-3 h-3" /> Edit
+                        </a>
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${calc.calculator_url}`); }}
+                          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                          <Copy className="w-3 h-3" /> Copy Link
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
           </TabsContent>
 
           {/* ─── Tasks Tab ─── */}
