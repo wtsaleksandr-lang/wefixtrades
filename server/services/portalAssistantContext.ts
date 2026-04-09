@@ -51,11 +51,12 @@ export async function assemblePortalContext(
 
   const mode = deriveMode(pageHint);
 
-  // Load client profile
+  // Load client profile (including journey summary for pre-signup context)
   const [client] = await db
     .select({
       business_name: clients.business_name,
       trade_type: clients.trade_type,
+      journey_summary: clients.journey_summary,
     })
     .from(clients)
     .where(eq(clients.id, clientId))
@@ -79,6 +80,7 @@ export async function assemblePortalContext(
     mode,
     businessName: client.business_name,
     tradeType: client.trade_type ?? undefined,
+    journeySummary: client.journey_summary ?? undefined,
     services: services.map((s) => ({
       name: s.name ?? "Unknown",
       status: s.status,
