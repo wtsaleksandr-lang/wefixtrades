@@ -1147,6 +1147,16 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
 
         {/* Reviews */}
         <TabsContent value="reviews" className="mt-3">
+          {/* ReputationShield Delivery Status */}
+          <ServiceOpsHeader
+            clientId={clientId}
+            serviceFilter="reputation"
+            helpCues={[
+              { condition: !gbpStatus?.connected, text: "Connect Google Business to enable review ingestion and reply automation." },
+              { condition: !!gbpStatus?.connected && !rlConfig?.effective_link, text: "Set a review link below so review requests can be sent to customers." },
+            ]}
+          />
+
           {/* ReputationShield Dashboard */}
           {repDashboard && (
             <Card className="mb-3 p-4">
