@@ -12,6 +12,7 @@ import PricingIntakeStage2 from './PricingIntakeStage2';
 import TestGateStep, { type TestGateResult } from './TestGateStep';
 import LeadFormStep from './LeadFormStep';
 import PublishStep from './PublishStep';
+import { trackEvent } from '@/lib/trackEvent';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import type { CalculatorData } from '@/components/quote-widget/types';
 import { mapPricingIntakeToConfig } from '@shared/pricingIntakeMapper';
@@ -196,6 +197,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     if (result) localStorage.setItem('qq_result', JSON.stringify(result));
   }, [result]);
 
+  // Track trial_started on first wizard load
+  useEffect(() => { trackEvent('trial_started'); }, []);
+
   const set = useCallback(<K extends keyof WizardState>(k: K, v: WizardState[K]) => {
     setWs(p => ({ ...p, [k]: v }));
     if (validationErrors[k]) setValidationErrors(p => { const n = { ...p }; delete n[k]; return n; });
@@ -261,6 +265,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     set('selectedTrade', tr.id);
     setTradeOpen(false);
     setTradeSearch('');
+    trackEvent('wizard_trade_selected', { trade: tr.id, label: tr.label });
 
     const currentTemplateId = ws.calculatorSettings.ui_template?.template_id || 'classic_single';
     if (currentTemplateId === 'classic_single') {
@@ -405,12 +410,14 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const tryStep2Continue = () => {
     if (!ws.isCustomTrade || ws.customTradeData.charge_method === 'not_sure') {
       setValidationErrors({});
+      trackEvent('wizard_pricing_set', { trade: ws.selectedTrade, isCustom: false });
       setStep(1); // Flow: pricing → preview/polish (skip lead form)
       return;
     }
     const errs = validateStage2();
     setValidationErrors(errs);
     if (Object.keys(errs).length === 0) {
+      trackEvent('wizard_pricing_set', { trade: ws.selectedTrade, isCustom: true });
       setStep(1); // Flow: pricing → preview/polish (skip lead form)
     }
   };
@@ -623,6 +630,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     },
     onSuccess: (d) => {
       setResult(d);
+      trackEvent('wizard_published', { slug: d?.slug, calculator_id: d?.calculator?.id });
       setTimeout(() => setStep(5), 500);
     },
   });

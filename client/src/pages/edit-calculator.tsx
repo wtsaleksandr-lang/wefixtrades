@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, AlertTriangle, Check, Copy, ExternalLink, RefreshCw, Lock, Building2, Palette, MessageSquare, Save, Clock, DollarSign, ChevronDown, ChevronUp, Plus, Trash2, GripVertical, Calculator, Eye, Globe, Code2 } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import { trackEvent } from '@/lib/trackEvent';
 
 interface QuestionOption {
   label: string;
@@ -29,7 +30,7 @@ interface PricingConfig {
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-  const copy = () => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const copy = () => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); trackEvent('calculator_link_copied'); };
   return (
     <button onClick={copy} className="p-1.5 rounded-md hover:bg-slate-100 flex-shrink-0 transition-colors" data-testid="button-copy">
       {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-400" />}
@@ -216,7 +217,7 @@ const PRESET_COLORS = ['#0284C7', '#0ea5e9', '#2563EB', '#059669', '#f59e0b', '#
 
 function DeployCopyRow({ label, code, testId }: { label: string; code: string; testId: string }) {
   const [copied, setCopied] = useState(false);
-  const copy = () => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const copy = () => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); trackEvent('calculator_embed_copied', { type: label }); };
   return (
     <div className="mt-2">
       <div className="flex items-center justify-between bg-slate-900 rounded-lg px-3 py-2.5">

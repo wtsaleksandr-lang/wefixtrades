@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Check, ChevronDown, ArrowRight, Zap, Clock, Users, Shield, MessageSquare, X } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, colors } from "@/theme/tokens";
+import { trackEvent } from "@/lib/trackEvent";
 
 /* ─── FAQ ─── */
 
@@ -67,6 +68,7 @@ function ReplaceItem({ icon: Icon, before, after }: { icon: any; before: string;
 
 export default function QuoteQuickPricing() {
   const [annual, setAnnual] = useState(false);
+  useEffect(() => { trackEvent('pricing_page_viewed'); }, []);
 
   const soloPrice = annual ? 39 : 49;
   const bizPrice = annual ? 79 : 99;

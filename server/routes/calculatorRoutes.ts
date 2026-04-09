@@ -404,4 +404,22 @@ export function registerCalculatorRoutes(app: Express): void {
       res.json({ success: true });
     }
   });
+
+  // Generic client-side event tracking endpoint
+  app.post("/api/track", async (req, res) => {
+    try {
+      const { event, data } = req.body || {};
+      if (!event || typeof event !== 'string') return res.json({ ok: true });
+      // Store activation events using a calculator_id=0 sentinel for non-calculator events
+      const calcId = typeof data?.calculator_id === 'number' ? data.calculator_id : 0;
+      storage.trackEvent({
+        calculator_id: calcId,
+        event_type: event,
+        metadata: { ...data, ts: Date.now() },
+      }).catch(() => {});
+      res.json({ ok: true });
+    } catch {
+      res.json({ ok: true });
+    }
+  });
 }
