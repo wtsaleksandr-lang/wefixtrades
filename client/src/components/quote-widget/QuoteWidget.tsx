@@ -161,6 +161,17 @@ function WidgetCard({
 
   const accentColor = theme.colors.primary;
 
+  // Track preview interaction (AHA moment) — fire once when user changes any answer or advances a step
+  const previewTrackedRef = useRef(false);
+  const isPreview = config.calculator.id < 0;
+  const answerCount = Object.keys(answers).length;
+  useEffect(() => {
+    if (isPreview && !previewTrackedRef.current && (answerCount > 0 || currentStepIndex > 0)) {
+      previewTrackedRef.current = true;
+      trackEvent('wizard_preview_interacted');
+    }
+  }, [isPreview, answerCount, currentStepIndex]);
+
   // Filter visible steps for progress display
   const visibleStepCount = config.flow.steps.filter((s) => {
     if (!s.visible_when?.length) return true;
