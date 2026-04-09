@@ -138,10 +138,10 @@ function formatDate(dateStr: string | null): string {
 
 /* ─── Voice presets (mirrors server registry) ─── */
 const VOICE_PRESETS = [
-  { id: "professional-female", label: "Professional Female", desc: "Clear, polished tone" },
-  { id: "professional-male", label: "Professional Male", desc: "Confident, reassuring voice" },
-  { id: "friendly-female", label: "Friendly Female", desc: "Warm and approachable" },
-  { id: "friendly-male", label: "Friendly Male", desc: "Casual and natural" },
+  { id: "professional-female", label: "Professional Female", desc: "Clear, polished tone", provider: "11labs", voiceId: "21m00Tcm4TlvDq8ikWAM" },
+  { id: "professional-male", label: "Professional Male", desc: "Confident, reassuring voice", provider: "11labs", voiceId: "TxGEqnHWrfWFTfGW9XjX" },
+  { id: "friendly-female", label: "Friendly Female", desc: "Warm and approachable", provider: "11labs", voiceId: "EXAVITQu4vr4xnSDxMaL" },
+  { id: "friendly-male", label: "Friendly Male", desc: "Casual and natural", provider: "11labs", voiceId: "pNInz6obpgDQGcFmaJgB" },
 ];
 
 const TONE_OPTIONS = [
@@ -173,13 +173,11 @@ function VoiceAndStyleCard({
 }) {
   const { toast } = useToast();
   const [expanded, setExpanded] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Draft state
   const [voicePresetId, setVoicePresetId] = useState(config?.voice?.presetId || "professional-female");
   const [tone, setTone] = useState(config?.personality?.tone || "friendly");
   const [humor, setHumor] = useState(config?.personality?.humor || "off");
-  const [profanity, setProfanity] = useState(config?.personality?.profanity ?? false);
   const [language, setLanguage] = useState(config?.personality?.language || "en");
   const [widgetPreset, setWidgetPreset] = useState(config?.widgetStyle?.preset || "clean");
   const [bubbleLabel, setBubbleLabel] = useState(config?.widgetStyle?.bubbleLabel || "Need help? Ask us");
@@ -192,8 +190,14 @@ function VoiceAndStyleCard({
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          voice: { presetId: voicePresetId, label: selectedVoice?.label || voicePresetId },
-          personality: { tone, humor, profanity, language },
+          voice: {
+            presetId: voicePresetId,
+            label: selectedVoice?.label || voicePresetId,
+            provider: selectedVoice?.provider || "11labs",
+            voiceId: selectedVoice?.voiceId || "21m00Tcm4TlvDq8ikWAM",
+            language,
+          },
+          personality: { tone, humor, language },
           widgetStyle: { preset: widgetPreset, bubbleLabel },
         }),
       });
@@ -213,7 +217,6 @@ function VoiceAndStyleCard({
     voicePresetId !== (config?.voice?.presetId || "professional-female") ||
     tone !== (config?.personality?.tone || "friendly") ||
     humor !== (config?.personality?.humor || "off") ||
-    profanity !== (config?.personality?.profanity ?? false) ||
     language !== (config?.personality?.language || "en") ||
     widgetPreset !== (config?.widgetStyle?.preset || "clean") ||
     bubbleLabel !== (config?.widgetStyle?.bubbleLabel || "Need help? Ask us");
@@ -348,29 +351,6 @@ function VoiceAndStyleCard({
               maxLength={40}
             />
             <p className="text-[11px] text-gray-400 mt-1">Shown on the chat bubble on your website</p>
-          </div>
-
-          {/* Advanced (profanity) */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              {showAdvanced ? "Hide advanced" : "Advanced options"}
-            </button>
-            {showAdvanced && (
-              <div className="mt-2 flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <label className="text-xs font-medium text-gray-700">Allow casual language</label>
-                  <p className="text-[11px] text-gray-400">Permits mild informal language in responses</p>
-                </div>
-                <Switch
-                  checked={profanity}
-                  onCheckedChange={setProfanity}
-                />
-              </div>
-            )}
           </div>
 
           {/* Save */}
