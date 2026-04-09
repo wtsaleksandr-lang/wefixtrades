@@ -123,33 +123,44 @@ function loadStep(): number {
 }
 
 const p = platformTheme;
-const TOTAL_STEPS = 6;
+// Flow order: Step 0 (trade) → Step 2 (pricing) → Step 1 (preview/design) → Step 4 (generate) → Step 5 (publish)
+// Step 3 (lead form) is skipped — defaults are good enough, accessible via Advanced in step 1.
+const TOTAL_STEPS = 4; // Visual steps shown to user (not internal step count)
+
+// Visual step number for progress display
+function visualStep(internalStep: number): number {
+  if (internalStep === 0) return 0; // Trade
+  if (internalStep === 2) return 1; // Pricing
+  if (internalStep === 1) return 2; // Preview & polish
+  if (internalStep === 4 || internalStep === 5) return 3; // Publish
+  return internalStep;
+}
 
 const STEP_TITLES = [
   'What does your business do?',
-  'Make it yours',
+  'Preview & polish',
   'Set your pricing',
   'Lead capture setup',
-  'Test your pricing',
+  'Almost done!',
   'You\u2019re live!',
 ];
 const STEP_SUBTITLES = [
   'Pick your trade and we\u2019ll set everything up for you.',
-  'Brand color, logo, and layout — 30 seconds.',
+  'This is what your customers will see. Tweak if needed.',
   'Enter your rates. AI builds the pricing logic.',
   'Choose what info to collect. Quick.',
   'Run two test quotes to confirm your numbers.',
   'Copy your link and start getting leads.',
 ];
 const STEP_HINTS = [
-  'Next: brand your calculator',
   'Next: set your pricing',
-  'Next: lead capture settings',
-  'Next: test your pricing',
-  'Almost done — preview and publish',
+  'Ready to publish',
+  'Next: preview your calculator',
+  '',
+  'Publishing your calculator...',
   '',
 ];
-const STEP_TIME = ['~1 min', '~30 sec', '~1 min', '~30 sec', '~1 min', ''];
+const STEP_TIME = ['~1 min', '', '~1 min', '', '', ''];
 
 export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const savedResult = loadResult();
@@ -324,7 +335,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       if (ws.isCustomTrade && ws.customTradeData.charge_method === 'not_sure') {
         triggerPricingDraft();
       }
-      setStep(1);
+      setStep(2); // Flow: trade → pricing (skip design)
     }
   };
 
@@ -392,13 +403,13 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const tryStep2Continue = () => {
     if (!ws.isCustomTrade || ws.customTradeData.charge_method === 'not_sure') {
       setValidationErrors({});
-      setStep(3);
+      setStep(1); // Flow: pricing → preview/polish (skip lead form)
       return;
     }
     const errs = validateStage2();
     setValidationErrors(errs);
     if (Object.keys(errs).length === 0) {
-      setStep(3);
+      setStep(1); // Flow: pricing → preview/polish (skip lead form)
     }
   };
 
@@ -723,7 +734,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
   return (
     <>
-      <Shell step={step} total={TOTAL_STEPS} onHelp={() => setShowHelp(true)}
+      <Shell step={visualStep(step)} total={TOTAL_STEPS} onHelp={() => setShowHelp(true)}
         title={STEP_TITLES[step]} subtitle={STEP_SUBTITLES[step]}
         generating={generateMutation.isPending} genProgress={genProgress}
         justSaved={justSaved} stepTime={STEP_TIME[step]}
@@ -907,9 +918,62 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           </div>
         )}
 
-        {/* Step 1: Design Your Calculator (with logo + tagline moved here) */}
+        {/* Step 1: Preview & Polish (reframed from Design — now shows live preview first) */}
         {step === 1 && (
           <div>
+            {/* Live preview — show what the customer sees */}
+            <div className="animate-fade-in-up" style={{
+              marginBottom: '24px', padding: '16px', borderRadius: p.radius.lg,
+              border: `1px solid ${p.colors.border}`, background: p.colors.surfaceRaised,
+            }}>
+              <p style={{ fontSize: '13px', fontWeight: 600, color: p.colors.heading, margin: '0 0 4px' }}>
+                Live preview
+              </p>
+              <p style={{ fontSize: '12px', color: p.colors.muted, margin: '0 0 12px' }}>
+                This is what your customers will see on your website.
+              </p>
+              <div style={{
+                borderRadius: p.radius.md, overflow: 'hidden',
+                border: `1px solid ${p.colors.borderLight}`, background: '#fff',
+                padding: '16px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                  {ws.logoUrl && (
+                    <img src={ws.logoUrl} alt="" style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'contain' }} />
+                  )}
+                  <div>
+                    <p style={{ fontSize: '14px', fontWeight: 700, color: '#22282a', margin: 0 }}>{ws.businessName || 'Your Business'}</p>
+                    {ws.tagline && <p style={{ fontSize: '11px', color: '#5f6f77', margin: '1px 0 0' }}>{ws.tagline}</p>}
+                  </div>
+                </div>
+                <div style={{
+                  padding: '16px', borderRadius: '10px',
+                  background: '#f5fcff', border: '1px solid #d5e1e7',
+                  textAlign: 'center',
+                }}>
+                  <p style={{ fontSize: '11px', fontWeight: 600, color: '#5f6f77', textTransform: 'uppercase', letterSpacing: '0.03em', margin: '0 0 4px' }}>Your Estimate</p>
+                  <p style={{ fontSize: '24px', fontWeight: 800, color: '#22282a', margin: 0, fontFamily: '"SF Mono", "Roboto Mono", monospace' }}>
+                    ${resolvedPricingConfig?.pricingType === 'hourly'
+                      ? ((resolvedPricingConfig as any).rate * 3 + ((resolvedPricingConfig as any).baseFee || 0)).toFixed(2)
+                      : resolvedPricingConfig?.pricingType === 'per_sqft'
+                      ? ((resolvedPricingConfig as any).rate * 500 + ((resolvedPricingConfig as any).baseFee || 0)).toFixed(2)
+                      : '150.00'}
+                  </p>
+                  <p style={{ fontSize: '11px', color: '#5f6f77', margin: '4px 0 0' }}>Sample estimate for a typical job</p>
+                </div>
+                <div style={{ marginTop: '12px' }}>
+                  <div style={{
+                    width: '100%', padding: '12px', borderRadius: '12px',
+                    background: ws.primaryColor || '#394247', color: '#fff',
+                    textAlign: 'center', fontSize: '14px', fontWeight: 700,
+                  }}>
+                    {ws.calculatorSettings?.lead_form?.cta?.button_text || 'Send My Quote'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick customization */}
             <div className="animate-fade-in-up" style={{ marginBottom: '20px' }}>
               <label style={{ ...p.typography.label, display: 'block', marginBottom: '12px' }}>
                 Brand Color
@@ -1004,7 +1068,32 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 onChange={(newSettings) => set('calculatorSettings', newSettings)}
               />
             </details>
-            <Footer onBack={() => setStep(0)} onNext={() => setStep(2)} hint={STEP_HINTS[1]} />
+            {/* Publish directly from preview — no need for separate test step */}
+            <div style={{ marginTop: '16px' }}>
+              <button
+                data-testid="button-publish-from-preview"
+                onClick={() => generateMutation.mutate()}
+                disabled={generateMutation.isPending}
+                style={{
+                  width: '100%', padding: '16px', borderRadius: p.radius.lg,
+                  background: p.colors.accent, color: 'white', border: 'none',
+                  fontSize: '15px', fontWeight: 700, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  transition: p.transitions.fast,
+                  opacity: generateMutation.isPending ? 0.6 : 1,
+                }}
+              >
+                {generateMutation.isPending ? (
+                  <><Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> Building your calculator...</>
+                ) : (
+                  <><Zap style={{ width: '16px', height: '16px' }} /> Publish My Calculator</>
+                )}
+              </button>
+              {genError && (
+                <p style={{ fontSize: '13px', color: p.colors.danger, marginTop: '8px', textAlign: 'center' }}>{genError}</p>
+              )}
+            </div>
+            <Footer onBack={() => setStep(2)} onNext={undefined} hint={STEP_HINTS[1]} />
           </div>
         )}
 
@@ -1217,7 +1306,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 ))}
               </div>
             )}
-            <Footer onBack={() => setStep(1)} onNext={tryStep2Continue} hint={STEP_HINTS[2]} />
+            <Footer onBack={() => setStep(0)} onNext={tryStep2Continue} hint={STEP_HINTS[2]} />
           </div>
         )}
 
@@ -1229,8 +1318,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             onChange={(lf) => {
               set('calculatorSettings', { ...ws.calculatorSettings, lead_form: lf });
             }}
-            onBack={() => setStep(2)}
-            onNext={() => setStep(4)}
+            onBack={() => setStep(1)}
+            onNext={() => setStep(1)}
             draftGenerating={!!ws.draftJobId}
           />
         )}
@@ -1241,7 +1330,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             pricingConfig={resolvedPricingConfig}
             onPricingConfigChange={handlePricingConfigChange}
             onPublish={() => generateMutation.mutate()}
-            onBack={() => setStep(3)}
+            onBack={() => setStep(1)}
             onTestHistoryChange={setTestHistory}
             publishPending={generateMutation.isPending}
             genError={genError}
