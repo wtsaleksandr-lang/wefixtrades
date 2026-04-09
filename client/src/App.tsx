@@ -81,6 +81,7 @@ import PortalOnboarding from "@/pages/portal/PortalOnboarding";
 import PortalHelp from "@/pages/portal/PortalHelp";
 import PortalReputation from "@/pages/portal/PortalReputation";
 import SocialSyncSetup from "@/pages/portal/SocialSyncSetup";
+import PortalSocialSync from "@/pages/portal/PortalSocialSync";
 import ResetPasswordPage from "@/pages/ResetPassword";
 
 function Router() {
@@ -107,6 +108,7 @@ function Router() {
       <Route path="/portal/services">{() => <RequireClient><PortalServices /></RequireClient>}</Route>
       <Route path="/portal/billing">{() => <RequireClient><PortalBilling /></RequireClient>}</Route>
       <Route path="/portal/socialsync-setup">{() => <RequireClient><SocialSyncSetup /></RequireClient>}</Route>
+      <Route path="/portal/socialsync">{() => <RequireClient><PortalSocialSync /></RequireClient>}</Route>
       <Route path="/portal/reputation">{() => <RequireClient><PortalReputation /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/settings">{() => <RequireClient><PortalSettings /></RequireClient>}</Route>

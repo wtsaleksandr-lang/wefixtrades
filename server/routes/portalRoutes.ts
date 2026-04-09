@@ -1000,4 +1000,89 @@ Do NOT:
       res.status(500).json({ error: "Failed to check connection" });
     }
   });
+
+  /**
+   * GET /api/portal/socialsync
+   * Client-facing SocialSync activity report.
+   */
+  app.get("/api/portal/socialsync", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const profile = await storage.getSocialSyncProfile(clientId);
+      const posts = await storage.listSocialSyncPosts(clientId, { limit: 100 });
+      const connections = await storage.listSocialSyncConnections(clientId);
+
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+      const thirtyDays = 30 * day;
+
+      // Metrics
+      const publishedPosts = posts.filter(p => p.status === "published");
+      const publishedThisMonth = publishedPosts.filter(p => p.published_at && (now - new Date(p.published_at).getTime()) < thirtyDays);
+      const queuedPosts = posts.filter(p => p.status === "queued" && p.scheduled_for);
+
+      // Next scheduled
+      const nextPost = queuedPosts
+        .filter(p => p.scheduled_for && new Date(p.scheduled_for).getTime() > now)
+        .sort((a, b) => new Date(a.scheduled_for!).getTime() - new Date(b.scheduled_for!).getTime())[0];
+
+      // Platforms
+      const platforms = ["facebook", "instagram", "google_business"].map(p => {
+        const conn = connections.find(c => c.platform === p);
+        return {
+          platform: p === "google_business" ? "Google Business" : p.charAt(0).toUpperCase() + p.slice(1),
+          connected: conn?.connection_status === "connected" || conn?.connection_status === "expiring_soon",
+        };
+      });
+
+      // Client-safe status
+      let status: "setup_in_progress" | "needs_connection" | "ready" | "active";
+      if (!profile?.niche || !profile?.location) {
+        status = "setup_in_progress";
+      } else if (!platforms.some(p => p.connected)) {
+        status = "needs_connection";
+      } else if (publishedPosts.length === 0) {
+        status = "ready";
+      } else {
+        status = "active";
+      }
+
+      // Frequency label
+      const freqLabels: Record<string, string> = {
+        daily: "Daily", "3_per_week": "3x per week", "2_per_week": "2x per week", weekly: "Weekly",
+      };
+
+      // Recent published posts (client-safe)
+      const recentPosts = publishedPosts.slice(0, 8).map(p => ({
+        id: p.id,
+        platform: p.platform === "google_business" ? "Google Business" : p.platform.charAt(0).toUpperCase() + p.platform.slice(1),
+        caption: (p.caption || p.post_text).slice(0, 120) + ((p.caption || p.post_text).length > 120 ? "..." : ""),
+        published_at: p.published_at ? new Date(p.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null,
+        has_image: !!(p.media_plan as any)?.image_url,
+        image_url: (p.media_plan as any)?.image_url || null,
+      }));
+
+      res.json({
+        status,
+        summary: {
+          posts_this_month: publishedThisMonth.length,
+          total_published: publishedPosts.length,
+          active_platforms: platforms.filter(p => p.connected).length,
+          posting_frequency: freqLabels[profile?.frequency || "3_per_week"] || "3x per week",
+          autopilot: profile?.autopilot || false,
+        },
+        next_scheduled: nextPost ? {
+          platform: nextPost.platform === "google_business" ? "Google Business" : nextPost.platform.charAt(0).toUpperCase() + nextPost.platform.slice(1),
+          scheduled_for: new Date(nextPost.scheduled_for!).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+        } : null,
+        platforms,
+        recent_posts: recentPosts,
+      });
+    } catch (err: any) {
+      console.error("Portal SocialSync report error:", err);
+      res.status(500).json({ error: "Failed to load SocialSync report" });
+    }
+  });
 }
