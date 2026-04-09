@@ -62,3 +62,32 @@ export const insertMapguardSnapshotSchema = createInsertSchema(mapguardSnapshots
 });
 export type InsertMapguardSnapshot = z.infer<typeof insertMapguardSnapshotSchema>;
 export type MapguardSnapshot = typeof mapguardSnapshots.$inferSelect;
+
+/* ═══════════════════════════════════════════
+   MapGuard Alerts — Internal Operator Alerts
+   ═══════════════════════════════════════════
+   Lightweight table for deduplication and ops
+   visibility. Not a full notification platform.
+   ═══════════════════════════════════════════ */
+
+export const mapguardAlerts = pgTable("mapguard_alerts", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").notNull().references(() => clients.id),
+  alert_type: varchar("alert_type", { length: 50 }).notNull(),
+  // score_drop | rating_drop | rank_drops | local_pack_lost | new_critical_issue | blocked_task
+  severity: varchar("severity", { length: 20 }).notNull().default("warning"),
+  // info | warning | critical
+  title: text("title").notNull(),
+  summary: text("summary").notNull(),
+  metric_data: jsonb("metric_data"),              // {score_delta, rating_delta, rank_drops[], etc.}
+  snapshot_id: integer("snapshot_id"),
+  email_sent: boolean("email_sent").notNull().default(false),
+  dismissed: boolean("dismissed").notNull().default(false),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertMapguardAlertSchema = createInsertSchema(mapguardAlerts).omit({
+  id: true, created_at: true,
+});
+export type InsertMapguardAlert = z.infer<typeof insertMapguardAlertSchema>;
+export type MapguardAlert = typeof mapguardAlerts.$inferSelect;

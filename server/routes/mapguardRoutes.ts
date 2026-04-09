@@ -36,6 +36,7 @@ import {
   runMapguardBatchScan,
   getMapguardPortfolioDashboard,
 } from "../services/mapguardMonitor";
+import { getRecentAlerts, dismissAlert } from "../services/mapguardAlerts";
 
 export function registerMapguardRoutes(app: Express) {
 
@@ -393,6 +394,37 @@ export function registerMapguardRoutes(app: Express) {
     } catch (err: any) {
       console.error("[mapguard] dashboard error:", err);
       res.status(500).json({ error: "Failed to load dashboard" });
+    }
+  });
+
+  /* ═══ ALERT ENDPOINTS ═══ */
+
+  /* ─── Get recent alerts ─── */
+  app.get("/api/mapguard/alerts", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { client_id, severity, limit } = req.query;
+      const alerts = await getRecentAlerts({
+        clientId: client_id ? parseInt(client_id as string) : undefined,
+        severity: severity as string | undefined,
+        limit: limit ? parseInt(limit as string) : 20,
+      });
+      res.json(alerts);
+    } catch (err: any) {
+      console.error("[mapguard] alerts error:", err);
+      res.status(500).json({ error: "Failed to load alerts" });
+    }
+  });
+
+  /* ─── Dismiss alert ─── */
+  app.post("/api/mapguard/alerts/:alertId/dismiss", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const alertId = parseInt(req.params.alertId as string);
+      if (isNaN(alertId)) return res.status(400).json({ error: "Invalid alert ID" });
+      await dismissAlert(alertId);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[mapguard] dismiss alert error:", err);
+      res.status(500).json({ error: "Failed to dismiss alert" });
     }
   });
 

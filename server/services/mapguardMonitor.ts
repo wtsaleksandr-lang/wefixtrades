@@ -14,6 +14,7 @@ import { clients, clientServices, serviceCatalog } from "@shared/schemas/adminCr
 import { eq, and, desc, sql, asc } from "drizzle-orm";
 import { createMapguardTask } from "./mapguardTaskEngine";
 import type { MapguardTask } from "@shared/schemas/mapguard";
+import { processMapguardAlerts, getAlertCountSince } from "./mapguardAlerts";
 
 /* ═══════════════════════════════════════════
    V1 SCAN CONFIGURATION
@@ -461,6 +462,7 @@ export async function runMapguardScan(client: MapguardClient): Promise<{
   snapshot: MapguardSnapshot;
   changes: SnapshotChanges;
   tasksCreated: number;
+  alertsSent: number;
 }> {
   const startTime = Date.now();
   const errors: string[] = [];
@@ -559,7 +561,22 @@ export async function runMapguardScan(client: MapguardClient): Promise<{
     tasksCreated = tasks.length;
   }
 
-  return { snapshot, changes, tasksCreated };
+  // Process alerts (dedup + email)
+  let alertsSent = 0;
+  try {
+    const alertResult = await processMapguardAlerts(
+      client.client_id,
+      profile.businessName || client.business_name,
+      changes,
+      snapshotData,
+      snapshot.id,
+    );
+    alertsSent = alertResult.sent;
+  } catch (err: any) {
+    console.error(`[mapguard-monitor] Alert processing failed for ${client.business_name}:`, err.message);
+  }
+
+  return { snapshot, changes, tasksCreated, alertsSent };
 }
 
 /* ═══════════════════════════════════════════
@@ -586,6 +603,7 @@ export async function runMapguardBatchScan(): Promise<{
   scanned: number;
   errors: number;
   tasksCreated: number;
+  alertsSent: number;
   results: Array<{ client_id: number; business_name: string; score: number | null; significant: boolean; error?: string }>;
 }> {
   const activeClients = await getActiveMapguardClients();
@@ -594,14 +612,16 @@ export async function runMapguardBatchScan(): Promise<{
   let scanned = 0;
   let errorCount = 0;
   let totalTasks = 0;
+  let totalAlerts = 0;
   const results: Array<{ client_id: number; business_name: string; score: number | null; significant: boolean; error?: string }> = [];
 
   // Process sequentially to avoid API rate limits
   for (const client of activeClients) {
     try {
-      const { snapshot, changes, tasksCreated } = await runMapguardScan(client);
+      const { snapshot, changes, tasksCreated, alertsSent } = await runMapguardScan(client);
       scanned++;
       totalTasks += tasksCreated;
+      totalAlerts += alertsSent;
       results.push({
         client_id: client.client_id,
         business_name: client.business_name,
@@ -627,8 +647,8 @@ export async function runMapguardBatchScan(): Promise<{
     }
   }
 
-  console.log(`[mapguard-monitor] Batch complete: ${scanned} scanned, ${errorCount} errors, ${totalTasks} tasks created`);
-  return { scanned, errors: errorCount, tasksCreated: totalTasks, results };
+  console.log(`[mapguard-monitor] Batch complete: ${scanned} scanned, ${errorCount} errors, ${totalTasks} tasks created, ${totalAlerts} alerts sent`);
+  return { scanned, errors: errorCount, tasksCreated: totalTasks, alertsSent: totalAlerts, results };
 }
 
 /* ═══════════════════════════════════════════
@@ -740,6 +760,7 @@ export interface PortfolioDashboard {
     waiting_supplier: number;
     needs_review: number;
     auto_tasks_7d: number;
+    alerts_7d: number;
     avg_score: number | null;
   };
   clients: PortfolioClientRow[];
@@ -750,7 +771,7 @@ export async function getMapguardPortfolioDashboard(): Promise<PortfolioDashboar
   const activeClients = await getActiveMapguardClients();
   if (activeClients.length === 0) {
     return {
-      metrics: { total_clients: 0, significant_drops: 0, improved: 0, at_risk: 0, blocked_tasks: 0, waiting_supplier: 0, needs_review: 0, auto_tasks_7d: 0, avg_score: null },
+      metrics: { total_clients: 0, significant_drops: 0, improved: 0, at_risk: 0, blocked_tasks: 0, waiting_supplier: 0, needs_review: 0, auto_tasks_7d: 0, alerts_7d: 0, avg_score: null },
       clients: [],
     };
   }
@@ -887,6 +908,7 @@ export async function getMapguardPortfolioDashboard(): Promise<PortfolioDashboar
       waiting_supplier: totalWaiting,
       needs_review: totalReview,
       auto_tasks_7d: Number((autoTaskRow as any)?.count || 0),
+      alerts_7d: await getAlertCountSince(7),
       avg_score: scoreCount > 0 ? Math.round(scoreSum / scoreCount) : null,
     },
     clients: rows,

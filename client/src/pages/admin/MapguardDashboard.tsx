@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/table";
 import {
   MapPin, TrendingUp, TrendingDown, AlertTriangle, Factory, Eye,
-  CheckCircle, Clock, Minus, Users, Zap, Shield, ArrowRight,
+  CheckCircle, Clock, Minus, Users, Zap, Shield, ArrowRight, Bell,
 } from "lucide-react";
 
 /* ─── Types ─── */
@@ -36,6 +36,7 @@ interface PortfolioMetrics {
   waiting_supplier: number;
   needs_review: number;
   auto_tasks_7d: number;
+  alerts_7d: number;
   avg_score: number | null;
 }
 
@@ -197,7 +198,7 @@ export default function MapguardDashboard() {
         )}
 
         {/* Secondary metrics row */}
-        {metrics && (metrics.blocked_tasks > 0 || metrics.waiting_supplier > 0 || metrics.needs_review > 0 || metrics.auto_tasks_7d > 0) && (
+        {metrics && (metrics.blocked_tasks > 0 || metrics.waiting_supplier > 0 || metrics.needs_review > 0 || metrics.auto_tasks_7d > 0 || metrics.alerts_7d > 0) && (
           <div className="flex flex-wrap gap-3">
             {metrics.blocked_tasks > 0 && (
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-xs font-medium text-red-700">
@@ -217,6 +218,11 @@ export default function MapguardDashboard() {
             {metrics.auto_tasks_7d > 0 && (
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs font-medium text-blue-700">
                 <Zap className="w-3 h-3" /> {metrics.auto_tasks_7d} auto-created task{metrics.auto_tasks_7d !== 1 ? "s" : ""} this week
+              </div>
+            )}
+            {metrics.alerts_7d > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-xs font-medium text-red-700">
+                <Bell className="w-3 h-3" /> {metrics.alerts_7d} alert{metrics.alerts_7d !== 1 ? "s" : ""} sent this week
               </div>
             )}
           </div>
