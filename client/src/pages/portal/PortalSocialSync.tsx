@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Share2, CheckCircle, Clock, Calendar, ImageIcon, Settings } from "lucide-react";
+import { Share2, CheckCircle, Clock, Calendar, ImageIcon, Settings, X } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
@@ -17,23 +18,19 @@ interface SocialSyncReport {
   };
   next_scheduled: { platform: string; scheduled_for: string } | null;
   platforms: { platform: string; connected: boolean }[];
-  recent_posts: {
-    id: number;
-    platform: string;
-    caption: string;
-    published_at: string | null;
-    has_image: boolean;
-    image_url: string | null;
-  }[];
-  upcoming_posts: {
-    id: number;
-    platform: string;
-    caption: string;
-    scheduled_for: string;
-    scheduled_date: string;
-    has_image: boolean;
-    image_url: string | null;
-  }[];
+  recent_posts: PostItem[];
+  upcoming_posts: (PostItem & { scheduled_for: string; scheduled_date: string })[];
+}
+
+interface PostItem {
+  id: number;
+  platform: string;
+  caption: string;
+  full_text?: string;
+  hashtags?: string[] | null;
+  published_at?: string | null;
+  has_image: boolean;
+  image_url: string | null;
 }
 
 const STATUS_MESSAGES: Record<string, { headline: string; sub: string }> = {
@@ -44,6 +41,8 @@ const STATUS_MESSAGES: Record<string, { headline: string; sub: string }> = {
 };
 
 export default function PortalSocialSync() {
+  const [selectedPost, setSelectedPost] = useState<PostItem | null>(null);
+
   const { data, isLoading } = useQuery<SocialSyncReport>({
     queryKey: ["/api/portal/socialsync"],
     refetchInterval: 5 * 60 * 1000,
@@ -154,7 +153,7 @@ export default function PortalSocialSync() {
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Recent Content We Published</h3>
             <div className="space-y-3">
               {data.recent_posts.map(post => (
-                <div key={post.id} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+                <div key={post.id} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0 cursor-pointer hover:bg-gray-50 rounded-lg -mx-1 px-1 transition-colors" onClick={() => setSelectedPost(post)}>
                   {post.has_image && post.image_url && (
                     <div className="w-14 h-14 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
                       <img src={post.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
@@ -190,7 +189,7 @@ export default function PortalSocialSync() {
                     {showDate && (
                       <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mt-2 mb-1 first:mt-0">{post.scheduled_date}</p>
                     )}
-                    <div className="flex gap-3 py-2 border-b border-gray-50 last:border-0">
+                    <div className="flex gap-3 py-2 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 rounded-lg -mx-1 px-1 transition-colors" onClick={() => setSelectedPost(post)}>
                       {post.has_image && post.image_url ? (
                         <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
                           <img src={post.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
@@ -217,6 +216,51 @@ export default function PortalSocialSync() {
           </p>
         )}
       </div>
+
+      {/* Post Detail Modal */}
+      {selectedPost && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelectedPost(null)}>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500">{selectedPost.platform}</span>
+                {selectedPost.published_at && <span className="text-xs text-gray-400">{selectedPost.published_at}</span>}
+                {"scheduled_for" in selectedPost && (selectedPost as any).scheduled_for && (
+                  <span className="text-xs text-gray-400">Scheduled: {(selectedPost as any).scheduled_for}</span>
+                )}
+              </div>
+              <button onClick={() => setSelectedPost(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Image */}
+            {selectedPost.has_image && selectedPost.image_url && (
+              <div className="bg-gray-50">
+                <img src={selectedPost.image_url} alt="" className="w-full max-h-80 object-contain" />
+              </div>
+            )}
+
+            {/* Content */}
+            <div className="p-4 space-y-3">
+              <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                {selectedPost.full_text || selectedPost.caption}
+              </p>
+
+              {selectedPost.hashtags && selectedPost.hashtags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedPost.hashtags.map((tag, i) => (
+                    <span key={i} className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                      #{tag.replace(/^#/, "")}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </PortalLayout>
   );
 }
