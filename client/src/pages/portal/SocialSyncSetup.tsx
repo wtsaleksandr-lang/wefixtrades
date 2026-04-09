@@ -42,11 +42,28 @@ export default function SocialSyncSetup() {
     platform_preferences: ["facebook", "instagram"],
   });
 
-  // Check if profile already exists
+  // Check if profile already exists — pre-fill if editing
   const { data: existingProfile } = useQuery<any>({
     queryKey: ["/api/portal/socialsync-profile"],
     retry: false,
   });
+
+  // Pre-fill form when existing profile loads
+  const [prefilled, setPrefilled] = useState(false);
+  if (existingProfile && existingProfile.niche && !prefilled) {
+    setForm({
+      niche: existingProfile.niche || "",
+      location: existingProfile.location || "",
+      services: Array.isArray(existingProfile.services) ? existingProfile.services.join(", ") : "",
+      service_focus: Array.isArray(existingProfile.service_focus) ? existingProfile.service_focus.join(", ") : "",
+      tone: existingProfile.tone || "professional",
+      frequency: existingProfile.frequency || "3_per_week",
+      platform_preferences: Array.isArray(existingProfile.platform_preferences) ? existingProfile.platform_preferences : ["facebook", "instagram"],
+    });
+    setPrefilled(true);
+  }
+
+  const isEditing = !!(existingProfile && existingProfile.niche);
 
   // Check platform connections
   const { data: fbStatus } = useQuery<any>({ queryKey: ["/api/portal/socialsync-connections/facebook"], retry: false });
@@ -71,7 +88,8 @@ export default function SocialSyncSetup() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/socialsync-profile"] });
-      toast({ title: "SocialSync setup complete!" });
+      toast({ title: isEditing ? "Settings updated!" : "SocialSync setup complete!" });
+      navigate("/portal/socialsync");
     },
     onError: () => toast({ title: "Setup failed", variant: "destructive" }),
   });
@@ -98,8 +116,8 @@ export default function SocialSyncSetup() {
       <div className="max-w-xl mx-auto p-4 space-y-5">
         {/* Header */}
         <div>
-          <h1 className="text-lg font-bold text-gray-900">Set Up SocialSync</h1>
-          <p className="text-sm text-gray-500">Tell us about your business so we can create the right content for you.</p>
+          <h1 className="text-lg font-bold text-gray-900">{isEditing ? "Edit SocialSync Settings" : "Set Up SocialSync"}</h1>
+          <p className="text-sm text-gray-500">{isEditing ? "Update your preferences and we'll adjust your content." : "Tell us about your business so we can create the right content for you."}</p>
         </div>
 
         {/* Step indicator */}
@@ -266,7 +284,7 @@ export default function SocialSyncSetup() {
             </Button>
           ) : (
             <Button size="sm" className="bg-[#2D6A4F] hover:bg-[#1B4332]" onClick={() => saveProfile.mutate()} disabled={saveProfile.isPending}>
-              {saveProfile.isPending ? "Saving..." : "Complete Setup"}
+              {saveProfile.isPending ? "Saving..." : isEditing ? "Save Changes" : "Complete Setup"}
             </Button>
           )}
         </div>

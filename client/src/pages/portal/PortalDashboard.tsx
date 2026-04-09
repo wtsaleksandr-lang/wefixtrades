@@ -59,6 +59,15 @@ export default function PortalDashboard() {
     },
   });
 
+  const { data: ssProfile } = useQuery<any>({
+    queryKey: ["/api/portal/socialsync-profile"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/socialsync-profile", { credentials: "include" });
+      if (!res.ok) return { exists: false };
+      return res.json();
+    },
+  });
+
   const { data: qqData } = useQuery<QuoteQuickData>({
     queryKey: ["/api/portal/quotequick/summary"],
     queryFn: async () => {
@@ -189,6 +198,19 @@ export default function PortalDashboard() {
                   Set up QuoteQuick
                 </a>
               </div>
+            </div>
+          )}
+
+          {/* SocialSync CTA */}
+          {ssProfile && (ssProfile.exists === false || !ssProfile.niche) && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Set up SocialSync</p>
+                <p className="text-xs text-gray-500 mt-0.5">We'll post content for your business automatically. Takes about 5 minutes.</p>
+              </div>
+              <Link href="/portal/socialsync-setup" className="shrink-0 px-4 py-2 rounded-lg text-xs font-medium text-white bg-[#2D6A4F] hover:bg-[#1B4332]">
+                Get Started
+              </Link>
             </div>
           )}
 

@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Share2, CheckCircle, Clock, Calendar, ImageIcon } from "lucide-react";
+import { Share2, CheckCircle, Clock, Calendar, ImageIcon, Settings } from "lucide-react";
+import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface SocialSyncReport {
@@ -55,8 +57,11 @@ export default function PortalSocialSync() {
       <PortalLayout>
         <div className="max-w-3xl mx-auto p-4 text-center py-16">
           <Share2 className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">SocialSync is not yet active for your account.</p>
-          <p className="text-sm text-gray-400 mt-1">Contact your account manager to get started.</p>
+          <p className="text-gray-500 font-medium">You haven't set up SocialSync yet</p>
+          <p className="text-sm text-gray-400 mt-1 mb-4">Tell us about your business and we'll start creating content for you.</p>
+          <Link href="/portal/socialsync-setup">
+            <Button className="bg-[#2D6A4F] hover:bg-[#1B4332]">Set Up SocialSync</Button>
+          </Link>
         </div>
       </PortalLayout>
     );
@@ -69,9 +74,16 @@ export default function PortalSocialSync() {
     <PortalLayout>
       <div className="max-w-3xl mx-auto space-y-5 p-4">
         {/* Header */}
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">Your Social Media</h1>
-          <p className="text-sm text-gray-500">Powered by SocialSync</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">Your Social Media</h1>
+            <p className="text-sm text-gray-500">Powered by SocialSync</p>
+          </div>
+          <Link href="/portal/socialsync-setup">
+            <Button variant="ghost" size="sm" className="text-xs text-gray-500">
+              <Settings className="w-3.5 h-3.5 mr-1" /> Edit Settings
+            </Button>
+          </Link>
         </div>
 
         {/* Status banner */}
