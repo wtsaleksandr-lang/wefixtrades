@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Play, XCircle, RotateCcw, Calendar, Zap, AlertTriangle, Link2, CheckCircle, ExternalLink } from "lucide-react";
+import { RefreshCw, Play, XCircle, RotateCcw, Calendar, Zap, AlertTriangle, Link2, CheckCircle, ExternalLink, ArrowRight } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import ServiceOpsHeader from "./ServiceOpsHeader";
@@ -651,6 +651,18 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
 
   return (
     <div className="space-y-4">
+      {/* ─── Delivery Status ─── */}
+      <DeliveryStatusCard
+        profile={profile}
+        stats={stats}
+        fbConnected={fbStatus?.connected}
+        igConnected={igStatus?.connected}
+        gbpConnected={gbpStatus?.connected}
+        onEnableAutopilot={() => toggleAutopilot.mutate(true)}
+        onGenerateWeek={() => generateWeek.mutate()}
+        isGenerating={generateWeek.isPending}
+      />
+
       {/* ─── Controls Card ─── */}
       <Card className="p-4">
         <div className="flex items-center justify-between mb-3">
@@ -1546,6 +1558,133 @@ function InfoBanner({ text }: { text: string }) {
       <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
       {text}
     </div>
+  );
+}
+
+/* ─── Delivery Status Card ─── */
+
+type DeliveryState = "not_started" | "onboarding_complete" | "awaiting_connections" | "awaiting_review" | "ready_for_autopilot" | "active" | "attention_needed";
+
+const DELIVERY_CONFIG: Record<DeliveryState, { label: string; color: string; bg: string }> = {
+  not_started: { label: "Not Started", color: "text-gray-600", bg: "bg-gray-100" },
+  onboarding_complete: { label: "Onboarding Complete", color: "text-blue-700", bg: "bg-blue-50" },
+  awaiting_connections: { label: "Awaiting Connections", color: "text-amber-700", bg: "bg-amber-50" },
+  awaiting_review: { label: "Awaiting Admin Review", color: "text-indigo-700", bg: "bg-indigo-50" },
+  ready_for_autopilot: { label: "Ready for Autopilot", color: "text-emerald-700", bg: "bg-emerald-50" },
+  active: { label: "Active", color: "text-emerald-700", bg: "bg-emerald-50" },
+  attention_needed: { label: "Attention Needed", color: "text-red-700", bg: "bg-red-50" },
+};
+
+function computeDeliveryState(
+  profile: any, stats: any, fbConnected?: boolean, igConnected?: boolean, gbpConnected?: boolean,
+): { state: DeliveryState; nextAction: string; blockers: string[] } {
+  const blockers: string[] = [];
+  const hasProfile = !!profile?.niche && !!profile?.location;
+  const hasConnections = fbConnected || igConnected || gbpConnected;
+  const hasContent = stats && (stats.queued_posts > 0 || stats.published_posts > 0);
+  const hasFailed = stats && stats.failed_posts > 0;
+  const isAutopilot = profile?.autopilot;
+
+  if (!hasProfile) {
+    return { state: "not_started", nextAction: "Complete client onboarding — set niche, location, and services.", blockers: ["Profile incomplete"] };
+  }
+
+  if (!profile.enabled) {
+    return { state: "onboarding_complete", nextAction: "Enable SocialSync to begin service delivery.", blockers: ["SocialSync disabled"] };
+  }
+
+  if (!hasConnections) {
+    blockers.push("No platforms connected");
+    return { state: "awaiting_connections", nextAction: "Connect Facebook, Instagram, or Google Business Profile.", blockers };
+  }
+
+  if (hasFailed && stats.failed_posts > 2) {
+    blockers.push(`${stats.failed_posts} failed posts`);
+    if (stats.failed_queue > 0) blockers.push(`${stats.failed_queue} queue failures`);
+    return { state: "attention_needed", nextAction: "Review failed posts and queue errors. Check connection health.", blockers };
+  }
+
+  if (!hasContent && !isAutopilot) {
+    return { state: "awaiting_review", nextAction: "Generate first week of content, review quality, then enable autopilot.", blockers: [] };
+  }
+
+  if (hasContent && !isAutopilot) {
+    return { state: "ready_for_autopilot", nextAction: "Review generated content. If quality is good, enable autopilot.", blockers: [] };
+  }
+
+  if (isAutopilot) {
+    if (stats && stats.failed_queue > 2) {
+      return { state: "attention_needed", nextAction: "Autopilot is on but publishing is failing. Check connections and queue.", blockers: [`${stats.failed_queue} queue failures`] };
+    }
+    return { state: "active", nextAction: "No action needed. Content is being generated and published automatically.", blockers: [] };
+  }
+
+  return { state: "onboarding_complete", nextAction: "Connect platforms and generate first content.", blockers: [] };
+}
+
+function DeliveryStatusCard({
+  profile, stats, fbConnected, igConnected, gbpConnected, onEnableAutopilot, onGenerateWeek, isGenerating,
+}: {
+  profile: any; stats: any; fbConnected?: boolean; igConnected?: boolean; gbpConnected?: boolean;
+  onEnableAutopilot: () => void; onGenerateWeek: () => void; isGenerating: boolean;
+}) {
+  const { state, nextAction, blockers } = computeDeliveryState(profile, stats, fbConnected, igConnected, gbpConnected);
+  const config = DELIVERY_CONFIG[state];
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-gray-900">Service Delivery</h3>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${config.bg} ${config.color}`}>{config.label}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {state === "awaiting_review" && (
+            <Button size="sm" className="h-7 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]" onClick={onGenerateWeek} disabled={isGenerating}>
+              {isGenerating ? <><RefreshCw className="w-3 h-3 mr-1 animate-spin" />Generating...</> : <><Zap className="w-3 h-3 mr-1" />Generate First Week</>}
+            </Button>
+          )}
+          {state === "ready_for_autopilot" && (
+            <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={onEnableAutopilot}>
+              <CheckCircle className="w-3 h-3 mr-1" /> Enable Autopilot
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-start gap-2 text-xs">
+        <ArrowRight className="w-3.5 h-3.5 text-[#2D6A4F] mt-0.5 flex-shrink-0" />
+        <span className="text-gray-700">{nextAction}</span>
+      </div>
+
+      {blockers.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {blockers.map((b, i) => (
+            <span key={i} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-50 text-red-700 text-[10px] font-medium">
+              <AlertTriangle className="w-3 h-3" />{b}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Readiness checklist — compact */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[10px]">
+        <CheckItem ok={!!profile?.niche} label="Profile" />
+        <CheckItem ok={profile?.enabled} label="Enabled" />
+        <CheckItem ok={fbConnected || igConnected || gbpConnected} label="Connected" />
+        <CheckItem ok={stats && (stats.queued_posts > 0 || stats.published_posts > 0)} label="Content" />
+        <CheckItem ok={profile?.autopilot} label="Autopilot" />
+      </div>
+    </Card>
+  );
+}
+
+function CheckItem({ ok, label }: { ok?: boolean; label: string }) {
+  return (
+    <span className={`inline-flex items-center gap-0.5 ${ok ? "text-emerald-600" : "text-gray-400"}`}>
+      {ok ? <CheckCircle className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border border-gray-300 inline-block" />}
+      {label}
+    </span>
   );
 }
 
