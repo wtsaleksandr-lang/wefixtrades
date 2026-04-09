@@ -23,6 +23,7 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TaskCard, ClientTasksEmptyState, isOverdue, type TaskItem } from "@/components/admin/TaskCard";
+import RankFlowTab from "@/components/admin/RankFlowTab";
 
 /* ─── Types ─── */
 interface Client {
@@ -518,9 +519,10 @@ export default function ClientDetailPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="services">
-          <TabsList className="w-full grid grid-cols-4">
+          <TabsList className="w-full grid grid-cols-5">
             <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            <TabsTrigger value="rankflow">RankFlow</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
           </TabsList>
@@ -743,6 +745,11 @@ export default function ClientDetailPage() {
                 />
               ))
             )}
+          </TabsContent>
+
+          {/* ─── RankFlow Tab ─── */}
+          <TabsContent value="rankflow" className="mt-4">
+            <RankFlowTab clientId={clientId!} />
           </TabsContent>
 
           {/* ─── Billing Tab ─── */}
