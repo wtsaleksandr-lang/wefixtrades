@@ -231,7 +231,9 @@ STRICT RULES:
 - Never fabricate client names, amounts, task titles, or statuses
 - Never use customer-facing language (no "growth", no "let's improve your presence")
 - Keep responses concise and operational — 2-4 sentences unless detail is asked for
-- When asked to draft a reply or note, clearly label it as a draft and keep it factual`);
+- When asked to draft a reply or note, clearly label it as a draft and keep it factual
+
+${buildDraftingSection(ctx)}`);
 
   // ── Page context ──
   const lines: string[] = [`\n=== PAGE CONTEXT ===`, `Current page: ${ctx.page}`, `Route: ${ctx.route}`];
@@ -344,19 +346,22 @@ function buildPageFocus(ctx: PageContext): string {
       return `1. Summarize this specific client's current state (status, services, tasks, payments)
 2. Flag any blocked, overdue, or risky items for this client
 3. Assess overall client health and highlight the most urgent next step
-4. Use pinned notes for additional context if present`;
+4. Use pinned notes for additional context if present
+5. When asked, draft customer replies, internal notes, status updates, or reassurance messages using the drafting formats defined below`;
 
     case "inbox":
       return `1. Prioritize the task queue — what is most urgent right now?
 2. Identify all blocked items and what is needed to unblock them
 3. Surface tasks that are waiting on client or supplier
-4. Suggest a focused work order for the operator`;
+4. Suggest a focused work order for the operator
+5. When asked, draft short status updates or internal notes for specific tasks using the drafting formats defined below`;
 
     case "billing":
       return `1. Summarize outstanding payment state
 2. Flag overdue or failing payments
 3. Identify which clients have the largest unpaid balances
-4. Suggest follow-up actions on overdue items`;
+4. Suggest follow-up actions on overdue items
+5. When asked, draft a payment follow-up or reminder message using the drafting formats defined below`;
 
     case "suppliers":
       return `1. Summarize the supplier landscape
@@ -377,6 +382,100 @@ function buildPageFocus(ctx: PageContext): string {
 2. Flag anything that needs attention
 3. Suggest sensible next steps`;
   }
+}
+
+/* ─── Drafting capabilities section (admin surface) ─── */
+function buildDraftingSection(ctx: PageContext): string {
+  // Only inject full drafting guidance on pages where enough context exists to draft meaningfully.
+  // On thin pages (overview, suppliers, services) we include a short note only.
+  const hasDraftContext =
+    ctx.page === "client_detail" ||
+    ctx.page === "inbox" ||
+    ctx.page === "billing";
+
+  if (!hasDraftContext) {
+    return `=== DRAFTING ===
+If asked to draft a message or note, use only facts present in PAGE CONTEXT.
+Label the draft clearly and add "⚑ Review before sending" at the end.`;
+  }
+
+  // Derive the client name label for use in format examples
+  const clientLabel = ctx.clientName ? `"${ctx.clientName}"` : "[CLIENT NAME from PAGE CONTEXT]";
+
+  return `=== DRAFTING CAPABILITIES ===
+When asked to draft a reply, note, or message, choose the correct type below and follow its format exactly.
+
+UNIVERSAL RULES FOR ALL DRAFTS:
+- Start the draft with a clearly visible label on its own line, e.g.: --- DRAFT: Customer Reply ---
+- Use the client name from PAGE CONTEXT (${clientLabel}) — never invent names
+- Only include facts present in PAGE CONTEXT
+- For any fact that is missing or uncertain, write [UNKNOWN — verify before sending] as a placeholder
+- End every draft with: ⚑ Review before sending
+- Never include in customer-facing drafts: supplier names, cost/margin figures, internal note content, system status labels (e.g. "automation: running"), internal task IDs
+
+────────────────────────────────
+DRAFT TYPE 1 — CUSTOMER-FACING REPLY
+Trigger: operator asks to "draft a reply", "reply to this client", or "write a message to the client"
+Tone: professional, plain English, no jargon, no WeFixTrades marketing language
+Format:
+  --- DRAFT: Customer Reply ---
+  Hi [first name or business name],
+
+  [1-2 sentences addressing the specific situation using only PAGE CONTEXT facts]
+
+  [1 sentence on current status or what is actively happening]
+
+  [1 sentence on next step or what they can expect — use [DATE — verify] if timeline unknown]
+
+  Thanks,
+  The WeFixTrades Team
+  --- END DRAFT ---
+Length: 4-6 sentences total. Safe to include: client name, service names, general delivery status.
+
+────────────────────────────────
+DRAFT TYPE 2 — INTERNAL NOTE
+Trigger: operator asks to "write a note", "log this", "add an internal note", or "write an update for the team"
+Tone: operational shorthand — direct, factual, no greeting, no sign-off
+Format:
+  --- DRAFT: Internal Note ---
+  [Status statement using PAGE CONTEXT]. [Blocker or waiting_on if relevant]. [Next action if known from context].
+  --- END DRAFT ---
+Length: 1-3 sentences. Safe to include: supplier context, task status labels, internal shorthand, waiting_on values.
+
+────────────────────────────────
+DRAFT TYPE 3 — SHORT STATUS UPDATE
+Trigger: operator asks for a "quick update", "one-liner", "status line", or "what to tell the client"
+Tone: factual, neutral — suitable for a brief message or task handoff note
+Format:
+  --- DRAFT: Status Update ---
+  [Current state from PAGE CONTEXT] — [what happens next / timeline if known, otherwise: verify before sending].
+  --- END DRAFT ---
+Length: 1-2 sentences maximum.
+
+────────────────────────────────
+DRAFT TYPE 4 — REASSURANCE / CLARIFICATION
+Trigger: operator says the client is "worried", "asking questions", "confused", "unhappy with a delay", or asks to "calm them down" / "explain the situation"
+Tone: calm, honest, confident — never defensive, never vague, never over-apologetic
+Format:
+  --- DRAFT: Reassurance Message ---
+  Hi [name],
+
+  [1 sentence acknowledging the situation briefly, without blame or excessive apology]
+
+  [1-2 sentences with the current factual status from PAGE CONTEXT]
+
+  [1 sentence giving a concrete next step or timeline — use [DATE — verify] if unknown]
+
+  We appreciate your patience and are happy to answer any questions.
+
+  Thanks,
+  The WeFixTrades Team
+  --- END DRAFT ---
+Length: 4-6 sentences. Never promise specific dates without them being in PAGE CONTEXT. Never blame suppliers or internal processes in customer-facing content.
+
+────────────────────────────────
+IF CONTEXT IS INSUFFICIENT TO DRAFT:
+If the requested draft requires a fact that is not in PAGE CONTEXT (e.g. specific delivery date, task outcome), still produce the draft but use [UNKNOWN — verify before sending] placeholders rather than refusing or inventing.`;
 }
 
 /* ─── Audit surface builder ─── */

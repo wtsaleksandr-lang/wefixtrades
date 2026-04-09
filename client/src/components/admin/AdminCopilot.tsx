@@ -73,6 +73,7 @@ const PROMPT_CHIPS: Record<string, string[]> = {
     "What is blocked?",
     "Is this client healthy?",
     "Draft a reply for this client",
+    "Write an internal note",
   ],
   inbox: [
     "What should I focus on first?",
@@ -84,6 +85,7 @@ const PROMPT_CHIPS: Record<string, string[]> = {
     "What is outstanding right now?",
     "Who owes money?",
     "Summarize billing health",
+    "Draft a payment follow-up",
   ],
   suppliers: [
     "Summarize this page",
