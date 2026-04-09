@@ -922,4 +922,82 @@ Do NOT:
       res.status(500).json({ error: "Failed to load reputation report" });
     }
   });
+
+  /**
+   * GET /api/portal/socialsync-profile
+   * Get the client's SocialSync profile.
+   */
+  app.get("/api/portal/socialsync-profile", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const profile = await storage.getSocialSyncProfile(clientId);
+      if (!profile) return res.json({ exists: false });
+      res.json(profile);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to load profile" });
+    }
+  });
+
+  /**
+   * POST /api/portal/socialsync-setup
+   * Create or update SocialSync profile from onboarding wizard.
+   */
+  app.post("/api/portal/socialsync-setup", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { niche, location, services, service_focus, tone, frequency, platform_preferences, enabled, autopilot } = req.body;
+
+      const profile = await storage.upsertSocialSyncProfile({
+        client_id: clientId,
+        enabled: enabled ?? true,
+        niche: niche || null,
+        location: location || null,
+        services: services || null,
+        service_focus: service_focus || null,
+        tone: tone || "professional",
+        frequency: frequency || "3_per_week",
+        autopilot: autopilot ?? false,
+        platform_preferences: platform_preferences || ["facebook", "instagram"],
+      } as any);
+
+      await storage.createSocialSyncLog({
+        client_id: clientId,
+        entity_type: "profile",
+        entity_id: profile.id,
+        action: "profile.onboarding_completed",
+        status: "success",
+        details: { source: "portal_setup" },
+      });
+
+      res.status(201).json(profile);
+    } catch (err: any) {
+      console.error("Portal SocialSync setup error:", err);
+      res.status(500).json({ error: "Failed to save profile" });
+    }
+  });
+
+  /**
+   * GET /api/portal/socialsync-connections/:platform
+   * Check if a platform is connected for the client.
+   */
+  app.get("/api/portal/socialsync-connections/:platform", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const conn = connections.find(c => c.platform === req.params.platform);
+
+      res.json({
+        connected: conn?.connection_status === "connected" || conn?.connection_status === "expiring_soon",
+        status: conn?.connection_status || "not_connected",
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to check connection" });
+    }
+  });
 }
