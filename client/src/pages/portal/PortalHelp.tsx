@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Loader2, ChevronDown, Send, MessageCircle, Plus, CheckCircle2,
+  Loader2, ChevronDown, CheckCircle2,
   HelpCircle, CreditCard, Wrench, ClipboardList, Calculator,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
@@ -67,111 +67,6 @@ function FaqSection() {
             </button>
           );
         })}
-      </div>
-    </div>
-  );
-}
-
-/* ─── AI Help Section ─── */
-function AiHelpSection() {
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
-
-  const SUGGESTIONS = [
-    "How do I complete my setup form?",
-    "When will my service go live?",
-    "How do I check my billing status?",
-    "What does my service include?",
-  ];
-
-  async function send(text?: string) {
-    const msg = (text || input).trim();
-    if (!msg || loading) return;
-    const updated = [...messages, { role: "user" as const, content: msg }];
-    setMessages(updated);
-    setInput("");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/portal/ai-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          messages: updated.map((m) => ({ role: m.role, content: m.content })),
-          context: { surface: "help" },
-        }),
-      });
-      const data = await res.json();
-      setMessages((prev) => [...prev, { role: "assistant", content: data.reply || "Sorry, something went wrong." }]);
-    } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong. Please try again." }]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-        <MessageCircle className="w-4 h-4 text-[#2D6A4F]" />
-        <h2 className="text-sm font-semibold text-gray-900">Ask AI</h2>
-      </div>
-      <div className="p-4">
-        {/* Messages */}
-        <div className="min-h-[120px] max-h-[300px] overflow-y-auto space-y-3 mb-3">
-          {messages.length === 0 && (
-            <div className="text-center py-4">
-              <p className="text-sm text-gray-400 mb-3">Ask anything about your services, billing, or account.</p>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {SUGGESTIONS.map((s, i) => (
-                  <button
-                    key={i}
-                    onClick={() => send(s)}
-                    className="px-3 py-1.5 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-full hover:bg-gray-100 transition-colors"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                m.role === "user" ? "bg-[#2D6A4F] text-white" : "bg-gray-100 text-gray-700"
-              }`}>
-                {m.content}
-              </div>
-            </div>
-          ))}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-gray-100 rounded-lg px-3 py-2"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div>
-            </div>
-          )}
-          <div ref={endRef} />
-        </div>
-        {/* Input */}
-        <div className="flex gap-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-            placeholder="Type your question..."
-            className="flex-1 text-sm px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
-          />
-          <button
-            onClick={() => send()}
-            disabled={loading || !input.trim()}
-            className="px-3 py-2.5 rounded-lg bg-[#2D6A4F] text-white hover:bg-[#1B4332] disabled:opacity-40 transition-colors"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -339,14 +234,11 @@ export default function PortalHelp() {
         {/* Header */}
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Help</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Find answers, ask AI, or contact us.</p>
+          <p className="text-sm text-gray-500 mt-0.5">Find answers or contact us.</p>
         </div>
 
         {/* FAQ */}
         <FaqSection />
-
-        {/* AI Help */}
-        <AiHelpSection />
 
         {/* Contact / Tickets */}
         <TicketSection />

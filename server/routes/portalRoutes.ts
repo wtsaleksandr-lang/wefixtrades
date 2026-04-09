@@ -2,8 +2,6 @@ import type { Express, Request, Response } from "express";
 import { requireClient, hashPassword, verifyPassword } from "../auth";
 import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { assistantSync } from "../services/assistant";
-import { assemblePortalContext } from "../services/portalAssistantContext";
 import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../services/threadService";
 import { authRateLimiter } from "../services/rateLimiter";
 import {
@@ -719,63 +717,6 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       console.error("Portal ticket create error:", err);
       res.status(500).json({ error: "Failed to create ticket" });
-    }
-  });
-
-  /**
-   * POST /api/portal/ai-chat
-   * Context-aware AI assistant for onboarding or general help.
-   */
-  app.post("/api/portal/ai-chat", requireClient, async (req: Request, res: Response) => {
-    try {
-      const { messages, context } = req.body;
-
-      if (!messages || !Array.isArray(messages) || messages.length === 0) {
-        return res.status(400).json({ error: "messages array is required" });
-      }
-
-      // Validate and sanitize message roles — only allow user/assistant
-      const allowedRoles = new Set(["user", "assistant"]);
-      const sanitizedMessages = messages
-        .filter((m: any) => m && typeof m.content === "string" && allowedRoles.has(m.role))
-        .slice(-10);
-
-      // Derive identity from session — NEVER from payload
-      const userId = req.user!.id;
-      const sessionId = `portal_${userId}`;
-
-      // Determine page hint from context
-      const page = context?.service_name ? "onboarding" : (context?.surface === "help" ? "help" : "overview");
-
-      // Extract submission ID if the embedded AiChatPanel sent it
-      const onboardingId = typeof context?.submission_id === "number" ? context.submission_id : undefined;
-
-      // Build onboarding hints if present
-      const onboardingHints = context?.current_responses
-        ? { currentResponses: context.current_responses }
-        : undefined;
-
-      // Assemble portal context from DB (graceful fallback if it fails)
-      const portalContext = await assemblePortalContext(
-        userId, page, onboardingId, onboardingHints,
-      ).catch(() => undefined);
-
-      const result = await assistantSync({
-        surface: "portal",
-        messages: sanitizedMessages.map((m: { role: string; content: string }) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
-        sessionId,
-        userId,
-        portalContext,
-        maxTokens: 300,
-      });
-
-      res.json({ reply: result.reply });
-    } catch (err) {
-      console.error("Portal AI chat error:", err);
-      res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
     }
   });
 
