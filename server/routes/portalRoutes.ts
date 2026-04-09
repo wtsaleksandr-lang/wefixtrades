@@ -4,7 +4,7 @@ import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { assistantSync } from "../services/assistant";
 import { assemblePortalContext } from "../services/portalAssistantContext";
-import { getOrCreateThread, loadThreadMessages } from "../services/threadService";
+import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../services/threadService";
 import { authRateLimiter } from "../services/rateLimiter";
 import {
   clients,
@@ -787,14 +787,16 @@ export function registerPortalRoutes(app: Express) {
   app.get("/api/portal/thread/messages", requireClient, async (req: Request, res: Response) => {
     try {
       const userId = req.user!.id;
-      const { id: threadId, isNew } = await getOrCreateThread(userId, "portal");
+      const page = typeof req.query.page === "string" ? req.query.page : undefined;
+      const pageCtx = derivePageContext(page);
+      const { id: threadId, isNew } = await getOrCreateThread(userId, "portal", pageCtx);
 
       if (isNew) {
-        return res.json({ threadId, messages: [] });
+        return res.json({ threadId, messages: [], pageContext: pageCtx });
       }
 
       const messages = await loadThreadMessages(threadId);
-      res.json({ threadId, messages });
+      res.json({ threadId, messages, pageContext: pageCtx });
     } catch (err) {
       console.error("Portal thread messages error:", err);
       res.status(500).json({ error: "Failed to load conversation" });

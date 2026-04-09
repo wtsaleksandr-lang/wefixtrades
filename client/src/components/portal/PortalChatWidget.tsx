@@ -38,12 +38,15 @@ export default function PortalChatWidget() {
   // Session ID is user-scoped (matches server-side portal_{userId})
   const sessionId = useRef(`portal_${user?.id ?? "anon"}`);
 
-  // Hydrate from server thread on mount (source of truth)
+  // Hydrate from server thread when page changes (threads are per-page-context)
   useEffect(() => {
     let cancelled = false;
     async function hydrate() {
       try {
-        const res = await fetch("/api/portal/thread/messages", { credentials: "include" });
+        const res = await fetch(
+          `/api/portal/thread/messages?page=${encodeURIComponent(page)}`,
+          { credentials: "include" },
+        );
         if (!res.ok || cancelled) return;
         const data = await res.json();
         if (cancelled) return;
@@ -53,17 +56,19 @@ export default function PortalChatWidget() {
             content: m.content,
           }));
           setMessages([GREETING, ...threadMsgs]);
+        } else {
+          // No thread history for this page — reset to greeting
+          setMessages([GREETING]);
         }
-        // If server returns empty, keep localStorage/greeting (first visit)
       } catch {
-        // Network error — keep localStorage cache, no disruption
+        // Network error — keep current messages, no disruption
       } finally {
         if (!cancelled) setThreadHydrated(true);
       }
     }
     hydrate();
     return () => { cancelled = true; };
-  }, []);
+  }, [page]);
 
   // Persist messages to localStorage (write-through cache)
   useEffect(() => { savePortalMessages(messages); }, [messages]);

@@ -1,9 +1,9 @@
 /**
  * Thread-based conversation persistence for the portal assistant.
  *
- * Each authenticated portal user has at most one "active" thread per surface.
- * Messages are stored individually (not as a JSON blob) for queryability and
- * future features (search, export, admin review).
+ * Each authenticated portal user has at most one "active" thread per
+ * (surface, page_context) pair. This gives separate conversation histories
+ * for onboarding, billing, support, and general portal pages.
  *
  * chatMemory continues to work for non-portal surfaces — this service is
  * additive, not a replacement.
@@ -17,12 +17,27 @@ import type { ChatMessage } from "./aiService";
 /** Maximum messages returned when loading a thread (context window budget). */
 const MAX_THREAD_MESSAGES = 50;
 
+/**
+ * Map a page hint (from the client) to a thread page_context category.
+ * Threads are separated by category so onboarding conversations don't
+ * mix with billing conversations.
+ */
+export function derivePageContext(page?: string): string {
+  switch (page) {
+    case "onboarding": return "onboarding";
+    case "billing":    return "billing";
+    case "help":       return "support";
+    default:           return "general";
+  }
+}
+
 /* ─── Get or create the active thread for a portal user ─── */
 export async function getOrCreateThread(
   userId: number,
   surface: string = "portal",
+  pageContext: string = "general",
 ): Promise<{ id: number; isNew: boolean }> {
-  // Find most recent active thread for this user + surface
+  // Find most recent active thread for this user + surface + page_context
   const [existing] = await db
     .select({ id: assistantThreads.id })
     .from(assistantThreads)
@@ -30,6 +45,7 @@ export async function getOrCreateThread(
       and(
         eq(assistantThreads.user_id, userId),
         eq(assistantThreads.surface, surface),
+        eq(assistantThreads.page_context, pageContext),
         eq(assistantThreads.status, "active"),
       ),
     )
@@ -38,13 +54,14 @@ export async function getOrCreateThread(
 
   if (existing) return { id: existing.id, isNew: false };
 
-  // Create new thread
+  // Create new thread with page_context
   const [thread] = await db
     .insert(assistantThreads)
     .values({
       user_id: userId,
       surface,
       status: "active",
+      page_context: pageContext,
       message_count: 0,
     })
     .returning({ id: assistantThreads.id });

@@ -10,7 +10,7 @@
 import { streamChat, chat, validateConfig, getModel, type ChatMessage, type ChatOptions } from "./aiService";
 import { buildSystemPrompt, type ChatSurface, type AuditContext, type MemoryContext, type PageContext, type PortalContext } from "./promptBuilder";
 import { getMemory, getMemoryByUserId, saveMemory, extractMemorySignals } from "./chatMemory";
-import { getOrCreateThread, loadThreadMessages, appendTurn } from "./threadService";
+import { getOrCreateThread, loadThreadMessages, appendTurn, derivePageContext } from "./threadService";
 import { logUsage } from "./usageTracker";
 import { evaluateAndArchive } from "./conversationArchiver";
 
@@ -64,7 +64,8 @@ async function buildContext(req: AssistantRequest): Promise<{
   // Portal surface with authenticated user: use thread-based persistence
   if (req.surface === "portal" && req.userId) {
     try {
-      const { id: threadId } = await getOrCreateThread(req.userId, "portal");
+      const pageCtx = derivePageContext(req.portalContext?.page);
+      const { id: threadId } = await getOrCreateThread(req.userId, "portal", pageCtx);
       req._threadId = threadId;
 
       // Load thread history from DB — this is the source of truth
@@ -77,8 +78,15 @@ async function buildContext(req: AssistantRequest): Promise<{
       const lastClientMsg = clientMessages[clientMessages.length - 1];
       const isNewUserTurn = lastClientMsg?.role === "user";
 
-      // Merge: thread history + new user message (if any)
-      const merged = isNewUserTurn
+      // Dedup guard: if the thread already ends with the same user message
+      // (e.g. retry after partial failure), don't append it again.
+      const lastThreadMsg = threadMessages[threadMessages.length - 1];
+      const isDuplicate = isNewUserTurn
+        && lastThreadMsg?.role === "user"
+        && lastThreadMsg.content === lastClientMsg.content;
+
+      // Merge: thread history + new user message (if not duplicate)
+      const merged = isNewUserTurn && !isDuplicate
         ? [...threadMessages, lastClientMsg]
         : threadMessages.length > 0 ? threadMessages : clientMessages;
 
