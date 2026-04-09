@@ -24,6 +24,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TaskCard, ClientTasksEmptyState, isOverdue, type TaskItem } from "@/components/admin/TaskCard";
 import { ServiceOpsCard, ServiceOpsSection, HelpCue, HelpText, type OpsStatus } from "@/components/admin/ServiceOps";
+import { Star as StarIcon } from "lucide-react";
 
 /* ─── Types ─── */
 interface Client {
@@ -1024,7 +1025,11 @@ export default function ClientDetailPage() {
 /* ─── Reputation Ops Panel (inline component) ─── */
 
 function ReputationOpsPanel({ clientId }: { clientId: number }) {
-  const { data, isLoading } = useQuery<any>({
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
+
+  const { data, isLoading, refetch } = useQuery<any>({
     queryKey: ["/api/admin/crm/clients", clientId, "reputation-ops"],
     queryFn: async () => {
       const res = await fetch(`/api/admin/crm/clients/${clientId}/reputation-ops`, { credentials: "include" });
@@ -1032,6 +1037,35 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
       return res.json();
     },
   });
+
+  const disconnectGoogleMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/crm/clients/${clientId}/google-disconnect`);
+      return res.json();
+    },
+    onSuccess: () => { refetch(); toast({ title: "Google disconnected" }); },
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/crm/monitored-reviews/sync", { client_id: clientId });
+      return res.json();
+    },
+    onSuccess: () => { toast({ title: "Review sync triggered" }); setTimeout(() => refetch(), 5000); },
+  });
+
+  const toggleSettingMutation = useMutation({
+    mutationFn: async (updates: Record<string, any>) => {
+      const res = await apiRequest("PATCH", `/api/admin/crm/clients/${clientId}/reputation-config`, updates);
+      return res.json();
+    },
+    onSuccess: () => { refetch(); toast({ title: "Setting updated" }); },
+  });
+
+  function copyToClipboard(text: string, label: string) {
+    navigator.clipboard.writeText(text);
+    toast({ title: `${label} copied` });
+  }
 
   if (isLoading) {
     return <div className="flex justify-center py-8"><Skeleton className="h-40 w-full" /></div>;
@@ -1048,6 +1082,7 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
 
   const t = data.tasks;
   const s = data.stats;
+  const origin = window.location.origin;
 
   function taskStatus(done: boolean, blocked?: boolean, optional?: boolean): OpsStatus {
     if (done) return "done";
@@ -1057,47 +1092,63 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
   }
 
   const setupTasks = [
-    { done: t.googlePlaceId.done, title: "Google Business Profile linked" },
-    { done: t.facebookPageUrl.done, title: "Facebook page URL added" },
-    { done: t.googleConnected.done, title: "Google account connected (for posting)" },
-    { done: t.widgetEnabled.done, title: "Review widget enabled" },
-    { done: t.widgetToken.done, title: "Widget token generated" },
+    { done: t.googlePlaceId.done },
+    { done: t.facebookPageUrl.done },
+    { done: t.googleConnected.done },
+    { done: t.widgetEnabled.done },
   ];
-  const setupDone = setupTasks.filter((t) => t.done).length;
+  const setupDone = setupTasks.filter((x) => x.done).length;
 
   const opsTasks = [
-    { done: t.remindersEnabled.done, title: "Follow-up reminders" },
-    { done: t.reportsEnabled.done, title: "Monthly reports" },
-    { done: t.lowRatingAlerts.done, title: "Low-rating alerts" },
-    { done: t.aiDraftsAvailable.done, title: "AI response drafts" },
+    { done: t.remindersEnabled.done },
+    { done: t.reportsEnabled.done },
+    { done: t.lowRatingAlerts.done },
+    { done: t.aiDraftsAvailable.done },
   ];
-  const opsDone = opsTasks.filter((t) => t.done).length;
+  const opsDone = opsTasks.filter((x) => x.done).length;
 
   return (
     <div className="space-y-4">
-      {/* Tier + status header */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Badge variant="secondary" className="text-xs bg-[#F0F7F4] text-[#2D6A4F]">
-          {data.tier ? data.tier.charAt(0).toUpperCase() + data.tier.slice(1) : "—"} Plan
-        </Badge>
-        <Badge variant="secondary" className={`text-xs ${data.serviceStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-          {data.serviceStatus}
-        </Badge>
-        {s.lowRatingNoResponse > 0 && (
-          <Badge variant="secondary" className="text-xs bg-red-50 text-red-700">
-            {s.lowRatingNoResponse} low-rating reviews need response
+      {/* Header row */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="secondary" className="text-xs bg-[#F0F7F4] text-[#2D6A4F]">
+            {data.tier ? data.tier.charAt(0).toUpperCase() + data.tier.slice(1) : "—"} Plan
           </Badge>
-        )}
+          <Badge variant="secondary" className={`text-xs ${data.serviceStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+            {data.serviceStatus}
+          </Badge>
+          {s.lowRatingNoResponse > 0 && (
+            <Badge variant="secondary" className="text-xs bg-red-50 text-red-700">
+              {s.lowRatingNoResponse} low-rating need response
+            </Badge>
+          )}
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          onClick={() => navigate("/admin/crm/reviews")}
+        >
+          <StarIcon className="w-3 h-3 mr-1" /> Open Reviews
+        </Button>
       </div>
 
-      {/* Setup tasks */}
+      {/* Setup & Connection */}
       <ServiceOpsSection title="Setup & Connection" subtitle="Required for full service delivery" completedCount={setupDone} totalCount={setupTasks.length}>
         <ServiceOpsCard
           title="Google Business Profile"
           status={taskStatus(t.googlePlaceId.done)}
           description={t.googlePlaceId.done ? `Place ID: ${t.googlePlaceId.value}` : "Required for review monitoring and response posting."}
           nextStep={!t.googlePlaceId.done ? "Add the client's Google Place ID in their profile settings." : undefined}
-        />
+        >
+          {t.googlePlaceId.done && (
+            <button onClick={() => copyToClipboard(t.googlePlaceId.value, "Place ID")} className="text-[11px] text-blue-600 hover:underline mt-1">
+              Copy Place ID
+            </button>
+          )}
+        </ServiceOpsCard>
+
         <ServiceOpsCard
           title="Facebook Page URL"
           status={taskStatus(t.facebookPageUrl.done, false, true)}
@@ -1105,75 +1156,132 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
           nextStep={!t.facebookPageUrl.done ? "Ask the client for their Facebook business page URL." : undefined}
           waitingOn={!t.facebookPageUrl.done ? "client" : null}
         />
+
         <ServiceOpsCard
           title="Google Account Connected"
           status={taskStatus(t.googleConnected.done, false, !t.googleConnected.oauthConfigured)}
-          description={t.googleConnected.done ? "Connected — can post responses to Google." : t.googleConnected.oauthConfigured ? "Not connected. Required for direct response posting." : "Google OAuth not configured on server."}
-          nextStep={!t.googleConnected.done && t.googleConnected.oauthConfigured ? "Send the Google connection link to the client or connect from their profile." : undefined}
-        />
+          description={t.googleConnected.done ? "Connected — can post responses directly to Google." : t.googleConnected.oauthConfigured ? "Not connected yet." : "Google OAuth not configured on this server."}
+          nextStep={!t.googleConnected.done && t.googleConnected.oauthConfigured ? "Initiate the Google connection flow below." : undefined}
+        >
+          {t.googleConnected.oauthConfigured && (
+            <div className="flex gap-2 mt-2">
+              {!t.googleConnected.done ? (
+                <button
+                  onClick={async () => {
+                    const res = await fetch(`/api/admin/crm/google/connect?clientId=${clientId}`, { credentials: "include" });
+                    const data = await res.json();
+                    if (data.authUrl) {
+                      copyToClipboard(data.authUrl, "Google connection link");
+                    }
+                  }}
+                  className="text-[11px] font-medium text-white bg-blue-600 hover:bg-blue-700 px-2.5 py-1 rounded-md transition-colors"
+                >
+                  Copy Connection Link
+                </button>
+              ) : (
+                <button
+                  onClick={() => { if (confirm("Disconnect Google for this client?")) disconnectGoogleMutation.mutate(); }}
+                  className="text-[11px] text-red-600 hover:underline"
+                >
+                  Disconnect
+                </button>
+              )}
+            </div>
+          )}
+        </ServiceOpsCard>
+
         <ServiceOpsCard
           title="Review Widget"
           status={taskStatus(t.widgetEnabled.done)}
-          description={t.widgetEnabled.done ? `Enabled (${t.widgetEnabled.type || "badge"} type)` : "Widget shows reviews on the client's website."}
-          nextStep={!t.widgetEnabled.done ? "Enable the widget in client settings and install the embed code on their site." : undefined}
+          description={t.widgetEnabled.done ? `Enabled (${t.widgetEnabled.type || "badge"} type)` : "Shows reviews on the client's website."}
+          nextStep={!t.widgetEnabled.done ? "Enable the widget and install embed code on the client's site." : undefined}
           waitingOn={t.widgetEnabled.done ? null : "internal"}
-        />
+        >
+          {t.widgetToken.done && (
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => copyToClipboard(`<script src="${origin}/widget/embed.js" data-wft-widget="${t.widgetEnabled.type || "carousel"}" data-wft-token="${t.widgetToken.value}"></script>`, "Widget embed code")}
+                className="text-[11px] font-medium text-white bg-[#2D6A4F] hover:bg-[#1B4332] px-2.5 py-1 rounded-md transition-colors"
+              >
+                Copy Embed Code
+              </button>
+              <button
+                onClick={() => copyToClipboard(t.widgetToken.value, "Widget token")}
+                className="text-[11px] text-blue-600 hover:underline"
+              >
+                Copy Token
+              </button>
+            </div>
+          )}
+        </ServiceOpsCard>
       </ServiceOpsSection>
 
-      {/* Operational features */}
+      {/* Active Features */}
       <ServiceOpsSection title="Active Features" subtitle="Automated service components" completedCount={opsDone} totalCount={opsTasks.length}>
         <ServiceOpsCard
           title="Follow-up Reminders"
           status={taskStatus(t.remindersEnabled.done)}
           description="Automatic follow-ups when customers don't respond to review requests."
+          action={!t.remindersEnabled.done ? { label: "Enable", onClick: () => toggleSettingMutation.mutate({ reminders_enabled: true }) } : undefined}
         />
         <ServiceOpsCard
           title="Monthly Reports"
           status={taskStatus(t.reportsEnabled.done)}
-          description="Periodic email report showing review growth and reputation metrics."
+          description="Periodic email showing review growth and reputation metrics."
+          action={!t.reportsEnabled.done ? { label: "Enable", onClick: () => toggleSettingMutation.mutate({ report_enabled: true }) } : undefined}
         />
         <ServiceOpsCard
           title="Low-Rating Alerts"
           status={taskStatus(t.lowRatingAlerts.done)}
           description="Instant email alert when a 1-2 star review is detected."
+          action={!t.lowRatingAlerts.done ? { label: "Enable", onClick: () => toggleSettingMutation.mutate({ low_rating_alerts: true }) } : undefined}
         />
         <ServiceOpsCard
           title="AI Response Drafts"
           status={taskStatus(t.aiDraftsAvailable.done)}
-          description={t.aiDraftsAvailable.done ? "Available — AI can draft responses for reviews." : "Requires Pro plan or higher."}
+          description={t.aiDraftsAvailable.done ? "Available — AI can draft responses for this client's reviews." : "Requires Pro plan or higher."}
         />
         <ServiceOpsCard
           title="Channel Preference"
           status="done"
-          description={`Review requests sent via: ${t.channelPreference.value}. Auto = SMS preferred (higher conversion), with email fallback.`}
+          description={`Requests sent via: ${t.channelPreference.value}. Auto = SMS first (higher conversion), email fallback.`}
         />
       </ServiceOpsSection>
 
-      {/* Operational health */}
-      {(s.totalReviews > 0 || s.totalRequests > 0) && (
-        <ServiceOpsSection title="Operational Health">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <div className="text-lg font-semibold text-gray-900">{s.totalReviews}</div>
-              <div className="text-[11px] text-gray-500">Reviews Tracked</div>
-            </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <div className="text-lg font-semibold text-gray-900">{s.totalRequests}</div>
-              <div className="text-[11px] text-gray-500">Requests Sent</div>
-            </div>
-            <div className={`text-center p-3 rounded-lg ${s.lowRatingNoResponse > 0 ? "bg-red-50" : "bg-gray-50"}`}>
-              <div className={`text-lg font-semibold ${s.lowRatingNoResponse > 0 ? "text-red-700" : "text-gray-900"}`}>{s.lowRatingNoResponse}</div>
-              <div className="text-[11px] text-gray-500">Low-Rating Unresponded</div>
-            </div>
-            <div className={`text-center p-3 rounded-lg ${s.missingGoogleName > 0 ? "bg-amber-50" : "bg-gray-50"}`}>
-              <div className="text-lg font-semibold text-gray-900">{s.missingGoogleName}</div>
-              <HelpCue text="Reviews without a Google API identifier cannot be posted to. A re-sync may recover them.">
-                <span className="text-[11px] text-gray-500">Missing Post ID</span>
-              </HelpCue>
-            </div>
+      {/* Operational Health */}
+      <ServiceOpsSection title="Operational Health">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <button onClick={() => navigate("/admin/crm/reviews")} className="text-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+            <div className="text-lg font-semibold text-gray-900">{s.totalReviews}</div>
+            <div className="text-[11px] text-gray-500">Reviews Tracked</div>
+          </button>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <div className="text-lg font-semibold text-gray-900">{s.totalRequests}</div>
+            <div className="text-[11px] text-gray-500">Requests Sent</div>
           </div>
-        </ServiceOpsSection>
-      )}
+          <button
+            onClick={s.lowRatingNoResponse > 0 ? () => navigate("/admin/crm/reviews") : undefined}
+            className={`text-center p-3 rounded-lg transition-colors ${s.lowRatingNoResponse > 0 ? "bg-red-50 hover:bg-red-100 cursor-pointer" : "bg-gray-50"}`}
+          >
+            <div className={`text-lg font-semibold ${s.lowRatingNoResponse > 0 ? "text-red-700" : "text-gray-900"}`}>{s.lowRatingNoResponse}</div>
+            <div className="text-[11px] text-gray-500">Low-Rating Unresponded</div>
+          </button>
+          <div className={`text-center p-3 rounded-lg ${s.missingGoogleName > 0 ? "bg-amber-50" : "bg-gray-50"}`}>
+            <div className="text-lg font-semibold text-gray-900">{s.missingGoogleName}</div>
+            <HelpCue text="Reviews without a Google API identifier cannot be posted to. Trigger a re-sync to attempt recovery.">
+              <span className="text-[11px] text-gray-500">Missing Post ID</span>
+            </HelpCue>
+            {s.missingGoogleName > 0 && (
+              <button
+                onClick={() => syncMutation.mutate()}
+                className="text-[10px] text-blue-600 hover:underline mt-1 block mx-auto"
+              >
+                Re-sync now
+              </button>
+            )}
+          </div>
+        </div>
+      </ServiceOpsSection>
     </div>
   );
 }
