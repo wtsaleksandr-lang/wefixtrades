@@ -132,6 +132,20 @@ export default function ReviewsPage() {
   const [draftTone, setDraftTone] = useState<DraftTone>("auto");
   const [copied, setCopied] = useState(false);
 
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkResult, setBulkResult] = useState<{ action: string; drafted?: number; posted?: number; skipped: number; failed: number } | null>(null);
+
+  function toggleSelect(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  function selectAll(ids: number[]) { setSelectedIds(new Set(ids)); }
+  function clearSelection() { setSelectedIds(new Set()); }
+
   const openReview = (r: MonitoredReview) => {
     setSelected(r);
     setDraftText(r.draft_response || "");
@@ -260,17 +274,41 @@ export default function ReviewsPage() {
     },
   });
 
+  // Bulk mutations
+  const bulkDraftMutation = useMutation({
+    mutationFn: async (ids: number[]) => {
+      const res = await apiRequest("POST", "/api/admin/crm/monitored-reviews/bulk-draft", { ids });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setBulkResult({ action: "draft", drafted: data.drafted, skipped: data.skipped, failed: data.failed });
+      clearSelection();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/monitored-reviews"] });
+    },
+    onError: () => toast({ title: "Bulk draft failed" }),
+  });
+
+  const bulkPostMutation = useMutation({
+    mutationFn: async (ids: number[]) => {
+      const res = await apiRequest("POST", "/api/admin/crm/monitored-reviews/bulk-post", { ids });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setBulkResult({ action: "post", posted: data.posted, skipped: data.skipped, failed: data.failed });
+      clearSelection();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/monitored-reviews"] });
+    },
+    onError: () => toast({ title: "Bulk post failed" }),
+  });
+
   // Client-side filters
   let reviews = listData?.data ?? [];
-  if (statusFilter === "no_response") {
-    reviews = reviews.filter((r) => !r.response_text);
-  }
-  if (statusFilter === "needs_attention") {
-    reviews = reviews.filter((r) => needsAttention(r));
-  }
-  if (statusFilter === "has_draft") {
-    reviews = reviews.filter((r) => !!r.draft_response);
-  }
+  if (statusFilter === "no_response") reviews = reviews.filter((r) => !r.response_text);
+  if (statusFilter === "needs_attention") reviews = reviews.filter((r) => needsAttention(r));
+  if (statusFilter === "has_draft") reviews = reviews.filter((r) => !!r.draft_response);
+  if (statusFilter === "no_draft") reviews = reviews.filter((r) => !r.draft_response && !r.response_text);
+  if (statusFilter === "google_only") reviews = reviews.filter((r) => r.platform === "google");
+  if (statusFilter === "ready_to_post") reviews = reviews.filter((r) => r.platform === "google" && r.draft_response && !r.response_text && r.google_review_name);
 
   const noResponse = stats ? stats.total - stats.withResponse : 0;
   const lowRating = stats ? (stats.byRating[1] ?? 0) + (stats.byRating[2] ?? 0) : 0;
@@ -357,6 +395,9 @@ export default function ReviewsPage() {
               <SelectItem value="no_response">No Response</SelectItem>
               <SelectItem value="needs_attention">Needs Attention</SelectItem>
               <SelectItem value="has_draft">Has Draft</SelectItem>
+              <SelectItem value="no_draft">No Draft</SelectItem>
+              <SelectItem value="google_only">Google Only</SelectItem>
+              <SelectItem value="ready_to_post">Ready to Post</SelectItem>
             </SelectContent>
           </Select>
           {stats && stats.newCount > 0 && (
@@ -376,11 +417,74 @@ export default function ReviewsPage() {
           )}
         </div>
 
+        {/* Bulk action bar */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+            <span className="text-blue-700 font-medium">{selectedIds.size} selected</span>
+            <div className="flex-1" />
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              disabled={bulkDraftMutation.isPending}
+              onClick={() => bulkDraftMutation.mutate([...selectedIds])}
+            >
+              {bulkDraftMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+              Draft All
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={bulkPostMutation.isPending}
+              onClick={() => {
+                const eligible = [...selectedIds].filter((id) => {
+                  const r = reviews.find((rv) => rv.id === id);
+                  return r && r.platform === "google" && r.draft_response && !r.response_text && r.google_review_name;
+                });
+                if (eligible.length === 0) { toast({ title: "No eligible reviews", description: "Selected reviews must be Google, have a draft, and not already have a response." }); return; }
+                if (confirm(`Post ${eligible.length} response${eligible.length !== 1 ? "s" : ""} to Google? This will be publicly visible.\n\n${selectedIds.size - eligible.length > 0 ? `${selectedIds.size - eligible.length} ineligible review(s) will be skipped.` : ""}`)) {
+                  bulkPostMutation.mutate(eligible);
+                }
+              }}
+            >
+              {bulkPostMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Send className="w-3 h-3 mr-1" />}
+              Post to Google
+            </Button>
+            <button onClick={clearSelection} className="text-xs text-gray-500 hover:text-gray-700 ml-1">Clear</button>
+          </div>
+        )}
+
+        {/* Bulk result */}
+        {bulkResult && (
+          <div className="flex items-center gap-3 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg text-sm">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="text-emerald-700">
+              {bulkResult.action === "draft"
+                ? `${bulkResult.drafted} drafted`
+                : `${bulkResult.posted} posted to Google`}
+              {bulkResult.skipped > 0 && ` · ${bulkResult.skipped} skipped`}
+              {bulkResult.failed > 0 && ` · ${bulkResult.failed} failed`}
+            </span>
+            <button onClick={() => setBulkResult(null)} className="text-xs text-emerald-600 hover:underline ml-auto">Dismiss</button>
+          </div>
+        )}
+
         {/* Review table */}
         <Card>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300"
+                    checked={reviews.length > 0 && selectedIds.size === reviews.length}
+                    onChange={() => {
+                      if (selectedIds.size === reviews.length) clearSelection();
+                      else selectAll(reviews.map((r) => r.id));
+                    }}
+                  />
+                </TableHead>
                 <TableHead className="w-8"></TableHead>
                 <TableHead>Reviewer</TableHead>
                 <TableHead>Rating</TableHead>
@@ -403,7 +507,7 @@ export default function ReviewsPage() {
                 ))
               ) : reviews.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                     No reviews found. Reviews appear after the monitoring worker runs.
                   </TableCell>
                 </TableRow>
@@ -411,9 +515,17 @@ export default function ReviewsPage() {
                 reviews.map((r) => (
                   <TableRow
                     key={r.id}
-                    className={`cursor-pointer hover:bg-gray-50 ${needsAttention(r) ? "bg-red-50/40" : ""}`}
+                    className={`cursor-pointer hover:bg-gray-50 ${needsAttention(r) ? "bg-red-50/40" : ""} ${selectedIds.has(r.id) ? "bg-blue-50/40" : ""}`}
                     onClick={() => openReview(r)}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300"
+                        checked={selectedIds.has(r.id)}
+                        onChange={() => toggleSelect(r.id)}
+                      />
+                    </TableCell>
                     <TableCell>
                       {r.is_new ? (
                         <span className="inline-block w-2 h-2 rounded-full bg-blue-500" title="New" />

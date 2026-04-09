@@ -1565,4 +1565,152 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to load operational status" });
     }
   });
+
+  // ═══════════════════════════════════════════════
+  // Bulk Review Actions
+  // ═══════════════════════════════════════════════
+
+  /**
+   * POST /api/admin/crm/monitored-reviews/bulk-draft
+   * Generate AI drafts for multiple reviews.
+   */
+  app.post("/api/admin/crm/monitored-reviews/bulk-draft", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "ids array is required" });
+      }
+      if (ids.length > 50) {
+        return res.status(400).json({ error: "Maximum 50 reviews per batch" });
+      }
+
+      const { generateReviewDraft } = await import("../services/reviewDraftService");
+      const { extractTier, canAccessFeature } = await import("@shared/reputationConfig");
+
+      const results = { drafted: 0, skipped: 0, failed: 0, details: [] as { id: number; status: string; reason?: string }[] };
+
+      for (const id of ids) {
+        const review = await storage.getMonitoredReviewById(id);
+        if (!review) { results.skipped++; results.details.push({ id, status: "skipped", reason: "Not found" }); continue; }
+        if (review.response_text) { results.skipped++; results.details.push({ id, status: "skipped", reason: "Already has response" }); continue; }
+        if (!review.review_text || review.review_text.length < 5) { results.skipped++; results.details.push({ id, status: "skipped", reason: "No review text" }); continue; }
+
+        // Check tier gating
+        if (review.client_id) {
+          const svc = await storage.getClientReputationService(review.client_id);
+          const tier = svc ? extractTier(svc.serviceId) : null;
+          if (!canAccessFeature(tier, "aiDrafts")) { results.skipped++; results.details.push({ id, status: "skipped", reason: "Tier lacks AI drafts" }); continue; }
+        }
+
+        try {
+          let client = null;
+          if (review.client_id) client = await storage.getClientById(review.client_id);
+          const result = await generateReviewDraft(review, client);
+          await storage.updateMonitoredReview(id, {
+            draft_response: result.draft,
+            draft_generated_at: new Date(),
+            draft_model: result.model,
+          });
+          results.drafted++;
+          results.details.push({ id, status: "drafted" });
+        } catch (err: any) {
+          results.failed++;
+          results.details.push({ id, status: "failed", reason: err.message });
+        }
+      }
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review.bulk_draft",
+        entity_type: "monitored_review",
+        entity_id: null,
+        summary: `Bulk drafted ${results.drafted} reviews (${results.skipped} skipped, ${results.failed} failed)`,
+        metadata: { total: ids.length, ...results },
+      });
+
+      res.json(results);
+    } catch (err: any) {
+      console.error("[admin-crm] Bulk draft error:", err.message);
+      res.status(500).json({ error: "Bulk draft failed" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/monitored-reviews/bulk-post
+   * Post draft responses to Google for multiple reviews.
+   */
+  app.post("/api/admin/crm/monitored-reviews/bulk-post", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "ids array is required" });
+      }
+      if (ids.length > 25) {
+        return res.status(400).json({ error: "Maximum 25 reviews per bulk post" });
+      }
+
+      const { postGoogleReviewReply, hasGoogleConnection } = await import("../services/googleBusinessService");
+
+      const results = { posted: 0, skipped: 0, failed: 0, details: [] as { id: number; status: string; reason?: string }[] };
+
+      // Pre-check: cache Google connection status per client
+      const connectionCache = new Map<number, boolean>();
+
+      for (const id of ids) {
+        const review = await storage.getMonitoredReviewById(id);
+        if (!review) { results.skipped++; results.details.push({ id, status: "skipped", reason: "Not found" }); continue; }
+        if (review.platform !== "google") { results.skipped++; results.details.push({ id, status: "skipped", reason: "Not a Google review" }); continue; }
+        if (review.response_text) { results.skipped++; results.details.push({ id, status: "skipped", reason: "Already has response" }); continue; }
+        if (!review.google_review_name) { results.skipped++; results.details.push({ id, status: "skipped", reason: "Missing Google review ID" }); continue; }
+        if (!review.draft_response || review.draft_response.trim().length < 5) { results.skipped++; results.details.push({ id, status: "skipped", reason: "No draft response" }); continue; }
+        if (!review.client_id) { results.skipped++; results.details.push({ id, status: "skipped", reason: "No client" }); continue; }
+
+        // Check Google connection (cached)
+        if (!connectionCache.has(review.client_id)) {
+          connectionCache.set(review.client_id, await hasGoogleConnection(review.client_id));
+        }
+        if (!connectionCache.get(review.client_id)) {
+          results.skipped++; results.details.push({ id, status: "skipped", reason: "Google not connected" }); continue;
+        }
+
+        try {
+          const postResult = await postGoogleReviewReply(review.client_id, review.google_review_name, review.draft_response.trim());
+          if (postResult.ok) {
+            await storage.updateMonitoredReview(id, {
+              response_text: review.draft_response.trim(),
+              response_date: new Date(),
+              posted_via: "reputationshield",
+              posted_at: new Date(),
+            });
+            results.posted++;
+            results.details.push({ id, status: "posted" });
+          } else {
+            results.failed++;
+            results.details.push({ id, status: "failed", reason: postResult.error });
+          }
+        } catch (err: any) {
+          results.failed++;
+          results.details.push({ id, status: "failed", reason: err.message });
+        }
+      }
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review.bulk_post",
+        entity_type: "monitored_review",
+        entity_id: null,
+        summary: `Bulk posted ${results.posted} responses to Google (${results.skipped} skipped, ${results.failed} failed)`,
+        metadata: { total: ids.length, ...results },
+      });
+
+      res.json(results);
+    } catch (err: any) {
+      console.error("[admin-crm] Bulk post error:", err.message);
+      res.status(500).json({ error: "Bulk post failed" });
+    }
+  });
 }
