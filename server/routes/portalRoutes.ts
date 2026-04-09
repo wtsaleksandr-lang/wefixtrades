@@ -833,10 +833,13 @@ Do NOT:
 
       // Review metrics
       const recentReviews = allReviews.filter(r => r.review_time && (now - new Date(r.review_time).getTime()) < thirtyDays);
+      const prevMonthReviews = allReviews.filter(r => r.review_time && (now - new Date(r.review_time).getTime()) >= thirtyDays && (now - new Date(r.review_time).getTime()) < 2 * thirtyDays);
       const ratings = allReviews.filter(r => r.star_rating).map(r => r.star_rating!);
       const recentRatings = recentReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+      const prevRatings = prevMonthReviews.filter(r => r.star_rating).map(r => r.star_rating!);
       const avgRating = ratings.length > 0 ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10 : null;
       const avgRatingRecent = recentRatings.length > 0 ? Math.round((recentRatings.reduce((a, b) => a + b, 0) / recentRatings.length) * 10) / 10 : null;
+      const avgRatingPrev = prevRatings.length > 0 ? Math.round((prevRatings.reduce((a, b) => a + b, 0) / prevRatings.length) * 10) / 10 : null;
 
       // Replies — client-friendly language
       const repliedCount = allReviews.filter(r => r.reply_status === "auto_replied" || r.reply_status === "manually_replied" || r.has_existing_owner_reply).length;
@@ -895,9 +898,12 @@ Do NOT:
       res.json({
         summary: {
           reviews_this_month: recentReviews.length,
+          reviews_last_month: prevMonthReviews.length,
+          reviews_change: recentReviews.length - prevMonthReviews.length,
           total_reviews: allReviews.length,
           average_rating: avgRating,
           average_rating_this_month: avgRatingRecent,
+          average_rating_last_month: avgRatingPrev,
           reply_rate: replyRate,
         },
         activity: {

@@ -7,9 +7,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface ReputationReport {
   summary: {
     reviews_this_month: number;
+    reviews_last_month: number;
+    reviews_change: number;
     total_reviews: number;
     average_rating: number | null;
     average_rating_this_month: number | null;
+    average_rating_last_month: number | null;
     reply_rate: number | null;
   };
   activity: {
@@ -45,6 +48,7 @@ function Stars({ count }: { count: number }) {
 export default function PortalReputation() {
   const { data, isLoading } = useQuery<ReputationReport>({
     queryKey: ["/api/portal/reputation"],
+    refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes
   });
 
   if (isLoading) {
@@ -84,8 +88,8 @@ export default function PortalReputation() {
 
         {/* Key Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MetricCard icon={<Star className="w-4 h-4 text-amber-500" />} label="Average Rating" value={s.average_rating != null ? `${s.average_rating}` : "—"} sub={s.average_rating_this_month != null ? `${s.average_rating_this_month} this month` : undefined} />
-          <MetricCard icon={<TrendingUp className="w-4 h-4 text-emerald-500" />} label="Reviews This Month" value={`${s.reviews_this_month}`} sub={`${s.total_reviews} total`} />
+          <MetricCard icon={<Star className="w-4 h-4 text-amber-500" />} label="Average Rating" value={s.average_rating != null ? `${s.average_rating}` : "—"} sub={s.average_rating_this_month != null ? `${s.average_rating_this_month} this month` : undefined} change={s.average_rating_this_month != null && s.average_rating_last_month != null ? Math.round((s.average_rating_this_month - s.average_rating_last_month) * 10) / 10 : undefined} />
+          <MetricCard icon={<TrendingUp className="w-4 h-4 text-emerald-500" />} label="Reviews This Month" value={`${s.reviews_this_month}`} sub={`${s.total_reviews} total`} change={s.reviews_change !== 0 ? s.reviews_change : undefined} />
           <MetricCard icon={<MessageSquare className="w-4 h-4 text-blue-500" />} label="Reply Rate" value={s.reply_rate != null ? `${s.reply_rate}%` : "—"} sub={`${a.reviews_responded_to} responded`} />
           <MetricCard icon={<Send className="w-4 h-4 text-purple-500" />} label="Requests Sent" value={`${a.review_requests_sent}`} sub={a.reviews_generated > 0 ? `${a.reviews_generated} reviews likely generated` : undefined} />
         </div>
@@ -188,13 +192,18 @@ export default function PortalReputation() {
   );
 }
 
-function MetricCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
+function MetricCard({ icon, label, value, sub, change }: { icon: React.ReactNode; label: string; value: string; sub?: string; change?: number }) {
   return (
     <Card className="p-4 text-center">
       <div className="flex items-center justify-center mb-1">{icon}</div>
       <p className="text-2xl font-bold text-gray-900">{value}</p>
       <p className="text-xs text-gray-500">{label}</p>
       {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+      {change !== undefined && change !== 0 && (
+        <p className={`text-[10px] font-medium mt-0.5 ${change > 0 ? "text-emerald-600" : "text-red-500"}`}>
+          {change > 0 ? "↑" : "↓"} {Math.abs(change)} vs last month
+        </p>
+      )}
     </Card>
   );
 }
