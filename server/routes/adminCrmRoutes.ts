@@ -1279,27 +1279,36 @@ export function registerAdminCrmRoutes(app: Express): void {
       const stateStr = req.query.state as string;
       if (!code || !stateStr) return res.status(400).send("Missing code or state");
 
-      let state: { clientId: number; adminId?: number };
+      let state: { clientId: number; adminId?: number; source?: string };
       try { state = JSON.parse(stateStr); } catch { return res.status(400).send("Invalid state"); }
 
       const { handleGoogleCallback } = await import("../services/googleBusinessService");
       const result = await handleGoogleCallback(code, state.clientId);
 
+      const actorType = state.source === "portal" ? "client" : "human";
       if (result.ok) {
         await storage.logAdminActivity({
-          actor_type: "human",
+          actor_type: actorType,
           actor_id: state.adminId ?? null,
           actor_name: null,
           action: "google.connected",
           entity_type: "client",
           entity_id: state.clientId,
-          summary: `Google Business Profile connected for client #${state.clientId}`,
+          summary: `Google Business Profile connected for client #${state.clientId} (via ${state.source || "admin"})`,
         });
 
-        // Redirect back to admin CRM
-        res.redirect(`/admin/crm/clients/${state.clientId}?google_connected=true`);
+        if (state.source === "portal") {
+          res.redirect("/portal/reviews?google_connected=true");
+        } else {
+          res.redirect(`/admin/crm/clients/${state.clientId}?google_connected=true`);
+        }
       } else {
-        res.redirect(`/admin/crm/clients/${state.clientId}?google_error=${encodeURIComponent(result.error || "Unknown error")}`);
+        const errorParam = encodeURIComponent(result.error || "Unknown error");
+        if (state.source === "portal") {
+          res.redirect(`/portal/reviews?google_error=${errorParam}`);
+        } else {
+          res.redirect(`/admin/crm/clients/${state.clientId}?google_error=${errorParam}`);
+        }
       }
     } catch (err: any) {
       console.error("[admin-crm] Google callback error:", err.message);

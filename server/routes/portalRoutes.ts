@@ -1234,4 +1234,89 @@ Do NOT:
       res.status(500).json({ error: "Failed to load stats" });
     }
   });
+
+  // ═══════════════════════════════════════════════
+  // Google Business Connection (Portal)
+  // ═══════════════════════════════════════════════
+
+  /**
+   * GET /api/portal/reputation/google-status
+   * Returns Google connection status for the authenticated client.
+   */
+  app.get("/api/portal/reputation/google-status", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { isGoogleOAuthConfigured } = await import("../services/googleBusinessService");
+      const { storage } = await import("../storage");
+      const client = await storage.getClientById(clientId);
+      const creds = client?.google_credentials as any;
+
+      const connected = !!(creds?.refresh_token || creds?.access_token);
+      const expired = connected && creds?.expiry_date && new Date(creds.expiry_date).getTime() < Date.now() && !creds?.refresh_token;
+
+      res.json({
+        oauthConfigured: isGoogleOAuthConfigured(),
+        connected,
+        connectedAt: creds?.connected_at || null,
+        needsReconnect: expired,
+      });
+    } catch (err: any) {
+      console.error("[portal] google-status error:", err.message);
+      res.status(500).json({ error: "Failed to check connection" });
+    }
+  });
+
+  /**
+   * GET /api/portal/reputation/google-connect
+   * Initiates Google OAuth flow for the authenticated client.
+   */
+  app.get("/api/portal/reputation/google-connect", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { isGoogleOAuthConfigured, getGoogleAuthUrl } = await import("../services/googleBusinessService");
+      if (!isGoogleOAuthConfigured()) {
+        return res.status(503).json({ error: "Google connection is not available right now" });
+      }
+
+      const state = JSON.stringify({ clientId, source: "portal" });
+      const authUrl = getGoogleAuthUrl(state);
+      res.json({ authUrl });
+    } catch (err: any) {
+      console.error("[portal] google-connect error:", err.message);
+      res.status(500).json({ error: "Failed to start connection" });
+    }
+  });
+
+  /**
+   * POST /api/portal/reputation/google-disconnect
+   * Disconnects Google for the authenticated client.
+   */
+  app.post("/api/portal/reputation/google-disconnect", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { storage } = await import("../storage");
+      await storage.updateClient(clientId, { google_credentials: null } as any);
+
+      await storage.logAdminActivity({
+        actor_type: "client",
+        actor_id: (req.user as any)?.id,
+        actor_name: null,
+        action: "google.disconnected",
+        entity_type: "client",
+        entity_id: clientId,
+        summary: `Google Business disconnected by client (portal)`,
+      });
+
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[portal] google-disconnect error:", err.message);
+      res.status(500).json({ error: "Failed to disconnect" });
+    }
+  });
 }

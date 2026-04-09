@@ -11,7 +11,7 @@ import {
 import {
   Star, TrendingUp, MessageSquare, Send, ShieldCheck, AlertTriangle,
   ChevronDown, ChevronUp, Loader2, RefreshCw, ThumbsDown, Settings, Lock, Code,
-  QrCode, UserPlus, CheckCircle2,
+  QrCode, UserPlus, CheckCircle2, Unplug, ExternalLink,
 } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
@@ -214,6 +214,37 @@ export default function PortalReviews() {
     enabled: !!config?.active,
   });
 
+  // Google connection
+  const { data: googleStatus } = useQuery<{ oauthConfigured: boolean; connected: boolean; connectedAt: string | null; needsReconnect: boolean }>({
+    queryKey: ["/api/portal/reputation/google-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/reputation/google-status", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!config?.active,
+  });
+
+  const googleConnectMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/portal/reputation/google-connect", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      if (data.authUrl) window.location.href = data.authUrl;
+    },
+  });
+
+  const googleDisconnectMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/portal/reputation/google-disconnect");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/reputation/google-status"] });
+      toast({ title: "Google disconnected" });
+    },
+  });
+
   const reviews = reviewsData?.data ?? [];
   const feedback = feedbackData?.data ?? [];
   const rv = overview?.reviews;
@@ -351,6 +382,66 @@ export default function PortalReviews() {
                 >
                   <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings.low_rating_alerts ? "left-[18px]" : "left-0.5"}`} />
                 </button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Google Connection */}
+        {googleStatus?.oauthConfigured && (
+          <Card className={`p-4 ${googleStatus.needsReconnect ? "border-amber-200" : ""}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${googleStatus.connected && !googleStatus.needsReconnect ? "bg-emerald-50" : googleStatus.needsReconnect ? "bg-amber-50" : "bg-gray-50"}`}>
+                  {googleStatus.connected && !googleStatus.needsReconnect ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  ) : googleStatus.needsReconnect ? (
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  ) : (
+                    <Unplug className="w-4 h-4 text-gray-400" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {googleStatus.connected && !googleStatus.needsReconnect
+                      ? "Google Connected"
+                      : googleStatus.needsReconnect
+                        ? "Google Needs Reconnection"
+                        : "Connect Google"}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed max-w-md">
+                    {googleStatus.connected && !googleStatus.needsReconnect
+                      ? "Review responses can be posted directly to Google from ReputationShield."
+                      : googleStatus.needsReconnect
+                        ? "Your connection has expired. Reconnect to continue posting responses directly to Google."
+                        : "Connect your Google Business Profile to post review responses directly — no copy-paste needed."}
+                  </p>
+                  {googleStatus.connected && googleStatus.connectedAt && !googleStatus.needsReconnect && (
+                    <p className="text-[11px] text-gray-400 mt-1">Connected {new Date(googleStatus.connectedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
+                  )}
+                </div>
+              </div>
+              <div className="shrink-0">
+                {!googleStatus.connected || googleStatus.needsReconnect ? (
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]"
+                    disabled={googleConnectMutation.isPending}
+                    onClick={() => googleConnectMutation.mutate()}
+                  >
+                    <ExternalLink className="w-3 h-3 mr-1" />
+                    {googleStatus.needsReconnect ? "Reconnect" : "Connect Google"}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs text-gray-500"
+                    onClick={() => { if (confirm("Disconnect Google? You won't be able to post responses directly until you reconnect.")) googleDisconnectMutation.mutate(); }}
+                  >
+                    Disconnect
+                  </Button>
+                )}
               </div>
             </div>
           </Card>
