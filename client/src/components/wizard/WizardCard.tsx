@@ -12,6 +12,8 @@ import PricingIntakeStage2 from './PricingIntakeStage2';
 import TestGateStep, { type TestGateResult } from './TestGateStep';
 import LeadFormStep from './LeadFormStep';
 import PublishStep from './PublishStep';
+import QuoteWidget from '@/components/quote-widget/QuoteWidget';
+import type { CalculatorData } from '@/components/quote-widget/types';
 import { mapPricingIntakeToConfig } from '@shared/pricingIntakeMapper';
 import { getRecommendedTemplate, getTemplateById } from '@shared/templateLibrary';
 import {
@@ -640,6 +642,24 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     return { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 };
   }, [ws.isCustomTrade, ws.customTradeData, ws.stage2Data, ws.calculatorSettings.pricing_draft, ws.selectedTrade]);
 
+  // Synthetic CalculatorData for live preview (no DB save required)
+  const previewCalculatorData = useMemo<CalculatorData>(() => ({
+    id: -1, // Sentinel: preview mode — LeadCaptureStep/BookingStep skip API calls
+    slug: 'preview',
+    business_name: ws.businessName || 'Your Business',
+    tagline: ws.tagline || undefined,
+    logo_url: ws.logoUrl || undefined,
+    primary_color: ws.primaryColor || '#394247',
+    pricing_config: resolvedPricingConfig,
+    cta_button_text: ws.calculatorSettings?.lead_form?.cta?.button_text || undefined,
+    lead_thank_you_message: ws.calculatorSettings?.lead_form?.cta?.helper_text || undefined,
+    calculator_settings: {
+      ...ws.calculatorSettings,
+      calculator_type: ws.calculatorSettings?.calculator_type || 'estimate_only',
+      ui_template: ws.calculatorSettings?.ui_template || { template_id: 'classic_single' },
+    },
+  }), [ws.businessName, ws.tagline, ws.logoUrl, ws.primaryColor, resolvedPricingConfig, ws.calculatorSettings]);
+
   const [testHistory, setTestHistory] = useState<TestGateResult | null>(() => {
     const th = ws.calculatorSettings.test_history;
     if (th) {
@@ -921,55 +941,26 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         {/* Step 1: Preview & Polish (reframed from Design — now shows live preview first) */}
         {step === 1 && (
           <div>
-            {/* Live preview — show what the customer sees */}
+            {/* Live preview — real interactive QuoteWidget */}
             <div className="animate-fade-in-up" style={{
               marginBottom: '24px', padding: '16px', borderRadius: p.radius.lg,
               border: `1px solid ${p.colors.border}`, background: p.colors.surfaceRaised,
             }}>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: p.colors.heading, margin: '0 0 4px' }}>
-                Live preview
-              </p>
-              <p style={{ fontSize: '12px', color: p.colors.muted, margin: '0 0 12px' }}>
-                This is what your customers will see on your website.
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div>
+                  <p style={{ fontSize: '13px', fontWeight: 600, color: p.colors.heading, margin: '0 0 2px' }}>
+                    Live preview
+                  </p>
+                  <p style={{ fontSize: '12px', color: p.colors.muted, margin: 0 }}>
+                    Interact with it — this is exactly what your customers see.
+                  </p>
+                </div>
+              </div>
               <div style={{
                 borderRadius: p.radius.md, overflow: 'hidden',
-                border: `1px solid ${p.colors.borderLight}`, background: '#fff',
-                padding: '16px',
+                background: '#f8fafb',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                  {ws.logoUrl && (
-                    <img src={ws.logoUrl} alt="" style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'contain' }} />
-                  )}
-                  <div>
-                    <p style={{ fontSize: '14px', fontWeight: 700, color: '#22282a', margin: 0 }}>{ws.businessName || 'Your Business'}</p>
-                    {ws.tagline && <p style={{ fontSize: '11px', color: '#5f6f77', margin: '1px 0 0' }}>{ws.tagline}</p>}
-                  </div>
-                </div>
-                <div style={{
-                  padding: '16px', borderRadius: '10px',
-                  background: '#f5fcff', border: '1px solid #d5e1e7',
-                  textAlign: 'center',
-                }}>
-                  <p style={{ fontSize: '11px', fontWeight: 600, color: '#5f6f77', textTransform: 'uppercase', letterSpacing: '0.03em', margin: '0 0 4px' }}>Your Estimate</p>
-                  <p style={{ fontSize: '24px', fontWeight: 800, color: '#22282a', margin: 0, fontFamily: '"SF Mono", "Roboto Mono", monospace' }}>
-                    ${resolvedPricingConfig?.pricingType === 'hourly'
-                      ? ((resolvedPricingConfig as any).rate * 3 + ((resolvedPricingConfig as any).baseFee || 0)).toFixed(2)
-                      : resolvedPricingConfig?.pricingType === 'per_sqft'
-                      ? ((resolvedPricingConfig as any).rate * 500 + ((resolvedPricingConfig as any).baseFee || 0)).toFixed(2)
-                      : '150.00'}
-                  </p>
-                  <p style={{ fontSize: '11px', color: '#5f6f77', margin: '4px 0 0' }}>Sample estimate for a typical job</p>
-                </div>
-                <div style={{ marginTop: '12px' }}>
-                  <div style={{
-                    width: '100%', padding: '12px', borderRadius: '12px',
-                    background: ws.primaryColor || '#394247', color: '#fff',
-                    textAlign: 'center', fontSize: '14px', fontWeight: 700,
-                  }}>
-                    {ws.calculatorSettings?.lead_form?.cta?.button_text || 'Send My Quote'}
-                  </div>
-                </div>
+                <QuoteWidget calculator={previewCalculatorData} isEmbed />
               </div>
             </div>
 

@@ -29,6 +29,13 @@ export default function BookingStep({ step, accentColor }: BookingStepProps) {
     setSubmitting(true);
     setError(null);
     try {
+      // Preview mode: skip API call, just advance
+      if (config.calculator.id < 0) {
+        dispatch({ type: 'CONFIRM_BOOKING' });
+        nextStep();
+        return;
+      }
+
       const trimmedName = customer.name.trim();
       if (!trimmedName) {
         setError('Name is required.');
@@ -82,6 +89,11 @@ export default function BookingStep({ step, accentColor }: BookingStepProps) {
   // Fetch available slots when date changes
   useEffect(() => {
     if (!selectedDate || !config.calculator.id) return;
+    // Preview mode: show mock slots
+    if (config.calculator.id < 0) {
+      dispatch({ type: 'SET_AVAILABLE_SLOTS', slots: ['09:00', '10:00', '11:00', '14:00', '15:00'] });
+      return;
+    }
     // Guard: reject past dates
     if (selectedDate < todayStr) {
       dispatch({ type: 'SET_AVAILABLE_SLOTS', slots: [] });

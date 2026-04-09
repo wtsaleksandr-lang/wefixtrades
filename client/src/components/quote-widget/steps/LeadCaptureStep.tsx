@@ -84,6 +84,14 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
 
     try {
       const isDemo = config.calculator.id === 0;
+      const isPreview = config.calculator.id < 0;
+
+      // Preview mode: skip API call, just advance
+      if (isPreview) {
+        dispatch({ type: 'MARK_LEAD_SUBMITTED' });
+        nextStep();
+        return;
+      }
 
       // Ensure answers is always a non-null object
       const safeAnswers = (answers && typeof answers === 'object') ? answers : {};
