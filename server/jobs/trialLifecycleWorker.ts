@@ -274,5 +274,84 @@ export async function processTrialLifecycle(): Promise<{ processed: number; emai
     processed++;
   }
 
-  return { processed, emails, errors };
+  return { processed, emails, paused: 0, errors };
+}
+
+/**
+ * Auto-pause expired trial calculators.
+ * Runs as part of the daily lifecycle. Separate function for clarity.
+ *
+ * Rules:
+ * - Trial = 14 days from calculator.created_at
+ * - Paid users (plan_tier !== 'free') are skipped
+ * - Grace: if calculator has >= 1 lead, extend to 17 days (14 + 3)
+ * - Pause = set deployment_status.status to 'draft'
+ * - Idempotent: only pauses calculators currently 'live'
+ * - Nothing is deleted. Dashboard remains accessible.
+ */
+export async function pauseExpiredTrials(): Promise<{ checked: number; paused: number; errors: string[] }> {
+  const errors: string[] = [];
+  let checked = 0;
+  let paused = 0;
+
+  // Get all free-tier calculators that are currently live
+  const liveCalcs = await db.select({
+    id: calculators.id,
+    business_name: calculators.business_name,
+    slug: calculators.slug,
+    owner_email: calculators.owner_email,
+    plan_tier: calculators.plan_tier,
+    created_at: calculators.created_at,
+  })
+    .from(calculators)
+    .where(isNotNull(calculators.created_at))
+    .orderBy(desc(calculators.created_at));
+
+  for (const calc of liveCalcs) {
+    if (!calc.created_at) continue;
+
+    // Skip paid users
+    if (calc.plan_tier && calc.plan_tier !== 'free') continue;
+
+    checked++;
+
+    const day = daysSince(calc.created_at);
+
+    // Not expired yet (within 14-day trial)
+    if (day < 14) continue;
+
+    // Check current deployment status — only act on 'live' calculators
+    const deploy = await storage.getDeploymentStatus(calc.id);
+    if (!deploy || deploy.status !== 'live') continue; // Already paused or no status
+
+    // Grace period: if has leads, extend to day 17
+    const [leadRow] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(leads).where(eq(leads.calculator_id, calc.id));
+    const leadCount = leadRow?.count ?? 0;
+
+    const expiryDay = leadCount > 0 ? 17 : 14;
+
+    if (day < expiryDay) continue; // Still in grace period
+
+    // Pause: set deployment_status to draft
+    try {
+      await storage.upsertDeploymentStatus({
+        calculator_id: calc.id,
+        status: 'draft',
+      });
+
+      // Record the pause event (dedup marker)
+      await storage.trackEvent({
+        calculator_id: calc.id,
+        event_type: 'trial_auto_paused',
+        metadata: { day, leadCount, grace: leadCount > 0, slug: calc.slug },
+      });
+
+      paused++;
+    } catch (err: any) {
+      errors.push(`pause calc ${calc.id}: ${err.message}`);
+    }
+  }
+
+  return { checked, paused, errors };
 }

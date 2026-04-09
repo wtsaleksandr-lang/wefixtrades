@@ -6,7 +6,7 @@ import { processNotificationQueue } from "./notificationWorker";
 import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
-import { processTrialLifecycle } from "./trialLifecycleWorker";
+import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -135,8 +135,9 @@ export function initScheduler() {
     console.log("[Scheduler] Running trial lifecycle worker...");
     try {
       await runJob("trial_lifecycle", async () => {
-        const result = await processTrialLifecycle();
-        return result;
+        const emailResult = await processTrialLifecycle();
+        const pauseResult = await pauseExpiredTrials();
+        return { ...emailResult, paused: pauseResult.paused, pauseErrors: pauseResult.errors };
       });
     } catch (err: any) {
       console.error("[Scheduler] trial_lifecycle cron handler error:", err.message);
