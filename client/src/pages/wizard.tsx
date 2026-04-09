@@ -39,7 +39,7 @@ export default function Wizard() {
           fontSize: '12px', color: p.colors.muted, lineHeight: 1.5,
           marginTop: '6px', opacity: 0.7,
         }}>
-          Free 14-day trial &middot; No credit card required
+          Only 3 things needed: your trade, your rate, and your email &middot; Free 14-day trial
         </p>
       </div>
       <div style={{

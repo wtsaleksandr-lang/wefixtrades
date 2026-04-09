@@ -228,6 +228,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     ? filteredTrades.filter(tr => tr.label.toLowerCase().includes(tradeSearch.toLowerCase()))
     : filteredTrades;
 
+  // Global trade search (searches ALL trades, bypasses category)
+  const globalSearchResults = tradeSearch.length >= 2
+    ? TRADES.filter(tr => tr.label.toLowerCase().includes(tradeSearch.toLowerCase())).slice(0, 8)
+    : [];
+
   const selectCategory = (id: string) => {
     if (id === ws.selectedCategory) return;
     setWs(p => ({
@@ -741,6 +746,65 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               </label>
             </div>
 
+            {/* Trade search — find your trade instantly */}
+            <div style={{ marginBottom: '14px', position: 'relative' }}>
+              <div style={{ position: 'relative' }}>
+                <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: p.colors.subtle }} />
+                <input
+                  data-testid="input-trade-search"
+                  type="text"
+                  placeholder="Type your trade... (e.g. plumber, cleaning, HVAC)"
+                  value={!ws.selectedCategory ? tradeSearch : ''}
+                  onChange={e => { setTradeSearch(e.target.value); if (ws.selectedCategory) { selectCategory(''); } }}
+                  className="premium-input"
+                  style={{ paddingLeft: '36px', height: '44px', fontSize: '14px' }}
+                />
+              </div>
+              {globalSearchResults.length > 0 && !ws.selectedCategory && (
+                <div style={{
+                  marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px',
+                  border: `1px solid ${p.colors.border}`, borderRadius: p.radius.md,
+                  background: '#fff', overflow: 'hidden',
+                }}>
+                  {globalSearchResults.map(tr => (
+                    <button
+                      key={tr.id}
+                      data-testid={`search-result-${tr.id}`}
+                      onClick={() => {
+                        selectCategory(tr.categoryId);
+                        setTimeout(() => selectTrade(tr), 0);
+                        setTradeSearch('');
+                      }}
+                      style={{
+                        textAlign: 'left', padding: '10px 14px', border: 'none',
+                        background: ws.selectedTrade === tr.id ? p.colors.accentLighter : 'transparent',
+                        cursor: 'pointer', fontSize: '14px', color: p.colors.heading,
+                        transition: p.transitions.fast,
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = p.colors.surfaceRaised; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = ws.selectedTrade === tr.id ? p.colors.accentLighter : 'transparent'; }}
+                    >
+                      {tr.label}
+                      <span style={{ fontSize: '11px', color: p.colors.subtle, marginLeft: '8px' }}>
+                        {CATEGORIES.find(c => c.id === tr.categoryId)?.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {tradeSearch.length >= 2 && globalSearchResults.length === 0 && !ws.selectedCategory && (
+                <p style={{ fontSize: '12px', color: p.colors.muted, margin: '6px 0 0' }}>
+                  No matches. Choose a category below or select "Custom / Not Listed."
+                </p>
+              )}
+            </div>
+
+            {/* Category grid — or browse by category */}
+            {!ws.selectedTrade && (
+              <div style={{ marginBottom: '8px' }}>
+                <p style={{ fontSize: '12px', color: p.colors.subtle, marginBottom: '8px' }}>Or browse by category:</p>
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '16px' }}>
               {CATEGORIES.map((cat) => {
                 const Icon = ICON_MAP[cat.icon] || Plus;
@@ -923,10 +987,23 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               </div>
             </div>
 
-            <DesignStudio
-              settings={ws.calculatorSettings}
-              onChange={(newSettings) => set('calculatorSettings', newSettings)}
-            />
+            {/* Advanced design — collapsed by default */}
+            <details style={{ marginTop: '4px' }}>
+              <summary style={{
+                fontSize: '13px', fontWeight: 600, color: p.colors.accent,
+                cursor: 'pointer', padding: '10px 0', listStyle: 'none',
+                display: 'flex', alignItems: 'center', gap: '6px',
+                userSelect: 'none',
+              }}>
+                <ChevronDown style={{ width: '14px', height: '14px' }} />
+                Advanced design settings
+                <span style={{ fontSize: '11px', fontWeight: 400, color: p.colors.subtle }}>(optional)</span>
+              </summary>
+              <DesignStudio
+                settings={ws.calculatorSettings}
+                onChange={(newSettings) => set('calculatorSettings', newSettings)}
+              />
+            </details>
             <Footer onBack={() => setStep(0)} onNext={() => setStep(2)} hint={STEP_HINTS[1]} />
           </div>
         )}

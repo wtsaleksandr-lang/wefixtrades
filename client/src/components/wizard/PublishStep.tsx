@@ -456,12 +456,24 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
         </>
       )}
 
-      {/* AI Employee Section */}
-      <AIEmployeeSection
-        aiEmployee={aiEmployee}
-        tradeCategory={tradeCategory}
-        onAiEmployeeChange={onAiEmployeeChange}
-      />
+      {/* AI Employee Section — collapsed by default to reduce noise */}
+      <details style={{ marginBottom: '16px' }}>
+        <summary style={{
+          fontSize: '13px', fontWeight: 600, color: p.colors.accent,
+          cursor: 'pointer', padding: '12px 0', listStyle: 'none',
+          display: 'flex', alignItems: 'center', gap: '6px',
+          userSelect: 'none',
+        }}>
+          <MessageCircle style={{ width: '14px', height: '14px' }} />
+          Enable AI Chat Assistant
+          <span style={{ fontSize: '11px', fontWeight: 400, color: p.colors.muted }}>(optional — separate product)</span>
+        </summary>
+        <AIEmployeeSection
+          aiEmployee={aiEmployee}
+          tradeCategory={tradeCategory}
+          onAiEmployeeChange={onAiEmployeeChange}
+        />
+      </details>
 
       {isPublished && result?.edit_token && (
         <Link
