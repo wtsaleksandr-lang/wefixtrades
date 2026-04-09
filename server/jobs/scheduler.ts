@@ -6,6 +6,7 @@ import { processNotificationQueue } from "./notificationWorker";
 import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
+import { processRankFlowPlans } from "./rankflowWorker";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -129,10 +130,21 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  // RankFlow weekly plan generation — runs every Monday at 4 AM UTC
+  cron.schedule("0 4 * * 1", async () => {
+    console.log("[Scheduler] Running RankFlow plan generation...");
+    try {
+      await runJob("rankflow_plan_generation", processRankFlowPlans);
+    } catch (err: any) {
+      console.error("[Scheduler] rankflow_plan_generation cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
   console.log("[Scheduler] Jobs scheduled:");
   console.log("  - Daily aggregation: 02:00 UTC every day");
   console.log("  - Chat memory cleanup: 03:00 UTC every day");
   console.log("  - Weekly email report: 13:00 UTC every Monday (~8AM EST)");
+  console.log("  - RankFlow plan generation: 04:00 UTC every Monday");
   console.log("  - Notification queue worker: every minute");
   console.log("  - Follow-up jobs worker: every minute");
   console.log("  - Audit follow-up worker: every minute");

@@ -41,6 +41,13 @@ import {
   type AdminActivityLog, type InsertAdminActivityLog,
   type ServiceTaskTemplate,
   type OnboardingTemplate,
+  // RankFlow
+  rankflowProfiles, rankflowMonthlyPlans, rankflowTasks, rankflowQaChecks, rankflowProgress,
+  type RankflowProfile, type InsertRankflowProfile,
+  type RankflowMonthlyPlan, type InsertRankflowMonthlyPlan,
+  type RankflowTask, type InsertRankflowTask,
+  type RankflowQaCheck, type InsertRankflowQaCheck,
+  type RankflowProgress, type InsertRankflowProgress,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -1259,6 +1266,107 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { serviceCompleted, serviceActivated, clientActivated };
+  }
+
+  /* ═══════════════════════════════════════════
+     RankFlow
+     ═══════════════════════════════════════════ */
+
+  async getRankFlowProfile(clientId: number): Promise<RankflowProfile | undefined> {
+    const [row] = await db.select().from(rankflowProfiles).where(eq(rankflowProfiles.client_id, clientId)).limit(1);
+    return row;
+  }
+
+  async upsertRankFlowProfile(clientId: number, data: Partial<InsertRankflowProfile>): Promise<RankflowProfile> {
+    const existing = await this.getRankFlowProfile(clientId);
+    if (existing) {
+      const [updated] = await db.update(rankflowProfiles)
+        .set({ ...data, updated_at: new Date() })
+        .where(eq(rankflowProfiles.client_id, clientId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(rankflowProfiles)
+      .values({ ...data, client_id: clientId } as InsertRankflowProfile)
+      .returning();
+    return created;
+  }
+
+  async listEnabledRankFlowProfiles(): Promise<RankflowProfile[]> {
+    return db.select().from(rankflowProfiles).where(eq(rankflowProfiles.enabled, true));
+  }
+
+  async createMonthlyPlan(data: InsertRankflowMonthlyPlan): Promise<RankflowMonthlyPlan> {
+    const [row] = await db.insert(rankflowMonthlyPlans).values(data).returning();
+    return row;
+  }
+
+  async getMonthlyPlan(clientId: number, month: string): Promise<RankflowMonthlyPlan | undefined> {
+    const [row] = await db.select().from(rankflowMonthlyPlans)
+      .where(and(eq(rankflowMonthlyPlans.client_id, clientId), eq(rankflowMonthlyPlans.month, month)))
+      .limit(1);
+    return row;
+  }
+
+  async updateMonthlyPlanStatus(planId: number, status: string): Promise<void> {
+    await db.update(rankflowMonthlyPlans).set({ status }).where(eq(rankflowMonthlyPlans.id, planId));
+  }
+
+  async createRankFlowTask(data: InsertRankflowTask): Promise<RankflowTask> {
+    const [row] = await db.insert(rankflowTasks).values(data).returning();
+    return row;
+  }
+
+  async listTasksByClient(clientId: number): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks)
+      .where(eq(rankflowTasks.client_id, clientId))
+      .orderBy(desc(rankflowTasks.created_at));
+  }
+
+  async listTasksByPlan(planId: number): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks)
+      .where(eq(rankflowTasks.plan_id, planId))
+      .orderBy(rankflowTasks.priority);
+  }
+
+  async updateRankFlowTaskStatus(taskId: number, status: string): Promise<RankflowTask | undefined> {
+    const updates: Record<string, any> = { status };
+    if (status === "done") updates.completed_at = new Date();
+    const [row] = await db.update(rankflowTasks).set(updates).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async createQACheck(data: InsertRankflowQaCheck): Promise<RankflowQaCheck> {
+    const [row] = await db.insert(rankflowQaChecks).values(data).returning();
+    return row;
+  }
+
+  async listQAChecks(taskId: number): Promise<RankflowQaCheck[]> {
+    return db.select().from(rankflowQaChecks).where(eq(rankflowQaChecks.task_id, taskId));
+  }
+
+  async upsertMonthlyProgress(clientId: number, month: string, data: Partial<InsertRankflowProgress>): Promise<RankflowProgress> {
+    const [existing] = await db.select().from(rankflowProgress)
+      .where(and(eq(rankflowProgress.client_id, clientId), eq(rankflowProgress.month, month)))
+      .limit(1);
+    if (existing) {
+      const [updated] = await db.update(rankflowProgress)
+        .set(data)
+        .where(eq(rankflowProgress.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(rankflowProgress)
+      .values({ client_id: clientId, month, ...data } as InsertRankflowProgress)
+      .returning();
+    return created;
+  }
+
+  async getMonthlyProgress(clientId: number, month: string): Promise<RankflowProgress | undefined> {
+    const [row] = await db.select().from(rankflowProgress)
+      .where(and(eq(rankflowProgress.client_id, clientId), eq(rankflowProgress.month, month)))
+      .limit(1);
+    return row;
   }
 }
 
