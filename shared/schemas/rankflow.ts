@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { clients } from "./adminCrm";
@@ -47,11 +47,28 @@ export const rankflowTasks = pgTable("rankflow_tasks", {
   title: text("title").notNull(),
   instructions: text("instructions"),
   status: varchar("status", { length: 20 }).notNull().default("pending"),
-  assigned_to: varchar("assigned_to", { length: 20 }).notNull().default("ai"),
+  // pending | assigned | in_progress | submitted | qa_review | approved | rejected | done
+  assigned_to: varchar("assigned_to", { length: 50 }),
   priority: varchar("priority", { length: 20 }).notNull().default("normal"),
   due_date: timestamp("due_date"),
   completed_at: timestamp("completed_at"),
   metadata: jsonb("metadata"),
+  // Execution fields
+  execution_mode: varchar("execution_mode", { length: 20 }).notNull().default("ai"),
+  // ai | manual_admin | outsourced
+  vendor_type: varchar("vendor_type", { length: 50 }),
+  assigned_at: timestamp("assigned_at"),
+  submitted_at: timestamp("submitted_at"),
+  // QA fields
+  qa_status: varchar("qa_status", { length: 20 }),
+  // pending | passed | failed
+  qa_notes: text("qa_notes"),
+  // Proof & cost
+  proof_data: jsonb("proof_data"),
+  // { urls: string[], notes: string, screenshots?: string[] }
+  estimated_cost: numeric("estimated_cost"),
+  actual_cost: numeric("actual_cost"),
+  rejection_reason: text("rejection_reason"),
   created_at: timestamp("created_at").defaultNow(),
 });
 
@@ -63,7 +80,10 @@ export type RankflowTask = typeof rankflowTasks.$inferSelect;
 export const rankflowQaChecks = pgTable("rankflow_qa_checks", {
   id: serial("id").primaryKey(),
   task_id: integer("task_id").notNull().references(() => rankflowTasks.id),
+  check_type: varchar("check_type", { length: 50 }),
+  required: boolean("required").notNull().default(true),
   passed: boolean("passed").notNull(),
+  notes: text("notes"),
   issues: jsonb("issues"),
   checked_by: varchar("checked_by", { length: 20 }).notNull().default("ai"),
   created_at: timestamp("created_at").defaultNow(),

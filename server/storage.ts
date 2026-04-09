@@ -1345,6 +1345,77 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(rankflowQaChecks).where(eq(rankflowQaChecks.task_id, taskId));
   }
 
+  async getRankFlowTaskById(taskId: number): Promise<RankflowTask | undefined> {
+    const [row] = await db.select().from(rankflowTasks).where(eq(rankflowTasks.id, taskId)).limit(1);
+    return row;
+  }
+
+  async assignRankflowTask(taskId: number, assignedTo: string): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "assigned",
+      assigned_to: assignedTo,
+      assigned_at: new Date(),
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async startRankflowTask(taskId: number): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "in_progress",
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async submitRankflowTask(taskId: number, proofData: any): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "submitted",
+      submitted_at: new Date(),
+      proof_data: proofData,
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async updateRankflowTaskQA(taskId: number, qaStatus: string, qaNotes: string | null): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "qa_review",
+      qa_status: qaStatus,
+      qa_notes: qaNotes,
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async approveRankflowTask(taskId: number, actualCost?: string): Promise<RankflowTask | undefined> {
+    const updates: Record<string, any> = {
+      status: "done",
+      qa_status: "passed",
+      completed_at: new Date(),
+    };
+    if (actualCost !== undefined) updates.actual_cost = actualCost;
+    const [row] = await db.update(rankflowTasks).set(updates).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async rejectRankflowTask(taskId: number, rejectionReason: string): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "assigned",
+      qa_status: "failed",
+      rejection_reason: rejectionReason,
+      submitted_at: null,
+      proof_data: null,
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async listPendingAITasks(planId: number): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks).where(
+      and(
+        eq(rankflowTasks.plan_id, planId),
+        eq(rankflowTasks.execution_mode, "ai"),
+        eq(rankflowTasks.status, "pending"),
+      )
+    );
+  }
+
   async upsertMonthlyProgress(clientId: number, month: string, data: Partial<InsertRankflowProgress>): Promise<RankflowProgress> {
     const [existing] = await db.select().from(rankflowProgress)
       .where(and(eq(rankflowProgress.client_id, clientId), eq(rankflowProgress.month, month)))

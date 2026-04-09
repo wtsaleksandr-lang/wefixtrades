@@ -1,5 +1,6 @@
 import type { RankflowProfile, InsertRankflowTask } from "@shared/schema";
 import type { MonthlyPlanData } from "./planGenerator";
+import { getExecutionConfig } from "./executionConfig";
 
 /**
  * Instruction templates per task type.
@@ -82,6 +83,8 @@ export function generateTasksFromPlan(
     const template = TASK_TEMPLATES[planTask.type];
     if (!template) continue;
 
+    const execConfig = getExecutionConfig(planTask.type);
+
     for (let i = 0; i < planTask.count; i++) {
       tasks.push({
         client_id: profile.client_id,
@@ -90,11 +93,21 @@ export function generateTasksFromPlan(
         title: template.titleFn(profile, i),
         instructions: template.instructionsFn(profile, i),
         status: "pending",
-        assigned_to: template.assignedTo,
+        assigned_to: null,
         priority: template.priority,
         due_date: null,
         completed_at: null,
-        metadata: null,
+        metadata: { qa_requirements: execConfig.qa_requirements },
+        execution_mode: execConfig.execution_mode,
+        vendor_type: execConfig.vendor_type,
+        estimated_cost: String(execConfig.estimated_cost),
+        assigned_at: null,
+        submitted_at: null,
+        qa_status: null,
+        qa_notes: null,
+        proof_data: null,
+        actual_cost: null,
+        rejection_reason: null,
       });
     }
   }
