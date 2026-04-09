@@ -101,19 +101,11 @@ async function main() {
       { title: "Upload photos & schedule initial posts", sort_order: 4, default_handled_by: "internal" },
       { title: "QA review & send delivery report", sort_order: 5, default_priority: "high", default_handled_by: "internal", human_review_required: true },
     ],
-    "mapguard-basic": [
-      { title: "Monthly GBP check (rankings, reviews, accuracy)", sort_order: 1, default_handled_by: "internal" },
-      { title: "Create & schedule 2 posts", sort_order: 2, default_handled_by: "internal" },
-      { title: "Update profile if seasonal changes needed", sort_order: 3, default_handled_by: "internal" },
-      { title: "Send monthly ranking snapshot", sort_order: 4, default_handled_by: "internal" },
-    ],
-    "mapguard-pro": [
+    "mapguard-ongoing": [
       { title: "Monthly GBP check (rankings, reviews, accuracy)", sort_order: 1, default_handled_by: "internal" },
       { title: "Create & schedule 4 posts", sort_order: 2, default_handled_by: "internal" },
-      { title: "Review response management", sort_order: 3, default_handled_by: "internal" },
-      { title: "Local keyword optimization check", sort_order: 4, default_handled_by: "internal" },
-      { title: "Competitor tracking update", sort_order: 5, default_handled_by: "internal" },
-      { title: "Send monthly performance report", sort_order: 6, default_handled_by: "internal" },
+      { title: "Update profile if seasonal changes needed", sort_order: 3, default_handled_by: "internal" },
+      { title: "Send monthly performance report", sort_order: 4, default_handled_by: "internal" },
     ],
     "reputationshield": [
       { title: "Collect onboarding info", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client" },
@@ -236,21 +228,8 @@ async function main() {
         { key: "photos", label: "Business photos available", type: "checkbox", required: false },
       ],
     },
-    "mapguard-basic": {
-      name: "MapGuard Basic Onboarding",
-      steps: [
-        { key: "business_name", label: "Business name", type: "text", required: true },
-        { key: "business_address", label: "Full business address", type: "text", required: true },
-        { key: "service_areas", label: "Areas you serve", type: "text", required: true },
-        { key: "services", label: "Your main services", type: "text", required: true },
-        { key: "google_account_email", label: "Google account email (for GBP access)", type: "text", required: true },
-        { key: "keywords", label: "Keywords you want to rank for", type: "text", required: false },
-        { key: "competitors", label: "Top 2-3 local competitors", type: "text", required: false },
-        { key: "photos", label: "Business photos available", type: "checkbox", required: false },
-      ],
-    },
-    "mapguard-pro": {
-      name: "MapGuard Pro Onboarding",
+    "mapguard-ongoing": {
+      name: "MapGuard Ongoing Onboarding",
       steps: [
         { key: "business_name", label: "Business name", type: "text", required: true },
         { key: "business_address", label: "Full business address", type: "text", required: true },
