@@ -696,3 +696,199 @@ export async function getClientsWithRecentDrops(days = 7): Promise<MapguardSnaps
     .orderBy(desc(mapguardSnapshots.captured_at))
     .limit(50);
 }
+
+/* ═══════════════════════════════════════════
+   PORTFOLIO DASHBOARD AGGREGATION
+   ═══════════════════════════════════════════ */
+
+export interface PortfolioClientRow {
+  client_id: number;
+  client_service_id: number;
+  business_name: string;
+  trade_type: string | null;
+  // Latest snapshot
+  score_total: number | null;
+  score_grade: string | null;
+  rating: number | null;
+  review_count: number | null;
+  keywords_in_local_pack: number | null;
+  keywords_in_top_10: number | null;
+  detected_issues: string[] | null;
+  captured_at: string | null;
+  // Deltas from changes
+  score_delta: number | null;
+  rating_delta: number | null;
+  reviews_delta: number | null;
+  local_pack_delta: number | null;
+  significant: boolean;
+  // Task state
+  open_tasks: number;
+  blocked_tasks: number;
+  waiting_supplier_tasks: number;
+  needs_review_tasks: number;
+  // Health state
+  health: "healthy" | "improved" | "at_risk" | "blocked" | "waiting_delivery" | "no_recent_scan" | "new";
+}
+
+export interface PortfolioDashboard {
+  metrics: {
+    total_clients: number;
+    significant_drops: number;
+    improved: number;
+    at_risk: number;
+    blocked_tasks: number;
+    waiting_supplier: number;
+    needs_review: number;
+    auto_tasks_7d: number;
+    avg_score: number | null;
+  };
+  clients: PortfolioClientRow[];
+}
+
+export async function getMapguardPortfolioDashboard(): Promise<PortfolioDashboard> {
+  // 1. Get all active MapGuard clients
+  const activeClients = await getActiveMapguardClients();
+  if (activeClients.length === 0) {
+    return {
+      metrics: { total_clients: 0, significant_drops: 0, improved: 0, at_risk: 0, blocked_tasks: 0, waiting_supplier: 0, needs_review: 0, auto_tasks_7d: 0, avg_score: null },
+      clients: [],
+    };
+  }
+
+  const clientIds = activeClients.map(c => c.client_id);
+
+  // 2. Get latest snapshot per client (using DISTINCT ON)
+  const latestSnapshots = await db.execute(sql`
+    SELECT DISTINCT ON (client_id) *
+    FROM mapguard_snapshots
+    WHERE client_id = ANY(${clientIds})
+    ORDER BY client_id, captured_at DESC
+  `);
+  const snapshotMap = new Map<number, any>();
+  for (const row of latestSnapshots.rows) {
+    snapshotMap.set(row.client_id as number, row);
+  }
+
+  // 3. Get open task counts per client
+  const taskCounts = await db.execute(sql`
+    SELECT
+      client_id,
+      COUNT(*) FILTER (WHERE status NOT IN ('completed', 'cancelled')) AS open_tasks,
+      COUNT(*) FILTER (WHERE status = 'blocked') AS blocked_tasks,
+      COUNT(*) FILTER (WHERE status = 'waiting_supplier') AS waiting_supplier_tasks,
+      COUNT(*) FILTER (WHERE status = 'needs_review') AS needs_review_tasks
+    FROM mapguard_tasks
+    WHERE client_id = ANY(${clientIds})
+    GROUP BY client_id
+  `);
+  const taskMap = new Map<number, any>();
+  for (const row of taskCounts.rows) {
+    taskMap.set(row.client_id as number, row);
+  }
+
+  // 4. Count auto-created tasks in last 7 days
+  const [autoTaskRow] = await db.execute(sql`
+    SELECT COUNT(*)::int AS count
+    FROM mapguard_tasks
+    WHERE client_id = ANY(${clientIds})
+      AND created_by_system = true
+      AND created_at > NOW() - INTERVAL '7 days'
+  `).then(r => r.rows);
+
+  // 5. Build client rows with health logic
+  const rows: PortfolioClientRow[] = [];
+  let significantDrops = 0;
+  let improved = 0;
+  let atRisk = 0;
+  let totalBlocked = 0;
+  let totalWaiting = 0;
+  let totalReview = 0;
+  let scoreSum = 0;
+  let scoreCount = 0;
+
+  for (const client of activeClients) {
+    const snap = snapshotMap.get(client.client_id);
+    const tasks = taskMap.get(client.client_id);
+    const changes = snap?.changes as any;
+
+    const openTasks = Number(tasks?.open_tasks || 0);
+    const blockedTasks = Number(tasks?.blocked_tasks || 0);
+    const waitingSupplier = Number(tasks?.waiting_supplier_tasks || 0);
+    const needsReview = Number(tasks?.needs_review_tasks || 0);
+
+    const scoreDelta = changes?.score_delta ?? null;
+    const ratingDelta = changes?.rating_delta ?? null;
+    const reviewsDelta = changes?.reviews_delta ?? null;
+    const localPackDelta = changes?.local_pack_delta ?? null;
+    const significant = changes?.significant === true;
+
+    // Health state
+    let health: PortfolioClientRow["health"] = "new";
+    if (!snap) {
+      health = "no_recent_scan";
+    } else if (blockedTasks > 0) {
+      health = "blocked";
+    } else if (significant && (scoreDelta !== null && scoreDelta < 0)) {
+      health = "at_risk";
+    } else if (waitingSupplier > 0) {
+      health = "waiting_delivery";
+    } else if (scoreDelta !== null && scoreDelta > 5) {
+      health = "improved";
+    } else if (snap) {
+      health = "healthy";
+    }
+
+    // Aggregate metrics
+    if (significant && scoreDelta !== null && scoreDelta < 0) significantDrops++;
+    if (scoreDelta !== null && scoreDelta > 5) improved++;
+    if (health === "at_risk") atRisk++;
+    totalBlocked += blockedTasks;
+    totalWaiting += waitingSupplier;
+    totalReview += needsReview;
+    if (snap?.score_total != null) { scoreSum += snap.score_total; scoreCount++; }
+
+    rows.push({
+      client_id: client.client_id,
+      client_service_id: client.client_service_id,
+      business_name: client.business_name,
+      trade_type: client.trade_type,
+      score_total: snap?.score_total ?? null,
+      score_grade: snap?.score_grade ?? null,
+      rating: snap?.rating ?? null,
+      review_count: snap?.review_count ?? null,
+      keywords_in_local_pack: snap?.keywords_in_local_pack ?? null,
+      keywords_in_top_10: snap?.keywords_in_top_10 ?? null,
+      detected_issues: snap?.detected_issues as string[] ?? null,
+      captured_at: snap?.captured_at ?? null,
+      score_delta: scoreDelta,
+      rating_delta: ratingDelta,
+      reviews_delta: reviewsDelta,
+      local_pack_delta: localPackDelta,
+      significant,
+      open_tasks: openTasks,
+      blocked_tasks: blockedTasks,
+      waiting_supplier_tasks: waitingSupplier,
+      needs_review_tasks: needsReview,
+      health,
+    });
+  }
+
+  // Sort: at_risk first, then blocked, then waiting, then by score ascending
+  const HEALTH_ORDER: Record<string, number> = { at_risk: 0, blocked: 1, waiting_delivery: 2, no_recent_scan: 3, new: 4, improved: 5, healthy: 6 };
+  rows.sort((a, b) => (HEALTH_ORDER[a.health] ?? 9) - (HEALTH_ORDER[b.health] ?? 9) || (a.score_total ?? 0) - (b.score_total ?? 0));
+
+  return {
+    metrics: {
+      total_clients: activeClients.length,
+      significant_drops: significantDrops,
+      improved,
+      at_risk: atRisk,
+      blocked_tasks: totalBlocked,
+      waiting_supplier: totalWaiting,
+      needs_review: totalReview,
+      auto_tasks_7d: Number((autoTaskRow as any)?.count || 0),
+      avg_score: scoreCount > 0 ? Math.round(scoreSum / scoreCount) : null,
+    },
+    clients: rows,
+  };
+}

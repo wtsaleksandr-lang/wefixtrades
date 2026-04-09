@@ -34,6 +34,7 @@ import {
   runMapguardScan,
   getActiveMapguardClients,
   runMapguardBatchScan,
+  getMapguardPortfolioDashboard,
 } from "../services/mapguardMonitor";
 
 export function registerMapguardRoutes(app: Express) {
@@ -379,6 +380,19 @@ export function registerMapguardRoutes(app: Express) {
       }
       console.error("[mapguard] reject error:", err);
       res.status(500).json({ error: "Failed to reject result" });
+    }
+  });
+
+  /* ═══ PORTFOLIO DASHBOARD ═══ */
+
+  /* ─── Get portfolio-level MapGuard ops dashboard ─── */
+  app.get("/api/mapguard/dashboard", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const dashboard = await getMapguardPortfolioDashboard();
+      res.json(dashboard);
+    } catch (err: any) {
+      console.error("[mapguard] dashboard error:", err);
+      res.status(500).json({ error: "Failed to load dashboard" });
     }
   });
 
