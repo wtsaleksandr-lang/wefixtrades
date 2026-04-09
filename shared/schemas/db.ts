@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -524,7 +524,9 @@ export const assistantMessages = pgTable("assistant_messages", {
   content: text("content").notNull(),
   token_count: integer("token_count"),
   created_at: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_assistant_messages_thread_created").on(table.thread_id, table.created_at),
+]);
 
 export const insertAssistantMessageSchema = createInsertSchema(assistantMessages).omit({
   id: true,
