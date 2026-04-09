@@ -4,6 +4,7 @@ import { storage } from "../storage";
 import { generateMonthlyPlan } from "../services/rankflow/planGenerator";
 import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
 import { runQA } from "../services/rankflow/qaService";
+import { createVendorBatch, addTaskToBatch, buildDispatchPacket } from "../services/rankflow/batchService";
 
 export function registerRankFlowRoutes(app: Express): void {
 
@@ -228,6 +229,216 @@ export function registerRankFlowRoutes(app: Express): void {
       const progress = await storage.getMonthlyProgress(clientId, month);
       if (!progress) return res.status(404).json({ error: `No progress for ${month}` });
       res.json(progress);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     Vendor Batches
+     ═══════════════════════════════════════════ */
+
+  app.get("/api/rankflow/vendor-batches", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const vendor_type = req.query.vendor_type as string | undefined;
+      const batches = await storage.listRankflowVendorBatches({ status, vendor_type });
+      res.json(batches);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/rankflow/vendor-batches", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { vendor_type, task_ids } = req.body;
+      if (!vendor_type || !task_ids?.length) return res.status(400).json({ error: "vendor_type and task_ids required" });
+      const batch = await createVendorBatch(vendor_type, task_ids);
+      res.status(201).json(batch);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/rankflow/vendor-batches/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const batchId = parseInt(req.params.id as string);
+      const batch = await storage.getRankflowVendorBatch(batchId);
+      if (!batch) return res.status(404).json({ error: "Batch not found" });
+      const tasks = await storage.listTasksByBatch(batchId);
+      res.json({ ...batch, tasks });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/rankflow/vendor-batches/:id/assign", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const batchId = parseInt(req.params.id as string);
+      const { assigned_to } = req.body;
+      if (!assigned_to) return res.status(400).json({ error: "assigned_to required" });
+
+      // Build dispatch packet before assigning
+      const packet = await buildDispatchPacket(batchId);
+
+      const batch = await storage.updateRankflowVendorBatchStatus(batchId, "assigned", { assigned_to });
+      if (!batch) return res.status(404).json({ error: "Batch not found" });
+
+      // Mark linked tasks as assigned
+      const taskIds = (batch.task_ids as number[]) || [];
+      for (const taskId of taskIds) {
+        await storage.assignRankflowTask(taskId, assigned_to);
+      }
+
+      console.log(`[rankflow] Batch ${batchId} assigned to ${assigned_to} — ${taskIds.length} tasks`);
+      res.json({ ...batch, dispatch_packet: packet });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/rankflow/vendor-batches/:id/start", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const batchId = parseInt(req.params.id as string);
+      const batch = await storage.updateRankflowVendorBatchStatus(batchId, "in_progress");
+      if (!batch) return res.status(404).json({ error: "Batch not found" });
+
+      const taskIds = (batch.task_ids as number[]) || [];
+      for (const taskId of taskIds) {
+        await storage.startRankflowTask(taskId);
+      }
+
+      res.json(batch);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/rankflow/vendor-batches/:id/submit", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const batchId = parseInt(req.params.id as string);
+      const { proof_data } = req.body;
+      if (!proof_data) return res.status(400).json({ error: "proof_data required" });
+
+      const batch = await storage.submitRankflowVendorBatch(batchId, proof_data);
+      if (!batch) return res.status(404).json({ error: "Batch not found" });
+
+      // Propagate proof to linked tasks and mark submitted
+      const taskIds = (batch.task_ids as number[]) || [];
+      for (const taskId of taskIds) {
+        await storage.submitRankflowTask(taskId, proof_data);
+      }
+
+      console.log(`[rankflow] Batch ${batchId} submitted with proof — ${taskIds.length} tasks`);
+      res.json(batch);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/rankflow/vendor-batches/:id/qa", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const batchId = parseInt(req.params.id as string);
+      const tasks = await storage.listTasksByBatch(batchId);
+
+      const results: { task_id: number; passed: boolean; notes: string }[] = [];
+      let allPassed = true;
+
+      for (const task of tasks) {
+        const qaResult = await runQA(task);
+        for (const check of qaResult.checks) {
+          await storage.createQACheck({
+            task_id: task.id,
+            check_type: check.check_type,
+            required: true,
+            passed: check.passed,
+            notes: check.notes,
+            issues: null,
+            checked_by: "ai",
+          });
+        }
+
+        const qaNotes = qaResult.checks.filter(c => !c.passed).map(c => `${c.check_type}: ${c.notes}`).join("; ");
+        await storage.updateRankflowTaskQA(task.id, qaResult.overall_passed ? "passed" : "failed", qaNotes || null);
+
+        if (!qaResult.overall_passed) allPassed = false;
+        results.push({ task_id: task.id, passed: qaResult.overall_passed, notes: qaNotes });
+      }
+
+      await storage.updateRankflowVendorBatchStatus(batchId, "qa_review", {
+        qa_status: allPassed ? "passed" : "failed",
+        qa_notes: results.filter(r => !r.passed).map(r => `Task ${r.task_id}: ${r.notes}`).join(" | ") || null,
+      });
+
+      res.json({ batch_id: batchId, overall_passed: allPassed, results });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/rankflow/vendor-batches/:id/complete", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const batchId = parseInt(req.params.id as string);
+      const { actual_cost } = req.body;
+
+      const batch = await storage.completeRankflowVendorBatch(batchId, actual_cost);
+      if (!batch) return res.status(404).json({ error: "Batch not found" });
+
+      // Mark all linked tasks done
+      const taskIds = (batch.task_ids as number[]) || [];
+      for (const taskId of taskIds) {
+        await storage.approveRankflowTask(taskId);
+      }
+
+      console.log(`[rankflow] Batch ${batchId} completed — ${taskIds.length} tasks done`);
+      res.json(batch);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/rankflow/vendor-batches/:id/fail", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const batchId = parseInt(req.params.id as string);
+      const { reason } = req.body;
+
+      const batch = await storage.updateRankflowVendorBatchStatus(batchId, "failed", {
+        qa_status: "failed",
+        qa_notes: reason || "Batch failed",
+      });
+      if (!batch) return res.status(404).json({ error: "Batch not found" });
+
+      // Reject linked tasks back to assigned
+      const taskIds = (batch.task_ids as number[]) || [];
+      for (const taskId of taskIds) {
+        await storage.rejectRankflowTask(taskId, reason || "Batch failed");
+      }
+
+      res.json(batch);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Add task to existing batch
+  app.post("/api/rankflow/tasks/:id/add-to-batch", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const taskId = parseInt(req.params.id as string);
+      const { batch_id } = req.body;
+      if (!batch_id) return res.status(400).json({ error: "batch_id required" });
+
+      const batch = await addTaskToBatch(batch_id, taskId);
+      res.json(batch);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Vendor performance stats
+  app.get("/api/rankflow/vendor-stats", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const stats = await storage.getVendorStats();
+      res.json(stats);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

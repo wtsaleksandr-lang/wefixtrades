@@ -43,11 +43,13 @@ import {
   type OnboardingTemplate,
   // RankFlow
   rankflowProfiles, rankflowMonthlyPlans, rankflowTasks, rankflowQaChecks, rankflowProgress,
+  rankflowVendorBatches,
   type RankflowProfile, type InsertRankflowProfile,
   type RankflowMonthlyPlan, type InsertRankflowMonthlyPlan,
   type RankflowTask, type InsertRankflowTask,
   type RankflowQaCheck, type InsertRankflowQaCheck,
   type RankflowProgress, type InsertRankflowProgress,
+  type RankflowVendorBatch, type InsertRankflowVendorBatch,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -1438,6 +1440,104 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(rankflowProgress.client_id, clientId), eq(rankflowProgress.month, month)))
       .limit(1);
     return row;
+  }
+
+  /* ═══════════════════════════════════════════
+     RankFlow Vendor Batches
+     ═══════════════════════════════════════════ */
+
+  async createRankflowVendorBatch(data: InsertRankflowVendorBatch): Promise<RankflowVendorBatch> {
+    const [row] = await db.insert(rankflowVendorBatches).values(data).returning();
+    return row;
+  }
+
+  async getRankflowVendorBatch(batchId: number): Promise<RankflowVendorBatch | undefined> {
+    const [row] = await db.select().from(rankflowVendorBatches).where(eq(rankflowVendorBatches.id, batchId)).limit(1);
+    return row;
+  }
+
+  async listRankflowVendorBatches(filters?: { status?: string; vendor_type?: string }): Promise<RankflowVendorBatch[]> {
+    const conditions = [];
+    if (filters?.status) conditions.push(eq(rankflowVendorBatches.status, filters.status));
+    if (filters?.vendor_type) conditions.push(eq(rankflowVendorBatches.vendor_type, filters.vendor_type));
+    if (conditions.length > 0) {
+      return db.select().from(rankflowVendorBatches)
+        .where(and(...conditions))
+        .orderBy(desc(rankflowVendorBatches.created_at));
+    }
+    return db.select().from(rankflowVendorBatches).orderBy(desc(rankflowVendorBatches.created_at));
+  }
+
+  async updateRankflowVendorBatchStatus(batchId: number, status: string, extra?: Record<string, any>): Promise<RankflowVendorBatch | undefined> {
+    const updates: Record<string, any> = { status, updated_at: new Date(), ...extra };
+    const [row] = await db.update(rankflowVendorBatches).set(updates).where(eq(rankflowVendorBatches.id, batchId)).returning();
+    return row;
+  }
+
+  async submitRankflowVendorBatch(batchId: number, proofData: any): Promise<RankflowVendorBatch | undefined> {
+    const [row] = await db.update(rankflowVendorBatches).set({
+      status: "submitted",
+      proof_data: proofData,
+      submitted_at: new Date(),
+      updated_at: new Date(),
+    }).where(eq(rankflowVendorBatches.id, batchId)).returning();
+    return row;
+  }
+
+  async linkTaskToBatch(taskId: number, batchId: number): Promise<void> {
+    await db.update(rankflowTasks).set({ batch_id: batchId }).where(eq(rankflowTasks.id, taskId));
+  }
+
+  async listTasksByBatch(batchId: number): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks)
+      .where(eq(rankflowTasks.batch_id, batchId))
+      .orderBy(rankflowTasks.id);
+  }
+
+  async completeRankflowVendorBatch(batchId: number, actualCost?: string): Promise<RankflowVendorBatch | undefined> {
+    const updates: Record<string, any> = {
+      status: "completed",
+      qa_status: "passed",
+      completed_at: new Date(),
+      updated_at: new Date(),
+    };
+    if (actualCost !== undefined) updates.actual_cost = actualCost;
+    const [row] = await db.update(rankflowVendorBatches).set(updates).where(eq(rankflowVendorBatches.id, batchId)).returning();
+    return row;
+  }
+
+  async listUnbatchedOutsourcedTasks(): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks).where(
+      and(
+        eq(rankflowTasks.execution_mode, "outsourced"),
+        eq(rankflowTasks.status, "pending"),
+        sql`${rankflowTasks.batch_id} IS NULL`,
+      )
+    );
+  }
+
+  async getVendorStats(vendorType?: string): Promise<{
+    vendor_type: string;
+    total_batches: number;
+    completed: number;
+    failed: number;
+    avg_cost: number | null;
+  }[]> {
+    const rows = await db.select({
+      vendor_type: rankflowVendorBatches.vendor_type,
+      total_batches: sql<number>`count(*)::int`,
+      completed: sql<number>`count(*) filter (where ${rankflowVendorBatches.status} = 'completed')::int`,
+      failed: sql<number>`count(*) filter (where ${rankflowVendorBatches.status} = 'failed')::int`,
+      avg_cost: sql<number>`avg(${rankflowVendorBatches.actual_cost}::numeric)`,
+    }).from(rankflowVendorBatches)
+      .groupBy(rankflowVendorBatches.vendor_type);
+    return rows.map(r => ({
+      vendor_type: r.vendor_type,
+      total_batches: r.total_batches,
+      completed: r.completed,
+      failed: r.failed,
+      avg_cost: r.avg_cost ? Number(r.avg_cost) : null,
+    }));
   }
 }
 

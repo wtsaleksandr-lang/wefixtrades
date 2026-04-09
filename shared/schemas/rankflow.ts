@@ -69,12 +69,39 @@ export const rankflowTasks = pgTable("rankflow_tasks", {
   estimated_cost: numeric("estimated_cost"),
   actual_cost: numeric("actual_cost"),
   rejection_reason: text("rejection_reason"),
+  batch_id: integer("batch_id"),
   created_at: timestamp("created_at").defaultNow(),
 });
 
 export const insertRankflowTaskSchema = createInsertSchema(rankflowTasks).omit({ id: true, created_at: true });
 export type InsertRankflowTask = z.infer<typeof insertRankflowTaskSchema>;
 export type RankflowTask = typeof rankflowTasks.$inferSelect;
+
+/* ─── RankFlow Vendor Batches ─── */
+export const rankflowVendorBatches = pgTable("rankflow_vendor_batches", {
+  id: serial("id").primaryKey(),
+  vendor_type: varchar("vendor_type", { length: 50 }).notNull(),
+  assigned_to: varchar("assigned_to", { length: 100 }),
+  batch_type: varchar("batch_type", { length: 30 }).notNull(),
+  // citations | backlinks | uploads | misc
+  status: varchar("status", { length: 20 }).notNull().default("draft"),
+  // draft | assigned | in_progress | submitted | qa_review | completed | failed
+  task_ids: jsonb("task_ids").notNull().default([]),
+  dispatch_packet: jsonb("dispatch_packet"),
+  proof_data: jsonb("proof_data"),
+  qa_status: varchar("qa_status", { length: 20 }),
+  qa_notes: text("qa_notes"),
+  estimated_cost: numeric("estimated_cost"),
+  actual_cost: numeric("actual_cost"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+  submitted_at: timestamp("submitted_at"),
+  completed_at: timestamp("completed_at"),
+});
+
+export const insertRankflowVendorBatchSchema = createInsertSchema(rankflowVendorBatches).omit({ id: true, created_at: true, updated_at: true });
+export type InsertRankflowVendorBatch = z.infer<typeof insertRankflowVendorBatchSchema>;
+export type RankflowVendorBatch = typeof rankflowVendorBatches.$inferSelect;
 
 /* ─── RankFlow QA Checks ─── */
 export const rankflowQaChecks = pgTable("rankflow_qa_checks", {

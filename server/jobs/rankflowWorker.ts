@@ -2,6 +2,7 @@ import { storage } from "../storage";
 import { generateMonthlyPlan } from "../services/rankflow/planGenerator";
 import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
 import { runQA } from "../services/rankflow/qaService";
+import { autoBatchUnbatchedTasks } from "../services/rankflow/batchService";
 
 /**
  * Weekly job: for each enabled RankFlow profile, generate a monthly plan
@@ -57,7 +58,18 @@ export async function processRankFlowPlans(): Promise<{ processed: number; skipp
     }
   }
 
-  return { processed, skipped, created, ai_completed };
+  // Auto-batch unbatched outsourced tasks into draft batches
+  let batches_created = 0;
+  try {
+    batches_created = await autoBatchUnbatchedTasks();
+    if (batches_created > 0) {
+      console.log(`[rankflow-worker] Auto-created ${batches_created} draft vendor batch(es)`);
+    }
+  } catch (err: any) {
+    console.error("[rankflow-worker] Auto-batch error:", err.message);
+  }
+
+  return { processed, skipped, created, ai_completed, batches_created };
 }
 
 /**
