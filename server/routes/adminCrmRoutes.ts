@@ -989,7 +989,20 @@ export function registerAdminCrmRoutes(app: Express): void {
         storage.listMonitoredReviews({ clientId, platform, isNew, minRating, maxRating, limit, offset }),
         storage.countMonitoredReviews({ clientId, isNew }),
       ]);
-      res.json({ data, total });
+
+      // Enrich with client business_name for admin use
+      const clientIds = [...new Set(data.map((r: any) => r.client_id).filter(Boolean))];
+      const clientMap = new Map<number, string>();
+      for (const cid of clientIds) {
+        const c = await storage.getClientById(cid);
+        if (c) clientMap.set(cid, c.business_name);
+      }
+      const enriched = data.map((r: any) => ({
+        ...r,
+        business_name: r.client_id ? clientMap.get(r.client_id) || null : null,
+      }));
+
+      res.json({ data: enriched, total });
     } catch (err: any) {
       console.error("[admin-crm] List monitored reviews error:", err.message);
       res.status(500).json({ error: "Failed to list monitored reviews" });
