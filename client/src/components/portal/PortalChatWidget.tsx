@@ -22,8 +22,8 @@ export default function PortalChatWidget() {
   const { responses: onboardingResponses } = useOnboardingResponses();
 
   const [open, setOpen] = useState(() => loadPortalOpenState());
+  const [visible, setVisible] = useState(() => loadPortalOpenState());
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    // Start with localStorage cache for instant display
     const saved = loadPortalMessages();
     return saved.length > 0 ? saved : [GREETING];
   });
@@ -35,10 +35,20 @@ export default function PortalChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Session ID is user-scoped (matches server-side portal_{userId})
   const sessionId = useRef(`portal_${user?.id ?? "anon"}`);
 
-  // Hydrate from server thread when page changes (threads are per-page-context)
+  // Two-phase open: `visible` mounts with closed styles, then `open` triggers transition
+  function handleOpen() {
+    setVisible(true);
+    requestAnimationFrame(() => requestAnimationFrame(() => setOpen(true)));
+  }
+  function handleClose() {
+    setOpen(false);
+    // Wait for transition to finish before hiding
+    setTimeout(() => setVisible(false), 250);
+  }
+
+  // Hydrate from server thread when page changes
   useEffect(() => {
     let cancelled = false;
     async function hydrate() {
@@ -57,11 +67,10 @@ export default function PortalChatWidget() {
           }));
           setMessages([GREETING, ...threadMsgs]);
         } else {
-          // No thread history for this page — reset to greeting
           setMessages([GREETING]);
         }
       } catch {
-        // Network error — keep current messages, no disruption
+        // Network error — keep current messages
       } finally {
         if (!cancelled) setThreadHydrated(true);
       }
@@ -70,7 +79,7 @@ export default function PortalChatWidget() {
     return () => { cancelled = true; };
   }, [page]);
 
-  // Persist messages to localStorage (write-through cache)
+  // Persist
   useEffect(() => { savePortalMessages(messages); }, [messages]);
   useEffect(() => { savePortalOpenState(open); }, [open]);
 
@@ -95,7 +104,7 @@ export default function PortalChatWidget() {
     }
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [open]);
+  }, [visible]);
 
   // Show default suggestions when chat opens or page changes
   useEffect(() => {
@@ -110,7 +119,7 @@ export default function PortalChatWidget() {
   // Focus input when panel opens
   useEffect(() => {
     if (open) {
-      setTimeout(() => inputRef.current?.focus(), 100);
+      setTimeout(() => inputRef.current?.focus(), 260);
     }
   }, [open]);
 
@@ -147,7 +156,7 @@ export default function PortalChatWidget() {
       }
 
       setMessages(prev => [...prev, { role: "assistant", content: "" }]);
-      const fullText = await readSSEStream(res, (accumulated) => {
+      await readSSEStream(res, (accumulated) => {
         setMessages(prev => {
           const copy = [...prev];
           copy[copy.length - 1] = { role: "assistant", content: accumulated };
@@ -155,8 +164,6 @@ export default function PortalChatWidget() {
         });
       });
 
-      // Show page-specific default suggestions after response completes
-      // Future: parse meta SSE event for server-generated suggestions (Phase 7)
       setActiveSuggestions(defaultSuggestions.slice(0, 2));
     } catch {
       setMessages(prev => {
@@ -175,79 +182,67 @@ export default function PortalChatWidget() {
 
   return (
     <>
-      {/* FAB button */}
-      {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          aria-label="Open portal assistant"
-          style={{
-            position: "fixed",
-            bottom: 24,
-            right: 24,
-            zIndex: 50,
-            width: 52,
-            height: 52,
-            borderRadius: "50%",
-            background: "linear-gradient(135deg, #2D6A4F 0%, #1B4332 100%)",
-            border: "none",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "0 4px 16px rgba(45, 106, 79, 0.35)",
-            transition: "transform 0.2s ease, box-shadow 0.2s ease",
-          }}
-          onMouseEnter={e => {
+      {/* FAB button — visible when panel is closed */}
+      <button
+        onClick={handleOpen}
+        aria-label="Open portal assistant"
+        className="wft-chat-fab"
+        style={{
+          position: "fixed",
+          bottom: 24,
+          right: 24,
+          zIndex: 50,
+          width: 52,
+          height: 52,
+          borderRadius: "50%",
+          background: "linear-gradient(135deg, #2D6A4F 0%, #1B4332 100%)",
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 4px 16px rgba(45, 106, 79, 0.35)",
+          transition: "transform 0.25s ease, box-shadow 0.25s ease, opacity 0.2s ease",
+          opacity: visible ? 0 : 1,
+          pointerEvents: visible ? "none" : "auto",
+          transform: visible ? "scale(0.8)" : "scale(1)",
+        }}
+        onMouseEnter={e => {
+          if (!visible) {
             (e.currentTarget as HTMLElement).style.transform = "scale(1.08)";
             (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 24px rgba(45, 106, 79, 0.45)";
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.transform = "scale(1)";
-            (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(45, 106, 79, 0.35)";
-          }}
-        >
-          <Sparkles size={22} color="#fff" />
-        </button>
-      )}
+          }
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLElement).style.transform = visible ? "scale(0.8)" : "scale(1)";
+          (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(45, 106, 79, 0.35)";
+        }}
+      >
+        <Sparkles size={22} color="#fff" />
+      </button>
 
-      {/* Backdrop (mobile only — handled via CSS) */}
-      {open && (
+      {/* Backdrop — mobile only, with blur */}
+      {visible && (
         <div
-          className="wft-portal-chat-backdrop"
-          onClick={() => setOpen(false)}
+          className="wft-chat-backdrop"
+          onClick={handleClose}
           style={{
             position: "fixed",
             inset: 0,
             zIndex: 49,
-            background: "rgba(0,0,0,0.4)",
-            backdropFilter: "blur(4px)",
-            WebkitBackdropFilter: "blur(4px)",
+            background: open ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0)",
+            backdropFilter: open ? "blur(6px)" : "blur(0px)",
+            WebkitBackdropFilter: open ? "blur(6px)" : "blur(0px)",
+            transition: "background 0.25s ease, backdrop-filter 0.25s ease, -webkit-backdrop-filter 0.25s ease",
           }}
         />
       )}
 
-      {/* Chat panel */}
-      {open && (
+      {/* Chat panel — always in DOM when visible, animated via open class */}
+      {visible && (
         <div
-          className="wft-portal-chat-panel"
+          className={`wft-chat-panel ${open ? "wft-chat-panel--open" : ""}`}
           onWheel={e => e.stopPropagation()}
-          style={{
-            position: "fixed",
-            bottom: 24,
-            right: 24,
-            zIndex: 50,
-            width: 370,
-            maxWidth: "calc(100vw - 32px)",
-            height: 520,
-            maxHeight: "calc(100vh - 48px)",
-            borderRadius: 16,
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-            background: "#fff",
-            boxShadow: "0 8px 40px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08)",
-            fontFamily: "Inter, system-ui, sans-serif",
-          }}
         >
           {/* Header */}
           <div style={{
@@ -269,7 +264,7 @@ export default function PortalChatWidget() {
               </div>
             </div>
             <button
-              onClick={() => setOpen(false)}
+              onClick={handleClose}
               aria-label="Close assistant"
               style={{
                 background: "none",
@@ -333,7 +328,7 @@ export default function PortalChatWidget() {
                 {[0, 1, 2].map(i => (
                   <span key={i} style={{
                     width: 6, height: 6, borderRadius: "50%", background: "#2D6A4F",
-                    animation: `wftPortalDotBounce 1.4s ease-in-out ${i * 0.2}s infinite both`,
+                    animation: `wftDotBounce 1.4s ease-in-out ${i * 0.2}s infinite both`,
                   }} />
                 ))}
               </div>
@@ -441,28 +436,66 @@ export default function PortalChatWidget() {
       )}
 
       <style>{`
-        @keyframes wftPortalDotBounce {
+        @keyframes wftDotBounce {
           0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
           40% { transform: scale(1); opacity: 1; }
         }
-        @media (max-width: 768px) {
-          .wft-portal-chat-panel {
-            bottom: 0 !important;
-            right: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            height: calc(100vh - 56px) !important;
-            max-height: calc(100vh - 56px) !important;
-            border-radius: 16px 16px 0 0 !important;
-          }
-          .wft-portal-chat-backdrop {
-            display: block;
+
+        /* ─── Desktop panel ─── */
+        .wft-chat-panel {
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          z-index: 50;
+          width: min(380px, 32vw);
+          height: 75vh;
+          max-height: 640px;
+          min-height: 360px;
+          border-radius: 16px;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          background: #fff;
+          box-shadow: 0 8px 40px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08);
+          font-family: Inter, system-ui, sans-serif;
+          /* Closed state — slide down + fade */
+          opacity: 0;
+          transform: translateY(16px) scale(0.97);
+          transition: opacity 0.25s ease, transform 0.25s ease;
+          pointer-events: none;
+        }
+        .wft-chat-panel--open {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+          pointer-events: auto;
+        }
+
+        /* ─── Desktop: no backdrop ─── */
+        @media (min-width: 769px) {
+          .wft-chat-backdrop {
+            display: none !important;
           }
         }
-        @media (min-width: 769px) {
-          .wft-portal-chat-backdrop {
-            display: none;
+
+        /* ─── Mobile: full-screen bottom sheet ─── */
+        @media (max-width: 768px) {
+          .wft-chat-panel {
+            bottom: 0;
+            right: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            height: 100dvh;
+            max-height: 100vh;
+            max-height: 100dvh;
+            min-height: unset;
+            border-radius: 0;
+            /* Mobile closed: slide up from bottom */
+            transform: translateY(100%);
+            opacity: 1;
+          }
+          .wft-chat-panel--open {
+            transform: translateY(0);
           }
         }
       `}</style>
