@@ -18,6 +18,10 @@ import {
   deploymentStatus,
   supportTickets,
   passwordResetTokens,
+  rankflowProfiles,
+  rankflowTasks,
+  rankflowProgress,
+  rankflowMonthlyPlans,
 } from "@shared/schema";
 
 /* ─── Helpers ─── */
@@ -810,6 +814,105 @@ Do NOT:
     } catch (err) {
       console.error("Portal AI chat error:", err);
       res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     RankFlow Client Dashboard
+     ═══════════════════════════════════════════ */
+
+  const TASK_TYPE_LABELS: Record<string, string> = {
+    page_create: "Page created",
+    meta_fix: "Page optimization",
+    citation_build: "Directory listing",
+    internal_linking: "Internal linking",
+    content_support: "SEO content support",
+    schema_basic: "Search visibility improvement",
+  };
+
+  app.get("/api/portal/rankflow", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const month = new Date().toISOString().slice(0, 7);
+
+      // Profile
+      const [profile] = await db.select().from(rankflowProfiles)
+        .where(eq(rankflowProfiles.client_id, clientId)).limit(1);
+
+      if (!profile) return res.json({ active: false });
+
+      // Current month plan
+      const [plan] = await db.select().from(rankflowMonthlyPlans)
+        .where(and(eq(rankflowMonthlyPlans.client_id, clientId), eq(rankflowMonthlyPlans.month, month)))
+        .limit(1);
+
+      // Tasks for this month (only done or in-progress — hide internal clutter)
+      const allTasks = plan
+        ? await db.select().from(rankflowTasks).where(eq(rankflowTasks.plan_id, plan.id))
+        : [];
+
+      const completed = allTasks.filter(t => t.status === "done");
+      const inProgress = allTasks.filter(t => ["assigned", "in_progress", "submitted", "qa_review", "pending"].includes(t.status));
+
+      // Transform to client-safe language
+      const completedItems = completed.map(t => ({
+        label: TASK_TYPE_LABELS[t.type] || t.type.replace(/_/g, " "),
+        detail: t.title.replace(/^(Create SEO page|Optimize title tag|Build citation|Add internal links|Add schema markup|Content recommendation).*?—?\s*/i, "").trim() || t.title,
+        completedAt: t.completed_at,
+      }));
+
+      const inProgressItems = inProgress.map(t => ({
+        label: TASK_TYPE_LABELS[t.type] || t.type.replace(/_/g, " "),
+        detail: t.title,
+      }));
+
+      // Progress stats
+      const totalTasks = allTasks.length;
+      const doneTasks = completed.length;
+      const pagesCreated = completed.filter(t => t.type === "page_create").length;
+      const citationsBuilt = completed.filter(t => t.type === "citation_build").length;
+      const progressPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+
+      // Status line
+      let statusLine = "Work is underway this month";
+      if (!profile.enabled) statusLine = "RankFlow is currently paused";
+      else if (!plan) statusLine = "This month's plan is being prepared";
+      else if (doneTasks === totalTasks && totalTasks > 0) statusLine = "This month's SEO work is complete";
+      else if (doneTasks === 0) statusLine = "Work is starting this month";
+
+      // What's next (simple narrative)
+      const nextUp: string[] = [];
+      const pendingTypes = new Set(inProgress.map(t => t.type));
+      if (pendingTypes.has("page_create")) nextUp.push("Creating optimized service pages");
+      if (pendingTypes.has("meta_fix")) nextUp.push("Optimizing page titles and descriptions");
+      if (pendingTypes.has("citation_build")) nextUp.push("Expanding local directory coverage");
+      if (pendingTypes.has("internal_linking")) nextUp.push("Improving internal page connections");
+      if (pendingTypes.has("content_support")) nextUp.push("Preparing next month's content strategy");
+      if (pendingTypes.has("schema_basic")) nextUp.push("Enhancing search result visibility");
+      if (nextUp.length === 0 && totalTasks > 0 && doneTasks < totalTasks) nextUp.push("Finalizing this month's SEO improvements");
+      if (nextUp.length === 0 && doneTasks === totalTasks) nextUp.push("Reviewing keyword progress for next month");
+
+      res.json({
+        active: profile.enabled,
+        plan_tier: profile.plan_tier,
+        month,
+        statusLine,
+        metrics: {
+          tasksCompleted: doneTasks,
+          totalTasks,
+          pagesCreated,
+          citationsBuilt,
+          progressPct,
+        },
+        completed: completedItems,
+        inProgress: inProgressItems,
+        nextUp,
+      });
+    } catch (err: any) {
+      console.error("[portal-rankflow] error:", err.message);
+      res.status(500).json({ error: "Failed to load RankFlow dashboard" });
     }
   });
 }
