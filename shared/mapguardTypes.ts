@@ -107,7 +107,7 @@ export const MAPGUARD_STATUS_TRANSITIONS: Record<MapguardTaskStatus, MapguardTas
   in_progress:      ["waiting_supplier", "waiting_client", "needs_review", "completed", "blocked", "cancelled"],
   waiting_supplier: ["in_progress", "needs_review", "blocked", "cancelled"],
   waiting_client:   ["in_progress", "blocked", "cancelled"],
-  needs_review:     ["completed", "in_progress", "blocked"],
+  needs_review:     ["completed", "in_progress", "waiting_supplier", "blocked"],
   blocked:          ["ready", "in_progress", "cancelled"],
   completed:        [],   // terminal
   cancelled:        [],   // terminal

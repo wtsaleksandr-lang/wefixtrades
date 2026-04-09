@@ -220,15 +220,19 @@ export function MapguardTaskCard({
             </span>
           )}
 
-          {task.supplier_type && (
+          {task.assigned_to && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200/50">
+              <Factory className="w-3 h-3" />
+              {task.assigned_to}
+              {task.supplier_type && <span className="text-amber-500">({task.supplier_type})</span>}
+            </span>
+          )}
+
+          {!task.assigned_to && task.supplier_type && (
             <span className="inline-flex items-center gap-1 text-gray-500">
               <Factory className="w-3 h-3" />
               <span className="capitalize">{task.supplier_type}</span>
             </span>
-          )}
-
-          {task.assigned_to && (
-            <span className="text-gray-400">→ {task.assigned_to}</span>
           )}
 
           {task.result_data && (

@@ -17,6 +17,9 @@ import {
   getTaskActivity,
   getMapguardTaskSummary,
   createTasksFromAudit,
+  assignMapguardTask,
+  submitMapguardResult,
+  rejectMapguardResult,
 } from "../services/mapguardTaskEngine";
 import {
   MAPGUARD_TASK_TYPES,
@@ -257,6 +260,117 @@ export function registerMapguardRoutes(app: Express) {
     } catch (err: any) {
       console.error("[mapguard] get task error:", err);
       res.status(500).json({ error: "Failed to get task" });
+    }
+  });
+
+  /* ─── Assign task to supplier ─── */
+  app.post("/api/mapguard/tasks/:taskId/assign", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const taskId = parseInt(req.params.taskId as string);
+      if (isNaN(taskId)) return res.status(400).json({ error: "Invalid task ID" });
+
+      const { supplier_type, assigned_to, supplier_ref, cost_cents, handoff_notes, next_step_hint } = req.body;
+
+      if (!supplier_type || !assigned_to) {
+        return res.status(400).json({ error: "supplier_type and assigned_to are required" });
+      }
+
+      const validTypes = ["fiverr", "agency", "internal"];
+      if (!validTypes.includes(supplier_type)) {
+        return res.status(400).json({ error: `Invalid supplier_type. Valid: ${validTypes.join(", ")}` });
+      }
+
+      const actor = {
+        type: "human",
+        name: (req.user as any)?.name || (req.user as any)?.email || "admin",
+      };
+
+      const task = await assignMapguardTask(taskId, {
+        supplier_type,
+        assigned_to,
+        supplier_ref,
+        cost_cents,
+        handoff_notes,
+        next_step_hint,
+      }, actor);
+
+      if (!task) return res.status(404).json({ error: "Task not found" });
+
+      res.json(task);
+    } catch (err: any) {
+      if (err.message?.includes("Cannot assign")) {
+        return res.status(400).json({ error: err.message });
+      }
+      console.error("[mapguard] assign error:", err);
+      res.status(500).json({ error: "Failed to assign task" });
+    }
+  });
+
+  /* ─── Submit result (structured intake) ─── */
+  app.post("/api/mapguard/tasks/:taskId/submit-result", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const taskId = parseInt(req.params.taskId as string);
+      if (isNaN(taskId)) return res.status(400).json({ error: "Invalid task ID" });
+
+      const { summary, deliverable_type, deliverable_url, deliverable_text, notes } = req.body;
+
+      if (!summary) {
+        return res.status(400).json({ error: "summary is required" });
+      }
+
+      const actor = {
+        type: "human",
+        name: (req.user as any)?.name || (req.user as any)?.email || "admin",
+      };
+
+      const task = await submitMapguardResult(taskId, {
+        summary,
+        deliverable_type,
+        deliverable_url,
+        deliverable_text,
+        notes,
+      }, actor);
+
+      if (!task) return res.status(404).json({ error: "Task not found" });
+
+      res.json(task);
+    } catch (err: any) {
+      console.error("[mapguard] submit result error:", err);
+      res.status(500).json({ error: "Failed to submit result" });
+    }
+  });
+
+  /* ─── Reject result / request follow-up ─── */
+  app.post("/api/mapguard/tasks/:taskId/reject", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const taskId = parseInt(req.params.taskId as string);
+      if (isNaN(taskId)) return res.status(400).json({ error: "Invalid task ID" });
+
+      const { reason, send_back_to_supplier } = req.body;
+
+      if (!reason) {
+        return res.status(400).json({ error: "reason is required" });
+      }
+
+      const actor = {
+        type: "human",
+        name: (req.user as any)?.name || (req.user as any)?.email || "admin",
+      };
+
+      const task = await rejectMapguardResult(taskId, {
+        reason,
+        send_back_to_supplier: send_back_to_supplier !== false, // default true
+      }, actor);
+
+      if (!task) return res.status(404).json({ error: "Task not found" });
+
+      res.json(task);
+    } catch (err: any) {
+      if (err.message?.includes("Can only reject")) {
+        return res.status(400).json({ error: err.message });
+      }
+      console.error("[mapguard] reject error:", err);
+      res.status(500).json({ error: "Failed to reject result" });
     }
   });
 

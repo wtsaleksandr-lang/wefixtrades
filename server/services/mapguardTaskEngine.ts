@@ -138,6 +138,227 @@ export async function updateMapguardTask(
 }
 
 /* ═══════════════════════════════════════════
+   SUPPLIER ASSIGNMENT
+   ═══════════════════════════════════════════ */
+
+export async function assignMapguardTask(
+  taskId: number,
+  assignment: {
+    supplier_type: string;      // fiverr | agency | internal
+    assigned_to: string;        // freelancer name, agency name, or internal owner
+    supplier_ref?: string;      // Fiverr gig URL, agency ticket, etc.
+    cost_cents?: number;
+    handoff_notes?: string;     // Instructions for the supplier
+    next_step_hint?: string;    // Updated guidance
+  },
+  actor: { type: string; name: string }
+): Promise<MapguardTask | null> {
+  const [current] = await db.select().from(mapguardTasks).where(eq(mapguardTasks.id, taskId)).limit(1);
+  if (!current) return null;
+
+  const currentStatus = current.status as MapguardTaskStatus;
+
+  // Determine new status — move to waiting_supplier unless already there
+  let newStatus: MapguardTaskStatus = currentStatus;
+  if (["ready", "in_progress", "pending"].includes(currentStatus)) {
+    newStatus = "waiting_supplier";
+  }
+
+  // Validate transition if status is changing
+  if (newStatus !== currentStatus) {
+    const allowed = MAPGUARD_STATUS_TRANSITIONS[currentStatus];
+    if (!allowed?.includes(newStatus)) {
+      throw new Error(`Cannot assign from status: ${currentStatus}`);
+    }
+  }
+
+  const updates: Record<string, any> = {
+    supplier_type: assignment.supplier_type,
+    assigned_to: assignment.assigned_to,
+    supplier_ref: assignment.supplier_ref || null,
+    cost_cents: assignment.cost_cents ?? null,
+    status: newStatus,
+    waiting_on: "supplier",
+    updated_at: new Date(),
+  };
+
+  if (assignment.next_step_hint) {
+    updates.next_step_hint = assignment.next_step_hint;
+  } else {
+    updates.next_step_hint = `Assigned to ${assignment.assigned_to} (${assignment.supplier_type}). Waiting for deliverable.`;
+  }
+
+  // Store handoff notes in metadata
+  if (assignment.handoff_notes) {
+    const existingMeta = (current.metadata as Record<string, any>) || {};
+    updates.metadata = {
+      ...existingMeta,
+      handoff_notes: assignment.handoff_notes,
+      assigned_at: new Date().toISOString(),
+      assigned_by: actor.name,
+    };
+  } else {
+    const existingMeta = (current.metadata as Record<string, any>) || {};
+    updates.metadata = {
+      ...existingMeta,
+      assigned_at: new Date().toISOString(),
+      assigned_by: actor.name,
+    };
+  }
+
+  const [updated] = await db.update(mapguardTasks).set(updates).where(eq(mapguardTasks.id, taskId)).returning();
+
+  // Log assignment
+  await db.insert(mapguardTaskActivity).values({
+    task_id: taskId,
+    action: "assigned",
+    actor_type: actor.type,
+    actor_name: actor.name,
+    from_status: currentStatus,
+    to_status: newStatus,
+    summary: `Assigned to ${assignment.assigned_to} (${assignment.supplier_type})${assignment.handoff_notes ? ` — "${assignment.handoff_notes}"` : ""}`,
+    metadata: {
+      supplier_type: assignment.supplier_type,
+      assigned_to: assignment.assigned_to,
+      supplier_ref: assignment.supplier_ref,
+      cost_cents: assignment.cost_cents,
+    },
+  });
+
+  return updated;
+}
+
+/* ═══════════════════════════════════════════
+   STRUCTURED RESULT SUBMISSION
+   ═══════════════════════════════════════════ */
+
+export async function submitMapguardResult(
+  taskId: number,
+  result: {
+    summary: string;
+    deliverable_type?: string;   // text | link | file | report
+    deliverable_url?: string;    // link to deliverable (Fiverr delivery, Google Doc, etc.)
+    deliverable_text?: string;   // text deliverable (description copy, review response draft, etc.)
+    notes?: string;
+  },
+  actor: { type: string; name: string }
+): Promise<MapguardTask | null> {
+  const [current] = await db.select().from(mapguardTasks).where(eq(mapguardTasks.id, taskId)).limit(1);
+  if (!current) return null;
+
+  const currentStatus = current.status as MapguardTaskStatus;
+
+  // Build structured result_data
+  const resultData: Record<string, any> = {
+    ...(current.result_data as Record<string, any> || {}),
+    summary: result.summary,
+    submitted_at: new Date().toISOString(),
+    submitted_by: actor.name,
+  };
+  if (result.deliverable_type) resultData.deliverable_type = result.deliverable_type;
+  if (result.deliverable_url) resultData.deliverable_url = result.deliverable_url;
+  if (result.deliverable_text) resultData.deliverable_text = result.deliverable_text;
+  if (result.notes) resultData.notes = result.notes;
+
+  // Determine new status — auto-transition to needs_review
+  let newStatus: MapguardTaskStatus = currentStatus;
+  if (["in_progress", "waiting_supplier"].includes(currentStatus)) {
+    newStatus = "needs_review";
+  }
+
+  const updates: Record<string, any> = {
+    result_data: resultData,
+    status: newStatus,
+    waiting_on: "internal",
+    next_step_hint: "Result submitted. Review the deliverable and approve, request changes, or reject.",
+    updated_at: new Date(),
+  };
+
+  const [updated] = await db.update(mapguardTasks).set(updates).where(eq(mapguardTasks.id, taskId)).returning();
+
+  // Log submission
+  await db.insert(mapguardTaskActivity).values({
+    task_id: taskId,
+    action: "result_submitted",
+    actor_type: actor.type,
+    actor_name: actor.name,
+    from_status: currentStatus,
+    to_status: newStatus,
+    summary: `Result submitted: ${result.summary}`,
+    metadata: {
+      deliverable_type: result.deliverable_type,
+      has_url: !!result.deliverable_url,
+      has_text: !!result.deliverable_text,
+    },
+  });
+
+  return updated;
+}
+
+/* ═══════════════════════════════════════════
+   REJECT / REQUEST FOLLOW-UP
+   ═══════════════════════════════════════════ */
+
+export async function rejectMapguardResult(
+  taskId: number,
+  rejection: {
+    reason: string;
+    send_back_to_supplier?: boolean; // true = waiting_supplier, false = in_progress (internal rework)
+  },
+  actor: { type: string; name: string }
+): Promise<MapguardTask | null> {
+  const [current] = await db.select().from(mapguardTasks).where(eq(mapguardTasks.id, taskId)).limit(1);
+  if (!current) return null;
+
+  const currentStatus = current.status as MapguardTaskStatus;
+
+  // Should only reject from needs_review
+  if (currentStatus !== "needs_review") {
+    throw new Error(`Can only reject from needs_review, current status: ${currentStatus}`);
+  }
+
+  const newStatus: MapguardTaskStatus = rejection.send_back_to_supplier ? "waiting_supplier" : "in_progress";
+
+  // Store rejection in result_data history
+  const existingResult = (current.result_data as Record<string, any>) || {};
+  const rejections = existingResult._rejections || [];
+  rejections.push({
+    reason: rejection.reason,
+    rejected_at: new Date().toISOString(),
+    rejected_by: actor.name,
+  });
+
+  const updates: Record<string, any> = {
+    status: newStatus,
+    waiting_on: rejection.send_back_to_supplier ? "supplier" : "internal",
+    next_step_hint: rejection.send_back_to_supplier
+      ? `Result rejected: ${rejection.reason}. Waiting for supplier revision.`
+      : `Result rejected: ${rejection.reason}. Needs internal rework.`,
+    result_data: { ...existingResult, _rejections: rejections },
+    updated_at: new Date(),
+  };
+
+  const [updated] = await db.update(mapguardTasks).set(updates).where(eq(mapguardTasks.id, taskId)).returning();
+
+  // Log rejection
+  await db.insert(mapguardTaskActivity).values({
+    task_id: taskId,
+    action: "result_rejected",
+    actor_type: actor.type,
+    actor_name: actor.name,
+    from_status: "needs_review",
+    to_status: newStatus,
+    summary: `Result rejected: ${rejection.reason}`,
+    metadata: {
+      send_back: rejection.send_back_to_supplier,
+      rejection_count: rejections.length,
+    },
+  });
+
+  return updated;
+}
+
+/* ═══════════════════════════════════════════
    TASK QUERIES
    ═══════════════════════════════════════════ */
 

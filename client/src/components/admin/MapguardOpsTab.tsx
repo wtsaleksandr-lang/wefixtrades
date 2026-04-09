@@ -506,7 +506,7 @@ function GenerateFromAuditDialog({
 }
 
 /* ═══════════════════════════════════════════
-   TASK DETAIL DIALOG
+   TASK DETAIL DIALOG (with assignment, result intake, reject)
    ═══════════════════════════════════════════ */
 function TaskDetailDialog({
   task,
@@ -521,9 +521,23 @@ function TaskDetailDialog({
   const { toast } = useToast();
   const [showInputData, setShowInputData] = useState(false);
   const [newStatus, setNewStatus] = useState("");
-  const [resultText, setResultText] = useState("");
+  // Assignment state
+  const [showAssign, setShowAssign] = useState(false);
+  const [assignForm, setAssignForm] = useState({ supplier_type: "fiverr", assigned_to: "", supplier_ref: "", cost: "", handoff_notes: "" });
+  // Result intake state
+  const [showResult, setShowResult] = useState(false);
+  const [resultForm, setResultForm] = useState({ summary: "", deliverable_type: "text", deliverable_url: "", deliverable_text: "", notes: "" });
+  // Reject state
+  const [showReject, setShowReject] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectToSupplier, setRejectToSupplier] = useState(true);
 
-  // Fetch full task detail with activity
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: [`/api/mapguard/clients/${clientId}/tasks`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/mapguard/clients/${clientId}/task-summary`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/mapguard/tasks/${task.id}`] });
+  };
+
   const { data: detail } = useQuery<{ task: MapguardTaskItem; activity: TaskActivityItem[] }>({
     queryKey: [`/api/mapguard/tasks/${task.id}`],
     queryFn: async () => {
@@ -534,39 +548,79 @@ function TaskDetailDialog({
   });
 
   const changeStatus = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("PATCH", `/api/mapguard/tasks/${task.id}/status`, { status: newStatus });
+    mutationFn: async (statusOverride?: string) => {
+      const status = statusOverride || newStatus;
+      const res = await apiRequest("PATCH", `/api/mapguard/tasks/${task.id}/status`, { status });
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/mapguard/clients/${clientId}/tasks`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/mapguard/clients/${clientId}/task-summary`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/mapguard/tasks/${task.id}`] });
-      toast({ title: "Status updated" });
-      setNewStatus("");
-    },
-    onError: (err: any) => {
-      toast({ title: "Update failed", description: err.message, variant: "destructive" });
-    },
+    onSuccess: () => { invalidateAll(); toast({ title: "Status updated" }); setNewStatus(""); },
+    onError: (err: any) => { toast({ title: "Update failed", description: err.message, variant: "destructive" }); },
   });
 
-  const attachResult = useMutation({
+  const assignTask = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("PATCH", `/api/mapguard/tasks/${task.id}/result`, {
-        result_data: { notes: resultText, attached_at: new Date().toISOString() },
+      const res = await apiRequest("POST", `/api/mapguard/tasks/${task.id}/assign`, {
+        supplier_type: assignForm.supplier_type,
+        assigned_to: assignForm.assigned_to,
+        supplier_ref: assignForm.supplier_ref || undefined,
+        cost_cents: assignForm.cost ? Math.round(parseFloat(assignForm.cost) * 100) : undefined,
+        handoff_notes: assignForm.handoff_notes || undefined,
       });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/mapguard/clients/${clientId}/tasks`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/mapguard/tasks/${task.id}`] });
-      toast({ title: "Result attached" });
-      setResultText("");
+      invalidateAll();
+      toast({ title: "Task assigned", description: `Assigned to ${assignForm.assigned_to}` });
+      setShowAssign(false);
+      setAssignForm({ supplier_type: "fiverr", assigned_to: "", supplier_ref: "", cost: "", handoff_notes: "" });
     },
+    onError: (err: any) => { toast({ title: "Assignment failed", description: err.message, variant: "destructive" }); },
+  });
+
+  const submitResult = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/mapguard/tasks/${task.id}/submit-result`, {
+        summary: resultForm.summary,
+        deliverable_type: resultForm.deliverable_type,
+        deliverable_url: resultForm.deliverable_url || undefined,
+        deliverable_text: resultForm.deliverable_text || undefined,
+        notes: resultForm.notes || undefined,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidateAll();
+      toast({ title: "Result submitted", description: "Task moved to review" });
+      setShowResult(false);
+      setResultForm({ summary: "", deliverable_type: "text", deliverable_url: "", deliverable_text: "", notes: "" });
+    },
+  });
+
+  const rejectResult = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/mapguard/tasks/${task.id}/reject`, {
+        reason: rejectReason,
+        send_back_to_supplier: rejectToSupplier,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidateAll();
+      toast({ title: "Result rejected", description: rejectToSupplier ? "Sent back to supplier" : "Returned for internal rework" });
+      setShowReject(false);
+      setRejectReason("");
+    },
+    onError: (err: any) => { toast({ title: "Reject failed", description: err.message, variant: "destructive" }); },
   });
 
   const t = detail?.task || task;
   const activity = detail?.activity || [];
+  const isTerminal = ["completed", "cancelled"].includes(t.status);
+  const isReviewable = t.status === "needs_review";
+  const canAssign = ["ready", "in_progress", "pending"].includes(t.status);
+  const canSubmitResult = ["in_progress", "waiting_supplier"].includes(t.status);
+  const handoffNotes = (t.metadata as any)?.handoff_notes;
+  const rejections = (t.result_data as any)?._rejections;
 
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
@@ -607,6 +661,26 @@ function TaskDetailDialog({
             </div>
           )}
 
+          {/* ─── Supplier Assignment Block ─── */}
+          {(t.supplier_type || t.assigned_to) && (
+            <div className="px-3 py-2.5 rounded-lg bg-amber-50/50 border border-amber-200/50">
+              <p className="text-xs font-medium text-amber-800 flex items-center gap-1.5">
+                <Factory className="w-3.5 h-3.5" />
+                Assigned to {t.assigned_to}
+                <span className="text-amber-600 font-normal">({t.supplier_type})</span>
+              </p>
+              {t.supplier_ref && (
+                <p className="text-[11px] text-amber-600 mt-0.5 ml-5">Ref: {t.supplier_ref}</p>
+              )}
+              {t.cost_cents != null && (
+                <p className="text-[11px] text-amber-600 ml-5">Cost: ${(t.cost_cents / 100).toFixed(2)}</p>
+              )}
+              {handoffNotes && (
+                <p className="text-[11px] text-gray-600 mt-1 ml-5 italic">"{handoffNotes}"</p>
+              )}
+            </div>
+          )}
+
           {/* Expected output */}
           {t.expected_output && (
             <div>
@@ -639,72 +713,216 @@ function TaskDetailDialog({
             </div>
           )}
 
-          {/* Result data */}
+          {/* ─── Result Data Block ─── */}
           {t.result_data && (
-            <div>
-              <p className="text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
-                <FileCheck className="w-3 h-3 text-emerald-500" /> Result Data
+            <div className="px-3 py-2.5 rounded-lg bg-emerald-50/50 border border-emerald-200/50">
+              <p className="text-xs font-medium text-emerald-800 flex items-center gap-1.5 mb-1">
+                <FileCheck className="w-3.5 h-3.5" /> Result
               </p>
-              <pre className="text-xs text-gray-600 bg-emerald-50 rounded p-2 overflow-x-auto">{JSON.stringify(t.result_data, null, 2)}</pre>
+              {(t.result_data as any).summary && (
+                <p className="text-sm text-gray-700">{(t.result_data as any).summary}</p>
+              )}
+              {(t.result_data as any).deliverable_url && (
+                <p className="text-xs text-emerald-700 mt-1">
+                  Link: <a href={(t.result_data as any).deliverable_url} target="_blank" rel="noopener noreferrer" className="underline">{(t.result_data as any).deliverable_url}</a>
+                </p>
+              )}
+              {(t.result_data as any).deliverable_text && (
+                <div className="mt-1 p-2 bg-white rounded text-xs text-gray-600 whitespace-pre-wrap">{(t.result_data as any).deliverable_text}</div>
+              )}
+              {(t.result_data as any).notes && (
+                <p className="text-[11px] text-gray-500 mt-1 italic">{(t.result_data as any).notes}</p>
+              )}
+              {(t.result_data as any).submitted_by && (
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Submitted by {(t.result_data as any).submitted_by} on {new Date((t.result_data as any).submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </p>
+              )}
             </div>
           )}
 
-          {/* Supplier info */}
-          {(t.supplier_type || t.assigned_to || t.supplier_ref) && (
-            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-              {t.supplier_type && <span>Supplier: <span className="capitalize font-medium">{t.supplier_type}</span></span>}
-              {t.assigned_to && <span>Assigned: <span className="font-medium">{t.assigned_to}</span></span>}
-              {t.supplier_ref && <span>Ref: <span className="font-mono">{t.supplier_ref}</span></span>}
+          {/* Rejection history */}
+          {rejections && rejections.length > 0 && (
+            <div className="px-3 py-2 rounded-lg bg-red-50/50 border border-red-200/50">
+              <p className="text-xs font-medium text-red-700 mb-1">Rejection History ({rejections.length})</p>
+              {rejections.map((r: any, i: number) => (
+                <div key={i} className="text-[11px] text-gray-600 mt-1">
+                  <span className="text-red-600 font-medium">#{i + 1}</span> {r.reason}
+                  <span className="text-gray-400 ml-1">— {r.rejected_by}, {new Date(r.rejected_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                </div>
+              ))}
             </div>
           )}
 
-          {/* ─── Actions ─── */}
-          {!["completed", "cancelled"].includes(t.status) && (
+          {/* ─── Action Buttons Row ─── */}
+          {!isTerminal && (
             <div className="border-t border-gray-100 pt-3 space-y-3">
-              {/* Status change */}
-              <div className="flex items-center gap-2">
-                <Select value={newStatus} onValueChange={setNewStatus}>
-                  <SelectTrigger className="flex-1 h-8 text-xs">
-                    <SelectValue placeholder="Change status..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MG_STATUSES.filter((s) => s.value !== t.status).map((s) => (
-                      <SelectItem key={s.value} value={s.value} className="text-xs">{s.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  size="sm"
-                  className="h-8 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]"
-                  disabled={!newStatus || changeStatus.isPending}
-                  onClick={() => changeStatus.mutate()}
-                >
-                  Update
-                </Button>
+              {/* Quick action buttons */}
+              <div className="flex flex-wrap gap-1.5">
+                {canAssign && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAssign(!showAssign)}>
+                    <Factory className="w-3 h-3 mr-1" /> {t.assigned_to ? "Reassign" : "Assign"}
+                  </Button>
+                )}
+                {canSubmitResult && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowResult(!showResult)}>
+                    <FileCheck className="w-3 h-3 mr-1" /> Submit Result
+                  </Button>
+                )}
+                {isReviewable && (
+                  <>
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() => changeStatus.mutate("completed")}
+                      disabled={changeStatus.isPending}
+                    >
+                      <CheckCircle className="w-3 h-3 mr-1" /> Approve
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => setShowReject(!showReject)}>
+                      <X className="w-3 h-3 mr-1" /> Reject
+                    </Button>
+                  </>
+                )}
               </div>
 
-              {/* Attach result */}
-              <div>
-                <label className="text-xs font-medium text-gray-500">Attach Result / Notes</label>
-                <div className="flex items-start gap-2 mt-1">
-                  <Textarea
-                    value={resultText}
-                    onChange={(e) => setResultText(e.target.value)}
-                    placeholder="Describe what was delivered..."
-                    rows={2}
-                    className="text-xs flex-1"
-                  />
+              {/* ─── Assignment Form (collapsible) ─── */}
+              {showAssign && (
+                <div className="p-3 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2">
+                  <p className="text-xs font-medium text-gray-700">Assign to Supplier</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[11px] font-medium text-gray-500">Type *</label>
+                      <Select value={assignForm.supplier_type} onValueChange={(v) => setAssignForm({ ...assignForm, supplier_type: v })}>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fiverr" className="text-xs">Fiverr</SelectItem>
+                          <SelectItem value="agency" className="text-xs">Agency</SelectItem>
+                          <SelectItem value="internal" className="text-xs">Internal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-gray-500">Name *</label>
+                      <Input className="h-7 text-xs" value={assignForm.assigned_to} onChange={(e) => setAssignForm({ ...assignForm, assigned_to: e.target.value })} placeholder="e.g. john_gbp_pro" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[11px] font-medium text-gray-500">Reference</label>
+                      <Input className="h-7 text-xs" value={assignForm.supplier_ref} onChange={(e) => setAssignForm({ ...assignForm, supplier_ref: e.target.value })} placeholder="Gig URL or ticket #" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-gray-500">Cost ($)</label>
+                      <Input className="h-7 text-xs" type="number" step="0.01" value={assignForm.cost} onChange={(e) => setAssignForm({ ...assignForm, cost: e.target.value })} placeholder="0.00" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-gray-500">Handoff Instructions</label>
+                    <Textarea className="text-xs" rows={2} value={assignForm.handoff_notes} onChange={(e) => setAssignForm({ ...assignForm, handoff_notes: e.target.value })} placeholder="What should the supplier deliver..." />
+                  </div>
                   <Button
                     size="sm"
-                    variant="outline"
-                    className="h-8 text-xs shrink-0"
-                    disabled={!resultText.trim() || attachResult.isPending}
-                    onClick={() => attachResult.mutate()}
+                    className="h-7 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]"
+                    disabled={!assignForm.assigned_to.trim() || assignTask.isPending}
+                    onClick={() => assignTask.mutate()}
                   >
-                    <FileCheck className="w-3 h-3 mr-1" /> Attach
+                    {assignTask.isPending ? "Assigning..." : "Assign & Send to Supplier"}
                   </Button>
                 </div>
-              </div>
+              )}
+
+              {/* ─── Result Submission Form (collapsible) ─── */}
+              {showResult && (
+                <div className="p-3 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2">
+                  <p className="text-xs font-medium text-gray-700">Submit Deliverable</p>
+                  <div>
+                    <label className="text-[11px] font-medium text-gray-500">Summary *</label>
+                    <Input className="h-7 text-xs" value={resultForm.summary} onChange={(e) => setResultForm({ ...resultForm, summary: e.target.value })} placeholder="Brief description of what was delivered" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[11px] font-medium text-gray-500">Deliverable Type</label>
+                      <Select value={resultForm.deliverable_type} onValueChange={(v) => setResultForm({ ...resultForm, deliverable_type: v })}>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="text" className="text-xs">Text / Copy</SelectItem>
+                          <SelectItem value="link" className="text-xs">Link / URL</SelectItem>
+                          <SelectItem value="report" className="text-xs">Report</SelectItem>
+                          <SelectItem value="file" className="text-xs">File</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-gray-500">Link / URL</label>
+                      <Input className="h-7 text-xs" value={resultForm.deliverable_url} onChange={(e) => setResultForm({ ...resultForm, deliverable_url: e.target.value })} placeholder="https://..." />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-gray-500">Deliverable Text</label>
+                    <Textarea className="text-xs" rows={3} value={resultForm.deliverable_text} onChange={(e) => setResultForm({ ...resultForm, deliverable_text: e.target.value })} placeholder="Paste the deliverable content here..." />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-gray-500">Notes</label>
+                    <Input className="h-7 text-xs" value={resultForm.notes} onChange={(e) => setResultForm({ ...resultForm, notes: e.target.value })} placeholder="Additional context..." />
+                  </div>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]"
+                    disabled={!resultForm.summary.trim() || submitResult.isPending}
+                    onClick={() => submitResult.mutate()}
+                  >
+                    {submitResult.isPending ? "Submitting..." : "Submit & Send to Review"}
+                  </Button>
+                </div>
+              )}
+
+              {/* ─── Reject Form (collapsible) ─── */}
+              {showReject && isReviewable && (
+                <div className="p-3 rounded-lg border border-red-200 bg-red-50/30 space-y-2">
+                  <p className="text-xs font-medium text-red-700">Reject Result</p>
+                  <div>
+                    <label className="text-[11px] font-medium text-gray-500">Reason *</label>
+                    <Textarea className="text-xs" rows={2} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="What's wrong with the deliverable..." />
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                    <input type="checkbox" checked={rejectToSupplier} onChange={(e) => setRejectToSupplier(e.target.checked)} className="rounded border-gray-300" />
+                    Send back to supplier for revision
+                  </label>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs bg-red-500 hover:bg-red-600 text-white"
+                    disabled={!rejectReason.trim() || rejectResult.isPending}
+                    onClick={() => rejectResult.mutate()}
+                  >
+                    {rejectResult.isPending ? "Rejecting..." : "Reject & Request Changes"}
+                  </Button>
+                </div>
+              )}
+
+              {/* Status change (fallback for any other transition) */}
+              {!showAssign && !showResult && !showReject && (
+                <div className="flex items-center gap-2">
+                  <Select value={newStatus} onValueChange={setNewStatus}>
+                    <SelectTrigger className="flex-1 h-8 text-xs">
+                      <SelectValue placeholder="Change status..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MG_STATUSES.filter((s) => s.value !== t.status).map((s) => (
+                        <SelectItem key={s.value} value={s.value} className="text-xs">{s.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]"
+                    disabled={!newStatus || changeStatus.isPending}
+                    onClick={() => changeStatus.mutate()}
+                  >
+                    Update
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
@@ -715,7 +933,13 @@ function TaskDetailDialog({
               <div className="space-y-2">
                 {activity.map((a) => (
                   <div key={a.id} className="flex items-start gap-2 text-xs">
-                    <div className="w-1.5 h-1.5 rounded-full bg-gray-300 mt-1.5 shrink-0" />
+                    <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
+                      a.action === "assigned" ? "bg-amber-400" :
+                      a.action === "result_submitted" ? "bg-emerald-400" :
+                      a.action === "result_rejected" ? "bg-red-400" :
+                      a.action === "status_changed" ? "bg-indigo-400" :
+                      "bg-gray-300"
+                    }`} />
                     <div className="min-w-0 flex-1">
                       <span className="text-gray-600">{a.summary || a.action}</span>
                       <span className="text-gray-400 ml-2">
