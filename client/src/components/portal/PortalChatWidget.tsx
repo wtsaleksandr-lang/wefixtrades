@@ -23,12 +23,14 @@ export default function PortalChatWidget() {
 
   const [open, setOpen] = useState(() => loadPortalOpenState());
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    // Start with localStorage cache for instant display
     const saved = loadPortalMessages();
     return saved.length > 0 ? saved : [GREETING];
   });
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [activeSuggestions, setActiveSuggestions] = useState<string[]>([]);
+  const [threadHydrated, setThreadHydrated] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,7 +38,34 @@ export default function PortalChatWidget() {
   // Session ID is user-scoped (matches server-side portal_{userId})
   const sessionId = useRef(`portal_${user?.id ?? "anon"}`);
 
-  // Persist messages and open state
+  // Hydrate from server thread on mount (source of truth)
+  useEffect(() => {
+    let cancelled = false;
+    async function hydrate() {
+      try {
+        const res = await fetch("/api/portal/thread/messages", { credentials: "include" });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.messages && data.messages.length > 0) {
+          const threadMsgs: ChatMessage[] = data.messages.map((m: any) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          }));
+          setMessages([GREETING, ...threadMsgs]);
+        }
+        // If server returns empty, keep localStorage/greeting (first visit)
+      } catch {
+        // Network error — keep localStorage cache, no disruption
+      } finally {
+        if (!cancelled) setThreadHydrated(true);
+      }
+    }
+    hydrate();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Persist messages to localStorage (write-through cache)
   useEffect(() => { savePortalMessages(messages); }, [messages]);
   useEffect(() => { savePortalOpenState(open); }, [open]);
 

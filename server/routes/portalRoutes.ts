@@ -4,6 +4,7 @@ import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { assistantSync } from "../services/assistant";
 import { assemblePortalContext } from "../services/portalAssistantContext";
+import { getOrCreateThread, loadThreadMessages } from "../services/threadService";
 import { authRateLimiter } from "../services/rateLimiter";
 import {
   clients,
@@ -775,6 +776,28 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       console.error("Portal AI chat error:", err);
       res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
+    }
+  });
+
+  /**
+   * GET /api/portal/thread/messages
+   * Returns the active thread's message history for the authenticated portal user.
+   * Used by PortalChatWidget to hydrate on mount (source of truth for persistence).
+   */
+  app.get("/api/portal/thread/messages", requireClient, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const { id: threadId, isNew } = await getOrCreateThread(userId, "portal");
+
+      if (isNew) {
+        return res.json({ threadId, messages: [] });
+      }
+
+      const messages = await loadThreadMessages(threadId);
+      res.json({ threadId, messages });
+    } catch (err) {
+      console.error("Portal thread messages error:", err);
+      res.status(500).json({ error: "Failed to load conversation" });
     }
   });
 }

@@ -10,6 +10,7 @@
 import { streamChat, chat, validateConfig, getModel, type ChatMessage, type ChatOptions } from "./aiService";
 import { buildSystemPrompt, type ChatSurface, type AuditContext, type MemoryContext, type PageContext, type PortalContext } from "./promptBuilder";
 import { getMemory, getMemoryByUserId, saveMemory, extractMemorySignals } from "./chatMemory";
+import { getOrCreateThread, loadThreadMessages, appendTurn } from "./threadService";
 import { logUsage } from "./usageTracker";
 import { evaluateAndArchive } from "./conversationArchiver";
 
@@ -33,6 +34,8 @@ export interface AssistantRequest {
   reportId?: string;
   /** Override max tokens for this request */
   maxTokens?: number;
+  /** Resolved thread ID (set internally by buildContext for portal) */
+  _threadId?: number;
 }
 
 export interface AssistantStreamResult {
@@ -58,7 +61,47 @@ async function buildContext(req: AssistantRequest): Promise<{
   chatMessages: ChatMessage[];
   memoryContext?: MemoryContext;
 }> {
-  // For portal surface, try user-scoped memory if session lookup fails
+  // Portal surface with authenticated user: use thread-based persistence
+  if (req.surface === "portal" && req.userId) {
+    try {
+      const { id: threadId } = await getOrCreateThread(req.userId, "portal");
+      req._threadId = threadId;
+
+      // Load thread history from DB — this is the source of truth
+      const threadMessages = await loadThreadMessages(threadId);
+
+      // The client sends the full conversation including the new user message.
+      // Thread history is authoritative for past turns; the client's latest
+      // user message is the new one we haven't persisted yet.
+      const clientMessages = req.messages;
+      const lastClientMsg = clientMessages[clientMessages.length - 1];
+      const isNewUserTurn = lastClientMsg?.role === "user";
+
+      // Merge: thread history + new user message (if any)
+      const merged = isNewUserTurn
+        ? [...threadMessages, lastClientMsg]
+        : threadMessages.length > 0 ? threadMessages : clientMessages;
+
+      // Load chatMemory for memory context (personality signals) as fallback
+      const stored = await getMemory(req.sessionId).catch(() => null)
+        || await getMemoryByUserId(req.userId).catch(() => null);
+
+      const systemPrompt = buildSystemPrompt(
+        req.surface,
+        req.auditContext,
+        stored?.memory,
+        req.pageContext,
+        req.portalContext,
+      );
+
+      return { systemPrompt, chatMessages: merged.slice(-20), memoryContext: stored?.memory };
+    } catch (err) {
+      console.error("[assistant] Thread load failed, falling back to chatMemory:", err);
+      // Fall through to chatMemory path below
+    }
+  }
+
+  // Non-portal surfaces or thread fallback: use chatMemory
   const stored = await getMemory(req.sessionId).catch(() => null)
     || (req.surface === "portal" && req.userId
         ? await getMemoryByUserId(req.userId).catch(() => null)
@@ -85,6 +128,17 @@ function createOnComplete(req: AssistantRequest, chatMessages: ChatMessage[]) {
       ...chatMessages,
       { role: "assistant" as const, content: fullReply },
     ];
+
+    // Thread persistence (portal): save user message + assistant reply
+    if (req._threadId) {
+      const lastUserMsg = chatMessages[chatMessages.length - 1];
+      if (lastUserMsg?.role === "user") {
+        await appendTurn(req._threadId, lastUserMsg.content, fullReply)
+          .catch((err) => console.error("[assistant] Thread append error:", err));
+      }
+    }
+
+    // chatMemory: still save for memory signals extraction (all surfaces)
     const signals = extractMemorySignals(allMessages);
     await saveMemory(req.sessionId, allMessages, {
       reportId: req.reportId,
