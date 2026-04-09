@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, MessageCircle, Send, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, RefreshCw } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { getFieldConfig } from "@/config/onboardingFields";
 import { useOnboardingResponses } from "@/context/OnboardingContext";
@@ -45,121 +45,16 @@ function HelpModal({ field, onClose }: { field: { label: string; example?: strin
   );
 }
 
-/* ─── AI Chat Panel ─── */
-function AiChatPanel({
-  submissionId,
-  serviceName,
-  serviceId,
-  steps,
-  responses,
-  onClose,
-}: {
-  submissionId: number;
-  serviceName: string;
-  serviceId: string;
-  steps: Step[];
-  responses: Record<string, any>;
-  onClose: () => void;
-}) {
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
-    { role: "assistant", content: `Hi! I'm here to help you fill out the ${serviceName} setup form. Ask me anything about any of the fields, or I can suggest answers based on your business.` },
-  ]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
-
-  async function send() {
-    const text = input.trim();
-    if (!text || loading) return;
-    const updated = [...messages, { role: "user" as const, content: text }];
-    setMessages(updated);
-    setInput("");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/portal/ai-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          messages: updated.map((m) => ({ role: m.role, content: m.content })),
-          context: {
-            submission_id: submissionId,
-            service_name: serviceName,
-            service_id: serviceId,
-            fields: steps.map((s) => ({ key: s.key, label: s.label, required: s.required })),
-            current_responses: responses,
-          },
-        }),
-      });
-      const data = await res.json();
-      setMessages((prev) => [...prev, { role: "assistant", content: data.reply || "Sorry, I couldn't process that. Try again." }]);
-    } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong. Please try again." }]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="fixed bottom-4 right-4 z-50 w-80 max-h-[480px] flex flex-col bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-[#2D6A4F]">
-        <div className="flex items-center gap-2">
-          <MessageCircle className="w-4 h-4 text-white" />
-          <span className="text-sm font-medium text-white">Setup Assistant</span>
-        </div>
-        <button onClick={onClose} className="p-1 rounded hover:bg-white/20 text-white"><X className="w-4 h-4" /></button>
-      </div>
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[200px] max-h-[340px]">
-        {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-              m.role === "user" ? "bg-[#2D6A4F] text-white" : "bg-gray-100 text-gray-700"
-            }`}>
-              {m.content}
-            </div>
-          </div>
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-gray-100 rounded-lg px-3 py-2"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div>
-          </div>
-        )}
-        <div ref={endRef} />
-      </div>
-      {/* Input */}
-      <div className="border-t border-gray-100 p-2 flex gap-2">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-          placeholder="Ask about any field..."
-          className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20"
-        />
-        <button onClick={send} disabled={loading || !input.trim()} className="p-2 rounded-lg bg-[#2D6A4F] text-white hover:bg-[#1B4332] disabled:opacity-40">
-          <Send className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 /* ─── Main Page ─── */
 export default function PortalOnboarding() {
   const [, params] = useRoute("/portal/onboarding/:id");
   const submissionId = params?.id;
-  const submissionIdNum = parseInt(submissionId || "", 10);
 
   const queryClient = useQueryClient();
   const [responses, setResponses] = useState<Record<string, any>>({});
   const { setResponses: syncToContext } = useOnboardingResponses();
   const [validationError, setValidationError] = useState<string | null>(null);
   const [helpField, setHelpField] = useState<{ label: string; example?: string; helperText?: string } | null>(null);
-  const [chatOpen, setChatOpen] = useState(false);
-
   const { data, isLoading, error, refetch } = useQuery<OnboardingData>({
     queryKey: ["/api/portal/onboarding", submissionId],
     queryFn: async () => {
@@ -169,6 +64,12 @@ export default function PortalOnboarding() {
     },
     enabled: !!submissionId,
   });
+
+  // Reset local state when switching between onboarding submissions
+  useEffect(() => {
+    setResponses({});
+    syncToContext({});
+  }, [submissionId]);
 
   useEffect(() => {
     if (data?.responses) {
@@ -404,28 +305,8 @@ export default function PortalOnboarding() {
       {/* Help modal */}
       {helpField && <HelpModal field={helpField} onClose={() => setHelpField(null)} />}
 
-      {/* AI Chat FAB */}
-      {data && !isSubmitted && !chatOpen && (
-        <button
-          onClick={() => setChatOpen(true)}
-          className="fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-[#2D6A4F] text-white shadow-lg hover:bg-[#1B4332] flex items-center justify-center transition-colors"
-          title="Need help? Ask our AI assistant"
-        >
-          <MessageCircle className="w-5 h-5" />
-        </button>
-      )}
-
-      {/* AI Chat Panel */}
-      {data && chatOpen && (
-        <AiChatPanel
-          submissionId={submissionIdNum}
-          serviceName={data.service_name ?? "service"}
-          serviceId={data.service_id ?? ""}
-          steps={data.steps}
-          responses={responses}
-          onClose={() => setChatOpen(false)}
-        />
-      )}
+      {/* Legacy AI Chat FAB + Panel removed — the global PortalChatWidget
+          now handles onboarding context via OnboardingContext (Phase 3). */}
     </PortalLayout>
   );
 }

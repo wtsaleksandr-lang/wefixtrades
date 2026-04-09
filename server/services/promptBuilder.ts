@@ -370,6 +370,19 @@ When the user messages you, follow these priorities:
   return parts.join("\n");
 }
 
+/** Check whether a response value counts as "filled". */
+function isFilled(v: unknown): boolean {
+  if (v === undefined || v === null || v === false) return false;
+  if (typeof v === "string") return v.trim().length > 0;
+  return true;
+}
+
+/** Truncate a display value to avoid bloating the system prompt. */
+function truncateValue(v: unknown, max = 200): string {
+  const s = String(v ?? "");
+  return s.length > max ? s.slice(0, max) + "…" : s;
+}
+
 function buildPortalModeContext(ctx: PortalContext): string {
   switch (ctx.mode) {
     case "portal_onboarding": {
@@ -384,7 +397,7 @@ function buildPortalModeContext(ctx: PortalContext): string {
 
       for (const f of ob.fields) {
         const v = ob.currentResponses[f.key];
-        const filled = v !== undefined && v !== "" && v !== false && v !== null;
+        const filled = isFilled(v);
         if (f.required) {
           if (filled) filledRequired.push(f.label);
           else missingRequired.push(f.label);
@@ -423,11 +436,8 @@ function buildPortalModeContext(ctx: PortalContext): string {
 
       // Show filled values so AI can refer to them accurately
       const filledEntries = ob.fields
-        .filter((f) => {
-          const v = ob.currentResponses[f.key];
-          return v !== undefined && v !== "" && v !== false && v !== null;
-        })
-        .map((f) => `  ${f.label}: ${ob.currentResponses[f.key]}`);
+        .filter((f) => isFilled(ob.currentResponses[f.key]))
+        .map((f) => `  ${f.label}: ${truncateValue(ob.currentResponses[f.key])}`);
       if (filledEntries.length > 0) {
         lines.push(``, `Values filled in so far:`, ...filledEntries);
       }

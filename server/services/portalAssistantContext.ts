@@ -203,7 +203,9 @@ async function loadOnboardingContext(
 
   const completedCount = fields.filter((f) => {
     const v = mergedResponses[f.key];
-    return v !== undefined && v !== "" && v !== false && v !== null;
+    if (v === undefined || v === null || v === false) return false;
+    if (typeof v === "string") return v.trim().length > 0;
+    return true;
   }).length;
 
   ctx.onboarding = {
