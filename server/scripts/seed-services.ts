@@ -101,11 +101,19 @@ async function main() {
       { title: "Upload photos & schedule initial posts", sort_order: 4, default_handled_by: "internal" },
       { title: "QA review & send delivery report", sort_order: 5, default_priority: "high", default_handled_by: "internal", human_review_required: true },
     ],
-    "mapguard-ongoing": [
+    "mapguard-basic": [
+      { title: "Monthly GBP check (rankings, reviews, accuracy)", sort_order: 1, default_handled_by: "internal" },
+      { title: "Create & schedule 2 posts", sort_order: 2, default_handled_by: "internal" },
+      { title: "Update profile if seasonal changes needed", sort_order: 3, default_handled_by: "internal" },
+      { title: "Send monthly ranking snapshot", sort_order: 4, default_handled_by: "internal" },
+    ],
+    "mapguard-pro": [
       { title: "Monthly GBP check (rankings, reviews, accuracy)", sort_order: 1, default_handled_by: "internal" },
       { title: "Create & schedule 4 posts", sort_order: 2, default_handled_by: "internal" },
-      { title: "Update profile if seasonal changes needed", sort_order: 3, default_handled_by: "internal" },
-      { title: "Send monthly performance report", sort_order: 4, default_handled_by: "internal" },
+      { title: "Review response management", sort_order: 3, default_handled_by: "internal" },
+      { title: "Local keyword optimization check", sort_order: 4, default_handled_by: "internal" },
+      { title: "Competitor tracking update", sort_order: 5, default_handled_by: "internal" },
+      { title: "Send monthly performance report", sort_order: 6, default_handled_by: "internal" },
     ],
     "reputationshield": [
       { title: "Collect onboarding info", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client" },
@@ -157,6 +165,39 @@ async function main() {
       { title: "Review pricing configuration", sort_order: 2, default_handled_by: "internal" },
       { title: "Confirm embed on client website", sort_order: 3, default_handled_by: "internal", default_waiting_on: "client" },
     ],
+    "rankflow-starter": [
+      { title: "Collect onboarding info & site access", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
+      { title: "Set up Google Search Console", sort_order: 2, default_handled_by: "internal", is_recurring: false },
+      { title: "Keyword research & targeting", sort_order: 3, default_handled_by: "internal" },
+      { title: "On-page SEO optimization", sort_order: 4, default_handled_by: "internal" },
+      { title: "Monthly content recommendations", sort_order: 5, default_handled_by: "internal" },
+      { title: "Google Search Console monitoring & fixes", sort_order: 6, default_handled_by: "internal" },
+      { title: "Send monthly ranking report", sort_order: 7, default_handled_by: "internal" },
+    ],
+    "rankflow-growth": [
+      { title: "Collect onboarding info & site access", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
+      { title: "Set up Google Search Console", sort_order: 2, default_handled_by: "internal", is_recurring: false },
+      { title: "Keyword research & gap analysis", sort_order: 3, default_handled_by: "internal" },
+      { title: "On-page SEO optimization", sort_order: 4, default_handled_by: "internal" },
+      { title: "Content creation (2 pages)", sort_order: 5, default_handled_by: "internal" },
+      { title: "Link building outreach", sort_order: 6, default_handled_by: "internal" },
+      { title: "Competitor analysis update", sort_order: 7, default_handled_by: "internal" },
+      { title: "Local SEO optimization", sort_order: 8, default_handled_by: "internal" },
+      { title: "Send bi-weekly ranking report", sort_order: 9, default_handled_by: "internal" },
+    ],
+    "rankflow-pro": [
+      { title: "Collect onboarding info & site access", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
+      { title: "Set up Google Search Console", sort_order: 2, default_handled_by: "internal", is_recurring: false },
+      { title: "Keyword research & gap analysis", sort_order: 3, default_handled_by: "internal" },
+      { title: "On-page SEO optimization", sort_order: 4, default_handled_by: "internal" },
+      { title: "Content creation (4 pages)", sort_order: 5, default_handled_by: "internal" },
+      { title: "Link building outreach", sort_order: 6, default_handled_by: "internal" },
+      { title: "Technical SEO audit", sort_order: 7, default_handled_by: "internal", human_review_required: true },
+      { title: "Schema markup review & implementation", sort_order: 8, default_handled_by: "internal" },
+      { title: "Competitor analysis update", sort_order: 9, default_handled_by: "internal" },
+      { title: "Local SEO optimization", sort_order: 10, default_handled_by: "internal" },
+      { title: "Send weekly ranking report", sort_order: 11, default_handled_by: "internal" },
+    ],
   };
 
   for (const [serviceId, tasks] of Object.entries(TASK_TEMPLATES)) {
@@ -195,8 +236,21 @@ async function main() {
         { key: "photos", label: "Business photos available", type: "checkbox", required: false },
       ],
     },
-    "mapguard-ongoing": {
-      name: "MapGuard Ongoing Onboarding",
+    "mapguard-basic": {
+      name: "MapGuard Basic Onboarding",
+      steps: [
+        { key: "business_name", label: "Business name", type: "text", required: true },
+        { key: "business_address", label: "Full business address", type: "text", required: true },
+        { key: "service_areas", label: "Areas you serve", type: "text", required: true },
+        { key: "services", label: "Your main services", type: "text", required: true },
+        { key: "google_account_email", label: "Google account email (for GBP access)", type: "text", required: true },
+        { key: "keywords", label: "Keywords you want to rank for", type: "text", required: false },
+        { key: "competitors", label: "Top 2-3 local competitors", type: "text", required: false },
+        { key: "photos", label: "Business photos available", type: "checkbox", required: false },
+      ],
+    },
+    "mapguard-pro": {
+      name: "MapGuard Pro Onboarding",
       steps: [
         { key: "business_name", label: "Business name", type: "text", required: true },
         { key: "business_address", label: "Full business address", type: "text", required: true },
@@ -274,6 +328,45 @@ async function main() {
         { key: "logo", label: "Logo available", type: "checkbox", required: false },
         { key: "competitors", label: "Competitor websites you like", type: "text", required: false },
         { key: "extra_pages", label: "Extra pages needed", type: "text", required: false },
+      ],
+    },
+    "rankflow-starter": {
+      name: "RankFlow Starter Onboarding",
+      steps: [
+        { key: "website_url", label: "Website URL", type: "text", required: true },
+        { key: "google_account_email", label: "Google account email (for Search Console access)", type: "text", required: true },
+        { key: "service_areas", label: "Areas you serve", type: "text", required: true },
+        { key: "services", label: "Your main services", type: "text", required: true },
+        { key: "target_keywords", label: "Keywords you want to rank for", type: "text", required: false },
+        { key: "competitors", label: "Top 2-3 local competitors", type: "text", required: false },
+      ],
+    },
+    "rankflow-growth": {
+      name: "RankFlow Growth Onboarding",
+      steps: [
+        { key: "website_url", label: "Website URL", type: "text", required: true },
+        { key: "google_account_email", label: "Google account email (for Search Console access)", type: "text", required: true },
+        { key: "service_areas", label: "Areas you serve", type: "text", required: true },
+        { key: "services", label: "Your main services", type: "text", required: true },
+        { key: "target_keywords", label: "Keywords you want to rank for", type: "text", required: true },
+        { key: "competitors", label: "Top 2-3 local competitors", type: "text", required: true },
+        { key: "content_preferences", label: "Content style or topics to focus on", type: "text", required: false },
+        { key: "cms_access", label: "Can you provide CMS/hosting access?", type: "select", required: true },
+      ],
+    },
+    "rankflow-pro": {
+      name: "RankFlow Pro Onboarding",
+      steps: [
+        { key: "website_url", label: "Website URL", type: "text", required: true },
+        { key: "google_account_email", label: "Google account email (for Search Console access)", type: "text", required: true },
+        { key: "service_areas", label: "Areas you serve", type: "text", required: true },
+        { key: "services", label: "Your main services", type: "text", required: true },
+        { key: "target_keywords", label: "Keywords you want to rank for", type: "text", required: true },
+        { key: "competitors", label: "Top 2-3 local competitors", type: "text", required: true },
+        { key: "content_preferences", label: "Content style or topics to focus on", type: "text", required: false },
+        { key: "cms_access", label: "Can you provide CMS/hosting access?", type: "select", required: true },
+        { key: "analytics_access", label: "Google Analytics access available?", type: "checkbox", required: false },
+        { key: "existing_seo", label: "Current SEO provider or past SEO work", type: "text", required: false },
       ],
     },
   };
