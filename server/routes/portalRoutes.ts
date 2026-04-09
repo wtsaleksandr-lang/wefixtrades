@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { requireClient, hashPassword, verifyPassword } from "../auth";
+import { storage } from "../storage";
 import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { chat as aiChat } from "../services/aiService";
@@ -810,6 +811,109 @@ Do NOT:
     } catch (err) {
       console.error("Portal AI chat error:", err);
       res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
+    }
+  });
+
+  /**
+   * GET /api/portal/reputation
+   * Client-facing reputation report — clean, positive-framed metrics.
+   * No internal noise (errors, queue states, system details).
+   */
+  app.get("/api/portal/reputation", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const allReviews = await storage.listReviews(clientId, { limit: 200 });
+      const requests = await storage.listReviewRequests(clientId, 200);
+
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+      const thirtyDays = 30 * day;
+
+      // Review metrics
+      const recentReviews = allReviews.filter(r => r.review_time && (now - new Date(r.review_time).getTime()) < thirtyDays);
+      const ratings = allReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+      const recentRatings = recentReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+      const avgRating = ratings.length > 0 ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10 : null;
+      const avgRatingRecent = recentRatings.length > 0 ? Math.round((recentRatings.reduce((a, b) => a + b, 0) / recentRatings.length) * 10) / 10 : null;
+
+      // Replies — client-friendly language
+      const repliedCount = allReviews.filter(r => r.reply_status === "auto_replied" || r.reply_status === "manually_replied" || r.has_existing_owner_reply).length;
+      const replyRate = allReviews.length > 0 ? Math.round((repliedCount / allReviews.length) * 100) : null;
+
+      // Requests — client-friendly
+      const sentRequests = requests.filter(r => r.status === "sent" || r.status === "delivered");
+      const attributed = sentRequests.filter(r => r.attributed_review_id);
+      const responseRate = sentRequests.length > 0 ? Math.round((attributed.length / sentRequests.length) * 100) : null;
+
+      // Avg days to review
+      const daysList: number[] = [];
+      for (const req of attributed) {
+        if (req.sent_at) {
+          const matchedReview = allReviews.find(r => r.id === req.attributed_review_id);
+          if (matchedReview?.review_time) {
+            const d = (new Date(matchedReview.review_time).getTime() - new Date(req.sent_at).getTime()) / day;
+            if (d >= 0) daysList.push(d);
+          }
+        }
+      }
+      const avgDays = daysList.length > 0 ? Math.round((daysList.reduce((a, b) => a + b, 0) / daysList.length) * 10) / 10 : null;
+
+      // Weekly trend (last 8 weeks)
+      const weeklyTrend: { week: string; reviews: number }[] = [];
+      for (let i = 7; i >= 0; i--) {
+        const weekStart = now - (i + 1) * 7 * day;
+        const weekEnd = now - i * 7 * day;
+        const count = allReviews.filter(r => r.review_time && new Date(r.review_time).getTime() >= weekStart && new Date(r.review_time).getTime() < weekEnd).length;
+        weeklyTrend.push({ week: new Date(weekStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }), reviews: count });
+      }
+
+      // Latest positive reviews (client-safe subset)
+      const latestPositive = allReviews
+        .filter(r => (r.star_rating || 0) >= 4 && r.review_text)
+        .slice(0, 5)
+        .map(r => ({
+          reviewer: r.reviewer_name || "A customer",
+          rating: r.star_rating,
+          text: (r.review_text || "").slice(0, 150) + ((r.review_text || "").length > 150 ? "..." : ""),
+          date: r.review_time ? new Date(r.review_time).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null,
+          replied: r.reply_status === "auto_replied" || r.reply_status === "manually_replied" || r.has_existing_owner_reply,
+        }));
+
+      // Recent replies we posted
+      const recentReplies = allReviews
+        .filter(r => (r.reply_status === "auto_replied" || r.reply_status === "manually_replied") && r.reply_posted_at)
+        .sort((a, b) => new Date(b.reply_posted_at!).getTime() - new Date(a.reply_posted_at!).getTime())
+        .slice(0, 3)
+        .map(r => ({
+          reviewer: r.reviewer_name || "A customer",
+          rating: r.star_rating,
+          date: r.reply_posted_at ? new Date(r.reply_posted_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null,
+        }));
+
+      res.json({
+        summary: {
+          reviews_this_month: recentReviews.length,
+          total_reviews: allReviews.length,
+          average_rating: avgRating,
+          average_rating_this_month: avgRatingRecent,
+          reply_rate: replyRate,
+        },
+        activity: {
+          reviews_responded_to: repliedCount,
+          review_requests_sent: sentRequests.length,
+          reviews_generated: attributed.length,
+          estimated_response_rate: responseRate,
+          avg_days_to_review: avgDays,
+        },
+        weekly_trend: weeklyTrend,
+        latest_reviews: latestPositive,
+        recent_replies: recentReplies,
+      });
+    } catch (err: any) {
+      console.error("Portal reputation error:", err);
+      res.status(500).json({ error: "Failed to load reputation report" });
     }
   });
 }

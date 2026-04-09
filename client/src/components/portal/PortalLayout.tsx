@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Wrench,
   CreditCard,
+  ShieldCheck,
   Settings,
   HelpCircle,
   ChevronLeft,
@@ -24,6 +25,7 @@ import {
 const NAV_ITEMS = [
   { label: "Overview", href: "/portal", icon: LayoutDashboard },
   { label: "Services", href: "/portal/services", icon: Wrench },
+  { label: "Reputation", href: "/portal/reputation", icon: ShieldCheck },
   { label: "Billing", href: "/portal/billing", icon: CreditCard },
   { label: "Help", href: "/portal/help", icon: HelpCircle },
   { label: "Settings", href: "/portal/settings", icon: Settings },
