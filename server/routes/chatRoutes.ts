@@ -122,6 +122,8 @@ async function parseAssistantRequest(req: Request): Promise<
       auditContext: auditCtx,
       pageContext: surface === "admin" && clientPageCtx ? clientPageCtx : undefined,
       reportId: typeof reportId === "string" ? reportId : undefined,
+      // Admin surface needs more tokens for task summaries and operational detail
+      maxTokens: surface === "admin" ? 1000 : undefined,
     },
   };
 }
@@ -189,6 +191,15 @@ export function registerChatRoutes(app: Express): void {
         return res.status(parsed.status).json({ error: parsed.error });
       }
 
+      // Admin surface is internal-only — require authenticated admin session
+      if (parsed.assistantReq.surface === "admin") {
+        if (!req.isAuthenticated?.() || (req.user as Express.User | undefined)?.role !== "admin") {
+          return res.status(401).json({ error: "Admin access required" });
+        }
+        // Bind userId from authenticated session (not client-supplied) for admin
+        parsed.assistantReq.userId = (req.user as Express.User).id;
+      }
+
       await writeStream(res, parsed.assistantReq);
     } catch (err: any) {
       console.error("[chat] Error:", err?.status || "", err?.message, err?.error?.message || "");
@@ -221,6 +232,14 @@ export function registerChatRoutes(app: Express): void {
       const parsed = await parseAssistantRequest(req);
       if (!parsed.ok) {
         return res.status(parsed.status).json({ error: parsed.error });
+      }
+
+      // Admin surface is internal-only — require authenticated admin session
+      if (parsed.assistantReq.surface === "admin") {
+        if (!req.isAuthenticated?.() || (req.user as Express.User | undefined)?.role !== "admin") {
+          return res.status(401).json({ error: "Admin access required" });
+        }
+        parsed.assistantReq.userId = (req.user as Express.User).id;
       }
 
       const result = await assistantSync(parsed.assistantReq);

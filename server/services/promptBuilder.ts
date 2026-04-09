@@ -40,12 +40,28 @@ export interface PageContext {
   monthlyRevenue?: number;
   totalOpenTasks?: number;
   activeFilters?: string;
-  topTasks?: Array<{ title: string; status: string; priority: string; waiting_on?: string | null; handled_by?: string | null; automation_status?: string | null; next_action?: string | null }>;
+  topTasks?: Array<{
+    title: string;
+    status: string;
+    priority: string;
+    client_name?: string | null;
+    waiting_on?: string | null;
+    handled_by?: string | null;
+    automation_status?: string | null;
+    next_action?: string | null;
+  }>;
   latestPayment?: { status: string; amount_cents: number; date: string | null };
   supplierNames?: string[];
   blockedCount?: number;
   statusCounts?: Record<string, number>;
   waitingOnCounts?: Record<string, number>;
+  // Overview enrichment
+  pendingOnboardingCount?: number;
+  // Client detail enrichment
+  tradeType?: string;
+  serviceNames?: string[];
+  onboardingStatus?: string;
+  pinnedNotes?: Array<{ content: string; actor_type: string }>;
 }
 
 export interface MemoryContext {
@@ -187,62 +203,78 @@ GOAL:
 function buildAdminPrompt(ctx: PageContext, memory?: MemoryContext): string {
   const parts: string[] = [];
 
-  parts.push(`You are an internal operations copilot for WeFixTrades — a company that sells digital marketing and automation services to trades businesses (plumbers, electricians, roofers, etc).
+  // ── Identity & role ──
+  parts.push(`You are an internal operations copilot for WeFixTrades — a company that delivers digital marketing and automation services to trade businesses (plumbers, electricians, roofers, HVAC, etc).
 
-ROLE:
-- Help the admin operator understand what they're looking at
-- Summarize what needs attention
-- Suggest practical next steps
-- Answer contextual questions about clients, tasks, billing, and operations
+You assist the internal admin operator — NOT customers.
+
+YOUR JOB ON THIS PAGE:
+${buildPageFocus(ctx)}
 
 STRICT RULES:
 - Only reference data explicitly provided in the PAGE CONTEXT below
-- If data is missing or you don't have visibility into something, say so clearly
-- Never pretend to know database state beyond what's provided
+- Every number you state must come directly from PAGE CONTEXT — do not round, estimate, or infer
+- If data is missing, say "I don't have visibility into that from this page" — never invent it
 - Never claim you performed an action — you are read-only
-- Never fabricate client names, amounts, or task details
-- Keep responses concise — 2-4 sentences unless asked for detail
-- Be direct and operationally useful, not chatty`);
+- Never fabricate client names, amounts, task titles, or statuses
+- Never use customer-facing language (no "growth", no "let's improve your presence")
+- Keep responses concise and operational — 2-4 sentences unless detail is asked for
+- When asked to draft a reply or note, clearly label it as a draft and keep it factual`);
 
-  // Page context
+  // ── Page context ──
   const lines: string[] = [`\n=== PAGE CONTEXT ===`, `Current page: ${ctx.page}`, `Route: ${ctx.route}`];
 
-  if (ctx.clientName) lines.push(`Client: ${ctx.clientName} (ID: ${ctx.clientId})`);
-  if (ctx.clientStatus) lines.push(`Client status: ${ctx.clientStatus}`);
-  if (ctx.activeServicesCount != null) lines.push(`Active services: ${ctx.activeServicesCount}`);
-  if (ctx.openTasksCount != null) lines.push(`Open tasks: ${ctx.openTasksCount}`);
-  if (ctx.overdueTasksCount != null && ctx.overdueTasksCount > 0) lines.push(`Overdue tasks: ${ctx.overdueTasksCount}`);
-  if (ctx.unpaidAmount != null && ctx.unpaidAmount > 0) lines.push(`Unpaid amount: $${(ctx.unpaidAmount / 100).toFixed(2)}`);
+  // Portfolio / overview fields
   if (ctx.totalClients != null) lines.push(`Total clients: ${ctx.totalClients}`);
   if (ctx.monthlyRevenue != null) lines.push(`Monthly revenue: $${(ctx.monthlyRevenue / 100).toFixed(2)}`);
   if (ctx.totalOpenTasks != null) lines.push(`Total open tasks: ${ctx.totalOpenTasks}`);
+  if (ctx.overdueTasksCount != null && ctx.overdueTasksCount > 0) lines.push(`Overdue tasks: ${ctx.overdueTasksCount}`);
+  if (ctx.blockedCount != null && ctx.blockedCount > 0) lines.push(`Blocked tasks: ${ctx.blockedCount}`);
+  if (ctx.unpaidAmount != null && ctx.unpaidAmount > 0) lines.push(`Unpaid amount: $${(ctx.unpaidAmount / 100).toFixed(2)}`);
+  if (ctx.pendingOnboardingCount != null && ctx.pendingOnboardingCount > 0) lines.push(`Clients in onboarding: ${ctx.pendingOnboardingCount}`);
+
+  // Client detail fields
+  if (ctx.clientName) lines.push(`Client: ${ctx.clientName}${ctx.clientId ? ` (ID: ${ctx.clientId})` : ""}`);
+  if (ctx.clientStatus) lines.push(`Client status: ${ctx.clientStatus}`);
+  if (ctx.tradeType) lines.push(`Trade: ${ctx.tradeType}`);
+  if (ctx.activeServicesCount != null) lines.push(`Active services: ${ctx.activeServicesCount}`);
+  if (ctx.serviceNames?.length) lines.push(`Services: ${ctx.serviceNames.join(", ")}`);
+  if (ctx.openTasksCount != null) lines.push(`Open tasks: ${ctx.openTasksCount}`);
+  if (ctx.onboardingStatus) lines.push(`Onboarding status: ${ctx.onboardingStatus}`);
   if (ctx.activeFilters) lines.push(`Active filter: ${ctx.activeFilters}`);
 
   if (ctx.latestPayment) {
-    lines.push(`Latest payment: ${ctx.latestPayment.status} — $${(ctx.latestPayment.amount_cents / 100).toFixed(2)}${ctx.latestPayment.date ? ` on ${ctx.latestPayment.date}` : ""}`);
+    lines.push(`Latest payment: ${ctx.latestPayment.status} — $${(ctx.latestPayment.amount_cents / 100).toFixed(2)}${ctx.latestPayment.date ? ` on ${new Date(ctx.latestPayment.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}`);
   }
   if (ctx.supplierNames?.length) {
-    lines.push(`Suppliers involved: ${ctx.supplierNames.join(", ")}`);
-  }
-  if (ctx.blockedCount != null && ctx.blockedCount > 0) {
-    lines.push(`Blocked tasks: ${ctx.blockedCount}`);
+    lines.push(`Delivery suppliers: ${ctx.supplierNames.join(", ")}`);
   }
   if (ctx.statusCounts && Object.keys(ctx.statusCounts).length) {
     lines.push(`Tasks by status: ${Object.entries(ctx.statusCounts).map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`).join(", ")}`);
   }
   if (ctx.waitingOnCounts && Object.keys(ctx.waitingOnCounts).length) {
-    lines.push(`Tasks by waiting on: ${Object.entries(ctx.waitingOnCounts).map(([k, v]) => `${k}=${v}`).join(", ")}`);
+    lines.push(`Tasks waiting on: ${Object.entries(ctx.waitingOnCounts).map(([k, v]) => `${k}=${v}`).join(", ")}`);
   }
 
+  // Pinned internal notes (client detail)
+  if (ctx.pinnedNotes?.length) {
+    lines.push(`\nPinned notes (${ctx.pinnedNotes.length}):`);
+    ctx.pinnedNotes.forEach((n, i) => {
+      lines.push(`${i + 1}. [${n.actor_type}] ${n.content.slice(0, 200)}${n.content.length > 200 ? "…" : ""}`);
+    });
+  }
+
+  // Task list
   if (ctx.topTasks?.length) {
-    lines.push(`\nVisible tasks:`);
-    ctx.topTasks.slice(0, 8).forEach((t, i) => {
-      const parts2 = [`"${t.title}" — ${t.status} (${t.priority})`];
-      if (t.handled_by) parts2.push(`handled by ${t.handled_by}`);
-      if (t.waiting_on) parts2.push(`waiting on ${t.waiting_on}`);
-      if (t.automation_status && t.automation_status !== "idle") parts2.push(`automation: ${t.automation_status}`);
-      if (t.next_action) parts2.push(`next: ${t.next_action}`);
-      lines.push(`${i + 1}. ${parts2.join(", ")}`);
+    lines.push(`\nVisible tasks (${ctx.topTasks.length}):`);
+    ctx.topTasks.slice(0, 10).forEach((t, i) => {
+      const detail: string[] = [`"${t.title}" — ${t.status} (${t.priority})`];
+      if (t.client_name) detail.push(`for ${t.client_name}`);
+      if (t.handled_by) detail.push(`handled by ${t.handled_by}`);
+      if (t.waiting_on) detail.push(`waiting on ${t.waiting_on}`);
+      if (t.automation_status && t.automation_status !== "idle") detail.push(`automation: ${t.automation_status}`);
+      if (t.next_action) detail.push(`next: ${t.next_action}`);
+      lines.push(`${i + 1}. ${detail.join(", ")}`);
     });
   }
 
@@ -255,6 +287,54 @@ STRICT RULES:
   }
 
   return parts.join("\n");
+}
+
+/* ─── Page-specific focus text for admin prompt ─── */
+function buildPageFocus(ctx: PageContext): string {
+  switch (ctx.page) {
+    case "overview":
+      return `1. Give the operator a fast portfolio health summary
+2. Flag anything overdue, blocked, or requiring immediate attention
+3. Suggest the highest-priority area to focus on first
+4. Note any onboarding or billing concerns if present`;
+
+    case "client_detail":
+      return `1. Summarize this specific client's current state (status, services, tasks, payments)
+2. Flag any blocked, overdue, or risky items for this client
+3. Assess overall client health and highlight the most urgent next step
+4. Use pinned notes for additional context if present`;
+
+    case "inbox":
+      return `1. Prioritize the task queue — what is most urgent right now?
+2. Identify all blocked items and what is needed to unblock them
+3. Surface tasks that are waiting on client or supplier
+4. Suggest a focused work order for the operator`;
+
+    case "billing":
+      return `1. Summarize outstanding payment state
+2. Flag overdue or failing payments
+3. Identify which clients have the largest unpaid balances
+4. Suggest follow-up actions on overdue items`;
+
+    case "suppliers":
+      return `1. Summarize the supplier landscape
+2. Flag any delivery concerns visible in current context
+3. Note which suppliers are handling active tasks`;
+
+    case "services":
+      return `1. Summarize the service catalog
+2. Note any configuration or delivery concerns if visible`;
+
+    case "clients":
+      return `1. Summarize the client list state
+2. Flag any status patterns that need attention (e.g. multiple onboarding clients, churned clients)
+3. Identify who needs follow-up`;
+
+    default:
+      return `1. Summarize what is visible on this page
+2. Flag anything that needs attention
+3. Suggest sensible next steps`;
+  }
 }
 
 /* ─── Audit surface builder ─── */

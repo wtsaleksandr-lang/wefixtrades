@@ -19,24 +19,40 @@ export interface AdminPageContext {
   monthlyRevenue?: number;
   totalOpenTasks?: number;
   activeFilters?: string;
-  topTasks?: Array<{ title: string; status: string; priority: string; waiting_on?: string | null; handled_by?: string | null; automation_status?: string | null; next_action?: string | null }>;
+  topTasks?: Array<{
+    title: string;
+    status: string;
+    priority: string;
+    client_name?: string | null;
+    waiting_on?: string | null;
+    handled_by?: string | null;
+    automation_status?: string | null;
+    next_action?: string | null;
+  }>;
   latestPayment?: { status: string; amount_cents: number; date: string | null };
   supplierNames?: string[];
   blockedCount?: number;
   statusCounts?: Record<string, number>;
   waitingOnCounts?: Record<string, number>;
+  // Overview enrichment
+  pendingOnboardingCount?: number;
+  // Client detail enrichment
+  tradeType?: string;
+  serviceNames?: string[];
+  onboardingStatus?: string;
+  pinnedNotes?: Array<{ content: string; actor_type: string }>;
 }
 
 /* ─── Suggested prompts per page ─── */
 const PROMPT_CHIPS: Record<string, string[]> = {
   overview: [
     "What should I focus on first?",
-    "Summarize this page",
     "What needs attention?",
+    "Summarize this page",
   ],
   clients: [
-    "Summarize this page",
     "Who needs follow-up?",
+    "Summarize this page",
     "What am I missing?",
   ],
   client_detail: [
@@ -44,6 +60,7 @@ const PROMPT_CHIPS: Record<string, string[]> = {
     "What should happen next?",
     "What is blocked?",
     "Is this client healthy?",
+    "Draft a reply for this client",
   ],
   inbox: [
     "What should I focus on first?",
@@ -51,9 +68,18 @@ const PROMPT_CHIPS: Record<string, string[]> = {
     "What am I waiting on?",
     "Summarize the queue",
   ],
+  billing: [
+    "What is outstanding right now?",
+    "Who owes money?",
+    "Summarize billing health",
+  ],
   suppliers: [
     "Summarize this page",
     "What should I know?",
+  ],
+  services: [
+    "Summarize the service catalog",
+    "What services are most used?",
   ],
 };
 
@@ -312,8 +338,8 @@ export default function AdminCopilot({
         </form>
       </div>
 
-      {/* Context preview (collapsible, for testing) */}
-      <ContextPreview context={pageContext} />
+      {/* Context preview — dev only, never visible in production */}
+      {import.meta.env.DEV && <ContextPreview context={pageContext} />}
     </div>
   );
 }
