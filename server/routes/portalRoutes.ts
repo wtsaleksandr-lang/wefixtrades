@@ -18,6 +18,7 @@ import {
   deploymentStatus,
   supportTickets,
   passwordResetTokens,
+  mapguardSnapshots,
 } from "@shared/schema";
 
 /* ─── Helpers ─── */
@@ -810,6 +811,112 @@ Do NOT:
     } catch (err) {
       console.error("Portal AI chat error:", err);
       res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
+    }
+  });
+
+  /**
+   * GET /api/portal/mapguard
+   * Client-safe MapGuard dashboard data.
+   * Returns snapshots, health, and trend data — no tasks, alerts, or supplier info.
+   */
+  app.get("/api/portal/mapguard", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      // Check if client has active MapGuard service
+      const [mgService] = await db.select({ id: clientServices.id, status: clientServices.status })
+        .from(clientServices)
+        .innerJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
+        .where(and(
+          eq(clientServices.client_id, clientId),
+          sql`${serviceCatalog.id} LIKE 'mapguard%'`,
+          sql`${clientServices.status} IN ('active', 'onboarding')`,
+        ))
+        .limit(1);
+
+      if (!mgService) {
+        return res.json({ active: false, snapshots: [], health: null });
+      }
+
+      // Get last 12 snapshots (newest first)
+      const snapshots = await db.select({
+        id: mapguardSnapshots.id,
+        captured_at: mapguardSnapshots.captured_at,
+        rating: mapguardSnapshots.rating,
+        review_count: mapguardSnapshots.review_count,
+        photo_count: mapguardSnapshots.photo_count,
+        has_website: mapguardSnapshots.has_website,
+        has_description: mapguardSnapshots.has_description,
+        keywords_in_local_pack: mapguardSnapshots.keywords_in_local_pack,
+        keywords_in_top_10: mapguardSnapshots.keywords_in_top_10,
+        score_total: mapguardSnapshots.score_total,
+        score_grade: mapguardSnapshots.score_grade,
+        score_google_maps: mapguardSnapshots.score_google_maps,
+        score_search_visibility: mapguardSnapshots.score_search_visibility,
+        changes: mapguardSnapshots.changes,
+      })
+      .from(mapguardSnapshots)
+      .where(eq(mapguardSnapshots.client_id, clientId))
+      .orderBy(desc(mapguardSnapshots.captured_at))
+      .limit(12);
+
+      const latest = snapshots[0] || null;
+      const previous = snapshots[1] || null;
+
+      // Compute client-safe health status
+      let health: string = "monitoring";
+      if (latest && previous) {
+        const changes = latest.changes as any;
+        const scoreDelta = changes?.score_delta ?? null;
+        if (scoreDelta !== null && scoreDelta > 5) health = "improving";
+        else if (scoreDelta !== null && scoreDelta < -8) health = "needs_attention";
+        else if (scoreDelta !== null && scoreDelta < -3) health = "watch_closely";
+        else health = "healthy";
+      } else if (latest) {
+        health = "healthy";
+      }
+
+      // Build client-safe snapshot data (strip internal fields)
+      const clientSnapshots = snapshots.map(s => ({
+        captured_at: s.captured_at,
+        score: s.score_total,
+        grade: s.score_grade,
+        rating: s.rating,
+        review_count: s.review_count,
+        keywords_in_local_pack: s.keywords_in_local_pack,
+        keywords_in_top_10: s.keywords_in_top_10,
+      }));
+
+      // Compute simple deltas for display
+      const deltas = latest && previous ? {
+        score: (latest.changes as any)?.score_delta ?? null,
+        rating: (latest.changes as any)?.rating_delta ?? null,
+        reviews: (latest.changes as any)?.reviews_delta ?? null,
+        local_pack: (latest.changes as any)?.local_pack_delta ?? null,
+      } : null;
+
+      res.json({
+        active: true,
+        health,
+        last_scan: latest?.captured_at || null,
+        current: latest ? {
+          score: latest.score_total,
+          grade: latest.score_grade,
+          rating: latest.rating,
+          review_count: latest.review_count,
+          photo_count: latest.photo_count,
+          has_website: latest.has_website,
+          has_description: latest.has_description,
+          keywords_in_local_pack: latest.keywords_in_local_pack,
+          keywords_in_top_10: latest.keywords_in_top_10,
+        } : null,
+        deltas,
+        snapshots: clientSnapshots.reverse(), // chronological for charts
+      });
+    } catch (err: any) {
+      console.error("Portal MapGuard error:", err);
+      res.status(500).json({ error: "Failed to load MapGuard data" });
     }
   });
 }
