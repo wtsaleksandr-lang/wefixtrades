@@ -282,11 +282,22 @@ function MiniStat({ label, value, highlight }: { label: string; value: string; h
 
 function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState(1);
+
+  // Accept prefill from audit conversion URL param
+  const prefillData = (() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const raw = params.get("prefill");
+      if (raw) return JSON.parse(decodeURIComponent(raw));
+    } catch {}
+    return null;
+  })();
+
   const [form, setForm] = useState({
-    business_name: "",
-    website_url: "",
-    niche: "",
-    location: "",
+    business_name: prefillData?.business_name || "",
+    website_url: prefillData?.website_url || "",
+    niche: prefillData?.niche || "",
+    location: prefillData?.location || "",
     additional_services: "",
     additional_locations: "",
   });

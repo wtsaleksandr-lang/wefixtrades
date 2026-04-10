@@ -336,6 +336,17 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     setSelected(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   const detectedIssues: string[] = report?.detectedIssues || [];
   const recommendedServices: any[] = report?.recommendedServices || getServicesForIssues(detectedIssues);
+
+  // RankFlow recommendation
+  const [rfRec, setRfRec] = useState<{ recommended_tier: string; reason: string; highlights: string[]; cta_text: string; prefill: any } | null>(null);
+  useEffect(() => {
+    if (reportId) {
+      fetch(`/api/audit/report/${reportId}/rankflow-recommendation`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data) setRfRec(data); })
+        .catch(() => {});
+    }
+  }, [reportId]);
   const totalPrice = selected.reduce((sum, id) => {
     const s = SERVICES.find(sv => sv.id === id);
     return sum + (s?.price || 0);
@@ -1989,6 +2000,53 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           {recommendedServices.length === 0 && (
             <div style={{ textAlign: 'center', padding: '32px 16px', fontSize: 13, color: GREY }}>
               No specific issues detected — your profile looks strong!
+            </div>
+          )}
+
+          {/* RANKFLOW CTA */}
+          {rfRec && (
+            <div style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%)', borderRadius: r16, padding: '24px 20px', marginTop: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <span style={{ fontSize: 18 }}>📈</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: WHITE }}>Keep Improving Every Month</span>
+                <span style={{ padding: '2px 8px', borderRadius: 10, background: 'rgba(255,255,255,0.15)', color: CYAN, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const }}>
+                  {rfRec.recommended_tier}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.6, marginBottom: 16 }}>
+                {rfRec.reason}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, marginBottom: 20 }}>
+                {rfRec.highlights.map((h: string, i: number) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>
+                    <span style={{ color: CYAN, flexShrink: 0 }}>✓</span> {h}
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' as const }}>
+                <a
+                  href={`/portal/rankflow?prefill=${encodeURIComponent(JSON.stringify(rfRec.prefill))}`}
+                  style={{
+                    display: 'inline-block', padding: '12px 24px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+                    background: CYAN, color: DARK, textDecoration: 'none', textAlign: 'center' as const,
+                  }}
+                >
+                  {rfRec.cta_text}
+                </a>
+                <a
+                  href="/products/rankflow"
+                  style={{
+                    display: 'inline-block', padding: '12px 24px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    background: 'transparent', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.2)',
+                    textDecoration: 'none', textAlign: 'center' as const,
+                  }}
+                >
+                  Learn More
+                </a>
+              </div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 12 }}>
+                Done-for-you local SEO. No contracts. Cancel anytime.
+              </div>
             </div>
           )}
 
