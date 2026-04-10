@@ -23,6 +23,7 @@ import { registerPortalRoutes } from "./portalRoutes";
 import { registerAdminSupportRoutes } from "./adminSupportRoutes";
 import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
 import { registerDemoLeadRoutes } from "./demoLeadRoutes";
+import { registerAdminOpsRoutes } from "./adminOpsRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -51,6 +52,7 @@ export async function registerRoutes(
   registerAdminSupportRoutes(app);
   registerMissedCallLeadRoutes(app);
   registerDemoLeadRoutes(app);
+  registerAdminOpsRoutes(app);
 
   return httpServer;
 }

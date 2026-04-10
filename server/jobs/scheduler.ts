@@ -6,6 +6,7 @@ import { processNotificationQueue } from "./notificationWorker";
 import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
+import { runDailyOpsIntelligence } from "./opsIntelligenceJob";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -116,6 +117,17 @@ export function initScheduler() {
     }
   });
 
+  // Background AI Ops Engine — runs daily at 07:00 UTC
+  // Detectors run first (pure SQL), then AI summarizes signals into a snapshot.
+  cron.schedule("0 7 * * *", async () => {
+    console.log("[Scheduler] Running daily ops intelligence...");
+    try {
+      await runJob("ops_daily_intelligence", runDailyOpsIntelligence);
+    } catch (err: any) {
+      console.error("[Scheduler] ops_daily_intelligence cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
   // Chat memory cleanup — runs daily at 3 AM UTC, removes expired 7-day records
   cron.schedule("0 3 * * *", async () => {
     console.log("[Scheduler] Running chat memory cleanup...");
@@ -132,6 +144,7 @@ export function initScheduler() {
   console.log("[Scheduler] Jobs scheduled:");
   console.log("  - Daily aggregation: 02:00 UTC every day");
   console.log("  - Chat memory cleanup: 03:00 UTC every day");
+  console.log("  - Background ops intelligence: 07:00 UTC every day");
   console.log("  - Weekly email report: 13:00 UTC every Monday (~8AM EST)");
   console.log("  - Notification queue worker: every minute");
   console.log("  - Follow-up jobs worker: every minute");
