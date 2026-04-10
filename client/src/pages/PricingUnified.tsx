@@ -320,9 +320,9 @@ const CATEGORY_ORDER = ["leads", "visibility", "reputation", "website"];
 
 /* B: bundle CTA labels */
 const BUNDLE_CTA: Record<string, string> = {
-  "bundle-starter": "Start with Starter",
-  "bundle-growth": "Choose Growth \u2014 Most Popular",
-  "bundle-pro": "Go Pro",
+  "bundle-starter": "Get Visible",
+  "bundle-growth": "Start Growing \u2014 Most Popular",
+  "bundle-pro": "Dominate Your Area",
 };
 
 /* ═══════════════════════════════════════════

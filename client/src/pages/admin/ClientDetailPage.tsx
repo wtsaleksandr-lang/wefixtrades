@@ -652,6 +652,28 @@ export default function ClientDetailPage() {
                 )}
               </div>
             </Card>
+
+            {/* Upsell intelligence */}
+            {services && services.length > 0 && (() => {
+              const activeIds = services.filter(s => s.status === "active" || s.status === "pending").map(s => s.service_id);
+              const hasMapguard = activeIds.some(id => id.startsWith("mapguard-") && id !== "mapguard-setup");
+              const hasReputation = activeIds.some(id => id.startsWith("reputationshield"));
+              const hasSocial = activeIds.some(id => id.startsWith("socialsync"));
+              const gaps: string[] = [];
+              if (!hasMapguard) gaps.push("No visibility management active \u2014 consider MapGuard");
+              if (!hasReputation) gaps.push("No review management active \u2014 consider ReputationShield");
+              if (hasMapguard && !hasReputation) gaps.push("Reviews strengthen Google Maps ranking \u2014 add ReputationShield");
+              if (hasMapguard && !hasSocial) gaps.push("Social activity reinforces visibility \u2014 add SocialSync");
+              if (gaps.length === 0) return null;
+              return (
+                <div className="mt-3 px-3 py-2.5 rounded-lg bg-amber-50/50 border border-amber-200/50">
+                  <p className="text-xs font-medium text-amber-800 mb-1">Missing pieces</p>
+                  {gaps.map(g => (
+                    <p key={g} className="text-[11px] text-amber-700 mt-0.5">{g}</p>
+                  ))}
+                </div>
+              );
+            })()}
           </TabsContent>
 
           {/* ─── Tasks Tab ─── */}

@@ -10,6 +10,7 @@ import WhatWeDoSection from "./WhatWeDoSection";
 import FeaturesGrid from "./FeaturesGrid";
 import HowItWorks from "./HowItWorks";
 import ResultsSection from "./ResultsSection";
+import WorksBestWith from "./WorksBestWith";
 import PricingSection from "./PricingSection";
 import FaqSection from "./FaqSection";
 import FinalCta from "./FinalCta";
@@ -45,6 +46,7 @@ export default function MapGuardPage() {
         <HowItWorks />
         <FeaturesGrid />
         <ResultsSection />
+        <WorksBestWith />
         <PricingSection />
         <FaqSection />
         <FinalCta />

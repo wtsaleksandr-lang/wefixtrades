@@ -535,44 +535,44 @@ export const ALL_PRODUCTS: ProductDef[] = [
    ═══════════════════════════════════════════ */
 export const BUNDLE_STARTER: BundleDef = {
   id: "bundle-starter",
-  name: "Starter System",
-  tagline: "Best for getting started",
+  name: "Visibility Starter",
+  tagline: "Get visible and start building trust",
   price: 249,
   billingPeriod: "monthly",
   includes: [
-    { productId: "quotequick", tierId: "quotequick-pro", label: "QuoteQuick Pro", value: 79 },
-    { productId: "mapguard", tierId: "mapguard-basic", label: "MapGuard Basic", value: 99 },
-    { productId: "reputationshield", tierId: "reputationshield-basic", label: "ReputationShield Basic", value: 79 },
+    { productId: "mapguard", tierId: "mapguard-basic", label: "MapGuard Basic \u2014 Google Maps visibility", value: 99 },
+    { productId: "reputationshield", tierId: "reputationshield-basic", label: "ReputationShield Basic \u2014 Review management", value: 79 },
+    { productId: "quotequick", tierId: "quotequick-pro", label: "QuoteQuick Pro \u2014 Instant quotes", value: 79 },
   ],
 };
 
 export const BUNDLE_GROWTH: BundleDef = {
   id: "bundle-growth",
-  name: "Growth System",
-  tagline: "Most popular",
+  name: "Local Growth",
+  tagline: "Grow your presence, reviews, and activity \u2014 fully managed",
   price: 449,
   billingPeriod: "monthly",
   highlighted: true,
   badge: "Most Popular",
   includes: [
-    { productId: "tradeline", tierId: "tradeline-starter", label: "TradeLine Starter", value: 97 },
-    { productId: "quotequick", tierId: "quotequick-pro", label: "QuoteQuick Pro", value: 79 },
-    { productId: "mapguard", tierId: "mapguard-pro", label: "MapGuard Pro", value: 149 },
-    { productId: "reputationshield", tierId: "reputationshield-pro", label: "ReputationShield Pro", value: 129 },
+    { productId: "mapguard", tierId: "mapguard-pro", label: "MapGuard Pro \u2014 Managed visibility", value: 149 },
+    { productId: "reputationshield", tierId: "reputationshield-pro", label: "ReputationShield Pro \u2014 Review growth", value: 129 },
+    { productId: "tradeline", tierId: "tradeline-starter", label: "TradeLine Starter \u2014 Call answering", value: 97 },
+    { productId: "quotequick", tierId: "quotequick-pro", label: "QuoteQuick Pro \u2014 Instant quotes", value: 79 },
   ],
 };
 
 export const BUNDLE_PRO: BundleDef = {
   id: "bundle-pro",
-  name: "Pro System",
-  tagline: "Full automation system",
+  name: "Dominate Local",
+  tagline: "Maximum visibility, reputation, and activity \u2014 handled for you",
   price: 799,
   billingPeriod: "monthly",
   includes: [
-    { productId: "tradeline", tierId: "tradeline-pro", label: "TradeLine Pro", value: 197 },
-    { productId: "socialsync", tierId: "socialsync-growth", label: "SocialSync Growth", value: 149 },
-    { productId: "mapguard", tierId: "mapguard-pro", label: "MapGuard Pro", value: 149 },
-    { productId: "reputationshield", tierId: "reputationshield-pro", label: "ReputationShield Pro", value: 129 },
+    { productId: "mapguard", tierId: "mapguard-pro", label: "MapGuard Pro \u2014 Managed visibility", value: 149 },
+    { productId: "reputationshield", tierId: "reputationshield-pro", label: "ReputationShield Pro \u2014 Review growth", value: 129 },
+    { productId: "socialsync", tierId: "socialsync-growth", label: "SocialSync Growth \u2014 Social presence", value: 149 },
+    { productId: "tradeline", tierId: "tradeline-pro", label: "TradeLine Pro \u2014 AI call answering", value: 197 },
   ],
 };
 
