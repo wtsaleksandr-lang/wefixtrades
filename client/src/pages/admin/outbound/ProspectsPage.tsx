@@ -15,8 +15,11 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle, XCircle, AlertTriangle, Globe, Phone, Mail,
-  Star, Upload, Brain, RefreshCw, ChevronDown, FileText, Zap,
+  Star, Upload, Brain, RefreshCw, ChevronDown, FileText, Zap, HelpCircle,
 } from "lucide-react";
+import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { TemplatePreview } from "@/components/outbound/TemplatePreview";
 
 /* ─── Types ─── */
@@ -370,8 +373,30 @@ export default function ProspectsPage() {
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Business</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Contact</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Trade / City</th>
-                  <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500">Score</th>
-                  <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500 hidden lg:table-cell">Priority</th>
+                  <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-0.5 cursor-default">
+                          Score <HelpCircle className="w-3 h-3 text-gray-400" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[220px] text-xs">
+                        AI quality score (0–100). Run AI Enrich to populate. Higher = better fit for outreach.
+                      </TooltipContent>
+                    </Tooltip>
+                  </th>
+                  <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500 hidden lg:table-cell">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-0.5 cursor-default">
+                          Priority <HelpCircle className="w-3 h-3 text-gray-400" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[240px] text-xs">
+                        Priority score (0–100). Computed from website presence, reviews, phone availability, and contact confidence. Higher = push to campaign sooner.
+                      </TooltipContent>
+                    </Tooltip>
+                  </th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Status</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">AI Notes</th>
                   <th className="px-3 py-2.5 text-right text-xs font-medium text-gray-500">Actions</th>
@@ -435,7 +460,7 @@ export default function ProspectsPage() {
                       {e?.ai_notes ? (
                         <p className="text-xs text-gray-500 line-clamp-2">{e.ai_notes}</p>
                       ) : e?.enrichment_source === "heuristic" ? (
-                        <span className="text-xs text-gray-400 italic">Heuristic only</span>
+                        <span className="text-xs text-gray-400">No AI yet · run AI Enrich ↑</span>
                       ) : (
                         <span className="text-xs text-gray-400">—</span>
                       )}

@@ -12,7 +12,10 @@ import {
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Globe, Phone, Mail, Star, ChevronRight } from "lucide-react";
+import { Globe, Phone, Mail, Star, ChevronRight, HelpCircle } from "lucide-react";
+import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 /* ─── Types ─── */
 interface Opportunity {
@@ -160,25 +163,31 @@ function OpportunityCard({
       </div>
       <p className="text-xs text-gray-400 capitalize">{p?.trade_category} · {[p?.city, p?.state].filter(Boolean).join(", ")}</p>
 
-      <div className="mt-1.5 space-y-0.5">
-        {p?.primary_email && (
-          <p className="text-xs text-gray-500 truncate flex items-center gap-1"><Mail className="w-3 h-3 shrink-0" />{p.primary_email}</p>
-        )}
-        {p?.primary_phone && (
-          <p className="text-xs text-gray-500 flex items-center gap-1"><Phone className="w-3 h-3 shrink-0" />{p.primary_phone}</p>
-        )}
-        {p?.website_domain && (
-          <a
-            href={`https://${p.website_domain}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-500 hover:underline flex items-center gap-1"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Globe className="w-3 h-3 shrink-0" />{p.website_domain}
-          </a>
-        )}
-      </div>
+      {(p?.primary_email || p?.primary_phone || p?.website_domain) && (
+        <div className="mt-1.5 flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs text-gray-500">
+          {p?.primary_email && (
+            <span className="flex items-center gap-0.5 truncate max-w-[140px]">
+              <Mail className="w-3 h-3 shrink-0" />{p.primary_email}
+            </span>
+          )}
+          {p?.primary_phone && (
+            <span className="flex items-center gap-0.5">
+              <Phone className="w-3 h-3 shrink-0" />{p.primary_phone}
+            </span>
+          )}
+          {p?.website_domain && (
+            <a
+              href={`https://${p.website_domain}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-0.5 text-blue-500 hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Globe className="w-3 h-3 shrink-0" />{p.website_domain}
+            </a>
+          )}
+        </div>
+      )}
 
       {e?.ai_notes && (
         <p className="mt-2 text-xs text-gray-400 italic line-clamp-2">{e.ai_notes}</p>
@@ -252,7 +261,19 @@ export default function PipelinePage() {
               return (
                 <div key={stage.key} className={`rounded-lg border-t-4 ${stage.color} p-3 flex flex-col gap-2`}>
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{stage.label}</h3>
+                    <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide flex items-center gap-0.5">
+                      {stage.label}
+                      {stage.key === "positive_reply" && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="w-3 h-3 text-gray-400 cursor-default shrink-0" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[240px] text-xs">
+                            Created automatically when a prospect replies to an outreach email and the reply is classified as positive or neutral.
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </h3>
                     <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${stage.badge}`}>{rows.length}</span>
                   </div>
                   <div className="flex-1 space-y-2 overflow-y-auto max-h-[600px]">
