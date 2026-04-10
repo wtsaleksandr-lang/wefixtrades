@@ -238,119 +238,117 @@ function VoiceAndStyleCard({
       </button>
 
       {expanded && (
-        <div className="px-5 pb-5 space-y-5 border-t border-gray-100 pt-4">
+        <div className="px-5 pb-4 space-y-3.5 border-t border-gray-100 pt-3">
           {/* Voice preset */}
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-2 block">Voice</label>
-            <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs font-medium text-gray-700 mb-1.5 block">Voice</label>
+            <div className="grid grid-cols-2 gap-1.5">
               {VOICE_PRESETS.map((v) => (
                 <button
                   key={v.id}
                   type="button"
                   onClick={() => setVoicePresetId(v.id)}
-                  className={`text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
+                  className={`text-left px-2.5 py-2 rounded-lg border text-sm transition-colors ${
                     voicePresetId === v.id
                       ? "border-teal-500 bg-teal-50 text-teal-900"
                       : "border-gray-200 hover:border-gray-300 text-gray-700"
                   }`}
                 >
-                  <span className="font-medium block">{v.label}</span>
-                  <span className="text-[11px] text-gray-500">{v.desc}</span>
+                  <span className="font-medium">{v.label}</span>
+                  <span className="text-[11px] text-gray-400 ml-1">{v.desc}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Tone */}
-          <div>
-            <label className="text-xs font-medium text-gray-700 mb-2 block">Tone</label>
-            <div className="flex gap-2">
-              {TONE_OPTIONS.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => setTone(t.value)}
-                  className={`flex-1 text-center px-3 py-2 rounded-lg border text-sm transition-colors ${
-                    tone === t.value
-                      ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
-                      : "border-gray-200 hover:border-gray-300 text-gray-600"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-gray-400 mt-1">{TONE_OPTIONS.find(t => t.value === tone)?.desc}</p>
-          </div>
-
-          {/* Language */}
-          <div>
-            <label className="text-xs font-medium text-gray-700 mb-2 block">Language</label>
-            <div className="flex gap-2">
-              {LANGUAGE_OPTIONS.map((l) => (
-                <button
-                  key={l.value}
-                  type="button"
-                  onClick={() => setLanguage(l.value)}
-                  className={`px-3 py-1.5 rounded-lg border text-sm transition-colors ${
-                    language === l.value
-                      ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
-                      : "border-gray-200 hover:border-gray-300 text-gray-600"
-                  }`}
-                >
-                  {l.label}
-                </button>
-              ))}
-            </div>
-            {language !== "en" && (
-              <p className="text-[11px] text-amber-600 mt-1">The assistant will try to respond in {LANGUAGE_OPTIONS.find(l => l.value === language)?.label}. English callers will still get English responses.</p>
-            )}
-          </div>
-
-          {/* Humor toggle */}
-          <div className="flex items-center justify-between">
+          {/* Tone + Language (side by side) */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-700">Light humor</label>
-              <p className="text-[11px] text-gray-400">Subtle warmth in responses — nothing goofy</p>
+              <label className="text-xs font-medium text-gray-700 mb-1.5 block">Tone</label>
+              <div className="flex gap-1">
+                {TONE_OPTIONS.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setTone(t.value)}
+                    className={`flex-1 text-center px-2 py-1.5 rounded-lg border text-xs transition-colors ${
+                      tone === t.value
+                        ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
+                        : "border-gray-200 hover:border-gray-300 text-gray-600"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <Switch
-              checked={humor === "light"}
-              onCheckedChange={(v) => setHumor(v ? "light" : "off")}
-            />
+            <div>
+              <label className="text-xs font-medium text-gray-700 mb-1.5 block">Language</label>
+              <div className="flex gap-1">
+                {LANGUAGE_OPTIONS.map((l) => (
+                  <button
+                    key={l.value}
+                    type="button"
+                    onClick={() => setLanguage(l.value)}
+                    className={`px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${
+                      language === l.value
+                        ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
+                        : "border-gray-200 hover:border-gray-300 text-gray-600"
+                    }`}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
+          {language !== "en" && (
+            <p className="text-[11px] text-amber-600 -mt-2">Responds in {LANGUAGE_OPTIONS.find(l => l.value === language)?.label} when possible. English callers still get English.</p>
+          )}
 
-          {/* Widget style */}
-          <div>
-            <label className="text-xs font-medium text-gray-700 mb-2 block">Chat Widget Style</label>
-            <div className="flex gap-2">
-              {WIDGET_PRESETS.map((w) => (
-                <button
-                  key={w.value}
-                  type="button"
-                  onClick={() => setWidgetPreset(w.value)}
-                  className={`flex-1 text-center px-3 py-2 rounded-lg border text-sm transition-colors ${
-                    widgetPreset === w.value
-                      ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
-                      : "border-gray-200 hover:border-gray-300 text-gray-600"
-                  }`}
-                >
-                  {w.label}
-                </button>
-              ))}
+          {/* Humor + Widget style (side by side) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs font-medium text-gray-700">Light humor</label>
+                <p className="text-[10px] text-gray-400">Subtle warmth only</p>
+              </div>
+              <Switch
+                checked={humor === "light"}
+                onCheckedChange={(v) => setHumor(v ? "light" : "off")}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 mb-1.5 block">Widget Style</label>
+              <div className="flex gap-1">
+                {WIDGET_PRESETS.map((w) => (
+                  <button
+                    key={w.value}
+                    type="button"
+                    onClick={() => setWidgetPreset(w.value)}
+                    className={`flex-1 text-center px-2 py-1.5 rounded-lg border text-xs transition-colors ${
+                      widgetPreset === w.value
+                        ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
+                        : "border-gray-200 hover:border-gray-300 text-gray-600"
+                    }`}
+                  >
+                    {w.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* Bubble label */}
-          <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Widget Bubble Text</label>
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-medium text-gray-700 whitespace-nowrap">Bubble text</label>
             <Input
               value={bubbleLabel}
               onChange={(e) => setBubbleLabel(e.target.value)}
               placeholder="Need help? Ask us"
-              className="h-8 text-sm"
+              className="h-7 text-xs flex-1"
               maxLength={40}
             />
-            <p className="text-[11px] text-gray-400 mt-1">Shown on the chat bubble on your website</p>
           </div>
 
           {/* Save */}

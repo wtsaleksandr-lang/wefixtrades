@@ -19,8 +19,9 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard, Copy, ExternalLink, ClipboardCheck, UserPlus, ShieldCheck,
-  PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Loader2, Save, AlertCircle, CheckCircle2,
+  PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Loader2, Save, AlertCircle, CheckCircle2, HelpCircle,
 } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TaskCard, ClientTasksEmptyState, isOverdue, type TaskItem } from "@/components/admin/TaskCard";
@@ -1196,7 +1197,10 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                   />
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Variant</p>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1 flex items-center gap-1">
+                    Variant
+                    <Tooltip><TooltipTrigger asChild><HelpCircle className="w-3 h-3 text-gray-300 cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[200px] text-xs">Call Backup = voice only. Chat = website widget only. Complete = voice + chat + hosted page.</TooltipContent></Tooltip>
+                  </p>
                   <p className="text-sm text-gray-900 capitalize">{(cfg.variant || "").replace(/_/g, " ")}</p>
                 </div>
                 <div>
@@ -1269,8 +1273,9 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                         <CheckCircle2 className="w-3 h-3" /> Built
                       </span>
                       {(cfg.assistant?.templateId) && (
-                        <p className="text-xs text-gray-500 mt-0.5 capitalize">
+                        <p className="text-xs text-gray-500 mt-0.5 capitalize flex items-center gap-1">
                           Template: {cfg.assistant.templateId}
+                          <Tooltip><TooltipTrigger asChild><HelpCircle className="w-3 h-3 text-gray-300 cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[220px] text-xs">Trade-specific prompt template used to generate the AI assistant. Selected automatically based on the client's trade type.</TooltipContent></Tooltip>
                         </p>
                       )}
                       {data.assistantBuiltAt && (
@@ -1308,7 +1313,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
               {data.usage && (
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Current Period Usage</p>
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="bg-gray-50 rounded-lg p-3">
                       <p className="text-xs text-gray-500">Calls</p>
                       <p className="text-lg font-semibold">{data.usage.calls_count}</p>
@@ -1325,7 +1330,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                       <p className="text-lg font-semibold">{data.usage.sms_count}</p>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500">Overage</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1">Overage <Tooltip><TooltipTrigger asChild><HelpCircle className="w-3 h-3 text-gray-300 cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[180px] text-xs">Voice minutes over the included amount. Billed at the overage rate.</TooltipContent></Tooltip></p>
                       <p className={`text-lg font-semibold ${data.usage.overage_minutes > 0 ? "text-amber-600" : ""}`}>
                         {data.usage.overage_minutes}
                       </p>
@@ -1337,35 +1342,25 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
               {/* Profitability */}
               {data.profitability && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Profitability (Current Period)</p>
-                  <div className="border border-gray-100 rounded-lg p-3 space-y-2">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1.5">Profitability</p>
+                  <div className="border border-gray-100 rounded-lg p-2.5 space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-500">Revenue</span>
                       <span className="font-semibold">${(data.profitability.revenue / 100).toFixed(2)}</span>
                     </div>
-                    <div className="border-t border-gray-50 pt-2 space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400 pl-2">Voice</span>
-                        <span className="text-gray-600">-${(data.profitability.voiceCost / 100).toFixed(2)}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400 pl-2">SMS</span>
-                        <span className="text-gray-600">-${(data.profitability.smsCost / 100).toFixed(2)}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400 pl-2">AI</span>
-                        <span className="text-gray-600">-${(data.profitability.aiCost / 100).toFixed(2)}</span>
-                      </div>
+                    <div className="flex items-center justify-between text-[11px] text-gray-400">
+                      <span>Voice / SMS / AI</span>
+                      <span>-${(data.profitability.voiceCost / 100).toFixed(2)} / -${(data.profitability.smsCost / 100).toFixed(2)} / -${(data.profitability.aiCost / 100).toFixed(2)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-xs border-t border-gray-100 pt-2">
+                    <div className="flex items-center justify-between text-xs border-t border-gray-100 pt-1">
                       <span className="text-gray-500">Total Cost</span>
                       <span className="font-medium text-gray-700">-${(data.profitability.totalCost / 100).toFixed(2)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-sm border-t border-gray-200 pt-2">
+                    <div className="flex items-center justify-between text-sm border-t border-gray-200 pt-1.5">
                       <span className="font-semibold text-gray-900">Profit</span>
                       <div className="flex items-center gap-2">
                         <span className="font-bold">${(data.profitability.profit / 100).toFixed(2)}</span>
-                        <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
+                        <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${
                           data.profitability.margin > 60 ? "bg-emerald-50 text-emerald-700" :
                           data.profitability.margin >= 30 ? "bg-amber-50 text-amber-700" :
                           "bg-red-50 text-red-700"
