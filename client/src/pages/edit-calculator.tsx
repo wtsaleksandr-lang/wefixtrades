@@ -1,4 +1,4 @@
-// FROZEN — scheduled for rebuild in Phase 3 (Builder Wizard). Do not add features.
+// Edit calculator page — manages business details, branding, pricing, lead form, and deployment.
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

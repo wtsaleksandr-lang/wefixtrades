@@ -204,6 +204,7 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
 
   // Checkout handler
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [billingAnnual, setBillingAnnual] = useState(false);
   const startCheckout = async (plan: 'solo' | 'business') => {
     setCheckoutLoading(plan);
     try {
@@ -214,7 +215,7 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
           calculator_id: calculator.id,
           token,
           plan,
-          billing: 'monthly',
+          billing: billingAnnual ? 'annual' : 'monthly',
         }),
       });
       const data = await res.json();
@@ -262,6 +263,23 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
           <p style={{ fontSize: 13, color: '#B91C1C', margin: '0 0 14px', lineHeight: 1.5 }}>
             Choose a plan to turn it back on instantly. Your leads and settings are still saved.
           </p>
+          {/* Billing toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <button onClick={() => setBillingAnnual(false)} style={{
+              padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: 600,
+              background: !billingAnnual ? '#fff' : 'transparent',
+              color: !billingAnnual ? p.colors.heading : '#9B2C2C',
+              boxShadow: !billingAnnual ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            }}>Monthly</button>
+            <button onClick={() => setBillingAnnual(true)} style={{
+              padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: 600,
+              background: billingAnnual ? '#fff' : 'transparent',
+              color: billingAnnual ? p.colors.heading : '#9B2C2C',
+              boxShadow: billingAnnual ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            }}>Annual <span style={{ fontSize: 10, color: '#059669' }}>Save 20%</span></button>
+          </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button
               onClick={() => startCheckout('solo')}
@@ -272,7 +290,7 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
                 fontSize: 13, fontWeight: 700, opacity: checkoutLoading ? 0.6 : 1,
               }}
             >
-              {checkoutLoading === 'solo' ? 'Redirecting...' : 'Solo — $49/mo'}
+              {checkoutLoading === 'solo' ? 'Redirecting...' : `Solo — $${billingAnnual ? 39 : 49}/mo`}
             </button>
             <button
               onClick={() => startCheckout('business')}
@@ -283,7 +301,7 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
                 fontSize: 13, fontWeight: 700, opacity: checkoutLoading ? 0.6 : 1,
               }}
             >
-              {checkoutLoading === 'business' ? 'Redirecting...' : 'Business — $99/mo'}
+              {checkoutLoading === 'business' ? 'Redirecting...' : `Business — $${billingAnnual ? 79 : 99}/mo`}
             </button>
           </div>
           <p style={{ fontSize: 11, color: '#9B2C2C', margin: '10px 0 0' }}>

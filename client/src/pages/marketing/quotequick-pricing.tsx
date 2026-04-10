@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Link } from "wouter";
 import { Check, ChevronDown, ArrowRight, Zap, Clock, Users, Shield, MessageSquare, X } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, colors } from "@/theme/tokens";
@@ -68,7 +67,43 @@ function ReplaceItem({ icon: Icon, before, after }: { icon: any; before: string;
 
 export default function QuoteQuickPricing() {
   const [annual, setAnnual] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   useEffect(() => { trackEvent('pricing_page_viewed'); }, []);
+
+  // Detect if an existing calculator owner is visiting (via URL params)
+  const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const calcToken = params.get('token');
+  const calcId = params.get('cid');
+  const hasCalc = !!(calcToken && calcId);
+
+  const startCheckout = async (plan: 'solo' | 'business') => {
+    if (!hasCalc) {
+      // New user — go to wizard
+      window.location.href = '/Wizard';
+      return;
+    }
+    setCheckoutLoading(plan);
+    try {
+      const res = await fetch('/api/calculators/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          calculator_id: parseInt(calcId!),
+          token: calcToken,
+          plan,
+          billing: annual ? 'annual' : 'monthly',
+        }),
+      });
+      const data = await res.json();
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        setCheckoutLoading(null);
+      }
+    } catch {
+      setCheckoutLoading(null);
+    }
+  };
 
   const soloPrice = annual ? 39 : 49;
   const bizPrice = annual ? 79 : 99;
@@ -146,19 +181,21 @@ export default function QuoteQuickPricing() {
             {annual && <p style={{ fontSize: 12, color: mkt.accent, margin: "0 0 20px" }}>Billed yearly (${soloPrice * 12}/yr)</p>}
             {!annual && <p style={{ fontSize: 12, color: mkt.textMuted, margin: "0 0 20px" }}>${39}/mo billed annually</p>}
 
-            <Link href="/Wizard">
-              <button style={{
+            <button
+              onClick={() => startCheckout('solo')}
+              disabled={!!checkoutLoading}
+              style={{
                 width: "100%", padding: "14px", borderRadius: 10, border: `1px solid ${mkt.border}`,
                 background: "transparent", color: mkt.text, cursor: "pointer",
                 fontSize: 14, fontWeight: 700, marginBottom: 6, transition: "all 0.15s",
+                opacity: checkoutLoading ? 0.6 : 1,
               }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = mkt.accent; e.currentTarget.style.color = mkt.accent; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = mkt.border as string; e.currentTarget.style.color = mkt.text; }}
-              >
-                Start Free Trial
-              </button>
-            </Link>
-            <p style={{ fontSize: 11, color: mkt.textMuted, textAlign: "center", margin: "0 0 20px" }}>No credit card required</p>
+              onMouseEnter={e => { if (!checkoutLoading) { e.currentTarget.style.borderColor = mkt.accent; e.currentTarget.style.color = mkt.accent; } }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = mkt.border as string; e.currentTarget.style.color = mkt.text; }}
+            >
+              {checkoutLoading === 'solo' ? 'Redirecting...' : hasCalc ? 'Choose Solo' : 'Start Free Trial'}
+            </button>
+            <p style={{ fontSize: 11, color: mkt.textMuted, textAlign: "center", margin: "0 0 20px" }}>{hasCalc ? 'Instant activation' : 'No credit card required'}</p>
 
             <div style={{ borderTop: `1px solid ${mkt.border}`, paddingTop: 16 }}>
               <Feature text="1 instant quote calculator" />
@@ -197,19 +234,21 @@ export default function QuoteQuickPricing() {
             {annual && <p style={{ fontSize: 12, color: mkt.accent, margin: "0 0 20px" }}>Billed yearly (${bizPrice * 12}/yr)</p>}
             {!annual && <p style={{ fontSize: 12, color: mkt.textMuted, margin: "0 0 20px" }}>${79}/mo billed annually</p>}
 
-            <Link href="/Wizard">
-              <button style={{
+            <button
+              onClick={() => startCheckout('business')}
+              disabled={!!checkoutLoading}
+              style={{
                 width: "100%", padding: "14px", borderRadius: 10, border: "none",
                 background: mkt.accent, color: mkt.dark, cursor: "pointer",
                 fontSize: 14, fontWeight: 700, marginBottom: 6, transition: "all 0.15s",
+                opacity: checkoutLoading ? 0.6 : 1,
               }}
-                onMouseEnter={e => { e.currentTarget.style.background = mkt.accentHover; }}
-                onMouseLeave={e => { e.currentTarget.style.background = mkt.accent; }}
-              >
-                Start Free Trial
-              </button>
-            </Link>
-            <p style={{ fontSize: 11, color: mkt.textMuted, textAlign: "center", margin: "0 0 20px" }}>No credit card required</p>
+              onMouseEnter={e => { if (!checkoutLoading) e.currentTarget.style.background = mkt.accentHover; }}
+              onMouseLeave={e => { e.currentTarget.style.background = mkt.accent; }}
+            >
+              {checkoutLoading === 'business' ? 'Redirecting...' : hasCalc ? 'Choose Business' : 'Start Free Trial'}
+            </button>
+            <p style={{ fontSize: 11, color: mkt.textMuted, textAlign: "center", margin: "0 0 20px" }}>{hasCalc ? 'Instant activation' : 'No credit card required'}</p>
 
             <div style={{ borderTop: `1px solid ${mkt.border}`, paddingTop: 16 }}>
               <Feature text="Everything in Solo, plus:" />
@@ -287,19 +326,19 @@ export default function QuoteQuickPricing() {
           <p style={{ fontSize: 14, color: mkt.textMuted, margin: "0 0 20px" }}>
             14 days free. No credit card. Live in 5 minutes.
           </p>
-          <Link href="/Wizard">
-            <button style={{
+          <button
+            onClick={() => hasCalc ? startCheckout('solo') : (window.location.href = '/Wizard')}
+            style={{
               padding: "16px 40px", borderRadius: 12, border: "none",
               background: mkt.accent, color: mkt.dark, cursor: "pointer",
               fontSize: 15, fontWeight: 700, transition: "all 0.15s",
               display: "inline-flex", alignItems: "center", gap: 8,
             }}
-              onMouseEnter={e => { e.currentTarget.style.background = mkt.accentHover; }}
-              onMouseLeave={e => { e.currentTarget.style.background = mkt.accent; }}
-            >
-              Start Free Trial <ArrowRight size={16} />
-            </button>
-          </Link>
+            onMouseEnter={e => { e.currentTarget.style.background = mkt.accentHover; }}
+            onMouseLeave={e => { e.currentTarget.style.background = mkt.accent; }}
+          >
+            {hasCalc ? 'Choose a Plan' : 'Start Free Trial'} <ArrowRight size={16} />
+          </button>
         </div>
       </div>
     </MarketingLayout>

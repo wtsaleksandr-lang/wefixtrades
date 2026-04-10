@@ -22,7 +22,7 @@ import {
   Layers, AlertTriangle, Car, Briefcase, Plus, HelpCircle, X,
   Search, ChevronDown, ExternalLink, Copy, Zap, AlertCircle,
   RotateCcw, Code2, Eye, Upload, Trash2, Image as ImageIcon, ChevronRight,
-  FileText, Shield, Mail, Phone, User, Building2,
+  FileText, Shield, Mail, Phone, User, Building2, Settings2,
   CheckCircle2, TriangleAlert
 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
@@ -1067,6 +1067,25 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 onChange={(newSettings) => set('calculatorSettings', newSettings)}
               />
             </details>
+
+            {/* Quick link to lead form customization */}
+            <button
+              type="button"
+              onClick={() => setStep(3)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                fontSize: '13px', fontWeight: 500, color: p.colors.muted,
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '8px 0', marginTop: '4px',
+                transition: p.transitions.fast,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = p.colors.accent; }}
+              onMouseLeave={e => { e.currentTarget.style.color = p.colors.muted; }}
+            >
+              <Settings2 style={{ width: '13px', height: '13px' }} />
+              Customize lead form fields
+            </button>
+
             {/* Publish directly from preview — no need for separate test step */}
             <div style={{ marginTop: '16px' }}>
               <button
