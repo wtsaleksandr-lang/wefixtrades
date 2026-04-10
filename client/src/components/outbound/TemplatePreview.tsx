@@ -28,6 +28,7 @@ import {
   type MessageType,
 } from "@/lib/outboundTemplates";
 import { renderTemplate, buildMergeFields } from "@/lib/templateMerge";
+import { trackEvent } from "@/lib/trackEvent";
 
 /* ─── Types (mirroring ProspectsPage shapes) ─── */
 
@@ -172,7 +173,7 @@ export function TemplatePreview({ prospect, enrichment, open, onClose, senderNam
 
   const offer = OFFER_TEMPLATES[selectedOffer];
   const angle = offer.angles[selectedAngleIdx];
-  const message = offer.messages[selectedType];
+  const message = angle.messages[selectedType];
 
   const mergeFields = useMemo(() => {
     if (!prospect) return {};
@@ -194,6 +195,12 @@ export function TemplatePreview({ prospect, enrichment, open, onClose, senderNam
       await navigator.clipboard.writeText(copyText);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      trackEvent("template_copied", {
+        offer: selectedOffer,
+        angle: angle.id,
+        message_type: selectedType,
+        prospect_id: prospect.id,
+      });
     } catch {
       toast({ title: "Copy failed", description: "Please select the text manually", variant: "destructive" });
     }

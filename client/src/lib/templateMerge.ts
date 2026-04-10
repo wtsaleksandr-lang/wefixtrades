@@ -11,17 +11,18 @@
  */
 
 export interface MergeFields {
-  business_name?:  string;
-  first_name?:     string;   // derived before calling — first word of owner_name
-  city?:           string;
-  state?:          string;
-  trade?:          string;
-  review_count?:   string;
-  rating?:         string;
-  ai_first_line?:  string;
-  ai_offer_angle?: string;
-  ai_cta_variant?: string;
-  sender_name?:    string;
+  business_name?:         string;
+  first_name?:            string;   // derived before calling — first word of owner_name
+  city?:                  string;
+  state?:                 string;
+  trade?:                 string;
+  review_count?:          string;
+  rating?:                string;
+  ai_first_line?:         string;
+  ai_first_line_callout?: string;   // ai_first_line + "\n\n(so this stood out when I looked you up)"
+  ai_offer_angle?:        string;
+  ai_cta_variant?:        string;
+  sender_name?:           string;
 }
 
 /** Human-readable placeholder shown when a field has no value */
@@ -33,8 +34,9 @@ const FIELD_HINTS: Record<string, string> = {
   trade:          "trade",
   review_count:   "[# reviews]",
   rating:         "[rating]",
-  ai_first_line:  "[personalized opening — run AI enrichment to generate]",
-  ai_offer_angle: "[offer angle]",
+  ai_first_line:         "[personalized opening — run AI enrichment to generate]",
+  ai_first_line_callout: "[personalized observation — run AI enrichment to generate]\n\n(so this stood out when I looked you up)",
+  ai_offer_angle:        "[offer angle]",
   ai_cta_variant: "[CTA — run AI enrichment to generate]",
   sender_name:    "[your name]",
 };
@@ -86,6 +88,9 @@ export function buildMergeFields(
     review_count:   prospect.google_review_count != null ? String(prospect.google_review_count) : undefined,
     rating:         prospect.google_rating ?? undefined,
     ai_first_line:  enrichment?.ai_first_line ?? undefined,
+    ai_first_line_callout: enrichment?.ai_first_line
+      ? `${enrichment.ai_first_line}\n\n(so this stood out when I looked you up)`
+      : undefined,
     ai_offer_angle: enrichment?.ai_offer_angle ?? undefined,
     ai_cta_variant: enrichment?.ai_cta_variant ?? undefined,
     sender_name:    senderName,
