@@ -2310,8 +2310,8 @@ function RSSocialProofSection() {
             </table>
           </div>
 
-          <p style={{ fontSize: 11, color: mkt.textMuted, marginTop: 12, opacity: 0.7 }}>
-            Based on aggregated data from trades businesses using ReputationShield for 90+ days.
+          <p style={{ fontSize: 11, color: mkt.textMuted, marginTop: 8, opacity: 0.7 }}>
+            Example results based on typical usage patterns
           </p>
         </div>
       </section>
