@@ -1,6 +1,9 @@
 import type { Express, Request, Response } from "express";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
+import { db } from "../db";
+import { users } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 const VALID_STATUSES = ["open", "in_progress", "waiting_on_customer", "resolved", "closed"] as const;
@@ -144,8 +147,14 @@ export function registerAdminSupportRoutes(app: Express): void {
         updates.category = category;
       }
 
-      // Assignee change
+      // Assignee change — must be an admin user
       if (assigned_to !== undefined && assigned_to !== ticket.assigned_to) {
+        if (assigned_to !== null) {
+          const [assignee] = await db.select({ id: users.id, role: users.role }).from(users).where(eq(users.id, assigned_to)).limit(1);
+          if (!assignee || assignee.role !== "admin") {
+            return res.status(400).json({ error: "Assignee must be an admin user" });
+          }
+        }
         updates.assigned_to = assigned_to;
         await storage.createTicketEvent({
           ticket_id: ticketId,
@@ -188,7 +197,7 @@ export function registerAdminSupportRoutes(app: Express): void {
 
       const body = z.object({
         message: z.string().min(1, "Message is required"),
-        visibility: z.enum(["customer", "internal"]).default("customer"),
+        visibility: z.enum(["customer", "internal"]),
       }).safeParse(req.body);
 
       if (!body.success) {
@@ -245,6 +254,14 @@ export function registerAdminSupportRoutes(app: Express): void {
       }
 
       const { client_id, subject, description, category, priority, assigned_to } = body.data;
+
+      // Validate assignee is admin
+      if (assigned_to) {
+        const [assignee] = await db.select({ id: users.id, role: users.role }).from(users).where(eq(users.id, assigned_to)).limit(1);
+        if (!assignee || assignee.role !== "admin") {
+          return res.status(400).json({ error: "Assignee must be an admin user" });
+        }
+      }
 
       const ticket = await storage.createSupportTicket({
         client_id,

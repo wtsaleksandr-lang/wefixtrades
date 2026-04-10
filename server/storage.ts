@@ -667,6 +667,27 @@ export class DatabaseStorage implements IStorage {
         resolved_at: supportTickets.resolved_at,
         closed_at: supportTickets.closed_at,
         client_name: clients.business_name,
+        last_message_preview: sql<string | null>`(
+          SELECT substring(${ticketMessages.content} from 1 for 120)
+          FROM ${ticketMessages}
+          WHERE ${ticketMessages.ticket_id} = ${supportTickets.id}
+          ORDER BY ${ticketMessages.created_at} DESC
+          LIMIT 1
+        )`,
+        last_message_at: sql<string | null>`(
+          SELECT ${ticketMessages.created_at}::text
+          FROM ${ticketMessages}
+          WHERE ${ticketMessages.ticket_id} = ${supportTickets.id}
+          ORDER BY ${ticketMessages.created_at} DESC
+          LIMIT 1
+        )`,
+        last_message_author: sql<string | null>`(
+          SELECT ${ticketMessages.author_type}
+          FROM ${ticketMessages}
+          WHERE ${ticketMessages.ticket_id} = ${supportTickets.id}
+          ORDER BY ${ticketMessages.created_at} DESC
+          LIMIT 1
+        )`,
       })
       .from(supportTickets)
       .leftJoin(clients, eq(supportTickets.client_id, clients.id))

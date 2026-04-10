@@ -681,6 +681,31 @@ export function registerPortalRoutes(app: Express) {
           updated_at: supportTickets.updated_at,
           resolved_at: supportTickets.resolved_at,
           closed_at: supportTickets.closed_at,
+          // Last customer-visible message preview (subquery)
+          last_message_preview: sql<string | null>`(
+            SELECT substring(${ticketMessages.content} from 1 for 120)
+            FROM ${ticketMessages}
+            WHERE ${ticketMessages.ticket_id} = ${supportTickets.id}
+              AND ${ticketMessages.visibility} = 'customer'
+            ORDER BY ${ticketMessages.created_at} DESC
+            LIMIT 1
+          )`,
+          last_message_at: sql<string | null>`(
+            SELECT ${ticketMessages.created_at}::text
+            FROM ${ticketMessages}
+            WHERE ${ticketMessages.ticket_id} = ${supportTickets.id}
+              AND ${ticketMessages.visibility} = 'customer'
+            ORDER BY ${ticketMessages.created_at} DESC
+            LIMIT 1
+          )`,
+          last_message_author: sql<string | null>`(
+            SELECT ${ticketMessages.author_type}
+            FROM ${ticketMessages}
+            WHERE ${ticketMessages.ticket_id} = ${supportTickets.id}
+              AND ${ticketMessages.visibility} = 'customer'
+            ORDER BY ${ticketMessages.created_at} DESC
+            LIMIT 1
+          )`,
         })
         .from(supportTickets)
         .where(eq(supportTickets.client_id, clientId))
