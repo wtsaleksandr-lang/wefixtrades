@@ -24,6 +24,7 @@ import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
 import { registerDemoLeadRoutes } from "./demoLeadRoutes";
 import { registerSocialSyncRoutes } from "./socialSyncRoutes";
 import { registerReputationRoutes } from "./reputationRoutes";
+import { registerSalesRoutes } from "./salesRoutes";
 import { registerMediaRoute } from "../services/socialSync/mediaService";
 
 export async function registerRoutes(
@@ -54,6 +55,7 @@ export async function registerRoutes(
   registerDemoLeadRoutes(app);
   registerSocialSyncRoutes(app);
   registerReputationRoutes(app);
+  registerSalesRoutes(app);
   registerMediaRoute(app);
 
   return httpServer;

@@ -60,6 +60,9 @@ import {
   // Service Costs
   serviceCostLogs,
   type ServiceCostLog, type InsertServiceCostLog,
+  // Sales Leads
+  salesLeads,
+  type SalesLead, type InsertSalesLead,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -263,6 +266,12 @@ export interface IStorage {
   // ─── Service Costs ───
   logServiceCost(data: InsertServiceCostLog): Promise<ServiceCostLog>;
   getServiceCosts(clientId: number, sinceDaysAgo?: number): Promise<ServiceCostLog[]>;
+
+  // ─── Sales Leads ───
+  createSalesLead(data: InsertSalesLead): Promise<SalesLead>;
+  listSalesLeads(status?: string): Promise<SalesLead[]>;
+  updateSalesLead(id: number, updates: Partial<InsertSalesLead>): Promise<SalesLead | undefined>;
+  getSalesLeadById(id: number): Promise<SalesLead | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1636,6 +1645,30 @@ export class DatabaseStorage implements IStorage {
         gte(serviceCostLogs.created_at, since),
       ))
       .orderBy(desc(serviceCostLogs.created_at));
+  }
+
+  // ─── Sales Leads ───
+
+  async createSalesLead(data: InsertSalesLead): Promise<SalesLead> {
+    const [row] = await db.insert(salesLeads).values(data).returning();
+    return row;
+  }
+
+  async listSalesLeads(status?: string): Promise<SalesLead[]> {
+    const conditions = [];
+    if (status) conditions.push(eq(salesLeads.status, status));
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(salesLeads).where(where).orderBy(desc(salesLeads.updated_at));
+  }
+
+  async updateSalesLead(id: number, updates: Partial<InsertSalesLead>): Promise<SalesLead | undefined> {
+    const [row] = await db.update(salesLeads).set({ ...updates, updated_at: new Date() }).where(eq(salesLeads.id, id)).returning();
+    return row;
+  }
+
+  async getSalesLeadById(id: number): Promise<SalesLead | undefined> {
+    const [row] = await db.select().from(salesLeads).where(eq(salesLeads.id, id)).limit(1);
+    return row;
   }
 }
 

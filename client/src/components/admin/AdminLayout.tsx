@@ -15,6 +15,7 @@ import {
   Sparkles,
   Wrench,
   Share2,
+  Target,
   User,
   Settings,
   KeyRound,
@@ -52,6 +53,7 @@ const NAV_ITEMS = [
   { label: "Suppliers", href: "/admin/crm/suppliers", icon: Factory },
   { label: "Services", href: "/admin/crm/services", icon: Wrench },
   { label: "SocialSync", href: "/admin/crm/socialsync", icon: Share2 },
+  { label: "Sales", href: "/admin/crm/sales", icon: Target },
 ];
 
 const SECONDARY_ITEMS = [
