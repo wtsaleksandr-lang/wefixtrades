@@ -7,6 +7,7 @@ import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
 import { processMapguardScans } from "./mapguardScanWorker";
+import { processMapguardReports } from "./mapguardReportWorker";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -140,11 +141,22 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  // MapGuard monthly reports — 2nd of each month at 10 AM UTC
+  cron.schedule("0 10 2 * *", async () => {
+    console.log("[Scheduler] Running MapGuard monthly reports...");
+    try {
+      await runJob("mapguard_monthly_reports", processMapguardReports);
+    } catch (err: any) {
+      console.error("[Scheduler] mapguard_monthly_reports cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
   console.log("[Scheduler] Jobs scheduled:");
   console.log("  - Daily aggregation: 02:00 UTC every day");
   console.log("  - Chat memory cleanup: 03:00 UTC every day");
   console.log("  - Weekly email report: 13:00 UTC every Monday (~8AM EST)");
   console.log("  - MapGuard weekly scan: 04:00 UTC every Tuesday");
+  console.log("  - MapGuard monthly reports: 10:00 UTC on the 2nd of each month");
   console.log("  - Notification queue worker: every minute");
   console.log("  - Follow-up jobs worker: every minute");
   console.log("  - Audit follow-up worker: every minute");

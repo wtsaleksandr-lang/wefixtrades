@@ -37,6 +37,7 @@ import {
   getMapguardPortfolioDashboard,
 } from "../services/mapguardMonitor";
 import { getRecentAlerts, dismissAlert } from "../services/mapguardAlerts";
+import { compileMonthlyReport, sendMonthlyReportEmail, sendAllMonthlyReports } from "../services/mapguardReports";
 
 export function registerMapguardRoutes(app: Express) {
 
@@ -394,6 +395,55 @@ export function registerMapguardRoutes(app: Express) {
     } catch (err: any) {
       console.error("[mapguard] dashboard error:", err);
       res.status(500).json({ error: "Failed to load dashboard" });
+    }
+  });
+
+  /* ═══ REPORT ENDPOINTS ═══ */
+
+  /* ─── Get compiled monthly report data ─── */
+  app.get("/api/mapguard/clients/:clientId/report/:year/:month", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      const year = parseInt(req.params.year as string);
+      const month = parseInt(req.params.month as string);
+      if (isNaN(clientId) || isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+        return res.status(400).json({ error: "Invalid parameters" });
+      }
+      const report = await compileMonthlyReport(clientId, year, month);
+      if (!report) return res.status(404).json({ error: "No report data available" });
+      res.json(report);
+    } catch (err: any) {
+      console.error("[mapguard] report compile error:", err);
+      res.status(500).json({ error: "Failed to compile report" });
+    }
+  });
+
+  /* ─── Send monthly report email to a client ─── */
+  app.post("/api/mapguard/clients/:clientId/report/:year/:month/send", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      const year = parseInt(req.params.year as string);
+      const month = parseInt(req.params.month as string);
+      const { email } = req.body;
+      if (isNaN(clientId) || isNaN(year) || isNaN(month) || !email) {
+        return res.status(400).json({ error: "Invalid parameters or missing email" });
+      }
+      const result = await sendMonthlyReportEmail(clientId, email, year, month);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[mapguard] report send error:", err);
+      res.status(500).json({ error: "Failed to send report" });
+    }
+  });
+
+  /* ─── Trigger batch monthly reports ─── */
+  app.post("/api/mapguard/reports/send-all", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const result = await sendAllMonthlyReports();
+      res.json(result);
+    } catch (err: any) {
+      console.error("[mapguard] batch report error:", err);
+      res.status(500).json({ error: "Failed to send reports" });
     }
   });
 

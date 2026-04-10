@@ -21,6 +21,7 @@ import {
   mapguardSnapshots,
   mapguardTasks,
 } from "@shared/schema";
+import { compileMonthlyReport } from "../services/mapguardReports";
 
 /* ─── Helpers ─── */
 
@@ -957,6 +958,50 @@ Do NOT:
     } catch (err: any) {
       console.error("Portal MapGuard error:", err);
       res.status(500).json({ error: "Failed to load MapGuard data" });
+    }
+  });
+
+  /**
+   * GET /api/portal/mapguard/report/:year/:month
+   * Client-safe monthly report data.
+   */
+  app.get("/api/portal/mapguard/report/:year/:month", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const year = parseInt(req.params.year as string);
+      const month = parseInt(req.params.month as string);
+      if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+        return res.status(400).json({ error: "Invalid date parameters" });
+      }
+
+      const report = await compileMonthlyReport(clientId, year, month);
+      if (!report) return res.status(404).json({ error: "No report data for this month" });
+
+      // Return client-safe subset (strip internal counts)
+      res.json({
+        month_label: report.month_label,
+        business_name: report.business_name,
+        score_end: report.score_end,
+        score_delta: report.score_delta,
+        grade_end: report.grade_end,
+        rating_end: report.rating_end,
+        rating_delta: report.rating_delta,
+        reviews_end: report.reviews_end,
+        reviews_gained: report.reviews_gained,
+        local_pack_end: report.local_pack_end,
+        scans_this_month: report.scans_this_month,
+        has_website: report.has_website,
+        has_description: report.has_description,
+        photo_count: report.photo_count,
+        completed_actions: report.completed_actions,
+        active_work: report.active_work,
+        movement: report.movement,
+      });
+    } catch (err: any) {
+      console.error("Portal MapGuard report error:", err);
+      res.status(500).json({ error: "Failed to load report" });
     }
   });
 }
