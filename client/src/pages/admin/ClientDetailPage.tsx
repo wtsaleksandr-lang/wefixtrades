@@ -585,17 +585,46 @@ export default function ClientDetailPage() {
                           <TableCell className="text-xs text-gray-500 capitalize">{s.fulfillment_mode || "-"}</TableCell>
                           <TableCell className="text-sm">{fmt(s.price_cents)}{s.billing_period === "monthly" ? "/mo" : ""}</TableCell>
                           <TableCell className="text-sm">
-                            <input
-                              type="number"
-                              className="w-20 h-7 px-2 text-xs border border-gray-200 rounded text-right focus:outline-none focus:ring-1 focus:ring-blue-300"
-                              defaultValue={s.cost_cents ? (s.cost_cents / 100).toFixed(0) : ""}
-                              placeholder="0"
-                              onBlur={(e) => {
-                                const val = Math.round(parseFloat(e.target.value || "0") * 100);
-                                if (val !== (s.cost_cents ?? 0)) updateServiceCost.mutate({ id: s.id, cost_cents: val });
-                              }}
-                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                            />
+                            <div className="flex items-center gap-1">
+                              <input
+                                id={`cost-input-${s.id}`}
+                                type="number"
+                                className="w-20 h-7 px-2 text-xs border border-gray-200 rounded text-right focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                defaultValue={s.cost_cents ? (s.cost_cents / 100).toFixed(0) : ""}
+                                placeholder="0"
+                                onBlur={(e) => {
+                                  const val = Math.round(parseFloat(e.target.value || "0") * 100);
+                                  if (val !== (s.cost_cents ?? 0)) updateServiceCost.mutate({ id: s.id, cost_cents: val });
+                                }}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                              />
+                              {s.service_id.startsWith("reputationshield") && (
+                                <button
+                                  className="text-[10px] text-blue-500 hover:underline whitespace-nowrap"
+                                  title="Estimate cost from usage data"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const res = await fetch(`/api/admin/crm/client-services/${s.id}/cost-suggestion`, { credentials: "include" });
+                                      if (!res.ok) return;
+                                      const data = await res.json();
+                                      const input = document.getElementById(`cost-input-${s.id}`) as HTMLInputElement;
+                                      if (input && data.totalEstimateCents > 0) {
+                                        input.value = (data.totalEstimateCents / 100).toFixed(0);
+                                        toast({
+                                          title: `Suggested: $${(data.totalEstimateCents / 100).toFixed(2)}/mo`,
+                                          description: data.costs.map((c: any) => `${c.label}: $${(c.estimate_cents / 100).toFixed(2)}`).join(" · "),
+                                        });
+                                      } else {
+                                        toast({ title: "No usage data yet", description: "Cost estimate will be available after the first billing period." });
+                                      }
+                                    } catch { /* silent */ }
+                                  }}
+                                >
+                                  Suggest
+                                </button>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-xs">
                             {s.price_cents && s.price_cents > 0 ? (

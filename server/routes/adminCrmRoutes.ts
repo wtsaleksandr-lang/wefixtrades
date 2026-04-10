@@ -1726,4 +1726,83 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.status(500).json({ error: "Bulk post failed" });
     }
   });
+
+  /**
+   * GET /api/admin/crm/client-services/:id/cost-suggestion
+   * Estimates monthly delivery cost for a service based on actual usage data.
+   */
+  app.get("/api/admin/crm/client-services/:id/cost-suggestion", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const serviceId = parseInt(req.params.id as string);
+      const { db } = await import("../db");
+      const { reviewRequests, monitoredReviews, aiUsageLogs, clientServices } = await import("@shared/schema");
+      const { eq, and, gte, sql } = await import("drizzle-orm");
+
+      // Get the service to find client_id and service type
+      const [svc] = await db.select().from(clientServices).where(eq(clientServices.id, serviceId)).limit(1);
+      if (!svc || !svc.client_id) return res.status(404).json({ error: "Service not found" });
+
+      const clientId = svc.client_id;
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const isReputation = svc.service_id.startsWith("reputationshield");
+
+      const costs: { label: string; estimate_cents: number; detail: string }[] = [];
+
+      if (isReputation) {
+        // SMS cost: count outbound SMS review requests in last 30 days
+        const [smsStats] = await db.select({
+          count: sql<number>`count(*) filter (where ${reviewRequests.channel} = 'sms' and ${reviewRequests.status} != 'pending')::int`,
+        }).from(reviewRequests).where(and(
+          eq(reviewRequests.client_id, clientId),
+          gte(reviewRequests.created_at, thirtyDaysAgo),
+        ));
+        const smsCount = smsStats?.count ?? 0;
+        const smsCostCents = Math.round(smsCount * 0.75); // $0.0075 per SMS = 0.75 cents
+        costs.push({ label: "Twilio SMS", estimate_cents: smsCostCents, detail: `${smsCount} messages @ $0.0075` });
+
+        // AI drafting cost: count drafts generated in last 30 days
+        const [draftStats] = await db.select({
+          count: sql<number>`count(*) filter (where ${monitoredReviews.draft_generated_at} >= ${thirtyDaysAgo})::int`,
+        }).from(monitoredReviews).where(eq(monitoredReviews.client_id, clientId));
+        const draftCount = draftStats?.count ?? 0;
+        // Estimate ~500 tokens per draft (input+output), Haiku pricing
+        const aiCostCents = Math.round(draftCount * 0.04); // ~$0.0004 per draft = 0.04 cents
+        costs.push({ label: "AI Drafts (Claude)", estimate_cents: aiCostCents, detail: `${draftCount} drafts @ ~$0.0004` });
+
+        // Outscraper: estimate based on monitoring frequency (4x/day sync attempts, ~$0.002 per review fetched)
+        const [reviewCount] = await db.select({
+          count: sql<number>`count(*)::int`,
+        }).from(monitoredReviews).where(eq(monitoredReviews.client_id, clientId));
+        // Roughly 4 syncs/month * 30 reviews fetched * $0.002 per review
+        const outscrCostCents = Math.round(4 * 30 * 0.2); // ~$0.24/month = 24 cents
+        costs.push({ label: "Outscraper (monitoring)", estimate_cents: outscrCostCents, detail: `~4 syncs/mo @ 30 reviews` });
+
+        // Email cost (negligible)
+        const [emailStats] = await db.select({
+          count: sql<number>`count(*) filter (where ${reviewRequests.channel} = 'email' and ${reviewRequests.status} != 'pending')::int`,
+        }).from(reviewRequests).where(and(
+          eq(reviewRequests.client_id, clientId),
+          gte(reviewRequests.created_at, thirtyDaysAgo),
+        ));
+        const emailCount = emailStats?.count ?? 0;
+        if (emailCount > 0) {
+          costs.push({ label: "Email (SMTP)", estimate_cents: Math.max(1, Math.round(emailCount * 0.01)), detail: `${emailCount} emails @ ~$0.0001` });
+        }
+      }
+
+      const totalCents = costs.reduce((sum, c) => sum + c.estimate_cents, 0);
+
+      res.json({
+        serviceId: svc.service_id,
+        clientId,
+        period: "last 30 days",
+        costs,
+        totalEstimateCents: totalCents,
+        currentCostCents: svc.cost_cents ?? 0,
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] Cost suggestion error:", err.message);
+      res.status(500).json({ error: "Failed to estimate costs" });
+    }
+  });
 }
