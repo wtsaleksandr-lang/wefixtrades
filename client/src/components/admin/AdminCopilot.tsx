@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2, HelpCircle } from "lucide-react";
 import { readSSEStream, type ChatMessage, type ToolCallEvent } from "@/lib/chatHelpers";
 
 /* ─── Types ─── */
@@ -310,13 +311,21 @@ function ConfirmationCard({
   if (state === "done") return null;
 
   return (
+    <TooltipProvider>
     <div className="rounded-lg border border-amber-200 bg-amber-50 overflow-hidden text-xs w-full">
-      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 border-b border-amber-200">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-amber-100 border-b border-amber-200">
         <span className="font-semibold text-amber-800 uppercase tracking-wide text-[10px]">⚡ Proposed action</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <HelpCircle className="w-3 h-3 text-amber-500 cursor-help shrink-0" />
+          </TooltipTrigger>
+          <TooltipContent side="left" className="max-w-[200px] text-xs">
+            The AI has suggested this change. Review the details and confirm to apply it, or cancel to skip.
+          </TooltipContent>
+        </Tooltip>
       </div>
-      <div className="px-3 py-2.5 space-y-1">
-        <p className="text-sm font-medium text-gray-900">Update task status</p>
-        <p className="text-xs text-gray-600 truncate">"{display.task_title}"</p>
+      <div className="px-3 py-2 space-y-1">
+        <p className="text-sm font-medium text-gray-900 truncate">"{display.task_title}"</p>
         <p className="text-xs text-gray-600">
           {display.current_status === "unknown" ? (
             <>Set to <span className="font-medium text-gray-800">{display.proposed_status.replace(/_/g, " ")}</span></>
@@ -359,6 +368,7 @@ function ConfirmationCard({
         </div>
       )}
     </div>
+    </TooltipProvider>
   );
 }
 

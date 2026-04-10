@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Inbox, Play, MessageSquare, CheckCircle, Clock, User, Factory, Wrench, Bot, Zap, ArrowRight } from "lucide-react";
 
 /* ─── Types ─── */
@@ -128,7 +129,7 @@ function WaitingOnChip({
   const icon = WAITING_ON_ICON[value];
   const isClickable = !!onClick;
 
-  return (
+  const chip = (
     <button
       type="button"
       onClick={(e) => { e.preventDefault(); onClick?.(); }}
@@ -140,6 +141,19 @@ function WaitingOnChip({
       {icon}
       <span className="capitalize">{value}</span>
     </button>
+  );
+
+  if (!isClickable) return chip;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{chip}</TooltipTrigger>
+        <TooltipContent side="top" className="text-xs max-w-[180px]">
+          Waiting on: who's currently blocking this task. Click to cycle — client → supplier → internal → clear.
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
