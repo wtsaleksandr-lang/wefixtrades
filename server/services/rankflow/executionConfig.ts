@@ -106,7 +106,7 @@ const EXECUTION_MAP: Record<string, ExecutionConfig> = {
   },
 
   internal_linking: {
-    execution_mode: "manual_admin",
+    execution_mode: "ai",
     vendor_type: null,
     qa_requirements: ["links_relevant", "anchor_text_natural"],
     reject_conditions: ["irrelevant_links", "over_optimization", "broken_links"],
@@ -194,7 +194,7 @@ const VENDOR_TYPES: Record<string, VendorTypeConfig> = {
   fiverr_onpage: {
     id: "fiverr_onpage",
     label: "Fiverr — On-Page SEO",
-    allowed_task_types: ["meta_fix", "internal_linking", "schema_basic"],
+    allowed_task_types: ["meta_fix", "schema_basic"],
     expected_cost_range: [5, 25],
     expected_turnaround_days: [2, 5],
     quality_notes: "Must provide before/after proof. No keyword stuffing. Validate schema with Google tool.",

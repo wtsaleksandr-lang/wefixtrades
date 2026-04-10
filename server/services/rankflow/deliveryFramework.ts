@@ -50,8 +50,8 @@ export const VENDOR_CATEGORIES: VendorCategory[] = [
   {
     id: "onpage_vendor",
     label: "On-Page SEO Implementation",
-    description: "Implements title/meta changes, heading fixes, internal linking, and schema markup on client websites.",
-    allowed_tasks: ["meta_fix", "internal_linking", "schema_basic"],
+    description: "Implements title/meta changes, heading fixes, and schema markup on client websites.",
+    allowed_tasks: ["meta_fix", "schema_basic"],
     forbidden_tasks: ["citation_build", "page_create"],
     expected_cost_per_task: [5, 20],
     expected_turnaround_days: [1, 3],
@@ -107,9 +107,9 @@ export const TASK_VENDOR_MAP: TaskVendorMapping[] = [
   },
   {
     task_type: "internal_linking",
-    primary_vendor: "onpage_vendor",
-    fallback_vendor: null,
-    execution_flow: "Admin identifies link opportunities → on-page vendor adds links in CMS → QA verifies links work",
+    primary_vendor: "internal_ai",
+    fallback_vendor: "onpage_vendor",
+    execution_flow: "AI suggests link map → admin or AI implements in CMS → QA verifies links work",
     requires_cms_access: true,
   },
   {
