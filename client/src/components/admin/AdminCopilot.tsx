@@ -128,7 +128,104 @@ function saveCopilotMessages(messages: ChatMessage[]): void {
   } catch {}
 }
 
-/* ─── Context Preview ─── */
+/* ─── Draft block parsing ─── */
+
+type TextSegment = { kind: "text"; body: string };
+type DraftSegment = { kind: "draft"; label: string; body: string };
+type Segment = TextSegment | DraftSegment;
+
+function parseSegments(text: string): Segment[] {
+  // New instance each call — avoids stateful lastIndex on global regex
+  const re = /---\s*DRAFT:\s*([^\n]+?)\s*---\n([\s\S]*?)---\s*END DRAFT\s*---/g;
+  const segments: Segment[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) {
+      const pre = text.slice(last, m.index).trim();
+      if (pre) segments.push({ kind: "text", body: pre });
+    }
+    segments.push({ kind: "draft", label: m[1].trim(), body: m[2].trim() });
+    last = re.lastIndex;
+  }
+
+  if (last < text.length) {
+    const tail = text.slice(last).trim();
+    if (tail) segments.push({ kind: "text", body: tail });
+  }
+
+  // Fast path: no draft blocks found
+  if (segments.length === 0) segments.push({ kind: "text", body: text });
+  return segments;
+}
+
+/* ─── Draft block renderer ─── */
+function DraftBlock({ label, body }: { label: string; body: string }) {
+  const [copied, setCopied] = useState(false);
+
+  // Strip the "⚑ Review before sending" line from clipboard — it's a UI marker, not send-content
+  const clipboardText = body.replace(/[⚑✓]\s*Review before sending\s*/gi, "").trim();
+
+  function handleCopy() {
+    navigator.clipboard.writeText(clipboardText).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      },
+      () => {}
+    );
+  }
+
+  return (
+    <div className="mt-1.5 rounded-md border border-[#2D6A4F]/20 bg-[#F0F7F4] overflow-hidden text-xs">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[#E8F4EE] border-b border-[#2D6A4F]/15">
+        <span className="font-semibold text-[#2D6A4F] uppercase tracking-wide text-[10px]">
+          Draft · {label}
+        </span>
+        <button
+          onClick={handleCopy}
+          className="text-[10px] font-medium text-[#2D6A4F] hover:text-[#1B4332] px-2 py-0.5 rounded hover:bg-[#2D6A4F]/10 transition-colors"
+        >
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+      {/* Body */}
+      <p className="px-3 py-2.5 text-gray-700 whitespace-pre-wrap leading-relaxed">
+        {body}
+      </p>
+    </div>
+  );
+}
+
+/* ─── Message content renderer ─── */
+function MessageContent({ content }: { content: string }) {
+  const segments = parseSegments(content);
+
+  // Fast path: no draft blocks — render exactly as before
+  if (segments.length === 1 && segments[0].kind === "text") {
+    return <>{content}</>;
+  }
+
+  return (
+    <>
+      {segments.map((seg, i) =>
+        seg.kind === "text" ? (
+          seg.body ? (
+            <span key={i} className="block whitespace-pre-wrap mb-1 last:mb-0">
+              {seg.body}
+            </span>
+          ) : null
+        ) : (
+          <DraftBlock key={i} label={seg.label} body={seg.body} />
+        )
+      )}
+    </>
+  );
+}
+
+
 function ContextPreview({ context }: { context: AdminPageContext }) {
   const [open, setOpen] = useState(false);
   // Strip undefined values for clean display
@@ -296,13 +393,17 @@ export default function AdminCopilot({
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
+              className={`rounded-lg px-3 py-2 text-sm leading-relaxed ${
                 msg.role === "user"
-                  ? "bg-[#2D6A4F] text-white"
-                  : "bg-gray-50 text-gray-800"
+                  ? "max-w-[85%] bg-[#2D6A4F] text-white"
+                  : "max-w-[92%] bg-gray-50 text-gray-800"
               }`}
             >
-              {msg.content || (
+              {msg.role === "user" ? (
+                msg.content
+              ) : msg.content ? (
+                <MessageContent content={msg.content} />
+              ) : (
                 <span className="inline-flex items-center gap-1 text-gray-400">
                   <Loader2 className="w-3 h-3 animate-spin" /> Thinking...
                 </span>
