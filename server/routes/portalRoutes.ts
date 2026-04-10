@@ -925,8 +925,20 @@ export function registerPortalRoutes(app: Express) {
   /**
    * POST /api/portal/ai-chat
    * Context-aware AI assistant for onboarding or general help.
-   * When the AI determines escalation is needed, it returns an escalation_draft
-   * alongside the reply. The client must explicitly confirm before a ticket is created.
+   *
+   * ARCHITECTURE NOTE:
+   * This is the SINGLE backend logic path for the portal assistant.
+   * Two frontend surfaces call this same endpoint:
+   *   - AiHelpSection (PortalHelp.tsx) — surface="help", escalation enabled
+   *   - AiChatPanel (PortalOnboarding.tsx) — surface=undefined, escalation disabled
+   * AiHelpSection is a local UI wrapper (inline chat + escalation confirmation).
+   * There is ONE assistant, ONE endpoint, differentiated only by system prompt.
+   *
+   * ESCALATION FLOW:
+   * 1. Main AI call generates a natural reply
+   * 2. Separate lightweight classification call determines if the reply offers escalation
+   * 3. If yes, a third call extracts a structured ticket draft
+   * 4. Frontend shows the draft for user to confirm — no ticket is created server-side
    */
   app.post("/api/portal/ai-chat", requireClient, async (req: Request, res: Response) => {
     try {
@@ -935,6 +947,9 @@ export function registerPortalRoutes(app: Express) {
       if (!messages || !Array.isArray(messages) || messages.length === 0) {
         return res.status(400).json({ error: "messages array is required" });
       }
+
+      // Client can signal "don't offer escalation" (e.g. after dismissing a draft)
+      const skipEscalation = context?.skip_escalation === true;
 
       // Validate and sanitize message roles — only allow user/assistant
       const allowedRoles = new Set(["user", "assistant"]);
@@ -946,8 +961,8 @@ export function registerPortalRoutes(app: Express) {
       let escalationEnabled = false;
 
       if (context?.surface === "help") {
-        escalationEnabled = true;
-        // General help context — with escalation instructions
+        escalationEnabled = !skipEscalation;
+        // General help context — with natural escalation behavior
         systemPrompt = `You are a helpful support assistant for WeFixTrades, a company that provides digital marketing services for trade businesses (plumbers, electricians, builders, etc.).
 
 Services include: MapGuard (Google Business Profile), TradeLine (AI phone/chat), QuoteQuick (quote calculators), WebBoost (website speed & SEO), ReputationShield (review management), SocialSync (social media), SiteLaunch (website builds), and Fix & Optimize (website fixes).
@@ -959,26 +974,18 @@ Your job:
 - Keep answers short and practical (2-4 sentences)
 - Use Australian English
 
-ESCALATION RULES:
-You should offer to create a support ticket ONLY when:
-1. The user explicitly asks to speak to a human or create a ticket
-2. The issue requires account-specific action you cannot take (refunds, cancellations, access changes, service modifications)
-3. The user has described a problem you've already tried to help with but could not resolve
-4. The user reports something broken, missing, or wrong with their service
+When you CANNOT resolve the customer's issue (e.g. it requires account-specific action, is about something broken, or you've already tried and failed to help), offer to create a support ticket so a human can assist. Do this naturally in your reply — just suggest it as an option.
 
-Do NOT offer escalation for:
-- Simple "how does X work" questions you can answer
-- First-time questions before you've attempted to help
-- Vague or unclear messages — ask for clarification first
-
-When you decide escalation is appropriate, end your reply with exactly this phrase on its own line:
-Would you like me to create a support ticket for this?
+Do NOT offer a ticket when:
+- You can answer the question yourself
+- It's the user's first message and you haven't tried to help yet
+- The question is vague — ask for clarification first
 
 Do NOT:
 - Make up account-specific details (balances, dates, statuses)
 - Provide legal or financial advice
 - Discuss internal pricing or margins
-- Create tickets automatically — always ask first`;
+- Create tickets automatically — always offer first and let the user decide`;
       } else {
         // Onboarding context — no escalation
         const fieldList = (context?.fields ?? [])
@@ -1027,16 +1034,33 @@ Do NOT:
         maxTokens: 400,
       });
 
-      // Detect escalation offer in reply
-      const ESCALATION_PHRASE = "Would you like me to create a support ticket for this?";
-      const hasEscalationOffer = escalationEnabled && reply.includes(ESCALATION_PHRASE);
+      // ─── Structured escalation detection (classification step) ───
+      // Instead of fragile string matching, use a lightweight AI classification
+      // to determine whether the reply offers/suggests escalation to human support.
+      if (!escalationEnabled) {
+        return res.json({ reply });
+      }
+
+      let hasEscalationOffer = false;
+      try {
+        const classification = await aiChat({
+          system: `You are a binary classifier. Given an assistant reply from a customer support chat, determine if the assistant is offering, suggesting, or asking the customer about creating a support ticket or escalating to a human agent.
+
+Answer ONLY "YES" or "NO". Nothing else.`,
+          messages: [{ role: "user" as const, content: reply }],
+          maxTokens: 5,
+        });
+        hasEscalationOffer = classification.trim().toUpperCase().startsWith("YES");
+      } catch (err) {
+        console.error("[portal-ai] Escalation classification failed:", err);
+        // On failure, don't block the reply — just skip escalation
+      }
 
       if (!hasEscalationOffer) {
         return res.json({ reply });
       }
 
-      // AI offered escalation — generate structured ticket draft via second AI call
-      // This extracts subject, category, description, and summary from the conversation
+      // ─── Draft extraction (only runs when escalation detected) ───
       const conversationSummary = sanitizedMessages
         .map((m: { role: string; content: string }) => `${m.role === "user" ? "Customer" : "Assistant"}: ${m.content}`)
         .join("\n");

@@ -93,6 +93,8 @@ function AiHelpSection() {
   const [draftDescription, setDraftDescription] = useState("");
   const [submittingTicket, setSubmittingTicket] = useState(false);
   const [ticketCreated, setTicketCreated] = useState<{ id: number } | null>(null);
+  // Cooldown: after user dismisses an escalation draft, suppress re-offering for 2 messages
+  const [escalationCooldown, setEscalationCooldown] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading, escalationDraft]);
@@ -114,6 +116,11 @@ function AiHelpSection() {
     // Clear any previous escalation draft when user sends a new message
     setEscalationDraft(null);
     setTicketCreated(null);
+
+    // Decrement cooldown counter (suppresses escalation for N messages after dismiss)
+    const currentCooldown = escalationCooldown;
+    if (currentCooldown > 0) setEscalationCooldown(currentCooldown - 1);
+
     try {
       const res = await fetch("/api/portal/ai-chat", {
         method: "POST",
@@ -121,7 +128,11 @@ function AiHelpSection() {
         credentials: "include",
         body: JSON.stringify({
           messages: updated.map((m) => ({ role: m.role, content: m.content })),
-          context: { surface: "help" },
+          context: {
+            surface: "help",
+            // Tell backend to skip escalation detection during cooldown
+            skip_escalation: currentCooldown > 0,
+          },
         }),
       });
       const data = await res.json();
@@ -195,6 +206,8 @@ function AiHelpSection() {
 
   function dismissDraft() {
     setEscalationDraft(null);
+    // Suppress escalation re-offer for the next 2 messages after dismiss
+    setEscalationCooldown(2);
     setMessages((prev) => [...prev, {
       role: "assistant",
       content: "No problem. You can always create a ticket manually using the form below, or keep chatting here if you have other questions.",
