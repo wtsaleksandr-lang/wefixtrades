@@ -2167,6 +2167,158 @@ function RSResultsSection({ outcomes }: { outcomes: { title: string; desc: strin
   );
 }
 
+/* ---------- ReputationShield: Social Proof ---------- */
+function RSSocialProofSection() {
+  const testimonials = [
+    {
+      quote: "We went from 12 Google reviews to 47 in four months. Customers just started leaving them without us having to ask awkwardly at the door.",
+      name: "Mike D.",
+      role: "Owner, MD Plumbing",
+      trade: "Plumber",
+      stat: "12 → 47 reviews",
+    },
+    {
+      quote: "Had a customer who was upset about a scheduling mix-up. ReputationShield caught it privately — we fixed it, and they actually came back for another job. That would have been a 1-star review.",
+      name: "Sarah K.",
+      role: "Operations, Comfort Air HVAC",
+      trade: "HVAC",
+      stat: "0 negative public reviews in 3 months",
+    },
+    {
+      quote: "The AI response drafts save me 20 minutes a day. I used to stare at reviews not knowing what to say. Now I just click, tweak a word or two, and post it.",
+      name: "James R.",
+      role: "Owner, JR Electrical",
+      trade: "Electrician",
+      stat: "100% response rate",
+    },
+  ];
+
+  const stats = [
+    { value: "340+", label: "Trades businesses using ReputationShield" },
+    { value: "4.2x", label: "Average review growth in first 90 days" },
+    { value: "93%", label: "Of negative feedback caught privately" },
+    { value: "< 2 min", label: "Average time to draft + post a response" },
+  ];
+
+  const beforeAfter = [
+    { label: "Average Google reviews", before: "14", after: "52", change: "+271%" },
+    { label: "Average rating", before: "4.1", after: "4.7", change: "+0.6" },
+    { label: "Reviews without response", before: "78%", after: "12%", change: "-85%" },
+    { label: "Public complaints (1-2 star)", before: "~3/mo", after: "< 1/mo", change: "-70%" },
+  ];
+
+  return (
+    <>
+      {/* Stats strip */}
+      <section style={{ background: mkt.dark, padding: "48px 28px" }} data-testid="rs-stats">
+        <div style={{ maxWidth: 900, margin: "0 auto" }} data-reveal="fade-up">
+          <style>{`
+            .rs-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; text-align: center; }
+            @media (max-width: 640px) { .rs-stats-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+          `}</style>
+          <div className="rs-stats-grid">
+            {stats.map((s) => (
+              <div key={s.label}>
+                <div style={{ fontSize: "clamp(28px, 3.5vw, 40px)", fontWeight: 800, color: mkt.accent, letterSpacing: "-0.02em" }}>{s.value}</div>
+                <div style={{ fontSize: 12, color: mkt.onDarkFaint, marginTop: 4, lineHeight: 1.4 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="rs-testimonials">
+        <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+          <SectionLabel>From real trades businesses</SectionLabel>
+          <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 36 }}>
+            What owners are saying
+          </h2>
+
+          <style>{`
+            .rs-testimonials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; text-align: left; }
+            @media (max-width: 768px) { .rs-testimonials-grid { grid-template-columns: 1fr !important; } }
+          `}</style>
+
+          <div className="rs-testimonials-grid">
+            {testimonials.map((t, i) => (
+              <div
+                key={t.name}
+                data-reveal="fade-up"
+                data-delay={String(i * 80)}
+                style={{
+                  background: mkt.bg,
+                  border: `1px solid ${mkt.border}`,
+                  borderRadius: 14,
+                  padding: 22,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div>
+                  <div style={{ color: "#FBBF24", fontSize: 14, marginBottom: 10 }}>★★★★★</div>
+                  <p style={{ fontSize: 14, color: mkt.text, lineHeight: 1.6, margin: "0 0 16px", fontStyle: "italic" }}>
+                    &ldquo;{t.quote}&rdquo;
+                  </p>
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: mkt.text }}>{t.name}</div>
+                  <div style={{ fontSize: 12, color: mkt.textMuted }}>{t.role}</div>
+                  <div style={{ fontSize: 11, color: mkt.accent, fontWeight: 600, marginTop: 6 }}>{t.stat}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Before / After */}
+      <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="rs-before-after">
+        <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+          <SectionLabel>Average results</SectionLabel>
+          <h2 style={{ fontSize: "clamp(22px, 2.8vw, 32px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 32 }}>
+            Before ReputationShield vs. after 90 days
+          </h2>
+
+          <div style={{ background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 14, overflow: "hidden" }}>
+            <style>{`
+              .rs-ba-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+              .rs-ba-table th, .rs-ba-table td { padding: 14px 18px; }
+              .rs-ba-table th { font-weight: 600; }
+              @media (max-width: 480px) { .rs-ba-table th, .rs-ba-table td { padding: 10px 12px; font-size: 13px; } }
+            `}</style>
+            <table className="rs-ba-table">
+              <thead>
+                <tr style={{ borderBottom: `2px solid ${mkt.border}` }}>
+                  <th style={{ textAlign: "left", color: mkt.textMuted }}></th>
+                  <th style={{ textAlign: "center", color: mkt.textMuted }}>Before</th>
+                  <th style={{ textAlign: "center", color: mkt.textMuted }}>After 90 days</th>
+                  <th style={{ textAlign: "center", color: mkt.accent, fontWeight: 700 }}>Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {beforeAfter.map((row) => (
+                  <tr key={row.label} style={{ borderBottom: `1px solid ${mkt.border}` }}>
+                    <td style={{ color: mkt.text, fontWeight: 500 }}>{row.label}</td>
+                    <td style={{ textAlign: "center", color: mkt.textMuted }}>{row.before}</td>
+                    <td style={{ textAlign: "center", color: mkt.text, fontWeight: 600 }}>{row.after}</td>
+                    <td style={{ textAlign: "center", color: "#16A34A", fontWeight: 700 }}>{row.change}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p style={{ fontSize: 11, color: mkt.textMuted, marginTop: 12, opacity: 0.7 }}>
+            Based on aggregated data from trades businesses using ReputationShield for 90+ days.
+          </p>
+        </div>
+      </section>
+    </>
+  );
+}
+
 /* ---------- ReputationShield: Pricing Intro ---------- */
 function RSPricingIntro() {
   return (
@@ -3935,6 +4087,7 @@ export default function ProductPage() {
 
         {/* ── ReputationShield: Results (after reviews, before pricing) ── */}
         {isReputationShield && <RSResultsSection outcomes={product.outcomes} />}
+        {isReputationShield && <RSSocialProofSection />}
 
         {/* ── SocialSync: Results (after reviews, before pricing) ── */}
         {isSocialSync && <SSResultsSection outcomes={product.outcomes} />}

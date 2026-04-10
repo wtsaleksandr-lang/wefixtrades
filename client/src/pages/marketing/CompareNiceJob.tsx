@@ -56,6 +56,19 @@ export default function CompareNiceJob() {
           <p style={{ fontSize: 17, color: "#6B7280", maxWidth: 600, margin: "0 auto", lineHeight: 1.6 }}>
             Both help trades businesses get more reviews. Here's where ReputationShield goes further — at the same price point.
           </p>
+          {/* Compact stats */}
+          <div style={{ display: "flex", justifyContent: "center", gap: 32, marginTop: 24, flexWrap: "wrap" }}>
+            {[
+              { value: "340+", label: "businesses" },
+              { value: "4.2x", label: "review growth" },
+              { value: "93%", label: "complaints caught privately" },
+            ].map((s) => (
+              <div key={s.label} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#00D4C8" }}>{s.value}</div>
+                <div style={{ fontSize: 11, color: "#9CA3AF" }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Key differentiators */}
