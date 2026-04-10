@@ -908,11 +908,30 @@ Do NOT:
         if (signals.keywords_top_20 > signals.keywords_top_10) rankingHighlights.push(`${signals.keywords_top_20} keyword${signals.keywords_top_20 > 1 ? "s" : ""} in top 20`);
       }
 
+      // Indexing summary
+      const pages = await storage.listPagesByClient(clientId);
+      const indexedPages = pages.filter(p => p.indexed).length;
+      const pendingIndex = pages.length - indexedPages;
+
+      // Monthly narrative (rule-based)
+      const narrativeParts: string[] = [];
+      if (doneTasks > 0) narrativeParts.push(`This month we completed ${doneTasks} SEO improvement${doneTasks > 1 ? "s" : ""}`);
+      if (pagesCreated > 0) narrativeParts.push(`created ${pagesCreated} new page${pagesCreated > 1 ? "s" : ""}`);
+      if (citationsBuilt > 0) narrativeParts.push(`built ${citationsBuilt} local listing${citationsBuilt > 1 ? "s" : ""}`);
+      if (signals?.keywords_improved && signals.keywords_improved > 0) narrativeParts.push(`${signals.keywords_improved} keyword${signals.keywords_improved > 1 ? "s" : ""} improved in Google`);
+      if (indexedPages > 0) narrativeParts.push(`${indexedPages} page${indexedPages > 1 ? "s are" : " is"} indexed on Google`);
+      let narrative = narrativeParts.length > 0
+        ? narrativeParts.join(", ") + "."
+        : "We are setting up your SEO plan and will begin work shortly.";
+      // Capitalize first letter
+      narrative = narrative.charAt(0).toUpperCase() + narrative.slice(1);
+
       res.json({
         active: profile.enabled,
         plan_tier: profile.plan_tier,
         month,
         statusLine,
+        narrative,
         metrics: {
           tasksCompleted: doneTasks,
           totalTasks,
@@ -920,10 +939,22 @@ Do NOT:
           citationsBuilt,
           progressPct,
         },
+        ranking: {
+          highlights: rankingHighlights,
+          keywordsTracked: signals?.total_keywords || 0,
+          keywordsTop10: signals?.keywords_top_10 || 0,
+          keywordsTop20: signals?.keywords_top_20 || 0,
+          keywordsImproved: signals?.keywords_improved || 0,
+          avgPosition: signals?.avg_position ? Number(signals.avg_position) : null,
+        },
+        indexing: {
+          totalPages: pages.length,
+          indexed: indexedPages,
+          pending: pendingIndex,
+        },
         completed: completedItems,
         inProgress: inProgressItems,
         nextUp,
-        rankingHighlights,
       });
     } catch (err: any) {
       console.error("[portal-rankflow] error:", err.message);
