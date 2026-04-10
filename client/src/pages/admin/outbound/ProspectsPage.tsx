@@ -15,8 +15,9 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle, XCircle, AlertTriangle, Globe, Phone, Mail,
-  Star, Upload, Brain, RefreshCw, ChevronDown,
+  Star, Upload, Brain, RefreshCw, ChevronDown, FileText, Zap,
 } from "lucide-react";
+import { TemplatePreview } from "@/components/outbound/TemplatePreview";
 
 /* ─── Types ─── */
 interface ProspectEnrichment {
@@ -26,11 +27,18 @@ interface ProspectEnrichment {
   ai_personalization_line: string | null;
   ai_notes: string | null;
   enrichment_source: string | null;
+  // V2 fields
+  ai_reason_to_target: string | null;
+  ai_first_line: string | null;
+  ai_offer_angle: string | null;
+  ai_cta_variant: string | null;
 }
 
 interface Prospect {
   id: number;
   business_name: string;
+  owner_name: string | null;
+  contact_name: string | null;
   primary_email: string | null;
   primary_phone: string | null;
   website_url: string | null;
@@ -43,6 +51,9 @@ interface Prospect {
   status: string;
   do_not_contact: boolean;
   created_at: string;
+  // V2 fields
+  target_offer: string | null;
+  priority_score: number | null;
 }
 
 interface ProspectRow {
@@ -227,6 +238,7 @@ export default function ProspectsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [csvOpen, setCsvOpen] = useState(false);
   const [reviewProspect, setReviewProspect] = useState<Prospect | null>(null);
+  const [templateRow, setTemplateRow] = useState<{ prospect: Prospect; enrichment: ProspectEnrichment | null } | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
 
   const params = new URLSearchParams();
@@ -359,6 +371,7 @@ export default function ProspectsPage() {
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Contact</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Trade / City</th>
                   <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500">Score</th>
+                  <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500 hidden lg:table-cell">Priority</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Status</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">AI Notes</th>
                   <th className="px-3 py-2.5 text-right text-xs font-medium text-gray-500">Actions</th>
@@ -405,6 +418,16 @@ export default function ProspectsPage() {
                     <td className="px-3 py-2.5 text-center">
                       <ScoreBadge score={e?.quality_score ?? null} />
                     </td>
+                    <td className="px-3 py-2.5 text-center hidden lg:table-cell">
+                      {p.priority_score != null ? (
+                        <span className="flex items-center justify-center gap-0.5">
+                          <Zap className="w-3 h-3 text-amber-400" />
+                          <span className="text-xs font-semibold text-amber-600">{p.priority_score}</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2.5">
                       <StatusBadge status={p.status} />
                     </td>
@@ -418,16 +441,28 @@ export default function ProspectsPage() {
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-right">
-                      {["new", "enriched"].includes(p.status) && (
+                      <div className="flex items-center justify-end gap-1.5">
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 text-xs"
-                          onClick={() => setReviewProspect(p)}
+                          className="h-7 text-xs gap-1"
+                          title="Preview outreach copy"
+                          onClick={() => setTemplateRow({ prospect: p, enrichment: e ?? null })}
                         >
-                          Review
+                          <FileText className="w-3 h-3" />
+                          Copy
                         </Button>
-                      )}
+                        {["new", "enriched"].includes(p.status) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => setReviewProspect(p)}
+                          >
+                            Review
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -439,6 +474,12 @@ export default function ProspectsPage() {
 
       <CsvUploadDialog open={csvOpen} onClose={() => setCsvOpen(false)} />
       <ReviewDialog prospect={reviewProspect} open={!!reviewProspect} onClose={() => setReviewProspect(null)} />
+      <TemplatePreview
+        prospect={templateRow?.prospect ?? null}
+        enrichment={templateRow?.enrichment ?? null}
+        open={!!templateRow}
+        onClose={() => setTemplateRow(null)}
+      />
     </AdminLayout>
   );
 }
