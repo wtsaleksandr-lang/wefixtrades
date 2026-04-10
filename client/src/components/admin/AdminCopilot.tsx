@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2 } from "lucide-react";
@@ -161,11 +162,24 @@ function parseSegments(text: string): Segment[] {
 }
 
 /* ─── Draft block renderer ─── */
-function DraftBlock({ label, body }: { label: string; body: string }) {
+type SaveState = "idle" | "saving" | "saved" | "error";
+
+function DraftBlock({
+  label,
+  body,
+  onSave,
+}: {
+  label: string;
+  body: string;
+  onSave?: (content: string) => Promise<void>;
+}) {
   const [copied, setCopied] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
 
   // Strip the "⚑ Review before sending" line from clipboard — it's a UI marker, not send-content
   const clipboardText = body.replace(/[⚑✓]\s*Review before sending\s*/gi, "").trim();
+
+  const isNote = /note/i.test(label);
 
   function handleCopy() {
     navigator.clipboard.writeText(clipboardText).then(
@@ -177,6 +191,18 @@ function DraftBlock({ label, body }: { label: string; body: string }) {
     );
   }
 
+  async function handleSave() {
+    if (!onSave || saveState !== "idle") return;
+    setSaveState("saving");
+    try {
+      await onSave(clipboardText);
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
+      setTimeout(() => setSaveState("idle"), 2000);
+    }
+  }
+
   return (
     <div className="mt-1.5 rounded-md border border-[#2D6A4F]/20 bg-[#F0F7F4] overflow-hidden text-xs">
       {/* Header */}
@@ -184,12 +210,24 @@ function DraftBlock({ label, body }: { label: string; body: string }) {
         <span className="font-semibold text-[#2D6A4F] uppercase tracking-wide text-[10px]">
           Draft · {label}
         </span>
-        <button
-          onClick={handleCopy}
-          className="text-[10px] font-medium text-[#2D6A4F] hover:text-[#1B4332] px-2 py-0.5 rounded hover:bg-[#2D6A4F]/10 transition-colors"
-        >
-          {copied ? "Copied!" : "Copy"}
-        </button>
+        <div className="flex items-center gap-1.5">
+          {onSave && isNote && (
+            <button
+              onClick={handleSave}
+              disabled={saveState !== "idle"}
+              className="text-[10px] font-medium px-2 py-0.5 rounded transition-colors disabled:opacity-60
+                text-[#2D6A4F] hover:text-[#1B4332] hover:bg-[#2D6A4F]/10"
+            >
+              {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Failed" : "Save to record"}
+            </button>
+          )}
+          <button
+            onClick={handleCopy}
+            className="text-[10px] font-medium text-[#2D6A4F] hover:text-[#1B4332] px-2 py-0.5 rounded hover:bg-[#2D6A4F]/10 transition-colors"
+          >
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
       </div>
       {/* Body */}
       <p className="px-3 py-2.5 text-gray-700 whitespace-pre-wrap leading-relaxed">
@@ -200,7 +238,13 @@ function DraftBlock({ label, body }: { label: string; body: string }) {
 }
 
 /* ─── Message content renderer ─── */
-function MessageContent({ content }: { content: string }) {
+function MessageContent({
+  content,
+  onSaveNote,
+}: {
+  content: string;
+  onSaveNote?: (content: string) => Promise<void>;
+}) {
   const segments = parseSegments(content);
 
   // Fast path: no draft blocks — render exactly as before
@@ -218,7 +262,7 @@ function MessageContent({ content }: { content: string }) {
             </span>
           ) : null
         ) : (
-          <DraftBlock key={i} label={seg.label} body={seg.body} />
+          <DraftBlock key={i} label={seg.label} body={seg.body} onSave={onSaveNote} />
         )
       )}
     </>
@@ -265,11 +309,35 @@ export default function AdminCopilot({
   onClose: () => void;
   pageContext: AdminPageContext;
 }) {
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadCopilotMessages());
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Save an AI-drafted internal note to the client record
+  async function saveNote(content: string) {
+    if (!pageContext.clientId) throw new Error("No client");
+    const res = await fetch("/api/admin/crm/notes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        client_id: pageContext.clientId,
+        content,
+        actor_type: "ai_agent",
+      }),
+    });
+    if (!res.ok) throw new Error("Save failed");
+    queryClient.invalidateQueries({
+      queryKey: [`/api/admin/crm/clients/${pageContext.clientId}/notes`],
+    });
+  }
+
+  const onSaveNote = pageContext.page === "client_detail" && pageContext.clientId
+    ? saveNote
+    : undefined;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -402,7 +470,7 @@ export default function AdminCopilot({
               {msg.role === "user" ? (
                 msg.content
               ) : msg.content ? (
-                <MessageContent content={msg.content} />
+                <MessageContent content={msg.content} onSaveNote={onSaveNote} />
               ) : (
                 <span className="inline-flex items-center gap-1 text-gray-400">
                   <Loader2 className="w-3 h-3 animate-spin" /> Thinking...
