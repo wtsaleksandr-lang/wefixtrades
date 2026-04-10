@@ -2005,29 +2005,65 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
           {/* RANKFLOW CTA */}
           {rfRec && (
-            <div style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%)', borderRadius: r16, padding: '24px 20px', marginTop: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <span style={{ fontSize: 18 }}>📈</span>
-                <span style={{ fontSize: 16, fontWeight: 700, color: WHITE }}>Keep Improving Every Month</span>
-                <span style={{ padding: '2px 8px', borderRadius: 10, background: 'rgba(255,255,255,0.15)', color: CYAN, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const }}>
-                  {rfRec.recommended_tier}
-                </span>
+            <div style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%)', borderRadius: r16, padding: '28px 22px', marginTop: 24 }}>
+              {/* Header */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ padding: '3px 10px', borderRadius: 10, background: CYAN, color: DARK, fontSize: 10, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+                    Recommended: {rfRec.recommended_tier}
+                  </span>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: WHITE, lineHeight: 1.3 }}>
+                  {rfRec.headline}
+                </div>
               </div>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.6, marginBottom: 16 }}>
+
+              {/* Reason */}
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, marginBottom: 16 }}>
                 {rfRec.reason}
               </div>
+
+              {/* Specific findings from audit */}
+              {rfRec.specific_findings && rfRec.specific_findings.length > 0 && (
+                <div style={{ background: 'rgba(0,0,0,0.15)', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 8 }}>
+                    Why this plan — from your audit
+                  </div>
+                  {rfRec.specific_findings.map((f: string, i: number) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: '#FBBF24', lineHeight: 1.5, marginBottom: 4 }}>
+                      <span style={{ flexShrink: 0, marginTop: 2 }}>⚠</span> {f}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* What you get */}
               <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, marginBottom: 20 }}>
                 {rfRec.highlights.map((h: string, i: number) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>
-                    <span style={{ color: CYAN, flexShrink: 0 }}>✓</span> {h}
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'rgba(255,255,255,0.9)', lineHeight: 1.5 }}>
+                    <span style={{ color: CYAN, flexShrink: 0, marginTop: 1 }}>✓</span> {h}
                   </div>
                 ))}
               </div>
+
+              {/* Visual flow: Audit → Fix → Rank → Calls */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 20, flexWrap: 'wrap' as const }}>
+                {["Audit done", "We fix issues", "Rankings improve", "More calls"].map((step, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ padding: '4px 10px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: i === 0 ? CYAN : 'rgba(255,255,255,0.1)', color: i === 0 ? DARK : 'rgba(255,255,255,0.6)' }}>
+                      {step}
+                    </span>
+                    {i < 3 && <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>→</span>}
+                  </div>
+                ))}
+              </div>
+
+              {/* CTA buttons */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' as const }}>
                 <a
                   href={`/portal/rankflow?prefill=${encodeURIComponent(JSON.stringify(rfRec.prefill))}`}
                   style={{
-                    display: 'inline-block', padding: '12px 24px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+                    display: 'inline-block', padding: '14px 28px', borderRadius: 10, fontSize: 15, fontWeight: 700,
                     background: CYAN, color: DARK, textDecoration: 'none', textAlign: 'center' as const,
                   }}
                 >
@@ -2036,16 +2072,20 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 <a
                   href="/products/rankflow"
                   style={{
-                    display: 'inline-block', padding: '12px 24px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    display: 'inline-block', padding: '14px 24px', borderRadius: 10, fontSize: 13, fontWeight: 600,
                     background: 'transparent', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.2)',
                     textDecoration: 'none', textAlign: 'center' as const,
                   }}
                 >
-                  Learn More
+                  See Full Details
                 </a>
               </div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 12 }}>
-                Done-for-you local SEO. No contracts. Cancel anytime.
+
+              {/* Urgency + trust */}
+              <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 12, marginTop: 14, fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
+                <span>⚡ {rfRec.urgency_text}</span>
+                <span>✓ Month-to-month — no contracts</span>
+                <span>✓ Cancel anytime</span>
               </div>
             </div>
           )}
