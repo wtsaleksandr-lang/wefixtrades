@@ -2,7 +2,7 @@
 
 > **Branch:** `claude/design-support-tickets-ZbmKr`
 > **Base:** `claude/plan-admin-assistant-v1-Rirq0`
-> **Status:** PLAN ONLY — no code changes yet
+> **Status:** PLAN ONLY — no code changes yet (refined v2)
 > **Date:** 2026-04-10
 
 ---
@@ -87,13 +87,25 @@
 ```
 
 ### User-facing support flow
-1. User opens Help page → reads FAQ → asks AI
+Two equal paths to ticket creation:
+
+**Path A — Manual structured ticket:**
+1. User opens Help page → scrolls to "Contact Us"
+2. Fills structured form: subject (required), category, description
+3. Ticket created as a clean structured object — no AI involvement needed
+
+**Path B — AI-assisted escalation:**
+1. User opens Help page → asks AI for help
 2. AI answers from knowledge base
-3. If AI cannot resolve → shows escalation prompt: "Would you like to create a support ticket?"
-4. User confirms → ticket created with AI conversation summary auto-attached
-5. User can also create ticket manually (existing form)
-6. User views ticket list, opens ticket detail, adds follow-up messages
-7. User sees admin replies (customer-visible only), resolution notes
+3. If AI cannot resolve → suggests creating a support ticket
+4. User confirms → ticket draft form opens pre-filled with AI-generated subject, category, summary
+5. User reviews/edits the structured form → submits
+
+Both paths produce the same structured ticket object. AI-assisted adds an optional `ai_summary` and `transcript_json` attachment, but the ticket itself is always a proper structured record.
+
+**After creation (both paths):**
+- User views ticket list, opens ticket detail, adds follow-up messages
+- User sees admin replies (customer-visible only), resolution notes
 
 ### Admin-facing support operations
 1. Admin sees ticket count badge in sidebar nav
@@ -106,14 +118,17 @@
 
 ### AI-first support layer (portal)
 - Existing `/api/portal/ai-chat` with `surface: "help"`
-- Enhanced: after 3+ unanswered exchanges OR when AI detects account-specific/billing/service issue it cannot resolve, AI suggests escalation
-- Escalation = pre-fill ticket with AI-generated summary of the conversation
-- AI NEVER creates tickets autonomously — user must confirm
+- AI answers general questions — most queries resolved without tickets
+- Escalation is conservative (see Section 5 for exact triggers)
+- Escalation = suggest ticket creation, pre-fill structured form with AI-generated fields
+- AI NEVER creates tickets autonomously — user must confirm and review the structured form
 
 ### Escalation/ticket layer
-- Tickets are the structured handoff from AI chat to human support
-- Each ticket has: customer messages, admin replies, internal notes, status workflow, AI summary
-- Tickets can optionally link to: client record, service, onboarding submission, billing issue
+- Tickets are **structured objects**, not chat dumps
+- Every ticket has at minimum: subject/title, category, status, priority, linked client, customer-visible description
+- Optional enrichment: AI summary, transcript attachment, linked service/onboarding/billing
+- Admin should never need to reconstruct the issue from raw chat — the structured fields tell the story
+- A ticket may later link to an internal fulfillment task, but the ticket system is not the ops task system
 - Ticket lifecycle: `open` → `in_progress` → `waiting_on_customer` → `resolved` → `closed`
 
 ---
@@ -128,29 +143,37 @@ User opens Help → scrolls to AI chat → types question
 ```
 No changes needed — this flow already works.
 
-### Flow B: User asks AI and needs escalation
-```
-User asks AI → AI cannot fully resolve (account-specific, billing dispute, service issue)
-→ AI responds: "I can help with general questions, but for account-specific issues
-   I'd recommend creating a support ticket so our team can look into it directly."
-→ AI shows "Create Support Ticket" button below its response
-→ User clicks → ticket creation form pre-fills with:
-   - Subject: AI-generated from conversation
-   - Description: user's original question
-   - AI summary: condensed conversation context (hidden from form, attached to ticket)
-→ User reviews, optionally edits, submits
-→ Ticket created → user sees confirmation + ticket in their list
-```
-
-### Flow C: User manually creates a ticket
+### Flow B: User manually creates a structured ticket
 ```
 User opens Help → scrolls to "Contact Us" section
-→ Fills subject + message → submits
-→ Ticket created with status "open"
+→ Fills structured form:
+   - Subject (REQUIRED — short title describing the issue)
+   - Category (required — dropdown: general / billing / service / onboarding / access / other)
+   - Description (REQUIRED — detailed explanation)
+→ Submits → ticket created as structured object with status "open"
 → No AI summary attached (manual creation)
 → User sees ticket in their list
 ```
-This flow already exists. Only change: add category selector (optional).
+This is the primary self-service path. The existing form needs to be upgraded:
+subject becomes required, category dropdown is added.
+
+### Flow C: User asks AI and needs escalation (AI-assisted ticket draft)
+```
+User asks AI → AI cannot resolve (see Section 5 for conservative triggers)
+→ AI responds with helpful text + suggests: "Would you like to create a support ticket?"
+→ "Create Support Ticket" button appears below AI response
+→ User clicks → same structured ticket form opens, pre-filled with:
+   - Subject: AI-generated short title (user can edit)
+   - Category: AI-suggested (user can change)
+   - Description: user's core question (user can edit)
+→ User reviews the structured form, edits as needed, submits
+→ Ticket created with additional AI enrichment:
+   - ai_summary: condensed conversation context (admin-only, not shown in form)
+   - transcript_json: full AI chat history (admin reference only)
+   - source: "ai_escalation"
+→ User sees confirmation + ticket in their list
+```
+The ticket itself is always a proper structured record. AI enrichment is supplementary.
 
 ### Flow D: User checks existing ticket
 ```
@@ -224,16 +247,26 @@ Admin clicks "Internal Note" tab/toggle → types note
 ```
 
 ### Flow F: Closing / reopening / escalating
+
+**Status model (5 statuses only — keep it simple):**
+- **Open** — new or customer replied, needs admin attention
+- **In Progress** — admin is actively working on it
+- **Waiting on Customer** — admin replied, ball is in customer's court
+- **Resolved** — issue addressed, optional resolution note
+- **Closed** — final close, no further action expected
+
 ```
-Admin changes status via dropdown:
-  open → in_progress (admin acknowledged)
-  in_progress → waiting_on_customer (admin replied, waiting for customer)
-  waiting_on_customer → open (customer replied back)
+Allowed transitions:
+  open → in_progress (admin picks it up)
+  in_progress → waiting_on_customer (admin replied, waiting)
+  waiting_on_customer → open (customer replied back — auto-triggered)
   any → resolved (admin marks as resolved, optional resolution note)
   resolved → closed (final close after review period)
   closed → open (reopen if customer re-contacts)
 Each transition logged to activity trail.
 ```
+
+Do NOT add more statuses unless clearly necessary. Five covers the full lifecycle.
 
 ### Flow G: Using AI to summarize and draft replies
 ```
@@ -269,12 +302,17 @@ Admin opens ticket detail → AdminCopilot sidebar shows ticket context
 - Access internal admin notes or internal ticket data
 - Pretend to be a human support agent
 
-**Escalation triggers (suggest ticket creation):**
-- User explicitly asks to talk to a person / support team
-- Question is account-specific and AI lacks data access (e.g. "Why was I charged $X?")
-- User expresses frustration or dissatisfaction
-- AI has answered 3+ times without resolving the issue
-- Billing disputes, service complaints, access issues
+**Escalation triggers (conservative — suggest ticket creation ONLY when):**
+1. **User explicitly asks for human help** — "I want to talk to someone" / "Can I speak to support?"
+2. **AI lacks account-specific certainty** — question requires data AI cannot access (e.g. "Why was I charged twice?", "My onboarding form isn't loading")
+3. **Issue remains unresolved after genuine support attempts** — AI has tried to help but the user's problem persists after multiple exchanges
+4. **Sensitive issue** — billing disputes, account access problems, service failures, anything where a wrong AI answer could make things worse
+
+**AI must NOT escalate for:**
+- General "how does X work?" questions it can answer
+- Questions answered by FAQ or portal navigation
+- First-contact questions before AI has attempted to help
+- Vague messages like "help" without context (AI should ask clarifying questions first)
 
 ### B. Admin AI Support/Copilot Role
 
@@ -300,8 +338,6 @@ Admin opens ticket detail → AdminCopilot sidebar shows ticket context
 
 ---
 
----
-
 ## 6. TICKET DATA MODEL / SCHEMA
 
 ### Table: `support_tickets` (EXTEND existing)
@@ -312,12 +348,14 @@ The existing table at `shared/schemas/db.ts:223-235` needs to be extended. Curre
 support_tickets
 ──────────────────────────────────────────────────────────
 id              serial PK
-client_id       integer FK → clients.id (CHANGE: make required, link to CRM client)
+client_id       integer FK → clients.id NOT NULL (CHANGE: make required, link to CRM client)
 calculator_id   integer FK → calculators.id (keep for legacy/QuoteQuick tickets)
-subject         text (nullable)
-description     text NOT NULL (original message body)
+subject         text NOT NULL                                 ← CHANGE: was nullable, now required
+                  (short title/summary — every ticket must have one)
+description     text NOT NULL (customer-visible detailed description)
 status          varchar(30) NOT NULL default 'open'
                   → open | in_progress | waiting_on_customer | resolved | closed
+                  (5 statuses only — keep it simple)
 priority        varchar(20) NOT NULL default 'normal'        ← NEW
                   → low | normal | high | urgent
 category        varchar(50)                                   ← NEW
@@ -391,20 +429,29 @@ The existing `internalNotes` table is scoped to `client_id` and designed for gen
 
 Fulfillment tasks track service delivery work (supplier assignments, automation status, cost tracking). Support tickets track customer communication and issue resolution. Different lifecycle, different actors, different visibility rules. Merging them would create confusion and leak internal fulfillment data to customers.
 
+**DESIGN RULE: Support tickets and internal ops tasks are conceptually separate systems.**
+A support ticket may eventually link to a fulfillment task (e.g., "customer reported MapGuard issue" → admin creates internal task to investigate). But the ticket system must never become the general ops task system. They are separate tables, separate UIs, separate lifecycles. The only connection is an optional `linked_task_id` field added in a future phase if needed — never a merge.
+
 ---
 
 ## 7. HOW AI CHAT SHOULD CONNECT TO TICKETS
 
-### When AI should offer escalation
+### When AI should offer escalation (conservative)
 
-The portal AI (`/api/portal/ai-chat`, surface: "help") should suggest ticket creation when:
+The portal AI (`/api/portal/ai-chat`, surface: "help") should suggest ticket creation ONLY when:
 
-1. **Explicit request:** User says "I want to talk to someone" / "Can I speak to support?" / "I need help from a real person"
-2. **Account-specific question AI cannot answer:** "Why was I charged twice?" / "My service isn't working" / "I can't access my onboarding form"
-3. **Frustration signals:** Repeated questions, negative sentiment, expressions of confusion after multiple exchanges
-4. **3+ unresolved exchanges:** If the user has sent 3+ messages and the conversation hasn't reached a satisfactory conclusion
+1. **User explicitly asks for human support** — "I want to talk to someone" / "Can I speak to support?" / "I need help from a real person"
+2. **AI lacks account-specific certainty** — the question requires data AI cannot access (e.g. "Why was I charged twice?", "My service isn't working", "I can't access my onboarding form")
+3. **Issue unresolved after genuine support attempts** — AI has tried to help across multiple exchanges but the user's problem persists
+4. **Sensitive issue** — billing disputes, account access problems, service failures — topics where a wrong AI answer could cause harm
 
-**Implementation:** Add escalation detection to the help-surface system prompt. When triggered, AI responds with helpful text AND a structured signal (e.g. `[ESCALATE]` marker at end of response) that the frontend detects to show the "Create Ticket" button.
+**AI must NOT push escalation for:**
+- Questions it can answer from the knowledge base
+- First-contact messages before AI has attempted to help
+- Vague/generic requests (AI should ask clarifying questions first)
+- General navigation or "how does X work?" questions
+
+**Implementation:** Add escalation detection to the help-surface system prompt. When triggered, AI responds with helpful text AND a structured signal (e.g. `[ESCALATE]` marker at end of response) that the frontend detects to show the "Create Ticket" button. The AI should suggest, never push.
 
 ### What chat context should be summarized into a ticket
 
@@ -417,15 +464,15 @@ When creating a ticket from AI escalation:
 5. **AI suggests a category** (general/billing/service/onboarding/access/bug)
 6. **AI suggests priority** stored in `ai_priority_hint`
 
-### Manual vs. assisted vs. automatic ticket creation
+### Two equal ticket creation paths
 
-| Method | When | AI involvement |
-|--------|------|----------------|
-| **Manual** | User fills form directly (existing flow) | None — user writes everything |
-| **AI-assisted** (recommended) | AI suggests escalation, pre-fills form | AI generates subject, summary, category suggestion |
-| **Automatic** | Never | Tickets should never be created without user confirmation |
+| Method | When | AI involvement | Result |
+|--------|------|----------------|--------|
+| **Manual structured** | User fills form directly from Help page | None — user writes everything | Structured ticket with subject, category, description |
+| **AI-assisted draft** | AI suggests escalation during chat, user confirms | AI pre-fills subject, category, description; attaches ai_summary + transcript | Same structured ticket, plus AI enrichment fields |
+| **Automatic** | **Never** | N/A | Tickets must never be created without user confirmation |
 
-**AI-assisted is the primary path.** Manual remains as fallback. Automatic is explicitly prohibited to avoid junk tickets.
+**Both paths are equal.** Manual is not a fallback — it's a first-class option for users who know what they need. AI-assisted is the path for users who started with chat and need to escalate. Both produce the same structured ticket object.
 
 ### What should be copied from AI conversation into the ticket
 
@@ -455,8 +502,8 @@ ticket.ai_priority_hint = AI-suggested priority based on content
 #### Existing page to modify: `/portal/help` (`PortalHelp.tsx`)
 
 **Changes:**
-- **AI chat section:** Add escalation UI — when AI signals `[ESCALATE]`, show a "Create Support Ticket" button below the AI response. Clicking opens pre-filled ticket form.
-- **Ticket form section:** Add optional category dropdown (general/billing/service/onboarding/access/bug). Support pre-fill from AI escalation.
+- **Ticket form section (structured creation):** Upgrade existing form — subject becomes **required**, add **required** category dropdown (general/billing/service/onboarding/access/other). Form supports pre-fill from AI escalation but works perfectly standalone.
+- **AI chat section:** Add escalation UI — when AI signals `[ESCALATE]`, show a "Create Support Ticket" button below the AI response. Clicking scrolls to / opens the same structured ticket form, pre-filled with AI-generated values. User reviews and edits before submitting.
 - **Ticket list section:** Make each ticket row clickable → navigates to `/portal/help/tickets/:id`
 - Add unresolved ticket count badge on the Help nav item
 
@@ -702,8 +749,6 @@ All portal endpoints stay under `/api/portal/tickets/` prefix with `requireClien
 
 ---
 
----
-
 ## 11. PERMISSIONS / VISIBILITY RULES
 
 ### Portal users (role: "client") can see:
@@ -943,7 +988,10 @@ All portal endpoints stay under `/api/portal/tickets/` prefix with `requireClien
 
 **Exact first step:**
 
-1. Extend the `supportTickets` table definition in `shared/schemas/db.ts` with the new fields (priority, category, source, assigned_to, linked_service_id, linked_onboarding_id, ai_summary, ai_priority_hint, closed_at)
+1. Extend the `supportTickets` table definition in `shared/schemas/db.ts`:
+   - Make `subject` NOT NULL (was nullable — every ticket must have a title)
+   - Make `client_id` NOT NULL with FK → clients.id
+   - Add: priority, category, source, assigned_to, linked_service_id, linked_onboarding_id, ai_summary, ai_priority_hint, closed_at
 
 2. Create the `ticketMessages` table definition in `shared/schemas/db.ts`
 
@@ -958,9 +1006,9 @@ All portal endpoints stay under `/api/portal/tickets/` prefix with `requireClien
    - `updateTicket(ticketId, updates)`
    - `getTicketCounts(filters?)`
 
-6. Update existing `POST /api/portal/tickets` to accept and store the new fields
+6. Update existing `POST /api/portal/tickets` to require subject and category, accept new fields
 
-7. Update existing `GET /api/portal/tickets` to return the new fields
+7. Update existing `GET /api/portal/tickets` to return new fields
 
 8. Test with existing portal ticket creation to confirm backward compatibility
 
@@ -978,9 +1026,16 @@ This plan designs a three-layer support system:
 2. **Ticket system** (structured escalation) — tracks issues that need human attention
 3. **Admin support ops** (admin dashboard) — lets operators manage, reply, and resolve with AI copilot assistance
 
+**Key design principles enforced:**
+- **Two equal ticket creation paths:** manual structured form AND AI-assisted draft — neither is primary/fallback
+- **Tickets are always structured objects:** subject (required), category, status, priority, linked client, description — admin never reconstructs from raw chat
+- **Support tickets and internal ops tasks are separate systems:** may link later, never merge
+- **Simple 5-status model:** Open → In Progress → Waiting on Customer → Resolved → Closed
+- **Conservative AI escalation:** only when user asks for help, AI lacks certainty, issue is unresolved after attempts, or issue is sensitive
+
 The system is built on top of existing infrastructure:
 - Existing `support_tickets` table (extended)
-- Existing portal AI chat endpoint (enhanced with escalation)
+- Existing portal AI chat endpoint (enhanced with conservative escalation)
 - Existing AdminCopilot (extended with ticket context)
 - Existing admin dashboard patterns (InboxPage, TaskCard, ClientDetailPage)
 
