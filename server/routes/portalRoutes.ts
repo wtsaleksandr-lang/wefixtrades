@@ -898,6 +898,16 @@ Do NOT:
       if (nextUp.length === 0 && totalTasks > 0 && doneTasks < totalTasks) nextUp.push("Finalizing this month's SEO improvements");
       if (nextUp.length === 0 && doneTasks === totalTasks) nextUp.push("Reviewing keyword progress for next month");
 
+      // Ranking highlights (from signals table)
+      const signals = await storage.getSignalSummary(clientId);
+      const rankingHighlights: string[] = [];
+      if (signals) {
+        if (signals.keywords_top_10 > 0) rankingHighlights.push(`${signals.keywords_top_10} keyword${signals.keywords_top_10 > 1 ? "s" : ""} in top 10`);
+        if (signals.keywords_improved > 0) rankingHighlights.push(`${signals.keywords_improved} keyword${signals.keywords_improved > 1 ? "s" : ""} improved this month`);
+        if (signals.pages_indexed > 0) rankingHighlights.push(`${signals.pages_indexed} page${signals.pages_indexed > 1 ? "s" : ""} indexed on Google`);
+        if (signals.keywords_top_20 > signals.keywords_top_10) rankingHighlights.push(`${signals.keywords_top_20} keyword${signals.keywords_top_20 > 1 ? "s" : ""} in top 20`);
+      }
+
       res.json({
         active: profile.enabled,
         plan_tier: profile.plan_tier,
@@ -913,6 +923,7 @@ Do NOT:
         completed: completedItems,
         inProgress: inProgressItems,
         nextUp,
+        rankingHighlights,
       });
     } catch (err: any) {
       console.error("[portal-rankflow] error:", err.message);
@@ -981,16 +992,25 @@ Do NOT:
         planResult = { planId: plan.id, month, tasksCreated };
       }
 
-      // Generate structured keyword targets
+      // Generate structured keyword targets and save to tracking table
       const keywords = generateKeywordTargets(niche, location, additional_locations, additional_services);
       const clusters = clusterKeywords(keywords);
 
-      console.log(`[rankflow-onboard] Client ${clientId} onboarded — ${keywords.length} keywords, ${clusters.length} clusters, plan: ${planResult ? "created" : "already exists"}`);
+      // Save keywords to tracking table (max 40)
+      const kwToSave = keywords.slice(0, 40).map(k => ({
+        client_id: clientId,
+        keyword: k.keyword,
+        cluster: k.cluster,
+        priority: k.priority,
+      }));
+      await storage.createKeywords(kwToSave);
+
+      console.log(`[rankflow-onboard] Client ${clientId} onboarded — ${kwToSave.length} keywords saved, ${clusters.length} clusters, plan: ${planResult ? "created" : "already exists"}`);
 
       res.status(201).json({
         profile,
         plan: planResult,
-        keywords: keywords.slice(0, 20).map(k => ({ keyword: k.keyword, intent: k.intent, priority: k.priority })),
+        keywords_saved: kwToSave.length,
         clusters: clusters.length,
       });
     } catch (err: any) {

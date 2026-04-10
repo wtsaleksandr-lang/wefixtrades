@@ -43,13 +43,17 @@ import {
   type OnboardingTemplate,
   // RankFlow
   rankflowProfiles, rankflowMonthlyPlans, rankflowTasks, rankflowQaChecks, rankflowProgress,
-  rankflowVendorBatches,
+  rankflowVendorBatches, rankflowKeywords, rankflowRankings, rankflowPages, rankflowSignals,
   type RankflowProfile, type InsertRankflowProfile,
   type RankflowMonthlyPlan, type InsertRankflowMonthlyPlan,
   type RankflowTask, type InsertRankflowTask,
   type RankflowQaCheck, type InsertRankflowQaCheck,
   type RankflowProgress, type InsertRankflowProgress,
   type RankflowVendorBatch, type InsertRankflowVendorBatch,
+  type RankflowKeyword, type InsertRankflowKeyword,
+  type RankflowRanking, type InsertRankflowRanking,
+  type RankflowPage, type InsertRankflowPage,
+  type RankflowSignal, type InsertRankflowSignal,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -1538,6 +1542,86 @@ export class DatabaseStorage implements IStorage {
       failed: r.failed,
       avg_cost: r.avg_cost ? Number(r.avg_cost) : null,
     }));
+  }
+
+  /* ═══════════════════════════════════════════
+     RankFlow Tracking
+     ═══════════════════════════════════════════ */
+
+  async createKeywords(data: InsertRankflowKeyword[]): Promise<RankflowKeyword[]> {
+    if (data.length === 0) return [];
+    const rows = await db.insert(rankflowKeywords).values(data).returning();
+    return rows;
+  }
+
+  async listKeywordsByClient(clientId: number): Promise<RankflowKeyword[]> {
+    return db.select().from(rankflowKeywords)
+      .where(eq(rankflowKeywords.client_id, clientId))
+      .orderBy(desc(rankflowKeywords.priority));
+  }
+
+  async insertRankingRecord(data: InsertRankflowRanking): Promise<RankflowRanking> {
+    const [row] = await db.insert(rankflowRankings).values(data).returning();
+    return row;
+  }
+
+  async getLastRankingForKeyword(keywordId: number): Promise<RankflowRanking | undefined> {
+    const [row] = await db.select().from(rankflowRankings)
+      .where(eq(rankflowRankings.keyword_id, keywordId))
+      .orderBy(desc(rankflowRankings.checked_at))
+      .limit(1);
+    return row;
+  }
+
+  async upsertPage(clientId: number, url: string, data: Partial<InsertRankflowPage>): Promise<RankflowPage> {
+    const [existing] = await db.select().from(rankflowPages)
+      .where(and(eq(rankflowPages.client_id, clientId), eq(rankflowPages.url, url)))
+      .limit(1);
+    if (existing) {
+      const [updated] = await db.update(rankflowPages)
+        .set(data)
+        .where(eq(rankflowPages.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(rankflowPages)
+      .values({ client_id: clientId, url, ...data } as InsertRankflowPage)
+      .returning();
+    return created;
+  }
+
+  async listPagesByClient(clientId: number): Promise<RankflowPage[]> {
+    return db.select().from(rankflowPages)
+      .where(eq(rankflowPages.client_id, clientId))
+      .orderBy(desc(rankflowPages.created_at));
+  }
+
+  async updatePageIndexStatus(pageId: number, indexed: boolean): Promise<void> {
+    await db.update(rankflowPages).set({ indexed, last_checked_at: new Date() }).where(eq(rankflowPages.id, pageId));
+  }
+
+  async upsertSignalSummary(clientId: number, data: Partial<InsertRankflowSignal>): Promise<RankflowSignal> {
+    const [existing] = await db.select().from(rankflowSignals)
+      .where(eq(rankflowSignals.client_id, clientId))
+      .limit(1);
+    if (existing) {
+      const [updated] = await db.update(rankflowSignals)
+        .set({ ...data, last_updated: new Date() })
+        .where(eq(rankflowSignals.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(rankflowSignals)
+      .values({ client_id: clientId, ...data } as InsertRankflowSignal)
+      .returning();
+    return created;
+  }
+
+  async getSignalSummary(clientId: number): Promise<RankflowSignal | undefined> {
+    const [row] = await db.select().from(rankflowSignals)
+      .where(eq(rankflowSignals.client_id, clientId))
+      .limit(1);
+    return row;
   }
 }
 

@@ -19,6 +19,7 @@ interface RankFlowData {
   completed?: { label: string; detail: string; completedAt: string | null }[];
   inProgress?: { label: string; detail: string }[];
   nextUp?: string[];
+  rankingHighlights?: string[];
 }
 
 function formatDate(d: string | null): string {
@@ -91,6 +92,20 @@ export default function PortalRankFlow() {
             <div className="h-full bg-[#2D6A4F] rounded-full transition-all duration-500" style={{ width: `${m.progressPct}%` }} />
           </div>
         </div>
+
+        {data.rankingHighlights && data.rankingHighlights.length > 0 && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4">
+            <h2 className="text-sm font-semibold text-emerald-900 mb-2">Ranking Highlights</h2>
+            <ul className="space-y-1">
+              {data.rankingHighlights.map((h, i) => (
+                <li key={i} className="flex items-center gap-2 text-sm text-emerald-800">
+                  <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+                  {h}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {data.completed && data.completed.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

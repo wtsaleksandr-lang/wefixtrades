@@ -185,7 +185,7 @@ export function registerRankFlowRoutes(app: Express): void {
     }
   });
 
-  // Approve a task (QA passed → done)
+  // Approve a task (QA passed → done) + auto-track page if page_create
   app.post("/api/rankflow/tasks/:id/approve", requireAdmin, async (req: Request, res: Response) => {
     try {
       const taskId = parseInt(req.params.id as string);
@@ -193,6 +193,23 @@ export function registerRankFlowRoutes(app: Express): void {
 
       const task = await storage.approveRankflowTask(taskId, actual_cost);
       if (!task) return res.status(404).json({ error: "Task not found" });
+
+      // Auto-create tracked page entry for page_create tasks
+      if (task.type === "page_create") {
+        const proof = (task.proof_data || {}) as { urls?: string[] };
+        const pageUrl = proof.urls?.[0];
+        const primaryKw = (task.metadata as any)?.primary_keyword || null;
+        const pageType = (task.metadata as any)?.page_type || null;
+        if (pageUrl) {
+          await storage.upsertPage(task.client_id, pageUrl, {
+            target_keyword: primaryKw,
+            page_type: pageType,
+            created_by_task_id: task.id,
+            indexed: false,
+          });
+          console.log(`[rankflow] Auto-tracked page: ${pageUrl}`);
+        }
+      }
 
       console.log(`[rankflow] Task ${taskId} approved`);
       res.json(task);
@@ -439,6 +456,51 @@ export function registerRankFlowRoutes(app: Express): void {
     try {
       const stats = await storage.getVendorStats();
       res.json(stats);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     Signals / Tracking (Admin)
+     ═══════════════════════════════════════════ */
+
+  app.get("/api/rankflow/clients/:id/signals", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id as string);
+
+      const summary = await storage.getSignalSummary(clientId);
+      const keywords = await storage.listKeywordsByClient(clientId);
+      const pages = await storage.listPagesByClient(clientId);
+
+      // Get latest ranking for each keyword
+      const keywordsWithRanking = [];
+      for (const kw of keywords) {
+        const lastRanking = await storage.getLastRankingForKeyword(kw.id);
+        keywordsWithRanking.push({
+          id: kw.id,
+          keyword: kw.keyword,
+          cluster: kw.cluster,
+          priority: kw.priority,
+          position: lastRanking?.position ?? null,
+          previous_position: lastRanking?.previous_position ?? null,
+          change: lastRanking?.change ?? null,
+          checked_at: lastRanking?.checked_at ?? null,
+        });
+      }
+
+      res.json({
+        summary: summary || { total_keywords: 0, keywords_top_10: 0, keywords_top_20: 0, keywords_improved: 0, avg_position: null, pages_indexed: 0, pages_total: 0 },
+        keywords: keywordsWithRanking,
+        pages: pages.map(p => ({
+          id: p.id,
+          url: p.url,
+          target_keyword: p.target_keyword,
+          page_type: p.page_type,
+          indexed: p.indexed,
+          last_checked_at: p.last_checked_at,
+        })),
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

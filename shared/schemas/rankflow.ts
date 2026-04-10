@@ -135,3 +135,66 @@ export const rankflowProgress = pgTable("rankflow_progress", {
 export const insertRankflowProgressSchema = createInsertSchema(rankflowProgress).omit({ id: true, created_at: true });
 export type InsertRankflowProgress = z.infer<typeof insertRankflowProgressSchema>;
 export type RankflowProgress = typeof rankflowProgress.$inferSelect;
+
+/* ─── RankFlow Keywords (Tracked) ─── */
+export const rankflowKeywords = pgTable("rankflow_keywords", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").notNull().references(() => clients.id),
+  keyword: text("keyword").notNull(),
+  cluster: varchar("cluster", { length: 100 }),
+  priority: integer("priority").notNull().default(5),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertRankflowKeywordSchema = createInsertSchema(rankflowKeywords).omit({ id: true, created_at: true });
+export type InsertRankflowKeyword = z.infer<typeof insertRankflowKeywordSchema>;
+export type RankflowKeyword = typeof rankflowKeywords.$inferSelect;
+
+/* ─── RankFlow Rankings (History) ─── */
+export const rankflowRankings = pgTable("rankflow_rankings", {
+  id: serial("id").primaryKey(),
+  keyword_id: integer("keyword_id").notNull().references(() => rankflowKeywords.id),
+  position: integer("position"),
+  previous_position: integer("previous_position"),
+  change: integer("change"),
+  checked_at: timestamp("checked_at").defaultNow(),
+});
+
+export const insertRankflowRankingSchema = createInsertSchema(rankflowRankings).omit({ id: true });
+export type InsertRankflowRanking = z.infer<typeof insertRankflowRankingSchema>;
+export type RankflowRanking = typeof rankflowRankings.$inferSelect;
+
+/* ─── RankFlow Pages (Tracked) ─── */
+export const rankflowPages = pgTable("rankflow_pages", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").notNull().references(() => clients.id),
+  url: text("url").notNull(),
+  target_keyword: text("target_keyword"),
+  page_type: varchar("page_type", { length: 30 }),
+  created_by_task_id: integer("created_by_task_id"),
+  indexed: boolean("indexed").notNull().default(false),
+  last_checked_at: timestamp("last_checked_at"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertRankflowPageSchema = createInsertSchema(rankflowPages).omit({ id: true, created_at: true });
+export type InsertRankflowPage = z.infer<typeof insertRankflowPageSchema>;
+export type RankflowPage = typeof rankflowPages.$inferSelect;
+
+/* ─── RankFlow Signals (Summary) ─── */
+export const rankflowSignals = pgTable("rankflow_signals", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").notNull().references(() => clients.id).unique(),
+  total_keywords: integer("total_keywords").notNull().default(0),
+  keywords_top_10: integer("keywords_top_10").notNull().default(0),
+  keywords_top_20: integer("keywords_top_20").notNull().default(0),
+  keywords_improved: integer("keywords_improved").notNull().default(0),
+  avg_position: numeric("avg_position"),
+  pages_indexed: integer("pages_indexed").notNull().default(0),
+  pages_total: integer("pages_total").notNull().default(0),
+  last_updated: timestamp("last_updated").defaultNow(),
+});
+
+export const insertRankflowSignalSchema = createInsertSchema(rankflowSignals).omit({ id: true });
+export type InsertRankflowSignal = z.infer<typeof insertRankflowSignalSchema>;
+export type RankflowSignal = typeof rankflowSignals.$inferSelect;
