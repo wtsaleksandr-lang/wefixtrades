@@ -745,7 +745,7 @@ export default function PortalReviews() {
                           </div>
                         )}
                         <div className="text-xs text-gray-400">
-                          First seen {formatDate(r.first_seen_at)} · {r.platform}
+                          First seen {formatDate(r.first_seen_at)} on <span className="capitalize font-medium">{r.platform}</span>
                         </div>
                       </div>
                     )}

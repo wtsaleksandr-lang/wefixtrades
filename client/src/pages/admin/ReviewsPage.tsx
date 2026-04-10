@@ -745,8 +745,9 @@ export default function ReviewsPage() {
                     <div className="space-y-2">
                       <textarea
                         value={draftText}
-                        onChange={(e) => { setDraftText(e.target.value); setDraftEdited(true); setCopied(false); }}
+                        onChange={(e) => { setDraftText(e.target.value.slice(0, 2000)); setDraftEdited(true); setCopied(false); }}
                         rows={4}
+                        maxLength={2000}
                         className="w-full p-3 text-sm border rounded-lg resize-vertical focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
                       />
                       <div className="flex gap-2 flex-wrap">

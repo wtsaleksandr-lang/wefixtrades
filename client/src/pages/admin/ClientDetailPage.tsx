@@ -1207,7 +1207,7 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
         <ServiceOpsCard
           title="Google Business Profile"
           status={taskStatus(t.googlePlaceId.done)}
-          description={t.googlePlaceId.done ? `Place ID: ${t.googlePlaceId.value}` : "Required for review monitoring and response posting."}
+          description={t.googlePlaceId.done ? `Google Place ID configured (${t.googlePlaceId.value})` : "Required for review monitoring and response posting. Find it in Google Maps → Share → Place ID."}
           nextStep={!t.googlePlaceId.done ? "Add the client's Google Place ID in their profile settings." : undefined}
         >
           {t.googlePlaceId.done && (
@@ -1273,11 +1273,14 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
               >
                 Copy Embed Code
               </button>
-              <button
-                onClick={() => copyToClipboard(t.widgetToken.value, "Widget token")}
-                className="text-[11px] text-blue-600 hover:underline"
-              >
-                Copy Token
+              <HelpCue text="A unique ID that identifies this client's widget. Included in the embed code automatically.">
+                <button
+                  onClick={() => copyToClipboard(t.widgetToken.value, "Widget token")}
+                  className="text-[11px] text-blue-600 hover:underline"
+                >
+                  Copy Token
+                </button>
+              </HelpCue>
               </button>
             </div>
           )}

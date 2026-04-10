@@ -97,6 +97,7 @@ export default function CompareNiceJob() {
 
         {/* Comparison table */}
         <Card className="overflow-hidden mb-12">
+          <p className="text-[11px] text-gray-400 px-4 pt-2 sm:hidden">Scroll right to see all columns →</p>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
               <thead>
@@ -172,6 +173,10 @@ export default function CompareNiceJob() {
         </Card>
 
         {/* FAQ */}
+        <style>{`
+          .compare-faq-chevron { transition: transform 0.2s ease; }
+          details[open] .compare-faq-chevron { transform: rotate(180deg); }
+        `}</style>
         <div style={{ marginBottom: 48 }}>
           <h3 style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e", marginBottom: 16 }}>Common questions</h3>
           {[
@@ -183,7 +188,7 @@ export default function CompareNiceJob() {
             <details key={item.q} style={{ borderBottom: "1px solid #E5E7EB", paddingBottom: 12, marginBottom: 12 }}>
               <summary style={{ fontSize: 14, fontWeight: 600, color: "#374151", cursor: "pointer", padding: "4px 0", listStyle: "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 {item.q}
-                <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 compare-faq-chevron" />
               </summary>
               <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.6, marginTop: 8, paddingLeft: 0 }}>{item.a}</p>
             </details>
