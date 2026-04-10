@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { z } from "zod";
 import { randomBytes } from "crypto";
+import Stripe from "stripe";
 import { storage } from "../storage";
 import { validatePricingConfig } from "@shared/pricingConfig";
 import { calculatorSettingsSchema } from "@shared/schema";
@@ -420,6 +421,74 @@ export function registerCalculatorRoutes(app: Express): void {
       res.json({ ok: true });
     } catch {
       res.json({ ok: true });
+    }
+  });
+
+  // QuoteQuick plan checkout — creates Stripe session linked to a calculator
+  const checkoutBody = z.object({
+    calculator_id: z.number().int().positive(),
+    token: z.string().min(1),
+    plan: z.enum(['solo', 'business']),
+    billing: z.enum(['monthly', 'annual']).default('monthly'),
+  });
+
+  app.post("/api/calculators/checkout", async (req, res) => {
+    try {
+      const key = process.env.STRIPE_SECRET_KEY;
+      if (!key) return res.status(503).json({ error: "Payments not configured" });
+      const stripe = new Stripe(key, { apiVersion: "2025-01-27.acacia" as any });
+
+      const parsed = checkoutBody.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid request" });
+
+      const calculator = await storage.getCalculatorByToken(parsed.data.token);
+      if (!calculator || calculator.id !== parsed.data.calculator_id) {
+        return res.status(404).json({ error: "Calculator not found" });
+      }
+
+      // Map plan + billing to Stripe price IDs (configured in env)
+      const priceMap: Record<string, string | undefined> = {
+        'solo_monthly': process.env.STRIPE_PRICE_QQ_SOLO_MONTHLY,
+        'solo_annual': process.env.STRIPE_PRICE_QQ_SOLO_ANNUAL,
+        'business_monthly': process.env.STRIPE_PRICE_QQ_BUSINESS_MONTHLY,
+        'business_annual': process.env.STRIPE_PRICE_QQ_BUSINESS_ANNUAL,
+      };
+
+      const priceKey = `${parsed.data.plan}_${parsed.data.billing}`;
+      const priceId = priceMap[priceKey];
+      if (!priceId) {
+        return res.status(400).json({ error: `Price not configured for ${priceKey}. Contact support.` });
+      }
+
+      const planTier = parsed.data.plan === 'business' ? 'business' : 'starter';
+      const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        line_items: [{ price: priceId, quantity: 1 }],
+        customer_email: calculator.owner_email || undefined,
+        metadata: {
+          source: 'quotequick_checkout',
+          calculator_id: String(calculator.id),
+          plan_tier: planTier,
+          billing: parsed.data.billing,
+        },
+        success_url: `${baseUrl}/dashboard?token=${parsed.data.token}&upgraded=1`,
+        cancel_url: `${baseUrl}/pricing/quotequick?cancelled=1`,
+        allow_promotion_codes: true,
+      });
+
+      // Track plan selection
+      storage.trackEvent({
+        calculator_id: calculator.id,
+        event_type: 'plan_selected',
+        metadata: { plan: parsed.data.plan, billing: parsed.data.billing },
+      }).catch(() => {});
+
+      res.json({ checkout_url: session.url });
+    } catch (err: any) {
+      console.error("[calculator-checkout] Error:", err.message);
+      res.status(500).json({ error: "Failed to create checkout" });
     }
   });
 }
