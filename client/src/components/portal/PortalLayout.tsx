@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import PortalChatWidget, { type PortalChatContext } from "./PortalChatWidget";
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/portal", icon: LayoutDashboard },
@@ -34,7 +35,14 @@ function isActive(location: string, href: string): boolean {
   return location.startsWith(href);
 }
 
-export default function PortalLayout({ children }: { children: React.ReactNode }) {
+export default function PortalLayout({
+  children,
+  chatContext,
+}: {
+  children: React.ReactNode;
+  /** Optional page-specific context for the global assistant (e.g. onboarding form fields) */
+  chatContext?: PortalChatContext;
+}) {
   const [location, navigate] = useLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -173,6 +181,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           {children}
         </main>
       </div>
+
+      {/* Global portal assistant — single entry point for all portal pages */}
+      <PortalChatWidget chatContext={chatContext} />
     </div>
   );
 }

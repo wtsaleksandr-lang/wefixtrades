@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
-  Loader2, ChevronDown, Send, MessageCircle, Plus, CheckCircle2,
+  ChevronDown, CheckCircle2,
   HelpCircle, CreditCard, Wrench, ClipboardList, Calculator, ChevronRight,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
@@ -68,286 +68,6 @@ function FaqSection() {
             </button>
           );
         })}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Escalation Draft Type ─── */
-interface EscalationDraft {
-  subject: string;
-  category: string;
-  description: string;
-  ai_summary: string | null;
-}
-
-/* ─── AI Help Section ─── */
-function AiHelpSection() {
-  const queryClient = useQueryClient();
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [escalationDraft, setEscalationDraft] = useState<EscalationDraft | null>(null);
-  const [draftSubject, setDraftSubject] = useState("");
-  const [draftCategory, setDraftCategory] = useState("general");
-  const [draftDescription, setDraftDescription] = useState("");
-  const [submittingTicket, setSubmittingTicket] = useState(false);
-  const [ticketCreated, setTicketCreated] = useState<{ id: number } | null>(null);
-  // Cooldown: after user dismisses an escalation draft, suppress re-offering for 2 messages
-  const [escalationCooldown, setEscalationCooldown] = useState(0);
-  const endRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading, escalationDraft]);
-
-  const SUGGESTIONS = [
-    "How do I complete my setup form?",
-    "When will my service go live?",
-    "How do I check my billing status?",
-    "What does my service include?",
-  ];
-
-  async function send(text?: string) {
-    const msg = (text || input).trim();
-    if (!msg || loading) return;
-    const updated = [...messages, { role: "user" as const, content: msg }];
-    setMessages(updated);
-    setInput("");
-    setLoading(true);
-    // Clear any previous escalation draft when user sends a new message
-    setEscalationDraft(null);
-    setTicketCreated(null);
-
-    // Decrement cooldown counter (suppresses escalation for N messages after dismiss)
-    const currentCooldown = escalationCooldown;
-    if (currentCooldown > 0) setEscalationCooldown(currentCooldown - 1);
-
-    try {
-      const res = await fetch("/api/portal/ai-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          messages: updated.map((m) => ({ role: m.role, content: m.content })),
-          context: {
-            surface: "help",
-            // Tell backend to skip escalation detection during cooldown
-            skip_escalation: currentCooldown > 0,
-          },
-        }),
-      });
-      const data = await res.json();
-      setMessages((prev) => [...prev, { role: "assistant", content: data.reply || "Sorry, something went wrong." }]);
-
-      // Handle escalation draft from AI
-      if (data.escalation_draft) {
-        const draft = data.escalation_draft as EscalationDraft;
-        setEscalationDraft(draft);
-        setDraftSubject(draft.subject);
-        setDraftCategory(draft.category);
-        setDraftDescription(draft.description);
-      }
-    } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong. Please try again." }]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function submitEscalationTicket() {
-    if (!draftSubject.trim() || !draftDescription.trim() || submittingTicket) return;
-    setSubmittingTicket(true);
-    try {
-      // Build transcript from conversation
-      const transcript = messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      const res = await fetch("/api/portal/tickets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          subject: draftSubject.trim(),
-          message: draftDescription.trim(),
-          category: draftCategory,
-          source: "ai_escalation",
-          ai_summary: escalationDraft?.ai_summary || null,
-          transcript_json: transcript,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to create ticket");
-      }
-
-      const data = await res.json();
-      setTicketCreated({ id: data.id });
-      setEscalationDraft(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/portal/tickets"] });
-
-      // Add a system-style message
-      setMessages((prev) => [...prev, {
-        role: "assistant",
-        content: `Ticket #${data.id} has been created. Our team will review it and get back to you. You can track it in your tickets below.`,
-      }]);
-    } catch (err) {
-      // Show error inline
-      setMessages((prev) => [...prev, {
-        role: "assistant",
-        content: `Sorry, I couldn't create the ticket: ${(err as Error).message}. You can try again or create one manually using the form below.`,
-      }]);
-      setEscalationDraft(null);
-    } finally {
-      setSubmittingTicket(false);
-    }
-  }
-
-  function dismissDraft() {
-    setEscalationDraft(null);
-    // Suppress escalation re-offer for the next 2 messages after dismiss
-    setEscalationCooldown(2);
-    setMessages((prev) => [...prev, {
-      role: "assistant",
-      content: "No problem. You can always create a ticket manually using the form below, or keep chatting here if you have other questions.",
-    }]);
-  }
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-        <MessageCircle className="w-4 h-4 text-[#2D6A4F]" />
-        <h2 className="text-sm font-semibold text-gray-900">Ask AI</h2>
-      </div>
-      <div className="p-4">
-        {/* Messages */}
-        <div className="min-h-[120px] max-h-[350px] overflow-y-auto space-y-3 mb-3">
-          {messages.length === 0 && (
-            <div className="text-center py-4">
-              <p className="text-sm text-gray-400 mb-3">Ask anything about your services, billing, or account.</p>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {SUGGESTIONS.map((s, i) => (
-                  <button
-                    key={i}
-                    onClick={() => send(s)}
-                    className="px-3 py-1.5 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-full hover:bg-gray-100 transition-colors"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                m.role === "user" ? "bg-[#2D6A4F] text-white" : "bg-gray-100 text-gray-700"
-              }`}>
-                {m.content}
-              </div>
-            </div>
-          ))}
-
-          {/* Escalation draft card — user must confirm */}
-          {escalationDraft && !ticketCreated && (
-            <div className="border border-[#2D6A4F]/30 bg-[#F0F7F4] rounded-lg p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <ClipboardList className="w-4 h-4 text-[#2D6A4F]" />
-                <p className="text-sm font-medium text-gray-900">Support Ticket Draft</p>
-              </div>
-              <p className="text-xs text-gray-500">Review and edit before submitting. No ticket is created until you confirm.</p>
-
-              <div className="space-y-2">
-                <div className="grid grid-cols-[1fr_auto] gap-2">
-                  <div>
-                    <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Subject</label>
-                    <input
-                      value={draftSubject}
-                      onChange={(e) => setDraftSubject(e.target.value)}
-                      className="w-full mt-0.5 px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Category</label>
-                    <select
-                      value={draftCategory}
-                      onChange={(e) => setDraftCategory(e.target.value)}
-                      className="w-full mt-0.5 px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] bg-white"
-                    >
-                      {CATEGORIES.map((c) => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Description</label>
-                  <textarea
-                    value={draftDescription}
-                    onChange={(e) => setDraftDescription(e.target.value)}
-                    rows={2}
-                    className="w-full mt-0.5 px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] bg-white resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  onClick={submitEscalationTicket}
-                  disabled={!draftSubject.trim() || !draftDescription.trim() || submittingTicket}
-                  className="px-3.5 py-1.5 text-sm font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] disabled:opacity-60 transition-colors"
-                >
-                  {submittingTicket ? "Creating..." : "Create Ticket"}
-                </button>
-                <button
-                  onClick={dismissDraft}
-                  disabled={submittingTicket}
-                  className="px-3.5 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Ticket created confirmation */}
-          {ticketCreated && (
-            <div className="border border-emerald-200 bg-emerald-50 rounded-lg p-3 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-emerald-800">Ticket #{ticketCreated.id} created</p>
-                <Link href={`/portal/help/tickets/${ticketCreated.id}`} className="text-xs text-emerald-700 underline hover:no-underline">
-                  View ticket
-                </Link>
-              </div>
-            </div>
-          )}
-
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-gray-100 rounded-lg px-3 py-2"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div>
-            </div>
-          )}
-          <div ref={endRef} />
-        </div>
-        {/* Input */}
-        <div className="flex gap-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-            placeholder="Type your question..."
-            className="flex-1 text-sm px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
-          />
-          <button
-            onClick={() => send()}
-            disabled={loading || !input.trim()}
-            className="px-3 py-2.5 rounded-lg bg-[#2D6A4F] text-white hover:bg-[#1B4332] disabled:opacity-40 transition-colors"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -561,19 +281,16 @@ function formatDate(d: string | null): string {
 /* ─── Main Page ─── */
 export default function PortalHelp() {
   return (
-    <PortalLayout>
+    <PortalLayout chatContext={{ surface: "help" }}>
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Help</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Find answers, ask AI, or contact us.</p>
+          <p className="text-sm text-gray-500 mt-0.5">Find answers or contact us.</p>
         </div>
 
         {/* FAQ */}
         <FaqSection />
-
-        {/* AI Help */}
-        <AiHelpSection />
 
         {/* Contact / Tickets */}
         <TicketSection />
