@@ -1,4 +1,4 @@
-// FROZEN — scheduled for rebuild in Phase 3 (Builder Wizard). Do not add features.
+// QuoteQuick calculator owner dashboard — overview, leads, analytics, settings, bookings.
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useLocation } from 'wouter';

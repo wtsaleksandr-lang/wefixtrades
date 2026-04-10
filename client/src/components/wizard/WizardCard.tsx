@@ -1,6 +1,5 @@
-// FROZEN — scheduled for rebuild in Phase 3 (Builder Wizard). Do not add features.
-// This 1,889-line god-component will be replaced by a schema-driven builder.
-// See: ARCHITECTURE_AUDIT.md, EXTRACTION_MAP.md
+// QuoteQuick calculator builder wizard — 4-step flow: Trade → Pricing → Preview → Publish.
+// Sub-components: DesignStudio, CustomTradeQuestionnaire, PricingIntakeStage2, TestGateStep, LeadFormStep, PublishStep.
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { platformTheme } from '@/theme/platformTheme';

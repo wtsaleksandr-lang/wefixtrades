@@ -8,7 +8,7 @@ import type { StepDefinition } from '@shared/wizardSchema';
 
 interface PriceRevealStepProps {
   step: StepDefinition;
-  accentColor?: string;
+  accentColor?: string; // Reserved for future theme integration
 }
 
 /**

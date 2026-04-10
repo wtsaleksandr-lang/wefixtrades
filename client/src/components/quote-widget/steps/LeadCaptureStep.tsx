@@ -192,8 +192,8 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
               ...inputStyle,
               ...(fieldErrors.email ? { borderColor: eff.error } : {}),
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = fieldErrors.email ? '#dc2626' : eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = fieldErrors.email ? '#dc2626' : eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = fieldErrors.email ? eff.error : eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = fieldErrors.email ? eff.error : eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
           {fieldErrors.email && (
             <p style={{ fontSize: '12px', color: eff.error, margin: '4px 0 0' }}>{fieldErrors.email}</p>
@@ -215,8 +215,8 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
               ...inputStyle,
               ...(fieldErrors.phone ? { borderColor: eff.error } : {}),
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = fieldErrors.phone ? '#dc2626' : eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = fieldErrors.phone ? '#dc2626' : eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = fieldErrors.phone ? eff.error : eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = fieldErrors.phone ? eff.error : eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
           {fieldErrors.phone && (
             <p style={{ fontSize: '12px', color: eff.error, margin: '4px 0 0' }}>{fieldErrors.phone}</p>

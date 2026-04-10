@@ -22,7 +22,7 @@ class WidgetErrorBoundary extends Component<{ children: ReactNode; businessName?
   state: ErrorBoundaryState = { error: null };
   static getDerivedStateFromError(error: Error) { return { error }; }
   componentDidCatch(error: Error) {
-    console.error('[QuoteWidget] Render error:', error);
+    if (process.env.NODE_ENV !== 'production') console.error('[QuoteWidget] Render error:', error);
   }
   render() {
     if (this.state.error) {
@@ -67,7 +67,7 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
     const rawPricing = calculator.pricing_config ?? CALL_FOR_QUOTE_FALLBACK;
     const validation = validatePricingConfig(rawPricing);
     if (!validation.valid) {
-      console.warn('[QuoteWidget] Invalid pricing config, using fallback:', validation.errors);
+      if (process.env.NODE_ENV !== 'production') console.warn('[QuoteWidget] Invalid pricing config, using fallback:', validation.errors);
     }
     const pricingConfig = validation.config;
 
@@ -96,7 +96,7 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
 
     // Guard: empty steps — ensure at least lead_capture + confirmation
     if (!flow.steps || flow.steps.length === 0) {
-      console.warn('[QuoteWidget] Flow produced 0 steps, injecting minimal flow');
+      if (process.env.NODE_ENV !== 'production') console.warn('[QuoteWidget] Flow produced 0 steps, injecting minimal flow');
       flow.steps = [
         { id: 'price_reveal', type: 'price_reveal', title: 'Your Estimate', questions: [], config: { show_progress: true, can_skip: false, auto_advance: false } },
         { id: 'lead_capture', type: 'lead_capture', title: 'Get your detailed quote', questions: [], config: { show_progress: true, can_skip: false, auto_advance: false } },
