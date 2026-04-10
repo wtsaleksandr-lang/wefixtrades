@@ -1,12 +1,13 @@
 /**
- * Prospect Enrichment Service — V1
+ * Prospect Enrichment Service — V2
  *
  * Two-phase approach:
  *  1. Heuristic enrichment — runs synchronously at import time, no API calls
  *  2. AI enrichment — called separately (async job or on-demand), uses Claude
  *
- * V1 ships with full heuristic scoring and a working AI layer that can be
- * enabled by setting ANTHROPIC_API_KEY.  Neither blocks import.
+ * V2 upgrades the AI prompt to return 7 fields including conversion-focused
+ * personalization snippets: ai_reason_to_target, ai_first_line,
+ * ai_offer_angle, ai_cta_variant.  V1 fields are preserved for backwards compat.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -34,8 +35,13 @@ export interface HeuristicResult {
 
 export interface AiResult {
   quality_score: number;            // 0–100
-  ai_personalization_line: string;
+  ai_personalization_line: string;  // V1 field — kept for backwards compat (= ai_first_line)
   ai_notes: string;
+  // V2 conversion fields
+  ai_reason_to_target: string;      // why this lead is a strong fit for us right now
+  ai_first_line: string;            // polished opening sentence for cold email
+  ai_offer_angle: string;           // which product benefit angle to lead with
+  ai_cta_variant: string;           // "book a call" | "see demo" | "free audit" | etc.
 }
 
 /* ─── Heuristic enrichment ─── */
@@ -101,11 +107,16 @@ export async function runAiEnrichment(
   const client = new Anthropic({ apiKey });
   const model = process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001";
 
-  const prompt = `You are a B2B sales analyst for QuoteQuick, a SaaS tool that gives trade contractors (plumbers, electricians, HVAC, roofers, etc.) an instant online quoting system.
+  const prompt = `You are a B2B sales analyst for WeFixTrades, a SaaS platform that helps trade contractors (plumbers, electricians, HVAC, roofers, etc.) get more jobs online through instant quoting, reputation management, and AI communication tools.
 
-Analyze this prospect and return a JSON object with exactly these fields:
-- quality_score (integer 0-100): how good a fit is this business for QuoteQuick? Consider: trade contractor, owner-operated, has a website but likely no quote tool, active reviews.
-- ai_personalization_line (string, max 2 sentences): a warm, specific opening line for a cold email. Reference something specific about their business. Do NOT be generic.
+Analyze this prospect and return a JSON object with EXACTLY these 7 fields:
+
+- quality_score (integer 0-100): overall fit score. Consider: trade contractor, owner-operated, has a website but likely no quote tool, active Google reviews.
+- ai_reason_to_target (string, 1 sentence): the single strongest reason this business is a high-value target RIGHT NOW. Be specific.
+- ai_first_line (string, 1-2 sentences): a warm, specific opening line for a cold email. Reference something concrete about their business (trade, location, review count, etc.). Do NOT be generic.
+- ai_offer_angle (string, 1 sentence): which product benefit to lead with for this specific business — e.g. "instant quote tool to capture more after-hours jobs", "review booster to compete with the 4.8-star shop down the street", "AI receptionist to handle overflow calls".
+- ai_cta_variant (string, short phrase only): best call-to-action for this lead. One of: "book a free demo", "see a 5-minute walkthrough", "get a free website audit", "claim your free trial".
+- ai_personalization_line (string): same as ai_first_line (kept for compatibility).
 - ai_notes (string, max 3 sentences): brief analyst notes on fit, opportunity, and any concerns.
 
 Prospect data:
@@ -116,12 +127,12 @@ Prospect data:
 - Google Rating: ${input.googleRating || "unknown"} (${input.googleReviewCount ?? "?"} reviews)
 - Owner name: ${input.ownerName || "unknown"}
 
-Return ONLY valid JSON. No markdown, no explanation.`;
+Return ONLY valid JSON. No markdown, no explanation, no code fences.`;
 
   try {
     const response = await client.messages.create({
       model,
-      max_tokens: 400,
+      max_tokens: 700,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -132,10 +143,16 @@ Return ONLY valid JSON. No markdown, no explanation.`;
 
     const parsed = JSON.parse(text) as Partial<AiResult>;
 
+    const firstLine = parsed.ai_first_line || parsed.ai_personalization_line || "";
+
     return {
-      quality_score: Math.min(100, Math.max(0, Number(parsed.quality_score) || 50)),
-      ai_personalization_line: parsed.ai_personalization_line || "",
-      ai_notes: parsed.ai_notes || "",
+      quality_score:           Math.min(100, Math.max(0, Number(parsed.quality_score) || 50)),
+      ai_personalization_line: firstLine,   // backwards compat alias
+      ai_notes:                parsed.ai_notes || "",
+      ai_reason_to_target:     parsed.ai_reason_to_target || "",
+      ai_first_line:           firstLine,
+      ai_offer_angle:          parsed.ai_offer_angle || "",
+      ai_cta_variant:          parsed.ai_cta_variant || "",
     };
   } catch (err: any) {
     console.error("[ProspectEnrichment] AI enrichment failed:", err.message);

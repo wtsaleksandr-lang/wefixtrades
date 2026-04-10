@@ -36,8 +36,9 @@ import {
   scoreContactConfidence,
   checkBlacklist,
   addToBlacklist,
-  classifyReply,
 } from "../services/outboundSafety";
+import { assignTargetOffer, computePriorityScore } from "../services/prospectTargeting";
+import { classifyReplyFull } from "../services/replyIntelligence";
 
 /* ─── helpers ─── */
 
@@ -295,6 +296,32 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
         const baseScore = computeBaseScore(h);
 
+        // V2: compute offer match + priority score from heuristics
+        const targetOffer = assignTargetOffer({
+          has_website:          h.has_website,
+          website_quality_score: h.website_quality_score,
+          has_quote_tool:       h.has_quote_tool,
+          google_review_count:  prospect.google_review_count,
+          google_rating:        prospect.google_rating,
+          social_presence_score: h.social_presence_score,
+          primary_phone:        prospect.primary_phone,
+        });
+
+        const priorityScore = computePriorityScore({
+          has_website:           h.has_website,
+          website_quality_score: h.website_quality_score,
+          likely_owner_operator: h.likely_owner_operator,
+          quality_score:         baseScore,
+          contact_confidence:    confidence,
+          primary_phone:         prospect.primary_phone,
+          google_review_count:   prospect.google_review_count,
+          google_rating:         prospect.google_rating,
+        });
+
+        await db.update(prospects)
+          .set({ target_offer: targetOffer, priority_score: priorityScore, updated_at: new Date() })
+          .where(eq(prospects.id, prospect.id));
+
         await db.insert(prospectEnrichment).values({
           prospect_id: prospect.id,
           ...h,
@@ -344,7 +371,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
     try {
       const {
         status, trade, city, search,
-        limit: lRaw, offset: oRaw, min_score,
+        limit: lRaw, offset: oRaw, min_score, sort,
       } = req.query as Record<string, string>;
 
       const limit = Math.min(100, Math.max(1, parseInt(lRaw) || 50));
@@ -367,6 +394,10 @@ export function registerAdminOutboundRoutes(app: Express): void {
       const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
       // Join enrichment for score
+      const orderClause = sort === "priority"
+        ? [desc(prospects.priority_score), desc(prospectEnrichment.quality_score), desc(prospects.created_at)]
+        : [desc(prospectEnrichment.quality_score), desc(prospects.created_at)];
+
       const rows = await db
         .select({
           prospect: prospects,
@@ -375,7 +406,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
         .from(prospects)
         .leftJoin(prospectEnrichment, eq(prospectEnrichment.prospect_id, prospects.id))
         .where(whereClause)
-        .orderBy(desc(prospectEnrichment.quality_score), desc(prospects.created_at))
+        .orderBy(...orderClause)
         .limit(limit)
         .offset(offset);
 
@@ -500,22 +531,42 @@ export function registerAdminOutboundRoutes(app: Express): void {
       const aiResult = await runAiEnrichment(input);
 
       if (aiResult) {
+        // Recompute priority score with updated AI quality score
+        const [existingRow] = await db.select().from(prospects).where(eq(prospects.id, id)).limit(1);
+        const [existingEnrich] = await db.select().from(prospectEnrichment)
+          .where(eq(prospectEnrichment.prospect_id, id)).limit(1);
+
+        const updatedPriority = computePriorityScore({
+          has_website:           existingEnrich?.has_website,
+          website_quality_score: existingEnrich?.website_quality_score,
+          likely_owner_operator: existingEnrich?.likely_owner_operator,
+          quality_score:         aiResult.quality_score,
+          contact_confidence:    existingRow?.contact_confidence,
+          primary_phone:         existingRow?.primary_phone,
+          google_review_count:   existingRow?.google_review_count,
+          google_rating:         existingRow?.google_rating,
+        });
+
         await db.update(prospectEnrichment)
           .set({
-            quality_score: aiResult.quality_score,
+            quality_score:        aiResult.quality_score,
             ai_personalization_line: aiResult.ai_personalization_line,
-            ai_notes: aiResult.ai_notes,
-            enrichment_source: "ai",
-            enriched_at: new Date(),
-            updated_at: new Date(),
+            ai_notes:             aiResult.ai_notes,
+            ai_reason_to_target:  aiResult.ai_reason_to_target,
+            ai_first_line:        aiResult.ai_first_line,
+            ai_offer_angle:       aiResult.ai_offer_angle,
+            ai_cta_variant:       aiResult.ai_cta_variant,
+            enrichment_source:    "ai",
+            enriched_at:          new Date(),
+            updated_at:           new Date(),
           })
           .where(eq(prospectEnrichment.prospect_id, id));
 
         await db.update(prospects)
-          .set({ status: "enriched", updated_at: new Date() })
+          .set({ status: "enriched", priority_score: updatedPriority, updated_at: new Date() })
           .where(and(eq(prospects.id, id), eq(prospects.status, "new")));
 
-        await logEvent(id, "enriched", actor, "AI enrichment completed", { score: aiResult.quality_score });
+        await logEvent(id, "enriched", actor, "AI enrichment completed", { score: aiResult.quality_score, priority: updatedPriority });
       }
 
       const [enrichment] = await db.select().from(prospectEnrichment)
@@ -563,22 +614,40 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
           const aiResult = await runAiEnrichment(input);
           if (aiResult) {
+            const [existEnrich] = await db.select().from(prospectEnrichment)
+              .where(eq(prospectEnrichment.prospect_id, row.id)).limit(1);
+
+            const updatedPriority = computePriorityScore({
+              has_website:           existEnrich?.has_website,
+              website_quality_score: existEnrich?.website_quality_score,
+              likely_owner_operator: existEnrich?.likely_owner_operator,
+              quality_score:         aiResult.quality_score,
+              contact_confidence:    row.contact_confidence,
+              primary_phone:         row.primary_phone,
+              google_review_count:   row.google_review_count,
+              google_rating:         row.google_rating,
+            });
+
             await db.update(prospectEnrichment)
               .set({
-                quality_score: aiResult.quality_score,
+                quality_score:        aiResult.quality_score,
                 ai_personalization_line: aiResult.ai_personalization_line,
-                ai_notes: aiResult.ai_notes,
-                enrichment_source: "ai",
-                enriched_at: new Date(),
-                updated_at: new Date(),
+                ai_notes:             aiResult.ai_notes,
+                ai_reason_to_target:  aiResult.ai_reason_to_target,
+                ai_first_line:        aiResult.ai_first_line,
+                ai_offer_angle:       aiResult.ai_offer_angle,
+                ai_cta_variant:       aiResult.ai_cta_variant,
+                enrichment_source:    "ai",
+                enriched_at:          new Date(),
+                updated_at:           new Date(),
               })
               .where(eq(prospectEnrichment.prospect_id, row.id));
 
             await db.update(prospects)
-              .set({ status: "enriched", updated_at: new Date() })
+              .set({ status: "enriched", priority_score: updatedPriority, updated_at: new Date() })
               .where(eq(prospects.id, row.id));
 
-            await logEvent(row.id, "enriched", actor, "Batch AI enrichment", { score: aiResult.quality_score });
+            await logEvent(row.id, "enriched", actor, "Batch AI enrichment", { score: aiResult.quality_score, priority: updatedPriority });
             enriched++;
           } else {
             failed++;
@@ -909,7 +978,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
         })
         .where(eq(campaignProspects.id, cp.id));
 
-      // ── TASK 5: Reply classification + conditional pipeline ──
+      // ── V2: Reply classification + conditional pipeline ──
       if (event.eventType === "replied") {
         // Extract reply body from platform payload (field names vary)
         const replyBody = String(
@@ -919,11 +988,20 @@ export function registerAdminOutboundRoutes(app: Express): void {
           (event.rawPayload as any).content ||
           ""
         );
-        const replyType = classifyReply(replyBody);
 
-        // Always update campaign_prospect reply sentiment
+        // Full classification: type + intent + AI next action
+        const classification = await classifyReplyFull(replyBody, process.env.ANTHROPIC_API_KEY);
+        const { type: replyType, intent: replyIntent, ai_next_action } = classification;
+
+        // Store all reply intelligence fields on the campaign_prospect
         await db.update(campaignProspects)
-          .set({ reply_sentiment: replyType, updated_at: new Date() })
+          .set({
+            reply_sentiment: replyType,
+            reply_type:      replyType,
+            reply_intent:    replyIntent,
+            ai_next_action,
+            updated_at:      new Date(),
+          })
           .where(eq(campaignProspects.id, cp.id));
 
         if (replyType === "negative") {
@@ -937,13 +1015,12 @@ export function registerAdminOutboundRoutes(app: Express): void {
             })
             .where(eq(prospects.id, cp.prospect_id));
 
-          // Task 9: classified_negative event
           await logEvent(
             cp.prospect_id,
             "classified_negative",
             { actor_type: "system", actor_id: null as any, actor_name: platform },
             "Reply classified as negative — prospect marked lost",
-            { reply_excerpt: replyBody.slice(0, 200) },
+            { reply_excerpt: replyBody.slice(0, 200), intent: replyIntent, ai_next_action },
             cp.id
           );
         } else {
@@ -966,14 +1043,13 @@ export function registerAdminOutboundRoutes(app: Express): void {
             });
           }
 
-          // Task 9: classified_positive / classified_neutral event
           const classifyEvent = replyType === "positive" ? "classified_positive" : "classified_neutral";
           await logEvent(
             cp.prospect_id,
             classifyEvent,
             { actor_type: "system", actor_id: null as any, actor_name: platform },
-            `Reply classified as ${replyType} — opportunity created`,
-            { reply_excerpt: replyBody.slice(0, 200) },
+            `Reply classified as ${replyType} (intent: ${replyIntent}) — opportunity created`,
+            { reply_excerpt: replyBody.slice(0, 200), intent: replyIntent, ai_next_action },
             cp.id
           );
         }

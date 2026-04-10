@@ -79,6 +79,12 @@ export const prospects = pgTable("prospects", {
   // none   = no email at all
   contact_confidence: varchar("contact_confidence", { length: 10 }).default("none"),
 
+  // ── V2: Offer targeting & priority ───────────────────
+  // Rule-based offer match: quotequick | reputationshield | socialsync | tradeline | custom
+  target_offer: varchar("target_offer", { length: 30 }),
+  // 0–100 deterministic priority score (higher = push sooner)
+  priority_score: integer("priority_score"),
+
   // Lifecycle status
   status: varchar("status", { length: 30 }).notNull().default("new"),
   // new | enriched | approved | rejected | blacklisted | campaign_queued | in_outreach | replied | lost
@@ -118,6 +124,12 @@ export const prospectEnrichment = pgTable("prospect_enrichment", {
   quality_score: integer("quality_score"),                  // 0–100 overall fit score
   ai_personalization_line: text("ai_personalization_line"), // opening line for cold email
   ai_notes: text("ai_notes"),                              // free-form AI summary
+
+  // ── V2: Conversion-focused AI fields ─────────────────
+  ai_reason_to_target: text("ai_reason_to_target"),         // why this specific lead fits our offer
+  ai_first_line: text("ai_first_line"),                     // refined opening line (replaces ai_personalization_line)
+  ai_offer_angle: text("ai_offer_angle"),                   // which product angle resonates for this business
+  ai_cta_variant: text("ai_cta_variant"),                   // suggested CTA: "book a call" | "see demo" | "free audit" etc.
 
   // Extra signals
   employee_count_estimate: varchar("employee_count_estimate", { length: 20 }),
@@ -191,6 +203,13 @@ export const campaignProspects = pgTable("campaign_prospects", {
   // Reply classification (set after a reply event)
   reply_sentiment: varchar("reply_sentiment", { length: 20 }),
   // positive | neutral | negative | out_of_office | auto_reply
+
+  // ── V2: Richer reply intelligence ────────────────────
+  reply_type: varchar("reply_type", { length: 20 }),
+  // positive | neutral | negative
+  reply_intent: varchar("reply_intent", { length: 30 }),
+  // interested | not_now | objection | referral | unsubscribe | unclear
+  ai_next_action: text("ai_next_action"),                   // AI recommended next step for sales rep
 
   emails_sent: integer("emails_sent").notNull().default(0),
   last_email_sent_at: timestamp("last_email_sent_at"),
