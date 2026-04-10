@@ -3,9 +3,9 @@ import { HEADING_FONT, BODY_FONT, GLASS, sectionHeading, sectionSub, SECTION_PAD
 import { useCountUp } from "./useCountUp";
 
 const METRICS = [
-  { value: 40, suffix: "%", label: "More map visibility" },
-  { value: 3, suffix: "x", label: "More calls from local searches" },
-  { value: 30, suffix: "", label: "Days to first improvements" },
+  { value: 100, suffix: "%", label: "Managed for you" },
+  { value: 52, suffix: "", label: "Scans per year" },
+  { value: 12, suffix: "", label: "Monthly reports" },
 ];
 
 function MetricCard({ value, suffix, label }: { value: number; suffix: string; label: string }) {
@@ -53,11 +53,11 @@ export default function ResultsSection() {
       <div style={MAX_W}>
         <div style={{ textAlign: "center", marginBottom: 48 }} data-reveal="fade-up">
           <h2 style={sectionHeading}>
-            What Happens When{" "}
-            <span style={{ color: mkt.accent }}>You Start Showing Up</span>
+            A Real Service,{" "}
+            <span style={{ color: mkt.accent }}>Not Just a Dashboard</span>
           </h2>
           <p style={sectionSub}>
-            More visibility = more calls. One extra local job per month can easily cover the cost of MapGuard.
+            MapGuard is continuous management. We monitor, act, and report — every week, every month, all year.
           </p>
         </div>
 

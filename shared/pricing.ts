@@ -224,7 +224,7 @@ export const WEBCARE: ProductDef = {
 export const MAPGUARD: ProductDef = {
   id: "mapguard",
   name: "MapGuard\u2122",
-  tagline: "Keep your Google Business Profile optimized and ranking",
+  tagline: "Fully managed Google Maps visibility \u2014 we monitor, fix, and improve your ranking for you",
   category: "visibility",
   setup: 397,
   tiers: [
@@ -234,10 +234,10 @@ export const MAPGUARD: ProductDef = {
       price: 397,
       billingPeriod: "one-time",
       features: [
-        "Full GBP audit & rebuild from scratch",
+        "Full GBP audit & profile rebuild",
         "Category, services & area optimization",
         "Business description & keyword tuning",
-        "Photo uploads & first posts",
+        "Photo uploads & initial posts",
         "Before/after visibility report",
       ],
     },
@@ -247,10 +247,10 @@ export const MAPGUARD: ProductDef = {
       price: 99,
       billingPeriod: "monthly",
       features: [
+        "Weekly visibility monitoring & alerts",
         "2 Google Business posts/month",
-        "Profile monitoring & alerts",
-        "Listing accuracy checks",
-        "Monthly ranking snapshot",
+        "Profile accuracy checks & fixes",
+        "Monthly performance report",
       ],
     },
     {
@@ -261,11 +261,12 @@ export const MAPGUARD: ProductDef = {
       highlighted: true,
       badge: "Most Popular",
       features: [
+        "Weekly visibility monitoring & alerts",
         "4 Google Business posts/month",
         "Review response management",
-        "Local keyword optimization",
-        "Competitor tracking",
-        "Monthly performance report",
+        "Ongoing keyword & category optimization",
+        "Competitor tracking & response",
+        "Monthly performance report with recommendations",
       ],
     },
   ],
