@@ -178,6 +178,11 @@ export default function PortalSocialSync() {
         )}
 
         {/* Upcoming Posts */}
+        {data.upcoming_posts.length === 0 && data.recent_posts.length > 0 && (
+          <Card className="p-4 text-center">
+            <p className="text-xs text-gray-400">All scheduled posts have been published. New content will be generated soon.</p>
+          </Card>
+        )}
         {data.upcoming_posts.length > 0 && (
           <Card className="p-5">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Coming Up</h3>

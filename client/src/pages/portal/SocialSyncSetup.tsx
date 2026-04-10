@@ -207,6 +207,9 @@ export default function SocialSyncSetup() {
                     );
                   })}
                 </div>
+                {form.platform_preferences.length === 0 && (
+                  <p className="text-xs text-red-500 mt-1">Please select at least one platform to continue.</p>
+                )}
               </div>
             </div>
           )}
@@ -231,7 +234,7 @@ export default function SocialSyncSetup() {
                     {status?.connected && <span className="text-[10px] text-emerald-600">Connected</span>}
                   </div>
                   {!status?.connected && (
-                    <span className="text-xs text-gray-400">Connect from admin panel</span>
+                    <span className="text-xs text-gray-400">Your team will connect this</span>
                   )}
                 </div>
               ))}

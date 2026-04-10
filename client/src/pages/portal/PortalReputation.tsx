@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Star, TrendingUp, MessageSquare, Send, CheckCircle } from "lucide-react";
+import { Star, TrendingUp, MessageSquare, Send, CheckCircle, HelpCircle } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -90,8 +91,8 @@ export default function PortalReputation() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <MetricCard icon={<Star className="w-4 h-4 text-amber-500" />} label="Average Rating" value={s.average_rating != null ? `${s.average_rating}` : "—"} sub={s.average_rating_this_month != null ? `${s.average_rating_this_month} this month` : undefined} change={s.average_rating_this_month != null && s.average_rating_last_month != null ? Math.round((s.average_rating_this_month - s.average_rating_last_month) * 10) / 10 : undefined} />
           <MetricCard icon={<TrendingUp className="w-4 h-4 text-emerald-500" />} label="Reviews This Month" value={`${s.reviews_this_month}`} sub={`${s.total_reviews} total`} change={s.reviews_change !== 0 ? s.reviews_change : undefined} />
-          <MetricCard icon={<MessageSquare className="w-4 h-4 text-blue-500" />} label="Reply Rate" value={s.reply_rate != null ? `${s.reply_rate}%` : "—"} sub={`${a.reviews_responded_to} responded`} />
-          <MetricCard icon={<Send className="w-4 h-4 text-purple-500" />} label="Requests Sent" value={`${a.review_requests_sent}`} sub={a.reviews_generated > 0 ? `${a.reviews_generated} reviews likely generated` : undefined} />
+          <MetricCard icon={<MessageSquare className="w-4 h-4 text-blue-500" />} label="Reviews Responded To" value={s.reply_rate != null ? `${s.reply_rate}%` : "—"} sub={`${a.reviews_responded_to} of ${s.total_reviews}`} tooltip="The percentage of your Google reviews that have a professional response posted." />
+          <MetricCard icon={<Send className="w-4 h-4 text-purple-500" />} label="Requests Sent" value={`${a.review_requests_sent}`} sub={a.reviews_generated > 0 ? `~${a.reviews_generated} reviews generated` : undefined} tooltip="Review requests sent to your customers after completed jobs. The reviews generated number is estimated based on timing." />
         </div>
 
         {/* Value Summary */}
@@ -184,6 +185,12 @@ export default function PortalReputation() {
           </Card>
         )}
 
+        {data.latest_reviews.length === 0 && data.recent_replies.length === 0 && (
+          <Card className="p-5 text-center">
+            <p className="text-sm text-gray-500">No reviews yet. Once your automation is live, reviews and responses will appear here.</p>
+          </Card>
+        )}
+
         <p className="text-[10px] text-gray-400 text-center pb-4">
           Review attribution is estimated based on timing and customer matching. Actual results may vary.
         </p>
@@ -192,17 +199,30 @@ export default function PortalReputation() {
   );
 }
 
-function MetricCard({ icon, label, value, sub, change }: { icon: React.ReactNode; label: string; value: string; sub?: string; change?: number }) {
+function MetricCard({ icon, label, value, sub, change, tooltip }: { icon: React.ReactNode; label: string; value: string; sub?: string; change?: number; tooltip?: string }) {
+  const [showTip, setShowTip] = useState(false);
   return (
-    <Card className="p-4 text-center">
+    <Card className="p-4 text-center relative">
       <div className="flex items-center justify-center mb-1">{icon}</div>
       <p className="text-2xl font-bold text-gray-900">{value}</p>
-      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-xs text-gray-500 inline-flex items-center gap-1 justify-center">
+        {label}
+        {tooltip && (
+          <button onClick={() => setShowTip(!showTip)} className="text-gray-300 hover:text-gray-500" aria-label="More info">
+            <HelpCircle className="w-3 h-3" />
+          </button>
+        )}
+      </p>
       {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
       {change !== undefined && change !== 0 && (
         <p className={`text-[10px] font-medium mt-0.5 ${change > 0 ? "text-emerald-600" : "text-red-500"}`}>
           {change > 0 ? "↑" : "↓"} {Math.abs(change)} vs last month
         </p>
+      )}
+      {showTip && tooltip && (
+        <div className="absolute z-10 top-full left-1/2 -translate-x-1/2 mt-1 w-56 p-2.5 bg-white rounded-lg shadow-lg border border-gray-200 text-left" onClick={() => setShowTip(false)}>
+          <p className="text-[11px] text-gray-600 leading-relaxed">{tooltip}</p>
+        </div>
       )}
     </Card>
   );
