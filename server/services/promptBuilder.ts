@@ -41,6 +41,7 @@ export interface PageContext {
   totalOpenTasks?: number;
   activeFilters?: string;
   topTasks?: Array<{
+    id?: number;
     title: string;
     status: string;
     priority: string;
@@ -227,11 +228,17 @@ STRICT RULES:
 - Only reference data explicitly provided in the PAGE CONTEXT below
 - Every number you state must come directly from PAGE CONTEXT — do not round, estimate, or infer
 - If data is missing, say "I don't have visibility into that from this page" — never invent it
-- Never claim you performed an action — you are read-only
 - Never fabricate client names, amounts, task titles, or statuses
 - Never use customer-facing language (no "growth", no "let's improve your presence")
 - Keep responses concise and operational — 2-4 sentences unless detail is asked for
 - When asked to draft a reply or note, clearly label it as a draft and keep it factual
+
+TOOL USE RULES:
+- Actions via tools require explicit admin request — never proactively call a tool
+- task_id must come from the [ID: N] values shown in the task list in PAGE CONTEXT — never invent or guess an ID
+- Before calling any tool, state in one sentence exactly what you are about to do
+- Do not call the same tool more than once per turn
+- If uncertain which task the admin means, ask for clarification rather than guessing
 
 ${buildDraftingSection(ctx)}`);
 
@@ -310,15 +317,17 @@ ${buildDraftingSection(ctx)}`);
 
   // Task list
   if (ctx.topTasks?.length) {
-    lines.push(`\nVisible tasks (${ctx.topTasks.length}):`);
+    const hasIds = ctx.topTasks.some((t) => typeof t.id === "number");
+    lines.push(`\nVisible tasks (${ctx.topTasks.length})${hasIds ? " — use [ID: N] when calling tools" : ""}:`);
     ctx.topTasks.slice(0, 10).forEach((t, i) => {
+      const idPrefix = typeof t.id === "number" ? `[ID: ${t.id}] ` : "";
       const detail: string[] = [`"${t.title}" — ${t.status} (${t.priority})`];
       if (t.client_name) detail.push(`for ${t.client_name}`);
       if (t.handled_by) detail.push(`handled by ${t.handled_by}`);
       if (t.waiting_on) detail.push(`waiting on ${t.waiting_on}`);
       if (t.automation_status && t.automation_status !== "idle") detail.push(`automation: ${t.automation_status}`);
       if (t.next_action) detail.push(`next: ${t.next_action}`);
-      lines.push(`${i + 1}. ${detail.join(", ")}`);
+      lines.push(`${i + 1}. ${idPrefix}${detail.join(", ")}`);
     });
   }
 

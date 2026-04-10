@@ -426,7 +426,7 @@ export default function ClientDetailPage() {
         actor_type: n.actor_type,
       })),
       topTasks: fulfillment?.filter(t => !["delivered","cancelled"].includes(t.status)).slice(0, 8).map(t => ({
-        title: t.title, status: t.status, priority: t.priority, waiting_on: t.waiting_on,
+        id: t.id, title: t.title, status: t.status, priority: t.priority, waiting_on: t.waiting_on,
         handled_by: t.handled_by, automation_status: t.automation_status, next_action: t.next_action,
       })),
       latestPayment: payments?.[0] ? {

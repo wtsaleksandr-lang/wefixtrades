@@ -92,7 +92,7 @@ export default function InboxPage() {
       waitingOnCounts: (tasks ?? []).filter(t => t.waiting_on).reduce((acc, t) => {
         acc[t.waiting_on!] = (acc[t.waiting_on!] || 0) + 1; return acc;
       }, {} as Record<string, number>),
-      topTasks: (tasks ?? []).slice(0, 10).map(t => ({ title: t.title, status: t.status, priority: t.priority, client_name: t.client_name, waiting_on: t.waiting_on, handled_by: t.handled_by, automation_status: t.automation_status, next_action: t.next_action })),
+      topTasks: (tasks ?? []).slice(0, 10).map(t => ({ id: t.id, title: t.title, status: t.status, priority: t.priority, client_name: t.client_name, waiting_on: t.waiting_on, handled_by: t.handled_by, automation_status: t.automation_status, next_action: t.next_action })),
     }}>
       <div className="max-w-3xl mx-auto space-y-4">
         {/* Header */}
