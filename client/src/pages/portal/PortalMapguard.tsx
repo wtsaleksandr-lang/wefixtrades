@@ -52,6 +52,11 @@ interface MapguardData {
     type: "improvement" | "monitoring" | "growth" | "status";
     date: string;
   }>;
+  since_start: {
+    score_change: number;
+    reviews_gained: number | null;
+    days_active: number;
+  } | null;
   snapshots: Array<{
     captured_at: string;
     score: number | null;
@@ -233,6 +238,19 @@ export default function PortalMapguard() {
                   delta={data.deltas?.local_pack}
                   accent="bg-purple-500"
                 />
+              </div>
+            )}
+
+            {/* Since You Started */}
+            {data.since_start && data.since_start.score_change > 0 && (
+              <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                <TrendingUp className="w-4 h-4 text-emerald-600" />
+                <p className="text-sm font-medium text-emerald-800">
+                  Your visibility has improved by {data.since_start.score_change} points since starting
+                  {data.since_start.reviews_gained != null && data.since_start.reviews_gained > 0 && (
+                    <span> &middot; {data.since_start.reviews_gained} new reviews gained</span>
+                  )}
+                </p>
               </div>
             )}
 

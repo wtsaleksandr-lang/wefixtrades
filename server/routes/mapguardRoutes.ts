@@ -40,6 +40,8 @@ import {
   getActiveMapguardClients,
   runMapguardBatchScan,
   getMapguardPortfolioDashboard,
+  getClientPerformanceSummary,
+  generateCaseStudyFromClient,
 } from "../services/mapguardMonitor";
 import { getRecentAlerts, dismissAlert } from "../services/mapguardAlerts";
 import { compileMonthlyReport, sendMonthlyReportEmail, sendAllMonthlyReports } from "../services/mapguardReports";
@@ -401,6 +403,34 @@ export function registerMapguardRoutes(app: Express) {
     } catch (err: any) {
       console.error("[mapguard] dashboard error:", err);
       res.status(500).json({ error: "Failed to load dashboard" });
+    }
+  });
+
+  /* ═══ PROOF / CASE STUDY ENDPOINTS ═══ */
+
+  /* ─── Get client performance summary ─── */
+  app.get("/api/mapguard/clients/:clientId/performance", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+      const summary = await getClientPerformanceSummary(clientId);
+      if (!summary) return res.status(404).json({ error: "No performance data" });
+      res.json(summary);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to get performance summary" });
+    }
+  });
+
+  /* ─── Generate case study from client data ─── */
+  app.get("/api/mapguard/clients/:clientId/case-study", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+      const study = await generateCaseStudyFromClient(clientId);
+      if (!study) return res.status(404).json({ error: "Insufficient data for case study" });
+      res.json(study);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to generate case study" });
     }
   });
 

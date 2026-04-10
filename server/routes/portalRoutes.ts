@@ -24,6 +24,7 @@ import {
 import { compileMonthlyReport } from "../services/mapguardReports";
 import { getExecutionUsage } from "../services/mapguardTaskEngine";
 import { generateClientActivityFeed } from "../services/mapguardRetention";
+import { getClientPerformanceSummary } from "../services/mapguardMonitor";
 
 /* ─── Helpers ─── */
 
@@ -956,6 +957,13 @@ Do NOT:
         completed_last_30d: completedCount,
         execution_progress: executionProgress,
         activity_feed: await generateClientActivityFeed(clientId, 8),
+        since_start: await (async () => {
+          try {
+            const perf = await getClientPerformanceSummary(clientId);
+            if (!perf || perf.score_change == null) return null;
+            return { score_change: perf.score_change, reviews_gained: perf.reviews_gained, days_active: perf.days_active };
+          } catch { return null; }
+        })(),
         current: latest ? {
           score: latest.score_total,
           grade: latest.score_grade,

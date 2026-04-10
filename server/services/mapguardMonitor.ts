@@ -723,6 +723,93 @@ export async function getClientsWithRecentDrops(days = 7): Promise<MapguardSnaps
 }
 
 /* ═══════════════════════════════════════════
+   CLIENT PERFORMANCE SUMMARY (for proof/case studies)
+   ═══════════════════════════════════════════ */
+
+export interface ClientPerformanceSummary {
+  client_id: number;
+  business_name: string;
+  trade_type: string | null;
+  score_start: number | null;
+  score_current: number | null;
+  score_change: number | null;
+  rating_start: number | null;
+  rating_current: number | null;
+  rating_change: number | null;
+  reviews_gained: number | null;
+  keywords_in_local_pack: number | null;
+  local_pack_change: number | null;
+  days_active: number;
+  scans_completed: number;
+}
+
+export async function getClientPerformanceSummary(clientId: number): Promise<ClientPerformanceSummary | null> {
+  const [client] = await db.select({ business_name: clients.business_name, trade_type: clients.trade_type })
+    .from(clients).where(eq(clients.id, clientId)).limit(1);
+  if (!client) return null;
+
+  // Get all snapshots ordered chronologically
+  const snapshots = await db.select()
+    .from(mapguardSnapshots)
+    .where(eq(mapguardSnapshots.client_id, clientId))
+    .orderBy(mapguardSnapshots.captured_at);
+
+  if (snapshots.length === 0) return null;
+
+  const first = snapshots[0];
+  const latest = snapshots[snapshots.length - 1];
+  const daysActive = Math.floor((new Date(latest.captured_at!).getTime() - new Date(first.captured_at!).getTime()) / (1000 * 60 * 60 * 24));
+
+  return {
+    client_id: clientId,
+    business_name: client.business_name,
+    trade_type: client.trade_type,
+    score_start: first.score_total,
+    score_current: latest.score_total,
+    score_change: first.score_total != null && latest.score_total != null ? latest.score_total - first.score_total : null,
+    rating_start: first.rating,
+    rating_current: latest.rating,
+    rating_change: first.rating != null && latest.rating != null ? Math.round((latest.rating - first.rating) * 10) / 10 : null,
+    reviews_gained: first.review_count != null && latest.review_count != null ? latest.review_count - first.review_count : null,
+    keywords_in_local_pack: latest.keywords_in_local_pack,
+    local_pack_change: first.keywords_in_local_pack != null && latest.keywords_in_local_pack != null ? latest.keywords_in_local_pack - first.keywords_in_local_pack : null,
+    days_active: Math.max(daysActive, 1),
+    scans_completed: snapshots.length,
+  };
+}
+
+export async function generateCaseStudyFromClient(clientId: number): Promise<{
+  business_type: string;
+  before_score: number;
+  after_score: number;
+  score_change: number;
+  reviews_gained: number;
+  timeframe_days: number;
+  summary: string;
+} | null> {
+  const perf = await getClientPerformanceSummary(clientId);
+  if (!perf || perf.score_start == null || perf.score_current == null) return null;
+
+  const trade = perf.trade_type || "trades business";
+  const scoreChange = perf.score_change || 0;
+  const reviews = perf.reviews_gained || 0;
+
+  let summary = `We optimized their Google Business Profile and addressed key visibility issues.`;
+  if (scoreChange > 10) summary = `Visibility score improved significantly through profile optimization and ongoing monitoring.`;
+  if (reviews > 5) summary += ` Gained ${reviews} new reviews during the period.`;
+
+  return {
+    business_type: trade,
+    before_score: perf.score_start,
+    after_score: perf.score_current,
+    score_change: scoreChange,
+    reviews_gained: reviews,
+    timeframe_days: perf.days_active,
+    summary,
+  };
+}
+
+/* ═══════════════════════════════════════════
    PORTFOLIO DASHBOARD AGGREGATION
    ═══════════════════════════════════════════ */
 
