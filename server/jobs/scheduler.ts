@@ -6,6 +6,7 @@ import { processNotificationQueue } from "./notificationWorker";
 import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
+import { processOutboundSync } from "./outboundSyncWorker";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -129,6 +130,15 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  // Outbound sync — push pending prospects to Instantly/Smartlead every 15 minutes
+  cron.schedule("*/15 * * * *", async () => {
+    try {
+      await runJob("outbound_sync", processOutboundSync);
+    } catch (err: any) {
+      console.error("[Scheduler] outbound_sync cron handler error:", err.message);
+    }
+  });
+
   console.log("[Scheduler] Jobs scheduled:");
   console.log("  - Daily aggregation: 02:00 UTC every day");
   console.log("  - Chat memory cleanup: 03:00 UTC every day");
@@ -136,4 +146,5 @@ export function initScheduler() {
   console.log("  - Notification queue worker: every minute");
   console.log("  - Follow-up jobs worker: every minute");
   console.log("  - Audit follow-up worker: every minute");
+  console.log("  - Outbound sync worker: every 15 minutes");
 }
