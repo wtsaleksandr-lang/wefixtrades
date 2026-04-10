@@ -605,7 +605,8 @@ export default function AdminCopilot({
           {messages.length > 0 && (
             <button
               onClick={handleClear}
-              className="text-[11px] text-gray-400 hover:text-gray-600 px-2 py-1"
+              disabled={streaming || hasPendingToolCall}
+              className="text-[11px] text-gray-400 hover:text-gray-600 px-2 py-1 disabled:opacity-40 disabled:pointer-events-none"
             >
               Clear
             </button>
@@ -681,7 +682,7 @@ export default function AdminCopilot({
         })}
 
         {/* Show chips after conversation too, for follow-up */}
-        {messages.length > 0 && !streaming && (
+        {messages.length > 0 && !streaming && !hasPendingToolCall && (
           <div className="flex flex-wrap gap-1.5 pt-1">
             {chips.slice(0, 3).map((chip) => (
               <button
