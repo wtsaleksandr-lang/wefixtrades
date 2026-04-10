@@ -1042,6 +1042,15 @@ interface TLAdminData {
     ended_at: string | null;
     created_at: string | null;
   }[];
+  profitability?: {
+    revenue: number;
+    voiceCost: number;
+    smsCost: number;
+    aiCost: number;
+    totalCost: number;
+    profit: number;
+    margin: number;
+  } | null;
   // Orchestration convenience fields
   setupStage?: string;
   assistantStatus?: string;
@@ -1320,6 +1329,50 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                       <p className={`text-lg font-semibold ${data.usage.overage_minutes > 0 ? "text-amber-600" : ""}`}>
                         {data.usage.overage_minutes}
                       </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Profitability */}
+              {data.profitability && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Profitability (Current Period)</p>
+                  <div className="border border-gray-100 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">Revenue</span>
+                      <span className="font-semibold">${(data.profitability.revenue / 100).toFixed(2)}</span>
+                    </div>
+                    <div className="border-t border-gray-50 pt-2 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-400 pl-2">Voice</span>
+                        <span className="text-gray-600">-${(data.profitability.voiceCost / 100).toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-400 pl-2">SMS</span>
+                        <span className="text-gray-600">-${(data.profitability.smsCost / 100).toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-400 pl-2">AI</span>
+                        <span className="text-gray-600">-${(data.profitability.aiCost / 100).toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs border-t border-gray-100 pt-2">
+                      <span className="text-gray-500">Total Cost</span>
+                      <span className="font-medium text-gray-700">-${(data.profitability.totalCost / 100).toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm border-t border-gray-200 pt-2">
+                      <span className="font-semibold text-gray-900">Profit</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold">${(data.profitability.profit / 100).toFixed(2)}</span>
+                        <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
+                          data.profitability.margin > 60 ? "bg-emerald-50 text-emerald-700" :
+                          data.profitability.margin >= 30 ? "bg-amber-50 text-amber-700" :
+                          "bg-red-50 text-red-700"
+                        }`}>
+                          {data.profitability.margin}%
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

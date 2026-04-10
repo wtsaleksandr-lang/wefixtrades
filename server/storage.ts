@@ -1502,6 +1502,46 @@ export class DatabaseStorage implements IStorage {
 
     return updated;
   }
+
+  /**
+   * Calculate TradeLine profitability for a client service.
+   * Uses current period usage data + service price.
+   *
+   * Cost rates (internal, not exposed to clients):
+   *   Voice: $0.08/min  (Vapi + ElevenLabs + Deepgram blended)
+   *   SMS:   $0.02/msg  (Twilio outbound)
+   *   AI:    estimated from call count at ~$0.03/call (LLM tokens)
+   */
+  async getTradeLineProfitability(clientServiceId: number): Promise<{
+    revenue: number;
+    voiceCost: number;
+    smsCost: number;
+    aiCost: number;
+    totalCost: number;
+    profit: number;
+    margin: number;
+  }> {
+    const COST_PER_VOICE_MINUTE = 8;   // cents
+    const COST_PER_SMS = 2;            // cents
+    const COST_PER_CALL_AI = 3;        // cents (avg LLM cost per call)
+
+    const cs = await this.getClientServiceById(clientServiceId);
+    const revenue = cs?.price_cents ?? 0;
+
+    const usage = await this.getTradeLineUsage(clientServiceId);
+    if (!usage) {
+      return { revenue, voiceCost: 0, smsCost: 0, aiCost: 0, totalCost: 0, profit: revenue, margin: revenue > 0 ? 100 : 0 };
+    }
+
+    const voiceCost = (usage.voice_minutes_used ?? 0) * COST_PER_VOICE_MINUTE;
+    const smsCost = (usage.sms_count ?? 0) * COST_PER_SMS;
+    const aiCost = (usage.calls_count ?? 0) * COST_PER_CALL_AI;
+    const totalCost = voiceCost + smsCost + aiCost;
+    const profit = revenue - totalCost;
+    const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
+
+    return { revenue, voiceCost, smsCost, aiCost, totalCost, profit, margin };
+  }
 }
 
 export const storage = new DatabaseStorage();

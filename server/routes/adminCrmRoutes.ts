@@ -816,10 +816,11 @@ export function registerAdminCrmRoutes(app: Express): void {
         return res.status(404).json({ error: "TradeLine service not found" });
       }
 
-      const [config, usage, calls] = await Promise.all([
+      const [config, usage, calls, profitability] = await Promise.all([
         storage.getTradeLineConfig(csId),
         storage.getTradeLineUsage(csId),
         storage.listTradeLineCalls(csId, 10),
+        storage.getTradeLineProfitability(csId),
       ]);
 
       res.json({
@@ -830,6 +831,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         config: config ?? null,
         usage: usage ?? null,
         recentCalls: calls,
+        profitability,
         // Convenience fields for UI
         setupStage: config?.setupStage ?? "not_started",
         assistantStatus: config?.assistant?.status ?? "not_built",
