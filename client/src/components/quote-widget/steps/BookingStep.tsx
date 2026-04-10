@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { CalendarDays, Clock, Loader2 } from 'lucide-react';
+import HelpTip from '../HelpTip';
 import { useWidgetState } from '../useWidgetState';
 import { eff, stepTitleStyle, stepSubtitleStyle, inputStyle, primaryButtonStyle, labelStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
@@ -123,9 +124,12 @@ export default function BookingStep({ step, accentColor }: BookingStepProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div>
-        <h3 style={stepTitleStyle}>Want to schedule a visit?</h3>
-        <p style={{ ...stepSubtitleStyle, margin: '6px 0 0' }}>
-          Pick a time that works for you. This is optional — you can also skip and we'll follow up by email.
+        <h3 style={stepTitleStyle}>
+          Want to schedule a visit?
+          <HelpTip text="This step is optional. If you skip it, the business will follow up with you by email or phone instead." />
+        </h3>
+        <p style={{ ...stepSubtitleStyle, margin: '4px 0 0' }}>
+          Pick a date and time, or skip to finish.
         </p>
       </div>
 

@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { trackEvent } from '@/lib/trackEvent';
 import { Send, Loader2, Lock } from 'lucide-react';
+import HelpTip from '../HelpTip';
 import { Checkbox } from '@/components/ui/checkbox';
 import { calculateEstimate } from '@shared/calculateEstimate';
 import { useWidgetState } from '../useWidgetState';
@@ -203,6 +204,7 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
         <div>
           <label htmlFor="lead-phone" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
             Phone <span style={{ fontWeight: 400, color: eff.textBody }}>(optional)</span>
+            <HelpTip text="Email alone is enough. Adding your phone helps the business reach you faster if needed." />
           </label>
           <input
             id="lead-phone"

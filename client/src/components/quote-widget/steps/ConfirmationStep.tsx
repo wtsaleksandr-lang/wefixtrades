@@ -22,18 +22,18 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
   const bookingData = state.booking.data;
 
   return (
-    <div style={{ textAlign: 'center', padding: '16px 0' }}>
+    <div style={{ textAlign: 'center', padding: '8px 0' }}>
       <div style={{
-        width: '56px',
-        height: '56px',
+        width: '48px',
+        height: '48px',
         borderRadius: '50%',
         background: eff.successBg,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        margin: '0 auto 20px',
+        margin: '0 auto 16px',
       }}>
-        <CircleCheck style={{ width: 28, height: 28, color: eff.success }} />
+        <CircleCheck style={{ width: 24, height: 24, color: eff.success }} />
       </div>
 
       <h3 style={{ ...stepTitleStyle, textAlign: 'center', fontSize: '20px' }}>

@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useRef } from 'react';
 import { Phone, Shield } from 'lucide-react';
+import HelpTip from '../HelpTip';
 import { trackEvent } from '@/lib/trackEvent';
 import { useWidgetState } from '../useWidgetState';
 import { calculateEstimate } from '@shared/calculateEstimate';
@@ -84,7 +85,8 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
         }}>
           <Shield style={{ width: 14, height: 14, flexShrink: 0, marginTop: '2px', opacity: 0.7 }} />
           <span>
-            Instant estimate based on your inputs. Final pricing may vary based on your specific project. No obligation.
+            Instant estimate based on your inputs. No obligation.
+            <HelpTip text="This price is calculated from the rates set by this business. The final amount may differ slightly after an on-site review of your specific project." />
           </span>
         </div>
       )}
@@ -108,9 +110,9 @@ function ExactPriceBlock({
       borderRadius: eff.radiusXl,
       border: `1px solid ${eff.buttonBorder}`,
       background: eff.bgSecondary,
-      padding: '32px 24px',
+      padding: '24px 20px',
     }}>
-      <div style={{ textAlign: 'center', marginBottom: breakdown.length > 0 ? '20px' : 0 }}>
+      <div style={{ textAlign: 'center', marginBottom: breakdown.length > 0 ? '16px' : 0 }}>
         <p style={{
           fontSize: '12px',
           fontWeight: 600,
@@ -191,7 +193,7 @@ function RangeBlock({
       borderRadius: eff.radiusXl,
       border: `1px solid ${eff.buttonBorder}`,
       background: eff.bgSecondary,
-      padding: '32px 24px',
+      padding: '24px 20px',
       textAlign: 'center',
     }}>
       <p style={{
@@ -233,7 +235,7 @@ function CallForQuoteBlock({
       borderRadius: eff.radiusXl,
       border: `1px solid ${eff.buttonBorder}`,
       background: eff.bgSecondary,
-      padding: '40px 24px',
+      padding: '28px 20px',
       textAlign: 'center',
     }}>
       <div style={{

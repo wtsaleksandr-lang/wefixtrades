@@ -244,15 +244,13 @@ function DeploySection({ slug, origin }: { slug: string; origin: string }) {
 
         {/* Share a Link */}
         <div className="mb-4">
-          <Label className="text-xs font-semibold text-slate-500">Share a Link</Label>
-          <p className="text-xs text-slate-400 mt-0.5 mb-1.5">Use this if you don't have a website. Share it in emails, texts, or social media.</p>
+          <div className="flex items-center justify-between mb-1.5">
+            <Label className="text-xs font-semibold text-slate-500">Share a Link</Label>
+            <span className="text-xs text-slate-400">No website needed</span>
+          </div>
           <div className="flex items-center gap-2 bg-emerald-50 rounded-lg px-3 py-2.5 border border-emerald-100">
             <span className="text-sm text-emerald-700 flex-1 truncate font-mono text-xs font-semibold">{hostedUrl}</span>
             <CopyButton text={`https://${hostedUrl}`} />
-          </div>
-          <div className="flex items-center gap-2 mt-1.5 bg-slate-50 rounded-lg px-3 py-2.5 border border-slate-200">
-            <span className="text-sm text-slate-600 flex-1 truncate font-mono text-xs">{calcUrl}</span>
-            <CopyButton text={calcUrl} />
           </div>
         </div>
 
