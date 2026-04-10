@@ -98,7 +98,7 @@ export default function SocialSyncSetup() {
     switch (step) {
       case 0: return form.niche.trim().length > 0 && form.location.trim().length > 0;
       case 1: return form.services.trim().length > 0;
-      case 2: return true; // Tone and frequency have defaults
+      case 2: return form.platform_preferences.length > 0; // Must select at least 1 platform
       case 3: return true; // Connections are optional
       case 4: return true; // Review step
       default: return false;

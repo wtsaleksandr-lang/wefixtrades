@@ -156,7 +156,7 @@ export default function PortalSocialSync() {
                 <div key={post.id} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0 cursor-pointer hover:bg-gray-50 rounded-lg -mx-1 px-1 transition-colors" onClick={() => setSelectedPost(post)}>
                   {post.has_image && post.image_url && (
                     <div className="w-14 h-14 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                      <img src={post.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      <img src={post.image_url} alt="" className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     </div>
                   )}
                   {post.has_image && !post.image_url && (
@@ -192,7 +192,7 @@ export default function PortalSocialSync() {
                     <div className="flex gap-3 py-2 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 rounded-lg -mx-1 px-1 transition-colors" onClick={() => setSelectedPost(post)}>
                       {post.has_image && post.image_url ? (
                         <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                          <img src={post.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                          <img src={post.image_url} alt="" className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                         </div>
                       ) : null}
                       <div className="min-w-0 flex-1">
@@ -238,7 +238,7 @@ export default function PortalSocialSync() {
             {/* Image */}
             {selectedPost.has_image && selectedPost.image_url && (
               <div className="bg-gray-50">
-                <img src={selectedPost.image_url} alt="" className="w-full max-h-80 object-contain" />
+                <img src={selectedPost.image_url} alt="" className="w-full max-h-80 object-contain" onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = "none"; }} />
               </div>
             )}
 

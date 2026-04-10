@@ -119,7 +119,7 @@ export default function PortalReputation() {
         </Card>
 
         {/* Weekly Trend */}
-        {data.weekly_trend.some(w => w.reviews > 0) && (
+        {data.weekly_trend.length > 0 && (
           <Card className="p-5">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Reviews Per Week</h3>
             <div className="flex items-end gap-1.5 h-16">
