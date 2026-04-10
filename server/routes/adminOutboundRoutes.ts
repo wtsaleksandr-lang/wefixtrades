@@ -1,5 +1,5 @@
 /**
- * Admin Outbound Routes — V1
+ * Admin Outbound Routes — V1 (hardened)
  *
  * Mounted under /api/admin/outbound
  * All routes require admin authentication.
@@ -8,11 +8,12 @@
  *  1. Import (CSV + batch tracking)
  *  2. Prospects (list, get, review actions)
  *  3. Enrichment (trigger AI scoring)
- *  4. Campaigns (CRUD)
+ *  4. Campaigns (CRUD + stats)
  *  5. Campaign assignment
  *  6. Outreach sync (manual trigger + webhook receiver)
  *  7. Sales pipeline
  *  8. Overview / stats
+ *  9. Blacklist management
  */
 
 import type { Express, Request, Response } from "express";
@@ -21,14 +22,22 @@ import { db } from "../db";
 import {
   prospects, prospectEnrichment, outboundCampaigns, campaignProspects,
   prospectEvents, salesOpportunities, importBatches,
+  outboundBlockedDomains, outboundBlockedEmails, outboundBlockedPhones,
   type InsertProspect, type InsertProspectEnrichment,
   type InsertOutboundCampaign, type InsertCampaignProspect,
   type InsertProspectEvent, type InsertSalesOpportunity,
   type InsertImportBatch,
 } from "@shared/schema";
-import { eq, desc, ilike, and, or, inArray, sql, isNull, ne } from "drizzle-orm";
+import { eq, desc, ilike, and, or, inArray, sql, isNull, ne, gte, lt } from "drizzle-orm";
 import { runHeuristics, runAiEnrichment, computeBaseScore } from "../services/prospectEnrichment";
 import { getOutreachAdapter, parseOutreachWebhook } from "../services/outreachPlatform";
+import {
+  generateFingerprint,
+  scoreContactConfidence,
+  checkBlacklist,
+  addToBlacklist,
+  classifyReply,
+} from "../services/outboundSafety";
 
 /* ─── helpers ─── */
 
@@ -205,12 +214,40 @@ export function registerAdminOutboundRoutes(app: Express): void {
         if (!mapped.business_name) { failed++; continue; }
 
         const domain = normaliseDomain(mapped.website_url as string | undefined);
+        const email = (mapped.primary_email as string | undefined) || null;
+        const phone = (mapped.primary_phone as string | undefined) || null;
 
-        // Dedup: check by domain, email, or phone
+        // ── TASK 1: Fingerprint dedup ─────────────────────
+        const fingerprint = generateFingerprint(
+          mapped.business_name as string,
+          mapped.city as string | undefined,
+          phone
+        );
+
+        const fpDupe = await db.select({ id: prospects.id })
+          .from(prospects)
+          .where(eq(prospects.dedupe_fingerprint, fingerprint))
+          .limit(1);
+
+        if (fpDupe.length > 0) {
+          skippedDupes++;
+          // Log dedup skip event against the existing record (Task 9)
+          await db.insert(prospectEvents).values({
+            prospect_id: fpDupe[0].id,
+            event_type: "dedup_skipped",
+            actor_type: "system",
+            actor_name: "import",
+            summary: `Fingerprint duplicate skipped (batch ${batch.id})`,
+            metadata: { filename, fingerprint },
+          });
+          continue;
+        }
+
+        // ── Fallback dedup: domain / email / phone ────────
         const dupeClauses: ReturnType<typeof eq>[] = [];
         if (domain) dupeClauses.push(eq(prospects.website_domain, domain));
-        if (mapped.primary_email) dupeClauses.push(eq(prospects.primary_email, mapped.primary_email as string));
-        if (mapped.primary_phone) dupeClauses.push(eq(prospects.primary_phone, mapped.primary_phone as string));
+        if (email)  dupeClauses.push(eq(prospects.primary_email, email));
+        if (phone)  dupeClauses.push(eq(prospects.primary_phone, phone));
 
         if (dupeClauses.length > 0) {
           const existing = await db.select({ id: prospects.id })
@@ -220,13 +257,26 @@ export function registerAdminOutboundRoutes(app: Express): void {
           if (existing.length > 0) { skippedDupes++; continue; }
         }
 
+        // ── TASK 7: Global blacklist check ────────────────
+        const blacklisted = await checkBlacklist(domain, email, phone);
+        if (blacklisted.blocked) {
+          skippedDupes++;
+          console.info(`[outbound/import] Blocked by blacklist (${blacklisted.type}): ${blacklisted.reason}`);
+          continue;
+        }
+
+        // ── TASK 2: Contact confidence ────────────────────
+        const confidence = scoreContactConfidence(email, domain);
+
         // Insert prospect
         const [prospect] = await db.insert(prospects).values({
           ...mapped,
           website_domain: domain,
           import_batch_id: batch.id,
           source: "outscraper",
-          source_external_id: mapped.google_place_id as string | null ?? null,
+          source_external_id: (mapped.google_place_id as string | null) ?? null,
+          dedupe_fingerprint: fingerprint,
+          contact_confidence: confidence,
           status: "new",
         } as InsertProspect).returning();
 
@@ -253,7 +303,11 @@ export function registerAdminOutboundRoutes(app: Express): void {
           enriched_at: new Date(),
         });
 
-        await logEvent(prospect.id, "imported", actor, `Imported from ${filename || "CSV"}`, { batch_id: batch.id });
+        // Task 9: log import with confidence info
+        await logEvent(prospect.id, "imported", actor,
+          `Imported from ${filename || "CSV"} — confidence: ${confidence}`,
+          { batch_id: batch.id, confidence, fingerprint }
+        );
 
         imported++;
       } catch (rowErr: any) {
@@ -621,11 +675,12 @@ export function registerAdminOutboundRoutes(app: Express): void {
         .where(eq(outboundCampaigns.id, campaignId)).limit(1);
       if (!campaign) return res.status(404).json({ error: "Campaign not found" });
 
-      // Filter to approved prospects only
+      // ── TASK 8: Filter to approved prospects only ─────
       const approved = await db.select().from(prospects)
         .where(and(
           inArray(prospects.id, prospect_ids),
           eq(prospects.status, "approved"),
+          eq(prospects.do_not_contact, false),
         ));
 
       if (approved.length === 0) {
@@ -634,8 +689,45 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
       const assigned: number[] = [];
       const skipped: number[] = [];
+      const blocked: { id: number; reason: string }[] = [];
 
       for (const p of approved) {
+        // Task 8: must have an email to be outreach-eligible
+        if (!p.primary_email) {
+          skipped.push(p.id);
+          await logEvent(p.id, "blocked_low_confidence", actor,
+            "Blocked from assignment: no email address",
+            { campaign_id: campaignId }
+          );
+          continue;
+        }
+
+        // ── TASK 2: Confidence gate ───────────────────────
+        // 'low' and 'none' are blocked unless the prospect was manually approved
+        // (reviewed_by being set is the signal that a human explicitly OK'd it)
+        const conf = p.contact_confidence ?? "none";
+        if ((conf === "low" || conf === "none") && !p.reviewed_by) {
+          skipped.push(p.id);
+          await logEvent(p.id, "blocked_low_confidence", actor,
+            `Blocked from assignment: contact_confidence = ${conf} (not manually approved)`,
+            { campaign_id: campaignId, confidence: conf }
+          );
+          blocked.push({ id: p.id, reason: `contact_confidence: ${conf}` });
+          continue;
+        }
+
+        // ── TASK 7: Blacklist check ───────────────────────
+        const bl = await checkBlacklist(p.website_domain, p.primary_email, p.primary_phone);
+        if (bl.blocked) {
+          skipped.push(p.id);
+          await logEvent(p.id, "blocked_blacklist", actor,
+            `Blocked from assignment: blacklisted (${bl.type}) — ${bl.reason}`,
+            { campaign_id: campaignId, blacklist_type: bl.type }
+          );
+          blocked.push({ id: p.id, reason: `blacklist:${bl.type}` });
+          continue;
+        }
+
         // Check not already in this campaign
         const existing = await db.select({ id: campaignProspects.id })
           .from(campaignProspects)
@@ -659,6 +751,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
           .set({ status: "campaign_queued", updated_at: new Date() })
           .where(eq(prospects.id, p.id));
 
+        // Task 9: assigned_to_campaign event
         await logEvent(p.id, "campaign_assigned", actor,
           `Assigned to campaign "${campaign.name}"`,
           { campaign_id: campaignId }
@@ -667,7 +760,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
         assigned.push(p.id);
       }
 
-      res.json({ assigned: assigned.length, skipped: skipped.length });
+      res.json({ assigned: assigned.length, skipped: skipped.length, blocked });
     } catch (err: any) {
       console.error("[outbound] assign:", err.message);
       res.status(500).json({ error: "Assignment failed" });
@@ -816,28 +909,77 @@ export function registerAdminOutboundRoutes(app: Express): void {
         })
         .where(eq(campaignProspects.id, cp.id));
 
-      // Update prospect status for key events
+      // ── TASK 5: Reply classification + conditional pipeline ──
       if (event.eventType === "replied") {
-        await db.update(prospects)
-          .set({ status: "replied", updated_at: new Date() })
-          .where(eq(prospects.id, cp.prospect_id));
+        // Extract reply body from platform payload (field names vary)
+        const replyBody = String(
+          (event.rawPayload as any).reply_text ||
+          (event.rawPayload as any).body ||
+          (event.rawPayload as any).message ||
+          (event.rawPayload as any).content ||
+          ""
+        );
+        const replyType = classifyReply(replyBody);
 
-        // Auto-create sales opportunity on reply
-        const existing = await db.select({ id: salesOpportunities.id })
-          .from(salesOpportunities)
-          .where(eq(salesOpportunities.prospect_id, cp.prospect_id))
-          .limit(1);
+        // Always update campaign_prospect reply sentiment
+        await db.update(campaignProspects)
+          .set({ reply_sentiment: replyType, updated_at: new Date() })
+          .where(eq(campaignProspects.id, cp.id));
 
-        if (existing.length === 0) {
-          await db.insert(salesOpportunities).values({
-            prospect_id: cp.prospect_id,
-            campaign_prospect_id: cp.id,
-            stage: "positive_reply",
-            positive_reply_at: event.occurredAt,
-          });
+        if (replyType === "negative") {
+          // Negative: mark prospect lost, DNC, do NOT create opportunity
+          await db.update(prospects)
+            .set({
+              status: "lost",
+              do_not_contact: true,
+              dnc_reason: "negative_reply",
+              updated_at: new Date(),
+            })
+            .where(eq(prospects.id, cp.prospect_id));
+
+          // Task 9: classified_negative event
+          await logEvent(
+            cp.prospect_id,
+            "classified_negative",
+            { actor_type: "system", actor_id: null as any, actor_name: platform },
+            "Reply classified as negative — prospect marked lost",
+            { reply_excerpt: replyBody.slice(0, 200) },
+            cp.id
+          );
+        } else {
+          // positive or neutral → update prospect status and create opportunity
+          await db.update(prospects)
+            .set({ status: "replied", updated_at: new Date() })
+            .where(eq(prospects.id, cp.prospect_id));
+
+          const existing = await db.select({ id: salesOpportunities.id })
+            .from(salesOpportunities)
+            .where(eq(salesOpportunities.prospect_id, cp.prospect_id))
+            .limit(1);
+
+          if (existing.length === 0) {
+            await db.insert(salesOpportunities).values({
+              prospect_id: cp.prospect_id,
+              campaign_prospect_id: cp.id,
+              stage: "positive_reply",
+              positive_reply_at: event.occurredAt,
+            });
+          }
+
+          // Task 9: classified_positive / classified_neutral event
+          const classifyEvent = replyType === "positive" ? "classified_positive" : "classified_neutral";
+          await logEvent(
+            cp.prospect_id,
+            classifyEvent,
+            { actor_type: "system", actor_id: null as any, actor_name: platform },
+            `Reply classified as ${replyType} — opportunity created`,
+            { reply_excerpt: replyBody.slice(0, 200) },
+            cp.id
+          );
         }
       }
 
+      // ── TASK 7: Auto-blacklist on bounce / unsubscribe ───
       if (["bounced", "unsubscribed", "opted_out"].includes(event.eventType)) {
         await db.update(prospects)
           .set({
@@ -846,6 +988,33 @@ export function registerAdminOutboundRoutes(app: Express): void {
             updated_at: new Date(),
           })
           .where(eq(prospects.id, cp.prospect_id));
+
+        // Fetch prospect identifiers to populate blacklists
+        const [pRow] = await db.select({
+          primary_email: prospects.primary_email,
+          website_domain: prospects.website_domain,
+        }).from(prospects).where(eq(prospects.id, cp.prospect_id)).limit(1);
+
+        if (pRow) {
+          const blReason = event.eventType; // "bounced" | "unsubscribed" | "opted_out"
+          if (pRow.primary_email) {
+            await addToBlacklist("email", pRow.primary_email, blReason);
+          }
+          // Only blacklist domain on hard bounce — soft bounces leave the domain usable
+          if (event.eventType === "bounced" && pRow.website_domain) {
+            await addToBlacklist("domain", pRow.website_domain, blReason);
+          }
+        }
+
+        // Task 9: blacklisted event
+        await logEvent(
+          cp.prospect_id,
+          "blacklisted",
+          { actor_type: "platform_webhook", actor_id: null as any, actor_name: platform },
+          `Auto-blacklisted: ${event.eventType}`,
+          {},
+          cp.id
+        );
       }
 
       await logEvent(
@@ -894,6 +1063,170 @@ export function registerAdminOutboundRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[outbound] pipeline error:", err.message);
       res.status(500).json({ error: "Failed to load pipeline" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     TASK 6 — Campaign Analytics
+     GET /api/admin/outbound/campaigns/:id/stats
+     ═══════════════════════════════════════════ */
+
+  app.get("/api/admin/outbound/campaigns/:id/stats", requireAdmin, async (req: Request, res: Response) => {
+    const campaignId = parseInt(req.params.id);
+    try {
+      // All campaign_prospect rows for this campaign
+      const [
+        totalRow,
+        sentRow,
+        repliedRow,
+        positiveRow,
+        bounceRow,
+        unsubRow,
+        openedRow,
+        clickedRow,
+        pendingRow,
+        failedRow,
+      ] = await Promise.all([
+        db.select({ c: sql<number>`count(*)` }).from(campaignProspects)
+          .where(eq(campaignProspects.campaign_id, campaignId)),
+
+        db.select({ c: sql<number>`count(*)` }).from(campaignProspects)
+          .where(and(
+            eq(campaignProspects.campaign_id, campaignId),
+            sql`${campaignProspects.outreach_status} IN ('sent','opened','clicked','replied')`,
+          )),
+
+        db.select({ c: sql<number>`count(*)` }).from(campaignProspects)
+          .where(and(
+            eq(campaignProspects.campaign_id, campaignId),
+            eq(campaignProspects.outreach_status, "replied"),
+          )),
+
+        db.select({ c: sql<number>`count(*)` }).from(campaignProspects)
+          .where(and(
+            eq(campaignProspects.campaign_id, campaignId),
+            eq(campaignProspects.reply_sentiment, "positive"),
+          )),
+
+        db.select({ c: sql<number>`count(*)` }).from(campaignProspects)
+          .where(and(
+            eq(campaignProspects.campaign_id, campaignId),
+            eq(campaignProspects.outreach_status, "bounced"),
+          )),
+
+        db.select({ c: sql<number>`count(*)` }).from(campaignProspects)
+          .where(and(
+            eq(campaignProspects.campaign_id, campaignId),
+            sql`${campaignProspects.outreach_status} IN ('unsubscribed','opted_out')`,
+          )),
+
+        db.select({ c: sql<number>`count(*)` }).from(campaignProspects)
+          .where(and(
+            eq(campaignProspects.campaign_id, campaignId),
+            sql`${campaignProspects.outreach_status} IN ('opened','clicked')`,
+          )),
+
+        db.select({ c: sql<number>`count(*)` }).from(campaignProspects)
+          .where(and(
+            eq(campaignProspects.campaign_id, campaignId),
+            eq(campaignProspects.outreach_status, "clicked"),
+          )),
+
+        db.select({ c: sql<number>`count(*)` }).from(campaignProspects)
+          .where(and(
+            eq(campaignProspects.campaign_id, campaignId),
+            eq(campaignProspects.sync_status, "pending"),
+          )),
+
+        db.select({ c: sql<number>`count(*)` }).from(campaignProspects)
+          .where(and(
+            eq(campaignProspects.campaign_id, campaignId),
+            eq(campaignProspects.sync_status, "failed"),
+          )),
+      ]);
+
+      const total       = Number(totalRow[0]?.c ?? 0);
+      const sent        = Number(sentRow[0]?.c ?? 0);
+      const replied     = Number(repliedRow[0]?.c ?? 0);
+      const positive    = Number(positiveRow[0]?.c ?? 0);
+      const bounced     = Number(bounceRow[0]?.c ?? 0);
+      const unsubscribed = Number(unsubRow[0]?.c ?? 0);
+      const opened      = Number(openedRow[0]?.c ?? 0);
+      const clicked     = Number(clickedRow[0]?.c ?? 0);
+
+      res.json({
+        campaign_id: campaignId,
+        total_prospects:     total,
+        pending_sync:        Number(pendingRow[0]?.c ?? 0),
+        failed_sync:         Number(failedRow[0]?.c ?? 0),
+        sent_count:          sent,
+        opened_count:        opened,
+        clicked_count:       clicked,
+        reply_count:         replied,
+        positive_reply_count: positive,
+        bounce_count:        bounced,
+        unsubscribe_count:   unsubscribed,
+        // Derived rates (avoid division by zero)
+        reply_rate:    sent > 0 ? Number(((replied / sent) * 100).toFixed(1)) : 0,
+        open_rate:     sent > 0 ? Number(((opened / sent) * 100).toFixed(1)) : 0,
+        bounce_rate:   sent > 0 ? Number(((bounced / sent) * 100).toFixed(1)) : 0,
+      });
+    } catch (err: any) {
+      console.error("[outbound] campaign stats:", err.message);
+      res.status(500).json({ error: "Failed to load campaign stats" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     TASK 7 — Blacklist Management
+     ═══════════════════════════════════════════ */
+
+  // GET  /api/admin/outbound/blacklist — list all three tables
+  app.get("/api/admin/outbound/blacklist", requireAdmin, async (_req, res: Response) => {
+    try {
+      const [domains, emails, phones] = await Promise.all([
+        db.select().from(outboundBlockedDomains).orderBy(desc(outboundBlockedDomains.created_at)).limit(200),
+        db.select().from(outboundBlockedEmails).orderBy(desc(outboundBlockedEmails.created_at)).limit(200),
+        db.select().from(outboundBlockedPhones).orderBy(desc(outboundBlockedPhones.created_at)).limit(200),
+      ]);
+      res.json({ domains, emails, phones });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to load blacklist" });
+    }
+  });
+
+  // POST /api/admin/outbound/blacklist
+  // Body: { type: "domain"|"email"|"phone", value: string, reason?: string }
+  app.post("/api/admin/outbound/blacklist", requireAdmin, async (req: Request, res: Response) => {
+    const { type, value, reason } = req.body as { type: string; value: string; reason?: string };
+    if (!["domain", "email", "phone"].includes(type) || !value) {
+      return res.status(400).json({ error: "type (domain|email|phone) and value are required" });
+    }
+    try {
+      await addToBlacklist(type as "domain" | "email" | "phone", value, reason || "manual");
+      res.status(201).json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to add to blacklist" });
+    }
+  });
+
+  // DELETE /api/admin/outbound/blacklist/:type/:id
+  app.delete("/api/admin/outbound/blacklist/:type/:id", requireAdmin, async (req: Request, res: Response) => {
+    const { type, id } = req.params;
+    const rowId = parseInt(id);
+    try {
+      if (type === "domain") {
+        await db.delete(outboundBlockedDomains).where(eq(outboundBlockedDomains.id, rowId));
+      } else if (type === "email") {
+        await db.delete(outboundBlockedEmails).where(eq(outboundBlockedEmails.id, rowId));
+      } else if (type === "phone") {
+        await db.delete(outboundBlockedPhones).where(eq(outboundBlockedPhones.id, rowId));
+      } else {
+        return res.status(400).json({ error: "Invalid blacklist type" });
+      }
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to remove from blacklist" });
     }
   });
 

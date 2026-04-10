@@ -1,6 +1,6 @@
 import {
   pgTable, text, varchar, serial, integer, timestamp,
-  jsonb, boolean, decimal, uniqueIndex,
+  jsonb, boolean, decimal, uniqueIndex, index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -66,6 +66,19 @@ export const prospects = pgTable("prospects", {
   source_external_id: text("source_external_id"),          // Outscraper row ID or place_id
   raw_data: jsonb("raw_data"),                             // original CSV row stored verbatim
 
+  // ── TASK 1: Strong dedup ──────────────────────────────
+  // sha256( normalize(name) + "|" + normalize(city) + "|" + digitsOnly(phone) )
+  // Non-unique index — old rows pre-dating this column have NULL and stay valid.
+  // Import code enforces uniqueness in application logic.
+  dedupe_fingerprint: varchar("dedupe_fingerprint", { length: 64 }),
+
+  // ── TASK 2: Contact confidence ────────────────────────
+  // high   = domain email matching website (john@acmeplumbing.com)
+  // medium = generic domain email (info@acmeplumbing.com) or unknown business domain
+  // low    = free provider (gmail/yahoo/hotmail)
+  // none   = no email at all
+  contact_confidence: varchar("contact_confidence", { length: 10 }).default("none"),
+
   // Lifecycle status
   status: varchar("status", { length: 30 }).notNull().default("new"),
   // new | enriched | approved | rejected | blacklisted | campaign_queued | in_outreach | replied | lost
@@ -83,6 +96,7 @@ export const prospects = pgTable("prospects", {
   updated_at: timestamp("updated_at").defaultNow(),
 }, (t) => ({
   domainIdx: uniqueIndex("prospects_domain_idx").on(t.website_domain),
+  fingerprintIdx: index("prospects_fingerprint_idx").on(t.dedupe_fingerprint),
 }));
 export const insertProspectSchema = createInsertSchema(prospects).omit({ id: true, created_at: true, updated_at: true });
 export type InsertProspect = z.infer<typeof insertProspectSchema>;
@@ -143,6 +157,12 @@ export const outboundCampaigns = pgTable("outbound_campaigns", {
   target_region: varchar("target_region", { length: 200 }),
   sender_email: text("sender_email"),
 
+  // ── TASK 3: Send rate limits ──────────────────────────
+  // Caps on how many leads are pushed to the outreach platform per time window.
+  // These control Instantly/Smartlead account safety, not the email send rate.
+  daily_send_limit: integer("daily_send_limit").notNull().default(40),
+  hourly_send_limit: integer("hourly_send_limit").notNull().default(10),
+
   created_by: integer("created_by"),
   metadata: jsonb("metadata"),
   created_at: timestamp("created_at").defaultNow(),
@@ -177,6 +197,11 @@ export const campaignProspects = pgTable("campaign_prospects", {
   last_replied_at: timestamp("last_replied_at"),
   last_synced_at: timestamp("last_synced_at"),
 
+  // ── TASK 4: Retry / cooldown ──────────────────────────
+  last_contacted_at: timestamp("last_contacted_at"),
+  next_retry_at: timestamp("next_retry_at"),
+  retry_count: integer("retry_count").notNull().default(0),
+
   assigned_by: integer("assigned_by"),
   assigned_at: timestamp("assigned_at").defaultNow(),
   metadata: jsonb("metadata"),
@@ -195,9 +220,11 @@ export const prospectEvents = pgTable("prospect_events", {
   campaign_prospect_id: integer("campaign_prospect_id").references(() => campaignProspects.id),
 
   event_type: varchar("event_type", { length: 50 }).notNull(),
-  // imported | enriched | approved | rejected | blacklisted |
-  // campaign_assigned | synced | email_sent | email_opened | email_clicked |
-  // replied | bounced | unsubscribed | pipeline_stage_changed
+  // imported | dedup_skipped | enriched | approved | rejected | blacklisted |
+  // campaign_assigned | blocked_low_confidence | blocked_blacklist |
+  // sent_to_platform | replied | classified_positive | classified_neutral |
+  // classified_negative | bounced | unsubscribed | pipeline_stage_changed |
+  // retry_queued | retry_skipped
 
   actor_type: varchar("actor_type", { length: 20 }).notNull().default("system"),
   // human | ai_agent | system | platform_webhook
@@ -213,7 +240,7 @@ export type InsertProspectEvent = z.infer<typeof insertProspectEventSchema>;
 export type ProspectEvent = typeof prospectEvents.$inferSelect;
 
 /* ─── Sales Opportunities ─── */
-// One per prospect (created when a positive reply is recorded)
+// One per prospect (created when a positive/neutral reply is recorded)
 export const salesOpportunities = pgTable("sales_opportunities", {
   id: serial("id").primaryKey(),
   prospect_id: integer("prospect_id").notNull().references(() => prospects.id),
@@ -242,3 +269,33 @@ export const salesOpportunities = pgTable("sales_opportunities", {
 export const insertSalesOpportunitySchema = createInsertSchema(salesOpportunities).omit({ id: true, created_at: true, updated_at: true });
 export type InsertSalesOpportunity = z.infer<typeof insertSalesOpportunitySchema>;
 export type SalesOpportunity = typeof salesOpportunities.$inferSelect;
+
+/* ═══════════════════════════════════════════════════
+   TASK 7 — Global Blacklist Tables
+   Three separate tables for O(1) lookup by type.
+   onConflictDoNothing used on insert to make upserts safe.
+   ═══════════════════════════════════════════════════ */
+
+export const outboundBlockedDomains = pgTable("outbound_blocked_domains", {
+  id: serial("id").primaryKey(),
+  domain: varchar("domain", { length: 253 }).notNull().unique(),
+  reason: text("reason"),                   // "bounce" | "unsubscribe" | "manual" | …
+  created_at: timestamp("created_at").defaultNow(),
+});
+export type BlockedDomain = typeof outboundBlockedDomains.$inferSelect;
+
+export const outboundBlockedEmails = pgTable("outbound_blocked_emails", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  reason: text("reason"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export type BlockedEmail = typeof outboundBlockedEmails.$inferSelect;
+
+export const outboundBlockedPhones = pgTable("outbound_blocked_phones", {
+  id: serial("id").primaryKey(),
+  phone: varchar("phone", { length: 30 }).notNull().unique(),   // digits only, normalised
+  reason: text("reason"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export type BlockedPhone = typeof outboundBlockedPhones.$inferSelect;
