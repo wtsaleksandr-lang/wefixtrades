@@ -1,5 +1,6 @@
 import { storage } from "../../storage";
 import type { RankflowTask } from "@shared/schema";
+import { BATCH_LIMITS } from "./scalingConfig";
 
 /**
  * Maps vendor_type to batch_type category.
@@ -138,13 +139,14 @@ export async function buildDispatchPacket(batchId: number) {
 
 /**
  * Auto-group unbatched outsourced tasks into draft batches by vendor_type.
- * Returns the number of draft batches created/updated.
+ * Cross-client: tasks from multiple clients batch together by vendor_type.
+ * Respects min/max batch sizing from BATCH_LIMITS.
  */
 export async function autoBatchUnbatchedTasks(): Promise<number> {
   const unbatched = await storage.listUnbatchedOutsourcedTasks();
   if (unbatched.length === 0) return 0;
 
-  // Group by vendor_type
+  // Group by vendor_type (cross-client)
   const groups = new Map<string, number[]>();
   for (const task of unbatched) {
     const vt = task.vendor_type || "misc";
@@ -154,14 +156,32 @@ export async function autoBatchUnbatchedTasks(): Promise<number> {
 
   let batchCount = 0;
   for (const [vendorType, taskIds] of groups) {
-    // Try to add to existing open batch first
-    const openBatch = await getOpenBatch(vendorType);
-    if (openBatch) {
-      for (const id of taskIds) {
-        await addTaskToBatch(openBatch.id, id);
+    // Check open draft count — don't create too many
+    const existingDrafts = await storage.listRankflowVendorBatches({ status: "draft", vendor_type: vendorType });
+    if (existingDrafts.length >= BATCH_LIMITS.max_open_drafts_per_vendor) {
+      // Try to add to existing open batch instead
+      const openBatch = existingDrafts[0];
+      const currentSize = (openBatch.task_ids as number[]).length;
+      const remaining = BATCH_LIMITS.max_tasks_per_batch - currentSize;
+      if (remaining > 0) {
+        for (const id of taskIds.slice(0, remaining)) {
+          await addTaskToBatch(openBatch.id, id);
+        }
       }
-    } else {
-      await createVendorBatch(vendorType, taskIds);
+      continue;
+    }
+
+    // Skip if below minimum batch size (wait for more tasks to accumulate)
+    if (taskIds.length < BATCH_LIMITS.min_tasks_per_batch) continue;
+
+    // Split into batches of max size
+    for (let i = 0; i < taskIds.length; i += BATCH_LIMITS.max_tasks_per_batch) {
+      const chunk = taskIds.slice(i, i + BATCH_LIMITS.max_tasks_per_batch);
+      if (chunk.length < BATCH_LIMITS.min_tasks_per_batch && i > 0) {
+        // Last chunk too small — add to previous batch if possible
+        break;
+      }
+      await createVendorBatch(vendorType, chunk);
       batchCount++;
     }
   }

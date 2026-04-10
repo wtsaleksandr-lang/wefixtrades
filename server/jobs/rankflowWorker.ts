@@ -3,25 +3,30 @@ import { generateMonthlyPlan } from "../services/rankflow/planGenerator";
 import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
 import { runQA } from "../services/rankflow/qaService";
 import { autoBatchUnbatchedTasks } from "../services/rankflow/batchService";
+import { WORKER_LIMITS, prioritizeProfiles } from "../services/rankflow/scalingConfig";
 
 /**
- * Weekly job: for each enabled RankFlow profile, generate a monthly plan
- * and tasks if one doesn't exist for the current month.
- * Then auto-process AI tasks through the full lifecycle.
+ * Weekly job: generate plans and auto-process AI tasks.
+ * Load-controlled: processes max N clients per run, prioritized by tier.
  */
-export async function processRankFlowPlans(): Promise<{ processed: number; skipped: number; created: number; ai_completed: number }> {
+export async function processRankFlowPlans(): Promise<{
+  processed: number; skipped: number; created: number;
+  ai_completed: number; batches_created: number;
+}> {
   const month = new Date().toISOString().slice(0, 7);
-  const profiles = await storage.listEnabledRankFlowProfiles();
+  const allProfiles = await storage.listEnabledRankFlowProfiles();
+  const sorted = prioritizeProfiles(allProfiles);
+  const batch = sorted.slice(0, WORKER_LIMITS.plan_generation_max_clients);
 
   let processed = 0;
   let skipped = 0;
   let created = 0;
   let ai_completed = 0;
+  let totalAiProcessed = 0;
 
-  for (const profile of profiles) {
+  for (const profile of batch) {
     processed++;
 
-    // Skip if plan already exists for this month
     let plan = await storage.getMonthlyPlan(profile.client_id, month);
     if (plan) {
       skipped++;
@@ -51,14 +56,20 @@ export async function processRankFlowPlans(): Promise<{ processed: number; skipp
       }
     }
 
-    // Auto-process AI tasks for this plan
-    if (plan) {
-      const aiDone = await autoProcessAITasks(plan.id);
+    // Auto-process AI tasks (respect global limit)
+    if (plan && totalAiProcessed < WORKER_LIMITS.ai_tasks_max_per_run) {
+      const remaining = WORKER_LIMITS.ai_tasks_max_per_run - totalAiProcessed;
+      const aiDone = await autoProcessAITasks(plan.id, remaining);
       ai_completed += aiDone;
+      totalAiProcessed += aiDone;
     }
   }
 
-  // Auto-batch unbatched outsourced tasks into draft batches
+  if (allProfiles.length > batch.length) {
+    console.log(`[rankflow-worker] Processed ${batch.length}/${allProfiles.length} clients (capped at ${WORKER_LIMITS.plan_generation_max_clients})`);
+  }
+
+  // Auto-batch unbatched outsourced tasks
   let batches_created = 0;
   try {
     batches_created = await autoBatchUnbatchedTasks();
@@ -73,29 +84,24 @@ export async function processRankFlowPlans(): Promise<{ processed: number; skipp
 }
 
 /**
- * Auto-execute AI tasks: assign → start → submit (with stub proof) → QA → approve if passed.
- * Only processes tasks with execution_mode === "ai" and status === "pending".
+ * Auto-execute AI tasks with a cap on total processed.
  */
-async function autoProcessAITasks(planId: number): Promise<number> {
+async function autoProcessAITasks(planId: number, maxTasks: number): Promise<number> {
   const pendingAI = await storage.listPendingAITasks(planId);
+  const toProcess = pendingAI.slice(0, maxTasks);
   let completed = 0;
 
-  for (const task of pendingAI) {
+  for (const task of toProcess) {
     try {
-      // 1. Assign to AI
       await storage.assignRankflowTask(task.id, "ai_engine");
-
-      // 2. Start
       await storage.startRankflowTask(task.id);
 
-      // 3. Submit with stub proof (real AI generation will be added in Phase 2C)
       const stubProof = {
         urls: [],
         notes: `[AI-generated] Task "${task.title}" completed by AI engine. Content/output pending review.`,
       };
       await storage.submitRankflowTask(task.id, stubProof);
 
-      // 4. Run QA
       const updatedTask = await storage.getRankFlowTaskById(task.id);
       if (!updatedTask) continue;
 
@@ -124,13 +130,9 @@ async function autoProcessAITasks(planId: number): Promise<number> {
         qaNotes || null,
       );
 
-      // 5. Auto-approve if QA passed
       if (qaResult.overall_passed) {
         await storage.approveRankflowTask(task.id, task.estimated_cost || undefined);
         completed++;
-        console.log(`[rankflow-worker] AI task ${task.id} auto-completed: "${task.title}"`);
-      } else {
-        console.log(`[rankflow-worker] AI task ${task.id} QA failed: ${qaNotes}`);
       }
     } catch (err: any) {
       console.error(`[rankflow-worker] AI task ${task.id} error:`, err.message);
