@@ -107,7 +107,7 @@ export default function PortalRankFlow() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <MetricCard icon={CheckCircle} label="Work Done" value={`${m.tasksCompleted}/${m.totalTasks}`} color="emerald" />
           <MetricCard icon={FileText} label="Pages Created" value={String(m.pagesCreated)} color="blue" />
-          <MetricCard icon={MapPin} label="Listings Built" value={String(m.citationsBuilt)} color="amber" />
+          <MetricCard icon={MapPin} label="Directory Listings" value={String(m.citationsBuilt)} color="amber" />
           <MetricCard icon={BarChart3} label="Progress" value={`${m.progressPct}%`} color="indigo" />
         </div>
 
@@ -133,10 +133,10 @@ export default function PortalRankFlow() {
             <div className="px-5 py-4">
               {/* Stat row */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                <MiniStat label="Keywords Tracked" value={String(r.keywordsTracked)} />
-                <MiniStat label="Top 10" value={String(r.keywordsTop10)} highlight={r.keywordsTop10 > 0} />
-                <MiniStat label="Top 20" value={String(r.keywordsTop20)} highlight={r.keywordsTop20 > 0} />
-                <MiniStat label="Improved" value={String(r.keywordsImproved)} highlight={r.keywordsImproved > 0} />
+                <MiniStat label="Keywords Tracked" value={String(r.keywordsTracked)} hint="Search terms we monitor for your business" />
+                <MiniStat label="Page 1 (Top 10)" value={String(r.keywordsTop10)} highlight={r.keywordsTop10 > 0} hint="Keywords ranking on the first page of Google" />
+                <MiniStat label="Top 20" value={String(r.keywordsTop20)} highlight={r.keywordsTop20 > 0} hint="Keywords ranking in the top 2 pages of Google" />
+                <MiniStat label="Improved" value={String(r.keywordsImproved)} highlight={r.keywordsImproved > 0} hint="Keywords that moved up in ranking this month" />
               </div>
               {/* Highlights */}
               {r.highlights.length > 0 && (
@@ -269,9 +269,9 @@ function MetricCard({ icon: Icon, label, value, color }: { icon: any; label: str
   );
 }
 
-function MiniStat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function MiniStat({ label, value, highlight, hint }: { label: string; value: string; highlight?: boolean; hint?: string }) {
   return (
-    <div className="text-center">
+    <div className="text-center" title={hint}>
       <p className={`text-lg font-semibold ${highlight ? "text-emerald-600" : "text-gray-900"}`}>{value}</p>
       <p className="text-[10px] text-gray-500">{label}</p>
     </div>

@@ -289,7 +289,7 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
           { label: "In QA", value: inQA.length, icon: ShieldCheck },
           { label: "Rejected", value: rejected.length, icon: XCircle },
           { label: "Done", value: done.length, icon: CheckCircle },
-          { label: "Est. Cost", value: `$${estCost}`, icon: DollarSign },
+          { label: "Delivery Cost", value: `$${estCost}`, icon: DollarSign },
         ].map(m => (
           <Card key={m.label} className="p-2.5 text-center">
             <m.icon className="w-3.5 h-3.5 mx-auto text-gray-400 mb-1" />
@@ -305,8 +305,8 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
           <div className="flex items-center gap-2 mb-2">
             <DollarSign className="w-4 h-4 text-gray-400" />
             <span className="text-xs font-semibold text-gray-700">Monthly Profitability</span>
-            {profitability.over_ceiling && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium">Over ceiling</span>}
-            {!profitability.over_ceiling && profitability.over_soft && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">Over soft limit</span>}
+            {profitability.over_ceiling && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium" title="Delivery cost exceeded 45% of plan price — stop generating tasks">Over ceiling (45%)</span>}
+            {!profitability.over_ceiling && profitability.over_soft && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-medium" title="Delivery cost exceeded 35% of plan price — reduce low-priority tasks">Over soft limit (35%)</span>}
           </div>
           <div className="grid grid-cols-4 gap-3 text-center">
             <div>
@@ -340,8 +340,8 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
       )}
 
       {/* ─── Actions Row ─── */}
-      <div className="flex gap-2 flex-wrap">
-        {profile.enabled && monthTasks.length === 0 && (
+      {profile.enabled && monthTasks.length === 0 && (
+        <div className="flex gap-2 flex-wrap">
           <Button
             size="sm"
             className="bg-[#2D6A4F] hover:bg-[#1B4332] text-white"
@@ -351,8 +351,8 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
             {generatePlan.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Zap className="w-3 h-3 mr-1" />}
             Generate Plan
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ─── Task Groups ─── */}
       {monthTasks.length > 0 && (
@@ -610,11 +610,11 @@ function RankFlowTaskCard({
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1.5 text-xs text-gray-500">
           <StatusBadge status={t.status} />
           <span className="capitalize text-gray-400">{t.type.replace(/_/g, " ")}</span>
-          <span className={`capitalize ${t.execution_mode === "outsourced" ? "text-amber-600" : t.execution_mode === "ai" ? "text-blue-600" : "text-gray-500"}`}>
-            {t.execution_mode === "ai" ? "AI" : t.execution_mode}
+          <span className={`${t.execution_mode === "outsourced" ? "text-amber-600" : t.execution_mode === "ai" ? "text-blue-600" : "text-gray-500"}`}>
+            {t.execution_mode === "ai" ? "AI" : t.execution_mode === "outsourced" ? "Vendor" : "Admin"}
           </span>
-          {t.assigned_to && <span>Assigned: {t.assigned_to}</span>}
-          {t.vendor_type && <span className="text-amber-500">{t.vendor_type}</span>}
+          {t.assigned_to && <span>→ {t.assigned_to}</span>}
+          {t.vendor_type && <span className="text-amber-500 capitalize">{t.vendor_type.replace(/^fiverr_/, "").replace(/_/g, " ")}</span>}
           <span>{fmtCost(t.estimated_cost)}</span>
           {t.batch_id && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Batch #{t.batch_id}</Badge>}
         </div>

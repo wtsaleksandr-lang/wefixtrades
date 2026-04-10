@@ -97,10 +97,10 @@ export default function RankFlowOpsPage() {
         {s && (
           <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
             <StatCard icon={Users} label="Active" value={s.active_clients} />
-            <StatCard icon={AlertTriangle} label="Blocked" value={s.blocked} warn={s.blocked > 0} />
-            <StatCard icon={DollarSign} label="Over Budget" value={s.over_budget} warn={s.over_budget > 0} />
-            <StatCard icon={XCircle} label="Rejected" value={s.rejected_tasks} warn={s.rejected_tasks > 0} />
-            <StatCard icon={TrendingDown} label="No Movement" value={s.no_movement} warn={s.no_movement > 0} />
+            <StatCard icon={AlertTriangle} label="Blocked" value={s.blocked} warn={s.blocked > 0} hint="Clients missing website or profile info — cannot start work" />
+            <StatCard icon={DollarSign} label="Over Budget" value={s.over_budget} warn={s.over_budget > 0} hint="Delivery cost exceeds 35% of plan price" />
+            <StatCard icon={XCircle} label="Rejected" value={s.rejected_tasks} warn={s.rejected_tasks > 0} hint="Tasks that failed QA and need rework" />
+            <StatCard icon={TrendingDown} label="No Movement" value={s.no_movement} warn={s.no_movement > 0} hint="Clients with 0 keywords improved — rankings not changing" />
             <StatCard icon={ShieldCheck} label="In QA" value={s.in_qa} />
             <StatCard icon={Package} label="Open Batches" value={s.open_batches} />
           </div>
@@ -210,9 +210,9 @@ function ClientCard({ client: c }: { client: ClientRow }) {
 }
 
 /* ─── Stat Card ─── */
-function StatCard({ icon: Icon, label, value, warn }: { icon: any; label: string; value: number; warn?: boolean }) {
+function StatCard({ icon: Icon, label, value, warn, hint }: { icon: any; label: string; value: number; warn?: boolean; hint?: string }) {
   return (
-    <Card className={`p-2.5 text-center ${warn ? "ring-1 ring-amber-200 bg-amber-50/30" : ""}`}>
+    <Card className={`p-2.5 text-center ${warn ? "ring-1 ring-amber-200 bg-amber-50/30" : ""}`} title={hint}>
       <Icon className={`w-3.5 h-3.5 mx-auto mb-1 ${warn ? "text-amber-500" : "text-gray-400"}`} />
       <p className={`text-lg font-semibold ${warn ? "text-amber-700" : "text-gray-900"}`}>{value}</p>
       <p className="text-[10px] text-gray-500">{label}</p>
