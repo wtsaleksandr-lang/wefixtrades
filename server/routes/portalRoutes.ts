@@ -925,6 +925,8 @@ export function registerPortalRoutes(app: Express) {
   /**
    * POST /api/portal/ai-chat
    * Context-aware AI assistant for onboarding or general help.
+   * When the AI determines escalation is needed, it returns an escalation_draft
+   * alongside the reply. The client must explicitly confirm before a ticket is created.
    */
   app.post("/api/portal/ai-chat", requireClient, async (req: Request, res: Response) => {
     try {
@@ -941,9 +943,11 @@ export function registerPortalRoutes(app: Express) {
         .slice(-10);
 
       let systemPrompt: string;
+      let escalationEnabled = false;
 
       if (context?.surface === "help") {
-        // General help context
+        escalationEnabled = true;
+        // General help context — with escalation instructions
         systemPrompt = `You are a helpful support assistant for WeFixTrades, a company that provides digital marketing services for trade businesses (plumbers, electricians, builders, etc.).
 
 Services include: MapGuard (Google Business Profile), TradeLine (AI phone/chat), QuoteQuick (quote calculators), WebBoost (website speed & SEO), ReputationShield (review management), SocialSync (social media), SiteLaunch (website builds), and Fix & Optimize (website fixes).
@@ -954,14 +958,29 @@ Your job:
 - Help clients understand their portal and dashboard
 - Keep answers short and practical (2-4 sentences)
 - Use Australian English
-- If you don't know something specific to their account, suggest they submit a ticket
+
+ESCALATION RULES:
+You should offer to create a support ticket ONLY when:
+1. The user explicitly asks to speak to a human or create a ticket
+2. The issue requires account-specific action you cannot take (refunds, cancellations, access changes, service modifications)
+3. The user has described a problem you've already tried to help with but could not resolve
+4. The user reports something broken, missing, or wrong with their service
+
+Do NOT offer escalation for:
+- Simple "how does X work" questions you can answer
+- First-time questions before you've attempted to help
+- Vague or unclear messages — ask for clarification first
+
+When you decide escalation is appropriate, end your reply with exactly this phrase on its own line:
+Would you like me to create a support ticket for this?
 
 Do NOT:
 - Make up account-specific details (balances, dates, statuses)
 - Provide legal or financial advice
-- Discuss internal pricing or margins`;
+- Discuss internal pricing or margins
+- Create tickets automatically — always ask first`;
       } else {
-        // Onboarding context
+        // Onboarding context — no escalation
         const fieldList = (context?.fields ?? [])
           .map((f: { key: string; label: string; required: boolean }) =>
             `- ${f.label}${f.required ? " (required)" : " (optional)"}`)
@@ -1005,10 +1024,58 @@ Do NOT:
           role: m.role as "user" | "assistant",
           content: m.content,
         })),
-        maxTokens: 300,
+        maxTokens: 400,
       });
 
-      res.json({ reply });
+      // Detect escalation offer in reply
+      const ESCALATION_PHRASE = "Would you like me to create a support ticket for this?";
+      const hasEscalationOffer = escalationEnabled && reply.includes(ESCALATION_PHRASE);
+
+      if (!hasEscalationOffer) {
+        return res.json({ reply });
+      }
+
+      // AI offered escalation — generate structured ticket draft via second AI call
+      // This extracts subject, category, description, and summary from the conversation
+      const conversationSummary = sanitizedMessages
+        .map((m: { role: string; content: string }) => `${m.role === "user" ? "Customer" : "Assistant"}: ${m.content}`)
+        .join("\n");
+
+      let escalationDraft = null;
+      try {
+        const draftJson = await aiChat({
+          system: `You are extracting a structured support ticket draft from a customer support conversation.
+Given the conversation below, create a JSON object with these fields:
+- "subject": A clear, concise ticket title (max 80 characters). Describe the customer's issue, not a question.
+- "category": Exactly one of: general, billing, service, onboarding, access, other
+- "description": A 2-4 sentence description of what the customer needs, written from the customer's perspective.
+- "ai_summary": A 1-2 sentence internal note for the support team about what was discussed and what the customer needs.
+
+Respond with ONLY valid JSON, no markdown fences, no explanation.`,
+          messages: [{ role: "user" as const, content: conversationSummary }],
+          maxTokens: 300,
+        });
+
+        // Parse JSON from AI response — handle potential markdown fences
+        const jsonStr = draftJson.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+        const parsed = JSON.parse(jsonStr);
+
+        // Validate required fields
+        const validCategories = ["general", "billing", "service", "onboarding", "access", "other"];
+        if (parsed.subject && parsed.description) {
+          escalationDraft = {
+            subject: String(parsed.subject).slice(0, 100),
+            category: validCategories.includes(parsed.category) ? parsed.category : "general",
+            description: String(parsed.description).slice(0, 2000),
+            ai_summary: parsed.ai_summary ? String(parsed.ai_summary).slice(0, 500) : null,
+          };
+        }
+      } catch (err) {
+        console.error("[portal-ai] Failed to generate escalation draft:", err);
+        // Don't fail the request — just return the reply without the draft
+      }
+
+      res.json({ reply, escalation_draft: escalationDraft });
     } catch (err) {
       console.error("Portal AI chat error:", err);
       res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
