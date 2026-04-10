@@ -567,4 +567,106 @@ export function registerRankFlowRoutes(app: Express): void {
       res.status(500).json({ error: err.message });
     }
   });
+
+  /* ═══════════════════════════════════════════
+     Ops Overview (Multi-Client Admin)
+     ═══════════════════════════════════════════ */
+
+  app.get("/api/rankflow/ops/overview", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const month = new Date().toISOString().slice(0, 7);
+      const allProfiles = await storage.listEnabledRankFlowProfiles();
+      const batches = await storage.listRankflowVendorBatches({});
+      const openBatches = batches.filter(b => !["completed", "failed"].includes(b.status));
+
+      const clients: any[] = [];
+      let totalBlocked = 0;
+      let totalOverSoft = 0;
+      let totalRejected = 0;
+      let totalNoMovement = 0;
+      let totalInQA = 0;
+
+      for (const profile of allProfiles) {
+        const plan = await storage.getMonthlyPlan(profile.client_id, month);
+        const tasks = plan ? await storage.listTasksByPlan(plan.id) : [];
+        const signals = await storage.getSignalSummary(profile.client_id);
+
+        const done = tasks.filter(t => t.status === "done").length;
+        const rejected = tasks.filter(t => t.status === "rejected").length;
+        const inQA = tasks.filter(t => ["submitted", "qa_review"].includes(t.status)).length;
+        const pending = tasks.filter(t => t.status === "pending").length;
+        const total = tasks.length;
+        const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+        // Cost
+        const totalCost = tasks.filter(t => t.status === "done").reduce((s, t) => s + (Number(t.actual_cost) || 0), 0);
+        const tierConfig = getTierConfig(profile.plan_tier || "starter");
+        const price = tierConfig?.price || 0;
+        const marginPct = price > 0 ? Math.round(((price - totalCost) / price) * 100) : 100;
+        const overSoft = tierConfig ? totalCost > tierConfig.soft_cost_limit : false;
+        const overCeiling = tierConfig ? totalCost > tierConfig.cost_ceiling : false;
+
+        // Risk status
+        let risk = "healthy";
+        if (!profile.website_url) risk = "blocked";
+        else if (overCeiling) risk = "over_budget";
+        else if (overSoft) risk = "over_budget";
+        else if (rejected > 0) risk = "at_risk";
+        else if (signals && signals.keywords_improved === 0 && signals.total_keywords > 0) risk = "no_movement";
+        else if (inQA > 0 || pending > total * 0.5) risk = "needs_review";
+
+        if (risk === "blocked") totalBlocked++;
+        if (overSoft || overCeiling) totalOverSoft++;
+        if (rejected > 0) totalRejected++;
+        if (signals && signals.keywords_improved === 0 && signals.total_keywords > 0) totalNoMovement++;
+        totalInQA += inQA;
+
+        clients.push({
+          client_id: profile.client_id,
+          niche: profile.niche,
+          location: profile.location,
+          website_url: profile.website_url,
+          tier: profile.plan_tier,
+          risk,
+          month_progress: progressPct,
+          plan_status: plan?.status || "none",
+          tasks: { total, done, pending, rejected, in_qa: inQA },
+          cost: Math.round(totalCost),
+          price,
+          margin_percent: marginPct,
+          over_soft: overSoft,
+          over_ceiling: overCeiling,
+          keywords_tracked: signals?.total_keywords || 0,
+          keywords_top_10: signals?.keywords_top_10 || 0,
+          keywords_improved: signals?.keywords_improved || 0,
+          open_batches: openBatches.filter(b => (b.task_ids as number[]).some(id => tasks.some(t => t.id === id))).length,
+        });
+      }
+
+      // Sort: at_risk/blocked first, then by tier (pro > growth > starter)
+      const riskOrder: Record<string, number> = { blocked: 0, over_budget: 1, at_risk: 2, no_movement: 3, needs_review: 4, healthy: 5 };
+      const tierOrder: Record<string, number> = { pro: 0, growth: 1, starter: 2 };
+      clients.sort((a, b) => {
+        const rd = (riskOrder[a.risk] ?? 9) - (riskOrder[b.risk] ?? 9);
+        if (rd !== 0) return rd;
+        return (tierOrder[a.tier] ?? 9) - (tierOrder[b.tier] ?? 9);
+      });
+
+      res.json({
+        summary: {
+          active_clients: allProfiles.length,
+          blocked: totalBlocked,
+          over_budget: totalOverSoft,
+          rejected_tasks: totalRejected,
+          no_movement: totalNoMovement,
+          in_qa: totalInQA,
+          open_batches: openBatches.length,
+        },
+        clients,
+      });
+    } catch (err: any) {
+      console.error("[rankflow-ops] overview error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
 }
