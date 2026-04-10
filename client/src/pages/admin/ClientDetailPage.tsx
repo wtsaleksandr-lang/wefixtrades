@@ -618,7 +618,7 @@ export default function ClientDetailPage() {
                                       } else {
                                         toast({ title: "No usage data yet", description: "Cost estimate will be available after the first billing period." });
                                       }
-                                    } catch { /* silent */ }
+                                    } catch { toast({ title: "Could not estimate cost" }); }
                                   }}
                                 >
                                   Suggest
@@ -1188,7 +1188,7 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
           </Badge>
           {s.lowRatingNoResponse > 0 && (
             <Badge variant="secondary" className="text-xs bg-red-50 text-red-700">
-              {s.lowRatingNoResponse} low-rating need response
+              {s.lowRatingNoResponse} low-rating review{s.lowRatingNoResponse !== 1 ? "s" : ""} need response
             </Badge>
           )}
         </div>

@@ -121,7 +121,7 @@ export default function ShareableReviewCard({ businessName, reviewerName, rating
         height: size === "square" ? 1080 : 1920,
       });
       const link = document.createElement("a");
-      link.download = `review-${reviewerName.split(" ")[0].toLowerCase()}-${size}.png`;
+      link.download = `review-${(reviewerName || "customer").split(" ")[0].toLowerCase()}-${size}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
     } catch (err) {
