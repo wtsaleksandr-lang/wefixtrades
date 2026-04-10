@@ -222,6 +222,17 @@ export default function ClientDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/services`] }),
   });
 
+  const updateServiceCost = useMutation({
+    mutationFn: async ({ id, cost_cents }: { id: number; cost_cents: number }) => {
+      const res = await apiRequest("PATCH", `/api/admin/crm/client-services/${id}`, { cost_cents });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/services`] });
+      toast({ title: "Cost updated" });
+    },
+  });
+
   const updateStatus = useMutation({
     mutationFn: async (status: string) => {
       const res = await apiRequest("PATCH", `/api/admin/crm/clients/${clientId}`, { status });
@@ -409,6 +420,8 @@ export default function ClientDetailPage() {
 
   const totalRevenue = (services ?? []).reduce((acc, s) => acc + (s.price_cents ?? 0), 0);
   const totalCost = (services ?? []).reduce((acc, s) => acc + (s.cost_cents ?? 0), 0);
+  const totalProfit = totalRevenue - totalCost;
+  const marginPct = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0;
 
   return (
     <AdminLayout pageContext={{
@@ -502,7 +515,7 @@ export default function ClientDetailPage() {
           </div>
 
           {/* Quick stats */}
-          <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-100">
+          <div className="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-100">
             <div>
               <p className="text-xs text-gray-500">Monthly Revenue</p>
               <p className="text-lg font-semibold text-gray-900">{fmt(totalRevenue)}</p>
@@ -513,7 +526,11 @@ export default function ClientDetailPage() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Profit</p>
-              <p className="text-lg font-semibold text-emerald-700">{fmt(totalRevenue - totalCost)}</p>
+              <p className={`text-lg font-semibold ${totalProfit >= 0 ? "text-emerald-700" : "text-red-600"}`}>{fmt(totalProfit)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Margin</p>
+              <p className={`text-lg font-semibold ${marginPct >= 50 ? "text-emerald-700" : marginPct >= 20 ? "text-amber-600" : "text-red-600"}`}>{marginPct}%</p>
             </div>
           </div>
         </Card>
@@ -547,6 +564,8 @@ export default function ClientDetailPage() {
                       <TableHead>Status</TableHead>
                       <TableHead>Mode</TableHead>
                       <TableHead>Price</TableHead>
+                      <TableHead>Cost</TableHead>
+                      <TableHead>Margin</TableHead>
                       <TableHead></TableHead>
                       <TableHead className="text-right">Enabled</TableHead>
                     </TableRow>
@@ -554,7 +573,7 @@ export default function ClientDetailPage() {
                   <TableBody>
                     {services?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-6 text-gray-500 text-sm">
+                        <TableCell colSpan={8} className="text-center py-6 text-gray-500 text-sm">
                           No services assigned yet.
                         </TableCell>
                       </TableRow>
@@ -565,6 +584,26 @@ export default function ClientDetailPage() {
                           <TableCell><StatusBadge status={s.status} /></TableCell>
                           <TableCell className="text-xs text-gray-500 capitalize">{s.fulfillment_mode || "-"}</TableCell>
                           <TableCell className="text-sm">{fmt(s.price_cents)}{s.billing_period === "monthly" ? "/mo" : ""}</TableCell>
+                          <TableCell className="text-sm">
+                            <input
+                              type="number"
+                              className="w-20 h-7 px-2 text-xs border border-gray-200 rounded text-right focus:outline-none focus:ring-1 focus:ring-blue-300"
+                              defaultValue={s.cost_cents ? (s.cost_cents / 100).toFixed(0) : ""}
+                              placeholder="0"
+                              onBlur={(e) => {
+                                const val = Math.round(parseFloat(e.target.value || "0") * 100);
+                                if (val !== (s.cost_cents ?? 0)) updateServiceCost.mutate({ id: s.id, cost_cents: val });
+                              }}
+                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                            />
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {s.price_cents && s.price_cents > 0 ? (
+                              <span className={`font-medium ${((s.price_cents - (s.cost_cents ?? 0)) / s.price_cents * 100) >= 50 ? "text-emerald-600" : ((s.price_cents - (s.cost_cents ?? 0)) / s.price_cents * 100) >= 20 ? "text-amber-600" : "text-red-600"}`}>
+                                {Math.round(((s.price_cents - (s.cost_cents ?? 0)) / s.price_cents) * 100)}%
+                              </span>
+                            ) : <span className="text-gray-400">—</span>}
+                          </TableCell>
                           <TableCell className="text-sm">
                             <div className="flex gap-1">
                               {s.status === "pending" && (
