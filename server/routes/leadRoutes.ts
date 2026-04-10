@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
+import { captureIntakeEvent } from "../services/intakeService";
 
 const createLeadBody = z.object({
   calculator_id: z.number(),
@@ -184,6 +185,18 @@ export function registerLeadRoutes(app: Express): void {
       enqueueLeadNotificationsAndFollowups(lead, parsed.data.calculator_id).catch(err => {
         console.error("Failed to enqueue lead notifications:", err.message);
       });
+
+      captureIntakeEvent({
+        sourceType:    'public_form',
+        eventType:     'lead.submitted',
+        correlationId: `lead-${lead.id}`,
+        actorType:     'anonymous',
+        entityType:    'lead',
+        entityId:      String(lead.id),
+        accountId:     parsed.data.calculator_id,
+        rawPayload:    req.body,
+        context:       { ipAddress: req.ip, userAgent: req.headers['user-agent'] as string | undefined },
+      }).catch(() => {});
 
       res.json({ success: true, lead });
     } catch (error: any) {
