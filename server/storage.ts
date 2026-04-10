@@ -5,6 +5,7 @@ import {
   calculatorAnalyticsSummary, jobLogs,
   notificationQueue, followupJobs, bookings,
   aiConversations, supportTickets, smsMessages,
+  ticketMessages, ticketEvents,
   users, auditSubmissions, auditFollowupEmails, demoQuoteLeads, missedCallLeads,
   type Calculator, type InsertCalculator,
   type Lead, type InsertLead,
@@ -17,6 +18,8 @@ import {
   type Booking, type InsertBooking,
   type AiConversation, type InsertAiConversation,
   type SupportTicket, type InsertSupportTicket,
+  type TicketMessage, type InsertTicketMessage,
+  type TicketEvent, type InsertTicketEvent,
   type SmsMessage,
   type User, type InsertUser,
   type AuditSubmission, type InsertAuditSubmission,
@@ -106,8 +109,18 @@ export interface IStorage {
   updateAiConversation(id: number, updates: Partial<InsertAiConversation>): Promise<void>;
   getAiConversationBySession(sessionId: string): Promise<AiConversation | undefined>;
 
-  createSupportTicket(data: Partial<InsertSupportTicket> & { description: string }): Promise<SupportTicket>;
-  updateSupportTicket(id: number, updates: Record<string, any>): Promise<void>;
+  createSupportTicket(data: Partial<InsertSupportTicket> & { description: string; subject: string; client_id: number }): Promise<SupportTicket>;
+  updateSupportTicket(id: number, updates: Record<string, any>): Promise<SupportTicket | undefined>;
+  getSupportTicketById(id: number): Promise<SupportTicket | undefined>;
+  listSupportTickets(opts?: { clientId?: number; status?: string; priority?: string; category?: string; search?: string; limit?: number; offset?: number }): Promise<(SupportTicket & { client_name?: string | null })[]>;
+  getSupportTicketCounts(clientId?: number): Promise<Record<string, number>>;
+
+  // Ticket messages
+  createTicketMessage(data: InsertTicketMessage): Promise<TicketMessage>;
+  listTicketMessages(ticketId: number, visibility?: "customer" | "all"): Promise<(TicketMessage & { author_name?: string | null })[]>;
+
+  // Ticket events
+  createTicketEvent(data: InsertTicketEvent): Promise<TicketEvent>;
 
   getSmsThreads(calculatorId: number): Promise<{ lead: Lead; messages: SmsMessage[] }[]>;
   updateLeadAiPaused(leadId: number, calculatorId: number, paused: boolean): Promise<void>;
@@ -589,19 +602,134 @@ export class DatabaseStorage implements IStorage {
     return conv;
   }
 
-  async createSupportTicket(data: Partial<InsertSupportTicket> & { description: string }): Promise<SupportTicket> {
+  async createSupportTicket(data: Partial<InsertSupportTicket> & { description: string; subject: string; client_id: number }): Promise<SupportTicket> {
     const [ticket] = await db.insert(supportTickets).values({
+      client_id: data.client_id,
+      subject: data.subject,
       description: data.description,
-      calculator_id: data.calculator_id ?? null,
       status: data.status || "open",
+      priority: data.priority || "normal",
+      category: data.category || "general",
+      source: data.source || "manual",
+      assigned_to: data.assigned_to ?? null,
+      calculator_id: data.calculator_id ?? null,
+      ai_summary: data.ai_summary ?? null,
+      ai_priority_hint: data.ai_priority_hint ?? null,
       transcript_json: data.transcript_json ?? [],
       admin_notified: data.admin_notified ?? false,
     }).returning();
     return ticket;
   }
 
-  async updateSupportTicket(id: number, updates: Record<string, any>): Promise<void> {
-    await db.update(supportTickets).set(updates).where(eq(supportTickets.id, id));
+  async updateSupportTicket(id: number, updates: Record<string, any>): Promise<SupportTicket | undefined> {
+    const [ticket] = await db.update(supportTickets).set({ ...updates, updated_at: new Date() }).where(eq(supportTickets.id, id)).returning();
+    return ticket;
+  }
+
+  async getSupportTicketById(id: number): Promise<SupportTicket | undefined> {
+    const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, id)).limit(1);
+    return ticket;
+  }
+
+  async listSupportTickets(opts?: { clientId?: number; status?: string; priority?: string; category?: string; search?: string; limit?: number; offset?: number }): Promise<(SupportTicket & { client_name?: string | null })[]> {
+    const conditions: any[] = [];
+    if (opts?.clientId) conditions.push(eq(supportTickets.client_id, opts.clientId));
+    if (opts?.status) conditions.push(eq(supportTickets.status, opts.status));
+    if (opts?.priority) conditions.push(eq(supportTickets.priority, opts.priority));
+    if (opts?.category) conditions.push(eq(supportTickets.category, opts.category));
+    if (opts?.search) {
+      conditions.push(
+        or(
+          ilike(supportTickets.subject, `%${opts.search}%`),
+          ilike(supportTickets.description, `%${opts.search}%`),
+        )
+      );
+    }
+
+    const rows = await db
+      .select({
+        id: supportTickets.id,
+        calculator_id: supportTickets.calculator_id,
+        client_id: supportTickets.client_id,
+        subject: supportTickets.subject,
+        description: supportTickets.description,
+        status: supportTickets.status,
+        priority: supportTickets.priority,
+        category: supportTickets.category,
+        source: supportTickets.source,
+        assigned_to: supportTickets.assigned_to,
+        ai_summary: supportTickets.ai_summary,
+        ai_priority_hint: supportTickets.ai_priority_hint,
+        transcript_json: supportTickets.transcript_json,
+        admin_notified: supportTickets.admin_notified,
+        created_at: supportTickets.created_at,
+        updated_at: supportTickets.updated_at,
+        resolved_at: supportTickets.resolved_at,
+        closed_at: supportTickets.closed_at,
+        client_name: clients.business_name,
+      })
+      .from(supportTickets)
+      .leftJoin(clients, eq(supportTickets.client_id, clients.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(supportTickets.created_at))
+      .limit(opts?.limit ?? 100)
+      .offset(opts?.offset ?? 0);
+
+    return rows;
+  }
+
+  async getSupportTicketCounts(clientId?: number): Promise<Record<string, number>> {
+    const condition = clientId ? eq(supportTickets.client_id, clientId) : undefined;
+    const rows = await db
+      .select({
+        status: supportTickets.status,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(supportTickets)
+      .where(condition)
+      .groupBy(supportTickets.status);
+
+    const counts: Record<string, number> = { open: 0, in_progress: 0, waiting_on_customer: 0, resolved: 0, closed: 0 };
+    for (const row of rows) {
+      counts[row.status] = row.count;
+    }
+    return counts;
+  }
+
+  async createTicketMessage(data: InsertTicketMessage): Promise<TicketMessage> {
+    const [msg] = await db.insert(ticketMessages).values(data).returning();
+    return msg;
+  }
+
+  async listTicketMessages(ticketId: number, visibility?: "customer" | "all"): Promise<(TicketMessage & { author_name?: string | null })[]> {
+    const conditions: any[] = [eq(ticketMessages.ticket_id, ticketId)];
+    if (visibility === "customer") {
+      conditions.push(eq(ticketMessages.visibility, "customer"));
+    }
+
+    const rows = await db
+      .select({
+        id: ticketMessages.id,
+        ticket_id: ticketMessages.ticket_id,
+        author_id: ticketMessages.author_id,
+        author_type: ticketMessages.author_type,
+        visibility: ticketMessages.visibility,
+        content: ticketMessages.content,
+        metadata: ticketMessages.metadata,
+        created_at: ticketMessages.created_at,
+        author_name: users.name,
+      })
+      .from(ticketMessages)
+      .leftJoin(users, eq(ticketMessages.author_id, users.id))
+      .where(and(...conditions))
+      .orderBy(ticketMessages.created_at);
+
+    return rows;
+  }
+
+  async createTicketEvent(data: InsertTicketEvent): Promise<TicketEvent> {
+    const [event] = await db.insert(ticketEvents).values(data).returning();
+    return event;
   }
 
   async getSmsThreads(calculatorId: number): Promise<{ lead: Lead; messages: SmsMessage[] }[]> {
