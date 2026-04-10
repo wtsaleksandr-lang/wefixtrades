@@ -22,7 +22,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  MapPin, Plus, Wand2, AlertTriangle, Clock, Eye, Factory,
+  MapPin, Plus, Wand2, AlertTriangle, Clock, Eye, Factory, Star,
   CheckCircle, ArrowRight, Shield, FileCheck, X, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -151,7 +151,7 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
     },
   });
 
-  const { data: costData } = useQuery<{ total_cost_cents: number; task_count: number; avg_cost_cents: number }>({
+  const { data: costData } = useQuery<{ total_cost_cents: number; task_count: number; avg_cost_cents: number; revenue_cents: number; margin_cents: number; margin_pct: number }>({
     queryKey: [`/api/mapguard/clients/${clientId}/costs`],
     queryFn: async () => {
       const res = await fetch(`/api/mapguard/clients/${clientId}/costs`, { credentials: "include" });
@@ -268,11 +268,14 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
             </div>
           )}
 
-          {/* Cost summary */}
-          {costData && costData.total_cost_cents > 0 && (
-            <div className="mt-3 flex items-center gap-4 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-600">
-              <span>Cost this month: <span className="font-semibold text-gray-900">${(costData.total_cost_cents / 100).toFixed(2)}</span></span>
-              <span>Tasks: <span className="font-semibold">{costData.task_count}</span></span>
+          {/* Cost & margin summary */}
+          {costData && (costData.total_cost_cents > 0 || costData.revenue_cents > 0) && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-600">
+              {costData.revenue_cents > 0 && <span>Revenue: <span className="font-semibold text-gray-900">${(costData.revenue_cents / 100).toFixed(0)}/mo</span></span>}
+              <span>Cost: <span className="font-semibold text-gray-900">${(costData.total_cost_cents / 100).toFixed(2)}</span></span>
+              {costData.revenue_cents > 0 && (
+                <span>Margin: <span className={`font-semibold ${costData.margin_pct >= 50 ? "text-emerald-600" : costData.margin_pct >= 20 ? "text-amber-600" : "text-red-600"}`}>${(costData.margin_cents / 100).toFixed(2)} ({costData.margin_pct}%)</span></span>
+              )}
               <span>Avg: <span className="font-semibold">${(costData.avg_cost_cents / 100).toFixed(2)}</span>/task</span>
             </div>
           )}
@@ -1005,6 +1008,11 @@ function TaskDetailDialog({
             </div>
           )}
 
+          {/* ─── Supplier Quality Feedback (completed tasks with supplier) ─── */}
+          {t.status === "completed" && t.assigned_to && (
+            <SupplierFeedback task={t} clientId={clientId} />
+          )}
+
           {/* ─── Activity Log ─── */}
           {activity.length > 0 && (
             <div className="border-t border-gray-100 pt-3">
@@ -1034,5 +1042,66 @@ function TaskDetailDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   SUPPLIER QUALITY FEEDBACK
+   ═══════════════════════════════════════════ */
+function SupplierFeedback({ task, clientId }: { task: MapguardTaskItem; clientId: number }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [rating, setRating] = useState(0);
+  const [note, setNote] = useState("");
+  const [submitted, setSubmitted] = useState(!!(task.metadata as any)?.supplier_rating);
+  const existingRating = (task.metadata as any)?.supplier_rating;
+
+  const submit = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PATCH", `/api/mapguard/tasks/${task.id}`, {
+        metadata: { ...(task.metadata as any || {}), supplier_rating: rating, supplier_feedback: note || undefined, rated_at: new Date().toISOString() },
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      setSubmitted(true);
+      queryClient.invalidateQueries({ queryKey: [`/api/mapguard/tasks/${task.id}`] });
+      toast({ title: "Feedback saved" });
+    },
+  });
+
+  if (submitted || existingRating) {
+    const r = existingRating || rating;
+    return (
+      <div className="border-t border-gray-100 pt-3">
+        <p className="text-xs font-medium text-gray-500 mb-1">Supplier Rating</p>
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map(s => (
+            <Star key={s} className={`w-4 h-4 ${s <= r ? "text-amber-400 fill-amber-400" : "text-gray-200"}`} />
+          ))}
+          <span className="text-xs text-gray-400 ml-1">{task.assigned_to}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t border-gray-100 pt-3">
+      <p className="text-xs font-medium text-gray-500 mb-2">Rate supplier quality</p>
+      <div className="flex items-center gap-1 mb-2">
+        {[1, 2, 3, 4, 5].map(s => (
+          <button key={s} type="button" onClick={() => setRating(s)} className="p-0.5">
+            <Star className={`w-5 h-5 transition-colors ${s <= rating ? "text-amber-400 fill-amber-400" : "text-gray-300 hover:text-amber-300"}`} />
+          </button>
+        ))}
+        {rating > 0 && <span className="text-xs text-gray-400 ml-1">{rating}/5</span>}
+      </div>
+      <div className="flex items-center gap-2">
+        <Input className="h-7 text-xs flex-1" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note..." />
+        <Button size="sm" className="h-7 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]" disabled={rating === 0 || submit.isPending} onClick={() => submit.mutate()}>
+          Save
+        </Button>
+      </div>
+    </div>
   );
 }

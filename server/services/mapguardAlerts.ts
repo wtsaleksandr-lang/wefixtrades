@@ -8,6 +8,7 @@
 
 import { db } from "../db";
 import { mapguardAlerts, type InsertMapguardAlert, type MapguardAlert } from "@shared/schemas/mapguardMonitoring";
+import { mapguardTasks } from "@shared/schemas/mapguard";
 import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import type { SnapshotChanges } from "./mapguardMonitor";
@@ -16,6 +17,8 @@ import type { InsertMapguardSnapshot } from "@shared/schemas/mapguardMonitoring"
 /* ═══════════════════════════════════════════
    ALERT CONFIGURATION
    ═══════════════════════════════════════════ */
+
+const COST_ALERT_THRESHOLD_CENTS = 10000; // $100/month — alert if supplier costs exceed this
 
 const ALERT_RECIPIENT = process.env.MAPGUARD_ALERT_EMAIL || process.env.SMTP_USER || "";
 const DEDUP_WINDOW_DAYS = 6; // Don't re-alert same type for same client within this window
@@ -290,6 +293,52 @@ export async function processMapguardAlerts(
   }
 
   return { sent, deduplicated };
+}
+
+/* ═══════════════════════════════════════════
+   COST THRESHOLD ALERT
+   ═══════════════════════════════════════════ */
+
+export async function checkCostAlert(clientId: number, businessName: string): Promise<void> {
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  const [row] = await db.select({ total: sql<number>`coalesce(sum(${mapguardTasks.cost_cents}), 0)::int` })
+    .from(mapguardTasks)
+    .where(and(
+      eq(mapguardTasks.client_id, clientId),
+      sql`${mapguardTasks.cost_cents} > 0`,
+      sql`(${mapguardTasks.updated_at} >= ${monthStart} OR ${mapguardTasks.completed_at} >= ${monthStart})`,
+    ));
+
+  const totalCost = row?.total || 0;
+  if (totalCost < COST_ALERT_THRESHOLD_CENTS) return;
+
+  // Dedup
+  const isDup = await isDuplicate(clientId, "cost_threshold");
+  if (isDup) return;
+
+  const alertData: InsertMapguardAlert = {
+    client_id: clientId,
+    alert_type: "cost_threshold",
+    severity: "warning",
+    title: `Supplier costs exceeded $${(COST_ALERT_THRESHOLD_CENTS / 100).toFixed(0)} for ${businessName}`,
+    summary: `Total supplier spend this month: $${(totalCost / 100).toFixed(2)}. Review task assignments and margins.`,
+    metric_data: { total_cost_cents: totalCost, threshold_cents: COST_ALERT_THRESHOLD_CENTS },
+    email_sent: false,
+    dismissed: false,
+  };
+
+  const [alert] = await db.insert(mapguardAlerts).values(alertData).returning();
+
+  const { subject, html } = buildAlertEmail({ ...alertData, business_name: businessName }, clientId);
+  const emailSent = await sendAlertEmail(subject, html);
+  if (emailSent) {
+    await db.update(mapguardAlerts).set({ email_sent: true }).where(eq(mapguardAlerts.id, alert.id));
+  }
+
+  console.log(`[mapguard-alert] Cost threshold alert for ${businessName}: $${(totalCost / 100).toFixed(2)}`);
 }
 
 /* ═══════════════════════════════════════════

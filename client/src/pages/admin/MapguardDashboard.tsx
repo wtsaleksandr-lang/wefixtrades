@@ -210,7 +210,7 @@ export default function MapguardDashboard() {
             )}
             {metrics.waiting_supplier > 0 && (
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-xs font-medium text-amber-700">
-                <Factory className="w-3 h-3" /> {metrics.waiting_supplier} waiting supplier
+                <Factory className="w-3 h-3" /> {metrics.waiting_supplier} waiting supplier{metrics.waiting_supplier !== 1 ? "s" : ""}
               </div>
             )}
             {metrics.needs_review > 0 && (
@@ -387,7 +387,62 @@ export default function MapguardDashboard() {
             </div>
           </>
         )}
+
+        {/* Supplier Performance */}
+        <SupplierPerformanceSection />
       </div>
     </AdminLayout>
+  );
+}
+
+/* ─── Supplier Performance Section ─── */
+function SupplierPerformanceSection() {
+  const { data } = useQuery<Array<{ name: string; type: string; tasks_completed: number; tasks_total: number; total_cost_cents: number; avg_rating: number | null }>>({
+    queryKey: ["/api/mapguard/suppliers/performance"],
+    queryFn: async () => {
+      const res = await fetch("/api/mapguard/suppliers/performance", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  if (!data || data.length === 0) return null;
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-900">Supplier Performance</h3>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Supplier</TableHead>
+            <TableHead className="text-center">Type</TableHead>
+            <TableHead className="text-center">Tasks</TableHead>
+            <TableHead className="text-center">Completed</TableHead>
+            <TableHead className="text-center">Total Cost</TableHead>
+            <TableHead className="text-center">Rating</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.map(s => (
+            <TableRow key={s.name}>
+              <TableCell className="text-sm font-medium">{s.name}</TableCell>
+              <TableCell className="text-center"><span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 capitalize">{s.type}</span></TableCell>
+              <TableCell className="text-center text-sm">{s.tasks_total}</TableCell>
+              <TableCell className="text-center text-sm">{s.tasks_completed}</TableCell>
+              <TableCell className="text-center text-sm">${(s.total_cost_cents / 100).toFixed(2)}</TableCell>
+              <TableCell className="text-center">
+                {s.avg_rating !== null ? (
+                  <span className="text-sm font-medium">{s.avg_rating}/5</span>
+                ) : (
+                  <span className="text-xs text-gray-400">—</span>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
   );
 }

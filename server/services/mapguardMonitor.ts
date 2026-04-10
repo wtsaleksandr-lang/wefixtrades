@@ -14,7 +14,7 @@ import { clients, clientServices, serviceCatalog } from "@shared/schemas/adminCr
 import { eq, and, desc, sql, asc } from "drizzle-orm";
 import { createMapguardTask, getExecutionUsage } from "./mapguardTaskEngine";
 import type { MapguardTask } from "@shared/schemas/mapguard";
-import { processMapguardAlerts, getAlertCountSince } from "./mapguardAlerts";
+import { processMapguardAlerts, getAlertCountSince, checkCostAlert } from "./mapguardAlerts";
 
 /* ═══════════════════════════════════════════
    V1 SCAN CONFIGURATION
@@ -575,6 +575,11 @@ export async function runMapguardScan(client: MapguardClient): Promise<{
   } catch (err: any) {
     console.error(`[mapguard-monitor] Alert processing failed for ${client.business_name}:`, err.message);
   }
+
+  // Check cost threshold
+  try {
+    await checkCostAlert(client.client_id, profile.businessName || client.business_name);
+  } catch { /* non-critical */ }
 
   return { snapshot, changes, tasksCreated, alertsSent };
 }

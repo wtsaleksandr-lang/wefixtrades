@@ -129,6 +129,9 @@ export interface ClientCostSummary {
   total_cost_cents: number;
   task_count: number;
   avg_cost_cents: number;
+  revenue_cents: number;
+  margin_cents: number;
+  margin_pct: number;
   by_supplier: Array<{ supplier: string; cost_cents: number; count: number }>;
 }
 
@@ -162,10 +165,27 @@ export async function getClientCostSummary(clientId: number): Promise<ClientCost
     bySupplier.set(name, existing);
   }
 
+  // Get monthly revenue from client's MapGuard plan
+  const [revenueRow] = await db.select({ price_cents: clientServices.price_cents })
+    .from(clientServices)
+    .where(and(
+      eq(clientServices.client_id, clientId),
+      eq(clientServices.status, "active"),
+      sql`${clientServices.service_id} IN ('mapguard-basic', 'mapguard-pro')`,
+    ))
+    .orderBy(desc(clientServices.created_at))
+    .limit(1);
+
+  const revenue = revenueRow?.price_cents || 0;
+  const margin = revenue - total;
+
   return {
     total_cost_cents: total,
     task_count: rows.length,
     avg_cost_cents: rows.length > 0 ? Math.round(total / rows.length) : 0,
+    revenue_cents: revenue,
+    margin_cents: margin,
+    margin_pct: revenue > 0 ? Math.round((margin / revenue) * 100) : 0,
     by_supplier: Array.from(bySupplier.entries()).map(([supplier, { cost, count }]) => ({
       supplier,
       cost_cents: cost,
@@ -176,6 +196,49 @@ export async function getClientCostSummary(clientId: number): Promise<ClientCost
 
 export function getSupplierRecommendation(taskType: string): SupplierRecommendation | null {
   return getRecommendedSupplier(taskType as any);
+}
+
+export interface SupplierPerformance {
+  name: string;
+  type: string;
+  tasks_completed: number;
+  tasks_total: number;
+  total_cost_cents: number;
+  avg_rating: number | null;
+}
+
+export async function getSupplierPerformance(): Promise<SupplierPerformance[]> {
+  const rows = await db.select({
+    assigned_to: mapguardTasks.assigned_to,
+    supplier_type: mapguardTasks.supplier_type,
+    status: mapguardTasks.status,
+    cost_cents: mapguardTasks.cost_cents,
+    metadata: mapguardTasks.metadata,
+  })
+  .from(mapguardTasks)
+  .where(sql`${mapguardTasks.assigned_to} IS NOT NULL AND ${mapguardTasks.assigned_to} != ''`);
+
+  const map = new Map<string, { type: string; completed: number; total: number; cost: number; ratings: number[]; }>();
+
+  for (const row of rows) {
+    const name = row.assigned_to || "Unknown";
+    const entry = map.get(name) || { type: row.supplier_type || "unknown", completed: 0, total: 0, cost: 0, ratings: [] };
+    entry.total++;
+    if (row.status === "completed") entry.completed++;
+    entry.cost += row.cost_cents || 0;
+    const rating = (row.metadata as any)?.supplier_rating;
+    if (typeof rating === "number") entry.ratings.push(rating);
+    map.set(name, entry);
+  }
+
+  return Array.from(map.entries()).map(([name, d]) => ({
+    name,
+    type: d.type,
+    tasks_completed: d.completed,
+    tasks_total: d.total,
+    total_cost_cents: d.cost,
+    avg_rating: d.ratings.length > 0 ? Math.round((d.ratings.reduce((a, b) => a + b, 0) / d.ratings.length) * 10) / 10 : null,
+  })).sort((a, b) => b.tasks_total - a.tasks_total);
 }
 
 /* ═══════════════════════════════════════════

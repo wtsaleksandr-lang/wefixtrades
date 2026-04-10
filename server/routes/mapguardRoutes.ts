@@ -23,6 +23,7 @@ import {
   getExecutionUsage,
   getClientCostSummary,
   getSupplierRecommendation,
+  getSupplierPerformance,
 } from "../services/mapguardTaskEngine";
 import { MAPGUARD_SUPPLIERS } from "@shared/mapguardSuppliers";
 import {
@@ -429,6 +430,17 @@ export function registerMapguardRoutes(app: Express) {
   /* ─── Get supplier directory ─── */
   app.get("/api/mapguard/suppliers", requireAdmin, async (_req: Request, res: Response) => {
     res.json(MAPGUARD_SUPPLIERS.filter(s => s.active));
+  });
+
+  /* ─── Get supplier performance analytics ─── */
+  app.get("/api/mapguard/suppliers/performance", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const performance = await getSupplierPerformance();
+      res.json(performance);
+    } catch (err: any) {
+      console.error("[mapguard] supplier performance error:", err);
+      res.status(500).json({ error: "Failed to get supplier performance" });
+    }
   });
 
   /* ─── Get client cost summary ─── */

@@ -45,10 +45,9 @@ export default function WorksBestWith() {
             margin: "0 auto",
           }}
         >
-          {COMPANIONS.map((c, i) => {
-            const Icon = c.icon;
-            return <CompanionCard key={c.name} companion={c} delay={i * 120} />;
-          })}
+          {COMPANIONS.map((c, i) => (
+            <CompanionCard key={c.name} companion={c} delay={i * 120} />
+          ))}
         </div>
 
         <div style={{ textAlign: "center", marginTop: 28 }} data-reveal="fade-up" data-delay="200">
