@@ -19,6 +19,7 @@ import {
   selectGoogleLocation, validateGoogleConnection,
 } from "../services/socialSync/googleBusinessService";
 import { disconnectPlatform as disconnectPlatformFn } from "../services/socialSync/connectionLifecycle";
+import { getClientProfitability } from "../services/socialSync/costTracker";
 import { syncClientReviews, processAllClientReviews } from "../services/reputation/reviewOrchestrator";
 import { resolveMediaForPost } from "../services/socialSync/mediaService";
 import { decryptToken } from "../services/socialSync/tokenEncryption";
@@ -1369,6 +1370,56 @@ export function registerSocialSyncRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[socialsync] Batch review process error:", err.message);
       res.status(500).json({ error: "Failed to process reviews" });
+    }
+  });
+
+  // ─── Phase 7C: Profitability ───
+
+  // GET per-client profitability
+  app.get("/api/socialsync/clients/:clientId/profitability", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+      const data = await getClientProfitability(clientId);
+      res.json(data);
+    } catch (err: any) {
+      console.error("[socialsync] Profitability error:", err.message);
+      res.status(500).json({ error: "Failed to load profitability" });
+    }
+  });
+
+  // GET profitability overview across all enabled clients
+  app.get("/api/socialsync/ops/profitability", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const profiles = await storage.listEnabledSocialSyncProfiles();
+      const results = [];
+
+      for (const profile of profiles) {
+        try {
+          const p = await getClientProfitability(profile.client_id);
+          const client = await storage.getClientById(profile.client_id);
+          results.push({ ...p, business_name: client?.business_name || null });
+        } catch { /* skip */ }
+      }
+
+      const totalRevenue = results.reduce((s, r) => s + r.revenue_usd, 0);
+      const totalCost = results.reduce((s, r) => s + r.cost_usd, 0);
+      const totalProfit = totalRevenue - totalCost;
+      const avgMargin = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : null;
+
+      res.json({
+        totals: {
+          revenue: Math.round(totalRevenue * 100) / 100,
+          cost: Math.round(totalCost * 100) / 100,
+          profit: Math.round(totalProfit * 100) / 100,
+          margin_pct: avgMargin,
+          clients: results.length,
+        },
+        clients: results.sort((a, b) => (b.margin_pct ?? 0) - (a.margin_pct ?? 0)),
+      });
+    } catch (err: any) {
+      console.error("[socialsync] Profitability overview error:", err.message);
+      res.status(500).json({ error: "Failed to load profitability overview" });
     }
   });
 }

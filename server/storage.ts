@@ -57,6 +57,9 @@ import {
   // Review Requests
   reviewRequests,
   type ReviewRequest, type InsertReviewRequest,
+  // Service Costs
+  serviceCostLogs,
+  type ServiceCostLog, type InsertServiceCostLog,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -256,6 +259,10 @@ export interface IStorage {
   updateReviewRequest(id: number, updates: Record<string, any>): Promise<void>;
   listReviewRequests(clientId: number, limit?: number): Promise<ReviewRequest[]>;
   getReviewRequestByDedupKey(key: string): Promise<ReviewRequest | undefined>;
+
+  // ─── Service Costs ───
+  logServiceCost(data: InsertServiceCostLog): Promise<ServiceCostLog>;
+  getServiceCosts(clientId: number, sinceDaysAgo?: number): Promise<ServiceCostLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1612,6 +1619,23 @@ export class DatabaseStorage implements IStorage {
       .where(eq(reviewRequests.dedup_key, key))
       .limit(1);
     return row;
+  }
+
+  // ─── Service Costs ───
+
+  async logServiceCost(data: InsertServiceCostLog): Promise<ServiceCostLog> {
+    const [row] = await db.insert(serviceCostLogs).values(data).returning();
+    return row;
+  }
+
+  async getServiceCosts(clientId: number, sinceDaysAgo = 30): Promise<ServiceCostLog[]> {
+    const since = new Date(Date.now() - sinceDaysAgo * 24 * 60 * 60 * 1000);
+    return db.select().from(serviceCostLogs)
+      .where(and(
+        eq(serviceCostLogs.client_id, clientId),
+        gte(serviceCostLogs.created_at, since),
+      ))
+      .orderBy(desc(serviceCostLogs.created_at));
   }
 }
 

@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { chat } from "../aiService";
 import { storage } from "../../storage";
 import { evaluateQuality, type QualityResult } from "./qualityGate";
+import { logAiContentCost } from "./costTracker";
 import type { SocialSyncProfile, SocialSyncTopic, SocialSyncPost } from "@shared/schema";
 
 /* ─── Platform-specific constraints ─── */
@@ -121,6 +122,8 @@ export async function generatePostFromTopic(
       messages: [{ role: "user", content: userPrompt }],
       maxTokens: 1500,
     });
+    // Log cost (estimate ~500 input + ~400 output tokens per post)
+    logAiContentCost(profile.client_id, 500, 400, `Post for ${platform}`).catch(() => {});
   } catch (err: any) {
     return { post: null, error: `AI generation failed: ${err.message}` };
   }

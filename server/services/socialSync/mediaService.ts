@@ -25,6 +25,7 @@ import crypto from "node:crypto";
 import type { Express } from "express";
 import { generateImageBuffer } from "../../replit_integrations/image/client";
 import { storage } from "../../storage";
+import { logAiImageCost } from "./costTracker";
 import type { SocialSyncPost } from "@shared/schema";
 
 /* ─── Config ─── */
@@ -113,6 +114,7 @@ async function generateAndStore(post: SocialSyncPost): Promise<MediaResolution> 
   let buffer: Buffer;
   try {
     buffer = await generateImageBuffer(prompt, "1024x1024");
+    logAiImageCost(post.client_id).catch(() => {});
   } catch (err: any) {
     return { resolved: false, public_url: null, source: "none", error: `Image generation failed: ${err.message}` };
   }

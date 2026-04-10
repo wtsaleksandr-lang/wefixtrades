@@ -82,6 +82,17 @@ export default function SocialSyncOpsPage() {
     refetchInterval: 60000, // Auto-refresh every minute
   });
 
+  const { data: profitData } = useQuery<{
+    totals: { revenue: number; cost: number; profit: number; margin_pct: number | null };
+    clients: { client_id: number; revenue_usd: number; cost_usd: number; profit_usd: number; margin_pct: number | null; business_name: string | null }[];
+  }>({
+    queryKey: ["/api/socialsync/ops/profitability"],
+    refetchInterval: 300000,
+  });
+
+  const profitMap = new Map<number, { revenue: number; cost: number; margin: number | null }>();
+  profitData?.clients.forEach(c => profitMap.set(c.client_id, { revenue: c.revenue_usd, cost: c.cost_usd, margin: c.margin_pct }));
+
   const generateAllDue = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/socialsync/internal/generate-all-due");
@@ -187,6 +198,13 @@ export default function SocialSyncOpsPage() {
             <MetricCard label="In Cooldown" value={metrics.clients_in_cooldown || 0} color={(metrics.clients_in_cooldown || 0) > 0 ? "amber" : undefined} />
             <MetricCard label="Suppressed" value={metrics.clients_suppressed || 0} color={(metrics.clients_suppressed || 0) > 0 ? "red" : undefined} />
             <MetricCard label="Total Clients" value={clients.length} />
+            {profitData && (
+              <>
+                <MetricCard label="Revenue/mo" value={`$${profitData.totals.revenue}`} color="emerald" />
+                <MetricCard label="Cost/mo" value={`$${profitData.totals.cost}`} />
+                <MetricCard label="Margin" value={profitData.totals.margin_pct != null ? `${profitData.totals.margin_pct}%` : "—"} color={profitData.totals.margin_pct != null && profitData.totals.margin_pct >= 60 ? "emerald" : "amber"} />
+              </>
+            )}
           </div>
         )}
 
@@ -232,6 +250,7 @@ export default function SocialSyncOpsPage() {
                   <TableHead className="text-center">Upcoming</TableHead>
                   <TableHead className="text-center">Pub 7d</TableHead>
                   <TableHead className="text-center">Fails</TableHead>
+                  <TableHead className="text-center">Margin</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
@@ -265,6 +284,13 @@ export default function SocialSyncOpsPage() {
                         ? <span className="text-xs font-medium text-red-600">{c.failed_queue}</span>
                         : <span className="text-xs text-gray-300">0</span>}
                     </TableCell>
+                    <TableCell className="text-center">
+                      {(() => {
+                        const p = profitMap.get(c.client_id);
+                        if (!p || p.margin === null) return <span className="text-xs text-gray-300">—</span>;
+                        return <span className={`text-xs font-medium ${p.margin >= 70 ? "text-emerald-600" : p.margin >= 40 ? "text-amber-600" : "text-red-600"}`}>{p.margin}%</span>;
+                      })()}
+                    </TableCell>
                     <TableCell>
                       {Object.entries(c.cooldown || {}).some(([_, v]) => v.cooling_down) && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 mr-1">
@@ -291,7 +317,7 @@ export default function SocialSyncOpsPage() {
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center py-8 text-sm text-gray-500">
+                    <TableCell colSpan={14} className="text-center py-8 text-sm text-gray-500">
                       No clients match the current filter.
                     </TableCell>
                   </TableRow>
