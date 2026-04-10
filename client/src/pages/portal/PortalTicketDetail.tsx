@@ -201,16 +201,16 @@ export default function PortalTicketDetail() {
                           sendReply.mutate();
                         }
                       }}
-                      placeholder="Type your reply... (Ctrl+Enter to send)"
+                      placeholder="Type your reply..."
                       rows={2}
                       className="flex-1 text-sm px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] resize-none"
                     />
                     <button
                       onClick={() => sendReply.mutate()}
                       disabled={!reply.trim() || sendReply.isPending}
-                      className="px-3 py-2.5 rounded-lg bg-[#2D6A4F] text-white hover:bg-[#1B4332] disabled:opacity-40 transition-colors self-end"
+                      className="px-4 py-2.5 rounded-lg bg-[#2D6A4F] text-white hover:bg-[#1B4332] disabled:opacity-40 transition-colors self-end text-xs font-medium"
                     >
-                      {sendReply.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      {sendReply.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send"}
                     </button>
                   </div>
                   {sendReply.error && (

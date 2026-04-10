@@ -263,6 +263,7 @@ export default function SupportTicketDetailPage() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setVisibility("customer")}
+                      title="Customer will see this message"
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                         visibility === "customer"
                           ? "bg-[#2D6A4F] text-white ring-2 ring-[#2D6A4F]/30"
@@ -273,6 +274,7 @@ export default function SupportTicketDetailPage() {
                     </button>
                     <button
                       onClick={() => setVisibility("internal")}
+                      title="Only admins can see this — customer will NOT see it"
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                         visibility === "internal"
                           ? "bg-amber-500 text-white ring-2 ring-amber-400/40"
@@ -337,65 +339,53 @@ export default function SupportTicketDetailPage() {
 
             {/* Right: Ticket metadata sidebar (1 col) */}
             <div className="space-y-4">
-              {/* Status */}
+              {/* Ticket Controls */}
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</h3>
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Manage</h3>
                 </div>
-                <div className="p-4">
-                  <select
-                    value={ticket.status}
-                    onChange={(e) => updateTicket.mutate({ status: e.target.value })}
-                    disabled={updateTicket.isPending}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
-                  >
-                    {STATUSES.map((s) => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
-                  </select>
-                  <div className="mt-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLES[ticket.status] || "bg-gray-100 text-gray-600"}`}>
-                      {STATUSES.find((s) => s.value === ticket.status)?.label || ticket.status}
-                    </span>
+                <div className="p-4 space-y-3">
+                  <div>
+                    <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">Status</label>
+                    <select
+                      value={ticket.status}
+                      onChange={(e) => updateTicket.mutate({ status: e.target.value })}
+                      disabled={updateTicket.isPending}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
+                    >
+                      {STATUSES.map((s) => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </select>
                   </div>
-                </div>
-              </div>
-
-              {/* Priority */}
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Priority</h3>
-                </div>
-                <div className="p-4">
-                  <select
-                    value={ticket.priority}
-                    onChange={(e) => updateTicket.mutate({ priority: e.target.value })}
-                    disabled={updateTicket.isPending}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
-                  >
-                    {PRIORITIES.map((p) => (
-                      <option key={p.value} value={p.value}>{p.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Category */}
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Category</h3>
-                </div>
-                <div className="p-4">
-                  <select
-                    value={ticket.category}
-                    onChange={(e) => updateTicket.mutate({ category: e.target.value })}
-                    disabled={updateTicket.isPending}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
-                  >
-                    {CATEGORIES.map((c) => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
-                    ))}
-                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">Priority</label>
+                      <select
+                        value={ticket.priority}
+                        onChange={(e) => updateTicket.mutate({ priority: e.target.value })}
+                        disabled={updateTicket.isPending}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
+                      >
+                        {PRIORITIES.map((p) => (
+                          <option key={p.value} value={p.value}>{p.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">Category</label>
+                      <select
+                        value={ticket.category}
+                        onChange={(e) => updateTicket.mutate({ category: e.target.value })}
+                        disabled={updateTicket.isPending}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
+                      >
+                        {CATEGORIES.map((c) => (
+                          <option key={c.value} value={c.value}>{c.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -410,8 +400,8 @@ export default function SupportTicketDetailPage() {
                     <span className="text-gray-900 font-medium">{ticket.client_name || `#${ticket.client_id}`}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Source</span>
-                    <span className="text-gray-900">{ticket.source === "ai_escalation" ? "AI escalation" : ticket.source === "admin_created" ? "Admin" : "Manual"}</span>
+                    <span className="text-gray-500">Created via</span>
+                    <span className="text-gray-900">{ticket.source === "ai_escalation" ? "AI chat" : ticket.source === "admin_created" ? "Admin" : "Customer form"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Created</span>

@@ -246,32 +246,34 @@ function AiHelpSection() {
               <p className="text-xs text-gray-500">Review and edit before submitting. No ticket is created until you confirm.</p>
 
               <div className="space-y-2">
-                <div>
-                  <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Subject</label>
-                  <input
-                    value={draftSubject}
-                    onChange={(e) => setDraftSubject(e.target.value)}
-                    className="w-full mt-0.5 px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Category</label>
-                  <select
-                    value={draftCategory}
-                    onChange={(e) => setDraftCategory(e.target.value)}
-                    className="w-full mt-0.5 px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] bg-white"
-                  >
-                    {CATEGORIES.map((c) => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <div>
+                    <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Subject</label>
+                    <input
+                      value={draftSubject}
+                      onChange={(e) => setDraftSubject(e.target.value)}
+                      className="w-full mt-0.5 px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Category</label>
+                    <select
+                      value={draftCategory}
+                      onChange={(e) => setDraftCategory(e.target.value)}
+                      className="w-full mt-0.5 px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] bg-white"
+                    >
+                      {CATEGORIES.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Description</label>
                   <textarea
                     value={draftDescription}
                     onChange={(e) => setDraftDescription(e.target.value)}
-                    rows={3}
+                    rows={2}
                     className="w-full mt-0.5 px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] bg-white resize-none"
                   />
                 </div>
