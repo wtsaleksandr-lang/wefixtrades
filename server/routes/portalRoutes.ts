@@ -23,6 +23,7 @@ import {
 } from "@shared/schema";
 import { compileMonthlyReport } from "../services/mapguardReports";
 import { getExecutionUsage } from "../services/mapguardTaskEngine";
+import { generateClientActivityFeed } from "../services/mapguardRetention";
 
 /* ─── Helpers ─── */
 
@@ -954,6 +955,7 @@ Do NOT:
         activities,
         completed_last_30d: completedCount,
         execution_progress: executionProgress,
+        activity_feed: await generateClientActivityFeed(clientId, 8),
         current: latest ? {
           score: latest.score_total,
           grade: latest.score_grade,

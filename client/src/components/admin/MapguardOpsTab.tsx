@@ -60,6 +60,8 @@ interface TaskSummary {
   cancelled: number;
   overdue: number;
   execution: ExecutionUsage;
+  last_client_activity: string | null;
+  days_since_activity: number | null;
   next_recommended: {
     id: number;
     title: string;
@@ -277,6 +279,19 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
                 <span>Margin: <span className={`font-semibold ${costData.margin_pct >= 50 ? "text-emerald-600" : costData.margin_pct >= 20 ? "text-amber-600" : "text-red-600"}`}>${(costData.margin_cents / 100).toFixed(2)} ({costData.margin_pct}%)</span></span>
               )}
               <span>Avg: <span className="font-semibold">${(costData.avg_cost_cents / 100).toFixed(2)}</span>/task</span>
+            </div>
+          )}
+
+          {/* Retention signal */}
+          {summary.days_since_activity !== null && summary.days_since_activity > 7 && (
+            <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs">
+              <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+              <span className="text-red-700 font-medium">Client has not seen recent activity ({summary.days_since_activity} days ago)</span>
+            </div>
+          )}
+          {summary.last_client_activity && summary.days_since_activity !== null && summary.days_since_activity <= 7 && (
+            <div className="mt-3 px-3 py-1.5 text-[11px] text-gray-400">
+              Last activity shown to client: {new Date(summary.last_client_activity).toLocaleDateString("en-US", { month: "short", day: "numeric" })} ({summary.days_since_activity}d ago)
             </div>
           )}
 

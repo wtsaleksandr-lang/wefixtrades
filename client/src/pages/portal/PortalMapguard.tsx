@@ -47,6 +47,11 @@ interface MapguardData {
     pending: number;
     has_more: boolean;
   } | null;
+  activity_feed: Array<{
+    message: string;
+    type: "improvement" | "monitoring" | "growth" | "status";
+    date: string;
+  }>;
   snapshots: Array<{
     captured_at: string;
     score: number | null;
@@ -375,6 +380,31 @@ export default function PortalMapguard() {
                     </div>
                   </div>
                 )}
+              </Card>
+            )}
+
+            {/* Recent Activity Feed */}
+            {data.activity_feed && data.activity_feed.length > 0 && (
+              <Card className="p-5">
+                <h2 className="text-sm font-semibold text-gray-900 mb-3">Recent Activity</h2>
+                <div className="space-y-2.5">
+                  {data.activity_feed.map((item, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                        item.type === "improvement" ? "bg-emerald-400" :
+                        item.type === "growth" ? "bg-blue-400" :
+                        item.type === "monitoring" ? "bg-indigo-400" :
+                        "bg-gray-300"
+                      }`} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-gray-700">{item.message}</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                          {new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </Card>
             )}
 

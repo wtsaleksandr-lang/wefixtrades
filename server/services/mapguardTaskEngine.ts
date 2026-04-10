@@ -25,6 +25,7 @@ import {
 import type { InsertMapguardTask, MapguardTask } from "@shared/schemas/mapguard";
 import { clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
 import { getRecommendedSupplier, MAPGUARD_SUPPLIERS, ASSIGNMENT_TEMPLATES, type SupplierRecommendation } from "@shared/mapguardSuppliers";
+import { getLastClientActivityDate } from "./mapguardRetention";
 
 /* ═══════════════════════════════════════════
    EXECUTION LIMIT CONTROL
@@ -684,6 +685,8 @@ export interface MapguardTaskSummary {
   cancelled: number;
   overdue: number;
   execution: ExecutionUsage;
+  last_client_activity: string | null;
+  days_since_activity: number | null;
   next_recommended: {
     id: number;
     title: string;
@@ -751,8 +754,21 @@ export async function getMapguardTaskSummary(clientId: number): Promise<Mapguard
     cancelled: counts.cancelled || 0,
     overdue: overdueRow?.count || 0,
     execution: await getExecutionUsage(clientId),
+    last_client_activity: null as string | null,
+    days_since_activity: null as number | null,
     next_recommended: nextTask || null,
   };
+
+  // Compute last client-visible activity
+  try {
+    const lastDate = await getLastClientActivityDate(clientId);
+    if (lastDate) {
+      result.last_client_activity = lastDate.toISOString();
+      result.days_since_activity = Math.floor((Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+    }
+  } catch { /* non-critical */ }
+
+  return result;
 }
 
 /* ═══════════════════════════════════════════

@@ -43,6 +43,7 @@ import {
 } from "../services/mapguardMonitor";
 import { getRecentAlerts, dismissAlert } from "../services/mapguardAlerts";
 import { compileMonthlyReport, sendMonthlyReportEmail, sendAllMonthlyReports } from "../services/mapguardReports";
+import { getLastClientActivityDate } from "../services/mapguardRetention";
 
 export function registerMapguardRoutes(app: Express) {
 
