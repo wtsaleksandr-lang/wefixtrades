@@ -1901,6 +1901,131 @@ function RSWhatWeDoSection() {
   );
 }
 
+/* ---------- ReputationShield: Product Previews ---------- */
+function RSProductPreviewSection() {
+  const previews = [
+    {
+      title: "The Sentiment Gate",
+      desc: "Happy customers go to Google. Unhappy customers see this instead.",
+      mock: (
+        <div style={{ background: "#fff", borderRadius: 10, padding: 20, border: "1px solid #E5E7EB", fontSize: 13 }}>
+          <div style={{ textAlign: "center", marginBottom: 16 }}>
+            <div style={{ fontSize: 17, fontWeight: 600, color: "#1a1a2e", marginBottom: 4 }}>How was your experience?</div>
+            <div style={{ color: "#6B7280", fontSize: 12 }}>Your feedback about <strong>ABC Plumbing</strong></div>
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+            <div style={{ background: "#22C55E", color: "#fff", padding: "10px 20px", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Great experience!</div>
+            <div style={{ background: "#F3F4F6", color: "#374151", padding: "10px 20px", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>I had an issue</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: "AI Response Drafts",
+      desc: "One click generates a professional reply. Edit it, then post to Google.",
+      mock: (
+        <div style={{ background: "#fff", borderRadius: 10, padding: 16, border: "1px solid #E5E7EB", fontSize: 12 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <span style={{ color: "#FBBF24" }}>★★★★★</span>
+            <span style={{ color: "#6B7280" }}>by John S.</span>
+          </div>
+          <div style={{ color: "#374151", marginBottom: 10, lineHeight: 1.5 }}>"Great work on the boiler install. On time and cleaned up after."</div>
+          <div style={{ background: "#F0F9FF", border: "1px solid #BFDBFE", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+            <div style={{ color: "#6B7280", fontSize: 10, marginBottom: 4, fontWeight: 600 }}>AI DRAFT</div>
+            <div style={{ color: "#1E40AF", lineHeight: 1.4 }}>Thank you for your kind words, John. We take pride in keeping things tidy. Glad the boiler is working well for you.</div>
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ background: "#2563EB", color: "#fff", padding: "6px 12px", borderRadius: 6, fontWeight: 600, fontSize: 11 }}>Post to Google</div>
+            <div style={{ background: "#F3F4F6", color: "#374151", padding: "6px 12px", borderRadius: 6, fontWeight: 600, fontSize: 11 }}>Copy</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: "Review Widget",
+      desc: "Your best reviews displayed right on your website — automatically updated.",
+      mock: (
+        <div style={{ background: "#fff", borderRadius: 10, padding: 16, border: "1px solid #E5E7EB", fontSize: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 22, fontWeight: 700, color: "#1a1a2e" }}>4.8</span>
+            <div>
+              <div style={{ color: "#FBBF24", fontSize: 14 }}>★★★★★</div>
+              <div style={{ color: "#6B7280", fontSize: 10 }}>47 reviews</div>
+            </div>
+          </div>
+          <div style={{ borderTop: "1px solid #F3F4F6", paddingTop: 10 }}>
+            <div style={{ color: "#FBBF24", marginBottom: 4 }}>★★★★★</div>
+            <div style={{ color: "#374151", lineHeight: 1.4, marginBottom: 4 }}>"Fixed our leaking tap same day. Very professional."</div>
+            <div style={{ color: "#9CA3AF", fontSize: 10 }}>— Sarah M. · Google</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: "Monthly Report Email",
+      desc: "Proof your reputation is growing — delivered to your inbox every month.",
+      mock: (
+        <div style={{ background: "#fff", borderRadius: 10, overflow: "hidden", border: "1px solid #E5E7EB", fontSize: 12 }}>
+          <div style={{ background: "#1a1a2e", padding: "10px 16px", color: "#fff", fontWeight: 700, fontSize: 13 }}>ReputationShield Report</div>
+          <div style={{ padding: 16 }}>
+            <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+              <div style={{ flex: 1, background: "#F9FAFB", borderRadius: 6, padding: "8px 10px", textAlign: "center" }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e" }}>4.8</div>
+                <div style={{ color: "#6B7280", fontSize: 9 }}>Avg Rating</div>
+              </div>
+              <div style={{ flex: 1, background: "#F9FAFB", borderRadius: 6, padding: "8px 10px", textAlign: "center" }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#16A34A" }}>+12</div>
+                <div style={{ color: "#6B7280", fontSize: 9 }}>New Reviews</div>
+              </div>
+            </div>
+            <div style={{ color: "#374151", lineHeight: 1.5 }}>3 issues captured privately · 5 reviews still need a reply</div>
+          </div>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="rs-previews">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>See it in action</SectionLabel>
+        <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 40 }}>
+          Real tools. Not just promises.
+        </h2>
+
+        <style>{`
+          .rs-previews-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            text-align: left;
+          }
+          @media (max-width: 640px) {
+            .rs-previews-grid { grid-template-columns: 1fr !important; }
+          }
+        `}</style>
+
+        <div className="rs-previews-grid">
+          {previews.map((p, i) => (
+            <div
+              key={p.title}
+              data-reveal="fade-up"
+              data-delay={String(i * 60)}
+              style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 14, padding: 20, display: "flex", flexDirection: "column", gap: 12 }}
+            >
+              <div>
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: mkt.text, marginBottom: 4 }}>{p.title}</h3>
+                <p style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.5, margin: 0 }}>{p.desc}</p>
+              </div>
+              {p.mock}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ---------- ReputationShield: Comparison ---------- */
 function RSComparisonSection() {
   const rows = [
@@ -3675,6 +3800,7 @@ export default function ProductPage() {
           <>
             <RSProblemSection />
             <RSWhatWeDoSection />
+            <RSProductPreviewSection />
           </>
         )}
 

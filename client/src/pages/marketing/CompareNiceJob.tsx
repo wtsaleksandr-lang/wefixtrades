@@ -1,7 +1,8 @@
+import { useEffect } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CheckCircle2, X, Star, Shield, Zap, DollarSign } from "lucide-react";
+import { CheckCircle2, X, Star, Shield, Zap, DollarSign, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 
 function Check() {
@@ -33,6 +34,14 @@ const COMPARISON_ROWS: { feature: string; us: boolean | string; them: boolean | 
 ];
 
 export default function CompareNiceJob() {
+  useEffect(() => {
+    document.title = "ReputationShield vs NiceJob — Review Management for Trades | WeFixTrades";
+    const metaDesc = document.querySelector('meta[name="description"]');
+    const content = "Compare ReputationShield vs NiceJob for trades businesses. AI response drafting, Google posting, private feedback shield, and transparent pricing from $79/mo. No contracts.";
+    if (metaDesc) { metaDesc.setAttribute("content", content); }
+    else { const m = document.createElement("meta"); m.name = "description"; m.content = content; document.head.appendChild(m); }
+  }, []);
+
   return (
     <MarketingLayout>
       <div style={{ maxWidth: 880, margin: "0 auto", padding: "60px 20px 80px" }}>
@@ -148,6 +157,25 @@ export default function CompareNiceJob() {
             ReputationShield focuses on what actually grows your reputation: <strong>review requests, monitoring, AI responses, Google posting, and private feedback protection</strong> — at <strong>$79–$179/mo</strong>, no contracts, no sales calls, sign up and start today.
           </p>
         </Card>
+
+        {/* FAQ */}
+        <div style={{ marginBottom: 48 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e", marginBottom: 16 }}>Common questions</h3>
+          {[
+            { q: "Is ReputationShield only for trades businesses?", a: "It's built for trades — plumbers, electricians, HVAC, roofers, contractors — but works for any local service business. The automation, templates, and AI are tuned for how trades businesses operate." },
+            { q: "Do I have to ask customers for reviews manually?", a: "No. Review requests are sent automatically by SMS or email after every completed job. You can also send them manually from the portal or use QR codes for in-person collection — but the system works without you doing anything." },
+            { q: "What happens if a customer is unhappy?", a: "They see a private feedback form instead of the Google review page. You get their complaint directly and can resolve it before it becomes a public 1-star review. This is the 'shield' in ReputationShield." },
+            { q: "Why choose ReputationShield over NiceJob?", a: "Both handle automated review collection well. ReputationShield adds AI response drafting, direct Google posting, QR codes, low-rating alerts, and source tracking — for $4/mo more. The difference is what happens after the review request is sent." },
+          ].map((item) => (
+            <details key={item.q} style={{ borderBottom: "1px solid #E5E7EB", paddingBottom: 12, marginBottom: 12 }}>
+              <summary style={{ fontSize: 14, fontWeight: 600, color: "#374151", cursor: "pointer", padding: "4px 0", listStyle: "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                {item.q}
+                <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+              </summary>
+              <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.6, marginTop: 8, paddingLeft: 0 }}>{item.a}</p>
+            </details>
+          ))}
+        </div>
 
         {/* CTA */}
         <div style={{ textAlign: "center" }}>
