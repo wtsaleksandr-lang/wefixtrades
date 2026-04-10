@@ -70,11 +70,11 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
   },
   mapguard: {
     name: "MapGuard\u2122",
-    headline: "Your Google Business Profile stays optimized every month",
-    bullets: ["Regular Google Business posts", "Review response management", "Local keyword optimization", "Monthly ranking reports"],
+    headline: "We manage your Google Maps visibility for you — monitoring, fixing, improving",
+    bullets: ["Weekly visibility monitoring & issue detection", "Ongoing profile optimization work", "Review management & competitor tracking (Pro)", "Monthly performance reports"],
     href: "/products/mapguard",
-    trustLine: "Keeps your Google listing active and competitive",
-    bestFor: "ongoing Google Maps ranking",
+    trustLine: "A fully managed service — not just a dashboard",
+    bestFor: "ongoing Google Maps visibility management",
   },
   reputationshield: {
     name: "ReputationShield\u2122",

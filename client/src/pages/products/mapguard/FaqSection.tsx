@@ -7,11 +7,19 @@ import { HEADING_FONT, BODY_FONT, GLASS, sectionHeading, SECTION_PAD, MAX_W } fr
 const FAQ_ITEMS = [
   {
     q: "What exactly does MapGuard do?",
-    a: "MapGuard is a fully managed Google Maps visibility service. We optimize your Google Business Profile, monitor your rankings every week, fix issues when they arise, and send you a monthly report showing your progress. You don\u2019t need to do anything.",
+    a: "MapGuard is a fully managed Google Maps visibility service. We optimize your Google Business Profile, monitor your rankings every week, fix issues as they happen, and send you a monthly report showing your progress. You don\u2019t need to do anything.",
   },
   {
     q: "Do I need to do anything?",
     a: "No. We handle everything \u2014 the initial setup, ongoing optimization, posting, and monitoring. You\u2019ll receive a monthly report showing what we did and how your visibility changed. That\u2019s it.",
+  },
+  {
+    q: "What\u2019s the difference between Basic and Pro?",
+    a: "Both plans include weekly monitoring and monthly reporting. Pro includes more optimization work each month, which means faster improvements. Pro also adds review response management, competitor tracking, and ongoing keyword optimization. If you\u2019re in a competitive area or have multiple issues to address, Pro gets results faster.",
+  },
+  {
+    q: "What happens each month?",
+    a: "Our system scans your visibility and rankings every week. Our team reviews the data, executes optimization work on your profile, and sends you a report at the end of the month showing what changed. Higher plans include more optimization actions per month.",
   },
   {
     q: "How long before I see improvement?",
@@ -20,10 +28,6 @@ const FAQ_ITEMS = [
   {
     q: "Is this the same as SEO?",
     a: "MapGuard focuses specifically on Google Maps and local search visibility \u2014 where most trades businesses get their calls. It\u2019s not website SEO. When someone searches \u201Cplumber near me,\u201D we make sure your business shows up.",
-  },
-  {
-    q: "What\u2019s included in the monthly service?",
-    a: "Weekly visibility monitoring, Google Business posts, profile accuracy checks, ranking tracking, and a monthly performance report. The Pro plan also includes review response management, competitor tracking, and ongoing keyword optimization.",
   },
   {
     q: "Can I cancel anytime?",

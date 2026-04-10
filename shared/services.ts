@@ -45,9 +45,9 @@ export const SERVICES: Service[] = [
   {
     id: "mapguard-ongoing",
     name: MAPGUARD.name + " Ongoing",
-    tagline: "Monthly Google Maps maintenance & growth",
+    tagline: "Fully managed Google Maps visibility — monitoring, fixing, improving",
     description:
-      "Monthly profile updates, post scheduling, and review strategy to keep your Maps ranking climbing and your profile ahead of competitors.",
+      "We monitor your rankings weekly, fix issues as they arise, and execute optimization work every month. You receive clear reports showing your progress.",
     price: lowestMonthly(MAPGUARD)!,
     priceLabel: `From ${formatPrice(lowestMonthly(MAPGUARD)!)}/mo`,
     billingPeriod: "monthly",
