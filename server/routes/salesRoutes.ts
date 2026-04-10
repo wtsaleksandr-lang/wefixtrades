@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
+import { seedDemoData, resetDemoData } from "../services/demoDataGenerator";
 
 export function registerSalesRoutes(app: Express): void {
 
@@ -69,6 +70,29 @@ export function registerSalesRoutes(app: Express): void {
       res.json(lead);
     } catch (err: any) {
       res.status(500).json({ error: "Failed to update lead" });
+    }
+  });
+
+  // Demo data management
+  app.post("/api/admin/demo/seed/:clientId", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+      const result = await seedDemoData(clientId);
+      res.json({ ok: true, ...result });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to seed demo data" });
+    }
+  });
+
+  app.post("/api/admin/demo/reset/:clientId", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+      await resetDemoData(clientId);
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to reset demo data" });
     }
   });
 }
