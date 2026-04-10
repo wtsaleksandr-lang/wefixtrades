@@ -411,7 +411,7 @@ export const FIX_OPTIMIZE = WEBFIX;
 export const RANKFLOW: ProductDef = {
   id: "rankflow",
   name: "RankFlow™",
-  tagline: "Ongoing SEO that brings consistent traffic and leads",
+  tagline: "Done-for-you local SEO that improves your visibility every month",
   category: "visibility",
   tiers: [
     {
@@ -420,11 +420,11 @@ export const RANKFLOW: ProductDef = {
       price: 349,
       billingPeriod: "monthly",
       features: [
-        "Keyword research & targeting",
-        "On-page SEO optimization",
-        "Monthly content recommendations",
-        "Google Search Console setup",
-        "Monthly ranking reports",
+        "Keyword research & local targeting",
+        "Title & meta description optimization",
+        "On-page SEO improvements (5 pages/mo)",
+        "Google Search Console setup & monitoring",
+        "Monthly progress report via dashboard",
       ],
     },
     {
@@ -436,11 +436,11 @@ export const RANKFLOW: ProductDef = {
       highlighted: true,
       features: [
         "Everything in Starter",
-        "Content creation (2 pages/mo)",
-        "Link building outreach",
-        "Competitor analysis",
-        "Local SEO optimization",
-        "Bi-weekly ranking reports",
+        "SEO page creation (2 pages/mo)",
+        "Local citation & directory building",
+        "Internal linking optimization",
+        "Basic schema markup",
+        "Bi-weekly progress reports",
       ],
     },
     {
@@ -450,11 +450,12 @@ export const RANKFLOW: ProductDef = {
       billingPeriod: "monthly",
       features: [
         "Everything in Growth",
-        "Content creation (4 pages/mo)",
-        "Technical SEO audits",
-        "Schema markup implementation",
+        "SEO page creation (4 pages/mo)",
+        "Expanded citation building",
+        "Technical SEO checks & fixes",
+        "Advanced schema markup",
         "Priority support",
-        "Weekly ranking reports",
+        "Weekly progress reports",
       ],
     },
   ],

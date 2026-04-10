@@ -245,7 +245,7 @@ export default function ServicesPage() {
       id: "seo",
       img: "",
       title: "RankFlow",
-      desc: "Ongoing SEO that brings consistent traffic and leads. Keyword targeting, content creation, and ranking reports.",
+      desc: "Done-for-you local SEO. We handle keyword targeting, page optimization, local listings, and monthly progress tracking.",
       from: `From ${formatPrice(lowestMonthly(RANKFLOW)!)}/mo`,
       testid: "service-seo",
       btnTestid: "button-request-info-seo",
@@ -391,7 +391,7 @@ export default function ServicesPage() {
                     <option value="">Select a service...</option>
                     <option value="voice-assistant">24/7 Lead Assistant Voice</option>
                     <option value="chat-assistant">24/7 Lead Assistant Chat</option>
-                    <option value="seo">RankFlow (SEO + Speed)</option>
+                    <option value="seo">RankFlow (Local SEO)</option>
                     <option value="webcare">WebCare (Maintenance)</option>
                     <option value="gmb">MapGuard (Google Maps)</option>
                     <option value="booking">Booking & Calendar Integration</option>
