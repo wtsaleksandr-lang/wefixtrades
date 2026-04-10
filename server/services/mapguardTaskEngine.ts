@@ -14,11 +14,94 @@ import {
   AUDIT_ISSUE_TO_TASK,
   MAPGUARD_TASK_TYPES,
   MAPGUARD_STATUS_TRANSITIONS,
+  isExecutionTask,
+  getPlanLimit,
+  getPlanLabel,
+  DEFAULT_EXECUTION_LIMIT,
   type MapguardTaskType,
   type MapguardTaskStatus,
   type MapguardSourceType,
 } from "@shared/mapguardTypes";
 import type { InsertMapguardTask, MapguardTask } from "@shared/schemas/mapguard";
+import { clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
+
+/* ═══════════════════════════════════════════
+   EXECUTION LIMIT CONTROL
+   ═══════════════════════════════════════════ */
+
+/** Get the active MapGuard plan tier for a client */
+export async function getClientPlan(clientId: number): Promise<{ serviceId: string; limit: number; label: string }> {
+  // Find the active monthly MapGuard service (basic or pro)
+  const [svc] = await db.select({ service_id: clientServices.service_id })
+    .from(clientServices)
+    .where(and(
+      eq(clientServices.client_id, clientId),
+      eq(clientServices.status, "active"),
+      eq(clientServices.enabled, true),
+      sql`${clientServices.service_id} IN ('mapguard-basic', 'mapguard-pro')`,
+    ))
+    .orderBy(desc(clientServices.created_at))
+    .limit(1);
+
+  const serviceId = svc?.service_id || "mapguard-basic";
+  return {
+    serviceId,
+    limit: getPlanLimit(serviceId),
+    label: getPlanLabel(serviceId),
+  };
+}
+
+/** Count execution tasks completed or in-progress this month */
+export async function getMonthlyExecutionCount(clientId: number): Promise<number> {
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  const EXEC_TYPES = `'gbp_optimization','citation_cleanup','review_issue_response','competitor_reaction','profile_content_update','photo_upload','post_scheduling','suspension_support'`;
+
+  const [row] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(mapguardTasks)
+    .where(and(
+      eq(mapguardTasks.client_id, clientId),
+      sql`${mapguardTasks.task_type} IN (${sql.raw(EXEC_TYPES)})`,
+      sql`${mapguardTasks.status} IN ('in_progress', 'waiting_supplier', 'needs_review', 'completed')`,
+      sql`(${mapguardTasks.updated_at} >= ${monthStart} OR ${mapguardTasks.completed_at} >= ${monthStart})`,
+    ));
+
+  return row?.count || 0;
+}
+
+export interface ExecutionUsage {
+  used: number;
+  limit: number;
+  remaining: number;
+  plan_label: string;
+  at_limit: boolean;
+}
+
+/** Get full execution usage for a client */
+export async function getExecutionUsage(clientId: number): Promise<ExecutionUsage> {
+  const plan = await getClientPlan(clientId);
+  const used = await getMonthlyExecutionCount(clientId);
+  return {
+    used,
+    limit: plan.limit,
+    remaining: Math.max(0, plan.limit - used),
+    plan_label: plan.label,
+    at_limit: used >= plan.limit,
+  };
+}
+
+/** Check if a task can proceed to execution. Returns null if OK, or a reason string if blocked. */
+export async function checkExecutionGate(clientId: number, taskType: string): Promise<string | null> {
+  if (!isExecutionTask(taskType)) return null; // non-execution tasks always pass
+
+  const usage = await getExecutionUsage(clientId);
+  if (usage.at_limit) {
+    return `Execution limit reached (${usage.used}/${usage.limit} on ${usage.plan_label} plan). Consider upgrading for more monthly optimizations.`;
+  }
+  return null;
+}
 
 /* ═══════════════════════════════════════════
    TASK CRUD
@@ -64,6 +147,14 @@ export async function updateMapguardTaskStatus(
   const allowed = MAPGUARD_STATUS_TRANSITIONS[currentStatus];
   if (!allowed?.includes(newStatus)) {
     throw new Error(`Invalid status transition: ${currentStatus} → ${newStatus}`);
+  }
+
+  // Execution gate — check when moving to an active execution state
+  if (["in_progress", "waiting_supplier"].includes(newStatus) && !["in_progress", "waiting_supplier", "needs_review"].includes(currentStatus)) {
+    const gateBlock = await checkExecutionGate(current.client_id, current.task_type);
+    if (gateBlock) {
+      throw new Error(gateBlock);
+    }
   }
 
   // Build update
@@ -155,6 +246,12 @@ export async function assignMapguardTask(
 ): Promise<MapguardTask | null> {
   const [current] = await db.select().from(mapguardTasks).where(eq(mapguardTasks.id, taskId)).limit(1);
   if (!current) return null;
+
+  // Execution gate check
+  const gateBlock = await checkExecutionGate(current.client_id, current.task_type);
+  if (gateBlock) {
+    throw new Error(gateBlock);
+  }
 
   const currentStatus = current.status as MapguardTaskStatus;
 
@@ -448,6 +545,7 @@ export interface MapguardTaskSummary {
   completed: number;
   cancelled: number;
   overdue: number;
+  execution: ExecutionUsage;
   next_recommended: {
     id: number;
     title: string;
@@ -514,6 +612,7 @@ export async function getMapguardTaskSummary(clientId: number): Promise<Mapguard
     completed: counts.completed || 0,
     cancelled: counts.cancelled || 0,
     overdue: overdueRow?.count || 0,
+    execution: await getExecutionUsage(clientId),
     next_recommended: nextTask || null,
   };
 }

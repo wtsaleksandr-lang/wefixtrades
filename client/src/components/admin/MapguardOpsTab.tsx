@@ -37,6 +37,14 @@ import {
 } from "./MapguardTaskCard";
 
 /* ─── Types ─── */
+interface ExecutionUsage {
+  used: number;
+  limit: number;
+  remaining: number;
+  plan_label: string;
+  at_limit: boolean;
+}
+
 interface TaskSummary {
   total: number;
   pending: number;
@@ -49,6 +57,7 @@ interface TaskSummary {
   completed: number;
   cancelled: number;
   overdue: number;
+  execution: ExecutionUsage;
   next_recommended: {
     id: number;
     title: string;
@@ -218,6 +227,30 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
               </div>
             ))}
           </div>
+
+          {/* Execution usage */}
+          {summary.execution && (
+            <div className={`mt-3 px-3 py-2.5 rounded-lg border ${summary.execution.at_limit ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-200"}`}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium text-gray-700">
+                  Execution: {summary.execution.used}/{summary.execution.limit} actions
+                  <span className="text-gray-400 ml-1">({summary.execution.plan_label} plan)</span>
+                </span>
+                {summary.execution.at_limit && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">LIMIT REACHED</span>
+                )}
+              </div>
+              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${summary.execution.at_limit ? "bg-amber-500" : "bg-[#2D6A4F]"}`}
+                  style={{ width: `${Math.min(100, (summary.execution.used / summary.execution.limit) * 100)}%` }}
+                />
+              </div>
+              {summary.execution.at_limit && (
+                <p className="text-[11px] text-amber-600 mt-1.5">This client has more issues to fix. Consider upgrading plan for faster improvements.</p>
+              )}
+            </div>
+          )}
 
           {/* Next recommended */}
           {summary.next_recommended && (

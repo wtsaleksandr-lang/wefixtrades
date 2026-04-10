@@ -81,6 +81,55 @@ export const MAPGUARD_TASK_TYPES = {
 export type MapguardTaskType = keyof typeof MAPGUARD_TASK_TYPES;
 
 /* ═══════════════════════════════════════════
+   EXECUTION LIMITS & PLAN CONTROL
+   ═══════════════════════════════════════════ */
+
+/** Task types that consume execution slots (real work, not monitoring/reporting) */
+export const EXECUTION_TASK_TYPES: MapguardTaskType[] = [
+  "gbp_optimization",
+  "citation_cleanup",
+  "review_issue_response",
+  "competitor_reaction",
+  "profile_content_update",
+  "photo_upload",
+  "post_scheduling",
+  "suspension_support",
+];
+
+/** Tasks that do NOT consume execution slots */
+export const NON_EXECUTION_TASK_TYPES: MapguardTaskType[] = [
+  "baseline_audit_review",
+  "monthly_report_review",
+  "manual_followup",
+];
+
+export function isExecutionTask(taskType: string): boolean {
+  return EXECUTION_TASK_TYPES.includes(taskType as MapguardTaskType);
+}
+
+/** Monthly execution limits per plan tier */
+export const PLAN_EXECUTION_LIMITS: Record<string, number> = {
+  "mapguard-basic": 2,
+  "mapguard-pro": 5,
+  // Setup tier has no ongoing limit (it's one-time)
+  "mapguard-setup": 99,
+};
+
+/** Default limit when plan can't be determined */
+export const DEFAULT_EXECUTION_LIMIT = 2;
+
+export function getPlanLimit(serviceId: string): number {
+  return PLAN_EXECUTION_LIMITS[serviceId] ?? DEFAULT_EXECUTION_LIMIT;
+}
+
+export function getPlanLabel(serviceId: string): string {
+  if (serviceId === "mapguard-pro") return "Pro";
+  if (serviceId === "mapguard-basic") return "Basic";
+  if (serviceId === "mapguard-setup") return "Setup";
+  return "Basic";
+}
+
+/* ═══════════════════════════════════════════
    TASK STATUSES & LIFECYCLE
    ═══════════════════════════════════════════ */
 
