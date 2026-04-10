@@ -710,25 +710,54 @@ export function registerAdminCrmRoutes(app: Express): void {
       const calcs = await storage.getCalculatorsByUserId(client.user_id);
       const results = [];
 
+      // Plan tier → monthly revenue mapping (cents)
+      const PLAN_REVENUE: Record<string, number> = {
+        'free': 0,
+        'starter': 4900,  // $49/mo
+        'business': 9900,  // $99/mo
+      };
+      // Estimated monthly cost to deliver QuoteQuick per calculator (hosting, compute, email)
+      const QQ_COST_CENTS = 500; // ~$5/mo estimated infra cost per calculator
+
+      let totalRevenue = 0;
+      let totalCost = 0;
+
       for (const calc of calcs) {
         const deploy = await storage.getDeploymentStatus(calc.id);
         const leadCount = await storage.getLeadCountSince(calc.id, new Date(0));
+        const tier = calc.plan_tier ?? 'free';
+        const revenue = PLAN_REVENUE[tier] ?? 0;
+        const cost = tier === 'free' ? 0 : QQ_COST_CENTS;
+
+        totalRevenue += revenue;
+        totalCost += cost;
+
         results.push({
           id: calc.id,
           business_name: calc.business_name,
           trade_type: calc.trade_type,
           slug: calc.slug,
-          plan_tier: calc.plan_tier ?? 'free',
+          plan_tier: tier,
           total_views: calc.total_views ?? 0,
           total_leads: leadCount,
           status: deploy?.status ?? 'draft',
           created_at: calc.created_at,
           calculator_url: `/calculator?slug=${calc.slug}`,
           edit_url: `/EditCalculator?token=${calc.edit_token}`,
+          price_cents: revenue,
+          cost_cents: cost,
         });
       }
 
-      res.json({ calculators: results });
+      res.json({
+        calculators: results,
+        profitability: {
+          total_revenue_cents: totalRevenue,
+          total_cost_cents: totalCost,
+          profit_cents: totalRevenue - totalCost,
+          margin_pct: totalRevenue > 0 ? Math.round(((totalRevenue - totalCost) / totalRevenue) * 100) : 0,
+        },
+      });
     } catch (err: any) {
       console.error("[admin-crm] Client QuoteQuick error:", err.message);
       res.status(500).json({ error: "Failed to load client QuoteQuick data" });

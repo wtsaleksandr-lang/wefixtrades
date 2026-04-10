@@ -217,7 +217,11 @@ export default function ClientDetailPage() {
     plan_tier: string; total_views: number; total_leads: number;
     status: string; created_at: string;
     calculator_url: string; edit_url: string;
-  }> }>({
+    price_cents: number; cost_cents: number;
+  }>; profitability?: {
+    total_revenue_cents: number; total_cost_cents: number;
+    profit_cents: number; margin_pct: number;
+  } }>({
     queryKey: [`/api/admin/crm/clients/${clientId}/quotequick`],
     enabled: !!clientId,
   });
@@ -666,9 +670,19 @@ export default function ClientDetailPage() {
             {qqData && qqData.calculators && qqData.calculators.length > 0 && (
               <Card className="mt-4">
                 <div className="p-4 border-b border-gray-100">
-                  <div className="flex items-center gap-2">
-                    <Calculator className="w-4 h-4 text-indigo-500" />
-                    <h3 className="text-sm font-semibold text-gray-900">QuoteQuick Calculators</h3>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calculator className="w-4 h-4 text-indigo-500" />
+                      <h3 className="text-sm font-semibold text-gray-900">QuoteQuick Calculators</h3>
+                    </div>
+                    {qqData.profitability && (
+                      <div className="flex items-center gap-4 text-xs">
+                        <span className="text-gray-500">Rev: <span className="font-semibold text-gray-900">${(qqData.profitability.total_revenue_cents / 100).toFixed(0)}/mo</span></span>
+                        <span className="text-gray-500">Cost: <span className="font-semibold text-gray-900">${(qqData.profitability.total_cost_cents / 100).toFixed(0)}/mo</span></span>
+                        <span className="text-gray-500">Profit: <span className="font-semibold text-emerald-700">${(qqData.profitability.profit_cents / 100).toFixed(0)}/mo</span></span>
+                        <span className="text-gray-400">{qqData.profitability.margin_pct}% margin</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="divide-y divide-gray-50">
