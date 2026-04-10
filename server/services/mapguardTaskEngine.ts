@@ -24,6 +24,7 @@ import {
 } from "@shared/mapguardTypes";
 import type { InsertMapguardTask, MapguardTask } from "@shared/schemas/mapguard";
 import { clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
+import { getRecommendedSupplier, MAPGUARD_SUPPLIERS, ASSIGNMENT_TEMPLATES, type SupplierRecommendation } from "@shared/mapguardSuppliers";
 
 /* ═══════════════════════════════════════════
    EXECUTION LIMIT CONTROL
@@ -118,6 +119,63 @@ export async function checkExecutionGate(clientId: number, taskType: string): Pr
     return `Execution limit reached (${usage.used}/${usage.limit} on ${usage.plan_label} plan). Consider upgrading for more monthly optimizations.`;
   }
   return null;
+}
+
+/* ═══════════════════════════════════════════
+   COST TRACKING & SUPPLIER RECOMMENDATIONS
+   ═══════════════════════════════════════════ */
+
+export interface ClientCostSummary {
+  total_cost_cents: number;
+  task_count: number;
+  avg_cost_cents: number;
+  by_supplier: Array<{ supplier: string; cost_cents: number; count: number }>;
+}
+
+export async function getClientCostSummary(clientId: number): Promise<ClientCostSummary> {
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  const rows = await db.select({
+    assigned_to: mapguardTasks.assigned_to,
+    cost_cents: mapguardTasks.cost_cents,
+  })
+  .from(mapguardTasks)
+  .where(and(
+    eq(mapguardTasks.client_id, clientId),
+    sql`${mapguardTasks.cost_cents} > 0`,
+    sql`${mapguardTasks.status} IN ('in_progress', 'waiting_supplier', 'needs_review', 'completed')`,
+    sql`(${mapguardTasks.updated_at} >= ${monthStart} OR ${mapguardTasks.completed_at} >= ${monthStart})`,
+  ));
+
+  const bySupplier = new Map<string, { cost: number; count: number }>();
+  let total = 0;
+
+  for (const row of rows) {
+    const name = row.assigned_to || "Unassigned";
+    const cost = row.cost_cents || 0;
+    total += cost;
+    const existing = bySupplier.get(name) || { cost: 0, count: 0 };
+    existing.cost += cost;
+    existing.count += 1;
+    bySupplier.set(name, existing);
+  }
+
+  return {
+    total_cost_cents: total,
+    task_count: rows.length,
+    avg_cost_cents: rows.length > 0 ? Math.round(total / rows.length) : 0,
+    by_supplier: Array.from(bySupplier.entries()).map(([supplier, { cost, count }]) => ({
+      supplier,
+      cost_cents: cost,
+      count,
+    })),
+  };
+}
+
+export function getSupplierRecommendation(taskType: string): SupplierRecommendation | null {
+  return getRecommendedSupplier(taskType as any);
 }
 
 /* ═══════════════════════════════════════════

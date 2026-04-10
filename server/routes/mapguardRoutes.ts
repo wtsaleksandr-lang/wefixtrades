@@ -21,7 +21,10 @@ import {
   submitMapguardResult,
   rejectMapguardResult,
   getExecutionUsage,
+  getClientCostSummary,
+  getSupplierRecommendation,
 } from "../services/mapguardTaskEngine";
+import { MAPGUARD_SUPPLIERS } from "@shared/mapguardSuppliers";
 import {
   MAPGUARD_TASK_TYPES,
   MAPGUARD_TASK_STATUSES,
@@ -396,6 +399,48 @@ export function registerMapguardRoutes(app: Express) {
     } catch (err: any) {
       console.error("[mapguard] dashboard error:", err);
       res.status(500).json({ error: "Failed to load dashboard" });
+    }
+  });
+
+  /* ═══ SUPPLIER & COST ENDPOINTS ═══ */
+
+  /* ─── Get supplier recommendation for a task type ─── */
+  app.get("/api/mapguard/suppliers/recommend/:taskType", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const rec = getSupplierRecommendation(req.params.taskType as string);
+      if (!rec) return res.json({ recommendation: null });
+      res.json({
+        recommendation: {
+          supplier_id: rec.supplier.id,
+          supplier_name: rec.supplier.name,
+          supplier_type: rec.supplier.type,
+          suggested_cost_cents: rec.suggested_cost_cents,
+          suggested_handoff_notes: rec.suggested_handoff_notes,
+          expected_turnaround_hours: rec.supplier.expected_turnaround_hours,
+          quality_rating: rec.supplier.quality_rating,
+          ref_url: rec.supplier.ref_url,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to get recommendation" });
+    }
+  });
+
+  /* ─── Get supplier directory ─── */
+  app.get("/api/mapguard/suppliers", requireAdmin, async (_req: Request, res: Response) => {
+    res.json(MAPGUARD_SUPPLIERS.filter(s => s.active));
+  });
+
+  /* ─── Get client cost summary ─── */
+  app.get("/api/mapguard/clients/:clientId/costs", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+      const summary = await getClientCostSummary(clientId);
+      res.json(summary);
+    } catch (err: any) {
+      console.error("[mapguard] cost summary error:", err);
+      res.status(500).json({ error: "Failed to get cost summary" });
     }
   });
 

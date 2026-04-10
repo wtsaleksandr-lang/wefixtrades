@@ -151,6 +151,15 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
     },
   });
 
+  const { data: costData } = useQuery<{ total_cost_cents: number; task_count: number; avg_cost_cents: number }>({
+    queryKey: [`/api/mapguard/clients/${clientId}/costs`],
+    queryFn: async () => {
+      const res = await fetch(`/api/mapguard/clients/${clientId}/costs`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
   // ─── Mutations ───
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
@@ -256,6 +265,15 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
               {summary.execution.upgrade_recommended && (
                 <p className="text-[11px] text-amber-600 mt-1">This client has more issues to fix than their current plan allows. Consider upgrading.</p>
               )}
+            </div>
+          )}
+
+          {/* Cost summary */}
+          {costData && costData.total_cost_cents > 0 && (
+            <div className="mt-3 flex items-center gap-4 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-600">
+              <span>Cost this month: <span className="font-semibold text-gray-900">${(costData.total_cost_cents / 100).toFixed(2)}</span></span>
+              <span>Tasks: <span className="font-semibold">{costData.task_count}</span></span>
+              <span>Avg: <span className="font-semibold">${(costData.avg_cost_cents / 100).toFixed(2)}</span>/task</span>
             </div>
           )}
 
@@ -564,6 +582,7 @@ function TaskDetailDialog({
   // Assignment state
   const [showAssign, setShowAssign] = useState(false);
   const [assignForm, setAssignForm] = useState({ supplier_type: "fiverr", assigned_to: "", supplier_ref: "", cost: "", handoff_notes: "" });
+  const [recLoaded, setRecLoaded] = useState(false);
   // Result intake state
   const [showResult, setShowResult] = useState(false);
   const [resultForm, setResultForm] = useState({ summary: "", deliverable_type: "text", deliverable_url: "", deliverable_text: "", notes: "" });
@@ -800,7 +819,27 @@ function TaskDetailDialog({
               {/* Quick action buttons */}
               <div className="flex flex-wrap gap-1.5">
                 {canAssign && (
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAssign(!showAssign)}>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={async () => {
+                    if (!showAssign && !recLoaded) {
+                      try {
+                        const res = await fetch(`/api/mapguard/suppliers/recommend/${t.task_type}`, { credentials: "include" });
+                        if (res.ok) {
+                          const data = await res.json();
+                          if (data.recommendation) {
+                            setAssignForm({
+                              supplier_type: data.recommendation.supplier_type || "fiverr",
+                              assigned_to: data.recommendation.supplier_name || "",
+                              supplier_ref: data.recommendation.ref_url || "",
+                              cost: data.recommendation.suggested_cost_cents ? (data.recommendation.suggested_cost_cents / 100).toFixed(2) : "",
+                              handoff_notes: data.recommendation.suggested_handoff_notes || "",
+                            });
+                          }
+                        }
+                      } catch { /* ignore */ }
+                      setRecLoaded(true);
+                    }
+                    setShowAssign(!showAssign);
+                  }}>
                     <Factory className="w-3 h-3 mr-1" /> {t.assigned_to ? "Reassign" : "Assign"}
                   </Button>
                 )}
