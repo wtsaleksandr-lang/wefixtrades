@@ -3,6 +3,10 @@ import { requireClient, hashPassword, verifyPassword } from "../auth";
 import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { chat as aiChat } from "../services/aiService";
+import { storage } from "../storage";
+import { generateMonthlyPlan } from "../services/rankflow/planGenerator";
+import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
+import { generateKeywordTargets, deriveTargetServices } from "../services/rankflow/keywordHelper";
 import { authRateLimiter } from "../services/rateLimiter";
 import {
   clients,
@@ -913,6 +917,83 @@ Do NOT:
     } catch (err: any) {
       console.error("[portal-rankflow] error:", err.message);
       res.status(500).json({ error: "Failed to load RankFlow dashboard" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     RankFlow Onboarding
+     ═══════════════════════════════════════════ */
+
+  app.post("/api/portal/rankflow/onboard", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { business_name, website_url, niche, location, additional_services, additional_locations, plan_tier } = req.body;
+
+      if (!business_name || !website_url || !niche || !location) {
+        return res.status(400).json({ error: "business_name, website_url, niche, and location are required" });
+      }
+
+      // Check if profile already exists and is enabled
+      const existing = await storage.getRankFlowProfile(clientId);
+      if (existing?.enabled) {
+        return res.status(409).json({ error: "RankFlow is already active for this client" });
+      }
+
+      // Derive target services and locations
+      const targetServices = deriveTargetServices(niche, additional_services);
+      const targetLocations = [location, ...(additional_locations || [])].filter(Boolean);
+
+      // Create or update profile
+      const profile = await storage.upsertRankFlowProfile(clientId, {
+        niche,
+        location,
+        website_url,
+        target_services: targetServices,
+        target_locations: targetLocations,
+        plan_tier: plan_tier || "starter",
+        enabled: true,
+      });
+
+      // Generate initial monthly plan + tasks
+      const month = new Date().toISOString().slice(0, 7);
+      let planResult = null;
+
+      const existingPlan = await storage.getMonthlyPlan(clientId, month);
+      if (!existingPlan) {
+        const planData = generateMonthlyPlan(profile);
+        const plan = await storage.createMonthlyPlan({
+          client_id: clientId,
+          month,
+          plan_data: planData,
+          status: "draft",
+        });
+
+        const taskDefs = generateTasksFromPlan(plan.id, planData, profile);
+        let tasksCreated = 0;
+        for (const t of taskDefs) {
+          await storage.createRankFlowTask(t as any);
+          tasksCreated++;
+        }
+
+        await storage.updateMonthlyPlanStatus(plan.id, "active");
+        planResult = { planId: plan.id, month, tasksCreated };
+      }
+
+      // Generate keyword targets for reference
+      const keywords = generateKeywordTargets(niche, location, additional_locations, additional_services);
+
+      console.log(`[rankflow-onboard] Client ${clientId} onboarded — ${keywords.length} keywords, plan: ${planResult ? "created" : "already exists"}`);
+
+      res.status(201).json({
+        profile,
+        plan: planResult,
+        keywords: keywords.slice(0, 20), // show top 20
+      });
+    } catch (err: any) {
+      console.error("[rankflow-onboard] error:", err.message);
+      res.status(500).json({ error: "Failed to complete onboarding" });
     }
   });
 }
