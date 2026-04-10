@@ -42,6 +42,11 @@ interface MapguardData {
   } | null;
   activities: string[];
   completed_last_30d: number;
+  execution_progress: {
+    completed: number;
+    pending: number;
+    has_more: boolean;
+  } | null;
   snapshots: Array<{
     captured_at: string;
     score: number | null;
@@ -268,6 +273,22 @@ export default function PortalMapguard() {
               </Card>
             )}
 
+            {/* Improvement Progress */}
+            {data.execution_progress && data.execution_progress.completed > 0 && (
+              <Card className="p-5">
+                <h2 className="text-sm font-semibold text-gray-900 mb-2">Improvement Progress</h2>
+                <p className="text-xs text-gray-500 mb-3">
+                  {data.execution_progress.completed} improvement{data.execution_progress.completed !== 1 ? "s" : ""} completed this month
+                </p>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#2D6A4F] rounded-full transition-all"
+                    style={{ width: `${Math.min(100, data.execution_progress.completed * 20)}%` }}
+                  />
+                </div>
+              </Card>
+            )}
+
             {/* What We're Doing — dynamic from tasks + signals */}
             <Card className="p-5">
               <h2 className="text-sm font-semibold text-gray-900 mb-3">What We're Doing For You</h2>
@@ -327,6 +348,35 @@ export default function PortalMapguard() {
                 )}
               </div>
             </Card>
+
+            {/* Backlog + Upgrade Signal */}
+            {data.execution_progress && data.execution_progress.pending > 0 && (
+              <Card className={`p-5 ${data.execution_progress.has_more ? "border-amber-200 bg-amber-50/30" : ""}`}>
+                <h2 className="text-sm font-semibold text-gray-900 mb-1">
+                  {data.execution_progress.pending} improvement{data.execution_progress.pending !== 1 ? "s" : ""} waiting
+                </h2>
+                <p className="text-xs text-gray-500 mb-3">
+                  {data.execution_progress.has_more
+                    ? "We've identified additional improvements that can boost your visibility. Your current plan limits how many we complete each month."
+                    : "These will be completed soon as part of your plan."}
+                </p>
+                {data.execution_progress.has_more && (
+                  <div className="flex items-start gap-3 px-3 py-3 rounded-lg bg-white border border-amber-200">
+                    <TrendingUp className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Unlock faster growth</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Upgrade your plan to allow us to fix more issues each month and improve your ranking faster.</p>
+                      <button
+                        className="mt-2 inline-flex items-center px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#2D6A4F] hover:bg-[#1B4332] transition-colors"
+                        onClick={() => window.open("mailto:hello@wefixtrades.co.uk?subject=MapGuard%20Upgrade", "_blank")}
+                      >
+                        Upgrade Plan
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
 
             {/* Profile Snapshot */}
             {data.current && (

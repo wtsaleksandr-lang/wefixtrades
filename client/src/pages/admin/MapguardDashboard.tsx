@@ -38,6 +38,7 @@ interface PortfolioMetrics {
   auto_tasks_7d: number;
   alerts_7d: number;
   avg_score: number | null;
+  upgrade_opportunities: number;
 }
 
 interface PortfolioClient {
@@ -58,6 +59,7 @@ interface PortfolioClient {
   reviews_delta: number | null;
   local_pack_delta: number | null;
   significant: boolean;
+  upgrade_recommended: boolean;
   open_tasks: number;
   blocked_tasks: number;
   waiting_supplier_tasks: number;
@@ -178,13 +180,13 @@ export default function MapguardDashboard() {
 
         {/* Stat Cards */}
         {isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {[1, 2, 3, 4, 5].map((i) => (
               <Card key={i} className="p-4"><Skeleton className="h-14 w-full" /></Card>
             ))}
           </div>
         ) : metrics && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <StatCard label="Active Clients" value={metrics.total_clients} icon={Users} color="bg-[#2D6A4F]" />
             <StatCard label="At Risk" value={metrics.at_risk + metrics.significant_drops} icon={AlertTriangle} color={metrics.at_risk > 0 ? "bg-red-500" : "bg-gray-400"} />
             <StatCard label="Improved" value={metrics.improved} icon={TrendingUp} color={metrics.improved > 0 ? "bg-emerald-500" : "bg-gray-400"} />
@@ -194,6 +196,7 @@ export default function MapguardDashboard() {
               icon={Zap}
               color="bg-blue-500"
             />
+            <StatCard label="Upgrade Opps" value={metrics.upgrade_opportunities} icon={TrendingUp} color={metrics.upgrade_opportunities > 0 ? "bg-amber-500" : "bg-gray-400"} />
           </div>
         )}
 
@@ -338,7 +341,8 @@ export default function MapguardDashboard() {
                           {c.blocked_tasks > 0 && <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-red-50 text-red-600">{c.blocked_tasks} blocked</span>}
                           {c.waiting_supplier_tasks > 0 && <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-amber-50 text-amber-600">{c.waiting_supplier_tasks} waiting</span>}
                           {c.needs_review_tasks > 0 && <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-purple-50 text-purple-600">{c.needs_review_tasks} review</span>}
-                          {c.open_tasks === 0 && <span className="text-xs text-gray-400">—</span>}
+                          {c.upgrade_recommended && <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">Upgrade</span>}
+                          {c.open_tasks === 0 && !c.upgrade_recommended && <span className="text-xs text-gray-400">—</span>}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">

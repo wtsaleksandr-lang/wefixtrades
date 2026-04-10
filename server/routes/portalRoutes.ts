@@ -22,6 +22,7 @@ import {
   mapguardTasks,
 } from "@shared/schema";
 import { compileMonthlyReport } from "../services/mapguardReports";
+import { getExecutionUsage } from "../services/mapguardTaskEngine";
 
 /* ─── Helpers ─── */
 
@@ -935,12 +936,24 @@ Do NOT:
         ));
       const completedCount = recentCompleted?.count || 0;
 
+      // Client-safe execution progress (no internal limits exposed)
+      let executionProgress: { completed: number; pending: number; has_more: boolean } | null = null;
+      try {
+        const usage = await getExecutionUsage(clientId);
+        executionProgress = {
+          completed: usage.used,
+          pending: usage.backlog_count,
+          has_more: usage.upgrade_recommended,
+        };
+      } catch { /* skip on error */ }
+
       res.json({
         active: true,
         health,
         last_scan: latest?.captured_at || null,
         activities,
         completed_last_30d: completedCount,
+        execution_progress: executionProgress,
         current: latest ? {
           score: latest.score_total,
           grade: latest.score_grade,

@@ -77,18 +77,35 @@ export interface ExecutionUsage {
   remaining: number;
   plan_label: string;
   at_limit: boolean;
+  backlog_count: number;
+  upgrade_recommended: boolean;
 }
 
 /** Get full execution usage for a client */
 export async function getExecutionUsage(clientId: number): Promise<ExecutionUsage> {
   const plan = await getClientPlan(clientId);
   const used = await getMonthlyExecutionCount(clientId);
+  const atLimit = used >= plan.limit;
+
+  // Count backlog: execution-type tasks in pending/ready that can't proceed
+  const EXEC_TYPES = `'gbp_optimization','citation_cleanup','review_issue_response','competitor_reaction','profile_content_update','photo_upload','post_scheduling','suspension_support'`;
+  const [backlogRow] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(mapguardTasks)
+    .where(and(
+      eq(mapguardTasks.client_id, clientId),
+      sql`${mapguardTasks.task_type} IN (${sql.raw(EXEC_TYPES)})`,
+      sql`${mapguardTasks.status} IN ('pending', 'ready')`,
+    ));
+  const backlogCount = backlogRow?.count || 0;
+
   return {
     used,
     limit: plan.limit,
     remaining: Math.max(0, plan.limit - used),
     plan_label: plan.label,
-    at_limit: used >= plan.limit,
+    at_limit: atLimit,
+    backlog_count: backlogCount,
+    upgrade_recommended: atLimit && backlogCount >= 1,
   };
 }
 

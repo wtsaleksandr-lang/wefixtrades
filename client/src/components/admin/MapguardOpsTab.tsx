@@ -43,6 +43,8 @@ interface ExecutionUsage {
   remaining: number;
   plan_label: string;
   at_limit: boolean;
+  backlog_count: number;
+  upgrade_recommended: boolean;
 }
 
 interface TaskSummary {
@@ -236,9 +238,11 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
                   Execution: {summary.execution.used}/{summary.execution.limit} actions
                   <span className="text-gray-400 ml-1">({summary.execution.plan_label} plan)</span>
                 </span>
-                {summary.execution.at_limit && (
+                {summary.execution.upgrade_recommended ? (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">UPGRADE RECOMMENDED</span>
+                ) : summary.execution.at_limit ? (
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">LIMIT REACHED</span>
-                )}
+                ) : null}
               </div>
               <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
                 <div
@@ -246,8 +250,11 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
                   style={{ width: `${Math.min(100, (summary.execution.used / summary.execution.limit) * 100)}%` }}
                 />
               </div>
-              {summary.execution.at_limit && (
-                <p className="text-[11px] text-amber-600 mt-1.5">This client has more issues to fix. Consider upgrading plan for faster improvements.</p>
+              {summary.execution.backlog_count > 0 && (
+                <p className="text-[11px] text-gray-500 mt-1.5">{summary.execution.backlog_count} improvement{summary.execution.backlog_count !== 1 ? "s" : ""} waiting (blocked by plan limit)</p>
+              )}
+              {summary.execution.upgrade_recommended && (
+                <p className="text-[11px] text-amber-600 mt-1">This client has more issues to fix than their current plan allows. Consider upgrading.</p>
               )}
             </div>
           )}

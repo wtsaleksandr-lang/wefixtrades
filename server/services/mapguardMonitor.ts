@@ -12,7 +12,7 @@ import { db } from "../db";
 import { mapguardSnapshots, type InsertMapguardSnapshot, type MapguardSnapshot } from "@shared/schemas/mapguardMonitoring";
 import { clients, clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
 import { eq, and, desc, sql, asc } from "drizzle-orm";
-import { createMapguardTask } from "./mapguardTaskEngine";
+import { createMapguardTask, getExecutionUsage } from "./mapguardTaskEngine";
 import type { MapguardTask } from "@shared/schemas/mapguard";
 import { processMapguardAlerts, getAlertCountSince } from "./mapguardAlerts";
 
@@ -748,6 +748,8 @@ export interface PortfolioClientRow {
   needs_review_tasks: number;
   // Health state
   health: "healthy" | "improved" | "at_risk" | "blocked" | "waiting_delivery" | "no_recent_scan" | "new";
+  // Upsell
+  upgrade_recommended: boolean;
 }
 
 export interface PortfolioDashboard {
@@ -762,6 +764,7 @@ export interface PortfolioDashboard {
     auto_tasks_7d: number;
     alerts_7d: number;
     avg_score: number | null;
+    upgrade_opportunities: number;
   };
   clients: PortfolioClientRow[];
 }
@@ -771,7 +774,7 @@ export async function getMapguardPortfolioDashboard(): Promise<PortfolioDashboar
   const activeClients = await getActiveMapguardClients();
   if (activeClients.length === 0) {
     return {
-      metrics: { total_clients: 0, significant_drops: 0, improved: 0, at_risk: 0, blocked_tasks: 0, waiting_supplier: 0, needs_review: 0, auto_tasks_7d: 0, alerts_7d: 0, avg_score: null },
+      metrics: { total_clients: 0, significant_drops: 0, improved: 0, at_risk: 0, blocked_tasks: 0, waiting_supplier: 0, needs_review: 0, auto_tasks_7d: 0, alerts_7d: 0, avg_score: null, upgrade_opportunities: 0 },
       clients: [],
     };
   }
@@ -826,11 +829,21 @@ export async function getMapguardPortfolioDashboard(): Promise<PortfolioDashboar
   let totalReview = 0;
   let scoreSum = 0;
   let scoreCount = 0;
+  let upgradeOpportunities = 0;
+
+  // 5. Get execution usage per client (batch-friendly: one call per client)
+  const usageMap = new Map<number, Awaited<ReturnType<typeof getExecutionUsage>>>();
+  for (const client of activeClients) {
+    try {
+      usageMap.set(client.client_id, await getExecutionUsage(client.client_id));
+    } catch { /* skip on error */ }
+  }
 
   for (const client of activeClients) {
     const snap = snapshotMap.get(client.client_id);
     const tasks = taskMap.get(client.client_id);
     const changes = snap?.changes as any;
+    const usage = usageMap.get(client.client_id);
 
     const openTasks = Number(tasks?.open_tasks || 0);
     const blockedTasks = Number(tasks?.blocked_tasks || 0);
@@ -842,6 +855,7 @@ export async function getMapguardPortfolioDashboard(): Promise<PortfolioDashboar
     const reviewsDelta = changes?.reviews_delta ?? null;
     const localPackDelta = changes?.local_pack_delta ?? null;
     const significant = changes?.significant === true;
+    const upgradeRecommended = usage?.upgrade_recommended === true;
 
     // Health state
     let health: PortfolioClientRow["health"] = "new";
@@ -867,6 +881,7 @@ export async function getMapguardPortfolioDashboard(): Promise<PortfolioDashboar
     totalWaiting += waitingSupplier;
     totalReview += needsReview;
     if (snap?.score_total != null) { scoreSum += snap.score_total; scoreCount++; }
+    if (upgradeRecommended) upgradeOpportunities++;
 
     rows.push({
       client_id: client.client_id,
@@ -891,6 +906,7 @@ export async function getMapguardPortfolioDashboard(): Promise<PortfolioDashboar
       waiting_supplier_tasks: waitingSupplier,
       needs_review_tasks: needsReview,
       health,
+      upgrade_recommended: upgradeRecommended,
     });
   }
 
@@ -910,6 +926,7 @@ export async function getMapguardPortfolioDashboard(): Promise<PortfolioDashboar
       auto_tasks_7d: Number((autoTaskRow as any)?.count || 0),
       alerts_7d: await getAlertCountSince(7),
       avg_score: scoreCount > 0 ? Math.round(scoreSum / scoreCount) : null,
+      upgrade_opportunities: upgradeOpportunities,
     },
     clients: rows,
   };
