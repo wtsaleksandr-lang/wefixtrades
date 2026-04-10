@@ -318,9 +318,15 @@ function ConfirmationCard({
         <p className="text-sm font-medium text-gray-900">Update task status</p>
         <p className="text-xs text-gray-600 truncate">"{display.task_title}"</p>
         <p className="text-xs text-gray-600">
-          <span className="text-gray-400">{display.current_status.replace(/_/g, " ")}</span>
-          {" → "}
-          <span className="font-medium text-gray-800">{display.proposed_status.replace(/_/g, " ")}</span>
+          {display.current_status === "unknown" ? (
+            <>Set to <span className="font-medium text-gray-800">{display.proposed_status.replace(/_/g, " ")}</span></>
+          ) : (
+            <>
+              <span className="text-gray-400">{display.current_status.replace(/_/g, " ")}</span>
+              {" → "}
+              <span className="font-medium text-gray-800">{display.proposed_status.replace(/_/g, " ")}</span>
+            </>
+          )}
         </p>
         {display.reason && (
           <p className="text-xs text-gray-500 italic">{display.reason}</p>

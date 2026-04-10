@@ -179,6 +179,7 @@ async function writeStream(res: Response, req: AssistantRequest): Promise<void> 
             user_id: req.userId,
             session_id: req.sessionId,
             expires: Date.now() + 5 * 60 * 1000,
+            metadata: { current_status: display.current_status },
           });
 
           res.write(`data: ${JSON.stringify({ tool_call: { call_id: callId, tool_name: toolUseBlock.name, display } })}\n\n`);

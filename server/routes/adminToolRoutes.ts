@@ -20,6 +20,11 @@ export function registerAdminToolRoutes(app: Express): void {
    */
   app.post("/api/admin/tool-confirm", requireAdmin, async (req: Request, res: Response) => {
     try {
+      // Hard kill switch — must match the gate in chatRoutes
+      if (process.env.ADMIN_TOOLS_ENABLED !== "true") {
+        return res.status(404).json({ error: "Not found" });
+      }
+
       const { call_id, confirmed } = req.body ?? {};
 
       if (typeof call_id !== "string" || call_id.trim() === "") {
@@ -47,8 +52,8 @@ export function registerAdminToolRoutes(app: Express): void {
         return res.status(400).json({ error: `Unknown tool: ${action.tool_name}` });
       }
 
-      // Execute — args come from the server-side store, not the client
-      const result = await executor(action.args, sessionUserId);
+      // Execute — full action passed so executor can use session_id and metadata
+      const result = await executor(action, sessionUserId);
 
       return res.json({ success: true, narrative: result.narrative });
     } catch (err: any) {

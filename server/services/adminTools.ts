@@ -80,6 +80,8 @@ export interface PendingToolAction {
   user_id: number;
   session_id: string;
   expires: number;
+  /** Contextual metadata captured at store time (e.g. current_status for no-op detection) */
+  metadata?: Record<string, unknown>;
 }
 
 const pendingToolStore = new Map<string, PendingToolAction>();
@@ -114,9 +116,10 @@ const VALID_STATUSES = new Set([
 ]);
 
 async function executeUpdateTaskStatus(
-  args: Record<string, unknown>,
+  action: PendingToolAction,
   confirmedByUserId: number,
 ): Promise<ToolExecutionResult> {
+  const { args } = action;
   const task_id = args.task_id;
   const status = args.status as string;
   const reason = args.reason as string | undefined;
@@ -126,6 +129,12 @@ async function executeUpdateTaskStatus(
   }
   if (!VALID_STATUSES.has(status)) {
     throw new Error(`Invalid status value: ${status}`);
+  }
+
+  // No-op guard: if the current status is already the target, skip the write
+  const currentStatus = action.metadata?.current_status;
+  if (typeof currentStatus === "string" && currentStatus !== "unknown" && currentStatus === status) {
+    return { narrative: `Task is already set to ${status.replace(/_/g, " ")}. No change was made.` };
   }
 
   const updateData: Record<string, unknown> = { status };
@@ -147,6 +156,7 @@ async function executeUpdateTaskStatus(
     metadata: {
       tool_name: "update_task_status",
       args,
+      session_id: action.session_id,
       confirmed_by_user_id: confirmedByUserId,
     },
   }).catch((err: Error) => console.error("[adminTools] logAdminActivity failed:", err.message));
@@ -158,7 +168,7 @@ async function executeUpdateTaskStatus(
 /* ─── Allowlist — only entries here can be executed via /api/admin/tool-confirm ─── */
 export const TOOL_EXECUTORS: Record<
   string,
-  (args: Record<string, unknown>, confirmedByUserId: number) => Promise<ToolExecutionResult>
+  (action: PendingToolAction, confirmedByUserId: number) => Promise<ToolExecutionResult>
 > = {
   update_task_status: executeUpdateTaskStatus,
 };
