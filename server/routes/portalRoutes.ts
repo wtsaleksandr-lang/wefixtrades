@@ -19,6 +19,7 @@ import {
   supportTickets,
   passwordResetTokens,
   mapguardSnapshots,
+  mapguardTasks,
 } from "@shared/schema";
 
 /* ─── Helpers ─── */
@@ -896,10 +897,49 @@ Do NOT:
         local_pack: (latest.changes as any)?.local_pack_delta ?? null,
       } : null;
 
+      // Build client-friendly activity list from recent tasks
+      const TASK_TYPE_TRANSLATIONS: Record<string, string> = {
+        baseline_audit_review: "Reviewing your visibility data and planning improvements",
+        gbp_optimization: "Optimizing your Google Business profile",
+        citation_cleanup: "Improving your online listings consistency",
+        review_issue_response: "Handling and improving your customer reviews",
+        competitor_reaction: "Monitoring competitors and adjusting your visibility strategy",
+        profile_content_update: "Updating your profile content for better performance",
+        photo_upload: "Refreshing your business photos",
+        post_scheduling: "Creating and scheduling posts for your profile",
+        suspension_support: "Resolving a profile issue with Google",
+        monthly_report_review: "Preparing your monthly performance review",
+        manual_followup: "Following up on an improvement action",
+      };
+
+      const recentTaskTypes = await db.selectDistinct({ task_type: mapguardTasks.task_type })
+        .from(mapguardTasks)
+        .where(and(
+          eq(mapguardTasks.client_id, clientId),
+          sql`${mapguardTasks.status} NOT IN ('completed', 'cancelled')`,
+        ))
+        .limit(5);
+
+      const activities = recentTaskTypes
+        .map(r => TASK_TYPE_TRANSLATIONS[r.task_type])
+        .filter(Boolean);
+
+      // Add recent completions as past-tense signals
+      const [recentCompleted] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(mapguardTasks)
+        .where(and(
+          eq(mapguardTasks.client_id, clientId),
+          eq(mapguardTasks.status, "completed"),
+          sql`${mapguardTasks.completed_at} > NOW() - INTERVAL '30 days'`,
+        ));
+      const completedCount = recentCompleted?.count || 0;
+
       res.json({
         active: true,
         health,
         last_scan: latest?.captured_at || null,
+        activities,
+        completed_last_30d: completedCount,
         current: latest ? {
           score: latest.score_total,
           grade: latest.score_grade,

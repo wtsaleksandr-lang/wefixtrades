@@ -40,6 +40,8 @@ interface MapguardData {
     reviews: number | null;
     local_pack: number | null;
   } | null;
+  activities: string[];
+  completed_last_30d: number;
   snapshots: Array<{
     captured_at: string;
     score: number | null;
@@ -66,6 +68,10 @@ const GRADE_COLORS: Record<string, string> = {
   C: "text-amber-700 bg-amber-50 border-amber-200",
   D: "text-red-700 bg-red-50 border-red-200",
 };
+
+/* ─── Activity rotation icons/colors ─── */
+const ACTIVITY_ICONS = [Shield, MapPin, Eye, Star, Activity];
+const ACTIVITY_COLORS = ["bg-[#2D6A4F]", "bg-purple-500", "bg-indigo-500", "bg-amber-500", "bg-blue-500"];
 
 /* ─── Delta Display ─── */
 function Delta({ value, suffix, invert }: { value: number | null; suffix?: string; invert?: boolean }) {
@@ -262,36 +268,45 @@ export default function PortalMapguard() {
               </Card>
             )}
 
-            {/* Activity / Value Section */}
+            {/* What We're Doing — dynamic from tasks + signals */}
             <Card className="p-5">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">What We're Doing</h2>
+              <h2 className="text-sm font-semibold text-gray-900 mb-3">What We're Doing For You</h2>
               <div className="space-y-3">
-                <ActivityItem
-                  icon={Eye}
-                  color="bg-[#2D6A4F]"
-                  title="Active Monitoring"
-                  description="We are continuously tracking your Google Business Profile, local rankings, and competitor activity."
-                />
+                {/* Dynamic activity items from active tasks */}
+                {data.activities && data.activities.length > 0 ? (
+                  data.activities.map((text, i) => (
+                    <ActivityItem
+                      key={i}
+                      icon={ACTIVITY_ICONS[i % ACTIVITY_ICONS.length]}
+                      color={ACTIVITY_COLORS[i % ACTIVITY_COLORS.length]}
+                      title={text}
+                      description=""
+                    />
+                  ))
+                ) : (
+                  <ActivityItem
+                    icon={Eye}
+                    color="bg-[#2D6A4F]"
+                    title="We are continuously monitoring and improving your visibility"
+                    description=""
+                  />
+                )}
+
+                {/* Always show monitoring baseline */}
                 <ActivityItem
                   icon={Shield}
                   color="bg-blue-500"
                   title="Profile Protection"
-                  description="Your listing is being monitored for unwanted changes, missing information, and accuracy issues."
+                  description="Your listing is monitored for unwanted changes, missing information, and accuracy issues."
                 />
-                {data.current && (data.current.keywords_in_local_pack ?? 0) > 0 && (
-                  <ActivityItem
-                    icon={MapPin}
-                    color="bg-purple-500"
-                    title="Local Pack Presence"
-                    description={`Your business currently appears in the Google Maps pack for ${data.current.keywords_in_local_pack} tracked search term${data.current.keywords_in_local_pack !== 1 ? "s" : ""}.`}
-                  />
-                )}
+
+                {/* Dynamic positive signals */}
                 {data.deltas?.reviews != null && data.deltas.reviews > 0 && (
                   <ActivityItem
                     icon={MessageSquare}
                     color="bg-amber-500"
                     title="Reviews Growing"
-                    description={`You gained ${data.deltas.reviews} new review${data.deltas.reviews !== 1 ? "s" : ""} since the last check. Keep it up!`}
+                    description={`You gained ${data.deltas.reviews} new review${data.deltas.reviews !== 1 ? "s" : ""} since the last check.`}
                   />
                 )}
                 {data.deltas?.score != null && data.deltas.score > 0 && (
@@ -299,7 +314,15 @@ export default function PortalMapguard() {
                     icon={TrendingUp}
                     color="bg-emerald-500"
                     title="Visibility Improving"
-                    description={`Your visibility score improved by ${data.deltas.score} points. Your Google presence is getting stronger.`}
+                    description={`Your visibility score improved by ${data.deltas.score} points.`}
+                  />
+                )}
+                {data.completed_last_30d > 0 && (
+                  <ActivityItem
+                    icon={CheckCircle}
+                    color="bg-emerald-500"
+                    title={`${data.completed_last_30d} improvement${data.completed_last_30d !== 1 ? "s" : ""} completed this month`}
+                    description=""
                   />
                 )}
               </div>
