@@ -196,12 +196,12 @@ export default function PortalTicketDetail() {
                       value={reply}
                       onChange={(e) => setReply(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey && reply.trim()) {
+                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && reply.trim()) {
                           e.preventDefault();
                           sendReply.mutate();
                         }
                       }}
-                      placeholder="Type your reply..."
+                      placeholder="Type your reply... (Ctrl+Enter to send)"
                       rows={2}
                       className="flex-1 text-sm px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] resize-none"
                     />

@@ -254,14 +254,18 @@ export default function SupportTicketDetailPage() {
                 </div>
 
                 {/* Reply box */}
-                <div className="border-t border-gray-100 px-5 py-4 space-y-3">
+                <div className={`border-t-2 px-5 py-4 space-y-3 transition-colors ${
+                  visibility === "internal"
+                    ? "border-amber-400 bg-amber-50/40"
+                    : "border-gray-100 bg-white"
+                }`}>
                   {/* Visibility toggle */}
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setVisibility("customer")}
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                         visibility === "customer"
-                          ? "bg-[#2D6A4F] text-white"
+                          ? "bg-[#2D6A4F] text-white ring-2 ring-[#2D6A4F]/30"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                     >
@@ -271,13 +275,24 @@ export default function SupportTicketDetailPage() {
                       onClick={() => setVisibility("internal")}
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                         visibility === "internal"
-                          ? "bg-amber-500 text-white"
+                          ? "bg-amber-500 text-white ring-2 ring-amber-400/40"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                     >
                       <EyeOff className="w-3 h-3" /> Internal Note
                     </button>
                   </div>
+
+                  {/* Internal note warning banner */}
+                  {visibility === "internal" && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-amber-100 border border-amber-300 rounded-lg">
+                      <EyeOff className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                      <p className="text-xs font-medium text-amber-800">
+                        Internal note — only visible to admins, never shown to the customer.
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex gap-2">
                     <textarea
                       value={replyText}
@@ -292,7 +307,7 @@ export default function SupportTicketDetailPage() {
                       rows={3}
                       className={`flex-1 text-sm px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 resize-none ${
                         visibility === "internal"
-                          ? "border-amber-200 focus:ring-amber-200/50 focus:border-amber-400 bg-amber-50/30"
+                          ? "border-amber-300 focus:ring-amber-200/50 focus:border-amber-400 bg-amber-50"
                           : "border-gray-200 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
                       }`}
                     />
@@ -314,7 +329,7 @@ export default function SupportTicketDetailPage() {
                     </p>
                   )}
                   <p className="text-[10px] text-gray-400">
-                    {visibility === "internal" ? "This note is only visible to admins." : "This reply will be visible to the customer."} Press Ctrl+Enter to send.
+                    Ctrl+Enter to send.
                   </p>
                 </div>
               </div>
