@@ -78,6 +78,9 @@ import PortalBilling from "@/pages/portal/PortalBilling";
 import PortalSettings from "@/pages/portal/PortalSettings";
 import PortalOnboarding from "@/pages/portal/PortalOnboarding";
 import PortalHelp from "@/pages/portal/PortalHelp";
+import PortalTicketDetail from "@/pages/portal/PortalTicketDetail";
+import SupportInboxPage from "@/pages/admin/SupportInboxPage";
+import SupportTicketDetailPage from "@/pages/admin/SupportTicketDetailPage";
 import ResetPasswordPage from "@/pages/ResetPassword";
 
 function Router() {
@@ -91,6 +94,8 @@ function Router() {
       <Route path="/admin/crm/inbox">{() => <RequirePortal><InboxPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/billing">{() => <RequirePortal><BillingPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/suppliers">{() => <RequirePortal><SuppliersPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/support/:id">{() => <RequirePortal><SupportTicketDetailPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/support">{() => <RequirePortal><SupportInboxPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/services">{() => <RequirePortal><ServicesPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/profile">{() => <RequirePortal><ProfilePage /></RequirePortal>}</Route>
       <Route path="/admin/crm/settings">{() => <RequirePortal><SettingsPage /></RequirePortal>}</Route>
@@ -102,6 +107,7 @@ function Router() {
       <Route path="/portal/services/:id">{() => <RequireClient><PortalServiceDetail /></RequireClient>}</Route>
       <Route path="/portal/services">{() => <RequireClient><PortalServices /></RequireClient>}</Route>
       <Route path="/portal/billing">{() => <RequireClient><PortalBilling /></RequireClient>}</Route>
+      <Route path="/portal/help/tickets/:id">{() => <RequireClient><PortalTicketDetail /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/settings">{() => <RequireClient><PortalSettings /></RequireClient>}</Route>
       <Route path="/portal">{() => <RequireClient><PortalDashboard /></RequireClient>}</Route>

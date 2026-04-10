@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import {
   Loader2, ChevronDown, Send, MessageCircle, Plus, CheckCircle2,
-  HelpCircle, CreditCard, Wrench, ClipboardList, Calculator,
+  HelpCircle, CreditCard, Wrench, ClipboardList, Calculator, ChevronRight,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 
@@ -177,11 +178,22 @@ function AiHelpSection() {
   );
 }
 
+/* ─── Categories ─── */
+const CATEGORIES = [
+  { value: "general", label: "General" },
+  { value: "billing", label: "Billing" },
+  { value: "service", label: "Service" },
+  { value: "onboarding", label: "Onboarding" },
+  { value: "access", label: "Access" },
+  { value: "other", label: "Other" },
+];
+
 /* ─── Ticket Form + History ─── */
 function TicketSection() {
   const queryClient = useQueryClient();
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [category, setCategory] = useState("general");
   const [success, setSuccess] = useState(false);
 
   const { data: ticketData } = useQuery<{ tickets: TicketRow[] }>({
@@ -199,14 +211,18 @@ function TicketSection() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ subject: subject.trim(), message: message.trim() }),
+        body: JSON.stringify({ subject: subject.trim(), message: message.trim(), category }),
       });
-      if (!res.ok) throw new Error("Failed to create ticket");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to create ticket");
+      }
       return res.json();
     },
     onSuccess: () => {
       setSubject("");
       setMessage("");
+      setCategory("general");
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
       queryClient.invalidateQueries({ queryKey: ["/api/portal/tickets"] });
@@ -215,7 +231,7 @@ function TicketSection() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!message.trim()) return;
+    if (!subject.trim() || !message.trim()) return;
     createTicket.mutate();
   }
 
@@ -231,13 +247,27 @@ function TicketSection() {
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Subject</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">
+              Subject <span className="text-red-400">*</span>
+            </label>
             <input
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="e.g. Question about my MapGuard service"
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
             />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">Category</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] bg-white"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">
@@ -254,7 +284,7 @@ function TicketSection() {
           <div className="flex items-center gap-3">
             <button
               type="submit"
-              disabled={!message.trim() || createTicket.isPending}
+              disabled={!subject.trim() || !message.trim() || createTicket.isPending}
               className="px-4 py-2 text-sm font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] disabled:opacity-60 transition-colors"
             >
               {createTicket.isPending ? "Submitting..." : "Submit Ticket"}
@@ -265,7 +295,9 @@ function TicketSection() {
               </span>
             )}
             {createTicket.error && (
-              <span className="text-xs text-red-600">Failed to submit ticket. Please try again.</span>
+              <span className="text-xs text-red-600">
+                {(createTicket.error as Error).message || "Failed to submit ticket. Please try again."}
+              </span>
             )}
           </div>
         </form>
@@ -279,20 +311,32 @@ function TicketSection() {
           </div>
           <div className="divide-y divide-gray-50">
             {tickets.map((t) => (
-              <div key={t.id} className="px-5 py-3 flex items-center justify-between">
-                <div className="min-w-0">
+              <Link
+                key={t.id}
+                href={`/portal/help/tickets/${t.id}`}
+                className="px-5 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors cursor-pointer"
+              >
+                <div className="min-w-0 flex-1">
                   <p className="text-sm text-gray-800 truncate">{t.subject || t.description.slice(0, 60)}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     #{t.id} &middot; {formatDate(t.created_at)}
-                    {t.updated_at && t.updated_at !== t.created_at && (
-                      <> &middot; Updated {formatDate(t.updated_at)}</>
+                    {t.last_message_at && (
+                      <> &middot; Last reply {formatDate(t.last_message_at)}</>
                     )}
                   </p>
+                  {t.last_message_preview && (
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">
+                      {t.last_message_author === "admin" ? "Support: " : ""}{t.last_message_preview}
+                    </p>
+                  )}
                 </div>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ml-3 ${TICKET_STATUS[t.status] || "bg-gray-100 text-gray-600"}`}>
-                  {TICKET_STATUS_LABELS[t.status] || t.status.replace(/_/g, " ")}
-                </span>
-              </div>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${TICKET_STATUS[t.status] || "bg-gray-100 text-gray-600"}`}>
+                    {TICKET_STATUS_LABELS[t.status] || t.status.replace(/_/g, " ")}
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -306,15 +350,22 @@ interface TicketRow {
   id: number;
   subject: string | null;
   status: string;
+  priority: string;
+  category: string;
   description: string;
   created_at: string | null;
   updated_at: string | null;
   resolved_at: string | null;
+  closed_at: string | null;
+  last_message_preview: string | null;
+  last_message_at: string | null;
+  last_message_author: string | null;
 }
 
 const TICKET_STATUS: Record<string, string> = {
   open: "bg-amber-50 text-amber-700",
   in_progress: "bg-indigo-50 text-indigo-700",
+  waiting_on_customer: "bg-blue-50 text-blue-700",
   resolved: "bg-emerald-50 text-emerald-700",
   closed: "bg-gray-100 text-gray-500",
 };
@@ -322,6 +373,7 @@ const TICKET_STATUS: Record<string, string> = {
 const TICKET_STATUS_LABELS: Record<string, string> = {
   open: "Open",
   in_progress: "In progress",
+  waiting_on_customer: "Waiting on you",
   resolved: "Resolved",
   closed: "Closed",
 };
