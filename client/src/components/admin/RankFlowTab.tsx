@@ -183,6 +183,15 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
     queryKey: ["/api/rankflow/vendor-batches"],
   });
 
+  const { data: profitability } = useQuery<{
+    price: number; cost: number; margin: number; margin_percent: number;
+    task_cost_breakdown: { citations: number; pages: number; onpage: number; other: number };
+    over_ceiling: boolean; over_soft: boolean;
+  }>({
+    queryKey: [`/api/rankflow/clients/${clientId}/profitability`],
+    enabled: !!profile?.enabled,
+  });
+
   // Mutations
   const generatePlan = useMutation({
     mutationFn: async () => {
@@ -289,6 +298,46 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
           </Card>
         ))}
       </div>
+
+      {/* ─── Profitability ─── */}
+      {profitability && (
+        <Card className="p-3.5">
+          <div className="flex items-center gap-2 mb-2">
+            <DollarSign className="w-4 h-4 text-gray-400" />
+            <span className="text-xs font-semibold text-gray-700">Monthly Profitability</span>
+            {profitability.over_ceiling && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium">Over ceiling</span>}
+            {!profitability.over_ceiling && profitability.over_soft && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">Over soft limit</span>}
+          </div>
+          <div className="grid grid-cols-4 gap-3 text-center">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">${profitability.price}</p>
+              <p className="text-[10px] text-gray-500">Plan Price</p>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">${profitability.cost.toFixed(0)}</p>
+              <p className="text-[10px] text-gray-500">Total Cost</p>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">${profitability.margin.toFixed(0)}</p>
+              <p className="text-[10px] text-gray-500">Margin</p>
+            </div>
+            <div>
+              <p className={`text-sm font-semibold ${profitability.margin_percent >= 70 ? "text-emerald-600" : profitability.margin_percent >= 50 ? "text-amber-600" : "text-red-600"}`}>
+                {profitability.margin_percent}%
+              </p>
+              <p className="text-[10px] text-gray-500">Margin %</p>
+            </div>
+          </div>
+          {(profitability.task_cost_breakdown.citations > 0 || profitability.task_cost_breakdown.pages > 0 || profitability.task_cost_breakdown.onpage > 0) && (
+            <div className="flex items-center gap-3 mt-2 text-[10px] text-gray-400">
+              {profitability.task_cost_breakdown.citations > 0 && <span>Citations: ${profitability.task_cost_breakdown.citations.toFixed(0)}</span>}
+              {profitability.task_cost_breakdown.pages > 0 && <span>Pages: ${profitability.task_cost_breakdown.pages.toFixed(0)}</span>}
+              {profitability.task_cost_breakdown.onpage > 0 && <span>On-page: ${profitability.task_cost_breakdown.onpage.toFixed(0)}</span>}
+              {profitability.task_cost_breakdown.other > 0 && <span>Other: ${profitability.task_cost_breakdown.other.toFixed(0)}</span>}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* ─── Actions Row ─── */}
       <div className="flex gap-2 flex-wrap">

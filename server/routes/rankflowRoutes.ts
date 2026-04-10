@@ -5,6 +5,7 @@ import { generateMonthlyPlan } from "../services/rankflow/planGenerator";
 import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
 import { runQA } from "../services/rankflow/qaService";
 import { createVendorBatch, addTaskToBatch, buildDispatchPacket } from "../services/rankflow/batchService";
+import { getTierConfig } from "../services/rankflow/marginGuardrails";
 
 export function registerRankFlowRoutes(app: Express): void {
 
@@ -500,6 +501,67 @@ export function registerRankFlowRoutes(app: Express): void {
           indexed: p.indexed,
           last_checked_at: p.last_checked_at,
         })),
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     Profitability (Admin)
+     ═══════════════════════════════════════════ */
+
+  app.get("/api/rankflow/clients/:id/profitability", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id as string);
+      const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+
+      const profile = await storage.getRankFlowProfile(clientId);
+      if (!profile) return res.status(404).json({ error: "RankFlow profile not found" });
+
+      const tierConfig = getTierConfig(profile.plan_tier || "starter");
+      const price = tierConfig?.price || 0;
+
+      // Get completed tasks for the month
+      const plan = await storage.getMonthlyPlan(clientId, month);
+      const tasks = plan ? await storage.listTasksByPlan(plan.id) : [];
+      const completedTasks = tasks.filter(t => t.status === "done");
+
+      // Sum actual costs by category
+      let totalCost = 0;
+      const breakdown: Record<string, number> = {
+        citations: 0,
+        pages: 0,
+        onpage: 0,
+        other: 0,
+      };
+
+      for (const t of completedTasks) {
+        const cost = Number(t.actual_cost) || 0;
+        totalCost += cost;
+        if (t.type === "citation_build") breakdown.citations += cost;
+        else if (t.type === "page_create") breakdown.pages += cost;
+        else if (["meta_fix", "internal_linking", "schema_basic"].includes(t.type)) breakdown.onpage += cost;
+        else breakdown.other += cost;
+      }
+
+      const margin = price - totalCost;
+      const marginPercent = price > 0 ? Math.round((margin / price) * 100) : 0;
+
+      res.json({
+        month,
+        tier: profile.plan_tier,
+        price,
+        cost: Math.round(totalCost * 100) / 100,
+        margin: Math.round(margin * 100) / 100,
+        margin_percent: marginPercent,
+        tasks_completed: completedTasks.length,
+        tasks_total: tasks.length,
+        task_cost_breakdown: breakdown,
+        cost_ceiling: tierConfig?.cost_ceiling || 0,
+        soft_cost_limit: tierConfig?.soft_cost_limit || 0,
+        over_ceiling: tierConfig ? totalCost > tierConfig.cost_ceiling : false,
+        over_soft: tierConfig ? totalCost > tierConfig.soft_cost_limit : false,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
