@@ -11,7 +11,7 @@ export type ChatSurface =
   | "website"      // General marketing site chat widget
   | "audit"        // Audit report follow-up chat
   | "dashboard"    // Client dashboard assistant (future)
-  | "admin"        // Admin/internal assistant (future)
+  | "admin"        // Admin/internal operations copilot
   | "vapi";        // Voice assistant via Vapi (future)
 
 export interface AuditContext {
