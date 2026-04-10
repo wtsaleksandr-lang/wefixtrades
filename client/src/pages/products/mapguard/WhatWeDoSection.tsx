@@ -22,7 +22,7 @@ const BLOCKS = [
     items: [
       "Weekly visibility monitoring and alerts",
       "Regular posts to keep your profile active",
-      "Fixes and optimizations when issues are detected",
+      "We fix issues and optimize your profile continuously",
       "Monthly performance report",
     ],
   },

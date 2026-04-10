@@ -4,8 +4,8 @@ import { useCountUp } from "./useCountUp";
 
 const METRICS = [
   { value: 100, suffix: "%", label: "Managed for you" },
-  { value: 52, suffix: "", label: "Scans per year" },
-  { value: 12, suffix: "", label: "Monthly reports" },
+  { value: 52, suffix: "", label: "Visibility scans per year" },
+  { value: 12, suffix: "", label: "Optimization cycles per year" },
 ];
 
 function MetricCard({ value, suffix, label }: { value: number; suffix: string; label: string }) {
@@ -57,7 +57,7 @@ export default function ResultsSection() {
             <span style={{ color: mkt.accent }}>Not Just a Dashboard</span>
           </h2>
           <p style={sectionSub}>
-            MapGuard is continuous management. We monitor, act, and report — every week, every month, all year.
+            Ongoing optimizations handled for you every month. We monitor, act, and report — every week, every month, all year.
           </p>
         </div>
 

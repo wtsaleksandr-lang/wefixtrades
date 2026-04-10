@@ -37,7 +37,7 @@ export default function PricingSection() {
             <span style={{ color: mkt.accent }}>No Contracts.</span>
           </h2>
           <p style={sectionSub}>
-            We set it up once, then manage it monthly so your profile keeps improving. Cancel anytime.
+            Includes ongoing optimization work — not just monitoring. We set it up, then manage and improve it monthly. Cancel anytime.
           </p>
         </div>
 

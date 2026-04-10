@@ -20,8 +20,8 @@ const STEPS = [
   },
   {
     icon: Settings,
-    title: "We handle issues for you",
-    desc: "When problems are detected \u2014 ranking drops, review issues, profile changes \u2014 our team takes action. You don\u2019t need to do anything.",
+    title: "We handle all visibility issues for you",
+    desc: "Ranking drops, review problems, profile changes \u2014 our team takes action immediately. No action required on your end.",
   },
   {
     icon: FileText,

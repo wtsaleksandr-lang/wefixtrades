@@ -15,7 +15,7 @@ import {
 const BENEFITS = [
   { icon: MapPin, title: "Show up when customers search nearby", desc: "We optimize your profile so you appear in Google Maps when people search for your trade in your area." },
   { icon: Phone, title: "More calls without running ads", desc: "Organic Google Maps visibility brings in leads every month without ad spend." },
-  { icon: ShieldCheck, title: "Problems detected and fixed for you", desc: "Our monitoring catches ranking drops, review issues, and profile problems \u2014 and our team fixes them." },
+  { icon: ShieldCheck, title: "We actively fix issues affecting your visibility", desc: "Ranking drops, review problems, profile gaps \u2014 our team acts on them, not just reports them." },
   { icon: CalendarCheck, title: "Your profile stays active and fresh", desc: "Regular posts and profile updates keep your listing engaged and performing." },
   { icon: Trophy, title: "Stay ahead of local competitors", desc: "We track your competitors and adjust your strategy so you maintain your position." },
   { icon: UserCheck, title: "Fully managed \u2014 you do nothing", desc: "We handle the optimization, monitoring, fixes, and reporting. You focus on running your business." },
