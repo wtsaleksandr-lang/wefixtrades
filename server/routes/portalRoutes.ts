@@ -6,7 +6,7 @@ import { chat as aiChat } from "../services/aiService";
 import { storage } from "../storage";
 import { generateMonthlyPlan } from "../services/rankflow/planGenerator";
 import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
-import { generateKeywordTargets, deriveTargetServices } from "../services/rankflow/keywordHelper";
+import { generateKeywordTargets, clusterKeywords, deriveTargetServices } from "../services/rankflow/keywordHelper";
 import { authRateLimiter } from "../services/rateLimiter";
 import {
   clients,
@@ -981,15 +981,17 @@ Do NOT:
         planResult = { planId: plan.id, month, tasksCreated };
       }
 
-      // Generate keyword targets for reference
+      // Generate structured keyword targets
       const keywords = generateKeywordTargets(niche, location, additional_locations, additional_services);
+      const clusters = clusterKeywords(keywords);
 
-      console.log(`[rankflow-onboard] Client ${clientId} onboarded — ${keywords.length} keywords, plan: ${planResult ? "created" : "already exists"}`);
+      console.log(`[rankflow-onboard] Client ${clientId} onboarded — ${keywords.length} keywords, ${clusters.length} clusters, plan: ${planResult ? "created" : "already exists"}`);
 
       res.status(201).json({
         profile,
         plan: planResult,
-        keywords: keywords.slice(0, 20), // show top 20
+        keywords: keywords.slice(0, 20).map(k => ({ keyword: k.keyword, intent: k.intent, priority: k.priority })),
+        clusters: clusters.length,
       });
     } catch (err: any) {
       console.error("[rankflow-onboard] error:", err.message);
