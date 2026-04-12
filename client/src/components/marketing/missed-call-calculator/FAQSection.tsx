@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronDown, HelpCircle } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { mkt, colors, radius } from '@/theme/tokens';
 import { useFaqSchema } from '@/lib/useFaqSchema';
 
@@ -72,28 +72,32 @@ export default function FAQSection() {
       aria-labelledby="faq-heading"
       style={{ maxWidth: 640, margin: '0 auto' }}
     >
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 16,
-      }}>
-        <HelpCircle size={16} color={mkt.textFaint} />
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <div style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: mkt.accent,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase' as const,
+          marginBottom: 14,
+        }}>
+          FAQ
+        </div>
         <h3
           id="faq-heading"
           style={{
-            fontSize: 15,
-            fontWeight: 650,
-            color: colors.effortel.n400,
+            fontSize: 'clamp(22px, 3vw, 30px)',
+            fontWeight: 700,
+            color: colors.effortel.n300,
             margin: 0,
-            letterSpacing: '-0.01em',
+            letterSpacing: '-0.025em',
           }}
         >
           Frequently asked questions
         </h3>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {FAQ_ITEMS.map(item => {
           const isOpen = openId === item.id;
           const panelId = `faq-panel-${item.id}`;
@@ -103,10 +107,10 @@ export default function FAQSection() {
             <div
               key={item.id}
               style={{
-                background: mkt.cardBg,
-                border: `1px solid ${mkt.cardBorder}`,
-                borderRadius: radius.md,
+                border: `1px solid ${mkt.border}`,
+                borderRadius: 14,
                 overflow: 'hidden',
+                transition: 'border-color 0.2s ease',
               }}
             >
               <button
@@ -119,22 +123,22 @@ export default function FAQSection() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  gap: 12,
-                  padding: '12px 16px',
-                  background: 'none',
+                  gap: 16,
+                  padding: '18px 22px',
+                  background: isOpen ? mkt.surface : 'transparent',
                   border: 'none',
                   cursor: 'pointer',
-                  color: isOpen ? colors.effortel.n200 : mkt.textMuted,
-                  fontSize: 14,
+                  color: mkt.text,
+                  fontSize: 15,
                   fontWeight: 600,
                   textAlign: 'left',
                   lineHeight: 1.4,
-                  transition: 'color 0.15s',
+                  transition: 'background 0.2s ease',
                 }}
               >
                 <span>{item.question}</span>
                 <ChevronDown
-                  size={14}
+                  size={17}
                   color={mkt.textFaint}
                   style={{
                     flexShrink: 0,
@@ -155,10 +159,10 @@ export default function FAQSection() {
                   style={{ overflow: 'hidden' }}
                 >
                   <div style={{
-                    padding: '0 16px 14px',
-                    fontSize: 13,
-                    color: mkt.textFaint,
-                    lineHeight: 1.6,
+                    padding: '0 22px 18px',
+                    fontSize: 14,
+                    color: mkt.textMuted,
+                    lineHeight: 1.7,
                   }}>
                     {item.answer}
                   </div>

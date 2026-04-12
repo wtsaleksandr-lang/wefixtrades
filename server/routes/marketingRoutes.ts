@@ -20,7 +20,7 @@ const MARKETING_ROUTES = [
   "/docs/embed", "/docs/domain", "/docs/booking", "/docs/ai",
   "/docs/webhooks", "/docs/troubleshooting",
   "/products/quickquotepro", "/products/tradeline",
-  "/products/mapguard", "/products/webboost",
+  "/products/mapguard", "/products/rankflow", "/products/adflow",
   "/products/webcare", "/products/sitelaunch", "/products/socialsync",
   "/products/reputationshield",
   "/free-audit",

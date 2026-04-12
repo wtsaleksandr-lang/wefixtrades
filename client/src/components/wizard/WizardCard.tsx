@@ -1,6 +1,5 @@
-// FROZEN — scheduled for rebuild in Phase 3 (Builder Wizard). Do not add features.
-// This 1,889-line god-component will be replaced by a schema-driven builder.
-// See: ARCHITECTURE_AUDIT.md, EXTRACTION_MAP.md
+// QuoteQuick calculator builder wizard — 4-step flow: Trade → Pricing → Preview → Publish.
+// Sub-components: DesignStudio, CustomTradeQuestionnaire, PricingIntakeStage2, TestGateStep, LeadFormStep, PublishStep.
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { platformTheme } from '@/theme/platformTheme';
@@ -12,6 +11,9 @@ import PricingIntakeStage2 from './PricingIntakeStage2';
 import TestGateStep, { type TestGateResult } from './TestGateStep';
 import LeadFormStep from './LeadFormStep';
 import PublishStep from './PublishStep';
+import { trackEvent } from '@/lib/trackEvent';
+import QuoteWidget from '@/components/quote-widget/QuoteWidget';
+import type { CalculatorData } from '@/components/quote-widget/types';
 import { mapPricingIntakeToConfig } from '@shared/pricingIntakeMapper';
 import { getRecommendedTemplate, getTemplateById } from '@shared/templateLibrary';
 import {
@@ -19,7 +21,7 @@ import {
   Layers, AlertTriangle, Car, Briefcase, Plus, HelpCircle, X,
   Search, ChevronDown, ExternalLink, Copy, Zap, AlertCircle,
   RotateCcw, Code2, Eye, Upload, Trash2, Image as ImageIcon, ChevronRight,
-  FileText, Shield, Mail, Phone, User, Building2,
+  FileText, Shield, Mail, Phone, User, Building2, Settings2,
   CheckCircle2, TriangleAlert
 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
@@ -123,33 +125,44 @@ function loadStep(): number {
 }
 
 const p = platformTheme;
-const TOTAL_STEPS = 6;
+// Flow order: Step 0 (trade) → Step 2 (pricing) → Step 1 (preview/design) → Step 4 (generate) → Step 5 (publish)
+// Step 3 (lead form) is skipped — defaults are good enough, accessible via Advanced in step 1.
+const TOTAL_STEPS = 4; // Visual steps shown to user (not internal step count)
+
+// Visual step number for progress display
+function visualStep(internalStep: number): number {
+  if (internalStep === 0) return 0; // Trade
+  if (internalStep === 2) return 1; // Pricing
+  if (internalStep === 1) return 2; // Preview & polish
+  if (internalStep === 4 || internalStep === 5) return 3; // Publish
+  return internalStep;
+}
 
 const STEP_TITLES = [
-  'Business & Trade Setup',
-  'Design Your Calculator',
-  'Pricing Logic',
-  'Capture Leads',
-  'Validate Your Pricing',
-  'Publish & Share',
+  'What does your business do?',
+  'Preview & polish',
+  'Set your pricing',
+  'Lead capture setup',
+  'Almost done!',
+  'You\u2019re live!',
 ];
 const STEP_SUBTITLES = [
-  'Name your business and choose your trade. Takes about 1 minute.',
-  'Set your colour, logo, and layout style. Takes about 30 seconds.',
-  'Enter your rates — AI builds the pricing logic for you. Takes about 1 minute.',
-  'Choose what info to collect from customers. Quick.',
-  'Run two test scenarios to confirm your pricing is right.',
-  'Copy your link and start capturing leads today.',
+  'Pick your trade and we\u2019ll set everything up for you.',
+  'This is what your customers will see. Tweak if needed.',
+  'Enter your rates. AI builds the pricing logic.',
+  'Choose what info to collect. Quick.',
+  'Run two test quotes to confirm your numbers.',
+  'Copy your link and start getting leads.',
 ];
 const STEP_HINTS = [
-  'Next: customise your calculator appearance',
-  'Next: set up your pricing logic',
-  'Next: configure your lead capture form',
-  'Next: validate pricing with real scenarios',
-  'Next: publish and share your calculator',
+  'Next: set your pricing',
+  'Ready to publish',
+  'Next: preview your calculator',
+  '',
+  'Publishing your calculator...',
   '',
 ];
-const STEP_TIME = ['~1 min', '~30 sec', '~1 min', '~30 sec', '~1 min', '~10 sec'];
+const STEP_TIME = ['~1 min', '', '~1 min', '', '', ''];
 
 export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const savedResult = loadResult();
@@ -182,6 +195,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   useEffect(() => {
     if (result) localStorage.setItem('qq_result', JSON.stringify(result));
   }, [result]);
+
+  // Track trial_started on first wizard load
+  useEffect(() => { trackEvent('trial_started'); }, []);
 
   const set = useCallback(<K extends keyof WizardState>(k: K, v: WizardState[K]) => {
     setWs(p => ({ ...p, [k]: v }));
@@ -228,6 +244,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     ? filteredTrades.filter(tr => tr.label.toLowerCase().includes(tradeSearch.toLowerCase()))
     : filteredTrades;
 
+  // Global trade search (searches ALL trades, bypasses category)
+  const globalSearchResults = tradeSearch.length >= 2
+    ? TRADES.filter(tr => tr.label.toLowerCase().includes(tradeSearch.toLowerCase())).slice(0, 8)
+    : [];
+
   const selectCategory = (id: string) => {
     if (id === ws.selectedCategory) return;
     setWs(p => ({
@@ -243,6 +264,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     set('selectedTrade', tr.id);
     setTradeOpen(false);
     setTradeSearch('');
+    trackEvent('wizard_trade_selected', { trade: tr.id, label: tr.label });
 
     const currentTemplateId = ws.calculatorSettings.ui_template?.template_id || 'classic_single';
     if (currentTemplateId === 'classic_single') {
@@ -319,7 +341,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       if (ws.isCustomTrade && ws.customTradeData.charge_method === 'not_sure') {
         triggerPricingDraft();
       }
-      setStep(1);
+      setStep(2); // Flow: trade → pricing (skip design)
     }
   };
 
@@ -387,13 +409,15 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const tryStep2Continue = () => {
     if (!ws.isCustomTrade || ws.customTradeData.charge_method === 'not_sure') {
       setValidationErrors({});
-      setStep(3);
+      trackEvent('wizard_pricing_set', { trade: ws.selectedTrade, isCustom: false });
+      setStep(1); // Flow: pricing → preview/polish (skip lead form)
       return;
     }
     const errs = validateStage2();
     setValidationErrors(errs);
     if (Object.keys(errs).length === 0) {
-      setStep(3);
+      trackEvent('wizard_pricing_set', { trade: ws.selectedTrade, isCustom: true });
+      setStep(1); // Flow: pricing → preview/polish (skip lead form)
     }
   };
 
@@ -605,6 +629,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     },
     onSuccess: (d) => {
       setResult(d);
+      trackEvent('wizard_published', { slug: d?.slug, calculator_id: d?.calculator?.id });
       setTimeout(() => setStep(5), 500);
     },
   });
@@ -623,6 +648,24 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     if (trade && (trade as any).defaultPricing) return (trade as any).defaultPricing;
     return { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 };
   }, [ws.isCustomTrade, ws.customTradeData, ws.stage2Data, ws.calculatorSettings.pricing_draft, ws.selectedTrade]);
+
+  // Synthetic CalculatorData for live preview (no DB save required)
+  const previewCalculatorData = useMemo<CalculatorData>(() => ({
+    id: -1, // Sentinel: preview mode — LeadCaptureStep/BookingStep skip API calls
+    slug: 'preview',
+    business_name: ws.businessName || 'Your Business',
+    tagline: ws.tagline || undefined,
+    logo_url: ws.logoUrl || undefined,
+    primary_color: ws.primaryColor || '#394247',
+    pricing_config: resolvedPricingConfig,
+    cta_button_text: ws.calculatorSettings?.lead_form?.cta?.button_text || undefined,
+    lead_thank_you_message: ws.calculatorSettings?.lead_form?.cta?.helper_text || undefined,
+    calculator_settings: {
+      ...ws.calculatorSettings,
+      calculator_type: ws.calculatorSettings?.calculator_type || 'estimate_only',
+      ui_template: ws.calculatorSettings?.ui_template || { template_id: 'classic_single' },
+    },
+  }), [ws.businessName, ws.tagline, ws.logoUrl, ws.primaryColor, resolvedPricingConfig, ws.calculatorSettings]);
 
   const [testHistory, setTestHistory] = useState<TestGateResult | null>(() => {
     const th = ws.calculatorSettings.test_history;
@@ -718,7 +761,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
   return (
     <>
-      <Shell step={step} total={TOTAL_STEPS} onHelp={() => setShowHelp(true)}
+      <Shell step={visualStep(step)} total={TOTAL_STEPS} onHelp={() => setShowHelp(true)}
         title={STEP_TITLES[step]} subtitle={STEP_SUBTITLES[step]}
         generating={generateMutation.isPending} genProgress={genProgress}
         justSaved={justSaved} stepTime={STEP_TIME[step]}
@@ -731,19 +774,75 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               id="business-name" testId="input-business-name"
               label="Business Name" required
               value={ws.businessName} onChange={v => set('businessName', v)}
-              placeholder="e.g. Sunshine Cleaning Co."
+              placeholder="e.g. Metro Plumbing Co."
               error={validationErrors.businessName}
             />
 
-            <div style={{ marginTop: '24px', marginBottom: '12px' }}>
-              <label style={{ ...p.typography.label, display: 'block', marginBottom: '6px' }}>
-                Service Category <span style={{ color: p.colors.danger }}>*</span>
+            <div style={{ marginTop: '20px', marginBottom: '10px' }}>
+              <label style={{ ...p.typography.label, display: 'block', marginBottom: '4px' }}>
+                What kind of work do you do? <span style={{ color: p.colors.danger }}>*</span>
               </label>
-              <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.5 }}>
-                Choose your core service area.
-              </p>
             </div>
 
+            {/* Trade search — find your trade instantly */}
+            <div style={{ marginBottom: '14px', position: 'relative' }}>
+              <div style={{ position: 'relative' }}>
+                <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: p.colors.subtle }} />
+                <input
+                  data-testid="input-trade-search"
+                  type="text"
+                  placeholder="Type your trade... (e.g. plumber, cleaning, HVAC)"
+                  value={!ws.selectedCategory ? tradeSearch : ''}
+                  onChange={e => { setTradeSearch(e.target.value); if (ws.selectedCategory) { selectCategory(''); } }}
+                  className="premium-input"
+                  style={{ paddingLeft: '36px', height: '44px', fontSize: '14px' }}
+                />
+              </div>
+              {globalSearchResults.length > 0 && !ws.selectedCategory && (
+                <div style={{
+                  marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px',
+                  border: `1px solid ${p.colors.border}`, borderRadius: p.radius.md,
+                  background: '#fff', overflow: 'hidden',
+                }}>
+                  {globalSearchResults.map(tr => (
+                    <button
+                      key={tr.id}
+                      data-testid={`search-result-${tr.id}`}
+                      onClick={() => {
+                        selectCategory(tr.categoryId);
+                        setTimeout(() => selectTrade(tr), 0);
+                        setTradeSearch('');
+                      }}
+                      style={{
+                        textAlign: 'left', padding: '10px 14px', border: 'none',
+                        background: ws.selectedTrade === tr.id ? p.colors.accentLighter : 'transparent',
+                        cursor: 'pointer', fontSize: '14px', color: p.colors.heading,
+                        transition: p.transitions.fast,
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = p.colors.surfaceRaised; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = ws.selectedTrade === tr.id ? p.colors.accentLighter : 'transparent'; }}
+                    >
+                      {tr.label}
+                      <span style={{ fontSize: '11px', color: p.colors.subtle, marginLeft: '8px' }}>
+                        {CATEGORIES.find(c => c.id === tr.categoryId)?.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {tradeSearch.length >= 2 && globalSearchResults.length === 0 && !ws.selectedCategory && (
+                <p style={{ fontSize: '12px', color: p.colors.muted, margin: '6px 0 0' }}>
+                  No matches. Choose a category below or select "Custom / Not Listed."
+                </p>
+              )}
+            </div>
+
+            {/* Category grid — or browse by category */}
+            {!ws.selectedTrade && (
+              <div style={{ marginBottom: '8px' }}>
+                <p style={{ fontSize: '12px', color: p.colors.subtle, marginBottom: '8px' }}>Or browse by category:</p>
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '16px' }}>
               {CATEGORIES.map((cat) => {
                 const Icon = ICON_MAP[cat.icon] || Plus;
@@ -846,9 +945,33 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           </div>
         )}
 
-        {/* Step 1: Design Your Calculator (with logo + tagline moved here) */}
+        {/* Step 1: Preview & Polish (reframed from Design — now shows live preview first) */}
         {step === 1 && (
           <div>
+            {/* Live preview — real interactive QuoteWidget */}
+            <div className="animate-fade-in-up" style={{
+              marginBottom: '24px', padding: '16px', borderRadius: p.radius.lg,
+              border: `1px solid ${p.colors.border}`, background: p.colors.surfaceRaised,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div>
+                  <p style={{ fontSize: '13px', fontWeight: 600, color: p.colors.heading, margin: '0 0 2px' }}>
+                    Live preview
+                  </p>
+                  <p style={{ fontSize: '12px', color: p.colors.muted, margin: 0 }}>
+                    Interact with it — this is exactly what your customers see.
+                  </p>
+                </div>
+              </div>
+              <div style={{
+                borderRadius: p.radius.md, overflow: 'hidden',
+                background: '#f8fafb',
+              }}>
+                <QuoteWidget calculator={previewCalculatorData} isEmbed />
+              </div>
+            </div>
+
+            {/* Quick customization */}
             <div className="animate-fade-in-up" style={{ marginBottom: '20px' }}>
               <label style={{ ...p.typography.label, display: 'block', marginBottom: '12px' }}>
                 Brand Color
@@ -926,11 +1049,68 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               </div>
             </div>
 
-            <DesignStudio
-              settings={ws.calculatorSettings}
-              onChange={(newSettings) => set('calculatorSettings', newSettings)}
-            />
-            <Footer onBack={() => setStep(0)} onNext={() => setStep(2)} hint={STEP_HINTS[1]} />
+            {/* Advanced design — collapsed by default */}
+            <details style={{ marginTop: '4px' }}>
+              <summary style={{
+                fontSize: '13px', fontWeight: 600, color: p.colors.accent,
+                cursor: 'pointer', padding: '10px 0', listStyle: 'none',
+                display: 'flex', alignItems: 'center', gap: '6px',
+                userSelect: 'none',
+              }}>
+                <ChevronDown style={{ width: '14px', height: '14px' }} />
+                Advanced design settings
+                <span style={{ fontSize: '11px', fontWeight: 400, color: p.colors.subtle }}>(optional)</span>
+              </summary>
+              <DesignStudio
+                settings={ws.calculatorSettings}
+                onChange={(newSettings) => set('calculatorSettings', newSettings)}
+              />
+            </details>
+
+            {/* Quick link to lead form customization */}
+            <button
+              type="button"
+              onClick={() => setStep(3)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                fontSize: '13px', fontWeight: 500, color: p.colors.muted,
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '8px 0', marginTop: '4px',
+                transition: p.transitions.fast,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = p.colors.accent; }}
+              onMouseLeave={e => { e.currentTarget.style.color = p.colors.muted; }}
+            >
+              <Settings2 style={{ width: '13px', height: '13px' }} />
+              Customize lead form fields
+            </button>
+
+            {/* Publish directly from preview — no need for separate test step */}
+            <div style={{ marginTop: '16px' }}>
+              <button
+                data-testid="button-publish-from-preview"
+                onClick={() => generateMutation.mutate()}
+                disabled={generateMutation.isPending}
+                style={{
+                  width: '100%', padding: '16px', borderRadius: p.radius.lg,
+                  background: p.colors.accent, color: 'white', border: 'none',
+                  fontSize: '15px', fontWeight: 700, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  transition: p.transitions.fast,
+                  opacity: generateMutation.isPending ? 0.6 : 1,
+                }}
+              >
+                {generateMutation.isPending ? (
+                  <><Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> Building your calculator...</>
+                ) : (
+                  <><Zap style={{ width: '16px', height: '16px' }} /> Publish My Calculator</>
+                )}
+              </button>
+              {genError && (
+                <p style={{ fontSize: '13px', color: p.colors.danger, marginTop: '8px', textAlign: 'center' }}>{genError}</p>
+              )}
+            </div>
+            <Footer onBack={() => setStep(2)} onNext={undefined} hint={STEP_HINTS[1]} />
           </div>
         )}
 
@@ -1143,7 +1323,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 ))}
               </div>
             )}
-            <Footer onBack={() => setStep(1)} onNext={tryStep2Continue} hint={STEP_HINTS[2]} />
+            <Footer onBack={() => setStep(0)} onNext={tryStep2Continue} hint={STEP_HINTS[2]} />
           </div>
         )}
 
@@ -1155,8 +1335,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             onChange={(lf) => {
               set('calculatorSettings', { ...ws.calculatorSettings, lead_form: lf });
             }}
-            onBack={() => setStep(2)}
-            onNext={() => setStep(4)}
+            onBack={() => setStep(1)}
+            onNext={() => setStep(1)}
             draftGenerating={!!ws.draftJobId}
           />
         )}
@@ -1167,7 +1347,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             pricingConfig={resolvedPricingConfig}
             onPricingConfigChange={handlePricingConfigChange}
             onPublish={() => generateMutation.mutate()}
-            onBack={() => setStep(3)}
+            onBack={() => setStep(1)}
             onTestHistoryChange={setTestHistory}
             publishPending={generateMutation.isPending}
             genError={genError}
@@ -1426,25 +1606,18 @@ function Shell({ children, step, total, onHelp, title, subtitle, generating, gen
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.04em', color: p.colors.muted }}>
-              Step {step + 1} of {total}
+            <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.02em', color: p.colors.muted }}>
+              {step >= total - 1 ? 'Final step' : `Step ${step + 1} of ${total}`}
             </span>
-            {stepTime && (
+            {step >= 3 && step < total - 1 && (
               <span style={{
-                fontSize: '11px', fontWeight: 600, color: '#64748B',
-                background: '#F8FAFC', border: '1px solid #E2E8F0',
+                fontSize: '11px', fontWeight: 600, color: '#059669',
+                background: '#ECFDF5', border: '1px solid #A7F3D0',
                 padding: '2px 8px', borderRadius: 20,
               }}>
-                ⏱ {stepTime}
+                Almost done
               </span>
             )}
-            <span style={{
-              fontSize: '11px', fontWeight: 600, color: '#64748B',
-              background: '#F8FAFC', border: '1px solid #E2E8F0',
-              padding: '2px 8px', borderRadius: 20,
-            }}>
-              Total: ~3 min
-            </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{

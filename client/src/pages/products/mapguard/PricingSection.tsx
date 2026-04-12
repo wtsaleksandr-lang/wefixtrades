@@ -13,8 +13,15 @@ import {
 } from "./styles";
 import { MAPGUARD } from "@/config/pricing";
 
+const TIER_DESCRIPTIONS: Record<string, string> = {
+  "MapSetup\u2122": "Full profile rebuild to start strong",
+  "Basic": "Steady monitoring with light monthly improvements",
+  "Pro": "Faster progress with more monthly optimization work",
+};
+
 const PLANS = MAPGUARD.tiers.map(t => ({
   name: t.name,
+  desc: TIER_DESCRIPTIONS[t.name] || "",
   price: t.price,
   cadence: t.billingPeriod === "one-time" ? "one-time" : "/mo",
   badge: t.badge || null,
@@ -37,7 +44,7 @@ export default function PricingSection() {
             <span style={{ color: mkt.accent }}>No Contracts.</span>
           </h2>
           <p style={sectionSub}>
-            We set it up once, then manage it monthly so your profile keeps improving. Cancel anytime.
+            Includes ongoing optimization work — not just monitoring. We set it up, then manage and improve it monthly. Cancel anytime.
           </p>
         </div>
 
@@ -103,6 +110,11 @@ export default function PricingSection() {
               >
                 {plan.name}
               </h3>
+              {plan.desc && (
+                <p style={{ fontFamily: BODY_FONT, fontSize: 13, color: mkt.textMuted, lineHeight: 1.5, marginBottom: 12, marginTop: -4 }}>
+                  {plan.desc}
+                </p>
+              )}
 
               <div style={{ marginBottom: 24 }}>
                 <span

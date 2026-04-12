@@ -97,18 +97,55 @@ export async function readSSEStream(
 
 /* ─── Send chat message to unified API ─── */
 export interface SendChatParams {
-  surface: "website" | "audit" | "admin";
+  surface: "website" | "audit" | "admin" | "portal";
   messages: ChatMessage[];
   sessionId: string;
   reportId?: string;
   auditContext?: Record<string, any>;
   pageContext?: Record<string, any>;
+  /** Portal page hint (e.g., "overview", "billing", "onboarding") */
+  page?: string;
+  /** Portal onboarding ID (for onboarding page context) */
+  onboardingId?: number;
+  /** Portal unsaved form responses (for onboarding context) */
+  currentResponses?: Record<string, any>;
 }
 
 export async function sendChatMessage(params: SendChatParams): Promise<Response> {
   return fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: params.surface === "portal" ? "include" : "same-origin",
     body: JSON.stringify(params),
   });
+}
+
+/* ─── Portal-namespaced localStorage helpers ─── */
+const PORTAL_MESSAGES_KEY = "wft_portal_chat_messages";
+const PORTAL_OPEN_KEY = "wft_portal_chat_open";
+
+export function loadPortalMessages(): ChatMessage[] {
+  try {
+    const raw = localStorage.getItem(PORTAL_MESSAGES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch { /* noop */ }
+  return [];
+}
+
+export function savePortalMessages(messages: ChatMessage[]): void {
+  try {
+    const trimmed = messages.slice(-40);
+    localStorage.setItem(PORTAL_MESSAGES_KEY, JSON.stringify(trimmed));
+  } catch { /* noop */ }
+}
+
+export function loadPortalOpenState(): boolean {
+  try { return localStorage.getItem(PORTAL_OPEN_KEY) === "1"; } catch { return false; }
+}
+
+export function savePortalOpenState(open: boolean): void {
+  try { localStorage.setItem(PORTAL_OPEN_KEY, open ? "1" : "0"); } catch { /* noop */ }
 }

@@ -1,7 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw } from "lucide-react";
+import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Globe, Mic, ChevronDown, Save } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import ModeToggle from "@/components/portal/ModeToggle";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
 import {
   SERVICE_STATUS_LABELS, SERVICE_STATUS_STYLES,
   PAYMENT_STATUS_LABELS, PAYMENT_STATUS_STYLES,
@@ -55,6 +61,51 @@ interface ServiceDetail {
   payments: PaymentRow[];
 }
 
+interface TradeLineCallRow {
+  id: number;
+  direction: string;
+  caller_number: string | null;
+  duration_seconds: number;
+  outcome: string;
+  summary: string | null;
+  ended_at: string | null;
+  created_at: string | null;
+}
+
+interface TradeLineData {
+  config: {
+    currentMode: string;
+    variant: string;
+    channels: { voice: boolean; websiteChat: boolean; websiteVoice: boolean; sms: boolean; hostedFallback: boolean };
+    phoneRouting: { primaryBusinessNumber: string; forwardingMode: string; ringTimeoutSeconds: number };
+    website: { embedMode: string; hostedUrl: string };
+    voice?: { presetId: string; label: string; provider: string; voiceId: string; language: string };
+    personality?: { tone: string; humor: string; profanity: boolean; language: string };
+    widgetStyle?: { preset: string; bubbleLabel: string; accentMode: string };
+  } | null;
+  usage: {
+    voice_minutes_used: number;
+    calls_count: number;
+    sms_count: number;
+    included_minutes: number;
+    overage_minutes: number;
+  } | null;
+  recentCalls: TradeLineCallRow[];
+}
+
+function CallIcon({ outcome }: { outcome: string }) {
+  switch (outcome) {
+    case "answered":
+      return <PhoneIncoming className="w-4 h-4 text-emerald-500" />;
+    case "missed":
+      return <PhoneMissed className="w-4 h-4 text-red-500" />;
+    case "failed":
+      return <PhoneOff className="w-4 h-4 text-gray-400" />;
+    default:
+      return <PhoneCall className="w-4 h-4 text-gray-400" />;
+  }
+}
+
 function TaskIcon({ status }: { status: string }) {
   switch (status) {
     case "delivered":
@@ -85,9 +136,246 @@ function formatDate(dateStr: string | null): string {
   });
 }
 
+/* ─── Voice presets (mirrors server registry) ─── */
+const VOICE_PRESETS = [
+  { id: "professional-female", label: "Professional Female", desc: "Clear, polished tone", provider: "11labs", voiceId: "21m00Tcm4TlvDq8ikWAM" },
+  { id: "professional-male", label: "Professional Male", desc: "Confident, reassuring voice", provider: "11labs", voiceId: "TxGEqnHWrfWFTfGW9XjX" },
+  { id: "friendly-female", label: "Friendly Female", desc: "Warm and approachable", provider: "11labs", voiceId: "EXAVITQu4vr4xnSDxMaL" },
+  { id: "friendly-male", label: "Friendly Male", desc: "Casual and natural", provider: "11labs", voiceId: "pNInz6obpgDQGcFmaJgB" },
+];
+
+const TONE_OPTIONS = [
+  { value: "friendly", label: "Friendly", desc: "Warm and conversational" },
+  { value: "professional", label: "Professional", desc: "Polished and courteous" },
+  { value: "direct", label: "Direct", desc: "Short and to the point" },
+];
+
+const LANGUAGE_OPTIONS = [
+  { value: "en", label: "English" },
+  { value: "es", label: "Spanish" },
+  { value: "fr", label: "French" },
+];
+
+const WIDGET_PRESETS = [
+  { value: "clean", label: "Clean", desc: "Minimal, modern look" },
+  { value: "bold", label: "Bold", desc: "Prominent, high contrast" },
+  { value: "minimal", label: "Minimal", desc: "Subtle, lightweight" },
+];
+
+function VoiceAndStyleCard({
+  clientServiceId,
+  config,
+  onSaved,
+}: {
+  clientServiceId: number;
+  config: TradeLineData["config"];
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const [expanded, setExpanded] = useState(false);
+
+  // Draft state
+  const [voicePresetId, setVoicePresetId] = useState(config?.voice?.presetId || "professional-female");
+  const [tone, setTone] = useState(config?.personality?.tone || "friendly");
+  const [humor, setHumor] = useState(config?.personality?.humor || "off");
+  const [language, setLanguage] = useState(config?.personality?.language || "en");
+  const [widgetPreset, setWidgetPreset] = useState(config?.widgetStyle?.preset || "clean");
+  const [bubbleLabel, setBubbleLabel] = useState(config?.widgetStyle?.bubbleLabel || "Need help? Ask us");
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const selectedVoice = VOICE_PRESETS.find(v => v.id === voicePresetId);
+      const res = await fetch(`/api/portal/tradeline/${clientServiceId}/settings`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          voice: {
+            presetId: voicePresetId,
+            label: selectedVoice?.label || voicePresetId,
+            provider: selectedVoice?.provider || "11labs",
+            voiceId: selectedVoice?.voiceId || "21m00Tcm4TlvDq8ikWAM",
+            language,
+          },
+          personality: { tone, humor, language },
+          widgetStyle: { preset: widgetPreset, bubbleLabel },
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Settings saved", description: "Your voice & style preferences have been updated." });
+      onSaved();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Could not save settings. Please try again.", variant: "destructive" });
+    },
+  });
+
+  const hasChanges =
+    voicePresetId !== (config?.voice?.presetId || "professional-female") ||
+    tone !== (config?.personality?.tone || "friendly") ||
+    humor !== (config?.personality?.humor || "off") ||
+    language !== (config?.personality?.language || "en") ||
+    widgetPreset !== (config?.widgetStyle?.preset || "clean") ||
+    bubbleLabel !== (config?.widgetStyle?.bubbleLabel || "Need help? Ask us");
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-between w-full px-5 py-4 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <Mic className="w-4 h-4 text-teal-600" />
+          <h2 className="text-sm font-semibold text-gray-900">Voice & Style</h2>
+          <span className="text-xs text-gray-400">
+            {VOICE_PRESETS.find(v => v.id === voicePresetId)?.label} · {TONE_OPTIONS.find(t => t.value === tone)?.label}
+          </span>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      {expanded && (
+        <div className="px-5 pb-4 space-y-3.5 border-t border-gray-100 pt-3">
+          {/* Voice preset */}
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1.5 block">Voice</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {VOICE_PRESETS.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setVoicePresetId(v.id)}
+                  className={`text-left px-2.5 py-2 rounded-lg border text-sm transition-colors ${
+                    voicePresetId === v.id
+                      ? "border-teal-500 bg-teal-50 text-teal-900"
+                      : "border-gray-200 hover:border-gray-300 text-gray-700"
+                  }`}
+                >
+                  <span className="font-medium">{v.label}</span>
+                  <span className="text-[11px] text-gray-400 ml-1">{v.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tone + Language (side by side) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-700 mb-1.5 block">Tone</label>
+              <div className="flex gap-1">
+                {TONE_OPTIONS.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setTone(t.value)}
+                    className={`flex-1 text-center px-2 py-1.5 rounded-lg border text-xs transition-colors ${
+                      tone === t.value
+                        ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
+                        : "border-gray-200 hover:border-gray-300 text-gray-600"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 mb-1.5 block">Language</label>
+              <div className="flex gap-1">
+                {LANGUAGE_OPTIONS.map((l) => (
+                  <button
+                    key={l.value}
+                    type="button"
+                    onClick={() => setLanguage(l.value)}
+                    className={`px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${
+                      language === l.value
+                        ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
+                        : "border-gray-200 hover:border-gray-300 text-gray-600"
+                    }`}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          {language !== "en" && (
+            <p className="text-[11px] text-amber-600 -mt-2">Responds in {LANGUAGE_OPTIONS.find(l => l.value === language)?.label} when possible. English callers still get English.</p>
+          )}
+
+          {/* Humor + Widget style (side by side) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs font-medium text-gray-700">Light humor</label>
+                <p className="text-[10px] text-gray-400">Subtle warmth only</p>
+              </div>
+              <Switch
+                checked={humor === "light"}
+                onCheckedChange={(v) => setHumor(v ? "light" : "off")}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 mb-1.5 block">Widget Style</label>
+              <div className="flex gap-1">
+                {WIDGET_PRESETS.map((w) => (
+                  <button
+                    key={w.value}
+                    type="button"
+                    onClick={() => setWidgetPreset(w.value)}
+                    className={`flex-1 text-center px-2 py-1.5 rounded-lg border text-xs transition-colors ${
+                      widgetPreset === w.value
+                        ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
+                        : "border-gray-200 hover:border-gray-300 text-gray-600"
+                    }`}
+                  >
+                    {w.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Bubble label */}
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-medium text-gray-700 whitespace-nowrap">Bubble text</label>
+            <Input
+              value={bubbleLabel}
+              onChange={(e) => setBubbleLabel(e.target.value)}
+              placeholder="Need help? Ask us"
+              className="h-7 text-xs flex-1"
+              maxLength={40}
+            />
+          </div>
+
+          {/* Save */}
+          {hasChanges && (
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="w-full h-9 text-sm bg-teal-600 hover:bg-teal-700"
+            >
+              {saveMutation.isPending ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> Saving...</>
+              ) : (
+                <><Save className="w-3.5 h-3.5 mr-1.5" /> Save Voice & Style</>
+              )}
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PortalServiceDetail() {
   const [, params] = useRoute("/portal/services/:id");
   const serviceId = params?.id;
+
+  const queryClient = useQueryClient();
 
   const { data, isLoading, error, refetch } = useQuery<ServiceDetail>({
     queryKey: ["/api/portal/services", serviceId],
@@ -97,6 +385,18 @@ export default function PortalServiceDetail() {
       return res.json();
     },
     enabled: !!serviceId,
+  });
+
+  const isTradeLine = data?.service.service_id?.startsWith("tradeline");
+
+  const { data: tlData } = useQuery<TradeLineData>({
+    queryKey: ["/api/portal/tradeline", serviceId],
+    queryFn: async () => {
+      const res = await fetch(`/api/portal/tradeline/${serviceId}`, { credentials: "include" });
+      if (!res.ok) return { config: null, usage: null, recentCalls: [] };
+      return res.json();
+    },
+    enabled: !!serviceId && !!isTradeLine,
   });
 
   return (
@@ -148,6 +448,140 @@ export default function PortalServiceDetail() {
                 </span>
               </div>
             </div>
+
+            {/* TradeLine section */}
+            {isTradeLine && tlData?.config && (
+              <>
+                {/* Mode control */}
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <h2 className="text-sm font-semibold text-gray-900 mb-3">Current Mode</h2>
+                  <ModeToggle
+                    currentMode={tlData.config.currentMode as any}
+                    clientServiceId={parseInt(serviceId!)}
+                    apiBase="/api/portal/tradeline"
+                    onModeChanged={() => {
+                      queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline", serviceId] });
+                    }}
+                  />
+                  {tlData.config.channels.voice && (
+                    <p className="text-xs text-gray-400 mt-3 flex items-center gap-1.5">
+                      <PhoneCall className="w-3 h-3" />
+                      Your phone rings first. If you miss it, TradeLine steps in.
+                    </p>
+                  )}
+                </div>
+
+                {/* Voice & Style settings */}
+                <VoiceAndStyleCard
+                  clientServiceId={parseInt(serviceId!)}
+                  config={tlData.config}
+                  onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline", serviceId] })}
+                />
+
+                {/* Usage summary */}
+                {tlData.usage && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-5">
+                    <h2 className="text-sm font-semibold text-gray-900 mb-3">This Month</h2>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Calls</p>
+                        <p className="text-lg font-semibold text-gray-900">{tlData.usage.calls_count}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Voice Minutes</p>
+                        <p className="text-lg font-semibold text-gray-900">
+                          {tlData.usage.voice_minutes_used}
+                          <span className="text-sm font-normal text-gray-400">/{tlData.usage.included_minutes}</span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">SMS</p>
+                        <p className="text-lg font-semibold text-gray-900">{tlData.usage.sms_count}</p>
+                      </div>
+                    </div>
+                    {tlData.usage.overage_minutes > 0 && (
+                      <p className="text-xs text-amber-600 mt-2">
+                        {tlData.usage.overage_minutes} overage minutes this period
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Recent calls */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <h2 className="text-sm font-semibold text-gray-900">Recent Calls</h2>
+                  </div>
+                  {tlData.recentCalls.length === 0 ? (
+                    <div className="px-5 py-8 text-center text-sm text-gray-400">
+                      No calls yet. Activity will appear here once your system is live.
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-gray-50">
+                      {tlData.recentCalls.map((call) => (
+                        <li key={call.id} className="px-5 py-3 flex items-start gap-3">
+                          <div className="mt-0.5 shrink-0">
+                            <CallIcon outcome={call.outcome} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-700">
+                                {call.caller_number || "Unknown caller"}
+                              </span>
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded capitalize ${
+                                call.outcome === "answered" ? "bg-emerald-50 text-emerald-700"
+                                : call.outcome === "missed" ? "bg-red-50 text-red-700"
+                                : "bg-gray-100 text-gray-600"
+                              }`}>
+                                {call.outcome}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-400">
+                              {call.duration_seconds > 0 && (
+                                <span>{Math.floor(call.duration_seconds / 60)}:{String(call.duration_seconds % 60).padStart(2, "0")}</span>
+                              )}
+                              {call.ended_at && (
+                                <span>{formatDate(call.ended_at)}</span>
+                              )}
+                            </div>
+                            {call.summary && (
+                              <p className="text-xs text-gray-500 mt-1 line-clamp-2">{call.summary}</p>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Widget / hosted info */}
+                {(tlData.config.website.embedMode !== "none" || tlData.config.website.hostedUrl) && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-5">
+                    <h2 className="text-sm font-semibold text-gray-900 mb-2">Website Setup</h2>
+                    <div className="space-y-2 text-sm text-gray-600">
+                      {tlData.config.website.embedMode !== "none" && (
+                        <div className="flex items-center gap-2">
+                          <Globe className="w-3.5 h-3.5 text-gray-400" />
+                          <span>Install type: <span className="font-medium">{
+                            tlData.config.website.embedMode === "direct_embed" ? "Installed on your website"
+                            : tlData.config.website.embedMode === "hosted_fallback" ? "Hosted version"
+                            : tlData.config.website.embedMode.replace(/_/g, " ")
+                          }</span></span>
+                        </div>
+                      )}
+                      {tlData.config.website.hostedUrl && (
+                        <div className="flex items-center gap-2">
+                          <Globe className="w-3.5 h-3.5 text-gray-400" />
+                          <a href={tlData.config.website.hostedUrl} target="_blank" rel="noopener noreferrer" className="text-[#2D6A4F] hover:underline text-xs truncate">
+                            {tlData.config.website.hostedUrl}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Onboarding status */}
             {data.onboarding && data.onboarding.status !== "approved" && (

@@ -13,12 +13,17 @@ export const eff = {
   buttonBorder: '#d5e1e7',
   buttonText: '#e4edf1',
   font: '"Satoshi Variable", system-ui, sans-serif',
-  fontMono: '"Et Mono", Impact, sans-serif',
+  fontMono: '"Et Mono", "SF Mono", "Roboto Mono", monospace',
   radiusSm: '0.5em',
   radiusMd: '0.75em',
   radiusLg: '1em',
   radiusXl: '1.5em',
-  radius2xl: '2em',
+  radius2xl: '1.75em',
+  /** Semantic color for validation errors */
+  error: '#dc2626',
+  /** Semantic color for success states */
+  success: '#16a34a',
+  successBg: '#f0fdf4',
 } as const;
 
 /** Shared style for step titles */
@@ -26,7 +31,7 @@ export const stepTitleStyle: React.CSSProperties = {
   fontSize: '20px',
   fontWeight: 700,
   color: eff.text,
-  lineHeight: 1.2,
+  lineHeight: 1.25,
   margin: 0,
   fontFamily: eff.font,
 };
@@ -36,7 +41,7 @@ export const stepSubtitleStyle: React.CSSProperties = {
   fontSize: '14px',
   color: eff.textBody,
   lineHeight: 1.5,
-  margin: '8px 0 0',
+  margin: '4px 0 0',
 };
 
 /** Shared style for question labels */
@@ -66,7 +71,7 @@ export const primaryButtonStyle: React.CSSProperties = {
   justifyContent: 'center',
   gap: '8px',
   borderRadius: eff.radiusXl,
-  padding: '14px 24px',
+  padding: '16px 24px',
   fontSize: '15px',
   fontWeight: 700,
   color: eff.buttonText,
@@ -92,6 +97,14 @@ export const inputStyle: React.CSSProperties = {
   outline: 'none',
   transition: 'border-color 0.15s, box-shadow 0.15s',
   boxSizing: 'border-box' as const,
+};
+
+/** Shared style for inline error messages */
+export const errorTextStyle: React.CSSProperties = {
+  fontSize: '13px',
+  color: eff.error,
+  margin: '4px 0 0',
+  lineHeight: 1.4,
 };
 
 /** Shared style for selectable option rows (checkbox/radio) */
