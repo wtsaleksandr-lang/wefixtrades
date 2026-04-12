@@ -806,7 +806,7 @@ export function registerPortalRoutes(app: Express) {
    */
   app.get("/api/portal/tradeline/:clientServiceId", requireClient, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
+      const csId = parseInt(req.params.clientServiceId as string);
       if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
 
       const ownership = await verifyTradeLineOwnership(req, res, csId);
@@ -838,7 +838,7 @@ export function registerPortalRoutes(app: Express) {
    */
   app.post("/api/portal/tradeline/:clientServiceId/mode", requireClient, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
+      const csId = parseInt(req.params.clientServiceId as string);
       if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
 
       const ownership = await verifyTradeLineOwnership(req, res, csId);
@@ -867,7 +867,7 @@ export function registerPortalRoutes(app: Express) {
    */
   app.post("/api/portal/tradeline/:clientServiceId/settings", requireClient, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
+      const csId = parseInt(req.params.clientServiceId as string);
       if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
 
       const ownership = await verifyTradeLineOwnership(req, res, csId);
@@ -898,7 +898,7 @@ export function registerPortalRoutes(app: Express) {
    */
   app.get("/api/portal/tradeline/:clientServiceId/calls", requireClient, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
+      const csId = parseInt(req.params.clientServiceId as string);
       if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
 
       const ownership = await verifyTradeLineOwnership(req, res, csId);
@@ -920,7 +920,7 @@ export function registerPortalRoutes(app: Express) {
    */
   app.get("/api/portal/tradeline/:clientServiceId/widget-config", requireClient, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
+      const csId = parseInt(req.params.clientServiceId as string);
       if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
 
       const ownership = await verifyTradeLineOwnership(req, res, csId);

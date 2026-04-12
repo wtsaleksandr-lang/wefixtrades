@@ -38,7 +38,21 @@ export default function PortalServices() {
     },
   });
 
-  const { data: qqData } = useQuery<{ calculator: { id: number; business_name: string; slug: string; edit_token: string; plan_tier: string; total_views: number; total_leads: number; status: string } | null }>({
+  const { data: qqData } = useQuery<{ calculator: {
+    id: number;
+    business_name: string;
+    trade_type: string | null;
+    slug: string;
+    plan_tier: string;
+    total_views: number;
+    total_leads: number;
+    status: string;
+    calculator_url: string | null;
+    edit_url: string | null;
+    preview_url: string | null;
+    edit_token_expired: boolean;
+    created_at: string | null;
+  } | null }>({
     queryKey: ["/api/portal/quotequick/summary"],
     queryFn: async () => {
       const res = await fetch("/api/portal/quotequick/summary", { credentials: "include" });

@@ -490,7 +490,10 @@ export async function buildTradeLineAssistant(
 
   // 5. Set status to "building"
   await storage.updateTradeLineConfig(clientServiceId, {
-    assistant: { status: "building" },
+    assistant: {
+      ...config.assistant,
+      status: "building",
+    },
   });
 
   try {
@@ -499,6 +502,7 @@ export async function buildTradeLineAssistant(
 
     await storage.updateTradeLineConfig(clientServiceId, {
       assistant: {
+        ...config.assistant,
         status: "built",
         templateId: definition.templateId,
         inputHash: definition.inputHash,
@@ -518,6 +522,7 @@ export async function buildTradeLineAssistant(
     // 7. Store failure
     await storage.updateTradeLineConfig(clientServiceId, {
       assistant: {
+        ...config.assistant,
         status: "failed",
         lastBuildError: err.message || "Unknown build error",
       },

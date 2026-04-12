@@ -2836,14 +2836,15 @@ router.post('/save-lead', async (req: Request, res: Response) => {
       source_page: source_page || null,
     });
 
-    // 2. Send PDF email (non-blocking)
-    if (reportId) {
-      import("./lib/sendAuditReport").then(({ sendAuditReportEmail }) => {
-        sendAuditReportEmail({ reportId, recipientEmail: email.trim() }).catch((err) => {
-          console.error("[audit-lead] PDF email error:", err?.message);
+      // 2. Send PDF email (non-blocking)
+      if (reportId) {
+        import("./lib/sendAuditReport").then(({ sendAuditReportEmail }) => {
+          const origin = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+          sendAuditReportEmail({ reportId, recipientEmail: email.trim(), origin }).catch((err) => {
+            console.error("[audit-lead] PDF email error:", err?.message);
+          });
         });
-      });
-    }
+      }
 
     // 3. Enqueue follow-up sequence (non-blocking)
     enqueueAuditFollowupSequence({

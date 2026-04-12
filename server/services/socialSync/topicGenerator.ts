@@ -119,7 +119,7 @@ export async function generateTopics(
 
   // Validate and deduplicate
   const validTopics: any[] = [];
-  const existingTitleSet = new Set(existingTitles.map(t => t.trim().toLowerCase()));
+  const existingTitleSet = new Set<string>(existingTitles.map((t) => t.trim().toLowerCase()));
 
   for (const item of parsed) {
     if (!item.title || typeof item.title !== "string" || item.title.length < 10) {
@@ -134,11 +134,11 @@ export async function generateTopics(
     }
 
     // Check for near-duplicate via simple word overlap
-    const titleWords = new Set(normalizedTitle.split(/\s+/));
+    const titleWords = new Set<string>(normalizedTitle.split(/\s+/));
     let isDuplicate = false;
     for (const existing of existingTitleSet) {
-      const existingWords = new Set(existing.split(/\s+/));
-      const overlap = [...titleWords].filter(w => existingWords.has(w) && w.length > 3).length;
+      const existingWords = new Set<string>(existing.split(/\s+/));
+      const overlap = Array.from(titleWords).filter((w) => existingWords.has(w) && w.length > 3).length;
       if (overlap >= Math.min(titleWords.size, existingWords.size) * 0.7) {
         isDuplicate = true;
         break;

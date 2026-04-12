@@ -16,7 +16,7 @@ import { disconnectPlatform, checkConnectionExpiry } from "../services/socialSyn
 import { clearCooldown, getCooldownSummary } from "../services/socialSync/cooldownManager";
 import {
   validateGoogleBusinessConfig, buildGoogleOAuthUrl, handleGoogleCallback,
-  selectGoogleLocation, validateGoogleConnection,
+  selectGoogleLocation, validateGoogleConnection, getGoogleAccessToken,
 } from "../services/socialSync/googleBusinessService";
 import { disconnectPlatform as disconnectPlatformFn } from "../services/socialSync/connectionLifecycle";
 import { getClientProfitability } from "../services/socialSync/costTracker";

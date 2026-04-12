@@ -274,7 +274,7 @@ export async function processTrialLifecycle(): Promise<{ processed: number; emai
     processed++;
   }
 
-  return { processed, emails, paused: 0, errors };
+  return { processed, emails, errors };
 }
 
 /**

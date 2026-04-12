@@ -4053,7 +4053,7 @@ export default function ProductPage() {
         {/* ── WebBoost: Built For + Problem + Alternatives + What We Do + Benefits ── */}
         {false /* WebBoost removed */ && (
           <>
-            <WBBuiltForSection trades={product.bestFor} />
+            <WBBuiltForSection trades={product?.bestFor ?? []} />
             <WBProblemSection />
             <WBAlternativesSection />
             <WBWhatWeDoSection />
@@ -4167,7 +4167,7 @@ export default function ProductPage() {
         {isWebCare && <WCResultsSection outcomes={product.outcomes} />}
 
         {/* ── WebBoost: Results (after reviews, before pricing) ── */}
-        {false /* WebBoost removed */ && <WBResultsSection outcomes={product.outcomes} />}
+        {false /* WebBoost removed */ && <WBResultsSection outcomes={product?.outcomes ?? []} />}
 
         {/* ── §5 PRICING (MANDATORY) ── */}
         <PricingSection

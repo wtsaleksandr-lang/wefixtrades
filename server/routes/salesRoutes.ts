@@ -38,7 +38,7 @@ export function registerSalesRoutes(app: Express): void {
 
   app.patch("/api/sales/leads/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       if (isNaN(id)) return res.status(400).json({ error: "Invalid ID" });
 
       const updates: any = {};
@@ -57,7 +57,7 @@ export function registerSalesRoutes(app: Express): void {
 
   app.post("/api/sales/leads/:id/contacted", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       if (isNaN(id)) return res.status(400).json({ error: "Invalid ID" });
 
       const updates: any = { status: "contacted", last_contacted_at: new Date() };
@@ -76,7 +76,7 @@ export function registerSalesRoutes(app: Express): void {
   // Demo data management
   app.post("/api/admin/demo/seed/:clientId", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const clientId = parseInt(req.params.clientId);
+      const clientId = parseInt(req.params.clientId as string);
       if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
       const result = await seedDemoData(clientId);
       res.json({ ok: true, ...result });
@@ -87,7 +87,7 @@ export function registerSalesRoutes(app: Express): void {
 
   app.post("/api/admin/demo/reset/:clientId", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const clientId = parseInt(req.params.clientId);
+      const clientId = parseInt(req.params.clientId as string);
       if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
       await resetDemoData(clientId);
       res.json({ ok: true });

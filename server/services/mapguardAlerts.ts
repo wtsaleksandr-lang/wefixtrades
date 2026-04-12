@@ -157,7 +157,7 @@ const SEVERITY_COLORS: Record<string, { bg: string; text: string; label: string 
 };
 
 function buildAlertEmail(alert: InsertMapguardAlert & { business_name: string }, clientId: number): { subject: string; html: string } {
-  const sev = SEVERITY_COLORS[alert.severity] || SEVERITY_COLORS.warning;
+  const sev = SEVERITY_COLORS[alert.severity ?? "warning"] || SEVERITY_COLORS.warning;
   const dashboardLink = `${APP_URL}/admin/crm/clients/${clientId}`;
   const metricData = alert.metric_data as Record<string, any> || {};
 
