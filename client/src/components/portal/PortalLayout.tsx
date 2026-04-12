@@ -7,6 +7,7 @@ import {
   Share2,
   Settings,
   HelpCircle,
+  Shield,
   ChevronLeft,
   Menu,
   LogOut,

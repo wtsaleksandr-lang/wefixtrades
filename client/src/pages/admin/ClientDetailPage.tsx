@@ -26,6 +26,8 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TaskCard, ClientTasksEmptyState, isOverdue, type TaskItem } from "@/components/admin/TaskCard";
+import MapguardOpsTab from "@/components/admin/MapguardOpsTab";
+
 import SocialSyncTab from "@/components/admin/SocialSyncTab";
 
 /* ─── Types ─── */
@@ -540,6 +542,7 @@ export default function ClientDetailPage() {
           <TabsList className="w-full grid grid-cols-5">
             <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            <TabsTrigger value="mapguard">MapGuard</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
             <TabsTrigger value="socialsync">SocialSync</TabsTrigger>
@@ -830,6 +833,11 @@ export default function ClientDetailPage() {
                 />
               ))
             )}
+          </TabsContent>
+
+          {/* ─── MapGuard Tab ─── */}
+          <TabsContent value="mapguard" className="mt-4">
+            <MapguardOpsTab clientId={clientId} />
           </TabsContent>
 
           {/* ─── Billing Tab ─── */}

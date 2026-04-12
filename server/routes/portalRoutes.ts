@@ -5,6 +5,7 @@ import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../services/threadService";
 import { authRateLimiter } from "../services/rateLimiter";
+
 import {
   clients,
   clientServices,
@@ -19,11 +20,17 @@ import {
   deploymentStatus,
   supportTickets,
   passwordResetTokens,
+  mapguardSnapshots,
+  mapguardTasks,
   getTradeLineReadiness,
   mapOnboardingToTradeLineConfig,
   advanceSetupStage,
 } from "@shared/schema";
-import { storage } from "../storage";
+
+import { compileMonthlyReport } from "../services/mapguardReports";
+import { getExecutionUsage } from "../services/mapguardTaskEngine";
+import { generateClientActivityFeed } from "../services/mapguardRetention";
+import { getClientPerformanceSummary } from "../services/mapguardMonitor";
 
 /* ─── Helpers ─── */
 
@@ -1252,6 +1259,215 @@ export function registerPortalRoutes(app: Express) {
     } catch (err: any) {
       console.error("Portal SocialSync report error:", err);
       res.status(500).json({ error: "Failed to load SocialSync report" });
+    }
+  });
+
+  /**
+   * GET /api/portal/mapguard
+   * Client-safe MapGuard dashboard data.
+   * Returns snapshots, health, and trend data — no tasks, alerts, or supplier info.
+   */
+  app.get("/api/portal/mapguard", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      // Check if client has active MapGuard service
+      const [mgService] = await db.select({ id: clientServices.id, status: clientServices.status })
+        .from(clientServices)
+        .innerJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
+        .where(and(
+          eq(clientServices.client_id, clientId),
+          sql`${serviceCatalog.id} LIKE 'mapguard%'`,
+          sql`${clientServices.status} IN ('active', 'onboarding')`,
+        ))
+        .limit(1);
+
+      if (!mgService) {
+        return res.json({ active: false, snapshots: [], health: null });
+      }
+
+      // Get last 12 snapshots (newest first)
+      const snapshots = await db.select({
+        id: mapguardSnapshots.id,
+        captured_at: mapguardSnapshots.captured_at,
+        rating: mapguardSnapshots.rating,
+        review_count: mapguardSnapshots.review_count,
+        photo_count: mapguardSnapshots.photo_count,
+        has_website: mapguardSnapshots.has_website,
+        has_description: mapguardSnapshots.has_description,
+        keywords_in_local_pack: mapguardSnapshots.keywords_in_local_pack,
+        keywords_in_top_10: mapguardSnapshots.keywords_in_top_10,
+        score_total: mapguardSnapshots.score_total,
+        score_grade: mapguardSnapshots.score_grade,
+        score_google_maps: mapguardSnapshots.score_google_maps,
+        score_search_visibility: mapguardSnapshots.score_search_visibility,
+        changes: mapguardSnapshots.changes,
+      })
+      .from(mapguardSnapshots)
+      .where(eq(mapguardSnapshots.client_id, clientId))
+      .orderBy(desc(mapguardSnapshots.captured_at))
+      .limit(12);
+
+      const latest = snapshots[0] || null;
+      const previous = snapshots[1] || null;
+
+      // Compute client-safe health status
+      let health: string = "monitoring";
+      if (latest && previous) {
+        const changes = latest.changes as any;
+        const scoreDelta = changes?.score_delta ?? null;
+        if (scoreDelta !== null && scoreDelta > 5) health = "improving";
+        else if (scoreDelta !== null && scoreDelta < -8) health = "needs_attention";
+        else if (scoreDelta !== null && scoreDelta < -3) health = "watch_closely";
+        else health = "healthy";
+      } else if (latest) {
+        health = "healthy";
+      }
+
+      // Build client-safe snapshot data (strip internal fields)
+      const clientSnapshots = snapshots.map(s => ({
+        captured_at: s.captured_at,
+        score: s.score_total,
+        grade: s.score_grade,
+        rating: s.rating,
+        review_count: s.review_count,
+        keywords_in_local_pack: s.keywords_in_local_pack,
+        keywords_in_top_10: s.keywords_in_top_10,
+      }));
+
+      // Compute simple deltas for display
+      const deltas = latest && previous ? {
+        score: (latest.changes as any)?.score_delta ?? null,
+        rating: (latest.changes as any)?.rating_delta ?? null,
+        reviews: (latest.changes as any)?.reviews_delta ?? null,
+        local_pack: (latest.changes as any)?.local_pack_delta ?? null,
+      } : null;
+
+      // Build client-friendly activity list from recent tasks
+      const TASK_TYPE_TRANSLATIONS: Record<string, string> = {
+        baseline_audit_review: "Reviewing your visibility data and planning improvements",
+        gbp_optimization: "Optimizing your Google Business profile",
+        citation_cleanup: "Improving your online listings consistency",
+        review_issue_response: "Handling and improving your customer reviews",
+        competitor_reaction: "Monitoring competitors and adjusting your visibility strategy",
+        profile_content_update: "Updating your profile content for better performance",
+        photo_upload: "Refreshing your business photos",
+        post_scheduling: "Creating and scheduling posts for your profile",
+        suspension_support: "Resolving a profile issue with Google",
+        monthly_report_review: "Preparing your monthly performance review",
+        manual_followup: "Following up on an improvement action",
+      };
+
+      const recentTaskTypes = await db.selectDistinct({ task_type: mapguardTasks.task_type })
+        .from(mapguardTasks)
+        .where(and(
+          eq(mapguardTasks.client_id, clientId),
+          sql`${mapguardTasks.status} NOT IN ('completed', 'cancelled')`,
+        ))
+        .limit(5);
+
+      const activities = recentTaskTypes
+        .map(r => TASK_TYPE_TRANSLATIONS[r.task_type])
+        .filter(Boolean);
+
+      // Add recent completions as past-tense signals
+      const [recentCompleted] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(mapguardTasks)
+        .where(and(
+          eq(mapguardTasks.client_id, clientId),
+          eq(mapguardTasks.status, "completed"),
+          sql`${mapguardTasks.completed_at} > NOW() - INTERVAL '30 days'`,
+        ));
+      const completedCount = recentCompleted?.count || 0;
+
+      // Client-safe execution progress (no internal limits exposed)
+      let executionProgress: { completed: number; pending: number; has_more: boolean } | null = null;
+      try {
+        const usage = await getExecutionUsage(clientId);
+        executionProgress = {
+          completed: usage.used,
+          pending: usage.backlog_count,
+          has_more: usage.upgrade_recommended,
+        };
+      } catch { /* skip on error */ }
+
+      res.json({
+        active: true,
+        health,
+        last_scan: latest?.captured_at || null,
+        activities,
+        completed_last_30d: completedCount,
+        execution_progress: executionProgress,
+        activity_feed: await generateClientActivityFeed(clientId, 8),
+        since_start: await (async () => {
+          try {
+            const perf = await getClientPerformanceSummary(clientId);
+            if (!perf || perf.score_change == null) return null;
+            return { score_change: perf.score_change, reviews_gained: perf.reviews_gained, days_active: perf.days_active };
+          } catch { return null; }
+        })(),
+        current: latest ? {
+          score: latest.score_total,
+          grade: latest.score_grade,
+          rating: latest.rating,
+          review_count: latest.review_count,
+          photo_count: latest.photo_count,
+          has_website: latest.has_website,
+          has_description: latest.has_description,
+          keywords_in_local_pack: latest.keywords_in_local_pack,
+          keywords_in_top_10: latest.keywords_in_top_10,
+        } : null,
+        deltas,
+        snapshots: clientSnapshots.reverse(), // chronological for charts
+      });
+    } catch (err: any) {
+      console.error("Portal MapGuard error:", err);
+      res.status(500).json({ error: "Failed to load MapGuard data" });
+    }
+  });
+
+  /**
+   * GET /api/portal/mapguard/report/:year/:month
+   * Client-safe monthly report data.
+   */
+  app.get("/api/portal/mapguard/report/:year/:month", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const year = parseInt(req.params.year as string);
+      const month = parseInt(req.params.month as string);
+      if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+        return res.status(400).json({ error: "Invalid date parameters" });
+      }
+
+      const report = await compileMonthlyReport(clientId, year, month);
+      if (!report) return res.status(404).json({ error: "No report data for this month" });
+
+      // Return client-safe subset (strip internal counts)
+      res.json({
+        month_label: report.month_label,
+        business_name: report.business_name,
+        score_end: report.score_end,
+        score_delta: report.score_delta,
+        grade_end: report.grade_end,
+        rating_end: report.rating_end,
+        rating_delta: report.rating_delta,
+        reviews_end: report.reviews_end,
+        reviews_gained: report.reviews_gained,
+        local_pack_end: report.local_pack_end,
+        scans_this_month: report.scans_this_month,
+        has_website: report.has_website,
+        has_description: report.has_description,
+        photo_count: report.photo_count,
+        completed_actions: report.completed_actions,
+        active_work: report.active_work,
+        movement: report.movement,
+      });
+    } catch (err: any) {
+      console.error("Portal MapGuard report error:", err);
+      res.status(500).json({ error: "Failed to load report" });
     }
   });
 }

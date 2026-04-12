@@ -230,7 +230,7 @@ export const WEBCARE: ProductDef = {
 export const MAPGUARD: ProductDef = {
   id: "mapguard",
   name: "MapGuard\u2122",
-  tagline: "Keep your Google Business Profile optimized and ranking",
+  tagline: "Fully managed Google Maps visibility \u2014 we monitor, fix, and improve your ranking for you",
   category: "visibility",
   setup: 397,
   tiers: [
@@ -240,10 +240,10 @@ export const MAPGUARD: ProductDef = {
       price: 397,
       billingPeriod: "one-time",
       features: [
-        "Full GBP audit & rebuild from scratch",
+        "Full GBP audit & profile rebuild",
         "Category, services & area optimization",
         "Business description & keyword tuning",
-        "Photo uploads & first posts",
+        "Photo uploads & initial posts",
         "Before/after visibility report",
       ],
     },
@@ -253,10 +253,10 @@ export const MAPGUARD: ProductDef = {
       price: 99,
       billingPeriod: "monthly",
       features: [
+        "Weekly visibility monitoring & alerts",
         "2 Google Business posts/month",
-        "Profile monitoring & alerts",
-        "Listing accuracy checks",
-        "Monthly ranking snapshot",
+        "Profile accuracy checks & fixes",
+        "Monthly performance report",
       ],
     },
     {
@@ -267,11 +267,12 @@ export const MAPGUARD: ProductDef = {
       highlighted: true,
       badge: "Most Popular",
       features: [
+        "Weekly visibility monitoring & alerts",
         "4 Google Business posts/month",
         "Review response management",
-        "Local keyword optimization",
-        "Competitor tracking",
-        "Monthly performance report",
+        "Ongoing keyword & category optimization",
+        "Competitor tracking & response",
+        "Monthly performance report with recommendations",
       ],
     },
   ],
@@ -540,14 +541,14 @@ export const ALL_PRODUCTS: ProductDef[] = [
    ═══════════════════════════════════════════ */
 export const BUNDLE_STARTER: BundleDef = {
   id: "bundle-starter",
-  name: "Starter System",
-  tagline: "Best for getting started",
+  name: "Visibility Starter",
+  tagline: "Get visible and start building trust",
   price: 249,
   billingPeriod: "monthly",
   includes: [
-    { productId: "quotequick", tierId: "quotequick-pro", label: "QuoteQuick Pro", value: 79 },
-    { productId: "mapguard", tierId: "mapguard-basic", label: "MapGuard Basic", value: 99 },
-    { productId: "reputationshield", tierId: "reputationshield-basic", label: "ReputationShield Basic", value: 79 },
+    { productId: "mapguard", tierId: "mapguard-basic", label: "MapGuard Basic \u2014 Google Maps visibility", value: 99 },
+    { productId: "reputationshield", tierId: "reputationshield-basic", label: "ReputationShield Basic \u2014 Review management", value: 79 },
+    { productId: "quotequick", tierId: "quotequick-pro", label: "QuoteQuick Pro \u2014 Instant quotes", value: 79 },
   ],
 };
 
@@ -574,10 +575,10 @@ export const BUNDLE_PRO: BundleDef = {
   price: 799,
   billingPeriod: "monthly",
   includes: [
-    { productId: "tradeline", tierId: "tradeline-pro", label: "TradeLine Pro", value: 197 },
-    { productId: "socialsync", tierId: "socialsync-growth", label: "SocialSync Growth", value: 149 },
-    { productId: "mapguard", tierId: "mapguard-pro", label: "MapGuard Pro", value: 149 },
-    { productId: "reputationshield", tierId: "reputationshield-pro", label: "ReputationShield Pro", value: 129 },
+    { productId: "mapguard", tierId: "mapguard-pro", label: "MapGuard Pro \u2014 Managed visibility", value: 149 },
+    { productId: "reputationshield", tierId: "reputationshield-pro", label: "ReputationShield Pro \u2014 Review growth", value: 129 },
+    { productId: "socialsync", tierId: "socialsync-growth", label: "SocialSync Growth \u2014 Social presence", value: 149 },
+    { productId: "tradeline", tierId: "tradeline-pro", label: "TradeLine Pro \u2014 AI call answering", value: 197 },
   ],
 };
 
