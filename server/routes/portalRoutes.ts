@@ -1,8 +1,9 @@
 import type { Express, Request, Response } from "express";
 import { requireClient, hashPassword, verifyPassword } from "../auth";
+import { storage } from "../storage";
 import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { chat as aiChat } from "../services/aiService";
+import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../services/threadService";
 import { authRateLimiter } from "../services/rateLimiter";
 import {
   clients,
@@ -932,95 +933,318 @@ export function registerPortalRoutes(app: Express) {
   });
 
   /**
-   * POST /api/portal/ai-chat
-   * Context-aware AI assistant for onboarding or general help.
+   * GET /api/portal/thread/messages
+   * Returns the active thread's message history for the authenticated portal user.
+   * Used by PortalChatWidget to hydrate on mount (source of truth for persistence).
    */
-  app.post("/api/portal/ai-chat", requireClient, async (req: Request, res: Response) => {
+  app.get("/api/portal/thread/messages", requireClient, async (req: Request, res: Response) => {
     try {
-      const { messages, context } = req.body;
+      const userId = req.user!.id;
+      const page = typeof req.query.page === "string" ? req.query.page : undefined;
+      const pageCtx = derivePageContext(page);
+      const { id: threadId, isNew } = await getOrCreateThread(userId, "portal", pageCtx);
 
-      if (!messages || !Array.isArray(messages) || messages.length === 0) {
-        return res.status(400).json({ error: "messages array is required" });
+      if (isNew) {
+        return res.json({ threadId, messages: [], pageContext: pageCtx });
       }
 
-      // Validate and sanitize message roles — only allow user/assistant
-      const allowedRoles = new Set(["user", "assistant"]);
-      const sanitizedMessages = messages
-        .filter((m: any) => m && typeof m.content === "string" && allowedRoles.has(m.role))
-        .slice(-10);
+      const messages = await loadThreadMessages(threadId);
+      res.json({ threadId, messages, pageContext: pageCtx });
+    } catch (err) {
+      console.error("Portal thread messages error:", err);
+      res.status(500).json({ error: "Failed to load conversation" });
+    }
+  });
 
-      let systemPrompt: string;
+  /**
+   * GET /api/portal/reputation
+   * Client-facing reputation report — clean, positive-framed metrics.
+   * No internal noise (errors, queue states, system details).
+   */
+  app.get("/api/portal/reputation", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
 
-      if (context?.surface === "help") {
-        // General help context
-        systemPrompt = `You are a helpful support assistant for WeFixTrades, a company that provides digital marketing services for trade businesses (plumbers, electricians, builders, etc.).
+      const allReviews = await storage.listReviews(clientId, { limit: 200 });
+      const requests = await storage.listReviewRequests(clientId, 200);
 
-Services include: MapGuard (Google Business Profile), MapSetup (one-time GBP optimization), TradeLine (AI phone/chat), QuoteQuick (quote calculators), RankFlow (ongoing SEO), AdFlow (done-for-you ads), ReputationShield (review management), SocialSync (social media), SiteLaunch (website builds), WebCare (website maintenance), and WebFix (one-time website fixes).
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+      const thirtyDays = 30 * day;
 
-Your job:
-- Answer questions about how services work
-- Explain billing, onboarding, and service delivery
-- Help clients understand their portal and dashboard
-- Keep answers short and practical (2-4 sentences)
-- Use Australian English
-- If you don't know something specific to their account, suggest they submit a ticket
+      // Review metrics
+      const recentReviews = allReviews.filter(r => r.review_time && (now - new Date(r.review_time).getTime()) < thirtyDays);
+      const prevMonthReviews = allReviews.filter(r => r.review_time && (now - new Date(r.review_time).getTime()) >= thirtyDays && (now - new Date(r.review_time).getTime()) < 2 * thirtyDays);
+      const ratings = allReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+      const recentRatings = recentReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+      const prevRatings = prevMonthReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+      const avgRating = ratings.length > 0 ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10 : null;
+      const avgRatingRecent = recentRatings.length > 0 ? Math.round((recentRatings.reduce((a, b) => a + b, 0) / recentRatings.length) * 10) / 10 : null;
+      const avgRatingPrev = prevRatings.length > 0 ? Math.round((prevRatings.reduce((a, b) => a + b, 0) / prevRatings.length) * 10) / 10 : null;
 
-Do NOT:
-- Make up account-specific details (balances, dates, statuses)
-- Provide legal or financial advice
-- Discuss internal pricing or margins`;
-      } else {
-        // Onboarding context
-        const fieldList = (context?.fields ?? [])
-          .map((f: { key: string; label: string; required: boolean }) =>
-            `- ${f.label}${f.required ? " (required)" : " (optional)"}`)
-          .join("\n");
+      // Replies — client-friendly language
+      const repliedCount = allReviews.filter(r => r.reply_status === "auto_replied" || r.reply_status === "manually_replied" || r.has_existing_owner_reply).length;
+      const replyRate = allReviews.length > 0 ? Math.round((repliedCount / allReviews.length) * 100) : null;
 
-        const currentValues = context?.current_responses
-          ? Object.entries(context.current_responses)
-              .filter(([, v]) => v !== "" && v !== false)
-              .map(([k, v]) => `- ${k}: ${v}`)
-              .join("\n")
-          : "None filled yet.";
+      // Requests — client-friendly
+      const sentRequests = requests.filter(r => r.status === "sent" || r.status === "delivered");
+      const attributed = sentRequests.filter(r => r.attributed_review_id);
+      const responseRate = sentRequests.length > 0 ? Math.round((attributed.length / sentRequests.length) * 100) : null;
 
-        systemPrompt = `You are a helpful onboarding assistant for WeFixTrades, a company that provides digital marketing and trade business services.
+      // Avg days to review
+      const daysList: number[] = [];
+      for (const req of attributed) {
+        if (req.sent_at) {
+          const matchedReview = allReviews.find(r => r.id === req.attributed_review_id);
+          if (matchedReview?.review_time) {
+            const d = (new Date(matchedReview.review_time).getTime() - new Date(req.sent_at).getTime()) / day;
+            if (d >= 0) daysList.push(d);
+          }
+        }
+      }
+      const avgDays = daysList.length > 0 ? Math.round((daysList.reduce((a, b) => a + b, 0) / daysList.length) * 10) / 10 : null;
 
-The client is filling out an onboarding form for: ${context?.service_name ?? "a service"} (${context?.service_id ?? ""}).
-
-The form fields are:
-${fieldList}
-
-What the client has filled in so far:
-${currentValues}
-
-Your job:
-- Help explain what each field means in simple terms
-- Suggest answers based on the client's business
-- Ask clarifying questions to help them think
-- Keep answers short and practical (1-3 sentences)
-- Use Australian English
-- Never auto-submit or override their input
-- If they seem stuck, ask "What services bring you most jobs?" or similar to get them started
-
-Do NOT:
-- Make up specific business details
-- Provide legal or financial advice
-- Discuss pricing of WeFixTrades services`;
+      // Weekly trend (last 8 weeks)
+      const weeklyTrend: { week: string; reviews: number }[] = [];
+      for (let i = 7; i >= 0; i--) {
+        const weekStart = now - (i + 1) * 7 * day;
+        const weekEnd = now - i * 7 * day;
+        const count = allReviews.filter(r => r.review_time && new Date(r.review_time).getTime() >= weekStart && new Date(r.review_time).getTime() < weekEnd).length;
+        weeklyTrend.push({ week: new Date(weekStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }), reviews: count });
       }
 
-      const reply = await aiChat({
-        system: systemPrompt,
-        messages: sanitizedMessages.map((m: { role: string; content: string }) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
-        maxTokens: 300,
+      // Latest positive reviews (client-safe subset)
+      const latestPositive = allReviews
+        .filter(r => (r.star_rating || 0) >= 4 && r.review_text)
+        .slice(0, 5)
+        .map(r => ({
+          reviewer: r.reviewer_name || "A customer",
+          rating: r.star_rating,
+          text: (r.review_text || "").slice(0, 150) + ((r.review_text || "").length > 150 ? "..." : ""),
+          date: r.review_time ? new Date(r.review_time).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null,
+          replied: r.reply_status === "auto_replied" || r.reply_status === "manually_replied" || r.has_existing_owner_reply,
+        }));
+
+      // Recent replies we posted
+      const recentReplies = allReviews
+        .filter(r => (r.reply_status === "auto_replied" || r.reply_status === "manually_replied") && r.reply_posted_at)
+        .sort((a, b) => new Date(b.reply_posted_at!).getTime() - new Date(a.reply_posted_at!).getTime())
+        .slice(0, 3)
+        .map(r => ({
+          reviewer: r.reviewer_name || "A customer",
+          rating: r.star_rating,
+          date: r.reply_posted_at ? new Date(r.reply_posted_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null,
+        }));
+
+      res.json({
+        summary: {
+          reviews_this_month: recentReviews.length,
+          reviews_last_month: prevMonthReviews.length,
+          reviews_change: recentReviews.length - prevMonthReviews.length,
+          total_reviews: allReviews.length,
+          average_rating: avgRating,
+          average_rating_this_month: avgRatingRecent,
+          average_rating_last_month: avgRatingPrev,
+          reply_rate: replyRate,
+        },
+        activity: {
+          reviews_responded_to: repliedCount,
+          review_requests_sent: sentRequests.length,
+          reviews_generated: attributed.length,
+          estimated_response_rate: responseRate,
+          avg_days_to_review: avgDays,
+        },
+        weekly_trend: weeklyTrend,
+        latest_reviews: latestPositive,
+        recent_replies: recentReplies,
+      });
+    } catch (err: any) {
+      console.error("Portal reputation error:", err);
+      res.status(500).json({ error: "Failed to load reputation report" });
+    }
+  });
+
+  /**
+   * GET /api/portal/socialsync-profile
+   * Get the client's SocialSync profile.
+   */
+  app.get("/api/portal/socialsync-profile", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const profile = await storage.getSocialSyncProfile(clientId);
+      if (!profile) return res.json({ exists: false });
+      res.json(profile);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to load profile" });
+    }
+  });
+
+  /**
+   * POST /api/portal/socialsync-setup
+   * Create or update SocialSync profile from onboarding wizard.
+   */
+  app.post("/api/portal/socialsync-setup", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { niche, location, services, service_focus, tone, frequency, platform_preferences, enabled, autopilot } = req.body;
+
+      const profile = await storage.upsertSocialSyncProfile({
+        client_id: clientId,
+        enabled: enabled ?? true,
+        niche: niche || null,
+        location: location || null,
+        services: services || null,
+        service_focus: service_focus || null,
+        tone: tone || "professional",
+        frequency: frequency || "3_per_week",
+        autopilot: autopilot ?? false,
+        platform_preferences: platform_preferences || ["facebook", "instagram"],
+      } as any);
+
+      await storage.createSocialSyncLog({
+        client_id: clientId,
+        entity_type: "profile",
+        entity_id: profile.id,
+        action: "profile.onboarding_completed",
+        status: "success",
+        details: { source: "portal_setup" },
       });
 
-      res.json({ reply });
-    } catch (err) {
-      console.error("Portal AI chat error:", err);
-      res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
+      res.status(201).json(profile);
+    } catch (err: any) {
+      console.error("Portal SocialSync setup error:", err);
+      res.status(500).json({ error: "Failed to save profile" });
+    }
+  });
+
+  /**
+   * GET /api/portal/socialsync-connections/:platform
+   * Check if a platform is connected for the client.
+   */
+  app.get("/api/portal/socialsync-connections/:platform", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const conn = connections.find(c => c.platform === req.params.platform);
+
+      res.json({
+        connected: conn?.connection_status === "connected" || conn?.connection_status === "expiring_soon",
+        status: conn?.connection_status || "not_connected",
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to check connection" });
+    }
+  });
+
+  /**
+   * GET /api/portal/socialsync
+   * Client-facing SocialSync activity report.
+   */
+  app.get("/api/portal/socialsync", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const profile = await storage.getSocialSyncProfile(clientId);
+      const posts = await storage.listSocialSyncPosts(clientId, { limit: 100 });
+      const connections = await storage.listSocialSyncConnections(clientId);
+
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+      const thirtyDays = 30 * day;
+
+      // Metrics
+      const publishedPosts = posts.filter(p => p.status === "published");
+      const publishedThisMonth = publishedPosts.filter(p => p.published_at && (now - new Date(p.published_at).getTime()) < thirtyDays);
+      const queuedPosts = posts.filter(p => p.status === "queued" && p.scheduled_for);
+
+      // Next scheduled
+      const nextPost = queuedPosts
+        .filter(p => p.scheduled_for && new Date(p.scheduled_for).getTime() > now)
+        .sort((a, b) => new Date(a.scheduled_for!).getTime() - new Date(b.scheduled_for!).getTime())[0];
+
+      // Platforms
+      const platforms = ["facebook", "instagram", "google_business"].map(p => {
+        const conn = connections.find(c => c.platform === p);
+        return {
+          platform: p === "google_business" ? "Google Business" : p.charAt(0).toUpperCase() + p.slice(1),
+          connected: conn?.connection_status === "connected" || conn?.connection_status === "expiring_soon",
+        };
+      });
+
+      // Client-safe status
+      let status: "setup_in_progress" | "needs_connection" | "ready" | "active";
+      if (!profile?.niche || !profile?.location) {
+        status = "setup_in_progress";
+      } else if (!platforms.some(p => p.connected)) {
+        status = "needs_connection";
+      } else if (publishedPosts.length === 0) {
+        status = "ready";
+      } else {
+        status = "active";
+      }
+
+      // Frequency label
+      const freqLabels: Record<string, string> = {
+        daily: "Daily", "3_per_week": "3x per week", "2_per_week": "2x per week", weekly: "Weekly",
+      };
+
+      // Recent published posts (client-safe)
+      const recentPosts = publishedPosts.slice(0, 8).map(p => ({
+        id: p.id,
+        platform: p.platform === "google_business" ? "Google Business" : p.platform.charAt(0).toUpperCase() + p.platform.slice(1),
+        caption: (p.caption || p.post_text).slice(0, 120) + ((p.caption || p.post_text).length > 120 ? "..." : ""),
+        full_text: p.post_text,
+        hashtags: p.hashtags as string[] | null,
+        published_at: p.published_at ? new Date(p.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null,
+        has_image: !!(p.media_plan as any)?.image_url,
+        image_url: (p.media_plan as any)?.image_url || null,
+      }));
+
+      // Upcoming scheduled posts
+      const upcomingPosts = queuedPosts
+        .filter(p => p.scheduled_for && new Date(p.scheduled_for).getTime() > now)
+        .sort((a, b) => new Date(a.scheduled_for!).getTime() - new Date(b.scheduled_for!).getTime())
+        .slice(0, 12)
+        .map(p => ({
+          id: p.id,
+          platform: p.platform === "google_business" ? "Google Business" : p.platform.charAt(0).toUpperCase() + p.platform.slice(1),
+          caption: (p.caption || p.post_text).slice(0, 120) + ((p.caption || p.post_text).length > 120 ? "..." : ""),
+          full_text: p.post_text,
+          hashtags: p.hashtags as string[] | null,
+          scheduled_for: new Date(p.scheduled_for!).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+          scheduled_date: new Date(p.scheduled_for!).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }),
+          has_image: !!(p.media_plan as any)?.image_url,
+          image_url: (p.media_plan as any)?.image_url || null,
+        }));
+
+      res.json({
+        status,
+        summary: {
+          posts_this_month: publishedThisMonth.length,
+          total_published: publishedPosts.length,
+          active_platforms: platforms.filter(p => p.connected).length,
+          posting_frequency: freqLabels[profile?.frequency || "3_per_week"] || "3x per week",
+          autopilot: profile?.autopilot || false,
+        },
+        next_scheduled: nextPost ? {
+          platform: nextPost.platform === "google_business" ? "Google Business" : nextPost.platform.charAt(0).toUpperCase() + nextPost.platform.slice(1),
+          scheduled_for: new Date(nextPost.scheduled_for!).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+        } : null,
+        platforms,
+        recent_posts: recentPosts,
+        upcoming_posts: upcomingPosts,
+      });
+    } catch (err: any) {
+      console.error("Portal SocialSync report error:", err);
+      res.status(500).json({ error: "Failed to load SocialSync report" });
     }
   });
 }

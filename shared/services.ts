@@ -69,7 +69,7 @@ export const SERVICES: Service[] = [
     name: REPUTATIONSHIELD.name,
     tagline: REPUTATIONSHIELD.tagline,
     description:
-      "Automated review request campaigns, response templates, and monitoring to build trust signals that convert browsers into callers.",
+      "Automated review requests after completed jobs, AI-powered review responses, negative review alerts, and a client-facing reputation dashboard.",
     price: lowestMonthly(REPUTATIONSHIELD)!,
     priceLabel: `From ${formatPrice(lowestMonthly(REPUTATIONSHIELD)!)}/mo`,
     billingPeriod: "monthly",
@@ -193,7 +193,7 @@ export const SERVICES: Service[] = [
     name: SOCIALSYNC.name,
     tagline: SOCIALSYNC.tagline,
     description:
-      "Consistent social media presence with trade-specific content, scheduling, and engagement tracking.",
+      "AI-generated social media content published automatically to Facebook, Instagram, and Google Business Profile. Full autopilot posting.",
     price: lowestMonthly(SOCIALSYNC)!,
     priceLabel: `From ${formatPrice(lowestMonthly(SOCIALSYNC)!)}/mo`,
     billingPeriod: "monthly",

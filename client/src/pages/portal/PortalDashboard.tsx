@@ -82,6 +82,15 @@ export default function PortalDashboard() {
     },
   });
 
+  const { data: ssProfile } = useQuery<any>({
+    queryKey: ["/api/portal/socialsync-profile"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/socialsync-profile", { credentials: "include" });
+      if (!res.ok) return { exists: false };
+      return res.json();
+    },
+  });
+
   const { data: qqData } = useQuery<QuoteQuickData>({
     queryKey: ["/api/portal/quotequick/summary"],
     queryFn: async () => {
@@ -153,6 +162,7 @@ export default function PortalDashboard() {
             <StatCard
               label="Setup Required"
               value={data.pending_onboarding}
+              subtitle="Forms to complete"
               icon={ClipboardList}
               color="text-amber-600"
               bgColor="bg-amber-50"
@@ -161,6 +171,7 @@ export default function PortalDashboard() {
             <StatCard
               label="Action Needed"
               value={data.action_needed}
+              subtitle="Waiting on you"
               icon={AlertCircle}
               color={data.action_needed > 0 ? "text-red-600" : "text-gray-400"}
               bgColor={data.action_needed > 0 ? "bg-red-50" : "bg-gray-50"}
@@ -310,6 +321,18 @@ export default function PortalDashboard() {
               </div>
             );
           })()}
+          {/* SocialSync CTA */}
+          {ssProfile && (ssProfile.exists === false || !ssProfile.niche) && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Set up SocialSync</p>
+                <p className="text-xs text-gray-500 mt-0.5">We'll post content for your business automatically. Takes about 5 minutes.</p>
+              </div>
+              <Link href="/portal/socialsync-setup" className="shrink-0 px-4 py-2 rounded-lg text-xs font-medium text-white bg-[#2D6A4F] hover:bg-[#1B4332]">
+                Get Started
+              </Link>
+            </div>
+          )}
 
           {/* Recent activity */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -349,6 +372,7 @@ export default function PortalDashboard() {
 function StatCard({
   label,
   value,
+  subtitle,
   icon: Icon,
   color,
   bgColor,
@@ -356,6 +380,7 @@ function StatCard({
 }: {
   label: string;
   value: string | number;
+  subtitle?: string;
   icon: React.ElementType;
   color: string;
   bgColor: string;
@@ -370,6 +395,7 @@ function StatCard({
         <div>
           <p className="text-xs text-gray-500">{label}</p>
           <p className="text-lg font-semibold text-gray-900">{value}</p>
+          {subtitle && <p className="text-[10px] text-gray-400 -mt-0.5">{subtitle}</p>}
         </div>
       </div>
     </div>

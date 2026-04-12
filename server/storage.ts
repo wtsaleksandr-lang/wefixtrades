@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { hashPassword } from "./auth";
 import { db } from "./db";
 import {
-  calculators, leads, analyticsEvents, deploymentStatus,
+calculators, leads, analyticsEvents, deploymentStatus,
   calculatorAnalyticsSummary, jobLogs,
   notificationQueue, followupJobs, bookings,
   aiConversations, supportTickets, smsMessages,
@@ -19,7 +19,7 @@ import {
   type AiConversation, type InsertAiConversation,
   type SupportTicket, type InsertSupportTicket,
   type SmsMessage,
-  type User, type InsertUser,
+type User, type InsertUser,
   type AuditSubmission, type InsertAuditSubmission,
   type AuditFollowupEmail, type InsertAuditFollowupEmail,
   type MissedCallLead, type InsertMissedCallLead,
@@ -45,10 +45,38 @@ import {
   type AdminActivityLog, type InsertAdminActivityLog,
   type ServiceTaskTemplate,
   type OnboardingTemplate,
-  type TradelineConfig,
-  type TradelineUsage, type InsertTradelineUsage,
-  type TradelineCallLog, type InsertTradelineCallLog,
-  type TradelineModeLog, type InsertTradelineModeLog,
+// TradeLine
+type TradelineConfig,
+type TradelineUsage, type InsertTradelineUsage,
+type TradelineCallLog, type InsertTradelineCallLog,
+type TradelineModeLog, type InsertTradelineModeLog,
+
+// SocialSync
+socialsyncProfiles, socialsyncTopics, socialsyncPosts,
+socialsyncPublishQueue, socialsyncActivityLogs, socialsyncPlatformConnections,
+type SocialSyncProfile, type InsertSocialSyncProfile,
+type SocialSyncTopic, type InsertSocialSyncTopic,
+type SocialSyncPost, type InsertSocialSyncPost,
+type SocialSyncQueueItem, type InsertSocialSyncQueueItem,
+type SocialSyncActivityLog, type InsertSocialSyncActivityLog,
+type SocialSyncConnection, type InsertSocialSyncConnection,
+
+// Reviews
+reviews as reviewsTable, reviewSyncLogs,
+type Review, type InsertReview,
+type ReviewSyncLog, type InsertReviewSyncLog,
+
+// Review Requests
+reviewRequests,
+type ReviewRequest, type InsertReviewRequest,
+
+// Service Costs
+serviceCostLogs,
+type ServiceCostLog, type InsertServiceCostLog,
+
+// Sales Leads
+salesLeads,
+type SalesLead, type InsertSalesLead,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -225,6 +253,59 @@ export interface IStorage {
   getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined>;
   listTradeLineModeChanges(clientServiceId: number, limit?: number): Promise<TradelineModeLog[]>;
   incrementTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date, increments: { voiceMinutes?: number; calls?: number; sms?: number }): Promise<TradelineUsage>;
+=======
+  // ─── SocialSync ───
+  upsertSocialSyncProfile(data: InsertSocialSyncProfile): Promise<SocialSyncProfile>;
+  getSocialSyncProfile(clientId: number): Promise<SocialSyncProfile | undefined>;
+
+  createSocialSyncTopic(data: InsertSocialSyncTopic): Promise<SocialSyncTopic>;
+  createSocialSyncTopics(data: InsertSocialSyncTopic[]): Promise<SocialSyncTopic[]>;
+  listSocialSyncTopics(clientId: number, status?: string): Promise<SocialSyncTopic[]>;
+  updateSocialSyncTopic(id: number, updates: Partial<InsertSocialSyncTopic>): Promise<SocialSyncTopic | undefined>;
+
+  createSocialSyncPost(data: InsertSocialSyncPost): Promise<SocialSyncPost>;
+  listSocialSyncPosts(clientId: number, opts?: { status?: string; platform?: string; limit?: number; offset?: number }): Promise<SocialSyncPost[]>;
+  getSocialSyncPostById(id: number): Promise<SocialSyncPost | undefined>;
+  updateSocialSyncPost(id: number, updates: Partial<InsertSocialSyncPost>): Promise<SocialSyncPost | undefined>;
+
+  enqueueSocialSyncJob(data: InsertSocialSyncQueueItem): Promise<SocialSyncQueueItem>;
+  fetchDueSocialSyncJobs(limit?: number): Promise<SocialSyncQueueItem[]>;
+  updateSocialSyncQueueItem(id: number, updates: Record<string, any>): Promise<void>;
+  listSocialSyncQueue(clientId: number): Promise<SocialSyncQueueItem[]>;
+
+  createSocialSyncLog(data: InsertSocialSyncActivityLog): Promise<SocialSyncActivityLog>;
+  listSocialSyncLogs(clientId: number, limit?: number): Promise<SocialSyncActivityLog[]>;
+
+  upsertSocialSyncConnection(data: InsertSocialSyncConnection): Promise<SocialSyncConnection>;
+  listSocialSyncConnections(clientId: number): Promise<SocialSyncConnection[]>;
+  listEnabledSocialSyncProfiles(): Promise<SocialSyncProfile[]>;
+  listRecentSocialSyncPosts(clientId: number, limit?: number): Promise<SocialSyncPost[]>;
+  fetchStaleSocialSyncLocks(thresholdMs: number): Promise<SocialSyncQueueItem[]>;
+  listAllSocialSyncConnections(): Promise<SocialSyncConnection[]>;
+
+  // ─── Reviews ───
+  upsertReview(data: InsertReview): Promise<Review>;
+  listReviews(clientId: number, opts?: { platform?: string; needsReply?: boolean; limit?: number }): Promise<Review[]>;
+  getReviewByExternalId(clientId: number, platform: string, externalId: string): Promise<Review | undefined>;
+  updateReview(id: number, updates: Partial<InsertReview>): Promise<Review | undefined>;
+  createReviewSyncLog(data: InsertReviewSyncLog): Promise<ReviewSyncLog>;
+
+  // ─── Review Requests ───
+  createReviewRequest(data: InsertReviewRequest): Promise<ReviewRequest>;
+  fetchDueReviewRequests(limit?: number): Promise<ReviewRequest[]>;
+  updateReviewRequest(id: number, updates: Record<string, any>): Promise<void>;
+  listReviewRequests(clientId: number, limit?: number): Promise<ReviewRequest[]>;
+  getReviewRequestByDedupKey(key: string): Promise<ReviewRequest | undefined>;
+
+  // ─── Service Costs ───
+  logServiceCost(data: InsertServiceCostLog): Promise<ServiceCostLog>;
+  getServiceCosts(clientId: number, sinceDaysAgo?: number): Promise<ServiceCostLog[]>;
+
+  // ─── Sales Leads ───
+  createSalesLead(data: InsertSalesLead): Promise<SalesLead>;
+  listSalesLeads(status?: string): Promise<SalesLead[]>;
+  updateSalesLead(id: number, updates: Partial<InsertSalesLead>): Promise<SalesLead | undefined>;
+  getSalesLeadById(id: number): Promise<SalesLead | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -576,7 +657,47 @@ export class DatabaseStorage implements IStorage {
 
   async updateBookingStatus(id: number, status: string): Promise<Booking | undefined> {
     const [booking] = await db.update(bookings).set({ status }).where(eq(bookings.id, id)).returning();
+
+    // Auto-trigger review request when booking is completed
+    if (booking && status === "completed") {
+      this.triggerReviewRequestForBooking(booking).catch((err) => {
+        console.error(`[storage] Review request trigger failed for booking ${id}:`, err.message);
+      });
+    }
+
     return booking;
+  }
+
+  /**
+   * Non-blocking trigger: enqueue a review request for a completed booking.
+   * Resolves client_id from the booking's calculator owner.
+   * All dedup/cooldown/eligibility checks happen inside enqueueFromBooking.
+   */
+  private async triggerReviewRequestForBooking(booking: any): Promise<void> {
+    // We need to resolve the client_id from the calculator
+    // Calculators are linked to users, and users may be linked to clients
+    const calc = await this.getCalculatorById(booking.calculator_id);
+    if (!calc) return;
+
+    // Try to find a client via the calculator's user_id
+    let clientId: number | null = null;
+    if (calc.user_id) {
+      const clientRows = await db.select({ id: clients.id }).from(clients)
+        .where(eq(clients.user_id, calc.user_id))
+        .limit(1);
+      clientId = clientRows[0]?.id || null;
+    }
+
+    if (!clientId) return; // No linked client — can't send review request
+
+    const { enqueueFromBooking } = await import("./services/reputation/reviewRequestService");
+    await enqueueFromBooking(
+      clientId,
+      booking.id,
+      booking.customer_name || null,
+      booking.customer_phone || null,
+      booking.customer_email || null,
+    );
   }
 
   async updateBooking(id: number, updates: Partial<InsertBooking>): Promise<Booking | undefined> {
@@ -1541,6 +1662,299 @@ export class DatabaseStorage implements IStorage {
     const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
 
     return { revenue, voiceCost, smsCost, aiCost, totalCost, profit, margin };
+  // ─── SocialSync ───
+
+  async upsertSocialSyncProfile(data: InsertSocialSyncProfile): Promise<SocialSyncProfile> {
+    const [row] = await db.insert(socialsyncProfiles).values(data)
+      .onConflictDoUpdate({ target: socialsyncProfiles.client_id, set: { ...data, updated_at: new Date() } })
+      .returning();
+    return row;
+  }
+
+  async getSocialSyncProfile(clientId: number): Promise<SocialSyncProfile | undefined> {
+    const [row] = await db.select().from(socialsyncProfiles)
+      .where(eq(socialsyncProfiles.client_id, clientId))
+      .limit(1);
+    return row;
+  }
+
+  async createSocialSyncTopic(data: InsertSocialSyncTopic): Promise<SocialSyncTopic> {
+    const [row] = await db.insert(socialsyncTopics).values(data).returning();
+    return row;
+  }
+
+  async createSocialSyncTopics(data: InsertSocialSyncTopic[]): Promise<SocialSyncTopic[]> {
+    if (data.length === 0) return [];
+    return db.insert(socialsyncTopics).values(data).returning();
+  }
+
+  async listSocialSyncTopics(clientId: number, status?: string): Promise<SocialSyncTopic[]> {
+    const conditions = [eq(socialsyncTopics.client_id, clientId)];
+    if (status) conditions.push(eq(socialsyncTopics.status, status));
+    return db.select().from(socialsyncTopics)
+      .where(and(...conditions))
+      .orderBy(desc(socialsyncTopics.created_at));
+  }
+
+  async updateSocialSyncTopic(id: number, updates: Partial<InsertSocialSyncTopic>): Promise<SocialSyncTopic | undefined> {
+    const [row] = await db.update(socialsyncTopics)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(socialsyncTopics.id, id))
+      .returning();
+    return row;
+  }
+
+  async createSocialSyncPost(data: InsertSocialSyncPost): Promise<SocialSyncPost> {
+    const [row] = await db.insert(socialsyncPosts).values(data).returning();
+    return row;
+  }
+
+  async listSocialSyncPosts(clientId: number, opts: { status?: string; platform?: string; limit?: number; offset?: number } = {}): Promise<SocialSyncPost[]> {
+    const { status, platform, limit = 50, offset = 0 } = opts;
+    const conditions = [eq(socialsyncPosts.client_id, clientId)];
+    if (status) conditions.push(eq(socialsyncPosts.status, status));
+    if (platform) conditions.push(eq(socialsyncPosts.platform, platform));
+    return db.select().from(socialsyncPosts)
+      .where(and(...conditions))
+      .orderBy(desc(socialsyncPosts.created_at))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getSocialSyncPostById(id: number): Promise<SocialSyncPost | undefined> {
+    const [row] = await db.select().from(socialsyncPosts)
+      .where(eq(socialsyncPosts.id, id))
+      .limit(1);
+    return row;
+  }
+
+  async updateSocialSyncPost(id: number, updates: Partial<InsertSocialSyncPost>): Promise<SocialSyncPost | undefined> {
+    const [row] = await db.update(socialsyncPosts)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(socialsyncPosts.id, id))
+      .returning();
+    return row;
+  }
+
+  async enqueueSocialSyncJob(data: InsertSocialSyncQueueItem): Promise<SocialSyncQueueItem> {
+    const [row] = await db.insert(socialsyncPublishQueue).values(data).returning();
+    return row;
+  }
+
+  async fetchDueSocialSyncJobs(limit = 20): Promise<SocialSyncQueueItem[]> {
+    const now = new Date();
+    return db.select().from(socialsyncPublishQueue)
+      .where(and(
+        eq(socialsyncPublishQueue.status, "pending"),
+        lte(socialsyncPublishQueue.run_at, now),
+        sql`${socialsyncPublishQueue.attempts} < ${socialsyncPublishQueue.max_attempts}`,
+        sql`${socialsyncPublishQueue.locked_at} IS NULL`,
+      ))
+      .orderBy(socialsyncPublishQueue.run_at)
+      .limit(limit);
+  }
+
+  async updateSocialSyncQueueItem(id: number, updates: Record<string, any>): Promise<void> {
+    await db.update(socialsyncPublishQueue).set(updates).where(eq(socialsyncPublishQueue.id, id));
+  }
+
+  async listSocialSyncQueue(clientId: number): Promise<SocialSyncQueueItem[]> {
+    return db.select().from(socialsyncPublishQueue)
+      .where(eq(socialsyncPublishQueue.client_id, clientId))
+      .orderBy(desc(socialsyncPublishQueue.created_at));
+  }
+
+  async createSocialSyncLog(data: InsertSocialSyncActivityLog): Promise<SocialSyncActivityLog> {
+    const [row] = await db.insert(socialsyncActivityLogs).values(data).returning();
+    return row;
+  }
+
+  async listSocialSyncLogs(clientId: number, limit = 50): Promise<SocialSyncActivityLog[]> {
+    return db.select().from(socialsyncActivityLogs)
+      .where(eq(socialsyncActivityLogs.client_id, clientId))
+      .orderBy(desc(socialsyncActivityLogs.created_at))
+      .limit(limit);
+  }
+
+  async upsertSocialSyncConnection(data: InsertSocialSyncConnection): Promise<SocialSyncConnection> {
+    const existing = await db.select().from(socialsyncPlatformConnections)
+      .where(and(
+        eq(socialsyncPlatformConnections.client_id, data.client_id),
+        eq(socialsyncPlatformConnections.platform, data.platform),
+      ))
+      .limit(1);
+    if (existing.length > 0) {
+      const [row] = await db.update(socialsyncPlatformConnections)
+        .set({ ...data, updated_at: new Date() })
+        .where(eq(socialsyncPlatformConnections.id, existing[0].id))
+        .returning();
+      return row;
+    }
+    const [row] = await db.insert(socialsyncPlatformConnections).values(data).returning();
+    return row;
+  }
+
+  async listSocialSyncConnections(clientId: number): Promise<SocialSyncConnection[]> {
+    return db.select().from(socialsyncPlatformConnections)
+      .where(eq(socialsyncPlatformConnections.client_id, clientId))
+      .orderBy(socialsyncPlatformConnections.platform);
+  }
+
+  async listEnabledSocialSyncProfiles(): Promise<SocialSyncProfile[]> {
+    return db.select().from(socialsyncProfiles)
+      .where(eq(socialsyncProfiles.enabled, true));
+  }
+
+  async listRecentSocialSyncPosts(clientId: number, limit = 30): Promise<SocialSyncPost[]> {
+    return db.select().from(socialsyncPosts)
+      .where(eq(socialsyncPosts.client_id, clientId))
+      .orderBy(desc(socialsyncPosts.created_at))
+      .limit(limit);
+  }
+
+  async listAllSocialSyncConnections(): Promise<SocialSyncConnection[]> {
+    return db.select().from(socialsyncPlatformConnections)
+      .where(sql`${socialsyncPlatformConnections.connection_status} IN ('connected', 'expiring_soon')`)
+      .orderBy(socialsyncPlatformConnections.token_expires_at);
+  }
+
+  async fetchStaleSocialSyncLocks(thresholdMs: number): Promise<SocialSyncQueueItem[]> {
+    const cutoff = new Date(Date.now() - thresholdMs);
+    return db.select().from(socialsyncPublishQueue)
+      .where(and(
+        eq(socialsyncPublishQueue.status, "locked"),
+        lte(socialsyncPublishQueue.locked_at, cutoff),
+      ))
+      .orderBy(socialsyncPublishQueue.locked_at)
+      .limit(50);
+  }
+
+  // ─── Reviews ───
+
+  async upsertReview(data: InsertReview): Promise<Review> {
+    const existing = await this.getReviewByExternalId(data.client_id, data.platform, data.external_review_id);
+    if (existing) {
+      const [row] = await db.update(reviewsTable)
+        .set({ ...data, updated_at: new Date() })
+        .where(eq(reviewsTable.id, existing.id))
+        .returning();
+      return row;
+    }
+    const [row] = await db.insert(reviewsTable).values(data).returning();
+    return row;
+  }
+
+  async listReviews(clientId: number, opts: { platform?: string; needsReply?: boolean; limit?: number } = {}): Promise<Review[]> {
+    const { platform, needsReply, limit = 50 } = opts;
+    const conditions = [eq(reviewsTable.client_id, clientId)];
+    if (platform) conditions.push(eq(reviewsTable.platform, platform));
+    if (needsReply !== undefined) conditions.push(eq(reviewsTable.needs_reply, needsReply));
+    return db.select().from(reviewsTable)
+      .where(and(...conditions))
+      .orderBy(desc(reviewsTable.review_time))
+      .limit(limit);
+  }
+
+  async getReviewByExternalId(clientId: number, platform: string, externalId: string): Promise<Review | undefined> {
+    const [row] = await db.select().from(reviewsTable)
+      .where(and(
+        eq(reviewsTable.client_id, clientId),
+        eq(reviewsTable.platform, platform),
+        eq(reviewsTable.external_review_id, externalId),
+      ))
+      .limit(1);
+    return row;
+  }
+
+  async updateReview(id: number, updates: Partial<InsertReview>): Promise<Review | undefined> {
+    const [row] = await db.update(reviewsTable)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(reviewsTable.id, id))
+      .returning();
+    return row;
+  }
+
+  async createReviewSyncLog(data: InsertReviewSyncLog): Promise<ReviewSyncLog> {
+    const [row] = await db.insert(reviewSyncLogs).values(data).returning();
+    return row;
+  }
+
+  // ─── Review Requests ───
+
+  async createReviewRequest(data: InsertReviewRequest): Promise<ReviewRequest> {
+    const [row] = await db.insert(reviewRequests).values(data).returning();
+    return row;
+  }
+
+  async fetchDueReviewRequests(limit = 20): Promise<ReviewRequest[]> {
+    const now = new Date();
+    return db.select().from(reviewRequests)
+      .where(and(
+        eq(reviewRequests.status, "pending"),
+        lte(reviewRequests.run_at, now),
+        sql`${reviewRequests.attempts} < ${reviewRequests.max_attempts}`,
+      ))
+      .orderBy(reviewRequests.run_at)
+      .limit(limit);
+  }
+
+  async updateReviewRequest(id: number, updates: Record<string, any>): Promise<void> {
+    await db.update(reviewRequests).set({ ...updates, updated_at: new Date() }).where(eq(reviewRequests.id, id));
+  }
+
+  async listReviewRequests(clientId: number, limit = 50): Promise<ReviewRequest[]> {
+    return db.select().from(reviewRequests)
+      .where(eq(reviewRequests.client_id, clientId))
+      .orderBy(desc(reviewRequests.created_at))
+      .limit(limit);
+  }
+
+  async getReviewRequestByDedupKey(key: string): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.dedup_key, key))
+      .limit(1);
+    return row;
+  }
+
+  // ─── Service Costs ───
+
+  async logServiceCost(data: InsertServiceCostLog): Promise<ServiceCostLog> {
+    const [row] = await db.insert(serviceCostLogs).values(data).returning();
+    return row;
+  }
+
+  async getServiceCosts(clientId: number, sinceDaysAgo = 30): Promise<ServiceCostLog[]> {
+    const since = new Date(Date.now() - sinceDaysAgo * 24 * 60 * 60 * 1000);
+    return db.select().from(serviceCostLogs)
+      .where(and(
+        eq(serviceCostLogs.client_id, clientId),
+        gte(serviceCostLogs.created_at, since),
+      ))
+      .orderBy(desc(serviceCostLogs.created_at));
+  }
+
+  // ─── Sales Leads ───
+
+  async createSalesLead(data: InsertSalesLead): Promise<SalesLead> {
+    const [row] = await db.insert(salesLeads).values(data).returning();
+    return row;
+  }
+
+  async listSalesLeads(status?: string): Promise<SalesLead[]> {
+    const conditions = [];
+    if (status) conditions.push(eq(salesLeads.status, status));
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(salesLeads).where(where).orderBy(desc(salesLeads.updated_at));
+  }
+
+  async updateSalesLead(id: number, updates: Partial<InsertSalesLead>): Promise<SalesLead | undefined> {
+    const [row] = await db.update(salesLeads).set({ ...updates, updated_at: new Date() }).where(eq(salesLeads.id, id)).returning();
+    return row;
+  }
+
+  async getSalesLeadById(id: number): Promise<SalesLead | undefined> {
+    const [row] = await db.select().from(salesLeads).where(eq(salesLeads.id, id)).limit(1);
+    return row;
   }
 }
 
