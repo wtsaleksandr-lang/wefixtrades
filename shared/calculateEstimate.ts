@@ -81,17 +81,21 @@ function applyModifiers(
     lines.push({ label: "Minimum charge applied", amount: config.minCharge });
   }
 
-  return { total: Math.round(total * 100) / 100, lines };
+  // Guard: if any arithmetic produced NaN, clamp to 0
+  total = Number.isFinite(total) ? Math.round(total * 100) / 100 : 0;
+  return { total, lines };
 }
 
 export function calculateEstimate(
   rawConfig: unknown,
   inputs: EstimateInputs
 ): EstimateResult {
-  const validation = validatePricingConfig(rawConfig);
+  const validation = validatePricingConfig(rawConfig ?? CALL_FOR_QUOTE_FALLBACK);
   const config = validation.valid ? validation.config : CALL_FOR_QUOTE_FALLBACK;
 
-  const qty = inputs.quantity ?? 1;
+  // Guard: ensure quantity is a finite positive number
+  const rawQty = inputs.quantity ?? 1;
+  const qty = Number.isFinite(rawQty) && rawQty > 0 ? rawQty : 1;
 
   switch (config.pricingType) {
     case "hourly": {
@@ -160,7 +164,8 @@ export function calculateEstimate(
     }
 
     case "tiered_packages": {
-      const tierIdx = inputs.selectedTierIndex ?? 0;
+      const rawIdx = inputs.selectedTierIndex ?? 0;
+      const tierIdx = Number.isFinite(rawIdx) && rawIdx >= 0 && rawIdx < config.tiers.length ? rawIdx : 0;
       const tier = config.tiers[tierIdx] || config.tiers[0];
       if (!tier) {
         return { type: "call_for_quote", total: 0, message: "No packages configured", breakdown: [], callUs: true };

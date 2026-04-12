@@ -5,6 +5,7 @@
 
 import type { Express, Request, Response } from "express";
 import { storage } from "../storage";
+import { mapOnboardingToTradeLineConfig, advanceSetupStage } from "@shared/schema";
 
 export function registerOnboardingPublicRoutes(app: Express): void {
 
@@ -46,6 +47,8 @@ export function registerOnboardingPublicRoutes(app: Express): void {
   /**
    * POST /api/onboarding/:token
    * Accepts form responses and marks submission as submitted.
+   * If this is a TradeLine service, also maps answers into config
+   * and triggers the assistant build pipeline.
    */
   app.post("/api/onboarding/:token", async (req: Request, res: Response) => {
     try {
@@ -66,16 +69,86 @@ export function registerOnboardingPublicRoutes(app: Express): void {
         return res.status(400).json({ error: "This form has already been approved" });
       }
 
+      if (submission.status === "submitted") {
+        return res.status(400).json({ error: "This form has already been submitted" });
+      }
+
       await storage.updateOnboardingSubmission(submission.id, {
         responses,
         status: "submitted",
         submitted_at: new Date(),
       });
 
+      // TradeLine orchestration: map answers → config → trigger build
+      if (submission.client_service_id) {
+        try {
+          const cs = await storage.getClientServiceById(submission.client_service_id);
+          if (cs && cs.service_id.startsWith("tradeline")) {
+            const config = await storage.getTradeLineConfig(cs.id);
+            if (config) {
+              const updates = mapOnboardingToTradeLineConfig(responses, config.variant);
+              if (updates.setupStage) {
+                updates.setupStage = advanceSetupStage(config.setupStage, updates.setupStage);
+              }
+              if (Object.keys(updates).length > 0) {
+                await storage.updateTradeLineConfig(cs.id, updates);
+              }
+            }
+
+            // Trigger assistant build (non-blocking)
+            import("../services/vapiService").then(({ provisionTradeLineAssistant }) => {
+              provisionTradeLineAssistant(cs.id).catch(err =>
+                console.warn(`[tradeline] Auto-build assistant failed for service #${cs.id}:`, err.message),
+              );
+            });
+          }
+        } catch (err) {
+          console.warn("[onboarding] TradeLine orchestration error:", err);
+        }
+      }
+
       res.json({ ok: true, status: "submitted" });
     } catch (err: any) {
       console.error("[onboarding] POST error:", err.message);
       res.status(500).json({ error: "Failed to submit onboarding form" });
+    }
+  });
+
+  /**
+   * GET /api/onboarding/:token/status
+   * Lightweight public endpoint for polling TradeLine setup progress.
+   * Returns only non-sensitive status fields.
+   */
+  app.get("/api/onboarding/:token/status", async (req: Request, res: Response) => {
+    try {
+      const token = req.params.token as string;
+      const data = await storage.getOnboardingByToken(token);
+      if (!data) return res.status(404).json({ error: "Not found" });
+
+      const { submission } = data;
+      let assistantStatus = "not_built";
+      let setupStage = "not_started";
+      let buildError: string | null = null;
+
+      if (submission.client_service_id) {
+        const config = await storage.getTradeLineConfig(submission.client_service_id);
+        if (config) {
+          assistantStatus = config.assistant?.status ?? "not_built";
+          setupStage = config.setupStage ?? "not_started";
+          if (assistantStatus === "failed") {
+            buildError = config.assistant?.lastBuildError || "Build failed";
+          }
+        }
+      }
+
+      res.json({
+        onboardingStatus: submission.status,
+        assistantStatus,
+        setupStage,
+        buildError,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to check status" });
     }
   });
 }

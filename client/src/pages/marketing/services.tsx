@@ -263,7 +263,7 @@ export default function ServicesPage() {
       id: "gmb",
       img: mapguardIcon,
       title: "MapGuard",
-      desc: "Google Maps GBP optimization. Get found by local customers searching for your trade with citations and review strategy.",
+      desc: "Fully managed Google Maps visibility. We monitor, optimize, and fix your profile every month so you show up when customers search.",
       from: `From ${formatPrice(lowestMonthly(MAPGUARD)!)}/mo + ${formatPrice(MAPGUARD.setup!)} setup`,
       testid: "service-gmb",
       btnTestid: "button-request-info-gmb",

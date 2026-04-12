@@ -11,6 +11,7 @@ import Stripe from "stripe";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
+import { getTradeLineDefaultConfig } from "@shared/schema";
 
 function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -157,6 +158,12 @@ export function registerStripeBillingRoutes(app: Express): void {
 /* ─── Webhook Handlers ─── */
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  // ─── QuoteQuick direct checkout (calculator-linked) ───
+  if (session.metadata?.source === 'quotequick_checkout') {
+    await handleQuoteQuickCheckout(session);
+    return;
+  }
+
   const clientId = parseInt(session.metadata?.crm_client_id || "0");
   const serviceIdRaw = session.metadata?.service_catalog_id;
   const isPublicCheckout = session.metadata?.source === "public_checkout";
@@ -172,6 +179,24 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   for (const serviceId of serviceIds) {
     await provisionOrConfirmService(session, clientId, serviceId, baseUrl);
+  }
+
+  // Ensure portal login exists after payment is confirmed
+  try {
+    const { created, tempPassword } = await storage.ensurePortalAccount(clientId);
+    if (created) {
+      console.log(`[billing-webhook] Auto-created portal account for client #${clientId} (temp password generated)`);
+      await storage.logAdminActivity({
+        actor_type: "system",
+        actor_name: "Stripe Webhook",
+        action: "portal.auto_created",
+        entity_type: "client",
+        entity_id: clientId,
+        summary: `Auto-created portal account after payment`,
+      });
+    }
+  } catch (err: any) {
+    console.warn(`[billing-webhook] Could not auto-create portal account for client #${clientId}: ${err.message}`);
   }
 }
 
@@ -227,6 +252,9 @@ async function provisionOrConfirmService(
     return;
   }
 
+  const tradelineDefaults = getTradeLineDefaultConfig(serviceId);
+  const metadata = tradelineDefaults ? { tradeline: tradelineDefaults } : undefined;
+
   const clientService = await storage.createClientService({
     client_id: clientId,
     service_id: serviceId,
@@ -235,7 +263,21 @@ async function provisionOrConfirmService(
     fulfillment_mode: "internal",
     price_cents: service.default_price,
     billing_period: service.billing_period,
+    metadata,
   });
+
+  // Auto-populate TradeLine notifications from client contact info
+  if (tradelineDefaults) {
+    const client = await storage.getClientById(clientId);
+    if (client) {
+      const notifications: { email: string[]; sms: string[] } = { email: [], sms: [] };
+      if (client.contact_email) notifications.email.push(client.contact_email);
+      if (client.contact_phone) notifications.sms.push(client.contact_phone);
+      if (notifications.email.length || notifications.sms.length) {
+        await storage.updateTradeLineConfig(clientService.id, { notifications });
+      }
+    }
+  }
 
   // Create paid payment record
   await storage.createClientPayment({
@@ -425,5 +467,60 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   });
 
   console.log(`[billing-webhook] Subscription cancelled for client ${client.id}`);
+}
+
+/* ─── QuoteQuick Direct Checkout Handler ─── */
+
+async function handleQuoteQuickCheckout(session: Stripe.Checkout.Session) {
+  const calculatorId = parseInt(session.metadata?.calculator_id || "0");
+  const planTier = session.metadata?.plan_tier || "starter";
+
+  if (!calculatorId) {
+    console.warn("[billing-webhook] QuoteQuick checkout missing calculator_id");
+    return;
+  }
+
+  const calculator = await storage.getCalculatorById(calculatorId);
+  if (!calculator) {
+    console.warn(`[billing-webhook] Calculator ${calculatorId} not found`);
+    return;
+  }
+
+  const wasPaused = calculator.plan_tier === 'free';
+
+  // Update plan_tier on the calculator
+  await storage.updateCalculator(calculatorId, {
+    plan_tier: planTier,
+  });
+
+  // Restore deployment_status to live (reactivate if trial-paused)
+  await storage.upsertDeploymentStatus({
+    calculator_id: calculatorId,
+    status: 'live',
+    last_published_at: new Date(),
+  });
+
+  // Track payment_completed
+  await storage.trackEvent({
+    calculator_id: calculatorId,
+    event_type: 'payment_completed',
+    metadata: {
+      plan_tier: planTier,
+      billing: session.metadata?.billing,
+      stripe_session_id: session.id,
+      amount_total: session.amount_total,
+    },
+  });
+
+  // Track reactivation if was paused
+  if (wasPaused) {
+    await storage.trackEvent({
+      calculator_id: calculatorId,
+      event_type: 'trial_reactivated',
+      metadata: { plan_tier: planTier, calculator_id: calculatorId },
+    });
+  }
+
+  console.log(`[billing-webhook] QuoteQuick calculator ${calculatorId} upgraded to ${planTier}${wasPaused ? ' (reactivated)' : ''}`);
 }
 

@@ -106,8 +106,9 @@ export default function PortalSettings() {
                   <p className="text-gray-900 font-medium">{data.business_name}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Account Email</p>
+                  <p className="text-xs text-gray-500">Login Email</p>
                   <p className="text-gray-900">{data.account_email || "-"}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Used to sign in — contact us to change</p>
                 </div>
                 {data.trade_type && (
                   <div>

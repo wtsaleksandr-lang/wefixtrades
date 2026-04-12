@@ -45,9 +45,9 @@ export const SERVICES: Service[] = [
   {
     id: "mapguard-ongoing",
     name: MAPGUARD.name + " Ongoing",
-    tagline: "Monthly Google Maps maintenance & growth",
+    tagline: "Fully managed Google Maps visibility — monitoring, fixing, improving",
     description:
-      "Monthly profile updates, post scheduling, and review strategy to keep your Maps ranking climbing and your profile ahead of competitors.",
+      "We monitor your rankings weekly, fix issues as they arise, and execute optimization work every month. You receive clear reports showing your progress.",
     price: lowestMonthly(MAPGUARD)!,
     priceLabel: `From ${formatPrice(lowestMonthly(MAPGUARD)!)}/mo`,
     billingPeriod: "monthly",
@@ -69,7 +69,7 @@ export const SERVICES: Service[] = [
     name: REPUTATIONSHIELD.name,
     tagline: REPUTATIONSHIELD.tagline,
     description:
-      "Automated review request campaigns, response templates, and monitoring to build trust signals that convert browsers into callers.",
+      "Automated review requests after completed jobs, AI-powered review responses, negative review alerts, and a client-facing reputation dashboard.",
     price: lowestMonthly(REPUTATIONSHIELD)!,
     priceLabel: `From ${formatPrice(lowestMonthly(REPUTATIONSHIELD)!)}/mo`,
     billingPeriod: "monthly",
@@ -193,7 +193,7 @@ export const SERVICES: Service[] = [
     name: SOCIALSYNC.name,
     tagline: SOCIALSYNC.tagline,
     description:
-      "Consistent social media presence with trade-specific content, scheduling, and engagement tracking.",
+      "AI-generated social media content published automatically to Facebook, Instagram, and Google Business Profile. Full autopilot posting.",
     price: lowestMonthly(SOCIALSYNC)!,
     priceLabel: `From ${formatPrice(lowestMonthly(SOCIALSYNC)!)}/mo`,
     billingPeriod: "monthly",
