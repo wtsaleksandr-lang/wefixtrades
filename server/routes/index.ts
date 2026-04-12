@@ -20,6 +20,7 @@ import { registerOnboardingPublicRoutes } from "./onboardingPublicRoutes";
 import { registerVapiRoutes } from "./vapiRoutes";
 import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
 import { registerPortalRoutes } from "./portalRoutes";
+import { registerAdminSupportRoutes } from "./adminSupportRoutes";
 import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
 import { registerDemoLeadRoutes } from "./demoLeadRoutes";
 import { registerReviewPublicRoutes } from "./reviewPublicRoutes";
@@ -55,6 +56,7 @@ export async function registerRoutes(
   registerVapiRoutes(app);
   registerPublicCheckoutRoutes(app);
   registerPortalRoutes(app);
+  registerAdminSupportRoutes(app);
   registerMissedCallLeadRoutes(app);
   registerDemoLeadRoutes(app);
   registerMapguardRoutes(app);

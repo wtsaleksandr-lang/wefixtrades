@@ -6,6 +6,7 @@ export * from "./booking";
 export * from "./calculator";
 export * from "./db";
 export * from "./adminCrm";
+export * from "./intakeEvents";
 export * from "./mapguard";
 export * from "./mapguardMonitoring";
 export * from "./socialSync";

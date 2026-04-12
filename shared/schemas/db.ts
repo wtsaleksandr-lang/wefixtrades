@@ -223,15 +223,26 @@ export const aiConversations = pgTable("ai_conversations", {
 export const supportTickets = pgTable("support_tickets", {
   id: serial("id").primaryKey(),
   calculator_id: integer("calculator_id").references(() => calculators.id),
-  client_id: integer("client_id"),
-  subject: text("subject"),
-  status: varchar("status", { length: 20 }).notNull().default("open"),
+  client_id: integer("client_id").notNull(),
+  subject: text("subject").notNull(),
   description: text("description").notNull(),
+  status: varchar("status", { length: 30 }).notNull().default("open"),
+  // open | in_progress | waiting_on_customer | resolved | closed
+  priority: varchar("priority", { length: 20 }).notNull().default("normal"),
+  // low | normal | high | urgent
+  category: varchar("category", { length: 50 }).notNull().default("general"),
+  // general | billing | service | onboarding | access | other
+  source: varchar("source", { length: 30 }).notNull().default("manual"),
+  // manual | ai_escalation | admin_created
+  assigned_to: integer("assigned_to").references(() => users.id),
+  ai_summary: text("ai_summary"),
+  ai_priority_hint: varchar("ai_priority_hint", { length: 20 }),
   transcript_json: jsonb("transcript_json").default([]),
   admin_notified: boolean("admin_notified").default(false),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at"),
   resolved_at: timestamp("resolved_at"),
+  closed_at: timestamp("closed_at"),
 });
 
 export const insertAiConversationSchema = createInsertSchema(aiConversations).omit({
@@ -243,8 +254,53 @@ export const insertAiConversationSchema = createInsertSchema(aiConversations).om
 export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({
   id: true,
   created_at: true,
+  updated_at: true,
   resolved_at: true,
+  closed_at: true,
 });
+
+/* ─── Ticket Messages ─── */
+export const ticketMessages = pgTable("ticket_messages", {
+  id: serial("id").primaryKey(),
+  ticket_id: integer("ticket_id").notNull().references(() => supportTickets.id),
+  author_id: integer("author_id").references(() => users.id),
+  author_type: varchar("author_type", { length: 20 }).notNull(),
+  // customer | admin | system
+  visibility: varchar("visibility", { length: 20 }).notNull().default("customer"),
+  // customer = visible to both sides; internal = admin-only
+  content: text("content").notNull(),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertTicketMessageSchema = createInsertSchema(ticketMessages).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertTicketMessage = z.infer<typeof insertTicketMessageSchema>;
+export type TicketMessage = typeof ticketMessages.$inferSelect;
+
+/* ─── Ticket Events (audit trail) ─── */
+export const ticketEvents = pgTable("ticket_events", {
+  id: serial("id").primaryKey(),
+  ticket_id: integer("ticket_id").notNull().references(() => supportTickets.id),
+  actor_id: integer("actor_id").references(() => users.id),
+  actor_type: varchar("actor_type", { length: 20 }).notNull(),
+  // human | system
+  action: varchar("action", { length: 50 }).notNull(),
+  // created | status_changed | priority_changed | assigned | reply_added | note_added | resolved | closed | reopened
+  old_value: text("old_value"),
+  new_value: text("new_value"),
+  summary: text("summary"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertTicketEventSchema = createInsertSchema(ticketEvents).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertTicketEvent = z.infer<typeof insertTicketEventSchema>;
+export type TicketEvent = typeof ticketEvents.$inferSelect;
 
 export const smsMessages = pgTable("sms_messages", {
   id: serial("id").primaryKey(),
