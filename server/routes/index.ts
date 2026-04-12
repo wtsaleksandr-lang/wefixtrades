@@ -22,6 +22,10 @@ import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
 import { registerPortalRoutes } from "./portalRoutes";
 import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
 import { registerDemoLeadRoutes } from "./demoLeadRoutes";
+import { registerSocialSyncRoutes } from "./socialSyncRoutes";
+import { registerReputationRoutes } from "./reputationRoutes";
+import { registerSalesRoutes } from "./salesRoutes";
+import { registerMediaRoute } from "../services/socialSync/mediaService";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -49,6 +53,10 @@ export async function registerRoutes(
   registerPortalRoutes(app);
   registerMissedCallLeadRoutes(app);
   registerDemoLeadRoutes(app);
+  registerSocialSyncRoutes(app);
+  registerReputationRoutes(app);
+  registerSalesRoutes(app);
+  registerMediaRoute(app);
 
   return httpServer;
 }

@@ -18,14 +18,26 @@ import {
   getVapiConfig,
   verifyWebhookSignature,
   handleConversationTurn,
+  handleTradeLineConversationTurn,
   extractCallReport,
   buildAssistantConfig,
+  buildTradeLineContext,
+  resolveTradeLineClient,
+  logTradeLineCall,
   translateTranscript,
   type VapiWebhookEvent,
   type VapiTranscriptMessage,
+  type ResolvedTradeLineClient,
 } from "../services/vapiService";
 import { logUsage } from "../services/usageTracker";
 import { getModel } from "../services/aiService";
+
+/**
+ * Per-call cache of resolved TradeLine client context.
+ * Keyed by Vapi call ID. Cleared when call ends.
+ * Avoids repeated DB lookups during a single call's conversation turns.
+ */
+const activeTradeLineCalls = new Map<string, ResolvedTradeLineClient>();
 
 export function registerVapiRoutes(app: Express): void {
 
@@ -57,6 +69,22 @@ export function registerVapiRoutes(app: Express): void {
         callId: event.message.call?.id,
       });
 
+      // Attempt TradeLine client resolution from call metadata
+      const callId = event.message.call?.id || "unknown";
+      const callMetadata = (event.message.call as any)?.metadata;
+      const customerNumber = event.message.call?.customer?.number;
+
+      // Resolve and cache TradeLine context for this call
+      if (callId !== "unknown" && !activeTradeLineCalls.has(callId)) {
+        const resolved = await resolveTradeLineClient(callMetadata, customerNumber);
+        if (resolved) {
+          activeTradeLineCalls.set(callId, resolved);
+          console.log(`[vapi] Resolved TradeLine client: ${resolved.client.business_name} (service ${resolved.clientService.id}, mode: ${resolved.config.currentMode})`);
+        }
+      }
+
+      const tradeLineResolved = activeTradeLineCalls.get(callId);
+
       switch (eventType) {
         case "assistant-request": {
           // Vapi is asking for assistant configuration
@@ -67,13 +95,16 @@ export function registerVapiRoutes(app: Express): void {
         case "conversation-update": {
           // Vapi is sending updated transcript for a response
           const messages = event.message.messages || event.message.artifact?.messages || [];
-          const callId = event.message.call?.id || "unknown";
 
           if (!messages.length) {
             return res.json({ reply: "How can I help you?" });
           }
 
-          const reply = await handleConversationTurn(messages, callId);
+          // Use TradeLine mode-aware handler if resolved, otherwise default
+          const reply = tradeLineResolved
+            ? await handleTradeLineConversationTurn(messages, callId, buildTradeLineContext(tradeLineResolved))
+            : await handleConversationTurn(messages, callId);
+
           return res.json({ reply });
         }
 
@@ -119,7 +150,7 @@ export function registerVapiRoutes(app: Express): void {
             messages: report.messageCount,
           });
 
-          // Log the completed call
+          // Log the completed call to ai_usage_logs
           logUsage({
             model: "vapi-call",
             surface: "vapi",
@@ -137,6 +168,20 @@ export function registerVapiRoutes(app: Express): void {
             },
           });
 
+          // If this was a TradeLine call, log to tradeline_call_log + update usage
+          if (tradeLineResolved) {
+            await logTradeLineCall(
+              tradeLineResolved.clientService.id,
+              report,
+              event.message.recordingUrl ?? undefined,
+            );
+          }
+
+          // Clean up call cache
+          if (report.callId !== "unknown") {
+            activeTradeLineCalls.delete(report.callId);
+          }
+
           return res.json({ ok: true });
         }
 
@@ -146,7 +191,10 @@ export function registerVapiRoutes(app: Express): void {
         }
 
         case "hang": {
-          // Call hung up
+          // Call hung up — clean up cache
+          if (callId !== "unknown") {
+            activeTradeLineCalls.delete(callId);
+          }
           return res.json({ ok: true });
         }
 
@@ -171,13 +219,18 @@ export function registerVapiRoutes(app: Express): void {
   app.post("/api/vapi/conversation", async (req: Request, res: Response) => {
     try {
       const { messages, call } = req.body || {};
-      const callId = call?.id || req.body?.callId || "unknown";
+      const convCallId = call?.id || req.body?.callId || "unknown";
 
       const vapiMessages: VapiTranscriptMessage[] = Array.isArray(messages)
         ? messages
         : [];
 
-      const reply = await handleConversationTurn(vapiMessages, callId);
+      // Check for cached TradeLine context from webhook resolution
+      const tradeLineCtx = activeTradeLineCalls.get(convCallId);
+
+      const reply = tradeLineCtx
+        ? await handleTradeLineConversationTurn(vapiMessages, convCallId, buildTradeLineContext(tradeLineCtx))
+        : await handleConversationTurn(vapiMessages, convCallId);
 
       // Vapi custom-llm expects this response format
       return res.json({
