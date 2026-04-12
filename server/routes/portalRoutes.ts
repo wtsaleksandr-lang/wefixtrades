@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { requireClient, hashPassword, verifyPassword } from "../auth";
+import { storage } from "../storage";
 import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { chat as aiChat } from "../services/aiService";
@@ -810,6 +811,298 @@ Do NOT:
     } catch (err) {
       console.error("Portal AI chat error:", err);
       res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
+    }
+  });
+
+  /**
+   * GET /api/portal/reputation
+   * Client-facing reputation report — clean, positive-framed metrics.
+   * No internal noise (errors, queue states, system details).
+   */
+  app.get("/api/portal/reputation", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const allReviews = await storage.listReviews(clientId, { limit: 200 });
+      const requests = await storage.listReviewRequests(clientId, 200);
+
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+      const thirtyDays = 30 * day;
+
+      // Review metrics
+      const recentReviews = allReviews.filter(r => r.review_time && (now - new Date(r.review_time).getTime()) < thirtyDays);
+      const prevMonthReviews = allReviews.filter(r => r.review_time && (now - new Date(r.review_time).getTime()) >= thirtyDays && (now - new Date(r.review_time).getTime()) < 2 * thirtyDays);
+      const ratings = allReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+      const recentRatings = recentReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+      const prevRatings = prevMonthReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+      const avgRating = ratings.length > 0 ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10 : null;
+      const avgRatingRecent = recentRatings.length > 0 ? Math.round((recentRatings.reduce((a, b) => a + b, 0) / recentRatings.length) * 10) / 10 : null;
+      const avgRatingPrev = prevRatings.length > 0 ? Math.round((prevRatings.reduce((a, b) => a + b, 0) / prevRatings.length) * 10) / 10 : null;
+
+      // Replies — client-friendly language
+      const repliedCount = allReviews.filter(r => r.reply_status === "auto_replied" || r.reply_status === "manually_replied" || r.has_existing_owner_reply).length;
+      const replyRate = allReviews.length > 0 ? Math.round((repliedCount / allReviews.length) * 100) : null;
+
+      // Requests — client-friendly
+      const sentRequests = requests.filter(r => r.status === "sent" || r.status === "delivered");
+      const attributed = sentRequests.filter(r => r.attributed_review_id);
+      const responseRate = sentRequests.length > 0 ? Math.round((attributed.length / sentRequests.length) * 100) : null;
+
+      // Avg days to review
+      const daysList: number[] = [];
+      for (const req of attributed) {
+        if (req.sent_at) {
+          const matchedReview = allReviews.find(r => r.id === req.attributed_review_id);
+          if (matchedReview?.review_time) {
+            const d = (new Date(matchedReview.review_time).getTime() - new Date(req.sent_at).getTime()) / day;
+            if (d >= 0) daysList.push(d);
+          }
+        }
+      }
+      const avgDays = daysList.length > 0 ? Math.round((daysList.reduce((a, b) => a + b, 0) / daysList.length) * 10) / 10 : null;
+
+      // Weekly trend (last 8 weeks)
+      const weeklyTrend: { week: string; reviews: number }[] = [];
+      for (let i = 7; i >= 0; i--) {
+        const weekStart = now - (i + 1) * 7 * day;
+        const weekEnd = now - i * 7 * day;
+        const count = allReviews.filter(r => r.review_time && new Date(r.review_time).getTime() >= weekStart && new Date(r.review_time).getTime() < weekEnd).length;
+        weeklyTrend.push({ week: new Date(weekStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }), reviews: count });
+      }
+
+      // Latest positive reviews (client-safe subset)
+      const latestPositive = allReviews
+        .filter(r => (r.star_rating || 0) >= 4 && r.review_text)
+        .slice(0, 5)
+        .map(r => ({
+          reviewer: r.reviewer_name || "A customer",
+          rating: r.star_rating,
+          text: (r.review_text || "").slice(0, 150) + ((r.review_text || "").length > 150 ? "..." : ""),
+          date: r.review_time ? new Date(r.review_time).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null,
+          replied: r.reply_status === "auto_replied" || r.reply_status === "manually_replied" || r.has_existing_owner_reply,
+        }));
+
+      // Recent replies we posted
+      const recentReplies = allReviews
+        .filter(r => (r.reply_status === "auto_replied" || r.reply_status === "manually_replied") && r.reply_posted_at)
+        .sort((a, b) => new Date(b.reply_posted_at!).getTime() - new Date(a.reply_posted_at!).getTime())
+        .slice(0, 3)
+        .map(r => ({
+          reviewer: r.reviewer_name || "A customer",
+          rating: r.star_rating,
+          date: r.reply_posted_at ? new Date(r.reply_posted_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null,
+        }));
+
+      res.json({
+        summary: {
+          reviews_this_month: recentReviews.length,
+          reviews_last_month: prevMonthReviews.length,
+          reviews_change: recentReviews.length - prevMonthReviews.length,
+          total_reviews: allReviews.length,
+          average_rating: avgRating,
+          average_rating_this_month: avgRatingRecent,
+          average_rating_last_month: avgRatingPrev,
+          reply_rate: replyRate,
+        },
+        activity: {
+          reviews_responded_to: repliedCount,
+          review_requests_sent: sentRequests.length,
+          reviews_generated: attributed.length,
+          estimated_response_rate: responseRate,
+          avg_days_to_review: avgDays,
+        },
+        weekly_trend: weeklyTrend,
+        latest_reviews: latestPositive,
+        recent_replies: recentReplies,
+      });
+    } catch (err: any) {
+      console.error("Portal reputation error:", err);
+      res.status(500).json({ error: "Failed to load reputation report" });
+    }
+  });
+
+  /**
+   * GET /api/portal/socialsync-profile
+   * Get the client's SocialSync profile.
+   */
+  app.get("/api/portal/socialsync-profile", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const profile = await storage.getSocialSyncProfile(clientId);
+      if (!profile) return res.json({ exists: false });
+      res.json(profile);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to load profile" });
+    }
+  });
+
+  /**
+   * POST /api/portal/socialsync-setup
+   * Create or update SocialSync profile from onboarding wizard.
+   */
+  app.post("/api/portal/socialsync-setup", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { niche, location, services, service_focus, tone, frequency, platform_preferences, enabled, autopilot } = req.body;
+
+      const profile = await storage.upsertSocialSyncProfile({
+        client_id: clientId,
+        enabled: enabled ?? true,
+        niche: niche || null,
+        location: location || null,
+        services: services || null,
+        service_focus: service_focus || null,
+        tone: tone || "professional",
+        frequency: frequency || "3_per_week",
+        autopilot: autopilot ?? false,
+        platform_preferences: platform_preferences || ["facebook", "instagram"],
+      } as any);
+
+      await storage.createSocialSyncLog({
+        client_id: clientId,
+        entity_type: "profile",
+        entity_id: profile.id,
+        action: "profile.onboarding_completed",
+        status: "success",
+        details: { source: "portal_setup" },
+      });
+
+      res.status(201).json(profile);
+    } catch (err: any) {
+      console.error("Portal SocialSync setup error:", err);
+      res.status(500).json({ error: "Failed to save profile" });
+    }
+  });
+
+  /**
+   * GET /api/portal/socialsync-connections/:platform
+   * Check if a platform is connected for the client.
+   */
+  app.get("/api/portal/socialsync-connections/:platform", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const conn = connections.find(c => c.platform === req.params.platform);
+
+      res.json({
+        connected: conn?.connection_status === "connected" || conn?.connection_status === "expiring_soon",
+        status: conn?.connection_status || "not_connected",
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to check connection" });
+    }
+  });
+
+  /**
+   * GET /api/portal/socialsync
+   * Client-facing SocialSync activity report.
+   */
+  app.get("/api/portal/socialsync", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const profile = await storage.getSocialSyncProfile(clientId);
+      const posts = await storage.listSocialSyncPosts(clientId, { limit: 100 });
+      const connections = await storage.listSocialSyncConnections(clientId);
+
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+      const thirtyDays = 30 * day;
+
+      // Metrics
+      const publishedPosts = posts.filter(p => p.status === "published");
+      const publishedThisMonth = publishedPosts.filter(p => p.published_at && (now - new Date(p.published_at).getTime()) < thirtyDays);
+      const queuedPosts = posts.filter(p => p.status === "queued" && p.scheduled_for);
+
+      // Next scheduled
+      const nextPost = queuedPosts
+        .filter(p => p.scheduled_for && new Date(p.scheduled_for).getTime() > now)
+        .sort((a, b) => new Date(a.scheduled_for!).getTime() - new Date(b.scheduled_for!).getTime())[0];
+
+      // Platforms
+      const platforms = ["facebook", "instagram", "google_business"].map(p => {
+        const conn = connections.find(c => c.platform === p);
+        return {
+          platform: p === "google_business" ? "Google Business" : p.charAt(0).toUpperCase() + p.slice(1),
+          connected: conn?.connection_status === "connected" || conn?.connection_status === "expiring_soon",
+        };
+      });
+
+      // Client-safe status
+      let status: "setup_in_progress" | "needs_connection" | "ready" | "active";
+      if (!profile?.niche || !profile?.location) {
+        status = "setup_in_progress";
+      } else if (!platforms.some(p => p.connected)) {
+        status = "needs_connection";
+      } else if (publishedPosts.length === 0) {
+        status = "ready";
+      } else {
+        status = "active";
+      }
+
+      // Frequency label
+      const freqLabels: Record<string, string> = {
+        daily: "Daily", "3_per_week": "3x per week", "2_per_week": "2x per week", weekly: "Weekly",
+      };
+
+      // Recent published posts (client-safe)
+      const recentPosts = publishedPosts.slice(0, 8).map(p => ({
+        id: p.id,
+        platform: p.platform === "google_business" ? "Google Business" : p.platform.charAt(0).toUpperCase() + p.platform.slice(1),
+        caption: (p.caption || p.post_text).slice(0, 120) + ((p.caption || p.post_text).length > 120 ? "..." : ""),
+        full_text: p.post_text,
+        hashtags: p.hashtags as string[] | null,
+        published_at: p.published_at ? new Date(p.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null,
+        has_image: !!(p.media_plan as any)?.image_url,
+        image_url: (p.media_plan as any)?.image_url || null,
+      }));
+
+      // Upcoming scheduled posts
+      const upcomingPosts = queuedPosts
+        .filter(p => p.scheduled_for && new Date(p.scheduled_for).getTime() > now)
+        .sort((a, b) => new Date(a.scheduled_for!).getTime() - new Date(b.scheduled_for!).getTime())
+        .slice(0, 12)
+        .map(p => ({
+          id: p.id,
+          platform: p.platform === "google_business" ? "Google Business" : p.platform.charAt(0).toUpperCase() + p.platform.slice(1),
+          caption: (p.caption || p.post_text).slice(0, 120) + ((p.caption || p.post_text).length > 120 ? "..." : ""),
+          full_text: p.post_text,
+          hashtags: p.hashtags as string[] | null,
+          scheduled_for: new Date(p.scheduled_for!).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+          scheduled_date: new Date(p.scheduled_for!).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }),
+          has_image: !!(p.media_plan as any)?.image_url,
+          image_url: (p.media_plan as any)?.image_url || null,
+        }));
+
+      res.json({
+        status,
+        summary: {
+          posts_this_month: publishedThisMonth.length,
+          total_published: publishedPosts.length,
+          active_platforms: platforms.filter(p => p.connected).length,
+          posting_frequency: freqLabels[profile?.frequency || "3_per_week"] || "3x per week",
+          autopilot: profile?.autopilot || false,
+        },
+        next_scheduled: nextPost ? {
+          platform: nextPost.platform === "google_business" ? "Google Business" : nextPost.platform.charAt(0).toUpperCase() + nextPost.platform.slice(1),
+          scheduled_for: new Date(nextPost.scheduled_for!).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+        } : null,
+        platforms,
+        recent_posts: recentPosts,
+        upcoming_posts: upcomingPosts,
+      });
+    } catch (err: any) {
+      console.error("Portal SocialSync report error:", err);
+      res.status(500).json({ error: "Failed to load SocialSync report" });
     }
   });
 }

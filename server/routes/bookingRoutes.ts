@@ -308,7 +308,7 @@ export function registerBookingRoutes(app: Express): void {
 
       const bookingId = parseInt(req.params.id);
       const { status } = req.body;
-      if (!["pending", "confirmed", "cancelled"].includes(status)) {
+      if (!["pending", "confirmed", "completed", "cancelled"].includes(status)) {
         return res.status(400).json({ error: "Invalid status" });
       }
 
