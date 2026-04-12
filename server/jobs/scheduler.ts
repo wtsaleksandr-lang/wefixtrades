@@ -9,6 +9,19 @@ import { processReviewFollowups } from "./reviewFollowupWorker";
 import { processReviewMonitoring } from "./reviewMonitorWorker";
 import { processReputationReports } from "./reputationReportWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
+import { processMapguardScans } from "./mapguardScanWorker";
+import { processMapguardReports } from "./mapguardReportWorker";
+import { processMapguardWeeklyUpdates } from "./mapguardWeeklyUpdateWorker";
+
+import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
+
+import { processSocialSyncQueue } from "./socialSyncWorker";
+import { generateAllDue } from "../services/socialSync/orchestrator";
+import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
+import { cleanupOldMedia } from "../services/socialSync/mediaService";
+
+import { processAllClientReviews } from "../services/reputation/reviewOrchestrator";
+import { processReviewRequests } from "../services/reputation/reviewRequestService";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -160,14 +173,130 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  // MapGuard weekly monitoring scan — Tuesdays at 4 AM UTC
+  cron.schedule("0 4 * * 2", async () => {
+    console.log("[Scheduler] Running MapGuard weekly monitoring scan...");
+    try {
+      await runJob("mapguard_weekly_scan", processMapguardScans);
+    } catch (err: any) {
+      console.error("[Scheduler] mapguard_weekly_scan cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  // MapGuard weekly client updates — Fridays at 9 AM UTC
+  cron.schedule("0 9 * * 5", async () => {
+    console.log("[Scheduler] Running MapGuard weekly client updates...");
+    try {
+      await runJob("mapguard_weekly_update", processMapguardWeeklyUpdates);
+    } catch (err: any) {
+      console.error("[Scheduler] mapguard_weekly_update cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  // MapGuard monthly reports — 2nd of each month at 10 AM UTC
+  cron.schedule("0 10 2 * *", async () => {
+    console.log("[Scheduler] Running MapGuard monthly reports...");
+    try {
+      await runJob("mapguard_monthly_reports", processMapguardReports);
+    } catch (err: any) {
+      console.error("[Scheduler] mapguard_monthly_reports cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+  
+  // Trial lifecycle emails — runs daily at 9 AM UTC (~4-5 AM EST)
+  cron.schedule("0 9 * * *", async () => {
+    console.log("[Scheduler] Running trial lifecycle worker...");
+    try {
+      await runJob("trial_lifecycle", async () => {
+        const emailResult = await processTrialLifecycle();
+        const pauseResult = await pauseExpiredTrials();
+        return { ...emailResult, paused: pauseResult.paused, pauseErrors: pauseResult.errors };
+      });
+    } catch (err: any) {
+      console.error("[Scheduler] trial_lifecycle cron handler error:", err.message);
+    }
+  });
+  
+  // SocialSync publish queue — runs every 2 minutes
+  cron.schedule("*/2 * * * *", async () => {
+    try {
+      await runJob("socialsync_queue_worker", processSocialSyncQueue);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_queue_worker error:", err.message);
+    }
+  });
+
+  // SocialSync content generation — runs weekly on Sunday at 6 AM UTC
+  // Generates the upcoming week's content for all autopilot clients
+  cron.schedule("0 6 * * 0", async () => {
+    console.log("[Scheduler] Running SocialSync weekly content generation...");
+    try {
+      await runJob("socialsync_weekly_generation", generateAllDue);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_weekly_generation error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  // SocialSync connection expiry check — runs daily at 4 AM UTC
+  cron.schedule("0 4 * * *", async () => {
+    console.log("[Scheduler] Running SocialSync connection expiry check...");
+    try {
+      await runJob("socialsync_expiry_check", checkConnectionExpiry);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_expiry_check error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
   console.log("[Scheduler] Jobs scheduled:");
   console.log("  - Daily aggregation: 02:00 UTC every day");
   console.log("  - Chat memory cleanup: 03:00 UTC every day");
+  console.log("  - Trial lifecycle emails: 09:00 UTC every day");
   console.log("  - Weekly email report: 13:00 UTC every Monday (~8AM EST)");
+  console.log("  - MapGuard weekly scan: 04:00 UTC every Tuesday");
+  console.log("  - MapGuard weekly client update: 09:00 UTC every Friday");
+  console.log("  - MapGuard monthly reports: 10:00 UTC on the 2nd of each month");
   console.log("  - Notification queue worker: every minute");
   console.log("  - Follow-up jobs worker: every minute");
   console.log("  - Audit follow-up worker: every minute");
   console.log("  - Review follow-up worker: every minute");
   console.log("  - Review monitoring: every 6 hours");
   console.log("  - Reputation reports: 09:00 UTC daily");
+  console.log("  - SocialSync queue worker: every 2 minutes");
+  console.log("  - SocialSync weekly generation: 06:00 UTC every Sunday");
+  console.log("  - SocialSync expiry check: 04:00 UTC every day");
+
+  // SocialSync media cleanup — runs daily at 5 AM UTC
+  cron.schedule("0 5 * * *", async () => {
+    console.log("[Scheduler] Running SocialSync media cleanup...");
+    try {
+      await runJob("socialsync_media_cleanup", cleanupOldMedia);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_media_cleanup error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  console.log("  - SocialSync media cleanup: 05:00 UTC every day");
+
+  // SocialSync review automation — runs every 6 hours
+  cron.schedule("0 */6 * * *", async () => {
+    console.log("[Scheduler] Running SocialSync review automation...");
+    try {
+      await runJob("socialsync_review_automation", processAllClientReviews);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_review_automation error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  console.log("  - SocialSync review automation: every 6 hours");
+
+  // Review request delivery — runs every 15 minutes
+  cron.schedule("*/15 * * * *", async () => {
+    try {
+      await runJob("review_request_delivery", processReviewRequests);
+    } catch (err: any) {
+      console.error("[Scheduler] review_request_delivery error:", err.message);
+    }
+  });
+
+  console.log("  - Review request delivery: every 15 minutes");
 }

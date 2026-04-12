@@ -3,7 +3,7 @@ import { z } from "zod";
 import { storage } from "../storage";
 
 const createLeadBody = z.object({
-  calculator_id: z.number(),
+  calculator_id: z.number().int().positive(),
   name: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
@@ -18,6 +18,25 @@ const createLeadBody = z.object({
 
 const leadsQuery = z.object({ token: z.string().min(1) });
 
+// Simple in-memory dedup: calculator_id + email/phone → last submit timestamp
+const recentSubmissions = new Map<string, number>();
+const DEDUP_WINDOW_MS = 10_000; // 10 seconds
+
+function isDuplicateSubmission(calculatorId: number, email: string | null, phone: string | null): boolean {
+  const key = `${calculatorId}:${email || ''}:${phone || ''}`;
+  const now = Date.now();
+  const last = recentSubmissions.get(key);
+  if (last && now - last < DEDUP_WINDOW_MS) return true;
+  recentSubmissions.set(key, now);
+  // Prune old entries periodically
+  if (recentSubmissions.size > 5000) {
+    for (const [k, v] of recentSubmissions) {
+      if (now - v > DEDUP_WINDOW_MS * 2) recentSubmissions.delete(k);
+    }
+  }
+  return false;
+}
+
 async function requireCalcByToken(token: string) {
   const calculator = await storage.getCalculatorByToken(token);
   if (!calculator) return null;
@@ -27,9 +46,11 @@ async function requireCalcByToken(token: string) {
 }
 
 async function enqueueLeadNotificationsAndFollowups(lead: any, calculatorId: number) {
-  const allCalcs = await storage.getAllCalculatorsWithEmail();
-  const calc = allCalcs.find(c => c.id === calculatorId);
-  if (!calc) return;
+  const calc = await storage.getCalculatorById(calculatorId);
+  if (!calc) {
+    console.warn(`[leads] Cannot enqueue notifications: calculator ${calculatorId} not found`);
+    return;
+  }
 
   const settings = (calc.calculator_settings as any) || {};
   const followup = settings.followup || {};
@@ -79,15 +100,26 @@ async function enqueueLeadNotificationsAndFollowups(lead: any, calculatorId: num
   }
 
   if (followup.enabled) {
-    const schedule = followup.schedule || [];
+    const schedule = Array.isArray(followup.schedule) ? followup.schedule : [];
     const templates = followup.templates || {};
     const personalization = followup.personalization || {};
     const channels = followup.channels || { email: true, sms: false };
+
+    // Need at least one channel with a reachable contact
+    const canEmail = channels.email && lead.email;
+    const canSms = channels.sms && lead.sms_consent && lead.phone;
+
+    if (!canEmail && !canSms) {
+      // No reachable followup channel — skip silently
+      return;
+    }
 
     const jobsToEnqueue: any[] = [];
     const now = Date.now();
 
     for (const step of schedule) {
+      if (!step || !step.type) continue; // skip malformed entries
+
       let offsetMs = 0;
       if (step.offset_minutes) offsetMs = step.offset_minutes * 60 * 1000;
       else if (step.offset_hours) offsetMs = step.offset_hours * 60 * 60 * 1000;
@@ -96,7 +128,7 @@ async function enqueueLeadNotificationsAndFollowups(lead: any, calculatorId: num
       const runAt = new Date(now + offsetMs);
       const template = templates[step.type] || {};
 
-      if (channels.email) {
+      if (canEmail) {
         jobsToEnqueue.push({
           lead_id: lead.id,
           calculator_id: calculatorId,
@@ -117,7 +149,7 @@ async function enqueueLeadNotificationsAndFollowups(lead: any, calculatorId: num
         });
       }
 
-      if (channels.sms && lead.sms_consent) {
+      if (canSms) {
         jobsToEnqueue.push({
           lead_id: lead.id,
           calculator_id: calculatorId,
@@ -151,13 +183,50 @@ export function registerLeadRoutes(app: Express): void {
         return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
       }
 
+      // Sanitize: trim strings
+      const email = (parsed.data.email || '').trim() || null;
+      const phone = (parsed.data.phone || '').trim() || null;
+      const name = (parsed.data.name || '').trim() || null;
+      const company = (parsed.data.company || '').trim() || null;
+
+      // Require at least email or phone
+      if (!email && !phone) {
+        return res.status(400).json({ error: "Email or phone is required" });
+      }
+
+      // Validate email format if provided
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ error: "Invalid email format" });
+      }
+
+      // Verify calculator exists
+      const calculator = await storage.getCalculatorById(parsed.data.calculator_id);
+      if (!calculator) {
+        return res.status(404).json({ error: "Calculator not found" });
+      }
+
+      // Duplicate submission guard
+      if (isDuplicateSubmission(parsed.data.calculator_id, email, phone)) {
+        return res.status(429).json({ error: "Submission already received. Please wait a moment." });
+      }
+
+      // quote_amount: preserve 0 as valid (don't coerce to null)
+      const quoteAmount = parsed.data.quote_amount != null ? parsed.data.quote_amount : null;
+
+      // Validate quote_amount is a finite number if present
+      if (quoteAmount != null && !Number.isFinite(quoteAmount)) {
+        console.warn(`[leads] Non-finite quote_amount=${quoteAmount} for calculator ${parsed.data.calculator_id}, setting to null`);
+      }
+
+      const safeQuoteAmount = quoteAmount != null && Number.isFinite(quoteAmount) ? quoteAmount : null;
+
       const lead = await storage.createLead({
         calculator_id: parsed.data.calculator_id,
-        name: parsed.data.name || null,
-        email: parsed.data.email || null,
-        phone: parsed.data.phone || null,
-        company: parsed.data.company || null,
-        quote_amount: parsed.data.quote_amount || null,
+        name,
+        email,
+        phone,
+        company,
+        quote_amount: safeQuoteAmount,
         answers: parsed.data.answers || null,
         status: 'new',
         sms_consent: parsed.data.sms_consent || false,
@@ -178,7 +247,7 @@ export function registerLeadRoutes(app: Express): void {
       storage.trackEvent({
         calculator_id: parsed.data.calculator_id,
         event_type: 'lead',
-        metadata: { quote_amount: parsed.data.quote_amount || null },
+        metadata: { quote_amount: safeQuoteAmount },
       }).catch(() => {});
 
       enqueueLeadNotificationsAndFollowups(lead, parsed.data.calculator_id).catch(err => {

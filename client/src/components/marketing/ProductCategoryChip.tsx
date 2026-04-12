@@ -23,6 +23,12 @@ const CATEGORY_STYLES: Record<
     bg: mkt.cyanTint,
     border: `1px solid ${mkt.cyan}`,
   },
+  reputation: {
+    label: "Reputation",
+    color: mkt.cyan,
+    bg: mkt.cyanTint,
+    border: `1px solid ${mkt.cyan}`,
+  },
 };
 
 interface ProductCategoryChipProps {

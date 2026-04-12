@@ -48,9 +48,9 @@ export default function ProblemSection() {
             className="mg-problem-stats"
           >
             {[
-              "Have incomplete profiles",
-              "Show up too low",
-              "Or don't appear at all",
+              "have incomplete Google profiles",
+              "rank too low to get calls",
+              "don't appear in Maps at all",
             ].map((stat) => (
               <div
                 key={stat}
@@ -61,7 +61,7 @@ export default function ProblemSection() {
                 }}
               >
                 <span style={{ fontSize: 14, fontWeight: 500, color: mkt.textMuted, lineHeight: 1.5 }}>
-                  Most trades businesses {stat.toLowerCase()}
+                  Most trades businesses {stat}
                 </span>
               </div>
             ))}

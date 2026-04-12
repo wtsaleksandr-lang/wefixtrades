@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "wouter";
-import { Check, ChevronDown, ArrowRight, Phone, MessageSquare, MessagesSquare, RotateCcw, Star, Zap, UserCheck, CalendarCheck, TrendingUp, X as XIcon, Send, ShieldCheck, MessageCircle, PenTool, Share2, Eye } from "lucide-react";
+import { Check, ChevronDown, ArrowRight, Phone, MessageSquare, MessagesSquare, RotateCcw, Star, Zap, UserCheck, CalendarCheck, TrendingUp, X as XIcon, Send, ShieldCheck, Shield, MessageCircle, PenTool, Share2, Eye, ImageIcon, Info } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import ProductHeroShell from "@/components/marketing/ProductHeroShell";
 import ProductCategoryChip from "@/components/marketing/ProductCategoryChip";
@@ -2426,17 +2426,27 @@ function SSWhatWeDoSection() {
     {
       icon: PenTool,
       label: "Create",
-      desc: "We turn your services and job work into clean, professional posts.",
+      desc: "AI writes posts tailored to your trade, services, and location. No generic content.",
+    },
+    {
+      icon: ImageIcon,
+      label: "Design",
+      desc: "We generate clean images for Instagram posts. No stock photos needed.",
     },
     {
       icon: Share2,
       label: "Post",
-      desc: "We publish consistently across Facebook, Instagram, and Google.",
+      desc: "Published automatically to Facebook, Instagram, and Google Business Profile.",
+    },
+    {
+      icon: Shield,
+      label: "Quality check",
+      desc: "Every post is checked for repetition, spam, and tone before it goes live.",
     },
     {
       icon: Eye,
-      label: "Keep you active",
-      desc: "Your business always looks current, busy, and trusted.",
+      label: "Keep you visible",
+      desc: "Consistent weekly posting so your business always looks active and trusted.",
     },
   ];
 
@@ -2476,6 +2486,9 @@ function SSWhatWeDoSection() {
           }
           @media (max-width: 768px) {
             .ss-whatwedo-grid { grid-template-columns: 1fr !important; }
+          }
+          @media (min-width: 769px) and (max-width: 1024px) {
+            .ss-whatwedo-grid { grid-template-columns: repeat(3, 1fr) !important; }
           }
         `}</style>
 
@@ -2700,6 +2713,61 @@ function SSRiskReversal() {
         No contracts \u00B7 Cancel anytime \u00B7 We handle everything \u00B7 Posts go out every week
       </p>
     </div>
+  );
+}
+
+/* ---------- SocialSync: Transparency Section ---------- */
+function SSTransparencySection() {
+  const items = [
+    { text: "Does not manage DMs or messages", why: "Keeps your accounts safe — no access to private conversations" },
+    { text: "Does not reply to comments", why: "Comment management requires different tools and human judgment" },
+    { text: "Does not run ads", why: "SocialSync is organic visibility, not paid advertising" },
+    { text: "Does not post videos or reels", why: "We focus on what works consistently: image + text posts" },
+  ];
+
+  return (
+    <section style={{ background: mkt.bg, padding: "56px 28px" }} data-testid="ss-transparency">
+      <div style={{ maxWidth: 600, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Clear expectations</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(20px, 2.5vw, 28px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 8,
+          }}
+        >
+          What SocialSync doesn't do
+        </h2>
+        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 28 }}>
+          We believe in being upfront. SocialSync does one thing really well: keeping your business visible with consistent, quality posts.
+        </p>
+        <div style={{ textAlign: "left" }}>
+          {items.map((item) => (
+            <div
+              key={item.text}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                padding: "12px 0",
+                borderBottom: `1px solid ${mkt.border}`,
+              }}
+            >
+              <Info size={16} color={mkt.textMuted} style={{ marginTop: 2, flexShrink: 0 }} />
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 600, color: mkt.text, margin: "0 0 2px" }}>{item.text}</p>
+                <p style={{ fontSize: 13, color: mkt.textMuted, margin: 0 }}>{item.why}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: 13, color: mkt.textMuted, marginTop: 20 }}>
+          This keeps everything safe, compliant, and focused on what matters: consistent visibility.
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -4065,6 +4133,7 @@ export default function ProductPage() {
 
         {/* ── SocialSync: Comparison (after how-it-works) ── */}
         {isSocialSync && <SSComparisonSection />}
+        {isSocialSync && <SSTransparencySection />}
 
         {/* ── SiteLaunch: Comparison (after how-it-works) ── */}
         {isSiteLaunch && <SLComparisonSection />}

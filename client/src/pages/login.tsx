@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { getSessionId } from "@/lib/chatHelpers";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
 
@@ -26,6 +27,21 @@ export default function LoginPage() {
     },
     onSuccess: (data: { user: { role?: string } }) => {
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+
+      // Best-effort: link anonymous website chat session to the newly logged-in user
+      // so the portal assistant can resume context. Fire-and-forget.
+      try {
+        const chatSessionId = getSessionId();
+        if (chatSessionId) {
+          fetch("/api/auth/link-chat-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ chatSessionId }),
+          }).catch(() => {}); // silent — linking is optional
+        }
+      } catch { /* noop */ }
+
       const role = data.user?.role;
       if (role === "admin" || role === "portal") {
         navigate("/admin/crm");

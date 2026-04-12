@@ -7,23 +7,23 @@ const BLOCKS = [
   {
     icon: Settings,
     label: "SETUP (one-time)",
-    title: "We fix your profile",
+    title: "We rebuild your profile",
     items: [
-      "Full profile optimization",
-      "Categories, services, photos",
-      "NAP correction across listings",
-      "Listing cleanup and verification",
+      "Full profile audit and optimization",
+      "Categories, services, photos and description",
+      "Keyword tuning for your trade and area",
+      "Before/after visibility report",
     ],
   },
   {
     icon: RefreshCw,
     label: "ONGOING (monthly)",
-    title: "We keep it working",
+    title: "We manage and improve it",
     items: [
-      "Posts + updates every week",
-      "Review strategy and responses",
-      "Ranking improvements",
-      "Monitoring + adjustments",
+      "Weekly visibility monitoring and alerts",
+      "Regular posts to keep your profile active",
+      "We fix issues and optimize your profile continuously",
+      "Monthly performance report",
     ],
   },
 ];
@@ -125,11 +125,11 @@ export default function WhatWeDoSection() {
       <div style={MAX_W}>
         <div style={{ textAlign: "center", marginBottom: 48 }} data-reveal="fade-up">
           <h2 style={sectionHeading}>
-            We Fix It —{" "}
-            <span style={{ color: mkt.accent }}>and Keep It Working.</span>
+            We Fix It, Manage It,{" "}
+            <span style={{ color: mkt.accent }}>and Keep It Growing.</span>
           </h2>
           <p style={sectionSub}>
-            MapGuard handles both the initial setup and the ongoing management so your profile keeps improving.
+            MapGuard is a fully managed service. We handle the setup, monitor your visibility, and execute improvements every month.
           </p>
         </div>
 
@@ -149,7 +149,7 @@ export default function WhatWeDoSection() {
         </div>
 
         <p style={{ fontSize: 14, color: mkt.textMuted, textAlign: "center", marginTop: 24, lineHeight: 1.6 }}>
-          We do the work for you — you don't need to learn Google Business Profile, logging in, or ongoing maintenance.
+          You never need to log in, learn tools, or do any of the work yourself. We handle everything and report the results to you.
         </p>
 
         <style>{`

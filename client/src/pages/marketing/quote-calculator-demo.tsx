@@ -215,9 +215,10 @@ const DARK = "#0d1514";
 const CYAN = "#00D4C8";
 
 const BENEFITS = [
-  { icon: Clock, text: "Quotes delivered in seconds" },
-  { icon: DollarSign, text: "Collect deposits upfront" },
+  { icon: Clock, text: "Instant prices, 24/7" },
+  { icon: DollarSign, text: "Every quote captures a lead" },
   { icon: Smartphone, text: "Works on any device" },
+  { icon: Zap, text: "No platform switch needed" },
 ];
 
 /* ─── Page Component ─── */
@@ -227,7 +228,7 @@ const BASE = "https://wefixtrades.com";
 export default function QuoteCalculatorDemo() {
   usePageMeta({
     title: "Instant Quote Demo | WeFixTrades",
-    description: "Try the live quote calculator demo. See how your customers get instant prices for plumbing, cleaning, electrical, and more.",
+    description: "Try the live QuoteQuick demo. See how your customers get instant prices on your website for plumbing, cleaning, electrical, painting, and more. Free 14-day trial.",
     canonicalPath: "/tools/quote-demo",
   });
 
@@ -350,7 +351,7 @@ export default function QuoteCalculatorDemo() {
               marginLeft: "auto",
               marginRight: "auto",
             }}>
-              Try it yourself — this is exactly what your customers will see.
+              Try it yourself — this is what your customers see. Live in 5 minutes, no code needed.
             </p>
           </div>
 
@@ -459,14 +460,14 @@ export default function QuoteCalculatorDemo() {
                     lineHeight: 1.2,
                     marginBottom: 4,
                   }}>
-                    Get QuoteQuick for Your Business
+                    Start Your 14-Day Free Trial
                   </div>
                   <div style={{
                     fontSize: 14,
                     color: "rgba(13,21,20,0.6)",
                     fontWeight: 500,
                   }}>
-                    From $49/mo · Live in under 10 minutes · No code needed
+                    No credit card required · Live in 5 minutes · From $49/mo
                   </div>
                 </div>
                 <div style={{

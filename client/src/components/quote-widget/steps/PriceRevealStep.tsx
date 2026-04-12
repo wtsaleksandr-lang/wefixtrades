@@ -1,14 +1,15 @@
 import { useMemo, useEffect, useRef } from 'react';
-import { Phone } from 'lucide-react';
+import { Phone, Shield } from 'lucide-react';
+import HelpTip from '../HelpTip';
 import { trackEvent } from '@/lib/trackEvent';
 import { useWidgetState } from '../useWidgetState';
 import { calculateEstimate } from '@shared/calculateEstimate';
-import { eff, stepTitleStyle, stepSubtitleStyle } from '../designTokens';
+import { eff, stepTitleStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
 
 interface PriceRevealStepProps {
   step: StepDefinition;
-  accentColor?: string;
+  accentColor?: string; // Reserved for future theme integration
 }
 
 /**
@@ -22,10 +23,14 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
   // Derive estimate directly from current inputs. useMemo ensures
   // recalculation only when inputs or pricing config actually change,
   // and avoids the stale-dependency bug of useEffect + recalculate().
-  const estimate = useMemo(
-    () => calculateEstimate(config.pricingConfig, estimateInputs),
-    [config.pricingConfig, estimateInputs],
-  );
+  const estimate = useMemo(() => {
+    const result = calculateEstimate(config.pricingConfig, estimateInputs);
+    // Guard: ensure total is never NaN for display
+    if (!Number.isFinite(result.total)) {
+      return { ...result, total: 0 };
+    }
+    return result;
+  }, [config.pricingConfig, estimateInputs]);
 
   const trackedRef = useRef(false);
   useEffect(() => {
@@ -36,9 +41,8 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
   }, []);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {step.title && <h3 style={stepTitleStyle}>{step.title}</h3>}
-      {step.subtitle && <p style={stepSubtitleStyle}>{step.subtitle}</p>}
 
       {!estimate && (
         <div style={{
@@ -68,6 +72,24 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
           callUs={estimate.callUs}
         />
       )}
+
+      {/* Trust microcopy */}
+      {estimate && estimate.type !== 'call_for_quote' && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '8px',
+          fontSize: '13px',
+          color: eff.textBody,
+          lineHeight: 1.5,
+        }}>
+          <Shield style={{ width: 14, height: 14, flexShrink: 0, marginTop: '2px', opacity: 0.7 }} />
+          <span>
+            Instant estimate based on your inputs. No obligation.
+            <HelpTip text="This price is calculated from the rates set by this business. The final amount may differ slightly after an on-site review of your specific project." />
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -88,22 +110,22 @@ function ExactPriceBlock({
       borderRadius: eff.radiusXl,
       border: `1px solid ${eff.buttonBorder}`,
       background: eff.bgSecondary,
-      padding: '32px 24px',
+      padding: '24px 20px',
     }}>
-      <div style={{ textAlign: 'center', marginBottom: breakdown.length > 0 ? '24px' : 0 }}>
+      <div style={{ textAlign: 'center', marginBottom: breakdown.length > 0 ? '16px' : 0 }}>
         <p style={{
           fontSize: '12px',
           fontWeight: 600,
           color: eff.textBody,
           textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-          margin: '0 0 8px',
-          fontFamily: eff.fontMono,
+          letterSpacing: '0.04em',
+          margin: '0 0 6px',
+          fontFamily: eff.font,
         }}>
           Your Estimate
         </p>
         <p style={{
-          fontSize: '40px',
+          fontSize: 'clamp(28px, 8vw, 36px)',
           fontWeight: 800,
           color: eff.text,
           margin: 0,
@@ -171,7 +193,7 @@ function RangeBlock({
       borderRadius: eff.radiusXl,
       border: `1px solid ${eff.buttonBorder}`,
       background: eff.bgSecondary,
-      padding: '32px 24px',
+      padding: '24px 20px',
       textAlign: 'center',
     }}>
       <p style={{
@@ -179,19 +201,19 @@ function RangeBlock({
         fontWeight: 600,
         color: eff.textBody,
         textTransform: 'uppercase',
-        letterSpacing: '0.06em',
-        margin: '0 0 8px',
-        fontFamily: eff.fontMono,
+        letterSpacing: '0.04em',
+        margin: '0 0 6px',
+        fontFamily: eff.font,
       }}>
         Estimated Range
       </p>
       <p style={{
-        fontSize: '36px',
+        fontSize: 'clamp(24px, 7vw, 32px)',
         fontWeight: 800,
         color: eff.text,
         margin: '0 0 8px',
         fontFamily: eff.fontMono,
-        lineHeight: 1,
+        lineHeight: 1.1,
         letterSpacing: '-0.02em',
       }}>
         ${rangeMin.toLocaleString()} &ndash; ${rangeMax.toLocaleString()}
@@ -213,7 +235,7 @@ function CallForQuoteBlock({
       borderRadius: eff.radiusXl,
       border: `1px solid ${eff.buttonBorder}`,
       background: eff.bgSecondary,
-      padding: '40px 24px',
+      padding: '28px 20px',
       textAlign: 'center',
     }}>
       <div style={{

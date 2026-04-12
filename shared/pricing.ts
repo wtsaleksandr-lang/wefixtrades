@@ -146,7 +146,7 @@ export const TRADELINE: ProductDef = {
 export const QUOTEQUICK: ProductDef = {
   id: "quotequick",
   name: "QuoteQuick™",
-  tagline: "Instant quote calculator for your website",
+  tagline: "Instant quotes on your website. Qualified leads in your inbox.",
   category: "leads",
   tiers: [
     {
@@ -155,8 +155,11 @@ export const QUOTEQUICK: ProductDef = {
       price: 49,
       billingPeriod: "monthly",
       features: [
-        "Embeddable quote tool",
-        "Lead capture",
+        "Instant quote widget on your site",
+        "Lead capture with every quote",
+        "Email notifications",
+        "Lead dashboard",
+        "Embed on any website",
       ],
     },
     {
@@ -167,9 +170,12 @@ export const QUOTEQUICK: ProductDef = {
       highlighted: true,
       badge: "Most Popular",
       features: [
-        "Advanced logic rules",
-        "Custom styling",
-        "Booking integration",
+        "Everything in Starter, plus:",
+        "Online booking integration",
+        "Automated email + SMS follow-ups",
+        "Custom branding + styling",
+        "Coupon codes + promotions",
+        "Webhook / CRM integration",
       ],
     },
   ],
@@ -224,7 +230,7 @@ export const WEBCARE: ProductDef = {
 export const MAPGUARD: ProductDef = {
   id: "mapguard",
   name: "MapGuard\u2122",
-  tagline: "Keep your Google Business Profile optimized and ranking",
+  tagline: "Fully managed Google Maps visibility \u2014 we monitor, fix, and improve your ranking for you",
   category: "visibility",
   setup: 397,
   tiers: [
@@ -234,10 +240,10 @@ export const MAPGUARD: ProductDef = {
       price: 397,
       billingPeriod: "one-time",
       features: [
-        "Full GBP audit & rebuild from scratch",
+        "Full GBP audit & profile rebuild",
         "Category, services & area optimization",
         "Business description & keyword tuning",
-        "Photo uploads & first posts",
+        "Photo uploads & initial posts",
         "Before/after visibility report",
       ],
     },
@@ -247,10 +253,10 @@ export const MAPGUARD: ProductDef = {
       price: 99,
       billingPeriod: "monthly",
       features: [
+        "Weekly visibility monitoring & alerts",
         "2 Google Business posts/month",
-        "Profile monitoring & alerts",
-        "Listing accuracy checks",
-        "Monthly ranking snapshot",
+        "Profile accuracy checks & fixes",
+        "Monthly performance report",
       ],
     },
     {
@@ -261,11 +267,12 @@ export const MAPGUARD: ProductDef = {
       highlighted: true,
       badge: "Most Popular",
       features: [
+        "Weekly visibility monitoring & alerts",
         "4 Google Business posts/month",
         "Review response management",
-        "Local keyword optimization",
-        "Competitor tracking",
-        "Monthly performance report",
+        "Ongoing keyword & category optimization",
+        "Competitor tracking & response",
+        "Monthly performance report with recommendations",
       ],
     },
   ],
@@ -322,6 +329,8 @@ export const REPUTATIONSHIELD: ProductDef = {
         "Competitor review tracking + benchmarking",
         "Weekly detailed reputation report",
         "Priority response handling",
+        "Review growth strategy & coaching",
+        "Dedicated account support",
       ],
     },
   ],
@@ -342,10 +351,10 @@ export const SOCIALSYNC: ProductDef = {
       price: 99,
       billingPeriod: "monthly",
       features: [
-        "8 posts/month created for you",
+        "8 AI-generated posts/month",
         "1 platform (Facebook or Instagram)",
-        "Job photos & updates posted",
-        "Monthly content calendar",
+        "Automated content calendar",
+        "Quality-checked before publishing",
       ],
     },
     {
@@ -356,11 +365,11 @@ export const SOCIALSYNC: ProductDef = {
       highlighted: true,
       badge: "Most Popular",
       features: [
-        "12 posts/month created for you",
-        "Facebook + Instagram",
-        "Google Business posts included",
-        "Branded content templates",
-        "Monthly engagement report",
+        "12 AI-generated posts/month",
+        "Facebook + Instagram + Google Business",
+        "AI-generated images for Instagram",
+        "Autopilot scheduling & publishing",
+        "Monthly content report",
       ],
     },
     {
@@ -369,10 +378,10 @@ export const SOCIALSYNC: ProductDef = {
       price: 199,
       billingPeriod: "monthly",
       features: [
-        "20 posts/month created for you",
-        "All platforms (FB, IG, Google, LinkedIn)",
+        "20 AI-generated posts/month",
+        "All platforms (FB, IG, Google Business)",
         "Priority content creation",
-        "Custom graphics & captions",
+        "Custom tone & service focus",
         "Weekly reporting",
       ],
     },
@@ -538,28 +547,28 @@ export const ALL_PRODUCTS: ProductDef[] = [
    ═══════════════════════════════════════════ */
 export const BUNDLE_STARTER: BundleDef = {
   id: "bundle-starter",
-  name: "Starter System",
-  tagline: "Best for getting started",
+  name: "Visibility Starter",
+  tagline: "Get visible and start building trust",
   price: 249,
   billingPeriod: "monthly",
   includes: [
-    { productId: "quotequick", tierId: "quotequick-pro", label: "QuoteQuick Pro", value: 79 },
-    { productId: "mapguard", tierId: "mapguard-basic", label: "MapGuard Basic", value: 99 },
-    { productId: "reputationshield", tierId: "reputationshield-basic", label: "ReputationShield Basic", value: 79 },
+    { productId: "mapguard", tierId: "mapguard-basic", label: "MapGuard Basic \u2014 Google Maps visibility", value: 99 },
+    { productId: "reputationshield", tierId: "reputationshield-basic", label: "ReputationShield Basic \u2014 Review management", value: 79 },
+    { productId: "quotequick", tierId: "quotequick-pro", label: "QuoteQuick Pro \u2014 Instant quotes", value: 79 },
   ],
 };
 
 export const BUNDLE_GROWTH: BundleDef = {
   id: "bundle-growth",
   name: "Growth System",
-  tagline: "Most popular",
+  tagline: "Most popular — visibility + reputation",
   price: 449,
   billingPeriod: "monthly",
   highlighted: true,
   badge: "Most Popular",
   includes: [
     { productId: "tradeline", tierId: "tradeline-starter", label: "TradeLine Starter", value: 97 },
-    { productId: "quotequick", tierId: "quotequick-pro", label: "QuoteQuick Pro", value: 79 },
+    { productId: "socialsync", tierId: "socialsync-starter", label: "SocialSync Starter", value: 99 },
     { productId: "mapguard", tierId: "mapguard-pro", label: "MapGuard Pro", value: 149 },
     { productId: "reputationshield", tierId: "reputationshield-pro", label: "ReputationShield Pro", value: 129 },
   ],
@@ -568,14 +577,14 @@ export const BUNDLE_GROWTH: BundleDef = {
 export const BUNDLE_PRO: BundleDef = {
   id: "bundle-pro",
   name: "Pro System",
-  tagline: "Full automation system",
+  tagline: "Full automation — posting + reputation + leads",
   price: 799,
   billingPeriod: "monthly",
   includes: [
-    { productId: "tradeline", tierId: "tradeline-pro", label: "TradeLine Pro", value: 197 },
-    { productId: "socialsync", tierId: "socialsync-growth", label: "SocialSync Growth", value: 149 },
-    { productId: "mapguard", tierId: "mapguard-pro", label: "MapGuard Pro", value: 149 },
-    { productId: "reputationshield", tierId: "reputationshield-pro", label: "ReputationShield Pro", value: 129 },
+    { productId: "mapguard", tierId: "mapguard-pro", label: "MapGuard Pro \u2014 Managed visibility", value: 149 },
+    { productId: "reputationshield", tierId: "reputationshield-pro", label: "ReputationShield Pro \u2014 Review growth", value: 129 },
+    { productId: "socialsync", tierId: "socialsync-growth", label: "SocialSync Growth \u2014 Social presence", value: 149 },
+    { productId: "tradeline", tierId: "tradeline-pro", label: "TradeLine Pro \u2014 AI call answering", value: 197 },
   ],
 };
 

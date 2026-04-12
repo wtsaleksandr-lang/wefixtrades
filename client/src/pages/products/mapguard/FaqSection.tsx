@@ -6,28 +6,40 @@ import { HEADING_FONT, BODY_FONT, GLASS, sectionHeading, SECTION_PAD, MAX_W } fr
 
 const FAQ_ITEMS = [
   {
-    q: "How long before I see results?",
-    a: "Most clients see improvement within 30\u201360 days. Google needs time to process changes, but our optimizations are designed to move the needle fast. Ongoing plans keep building momentum each month.",
+    q: "What exactly does MapGuard do?",
+    a: "MapGuard is a fully managed Google Maps visibility service. We optimize your Google Business Profile, monitor your rankings every week, fix issues as they happen, and send you a monthly report showing your progress. You don\u2019t need to do anything.",
   },
   {
     q: "Do I need to do anything?",
-    a: "No. We handle everything \u2014 setup, optimization, posts, reviews, monitoring. You don\u2019t need to log in or learn any tools.",
+    a: "No. We handle everything \u2014 the initial setup, ongoing optimization, posting, and monitoring. You\u2019ll receive a monthly report showing what we did and how your visibility changed. That\u2019s it.",
   },
   {
-    q: "Is this SEO?",
-    a: "It\u2019s focused specifically on Google Maps visibility \u2014 where your calls actually come from. When someone searches \u201Cplumber near me,\u201D we make sure your business shows up.",
+    q: "What\u2019s the difference between Basic and Pro?",
+    a: "Both plans include weekly monitoring and monthly reporting. Pro includes more optimization work each month, which means faster improvements. Pro also adds review response management, competitor tracking, and ongoing keyword optimization. If you\u2019re in a competitive area or have multiple issues to address, Pro gets results faster.",
+  },
+  {
+    q: "What happens each month?",
+    a: "Our system scans your visibility and rankings every week. Our team reviews the data, executes optimization work on your profile, and sends you a report at the end of the month showing what changed. Higher plans include more optimization actions per month.",
+  },
+  {
+    q: "How long before I see improvement?",
+    a: "Most clients see measurable improvement within 30\u201360 days. Google needs time to process profile changes, but our system starts monitoring and optimizing immediately. Each month builds on the last.",
+  },
+  {
+    q: "Is this the same as SEO?",
+    a: "MapGuard focuses specifically on Google Maps and local search visibility \u2014 where most trades businesses get their calls. It\u2019s not website SEO. When someone searches \u201Cplumber near me,\u201D we make sure your business shows up.",
   },
   {
     q: "Can I cancel anytime?",
     a: "Yes. No contracts, no commitments. Monthly plans can be cancelled anytime with no penalty.",
   },
   {
-    q: "Do you work with my trade?",
-    a: "We work with all trades \u2014 plumbers, electricians, HVAC, roofers, cleaners, landscapers, painters, and more. If you serve local customers, MapGuard is built for you.",
+    q: "Do you guarantee rankings?",
+    a: "No one can honestly guarantee specific Google rankings. What we guarantee is a fully optimized, actively managed profile with weekly monitoring and real improvements executed every month. We show you the data so you can see the results yourself.",
   },
   {
-    q: "Do you guarantee rankings?",
-    a: "No one can honestly guarantee specific rankings. What we guarantee is a fully optimized, actively managed profile that gives your business the best possible chance of ranking higher in your area.",
+    q: "Who does the actual work?",
+    a: "Our internal team and specialist partners handle all optimization work. You get a dedicated monitoring system that scans your visibility weekly, and our team acts on the findings. Everything is managed for you.",
   },
 ];
 
