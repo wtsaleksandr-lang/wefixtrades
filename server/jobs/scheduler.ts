@@ -9,17 +9,16 @@ import { processReviewFollowups } from "./reviewFollowupWorker";
 import { processReviewMonitoring } from "./reviewMonitorWorker";
 import { processReputationReports } from "./reputationReportWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
+import { processRankFlowPlans } from "./rankflowWorker";
+import { processRankFlowTracking } from "./trackingWorker";
 import { processMapguardScans } from "./mapguardScanWorker";
 import { processMapguardReports } from "./mapguardReportWorker";
 import { processMapguardWeeklyUpdates } from "./mapguardWeeklyUpdateWorker";
-
 import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
-
 import { processSocialSyncQueue } from "./socialSyncWorker";
 import { generateAllDue } from "../services/socialSync/orchestrator";
 import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
 import { cleanupOldMedia } from "../services/socialSync/mediaService";
-
 import { processAllClientReviews } from "../services/reputation/reviewOrchestrator";
 import { processReviewRequests } from "../services/reputation/reviewRequestService";
 
@@ -40,7 +39,7 @@ async function withRetry<T>(
       lastError = err;
       console.error(`[Scheduler] ${jobName} attempt ${attempt}/${retries} failed:`, err.message);
       if (attempt < retries) {
-        await new Promise(r => setTimeout(r, RETRY_DELAY_MS * attempt));
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
       }
     }
   }
@@ -140,7 +139,6 @@ export function initScheduler() {
     }
   });
 
-  // Review monitoring — runs every 6 hours, fetches new Google reviews for clients
   cron.schedule("0 */6 * * *", async () => {
     console.log("[Scheduler] Running review monitoring...");
     try {
@@ -150,7 +148,6 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
-  // Reputation reports — runs daily at 9 AM UTC, sends periodic reports to eligible clients
   cron.schedule("0 9 * * *", async () => {
     console.log("[Scheduler] Running reputation reports...");
     try {
@@ -160,7 +157,6 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
-  // Chat memory cleanup — runs daily at 3 AM UTC, removes expired 7-day records
   cron.schedule("0 3 * * *", async () => {
     console.log("[Scheduler] Running chat memory cleanup...");
     try {
@@ -173,7 +169,24 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
-  // MapGuard weekly monitoring scan — Tuesdays at 4 AM UTC
+  cron.schedule("0 4 * * 1", async () => {
+    console.log("[Scheduler] Running RankFlow plan generation...");
+    try {
+      await runJob("rankflow_plan_generation", processRankFlowPlans);
+    } catch (err: any) {
+      console.error("[Scheduler] rankflow_plan_generation cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  cron.schedule("0 5 * * 3", async () => {
+    console.log("[Scheduler] Running RankFlow tracking...");
+    try {
+      await runJob("rankflow_tracking", processRankFlowTracking);
+    } catch (err: any) {
+      console.error("[Scheduler] rankflow_tracking cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
   cron.schedule("0 4 * * 2", async () => {
     console.log("[Scheduler] Running MapGuard weekly monitoring scan...");
     try {
@@ -183,7 +196,6 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
-  // MapGuard weekly client updates — Fridays at 9 AM UTC
   cron.schedule("0 9 * * 5", async () => {
     console.log("[Scheduler] Running MapGuard weekly client updates...");
     try {
@@ -193,7 +205,6 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
-  // MapGuard monthly reports — 2nd of each month at 10 AM UTC
   cron.schedule("0 10 2 * *", async () => {
     console.log("[Scheduler] Running MapGuard monthly reports...");
     try {
@@ -202,8 +213,7 @@ export function initScheduler() {
       console.error("[Scheduler] mapguard_monthly_reports cron handler error:", err.message);
     }
   }, { timezone: "UTC" });
-  
-  // Trial lifecycle emails — runs daily at 9 AM UTC (~4-5 AM EST)
+
   cron.schedule("0 9 * * *", async () => {
     console.log("[Scheduler] Running trial lifecycle worker...");
     try {
@@ -216,8 +226,7 @@ export function initScheduler() {
       console.error("[Scheduler] trial_lifecycle cron handler error:", err.message);
     }
   });
-  
-  // SocialSync publish queue — runs every 2 minutes
+
   cron.schedule("*/2 * * * *", async () => {
     try {
       await runJob("socialsync_queue_worker", processSocialSyncQueue);
@@ -226,8 +235,6 @@ export function initScheduler() {
     }
   });
 
-  // SocialSync content generation — runs weekly on Sunday at 6 AM UTC
-  // Generates the upcoming week's content for all autopilot clients
   cron.schedule("0 6 * * 0", async () => {
     console.log("[Scheduler] Running SocialSync weekly content generation...");
     try {
@@ -237,7 +244,6 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
-  // SocialSync connection expiry check — runs daily at 4 AM UTC
   cron.schedule("0 4 * * *", async () => {
     console.log("[Scheduler] Running SocialSync connection expiry check...");
     try {
@@ -252,6 +258,8 @@ export function initScheduler() {
   console.log("  - Chat memory cleanup: 03:00 UTC every day");
   console.log("  - Trial lifecycle emails: 09:00 UTC every day");
   console.log("  - Weekly email report: 13:00 UTC every Monday (~8AM EST)");
+  console.log("  - RankFlow plan generation: 04:00 UTC every Monday");
+  console.log("  - RankFlow tracking: 05:00 UTC every Wednesday");
   console.log("  - MapGuard weekly scan: 04:00 UTC every Tuesday");
   console.log("  - MapGuard weekly client update: 09:00 UTC every Friday");
   console.log("  - MapGuard monthly reports: 10:00 UTC on the 2nd of each month");
@@ -265,7 +273,6 @@ export function initScheduler() {
   console.log("  - SocialSync weekly generation: 06:00 UTC every Sunday");
   console.log("  - SocialSync expiry check: 04:00 UTC every day");
 
-  // SocialSync media cleanup — runs daily at 5 AM UTC
   cron.schedule("0 5 * * *", async () => {
     console.log("[Scheduler] Running SocialSync media cleanup...");
     try {
@@ -277,7 +284,6 @@ export function initScheduler() {
 
   console.log("  - SocialSync media cleanup: 05:00 UTC every day");
 
-  // SocialSync review automation — runs every 6 hours
   cron.schedule("0 */6 * * *", async () => {
     console.log("[Scheduler] Running SocialSync review automation...");
     try {
@@ -289,7 +295,6 @@ export function initScheduler() {
 
   console.log("  - SocialSync review automation: every 6 hours");
 
-  // Review request delivery — runs every 15 minutes
   cron.schedule("*/15 * * * *", async () => {
     try {
       await runJob("review_request_delivery", processReviewRequests);

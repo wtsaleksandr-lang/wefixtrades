@@ -70,6 +70,7 @@ import BillingPage from "@/pages/admin/BillingPage";
 import ServicesPage from "@/pages/admin/ServicesPage";
 import MapguardDashboard from "@/pages/admin/MapguardDashboard";
 import ReviewsPage from "@/pages/admin/ReviewsPage";
+import RankFlowOpsPage from "@/pages/admin/RankFlowOpsPage";
 import ProfilePage from "@/pages/admin/ProfilePage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import ChangePasswordPage from "@/pages/admin/ChangePasswordPage";
@@ -89,10 +90,10 @@ import PortalSettings from "@/pages/portal/PortalSettings";
 import PortalOnboarding from "@/pages/portal/PortalOnboarding";
 import PortalHelp from "@/pages/portal/PortalHelp";
 import PortalMapguard from "@/pages/portal/PortalMapguard";
-
 import PortalReputation from "@/pages/portal/PortalReputation";
 import SocialSyncSetup from "@/pages/portal/SocialSyncSetup";
 import PortalSocialSync from "@/pages/portal/PortalSocialSync";
+import PortalRankFlow from "@/pages/portal/PortalRankFlow";
 import ResetPasswordPage from "@/pages/ResetPassword";
 
 function Router() {
@@ -108,6 +109,7 @@ function Router() {
       <Route path="/admin/crm/inbox">{() => <RequirePortal><InboxPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/billing">{() => <RequirePortal><BillingPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/suppliers">{() => <RequirePortal><SuppliersPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/rankflow">{() => <RequirePortal><RankFlowOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/services">{() => <RequirePortal><ServicesPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/mapguard">{() => <RequirePortal><MapguardDashboard /></RequirePortal>}</Route>
       <Route path="/admin/crm/reviews">{() => <RequirePortal><ReviewsPage /></RequirePortal>}</Route>
@@ -123,6 +125,7 @@ function Router() {
       <Route path="/portal/services">{() => <RequireClient><PortalServices /></RequireClient>}</Route>
       <Route path="/portal/reviews/widget">{() => <RequireClient><PortalWidget /></RequireClient>}</Route>
       <Route path="/portal/reviews">{() => <RequireClient><PortalReviews /></RequireClient>}</Route>
+      <Route path="/portal/rankflow">{() => <RequireClient><PortalRankFlow /></RequireClient>}</Route>
       <Route path="/portal/billing">{() => <RequireClient><PortalBilling /></RequireClient>}</Route>
       <Route path="/portal/socialsync-setup">{() => <RequireClient><SocialSyncSetup /></RequireClient>}</Route>
       <Route path="/portal/socialsync">{() => <RequireClient><PortalSocialSync /></RequireClient>}</Route>

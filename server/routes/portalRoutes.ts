@@ -4,6 +4,9 @@ import { storage } from "../storage";
 import { db } from "../db";
 import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { chat as aiChat } from "../services/aiService";
+import { generateMonthlyPlan } from "../services/rankflow/planGenerator";
+import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
+import { generateKeywordTargets, clusterKeywords, deriveTargetServices } from "../services/rankflow/keywordHelper";
 import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../services/threadService";
 import { authRateLimiter } from "../services/rateLimiter";
 
@@ -21,6 +24,10 @@ import {
   deploymentStatus,
   supportTickets,
   passwordResetTokens,
+  rankflowProfiles,
+  rankflowTasks,
+  rankflowProgress,
+  rankflowMonthlyPlans,
   reviewRequests,
   monitoredReviews,
   mapguardSnapshots,
@@ -1976,6 +1983,235 @@ export function registerPortalRoutes(app: Express) {
     } catch (err: any) {
       console.error("[portal] google-disconnect error:", err.message);
       res.status(500).json({ error: "Failed to disconnect" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     RankFlow Client Dashboard
+     ═══════════════════════════════════════════ */
+
+  const TASK_TYPE_LABELS: Record<string, string> = {
+    page_create: "Page created",
+    meta_fix: "Page optimization",
+    citation_build: "Directory listing",
+    internal_linking: "Internal linking",
+    content_support: "SEO content support",
+    schema_basic: "Search visibility improvement",
+  };
+
+  app.get("/api/portal/rankflow", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const month = new Date().toISOString().slice(0, 7);
+
+      // Profile
+      const [profile] = await db.select().from(rankflowProfiles)
+        .where(eq(rankflowProfiles.client_id, clientId)).limit(1);
+
+      if (!profile) return res.json({ active: false });
+
+      // Current month plan
+      const [plan] = await db.select().from(rankflowMonthlyPlans)
+        .where(and(eq(rankflowMonthlyPlans.client_id, clientId), eq(rankflowMonthlyPlans.month, month)))
+        .limit(1);
+
+      // Tasks for this month (only done or in-progress — hide internal clutter)
+      const allTasks = plan
+        ? await db.select().from(rankflowTasks).where(eq(rankflowTasks.plan_id, plan.id))
+        : [];
+
+      const completed = allTasks.filter(t => t.status === "done");
+      const inProgress = allTasks.filter(t => ["assigned", "in_progress", "submitted", "qa_review", "pending"].includes(t.status));
+
+      // Transform to client-safe language
+      const completedItems = completed.map(t => ({
+        label: TASK_TYPE_LABELS[t.type] || t.type.replace(/_/g, " "),
+        detail: t.title.replace(/^(Create SEO page|Optimize title tag|Build citation|Add internal links|Add schema markup|Content recommendation).*?—?\s*/i, "").trim() || t.title,
+        completedAt: t.completed_at,
+      }));
+
+      const inProgressItems = inProgress.map(t => ({
+        label: TASK_TYPE_LABELS[t.type] || t.type.replace(/_/g, " "),
+        detail: t.title,
+      }));
+
+      // Progress stats
+      const totalTasks = allTasks.length;
+      const doneTasks = completed.length;
+      const pagesCreated = completed.filter(t => t.type === "page_create").length;
+      const citationsBuilt = completed.filter(t => t.type === "citation_build").length;
+      const progressPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+
+      // Status line
+      let statusLine = "Work is underway this month";
+      if (!profile.enabled) statusLine = "RankFlow is currently paused";
+      else if (!plan) statusLine = "This month's plan is being prepared";
+      else if (doneTasks === totalTasks && totalTasks > 0) statusLine = "This month's SEO work is complete";
+      else if (doneTasks === 0) statusLine = "Work is starting this month";
+
+      // What's next (simple narrative)
+      const nextUp: string[] = [];
+      const pendingTypes = new Set(inProgress.map(t => t.type));
+      if (pendingTypes.has("page_create")) nextUp.push("Creating optimized service pages");
+      if (pendingTypes.has("meta_fix")) nextUp.push("Optimizing page titles and descriptions");
+      if (pendingTypes.has("citation_build")) nextUp.push("Expanding local directory coverage");
+      if (pendingTypes.has("internal_linking")) nextUp.push("Improving internal page connections");
+      if (pendingTypes.has("content_support")) nextUp.push("Preparing next month's content strategy");
+      if (pendingTypes.has("schema_basic")) nextUp.push("Enhancing search result visibility");
+      if (nextUp.length === 0 && totalTasks > 0 && doneTasks < totalTasks) nextUp.push("Finalizing this month's SEO improvements");
+      if (nextUp.length === 0 && doneTasks === totalTasks) nextUp.push("Reviewing keyword progress for next month");
+
+      // Ranking highlights (from signals table)
+      const signals = await storage.getSignalSummary(clientId);
+      const rankingHighlights: string[] = [];
+      if (signals) {
+        if (signals.keywords_top_10 > 0) rankingHighlights.push(`${signals.keywords_top_10} keyword${signals.keywords_top_10 > 1 ? "s" : ""} in top 10`);
+        if (signals.keywords_improved > 0) rankingHighlights.push(`${signals.keywords_improved} keyword${signals.keywords_improved > 1 ? "s" : ""} improved this month`);
+        if (signals.pages_indexed > 0) rankingHighlights.push(`${signals.pages_indexed} page${signals.pages_indexed > 1 ? "s" : ""} indexed on Google`);
+        if (signals.keywords_top_20 > signals.keywords_top_10) rankingHighlights.push(`${signals.keywords_top_20} keyword${signals.keywords_top_20 > 1 ? "s" : ""} in top 20`);
+      }
+
+      // Indexing summary
+      const pages = await storage.listPagesByClient(clientId);
+      const indexedPages = pages.filter(p => p.indexed).length;
+      const pendingIndex = pages.length - indexedPages;
+
+      // Monthly narrative (rule-based)
+      const narrativeParts: string[] = [];
+      if (doneTasks > 0) narrativeParts.push(`This month we completed ${doneTasks} SEO improvement${doneTasks > 1 ? "s" : ""}`);
+      if (pagesCreated > 0) narrativeParts.push(`created ${pagesCreated} new page${pagesCreated > 1 ? "s" : ""}`);
+      if (citationsBuilt > 0) narrativeParts.push(`built ${citationsBuilt} local listing${citationsBuilt > 1 ? "s" : ""}`);
+      if (signals?.keywords_improved && signals.keywords_improved > 0) narrativeParts.push(`${signals.keywords_improved} keyword${signals.keywords_improved > 1 ? "s" : ""} improved in Google`);
+      if (indexedPages > 0) narrativeParts.push(`${indexedPages} page${indexedPages > 1 ? "s are" : " is"} indexed on Google`);
+      let narrative = narrativeParts.length > 0
+        ? narrativeParts.join(", ") + "."
+        : "We are setting up your SEO plan and will begin work shortly.";
+      // Capitalize first letter
+      narrative = narrative.charAt(0).toUpperCase() + narrative.slice(1);
+
+      res.json({
+        active: profile.enabled,
+        plan_tier: profile.plan_tier,
+        month,
+        statusLine,
+        narrative,
+        metrics: {
+          tasksCompleted: doneTasks,
+          totalTasks,
+          pagesCreated,
+          citationsBuilt,
+          progressPct,
+        },
+        ranking: {
+          highlights: rankingHighlights,
+          keywordsTracked: signals?.total_keywords || 0,
+          keywordsTop10: signals?.keywords_top_10 || 0,
+          keywordsTop20: signals?.keywords_top_20 || 0,
+          keywordsImproved: signals?.keywords_improved || 0,
+          avgPosition: signals?.avg_position ? Number(signals.avg_position) : null,
+        },
+        indexing: {
+          totalPages: pages.length,
+          indexed: indexedPages,
+          pending: pendingIndex,
+        },
+        completed: completedItems,
+        inProgress: inProgressItems,
+        nextUp,
+      });
+    } catch (err: any) {
+      console.error("[portal-rankflow] error:", err.message);
+      res.status(500).json({ error: "Failed to load RankFlow dashboard" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     RankFlow Onboarding
+     ═══════════════════════════════════════════ */
+
+  app.post("/api/portal/rankflow/onboard", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { business_name, website_url, niche, location, additional_services, additional_locations, plan_tier } = req.body;
+
+      if (!business_name || !website_url || !niche || !location) {
+        return res.status(400).json({ error: "business_name, website_url, niche, and location are required" });
+      }
+
+      // Check if profile already exists and is enabled
+      const existing = await storage.getRankFlowProfile(clientId);
+      if (existing?.enabled) {
+        return res.status(409).json({ error: "RankFlow is already active for this client" });
+      }
+
+      // Derive target services and locations
+      const targetServices = deriveTargetServices(niche, additional_services);
+      const targetLocations = [location, ...(additional_locations || [])].filter(Boolean);
+
+      // Create or update profile
+      const profile = await storage.upsertRankFlowProfile(clientId, {
+        niche,
+        location,
+        website_url,
+        target_services: targetServices,
+        target_locations: targetLocations,
+        plan_tier: plan_tier || "starter",
+        enabled: true,
+      });
+
+      // Generate initial monthly plan + tasks
+      const month = new Date().toISOString().slice(0, 7);
+      let planResult = null;
+
+      const existingPlan = await storage.getMonthlyPlan(clientId, month);
+      if (!existingPlan) {
+        const planData = generateMonthlyPlan(profile);
+        const plan = await storage.createMonthlyPlan({
+          client_id: clientId,
+          month,
+          plan_data: planData,
+          status: "draft",
+        });
+
+        const taskDefs = generateTasksFromPlan(plan.id, planData, profile);
+        let tasksCreated = 0;
+        for (const t of taskDefs) {
+          await storage.createRankFlowTask(t as any);
+          tasksCreated++;
+        }
+
+        await storage.updateMonthlyPlanStatus(plan.id, "active");
+        planResult = { planId: plan.id, month, tasksCreated };
+      }
+
+      // Generate structured keyword targets and save to tracking table
+      const keywords = generateKeywordTargets(niche, location, additional_locations, additional_services);
+      const clusters = clusterKeywords(keywords);
+
+      // Save keywords to tracking table (max 40)
+      const kwToSave = keywords.slice(0, 40).map(k => ({
+        client_id: clientId,
+        keyword: k.keyword,
+        cluster: k.cluster,
+        priority: k.priority,
+      }));
+      await storage.createKeywords(kwToSave);
+
+      console.log(`[rankflow-onboard] Client ${clientId} onboarded — ${kwToSave.length} keywords saved, ${clusters.length} clusters, plan: ${planResult ? "created" : "already exists"}`);
+
+      res.status(201).json({
+        profile,
+        plan: planResult,
+        keywords_saved: kwToSave.length,
+        clusters: clusters.length,
+      });
+    } catch (err: any) {
+      console.error("[rankflow-onboard] error:", err.message);
+      res.status(500).json({ error: "Failed to complete onboarding" });
     }
   });
 }
