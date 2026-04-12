@@ -238,9 +238,13 @@ async function main() {
       { title: "QA review + go live", description: "Run GET /readiness — all issues must be resolved. Mark setupStage as ready_for_testing, verify with client, then POST /go-live. Done = setupStage is 'live'.", sort_order: 7, default_handled_by: "internal", human_review_required: true, is_recurring: false },
     ],
     "quotequick": [
-      { title: "Verify calculator created via wizard", sort_order: 1, default_handled_by: "internal" },
-      { title: "Review pricing configuration", sort_order: 2, default_handled_by: "internal" },
-      { title: "Confirm embed on client website", sort_order: 3, default_handled_by: "internal", default_waiting_on: "client" },
+      { title: "Collect onboarding info from client", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client" },
+      { title: "Create calculator via wizard (or on behalf)", sort_order: 2, default_handled_by: "internal" },
+      { title: "Review and validate pricing configuration", sort_order: 3, default_handled_by: "internal" },
+      { title: "Configure lead form and follow-up settings", sort_order: 4, default_handled_by: "internal" },
+      { title: "Embed widget on client website", sort_order: 5, default_handled_by: "internal", default_waiting_on: "client" },
+      { title: "Test full flow: quote → lead → notification", sort_order: 6, default_handled_by: "internal" },
+      { title: "Go live & send confirmation to client", sort_order: 7, default_handled_by: "internal", human_review_required: true },
     ],
   };
 
@@ -370,13 +374,14 @@ async function main() {
     "quotequick": {
       name: "QuoteQuick Onboarding",
       steps: [
-        { key: "service_type", label: "Type of service you quote for", type: "text", required: true },
-        { key: "quote_type", label: "Quote type", type: "text", required: true },
-        { key: "base_pricing", label: "Base pricing or rate", type: "text", required: true },
-        { key: "service_area", label: "Service area", type: "text", required: true },
-        { key: "upsells", label: "Upsells or add-ons", type: "text", required: false },
-        { key: "discounts", label: "Discounts or promotions", type: "text", required: false },
-        { key: "booking_settings", label: "Booking preferences", type: "text", required: false },
+        { key: "trade_type", label: "What trade/service do you offer?", type: "text", required: true },
+        { key: "pricing_model", label: "How do you charge? (hourly, per sqft, flat rate, packages, etc.)", type: "text", required: true },
+        { key: "base_pricing", label: "Your typical rates or starting prices", type: "text", required: true },
+        { key: "service_area", label: "Service area / cities covered", type: "text", required: true },
+        { key: "website_url", label: "Website URL (for embed)", type: "text", required: true },
+        { key: "addons", label: "Common upsells or add-ons you offer", type: "text", required: false },
+        { key: "booking_preference", label: "Do you want customers to book online after getting a quote?", type: "select", required: false },
+        { key: "notification_email", label: "Where should lead notifications go?", type: "text", required: true },
       ],
     },
     "webfix": {

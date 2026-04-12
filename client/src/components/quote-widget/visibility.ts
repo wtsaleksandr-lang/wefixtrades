@@ -6,9 +6,10 @@ import type { WidgetAnswers } from './types';
  * All conditions must pass (AND logic).
  */
 export function evaluateVisibility(
-  conditions: VisibilityCondition[],
+  conditions: VisibilityCondition[] | undefined | null,
   answers: WidgetAnswers,
 ): boolean {
+  if (!conditions || !Array.isArray(conditions) || conditions.length === 0) return true;
   return conditions.every((cond) => evaluateCondition(cond, answers));
 }
 

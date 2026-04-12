@@ -13,6 +13,7 @@ import LoginPage from "@/pages/login";
 import MarketingHome from "@/pages/marketing/home";
 import MarketingProduct from "@/pages/marketing/product";
 import MarketingPricing from "@/pages/marketing/pricing";
+import QuoteQuickPricing from "@/pages/marketing/quotequick-pricing";
 import ProductIndex from "@/pages/product/ProductIndex";
 import MarketingServices from "@/pages/marketing/services";
 import MarketingBundles from "@/pages/marketing/bundles";
@@ -141,6 +142,7 @@ function Router() {
       <Route path="/product">{() => <Redirect to="/products" />}</Route>
       <Route path="/platform" component={MarketingProduct} />
       <Route path="/pricing" component={PricingUnified} />
+      <Route path="/pricing/quotequick" component={QuoteQuickPricing} />
       <Route path="/plans">{() => <Redirect to="/pricing" />}</Route>
       <Route path="/checkout/success" component={CheckoutSuccess} />
       <Route path="/checkout/cancelled" component={CheckoutCancelled} />

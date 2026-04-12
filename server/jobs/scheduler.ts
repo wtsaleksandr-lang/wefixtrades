@@ -6,10 +6,13 @@ import { processNotificationQueue } from "./notificationWorker";
 import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
+import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
+
 import { processSocialSyncQueue } from "./socialSyncWorker";
 import { generateAllDue } from "../services/socialSync/orchestrator";
 import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
 import { cleanupOldMedia } from "../services/socialSync/mediaService";
+
 import { processAllClientReviews } from "../services/reputation/reviewOrchestrator";
 import { processReviewRequests } from "../services/reputation/reviewRequestService";
 
@@ -135,6 +138,20 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  // Trial lifecycle emails — runs daily at 9 AM UTC (~4-5 AM EST)
+  cron.schedule("0 9 * * *", async () => {
+    console.log("[Scheduler] Running trial lifecycle worker...");
+    try {
+      await runJob("trial_lifecycle", async () => {
+        const emailResult = await processTrialLifecycle();
+        const pauseResult = await pauseExpiredTrials();
+        return { ...emailResult, paused: pauseResult.paused, pauseErrors: pauseResult.errors };
+      });
+    } catch (err: any) {
+      console.error("[Scheduler] trial_lifecycle cron handler error:", err.message);
+    }
+  });
+  
   // SocialSync publish queue — runs every 2 minutes
   cron.schedule("*/2 * * * *", async () => {
     try {
@@ -168,6 +185,7 @@ export function initScheduler() {
   console.log("[Scheduler] Jobs scheduled:");
   console.log("  - Daily aggregation: 02:00 UTC every day");
   console.log("  - Chat memory cleanup: 03:00 UTC every day");
+  console.log("  - Trial lifecycle emails: 09:00 UTC every day");
   console.log("  - Weekly email report: 13:00 UTC every Monday (~8AM EST)");
   console.log("  - Notification queue worker: every minute");
   console.log("  - Follow-up jobs worker: every minute");

@@ -1,4 +1,4 @@
-import { CheckCircle2, PartyPopper, ArrowRight, Search } from 'lucide-react';
+import { CheckCircle2, ArrowRight, Search, CircleCheck } from 'lucide-react';
 import { useWidgetState } from '../useWidgetState';
 import { eff, stepTitleStyle } from '../designTokens';
 import NextStepSuggestions from '@/components/marketing/NextStepSuggestions';
@@ -22,33 +22,27 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
   const bookingData = state.booking.data;
 
   return (
-    <div style={{ textAlign: 'center', padding: '24px 0' }}>
+    <div style={{ textAlign: 'center', padding: '8px 0' }}>
       <div style={{
-        width: '64px',
-        height: '64px',
+        width: '48px',
+        height: '48px',
         borderRadius: '50%',
-        background: eff.bg,
+        background: eff.successBg,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        margin: '0 auto 24px',
+        margin: '0 auto 16px',
       }}>
-        <PartyPopper style={{ width: 32, height: 32, color: eff.buttonBg }} />
+        <CircleCheck style={{ width: 24, height: 24, color: eff.success }} />
       </div>
 
-      <h3 style={{ ...stepTitleStyle, textAlign: 'center', fontSize: '22px' }}>
-        {step.title || config.calculator.lead_thank_you_message || "You're all set!"}
+      <h3 style={{ ...stepTitleStyle, textAlign: 'center', fontSize: '20px' }}>
+        {config.calculator.lead_thank_you_message || "Quote sent successfully"}
       </h3>
 
-      {step.subtitle && (
-        <p style={{ fontSize: '14px', color: eff.textBody, margin: '8px 0 0', lineHeight: 1.5 }}>
-          {step.subtitle}
-        </p>
-      )}
-
       <div style={{
-        maxWidth: '320px',
-        margin: '24px auto 0',
+        maxWidth: '380px',
+        margin: '20px auto 0',
         display: 'flex',
         flexDirection: 'column',
         gap: '8px',
@@ -61,12 +55,13 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
             gap: '10px',
             borderRadius: eff.radiusMd,
             border: `1px solid ${eff.buttonBorder}`,
-            padding: '12px 16px',
+            padding: '14px 16px',
             fontSize: '14px',
             color: eff.text,
+            background: '#fff',
           }}>
-            <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0, color: eff.buttonBg }} />
-            <span>Quote details sent to your email</span>
+            <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0, color: eff.success }} />
+            <span>Estimate sent to your email</span>
           </div>
         )}
 
@@ -77,20 +72,21 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
             gap: '10px',
             borderRadius: eff.radiusMd,
             border: `1px solid ${eff.buttonBorder}`,
-            padding: '12px 16px',
+            padding: '14px 16px',
             fontSize: '14px',
             color: eff.text,
+            background: '#fff',
           }}>
-            <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0, color: eff.buttonBg }} />
+            <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0, color: eff.success }} />
             <span>
-              Booking confirmed for {bookingData.selectedDate} at {bookingData.selectedTime}
+              Appointment booked: {bookingData.selectedDate} at {bookingData.selectedTime}
             </span>
           </div>
         )}
 
         {!leadSubmitted && !bookingConfirmed && (
           <p style={{ fontSize: '14px', color: eff.textBody, textAlign: 'center', margin: 0 }}>
-            Thank you for using our estimator. We'll be in touch soon.
+            Thank you for your interest. We'll be in touch shortly.
           </p>
         )}
       </div>
@@ -100,11 +96,11 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
         fontSize: '13px',
         color: eff.textBody,
         textAlign: 'center',
-        margin: '24px 0 0',
-        lineHeight: 1.5,
+        margin: '16px 0 0',
+        lineHeight: 1.6,
       }}>
         {leadSubmitted
-          ? "Check your email for a copy of your estimate. We'll follow up within 24 hours."
+          ? "Check your inbox for a copy of your estimate. We typically respond within a few hours."
           : "We'll reach out shortly to discuss your project."}
       </p>
 
@@ -116,7 +112,8 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
       {/* QuoteQuick pitch — demo mode only */}
       {isDemo && leadSubmitted && (
         <div style={{
-          marginTop: '24px',
+          maxWidth: '380px',
+          margin: '24px auto 0',
           padding: '20px',
           borderRadius: eff.radiusLg,
           border: `1px solid ${eff.buttonBorder}`,

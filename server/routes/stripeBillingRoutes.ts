@@ -158,6 +158,12 @@ export function registerStripeBillingRoutes(app: Express): void {
 /* ─── Webhook Handlers ─── */
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  // ─── QuoteQuick direct checkout (calculator-linked) ───
+  if (session.metadata?.source === 'quotequick_checkout') {
+    await handleQuoteQuickCheckout(session);
+    return;
+  }
+
   const clientId = parseInt(session.metadata?.crm_client_id || "0");
   const serviceIdRaw = session.metadata?.service_catalog_id;
   const isPublicCheckout = session.metadata?.source === "public_checkout";
@@ -461,5 +467,60 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   });
 
   console.log(`[billing-webhook] Subscription cancelled for client ${client.id}`);
+}
+
+/* ─── QuoteQuick Direct Checkout Handler ─── */
+
+async function handleQuoteQuickCheckout(session: Stripe.Checkout.Session) {
+  const calculatorId = parseInt(session.metadata?.calculator_id || "0");
+  const planTier = session.metadata?.plan_tier || "starter";
+
+  if (!calculatorId) {
+    console.warn("[billing-webhook] QuoteQuick checkout missing calculator_id");
+    return;
+  }
+
+  const calculator = await storage.getCalculatorById(calculatorId);
+  if (!calculator) {
+    console.warn(`[billing-webhook] Calculator ${calculatorId} not found`);
+    return;
+  }
+
+  const wasPaused = calculator.plan_tier === 'free';
+
+  // Update plan_tier on the calculator
+  await storage.updateCalculator(calculatorId, {
+    plan_tier: planTier,
+  });
+
+  // Restore deployment_status to live (reactivate if trial-paused)
+  await storage.upsertDeploymentStatus({
+    calculator_id: calculatorId,
+    status: 'live',
+    last_published_at: new Date(),
+  });
+
+  // Track payment_completed
+  await storage.trackEvent({
+    calculator_id: calculatorId,
+    event_type: 'payment_completed',
+    metadata: {
+      plan_tier: planTier,
+      billing: session.metadata?.billing,
+      stripe_session_id: session.id,
+      amount_total: session.amount_total,
+    },
+  });
+
+  // Track reactivation if was paused
+  if (wasPaused) {
+    await storage.trackEvent({
+      calculator_id: calculatorId,
+      event_type: 'trial_reactivated',
+      metadata: { plan_tier: planTier, calculator_id: calculatorId },
+    });
+  }
+
+  console.log(`[billing-webhook] QuoteQuick calculator ${calculatorId} upgraded to ${planTier}${wasPaused ? ' (reactivated)' : ''}`);
 }
 

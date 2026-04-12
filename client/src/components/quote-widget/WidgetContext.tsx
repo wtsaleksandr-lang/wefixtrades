@@ -63,6 +63,7 @@ function updateEstimateInputs(
 ): WidgetState['estimateInputs'] {
   // Find the question definition to check maps_to
   for (const step of flow.steps) {
+    if (!Array.isArray(step.questions)) continue;
     for (const q of step.questions) {
       if (q.id === questionId && q.maps_to) {
         const updated = { ...current };
@@ -261,6 +262,8 @@ export function WidgetProvider({ config, children }: WidgetProviderProps) {
     let inputs = { ...state.estimateInputs };
 
     for (const step of config.flow.steps) {
+      // Guard: steps may lack a questions array (e.g. confirmation, booking)
+      if (!Array.isArray(step.questions)) continue;
       for (const q of step.questions) {
         if (q.default_value !== undefined) {
           state.answers[q.id] = q.default_value;
@@ -295,8 +298,10 @@ export function WidgetProvider({ config, children }: WidgetProviderProps) {
 
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const currentStep = config.flow.steps[state.currentStepIndex] ?? config.flow.steps[0];
-  const totalSteps = config.flow.steps.length;
+  const steps = config.flow.steps;
+  const safeIndex = Math.max(0, Math.min(state.currentStepIndex, steps.length - 1));
+  const currentStep = steps[safeIndex] ?? steps[0];
+  const totalSteps = steps.length;
 
   const value = useMemo<WidgetContextValue>(
     () => ({ state, dispatch, config, currentStep, totalSteps }),
