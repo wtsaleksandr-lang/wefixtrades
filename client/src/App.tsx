@@ -13,6 +13,7 @@ import LoginPage from "@/pages/login";
 import MarketingHome from "@/pages/marketing/home";
 import MarketingProduct from "@/pages/marketing/product";
 import MarketingPricing from "@/pages/marketing/pricing";
+import QuoteQuickPricing from "@/pages/marketing/quotequick-pricing";
 import ProductIndex from "@/pages/product/ProductIndex";
 import MarketingServices from "@/pages/marketing/services";
 import MarketingBundles from "@/pages/marketing/bundles";
@@ -70,6 +71,8 @@ import MapguardDashboard from "@/pages/admin/MapguardDashboard";
 import ProfilePage from "@/pages/admin/ProfilePage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import ChangePasswordPage from "@/pages/admin/ChangePasswordPage";
+import SocialSyncOpsPage from "@/pages/admin/SocialSyncOpsPage";
+import SalesPipelinePage from "@/pages/admin/SalesPipelinePage";
 import OnboardingForm from "@/pages/OnboardingForm";
 import RequireClient from "@/components/auth/RequireClient";
 import PortalDashboard from "@/pages/portal/PortalDashboard";
@@ -80,6 +83,10 @@ import PortalSettings from "@/pages/portal/PortalSettings";
 import PortalOnboarding from "@/pages/portal/PortalOnboarding";
 import PortalHelp from "@/pages/portal/PortalHelp";
 import PortalMapguard from "@/pages/portal/PortalMapguard";
+
+import PortalReputation from "@/pages/portal/PortalReputation";
+import SocialSyncSetup from "@/pages/portal/SocialSyncSetup";
+import PortalSocialSync from "@/pages/portal/PortalSocialSync";
 import ResetPasswordPage from "@/pages/ResetPassword";
 
 function Router() {
@@ -88,6 +95,8 @@ function Router() {
       <Route path="/" component={MarketingHome} />
 
       <Route path="/admin/ai">{() => <RequirePortal><AiDashboard /></RequirePortal>}</Route>
+      <Route path="/admin/crm/sales">{() => <RequirePortal><SalesPipelinePage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/socialsync">{() => <RequirePortal><SocialSyncOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/clients/:id">{() => <RequirePortal><ClientDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/clients">{() => <RequirePortal><ClientsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/inbox">{() => <RequirePortal><InboxPage /></RequirePortal>}</Route>
@@ -106,6 +115,9 @@ function Router() {
       <Route path="/portal/mapguard">{() => <RequireClient><PortalMapguard /></RequireClient>}</Route>
       <Route path="/portal/services">{() => <RequireClient><PortalServices /></RequireClient>}</Route>
       <Route path="/portal/billing">{() => <RequireClient><PortalBilling /></RequireClient>}</Route>
+      <Route path="/portal/socialsync-setup">{() => <RequireClient><SocialSyncSetup /></RequireClient>}</Route>
+      <Route path="/portal/socialsync">{() => <RequireClient><PortalSocialSync /></RequireClient>}</Route>
+      <Route path="/portal/reputation">{() => <RequireClient><PortalReputation /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/settings">{() => <RequireClient><PortalSettings /></RequireClient>}</Route>
       <Route path="/portal">{() => <RequireClient><PortalDashboard /></RequireClient>}</Route>
@@ -135,6 +147,7 @@ function Router() {
       <Route path="/product">{() => <Redirect to="/products" />}</Route>
       <Route path="/platform" component={MarketingProduct} />
       <Route path="/pricing" component={PricingUnified} />
+      <Route path="/pricing/quotequick" component={QuoteQuickPricing} />
       <Route path="/plans">{() => <Redirect to="/pricing" />}</Route>
       <Route path="/checkout/success" component={CheckoutSuccess} />
       <Route path="/checkout/cancelled" component={CheckoutCancelled} />

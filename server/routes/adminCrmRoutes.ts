@@ -1,6 +1,9 @@
 import type { Express, Request, Response } from "express";
 import { requireAdmin, hashPassword } from "../auth";
 import { storage } from "../storage";
+import { getTradeLineDefaultConfig, getTradeLineReadiness, advanceSetupStage } from "@shared/schema";
+import { sendOnboardingEmail } from "../lib/onboardingEmail";
+import { getTaskAutomation } from "../services/taskAutomation";
 import crypto from "crypto";
 
 export function registerAdminCrmRoutes(app: Express): void {
@@ -233,6 +236,73 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  app.post("/api/admin/crm/fulfillment/:id/process", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+
+      // Load the task (use updateFulfillmentTask with empty update to get current state)
+      const task = await storage.updateFulfillmentTask(id, {});
+      if (!task) return res.status(404).json({ error: "Fulfillment task not found" });
+
+      // Look up automation
+      const automation = getTaskAutomation(task.title);
+      if (!automation) {
+        return res.status(400).json({ error: "This task cannot be automated", title: task.title });
+      }
+
+      // Mark running
+      await storage.updateFulfillmentTask(id, { automation_status: "running" });
+
+      let result;
+      try {
+        result = await automation.handler(task);
+      } catch (err: any) {
+        await storage.updateFulfillmentTask(id, {
+          automation_status: "failed",
+          last_action: `Error: ${err.message}`,
+          last_action_at: new Date(),
+        });
+        return res.status(500).json({ error: `Automation failed: ${err.message}` });
+      }
+
+      // Update task based on result
+      const updates: Record<string, any> = {
+        automation_status: result.success ? "completed" : "failed",
+        last_action: result.message,
+        last_action_at: new Date(),
+      };
+
+      // Auto tasks get marked delivered on success
+      let cascade;
+      if (automation.type === "auto" && result.success) {
+        updates.status = "delivered";
+        updates.completed_at = new Date();
+      }
+
+      const updatedTask = await storage.updateFulfillmentTask(id, updates);
+
+      // Run completion cascade if auto-delivered
+      if (updates.status === "delivered" && updatedTask?.client_service_id) {
+        cascade = await storage.checkAndCompleteService(updatedTask.client_service_id);
+      }
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: `fulfillment.process.${automation.action}`,
+        entity_type: "fulfillment_task",
+        entity_id: id,
+        summary: `Processed task "${task.title}" (${automation.type}): ${result.message}`,
+      });
+
+      res.json({ task: updatedTask, result, cascade });
+    } catch (err: any) {
+      console.error("[admin-crm] Process task error:", err.message);
+      res.status(500).json({ error: "Failed to process task" });
+    }
+  });
+
   /* ═══════════════════════════════════════════
      Suppliers
      ═══════════════════════════════════════════ */
@@ -453,7 +523,10 @@ export function registerAdminCrmRoutes(app: Express): void {
       const service = await storage.getServiceById(service_id);
       if (!service) return res.status(404).json({ error: "Service not found in catalog" });
 
-      // 1. Create client_service
+      // 1. Create client_service (with TradeLine defaults if applicable)
+      const tradelineDefaults = getTradeLineDefaultConfig(service_id);
+      const metadata = tradelineDefaults ? { tradeline: tradelineDefaults } : undefined;
+
       const clientService = await storage.createClientService({
         client_id: clientId,
         service_id,
@@ -462,7 +535,18 @@ export function registerAdminCrmRoutes(app: Express): void {
         fulfillment_mode: fulfillment_mode || "internal",
         price_cents: price_override ?? service.default_price,
         billing_period: service.billing_period,
+        metadata,
       });
+
+      // Auto-populate TradeLine notifications from client contact info
+      if (tradelineDefaults) {
+        const notifications: { email: string[]; sms: string[] } = { email: [], sms: [] };
+        if (client.contact_email) notifications.email.push(client.contact_email);
+        if (client.contact_phone) notifications.sms.push(client.contact_phone);
+        if (notifications.email.length || notifications.sms.length) {
+          await storage.updateTradeLineConfig(clientService.id, { notifications });
+        }
+      }
 
       // 2. Create invoice
       const payment = await storage.createClientPayment({
@@ -486,6 +570,24 @@ export function registerAdminCrmRoutes(app: Express): void {
           status: "not_sent",
           actor_type: "human",
         });
+
+        // Send onboarding email immediately
+        if (onboarding?.access_token && client.contact_email) {
+          const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+          const sent = await sendOnboardingEmail({
+            client,
+            serviceName: service.name,
+            accessToken: onboarding.access_token,
+            baseUrl,
+          });
+          if (sent) {
+            await storage.updateOnboardingSubmission(onboarding.id, {
+              status: "sent",
+              sent_at: new Date(),
+            });
+            onboarding = { ...onboarding, status: "sent" };
+          }
+        }
       }
 
       // 4. Create tasks from template
@@ -525,11 +627,32 @@ export function registerAdminCrmRoutes(app: Express): void {
         metadata: { service_id, tasks_created: tasks.length, has_onboarding: !!onboarding },
       });
 
+      // 7. Ensure portal login exists
+      let portalAccount = null;
+      try {
+        const result = await storage.ensurePortalAccount(clientId);
+        if (result.created) {
+          portalAccount = { email: result.user.email, temporary_password: result.tempPassword };
+          await storage.logAdminActivity({
+            actor_type: "human",
+            actor_id: (req.user as any)?.id,
+            actor_name: (req.user as any)?.name || (req.user as any)?.email,
+            action: "portal.auto_created",
+            entity_type: "client",
+            entity_id: clientId,
+            summary: `Auto-created portal account for ${result.user.email}`,
+          });
+        }
+      } catch (err: any) {
+        console.warn(`[admin-crm] Could not auto-create portal account: ${err.message}`);
+      }
+
       res.status(201).json({
         clientService,
         payment,
         onboarding,
         tasksCreated: tasks.length,
+        portalAccount,
       });
     } catch (err: any) {
       console.error("[admin-crm] Provision error:", err.message);
@@ -672,6 +795,421 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[admin-crm] Create account error:", err.message);
       res.status(500).json({ error: "Failed to create portal account" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     QuoteQuick Admin Overview
+     ═══════════════════════════════════════════ */
+
+  /**
+   * GET /api/admin/crm/quotequick/overview
+   * Returns all calculators with their status, client linkage, and basic metrics.
+   */
+  app.get("/api/admin/crm/quotequick/overview", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const allCalcs = await storage.getAllCalculatorsForAdmin();
+      res.json({ calculators: allCalcs });
+    } catch (err: any) {
+      console.error("[admin-crm] QuoteQuick overview error:", err.message);
+      res.status(500).json({ error: "Failed to load QuoteQuick overview" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/clients/:id/quotequick
+   * Returns QuoteQuick calculator data for a specific client (via user_id linkage).
+   */
+  app.get("/api/admin/crm/clients/:id/quotequick", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id as string);
+      const client = await storage.getClientById(clientId);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+
+      if (!client.user_id) {
+        return res.json({ calculators: [], message: "Client has no linked user account" });
+      }
+
+      const calcs = await storage.getCalculatorsByUserId(client.user_id);
+      const results = [];
+
+      // Plan tier → monthly revenue mapping (cents)
+      const PLAN_REVENUE: Record<string, number> = {
+        'free': 0,
+        'starter': 4900,  // $49/mo
+        'business': 9900,  // $99/mo
+      };
+      // Estimated monthly cost to deliver QuoteQuick per calculator (hosting, compute, email)
+      const QQ_COST_CENTS = 500; // ~$5/mo estimated infra cost per calculator
+
+      let totalRevenue = 0;
+      let totalCost = 0;
+
+      for (const calc of calcs) {
+        const deploy = await storage.getDeploymentStatus(calc.id);
+        const leadCount = await storage.getLeadCountSince(calc.id, new Date(0));
+        const tier = calc.plan_tier ?? 'free';
+        const revenue = PLAN_REVENUE[tier] ?? 0;
+        const cost = tier === 'free' ? 0 : QQ_COST_CENTS;
+
+        totalRevenue += revenue;
+        totalCost += cost;
+
+        results.push({
+          id: calc.id,
+          business_name: calc.business_name,
+          trade_type: calc.trade_type,
+          slug: calc.slug,
+          plan_tier: tier,
+          total_views: calc.total_views ?? 0,
+          total_leads: leadCount,
+          status: deploy?.status ?? 'draft',
+          created_at: calc.created_at,
+          calculator_url: `/calculator?slug=${calc.slug}`,
+          edit_url: `/EditCalculator?token=${calc.edit_token}`,
+          price_cents: revenue,
+          cost_cents: cost,
+           });
+      }
+
+      res.json({
+        calculators: results,
+        profitability: {
+          total_revenue_cents: totalRevenue,
+          total_cost_cents: totalCost,
+          profit_cents: totalRevenue - totalCost,
+          margin_pct: totalRevenue > 0 ? Math.round(((totalRevenue - totalCost) / totalRevenue) * 100) : 0,
+        },
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] Client QuoteQuick error:", err.message);
+      res.status(500).json({ error: "Failed to load client QuoteQuick data" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     TradeLine — Admin Read/Write
+     ═══════════════════════════════════════════ */
+
+  /**
+   * GET /api/admin/crm/tradeline/:clientServiceId
+   * Returns TradeLine config, latest usage, and recent calls for admin.
+   */
+  app.get("/api/admin/crm/tradeline/:clientServiceId", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const [config, usage, calls, profitability] = await Promise.all([
+        storage.getTradeLineConfig(csId),
+        storage.getTradeLineUsage(csId),
+        storage.listTradeLineCalls(csId, 10),
+        storage.getTradeLineProfitability(csId),
+      ]);
+
+      res.json({
+        clientServiceId: csId,
+        clientId: cs.client_id,
+        serviceId: cs.service_id,
+        status: cs.status,
+        config: config ?? null,
+        usage: usage ?? null,
+        recentCalls: calls,
+        profitability,
+        // Convenience fields for UI
+        setupStage: config?.setupStage ?? "not_started",
+        assistantStatus: config?.assistant?.status ?? "not_built",
+        assistantError: config?.assistant?.lastBuildError || null,
+        assistantBuiltAt: config?.assistant?.lastBuiltAt || null,
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine GET error:", err.message);
+      res.status(500).json({ error: "Failed to load TradeLine data" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/tradeline/:clientServiceId/config
+   * Partially update TradeLine config.
+   */
+  app.post("/api/admin/crm/tradeline/:clientServiceId/config", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const partialConfig = req.body;
+      if (!partialConfig || typeof partialConfig !== "object") {
+        return res.status(400).json({ error: "Config object required" });
+      }
+
+      const updated = await storage.updateTradeLineConfig(csId, partialConfig);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "tradeline.config_updated",
+        entity_type: "client_service",
+        entity_id: csId,
+        summary: `Updated TradeLine config`,
+      });
+
+      res.json({ config: updated });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine config update error:", err.message);
+      res.status(500).json({ error: "Failed to update TradeLine config" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/tradeline/:clientServiceId/mode
+   * Switch TradeLine mode (admin-initiated).
+   */
+  app.post("/api/admin/crm/tradeline/:clientServiceId/mode", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const { newMode } = req.body;
+      const validModes = ["available", "on_the_job", "after_hours"];
+      if (!newMode || !validModes.includes(newMode)) {
+        return res.status(400).json({ error: "newMode must be one of: available, on_the_job, after_hours" });
+      }
+
+      const modeLog = await storage.setTradeLineMode(csId, newMode, "admin");
+      const config = await storage.getTradeLineConfig(csId);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "tradeline.mode_changed",
+        entity_type: "client_service",
+        entity_id: csId,
+        summary: `Changed TradeLine mode to ${newMode}`,
+      });
+
+      res.json({ config, modeLog });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine mode change error:", err.message);
+      res.status(500).json({ error: "Failed to change mode" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/tradeline/:clientServiceId/usage
+   * Returns usage rows / current period summary.
+   */
+  app.get("/api/admin/crm/tradeline/:clientServiceId/usage", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const usage = await storage.getTradeLineUsage(csId);
+      const modeChanges = await storage.listTradeLineModeChanges(csId, 20);
+
+      res.json({
+        usage: usage ?? null,
+        recentModeChanges: modeChanges,
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine usage error:", err.message);
+      res.status(500).json({ error: "Failed to load TradeLine usage" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/tradeline/:clientServiceId/install-path
+   * Set website install decision (direct embed vs hosted fallback).
+   */
+  app.post("/api/admin/crm/tradeline/:clientServiceId/install-path", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const { accessAvailable, embedMode } = req.body;
+      if (typeof accessAvailable !== "boolean") {
+        return res.status(400).json({ error: "accessAvailable (boolean) is required" });
+      }
+      const validModes = ["direct_embed", "hosted_fallback"];
+      if (!embedMode || !validModes.includes(embedMode)) {
+        return res.status(400).json({ error: "embedMode must be direct_embed or hosted_fallback" });
+      }
+
+      // Read current config to safely advance stage (never regress)
+      const currentConfig = await storage.getTradeLineConfig(csId);
+      const safeStage = currentConfig
+        ? advanceSetupStage(currentConfig.setupStage, "configuring")
+        : "configuring";
+
+      const config = await storage.updateTradeLineConfig(csId, {
+        website: { accessAvailable, embedMode },
+        channels: { hostedFallback: embedMode === "hosted_fallback" },
+        setupStage: safeStage,
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "tradeline.install_path_set",
+        entity_type: "client_service",
+        entity_id: csId,
+        summary: `Set install path: ${embedMode} (access: ${accessAvailable})`,
+      });
+
+      res.json({ config });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine install-path error:", err.message);
+      res.status(500).json({ error: "Failed to set install path" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/tradeline/:clientServiceId/readiness
+   * Check whether TradeLine config is ready for go-live.
+   */
+  app.get("/api/admin/crm/tradeline/:clientServiceId/readiness", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const config = await storage.getTradeLineConfig(csId);
+      if (!config) return res.json({ ready: false, issues: ["TradeLine config not initialized"] });
+
+      res.json(getTradeLineReadiness(config));
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine readiness error:", err.message);
+      res.status(500).json({ error: "Failed to check readiness" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/tradeline/:clientServiceId/go-live
+   * Validate readiness and mark TradeLine as live.
+   */
+  app.post("/api/admin/crm/tradeline/:clientServiceId/go-live", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const config = await storage.getTradeLineConfig(csId);
+      if (!config) return res.status(400).json({ error: "TradeLine config not initialized" });
+
+      const readiness = getTradeLineReadiness(config);
+
+      // Also check that all setup tasks are in an acceptable state
+      const pendingTaskCount = await storage.countPendingTasks(csId);
+      if (pendingTaskCount > 0) {
+        readiness.issues.push(`${pendingTaskCount} fulfillment task(s) still pending or in progress`);
+        readiness.ready = false;
+      }
+
+      if (!readiness.ready) {
+        return res.status(400).json({ error: "Not ready for go-live", issues: readiness.issues });
+      }
+
+      const updated = await storage.updateTradeLineConfig(csId, { setupStage: "live" });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "tradeline.go_live",
+        entity_type: "client_service",
+        entity_id: csId,
+        summary: `Marked TradeLine as live`,
+      });
+
+      res.json({ config: updated });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine go-live error:", err.message);
+      res.status(500).json({ error: "Failed to go live" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/tradeline/:clientServiceId/build-assistant
+   * Manually trigger assistant build + Vapi push for a TradeLine service.
+   */
+  app.post("/api/admin/crm/tradeline/:clientServiceId/build-assistant", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const { provisionTradeLineAssistant } = await import("../services/vapiService");
+      const result = await provisionTradeLineAssistant(csId);
+
+      if (result.error) {
+        return res.status(422).json({
+          error: result.error,
+          skipped: false,
+          assistantId: null,
+        });
+      }
+
+      res.json({
+        assistantId: result.assistantId,
+        skipped: result.skipped,
+        skipReason: result.skipReason,
+        templateId: result.definition?.templateId,
+        inputHash: result.definition?.inputHash,
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine build-assistant error:", err.message);
+      res.status(500).json({ error: err.message || "Failed to build assistant" });
+    }
+  });
+}
+        assistantId: result.assistantId,
+        skipped: result.skipped,
+        skipReason: result.skipReason,
+        templateId: result.definition?.templateId,
+        inputHash: result.definition?.inputHash,
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] TradeLine build-assistant error:", err.message);
+      res.status(500).json({ error: err.message || "Failed to build assistant" });
     }
   });
 }

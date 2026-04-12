@@ -290,7 +290,9 @@ export default function TestGateStep({
 
   const withinRange = validDeviations.filter(d => Math.abs(d!.pct) <= 20).length;
 
-  const canPublish = filledCount >= 3 && accuracyScore >= 60 && userConfirmed && withinRange >= 2;
+  // Soft gate: scenarios are recommended but not required. User can publish with just confirmation.
+  const scenariosComplete = filledCount >= 3 && accuracyScore >= 60 && withinRange >= 2;
+  const canPublish = userConfirmed;
 
   const updateScenario = (idx: number, patch: Partial<ScenarioData>) => {
     setScenarios(prev => {
@@ -309,7 +311,7 @@ export default function TestGateStep({
   };
 
   const isCallForQuote = pType === 'call_for_quote_only' || pType === 'price_range_only';
-  const canPublishOverride = isCallForQuote ? userConfirmed : canPublish;
+  const canPublishOverride = canPublish;
 
   const hardBlocked = !isCallForQuote && accuracyScore < 55 && validDeviations.length >= 3;
   const softBlocked = !isCallForQuote && tier === 'needs_adjustment' && accuracyScore >= 55;
@@ -340,9 +342,9 @@ export default function TestGateStep({
   }, [scenarios, userConfirmed, advancedMode, adjustments, q1Answers, q2Answer, q3Answer, tuneCount, lastTunedAt]);
 
   const publishGateReasons: string[] = [];
-  if (!isCallForQuote) {
-    if (filledCount < 3) publishGateReasons.push(`Complete all 3 scenarios (${filledCount}/3 done)`);
-    if (withinRange < 2 && validDeviations.length > 0) publishGateReasons.push(`At least 2 scenarios must be within ±20% (${withinRange}/2)`);
+  if (!isCallForQuote && !scenariosComplete) {
+    if (filledCount < 3) publishGateReasons.push(`Recommended: Complete all 3 scenarios (${filledCount}/3 done)`);
+    if (withinRange < 2 && validDeviations.length > 0) publishGateReasons.push(`Recommended: At least 2 within ±20% (${withinRange}/2)`);
     if (accuracyScore < 60 && validDeviations.length > 0) publishGateReasons.push(`Quote confidence score must be 60+ (currently ${accuracyScore})`);
   }
   if (!userConfirmed) publishGateReasons.push('Confirm pricing checkbox');
@@ -916,7 +918,7 @@ export default function TestGateStep({
         </div>
         <div>
           <p style={{ fontSize: '13px', fontWeight: 600, color: p.colors.heading, margin: 0 }}>
-            I confirm these estimates reflect my real pricing.
+            I'm ready to publish. My pricing is set.
           </p>
           <p style={{ fontSize: '12px', color: p.colors.muted, margin: '2px 0 0' }}>
             By checking this, you verify the calculator produces estimates consistent with what you charge.
