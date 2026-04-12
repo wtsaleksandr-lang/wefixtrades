@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw } from "lucide-react";
+import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw, PhoneCall, Clock } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { TASK_STATUS_STYLES, TASK_STATUS_LABELS, statusLabel } from "@/config/portalLabels";
+import ModeToggle from "@/components/portal/ModeToggle";
 
 interface OverviewData {
   business_name: string;
@@ -30,6 +31,28 @@ interface QuoteQuickData {
     total_views: number;
     total_leads: number;
     status: string;
+  } | null;
+}
+
+interface TradeLineService {
+  id: number;
+  service_id: string;
+  status: string;
+}
+
+interface TradeLineData {
+  config: {
+    currentMode: string;
+    variant: string;
+    channels: { voice: boolean; websiteChat: boolean; sms: boolean };
+    setupStage?: string;
+  } | null;
+  setupStage?: string;
+  usage: {
+    voice_minutes_used: number;
+    calls_count: number;
+    included_minutes: number;
+    overage_minutes?: number;
   } | null;
 }
 
@@ -75,6 +98,30 @@ export default function PortalDashboard() {
       if (!res.ok) return { calculator: null };
       return res.json();
     },
+  });
+
+  // Find TradeLine service from the services list
+  const { data: portalServices } = useQuery<TradeLineService[]>({
+    queryKey: ["/api/portal/services"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/services", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const tradeLineService = (portalServices ?? []).find(
+    (s) => s.service_id?.startsWith("tradeline") && s.status !== "cancelled"
+  );
+
+  const { data: tlData } = useQuery<TradeLineData>({
+    queryKey: ["/api/portal/tradeline", tradeLineService?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/portal/tradeline/${tradeLineService!.id}`, { credentials: "include" });
+      if (!res.ok) return { config: null, usage: null };
+      return res.json();
+    },
+    enabled: !!tradeLineService,
   });
 
   return (
@@ -203,6 +250,77 @@ export default function PortalDashboard() {
             </div>
           )}
 
+          {/* TradeLine card */}
+          {tradeLineService && tlData?.config && (() => {
+            const stage = tlData.setupStage || tlData.config.setupStage || tradeLineService.status;
+            const statusBadge = stage === "live"
+              ? { label: "Live", cls: "bg-emerald-50 text-emerald-700" }
+              : stage === "ready_for_testing"
+              ? { label: "Ready for testing", cls: "bg-amber-50 text-amber-700" }
+              : { label: "Setting up", cls: "bg-gray-100 text-gray-600" };
+
+            return (
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
+                      <PhoneCall className="w-5 h-5 text-teal-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">TradeLine</h3>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-teal-50 text-teal-700">
+                          {tlData.config.variant.replace(/_/g, " ")}
+                        </span>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${statusBadge.cls}`}>
+                          {statusBadge.label}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <Link href={`/portal/services/${tradeLineService.id}`}>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors">
+                      Details <ExternalLink className="w-3 h-3" />
+                    </span>
+                  </Link>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-gray-100 space-y-3">
+                  <ModeToggle
+                    currentMode={tlData.config.currentMode as any}
+                    clientServiceId={tradeLineService.id}
+                    apiBase="/api/portal/tradeline"
+                    onModeChanged={() => {}}
+                  />
+                  {tlData.usage ? (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Monthly usage</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center gap-2">
+                          <PhoneCall className="w-3.5 h-3.5 text-gray-400" />
+                          <span className="text-sm text-gray-600">{tlData.usage.calls_count} calls</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5 text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            {tlData.usage.voice_minutes_used} / {tlData.usage.included_minutes} minutes used
+                          </span>
+                        </div>
+                      </div>
+                      {(tlData.usage.overage_minutes ?? 0) > 0 && (
+                        <p className="text-xs text-amber-600 mt-1.5">
+                          {tlData.usage.overage_minutes} overage minutes
+                        </p>
+                      )}
+                      <p className="text-[10px] text-gray-300 mt-2">Minutes = total time your AI spends on calls this month.</p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400">No activity yet this month.</p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
           {/* SocialSync CTA */}
           {ssProfile && (ssProfile.exists === false || !ssProfile.niche) && (
             <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-center justify-between">

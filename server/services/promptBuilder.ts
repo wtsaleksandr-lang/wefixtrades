@@ -1,4 +1,5 @@
 import { compileKnowledge, formatRecommendedServices, getRecommendedServices } from "./knowledgeBase";
+import type { TradelineConfig } from "@shared/schema";
 
 /* ─── Types ─── */
 
@@ -60,6 +61,15 @@ export interface MemoryContext {
   interestedInBooking?: boolean;
 }
 
+/** TradeLine-specific context for per-client voice/chat assistants. */
+export interface TradeLineContext {
+  businessName: string;
+  tradeType?: string;
+  serviceArea?: string;
+  mode: TradelineConfig["currentMode"]; // "available" | "on_the_job" | "after_hours"
+  channels: TradelineConfig["channels"];
+  booking: TradelineConfig["booking"];
+  phoneRouting: TradelineConfig["phoneRouting"];
 /* ─── Portal types ─── */
 
 export type PortalBehaviorMode = "portal_general" | "portal_onboarding" | "portal_billing" | "portal_support";
@@ -139,6 +149,9 @@ export function buildSystemPrompt(
     return buildAdminPrompt(pageContext, memory);
   }
 
+  // TradeLine per-client voice/chat gets a focused prompt
+  if (surface === "vapi" && tradeLineContext) {
+    return buildTradeLinePrompt(tradeLineContext);
   // Portal surface gets a focused prompt with client data
   if (surface === "portal") {
     return buildPortalPrompt(portalContext, memory);
@@ -296,6 +309,69 @@ STRICT RULES:
   return parts.join("\n");
 }
 
+/* ─── TradeLine per-client voice prompt builder ─── */
+function buildTradeLinePrompt(ctx: TradeLineContext): string {
+  const parts: string[] = [];
+
+  parts.push(`You are the AI phone assistant for ${ctx.businessName}${ctx.tradeType ? `, a ${ctx.tradeType} business` : ""}${ctx.serviceArea ? ` serving ${ctx.serviceArea}` : ""}.`);
+
+  parts.push(`
+VOICE RULES:
+- Keep every response to 1-3 short sentences — callers can't scroll back
+- Use natural spoken language: contractions, simple words, conversational flow
+- Never use bullet points, numbered lists, URLs, markdown, or special characters
+- Ask one question at a time, never stack multiple questions
+- Mirror the caller's energy — relaxed callers get a relaxed tone, urgent callers get a focused tone`);
+
+  // Mode-specific behaviour
+  switch (ctx.mode) {
+    case "available":
+      parts.push(`
+CURRENT MODE: AVAILABLE
+The business owner may answer calls themselves. You are the backup when they can't pick up.
+- Be concise and helpful — the caller expected a human
+- Collect their name, what they need, and a callback number
+- If they want a quote or booking, take down the details and let them know the team will be in touch shortly
+- Don't over-explain — they just want to know their call wasn't wasted`);
+      break;
+
+    case "on_the_job":
+      parts.push(`
+CURRENT MODE: ON THE JOB
+The business owner is working and can't take calls right now. You are the primary responder.
+- Greet warmly: "Hi, thanks for calling ${ctx.businessName}! The team is out on a job right now, but I can absolutely help."
+- Fully handle the intake: collect name, what they need done, when they need it, contact number
+- Answer common questions about services confidently
+- If they ask about pricing, give general guidance but say the team will confirm exact pricing
+- Offer to schedule a callback or ${ctx.booking.enabled ? "book an appointment" : "take a message"}`);
+      break;
+
+    case "after_hours":
+      parts.push(`
+CURRENT MODE: AFTER HOURS
+The business is closed for the day. Be helpful but honest about availability.
+- Greet warmly: "Hi, thanks for calling ${ctx.businessName}! We're closed for the day, but I can help make sure you're looked after."
+- Collect their name, what they need, and preferred callback time
+- Do NOT imply someone will call back tonight — say "first thing tomorrow" or "next business day"
+- ${ctx.booking.enabled ? "Offer to book them into the next available slot" : "Let them know someone will be in touch"}
+- Keep it brief — they know it's after hours`);
+      break;
+  }
+
+  // Booking guidance
+  if (ctx.booking.enabled) {
+    const bookingMode = ctx.booking.mode === "book_if_available"
+      ? "You can offer to book them into the calendar directly."
+      : "You can take a booking request and the team will confirm it.";
+    parts.push(`\nBOOKING: ${bookingMode}`);
+  }
+
+  parts.push(`
+IMPORTANT:
+- You represent ${ctx.businessName} — speak as "we" not "they"
+- Never say "I'm an AI" unless directly asked
+- If you don't know something specific, say "I'll make sure the team gets back to you on that"
+- Always end by confirming next steps so the caller knows what to expect`);
 /* ─── Portal surface builder ─── */
 function buildPortalPrompt(ctx?: PortalContext, memory?: MemoryContext): string {
   const parts: string[] = [];

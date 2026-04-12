@@ -34,6 +34,8 @@ export interface AssistantRequest {
   reportId?: string;
   /** Override max tokens for this request */
   maxTokens?: number;
+  /** Override the entire system prompt (used by TradeLine per-client prompting) */
+  systemOverride?: string;
   /** Resolved thread ID (set internally by buildContext for portal) */
   _threadId?: number;
   /** True when buildContext detected the user message is already in the thread */
@@ -119,7 +121,7 @@ async function buildContext(req: AssistantRequest): Promise<{
         : null);
   const memoryContext = stored?.memory;
 
-  const systemPrompt = buildSystemPrompt(
+  const systemPrompt = req.systemOverride ?? buildSystemPrompt(
     req.surface,
     req.auditContext,
     memoryContext,

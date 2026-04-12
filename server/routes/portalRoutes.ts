@@ -19,7 +19,11 @@ import {
   deploymentStatus,
   supportTickets,
   passwordResetTokens,
+  getTradeLineReadiness,
+  mapOnboardingToTradeLineConfig,
+  advanceSetupStage,
 } from "@shared/schema";
+import { storage } from "../storage";
 
 /* ─── Helpers ─── */
 
@@ -524,6 +528,7 @@ export function registerPortalRoutes(app: Express) {
 
       res.json({
         id: submission.id,
+        client_service_id: submission.client_service_id,
         status: submission.status === "not_sent" || submission.status === "sent" ? "viewed" : submission.status,
         service_name: svc?.name ?? null,
         service_id: cs?.service_id ?? null,
@@ -588,6 +593,36 @@ export function registerPortalRoutes(app: Express) {
           .update(onboardingSubmissions)
           .set({ responses, status: "submitted", submitted_at: new Date(), updated_at: new Date() })
           .where(eq(onboardingSubmissions.id, submissionId));
+
+        // Map onboarding answers into TradeLine config if applicable
+        if (submission.client_service_id) {
+          try {
+            const cs = await storage.getClientServiceById(submission.client_service_id);
+            if (cs && cs.service_id.startsWith("tradeline")) {
+              const config = await storage.getTradeLineConfig(cs.id);
+              if (config) {
+                const updates = mapOnboardingToTradeLineConfig(responses, config.variant);
+                // Use safe stage advancement — never regress
+                if (updates.setupStage) {
+                  updates.setupStage = advanceSetupStage(config.setupStage, updates.setupStage);
+                }
+                if (Object.keys(updates).length > 0) {
+                  await storage.updateTradeLineConfig(cs.id, updates);
+                }
+              }
+
+              // Trigger assistant build (non-blocking)
+              import("../services/vapiService").then(({ provisionTradeLineAssistant }) => {
+                provisionTradeLineAssistant(cs.id).catch(err =>
+                  console.warn(`[tradeline] Auto-build assistant failed for service #${cs.id}:`, err.message),
+                );
+              });
+            }
+          } catch (err) {
+            console.warn("Portal onboarding: failed to map TradeLine config:", err);
+          }
+        }
+
         res.json({ ok: true, status: "submitted", mode: "submit" });
       }
     } catch (err) {
@@ -718,6 +753,182 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       console.error("Portal ticket create error:", err);
       res.status(500).json({ error: "Failed to create ticket" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     TradeLine
+     ═══════════════════════════════════════════ */
+
+  /** Verify a TradeLine client_service belongs to the authenticated client. */
+  async function verifyTradeLineOwnership(
+    req: Request,
+    res: Response,
+    clientServiceId: number,
+  ): Promise<{ clientId: number; clientServiceId: number } | null> {
+    const clientId = await withClientId(req, res);
+    if (!clientId) return null;
+
+    const [cs] = await db
+      .select({ id: clientServices.id, client_id: clientServices.client_id, service_id: clientServices.service_id })
+      .from(clientServices)
+      .where(and(eq(clientServices.id, clientServiceId), eq(clientServices.client_id, clientId)))
+      .limit(1);
+
+    if (!cs || !cs.service_id.startsWith("tradeline")) {
+      res.status(404).json({ error: "TradeLine service not found" });
+      return null;
+    }
+
+    return { clientId, clientServiceId: cs.id };
+  }
+
+  /**
+   * GET /api/portal/tradeline/:clientServiceId
+   * Returns TradeLine config, latest usage, and recent calls.
+   */
+  app.get("/api/portal/tradeline/:clientServiceId", requireClient, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const ownership = await verifyTradeLineOwnership(req, res, csId);
+      if (!ownership) return;
+
+      const [config, usage, calls] = await Promise.all([
+        storage.getTradeLineConfig(csId),
+        storage.getTradeLineUsage(csId),
+        storage.listTradeLineCalls(csId, 10),
+      ]);
+
+      res.json({
+        config: config ?? null,
+        usage: usage ?? null,
+        recentCalls: calls,
+        setupStage: config?.setupStage ?? "not_started",
+        readiness: config ? getTradeLineReadiness(config) : null,
+        assistantStatus: config?.assistant?.status ?? "not_built",
+      });
+    } catch (err) {
+      console.error("Portal tradeline GET error:", err);
+      res.status(500).json({ error: "Failed to load TradeLine data" });
+    }
+  });
+
+  /**
+   * POST /api/portal/tradeline/:clientServiceId/mode
+   * Switch TradeLine mode (available / on_the_job / after_hours).
+   */
+  app.post("/api/portal/tradeline/:clientServiceId/mode", requireClient, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const ownership = await verifyTradeLineOwnership(req, res, csId);
+      if (!ownership) return;
+
+      const { newMode } = req.body;
+      const validModes = ["available", "on_the_job", "after_hours"];
+      if (!newMode || !validModes.includes(newMode)) {
+        return res.status(400).json({ error: "newMode must be one of: available, on_the_job, after_hours" });
+      }
+
+      const modeLog = await storage.setTradeLineMode(csId, newMode, "client");
+      const config = await storage.getTradeLineConfig(csId);
+
+      res.json({ config, modeLog });
+    } catch (err) {
+      console.error("Portal tradeline mode error:", err);
+      res.status(500).json({ error: "Failed to update mode" });
+    }
+  });
+
+  /**
+   * POST /api/portal/tradeline/:clientServiceId/settings
+   * Client-facing config update for voice, personality, and widget style.
+   * Only allows updating curated fields — not raw config.
+   */
+  app.post("/api/portal/tradeline/:clientServiceId/settings", requireClient, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const ownership = await verifyTradeLineOwnership(req, res, csId);
+      if (!ownership) return;
+
+      const { voice, personality, widgetStyle } = req.body;
+      const update: Record<string, any> = {};
+
+      if (voice && typeof voice === "object") update.voice = voice;
+      if (personality && typeof personality === "object") update.personality = personality;
+      if (widgetStyle && typeof widgetStyle === "object") update.widgetStyle = widgetStyle;
+
+      if (Object.keys(update).length === 0) {
+        return res.status(400).json({ error: "No valid settings provided" });
+      }
+
+      const config = await storage.updateTradeLineConfig(csId, update);
+      res.json({ config });
+    } catch (err) {
+      console.error("Portal tradeline settings error:", err);
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  /**
+   * GET /api/portal/tradeline/:clientServiceId/calls
+   * Paginated call log list.
+   */
+  app.get("/api/portal/tradeline/:clientServiceId/calls", requireClient, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const ownership = await verifyTradeLineOwnership(req, res, csId);
+      if (!ownership) return;
+
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
+      const calls = await storage.listTradeLineCalls(csId, limit);
+
+      res.json({ calls });
+    } catch (err) {
+      console.error("Portal tradeline calls error:", err);
+      res.status(500).json({ error: "Failed to load call log" });
+    }
+  });
+
+  /**
+   * GET /api/portal/tradeline/:clientServiceId/widget-config
+   * Minimal config payload for future widget embed / hosted fallback.
+   */
+  app.get("/api/portal/tradeline/:clientServiceId/widget-config", requireClient, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const ownership = await verifyTradeLineOwnership(req, res, csId);
+      if (!ownership) return;
+
+      const config = await storage.getTradeLineConfig(csId);
+      if (!config) return res.status(404).json({ error: "TradeLine not configured" });
+
+      // Get business name from client record
+      const [client] = await db
+        .select({ business_name: clients.business_name })
+        .from(clients)
+        .where(eq(clients.id, ownership.clientId))
+        .limit(1);
+
+      res.json({
+        channels: config.channels,
+        embedMode: config.website.embedMode,
+        hostedUrl: config.website.hostedUrl || null,
+        businessName: client?.business_name ?? null,
+        mode: config.currentMode,
+      });
+    } catch (err) {
+      console.error("Portal tradeline widget-config error:", err);
+      res.status(500).json({ error: "Failed to load widget config" });
     }
   });
 

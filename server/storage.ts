@@ -1,7 +1,8 @@
 import crypto from "crypto";
+import { hashPassword } from "./auth";
 import { db } from "./db";
 import {
-  calculators, leads, analyticsEvents, deploymentStatus,
+calculators, leads, analyticsEvents, deploymentStatus,
   calculatorAnalyticsSummary, jobLogs,
   notificationQueue, followupJobs, bookings,
   aiConversations, supportTickets, smsMessages,
@@ -18,7 +19,7 @@ import {
   type AiConversation, type InsertAiConversation,
   type SupportTicket, type InsertSupportTicket,
   type SmsMessage,
-  type User, type InsertUser,
+type User, type InsertUser,
   type AuditSubmission, type InsertAuditSubmission,
   type AuditFollowupEmail, type InsertAuditFollowupEmail,
   type MissedCallLead, type InsertMissedCallLead,
@@ -28,6 +29,9 @@ import {
   suppliers, fulfillmentTasks, onboardingSubmissions, onboardingTemplates,
   clientPayments, internalNotes, adminActivityLog,
   serviceTaskTemplates,
+  // TradeLine
+  tradelineUsage, tradelineCallLog, tradelineModeLog,
+  tradelineConfigSchema,
   type Client, type InsertClient,
   type ClientService, type InsertClientService,
   type ServiceCatalogRow, type InsertServiceCatalog,
@@ -41,28 +45,38 @@ import {
   type AdminActivityLog, type InsertAdminActivityLog,
   type ServiceTaskTemplate,
   type OnboardingTemplate,
-  // SocialSync
-  socialsyncProfiles, socialsyncTopics, socialsyncPosts,
-  socialsyncPublishQueue, socialsyncActivityLogs, socialsyncPlatformConnections,
-  type SocialSyncProfile, type InsertSocialSyncProfile,
-  type SocialSyncTopic, type InsertSocialSyncTopic,
-  type SocialSyncPost, type InsertSocialSyncPost,
-  type SocialSyncQueueItem, type InsertSocialSyncQueueItem,
-  type SocialSyncActivityLog, type InsertSocialSyncActivityLog,
-  type SocialSyncConnection, type InsertSocialSyncConnection,
-  // Reviews
-  reviews as reviewsTable, reviewSyncLogs,
-  type Review, type InsertReview,
-  type ReviewSyncLog, type InsertReviewSyncLog,
-  // Review Requests
-  reviewRequests,
-  type ReviewRequest, type InsertReviewRequest,
-  // Service Costs
-  serviceCostLogs,
-  type ServiceCostLog, type InsertServiceCostLog,
-  // Sales Leads
-  salesLeads,
-  type SalesLead, type InsertSalesLead,
+// TradeLine
+type TradelineConfig,
+type TradelineUsage, type InsertTradelineUsage,
+type TradelineCallLog, type InsertTradelineCallLog,
+type TradelineModeLog, type InsertTradelineModeLog,
+
+// SocialSync
+socialsyncProfiles, socialsyncTopics, socialsyncPosts,
+socialsyncPublishQueue, socialsyncActivityLogs, socialsyncPlatformConnections,
+type SocialSyncProfile, type InsertSocialSyncProfile,
+type SocialSyncTopic, type InsertSocialSyncTopic,
+type SocialSyncPost, type InsertSocialSyncPost,
+type SocialSyncQueueItem, type InsertSocialSyncQueueItem,
+type SocialSyncActivityLog, type InsertSocialSyncActivityLog,
+type SocialSyncConnection, type InsertSocialSyncConnection,
+
+// Reviews
+reviews as reviewsTable, reviewSyncLogs,
+type Review, type InsertReview,
+type ReviewSyncLog, type InsertReviewSyncLog,
+
+// Review Requests
+reviewRequests,
+type ReviewRequest, type InsertReviewRequest,
+
+// Service Costs
+serviceCostLogs,
+type ServiceCostLog, type InsertServiceCostLog,
+
+// Sales Leads
+salesLeads,
+type SalesLead, type InsertSalesLead,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -220,6 +234,26 @@ export interface IStorage {
     recentTasks: { id: number; title: string; status: string; priority: string; client_id: number; client_name: string | null; due_at: Date | null }[];
   }>;
 
+  // Portal account
+  ensurePortalAccount(clientId: number): Promise<{ user: User; created: boolean; tempPassword?: string }>;
+
+  // Fulfillment helpers
+  countPendingTasks(clientServiceId: number): Promise<number>;
+
+  // Raw metadata
+  updateClientServiceMetadata(clientServiceId: number, metadata: Record<string, any>): Promise<void>;
+
+  // ─── TradeLine ───
+  getTradeLineConfig(clientServiceId: number): Promise<TradelineConfig | undefined>;
+  updateTradeLineConfig(clientServiceId: number, partialConfig: Partial<TradelineConfig>): Promise<TradelineConfig>;
+  setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string): Promise<TradelineModeLog>;
+  createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog | null>;
+  listTradeLineCalls(clientServiceId: number, limit?: number): Promise<TradelineCallLog[]>;
+  upsertTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date): Promise<TradelineUsage>;
+  getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined>;
+  listTradeLineModeChanges(clientServiceId: number, limit?: number): Promise<TradelineModeLog[]>;
+  incrementTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date, increments: { voiceMinutes?: number; calls?: number; sms?: number }): Promise<TradelineUsage>;
+=======
   // ─── SocialSync ───
   upsertSocialSyncProfile(data: InsertSocialSyncProfile): Promise<SocialSyncProfile>;
   getSocialSyncProfile(clientId: number): Promise<SocialSyncProfile | undefined>;
@@ -827,6 +861,48 @@ export class DatabaseStorage implements IStorage {
     return row?.total ?? 0;
   }
 
+  /**
+   * Ensure the client has a portal login. If one already exists, returns it.
+   * Otherwise creates a user record with a temp password and links it.
+   * Returns { user, created, tempPassword? }.
+   */
+  async ensurePortalAccount(clientId: number): Promise<{ user: User; created: boolean; tempPassword?: string }> {
+    const client = await this.getClientById(clientId);
+    if (!client) throw new Error(`Client ${clientId} not found`);
+
+    // Already linked
+    if (client.user_id) {
+      const existing = await this.getUserById(client.user_id);
+      if (existing) return { user: existing, created: false };
+    }
+
+    const email = client.contact_email;
+    if (!email) throw new Error(`Client ${clientId} has no contact email`);
+
+    // Check if user with this email already exists
+    const existingByEmail = await this.getUserByEmail(email.toLowerCase().trim());
+    if (existingByEmail) {
+      if (existingByEmail.role === "client") {
+        await this.updateClient(clientId, { user_id: existingByEmail.id });
+        return { user: existingByEmail, created: false };
+      }
+      // Non-client role — don't overwrite, skip silently
+      throw new Error(`User with email ${email} exists with role "${existingByEmail.role}"`);
+    }
+
+    // Create new portal user
+    const tempPassword = crypto.randomBytes(6).toString("base64url");
+    const user = await this.createUser({
+      email: email.toLowerCase().trim(),
+      password_hash: hashPassword(tempPassword),
+      name: client.contact_name || client.business_name,
+      role: "client",
+    });
+    await this.updateClient(clientId, { user_id: user.id });
+
+    return { user, created: true, tempPassword };
+  }
+
   async getCalculatorsByUserId(userId: number): Promise<Calculator[]> {
     return db.select().from(calculators).where(eq(calculators.user_id, userId)).orderBy(desc(calculators.id));
   }
@@ -964,6 +1040,17 @@ export class DatabaseStorage implements IStorage {
   async updateClientService(id: number, updates: Partial<InsertClientService>): Promise<ClientService | undefined> {
     const [row] = await db.update(clientServices).set({ ...updates, updated_at: new Date() }).where(eq(clientServices.id, id)).returning();
     return row;
+  }
+
+  /**
+   * Update the raw metadata JSONB for a client service.
+   * Unlike updateTradeLineConfig (which deep-merges the tradeline sub-key),
+   * this replaces the entire metadata object.
+   */
+  async updateClientServiceMetadata(clientServiceId: number, metadata: Record<string, any>): Promise<void> {
+    await db.update(clientServices)
+      .set({ metadata, updated_at: new Date() })
+      .where(eq(clientServices.id, clientServiceId));
   }
 
   async getActiveServiceCount(): Promise<number> {
@@ -1302,6 +1389,20 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  /**
+   * Count non-delivered, non-cancelled tasks for a client service.
+   * Used by go-live validation to ensure setup tasks are complete.
+   */
+  async countPendingTasks(clientServiceId: number): Promise<number> {
+    const [row] = await db.select({ total: sql<number>`count(*)::int` })
+      .from(fulfillmentTasks)
+      .where(and(
+        eq(fulfillmentTasks.client_service_id, clientServiceId),
+        sql`${fulfillmentTasks.status} NOT IN ('delivered', 'cancelled')`,
+      ));
+    return row?.total ?? 0;
+  }
+
   // ─── Check completion cascade ───
   async checkAndCompleteService(clientServiceId: number): Promise<{ serviceCompleted: boolean; serviceActivated: boolean; clientActivated: boolean }> {
     // Count non-delivered tasks for this client_service
@@ -1376,6 +1477,191 @@ export class DatabaseStorage implements IStorage {
     return { serviceCompleted, serviceActivated, clientActivated };
   }
 
+  // ─── TradeLine ───
+
+  async getTradeLineConfig(clientServiceId: number): Promise<TradelineConfig | undefined> {
+    const cs = await this.getClientServiceById(clientServiceId);
+    if (!cs) return undefined;
+    const raw = (cs.metadata as Record<string, any>)?.tradeline;
+    if (!raw) return undefined;
+    return tradelineConfigSchema.parse(raw);
+  }
+
+  async updateTradeLineConfig(clientServiceId: number, partialConfig: Partial<TradelineConfig>): Promise<TradelineConfig> {
+    const cs = await this.getClientServiceById(clientServiceId);
+    const existing = (cs?.metadata as Record<string, any>) ?? {};
+    const current = existing.tradeline
+      ? tradelineConfigSchema.parse(existing.tradeline)
+      : tradelineConfigSchema.parse({});
+
+    // Deep merge: for plain-object sub-keys (channels, website, phoneRouting, etc.)
+    // spread-merge instead of overwriting, so partial updates don't wipe sibling fields.
+    const merged: Record<string, any> = { ...current };
+    for (const [key, value] of Object.entries(partialConfig)) {
+      const cur = (current as Record<string, any>)[key];
+      if (value != null && typeof value === "object" && !Array.isArray(value) && cur && typeof cur === "object" && !Array.isArray(cur)) {
+        merged[key] = { ...cur, ...value };
+      } else {
+        merged[key] = value;
+      }
+    }
+
+    const updated = { ...existing, tradeline: merged };
+    await db.update(clientServices)
+      .set({ metadata: updated, updated_at: new Date() })
+      .where(eq(clientServices.id, clientServiceId));
+    return tradelineConfigSchema.parse(merged);
+  }
+
+  async setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string): Promise<TradelineModeLog> {
+    const config = await this.getTradeLineConfig(clientServiceId) ?? tradelineConfigSchema.parse({});
+    const oldMode = config.currentMode;
+
+    // Update the config
+    await this.updateTradeLineConfig(clientServiceId, { currentMode: newMode as TradelineConfig["currentMode"] });
+
+    // Log the change
+    const [log] = await db.insert(tradelineModeLog).values({
+      client_service_id: clientServiceId,
+      old_mode: oldMode,
+      new_mode: newMode,
+      changed_by: changedBy,
+    }).returning();
+    return log;
+  }
+
+  async createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog | null> {
+    // Idempotent: skip if a row with the same vapi_call_id already exists
+    const rows = await db.insert(tradelineCallLog).values(data)
+      .onConflictDoNothing({ target: tradelineCallLog.vapi_call_id })
+      .returning();
+    return rows[0] ?? null;
+  }
+
+  async listTradeLineCalls(clientServiceId: number, limit = 50): Promise<TradelineCallLog[]> {
+    return db.select().from(tradelineCallLog)
+      .where(eq(tradelineCallLog.client_service_id, clientServiceId))
+      .orderBy(desc(tradelineCallLog.created_at))
+      .limit(limit);
+  }
+
+  async upsertTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date): Promise<TradelineUsage> {
+    // Try to find existing usage row for this period
+    const [existing] = await db.select().from(tradelineUsage)
+      .where(and(
+        eq(tradelineUsage.client_service_id, clientServiceId),
+        eq(tradelineUsage.period_start, periodStart),
+      ))
+      .limit(1);
+
+    if (existing) {
+      const [updated] = await db.update(tradelineUsage)
+        .set({ updated_at: new Date() })
+        .where(eq(tradelineUsage.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    const [row] = await db.insert(tradelineUsage).values({
+      client_service_id: clientServiceId,
+      period_start: periodStart,
+      period_end: periodEnd,
+    }).returning();
+    return row;
+  }
+
+  async getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined> {
+    if (periodStart) {
+      const [row] = await db.select().from(tradelineUsage)
+        .where(and(
+          eq(tradelineUsage.client_service_id, clientServiceId),
+          eq(tradelineUsage.period_start, periodStart),
+        ))
+        .limit(1);
+      return row;
+    }
+    // Default: most recent period
+    const [row] = await db.select().from(tradelineUsage)
+      .where(eq(tradelineUsage.client_service_id, clientServiceId))
+      .orderBy(desc(tradelineUsage.period_start))
+      .limit(1);
+    return row;
+  }
+
+  async listTradeLineModeChanges(clientServiceId: number, limit = 50): Promise<TradelineModeLog[]> {
+    return db.select().from(tradelineModeLog)
+      .where(eq(tradelineModeLog.client_service_id, clientServiceId))
+      .orderBy(desc(tradelineModeLog.created_at))
+      .limit(limit);
+  }
+
+  async incrementTradeLineUsage(
+    clientServiceId: number,
+    periodStart: Date,
+    periodEnd: Date,
+    increments: { voiceMinutes?: number; calls?: number; sms?: number },
+  ): Promise<TradelineUsage> {
+    // Ensure usage row exists
+    const usage = await this.upsertTradeLineUsage(clientServiceId, periodStart, periodEnd);
+
+    const newVoiceMinutes = (usage.voice_minutes_used ?? 0) + (increments.voiceMinutes ?? 0);
+    const newCalls = (usage.calls_count ?? 0) + (increments.calls ?? 0);
+    const newSms = (usage.sms_count ?? 0) + (increments.sms ?? 0);
+    const includedMinutes = usage.included_minutes ?? 200;
+    const overage = Math.max(0, newVoiceMinutes - includedMinutes);
+
+    const [updated] = await db.update(tradelineUsage)
+      .set({
+        voice_minutes_used: newVoiceMinutes,
+        calls_count: newCalls,
+        sms_count: newSms,
+        overage_minutes: overage,
+        updated_at: new Date(),
+      })
+      .where(eq(tradelineUsage.id, usage.id))
+      .returning();
+
+    return updated;
+  }
+
+  /**
+   * Calculate TradeLine profitability for a client service.
+   * Uses current period usage data + service price.
+   *
+   * Cost rates (internal, not exposed to clients):
+   *   Voice: $0.08/min  (Vapi + ElevenLabs + Deepgram blended)
+   *   SMS:   $0.02/msg  (Twilio outbound)
+   *   AI:    estimated from call count at ~$0.03/call (LLM tokens)
+   */
+  async getTradeLineProfitability(clientServiceId: number): Promise<{
+    revenue: number;
+    voiceCost: number;
+    smsCost: number;
+    aiCost: number;
+    totalCost: number;
+    profit: number;
+    margin: number;
+  }> {
+    const COST_PER_VOICE_MINUTE = 8;   // cents
+    const COST_PER_SMS = 2;            // cents
+    const COST_PER_CALL_AI = 3;        // cents (avg LLM cost per call)
+
+    const cs = await this.getClientServiceById(clientServiceId);
+    const revenue = cs?.price_cents ?? 0;
+
+    const usage = await this.getTradeLineUsage(clientServiceId);
+    if (!usage) {
+      return { revenue, voiceCost: 0, smsCost: 0, aiCost: 0, totalCost: 0, profit: revenue, margin: revenue > 0 ? 100 : 0 };
+    }
+
+    const voiceCost = (usage.voice_minutes_used ?? 0) * COST_PER_VOICE_MINUTE;
+    const smsCost = (usage.sms_count ?? 0) * COST_PER_SMS;
+    const aiCost = (usage.calls_count ?? 0) * COST_PER_CALL_AI;
+    const totalCost = voiceCost + smsCost + aiCost;
+    const profit = revenue - totalCost;
+    const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
+
+    return { revenue, voiceCost, smsCost, aiCost, totalCost, profit, margin };
   // ─── SocialSync ───
 
   async upsertSocialSyncProfile(data: InsertSocialSyncProfile): Promise<SocialSyncProfile> {
