@@ -4,9 +4,10 @@ import passport from "passport";
 import { requireAuth, hashPassword, verifyPassword } from "../auth";
 import { db } from "../db";
 import { eq, and, gt } from "drizzle-orm";
-import { users, passwordResetTokens } from "@shared/schema";
+import { users, passwordResetTokens, clients } from "@shared/schema";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { authRateLimiter } from "../services/rateLimiter";
+import { getMemory, linkSessionToUser, extractMemorySignals } from "../services/chatMemory";
 
 function getClientIp(req: Request): string {
   return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
@@ -163,6 +164,74 @@ export function registerAuthRoutes(app: Express) {
     } catch (err) {
       console.error("[auth] Reset password error:", err);
       res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
+  /**
+   * POST /api/auth/link-chat-session
+   * Links an anonymous website chat session to the authenticated user.
+   * Called by the client after login to carry over pre-signup context.
+   * Always returns 200 — failures are silent (best-effort linking).
+   */
+  app.post("/api/auth/link-chat-session", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { chatSessionId } = req.body;
+
+      if (!chatSessionId || typeof chatSessionId !== "string" || chatSessionId.length > 100) {
+        return res.json({ linked: false });
+      }
+
+      // Load the anonymous session's memory
+      const memory = await getMemory(chatSessionId).catch(() => null);
+      if (!memory || memory.messages.length === 0) {
+        return res.json({ linked: false });
+      }
+
+      // Link chatMemory row to this user
+      await linkSessionToUser(chatSessionId, userId);
+
+      // Build a short journey summary from the conversation
+      const signals = extractMemorySignals(memory.messages);
+      const firstUserMsg = memory.messages.find((m) => m.role === "user")?.content;
+      const msgCount = memory.messages.filter((m) => m.role === "user").length;
+      const topics = signals.previousTopics?.length
+        ? signals.previousTopics.join(", ")
+        : null;
+
+      const summaryParts: string[] = [];
+      if (firstUserMsg) {
+        const trimmed = firstUserMsg.length > 120
+          ? firstUserMsg.slice(0, 120) + "…"
+          : firstUserMsg;
+        summaryParts.push(`Initial question: "${trimmed}"`);
+      }
+      if (topics) summaryParts.push(`Topics discussed: ${topics}`);
+      if (signals.interestedInPricing) summaryParts.push("Showed interest in pricing");
+      if (signals.interestedInBooking) summaryParts.push("Showed interest in booking a call");
+      summaryParts.push(`${msgCount} message${msgCount === 1 ? "" : "s"} exchanged on the website`);
+
+      const journeySummary = summaryParts.join(". ") + ".";
+
+      // Store on client record (if one exists for this user)
+      const [client] = await db
+        .select({ id: clients.id, journey_summary: clients.journey_summary })
+        .from(clients)
+        .where(eq(clients.user_id, userId))
+        .limit(1);
+
+      if (client && !client.journey_summary) {
+        // Only set if not already populated (don't overwrite)
+        await db
+          .update(clients)
+          .set({ journey_summary: journeySummary, updated_at: new Date() })
+          .where(eq(clients.id, client.id));
+      }
+
+      res.json({ linked: true });
+    } catch (err) {
+      console.error("[auth] Link chat session error:", err);
+      res.json({ linked: false });
     }
   });
 }
