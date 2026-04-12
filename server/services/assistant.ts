@@ -34,6 +34,10 @@ export interface AssistantRequest {
   reportId?: string;
   /** Override max tokens for this request */
   maxTokens?: number;
+  /** Tool definitions to inject (admin surface only, when shouldInjectTools passes) */
+  tools?: any[];
+  /** Model override — used to switch to Sonnet for tool-enabled admin sessions */
+  model?: string;
   /** Override the entire system prompt (used by TradeLine per-client prompting) */
   systemOverride?: string;
   /** Resolved thread ID (set internally by buildContext for portal) */
@@ -188,6 +192,8 @@ export async function assistantStream(req: AssistantRequest): Promise<AssistantS
     system: systemPrompt,
     messages: chatMessages,
     maxTokens: req.maxTokens,
+    tools: req.tools,
+    modelOverride: req.model,
   });
 
   const onComplete = async (fullReply: string) => {
@@ -199,8 +205,9 @@ export async function assistantStream(req: AssistantRequest): Promise<AssistantS
     // Log usage (stream finalMessage has token counts)
     try {
       const finalMessage = await stream.finalMessage();
+      const hadToolCall = finalMessage.stop_reason === "tool_use";
       logUsage({
-        model: getModel(),
+        model: req.model || getModel(),
         surface: req.surface,
         sessionId: req.sessionId,
         userId: req.userId,
@@ -209,11 +216,11 @@ export async function assistantStream(req: AssistantRequest): Promise<AssistantS
         outputTokens: finalMessage.usage?.output_tokens,
         latencyMs,
         success: true,
+        metadata: hadToolCall ? { had_tool_call: true } : undefined,
       });
     } catch {
-      // If finalMessage fails, log what we can
       logUsage({
-        model: getModel(),
+        model: req.model || getModel(),
         surface: req.surface,
         sessionId: req.sessionId,
         userId: req.userId,

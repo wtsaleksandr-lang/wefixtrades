@@ -451,12 +451,19 @@ export default function ClientDetailPage() {
       clientId: client.id,
       clientName: client.business_name,
       clientStatus: client.status,
+      tradeType: client.trade_type ?? undefined,
       activeServicesCount: services?.filter(s => s.status === "active").length,
+      serviceNames: services?.filter(s => s.status === "active").map(s => s.service_name || s.service_id),
       openTasksCount: fulfillment?.filter(t => !["delivered","cancelled"].includes(t.status)).length,
       overdueTasksCount: fulfillment?.filter(t => isOverdue(t.due_at, t.status)).length,
       unpaidAmount: payments?.filter(p => p.status === "pending").reduce((a, p) => a + p.amount_cents, 0),
-      topTasks: fulfillment?.filter(t => !["delivered","cancelled"].includes(t.status)).slice(0, 5).map(t => ({
-        title: t.title, status: t.status, priority: t.priority, waiting_on: t.waiting_on,
+      onboardingStatus: onboarding?.[0]?.status,
+      pinnedNotes: notes?.filter(n => n.pinned).slice(0, 3).map(n => ({
+        content: n.content,
+        actor_type: n.actor_type,
+      })),
+      topTasks: fulfillment?.filter(t => !["delivered","cancelled"].includes(t.status)).slice(0, 8).map(t => ({
+        id: t.id, title: t.title, status: t.status, priority: t.priority, waiting_on: t.waiting_on,
         handled_by: t.handled_by, automation_status: t.automation_status, next_action: t.next_action,
       })),
       latestPayment: payments?.[0] ? {
