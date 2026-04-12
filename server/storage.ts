@@ -45,38 +45,29 @@ type User, type InsertUser,
   type AdminActivityLog, type InsertAdminActivityLog,
   type ServiceTaskTemplate,
   type OnboardingTemplate,
-// TradeLine
-type TradelineConfig,
-type TradelineUsage, type InsertTradelineUsage,
-type TradelineCallLog, type InsertTradelineCallLog,
-type TradelineModeLog, type InsertTradelineModeLog,
-
-// SocialSync
-socialsyncProfiles, socialsyncTopics, socialsyncPosts,
-socialsyncPublishQueue, socialsyncActivityLogs, socialsyncPlatformConnections,
-type SocialSyncProfile, type InsertSocialSyncProfile,
-type SocialSyncTopic, type InsertSocialSyncTopic,
-type SocialSyncPost, type InsertSocialSyncPost,
-type SocialSyncQueueItem, type InsertSocialSyncQueueItem,
-type SocialSyncActivityLog, type InsertSocialSyncActivityLog,
-type SocialSyncConnection, type InsertSocialSyncConnection,
-
-// Reviews
-reviews as reviewsTable, reviewSyncLogs,
-type Review, type InsertReview,
-type ReviewSyncLog, type InsertReviewSyncLog,
-
-// Review Requests
-reviewRequests,
-type ReviewRequest, type InsertReviewRequest,
-
-// Service Costs
-serviceCostLogs,
-type ServiceCostLog, type InsertServiceCostLog,
-
-// Sales Leads
-salesLeads,
-type SalesLead, type InsertSalesLead,
+  reviewRequests,
+  type ReviewRequest, type InsertReviewRequest,
+  monitoredReviews,
+  type MonitoredReview, type InsertMonitoredReview,
+  type TradelineConfig,
+  type TradelineUsage, type InsertTradelineUsage,
+  type TradelineCallLog, type InsertTradelineCallLog,
+  type TradelineModeLog, type InsertTradelineModeLog,
+  socialsyncProfiles, socialsyncTopics, socialsyncPosts,
+  socialsyncPublishQueue, socialsyncActivityLogs, socialsyncPlatformConnections,
+  type SocialSyncProfile, type InsertSocialSyncProfile,
+  type SocialSyncTopic, type InsertSocialSyncTopic,
+  type SocialSyncPost, type InsertSocialSyncPost,
+  type SocialSyncQueueItem, type InsertSocialSyncQueueItem,
+  type SocialSyncActivityLog, type InsertSocialSyncActivityLog,
+  type SocialSyncConnection, type InsertSocialSyncConnection,
+  reviews as reviewsTable, reviewSyncLogs,
+  type Review, type InsertReview,
+  type ReviewSyncLog, type InsertReviewSyncLog,
+  serviceCostLogs,
+  type ServiceCostLog, type InsertServiceCostLog,
+  salesLeads,
+  type SalesLead, type InsertSalesLead,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -223,6 +214,37 @@ export interface IStorage {
   logAdminActivity(data: InsertAdminActivityLog): Promise<AdminActivityLog>;
   listAdminActivity(opts?: { entityType?: string; entityId?: number; limit?: number }): Promise<AdminActivityLog[]>;
 
+  // ─── Review Requests ───
+  createReviewRequest(data: InsertReviewRequest): Promise<ReviewRequest>;
+  findReviewRequestByIdempotencyKey(key: string): Promise<ReviewRequest | undefined>;
+  getReviewRequestByToken(token: string): Promise<ReviewRequest | undefined>;
+  getReviewRequestById(id: number): Promise<ReviewRequest | undefined>;
+  fetchDueReviewRequests(limit?: number): Promise<ReviewRequest[]>;
+  fetchDueReviewFollowups(limit?: number): Promise<ReviewRequest[]>;
+  updateReviewRequest(id: number, updates: Record<string, any>): Promise<ReviewRequest | undefined>;
+  listReviewRequests(opts?: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean; limit?: number; offset?: number }): Promise<ReviewRequest[]>;
+  countReviewRequests(opts?: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean }): Promise<number>;
+  getReviewRequestStats(): Promise<{ total: number; pending: number; sent: number; clicked: number; routed_positive: number; routed_negative: number; feedback_captured: number; completed: number; failed: number; stopped: number; due_for_followup: number }>;
+  stopReviewRequestsForBooking(bookingId: number): Promise<void>;
+  findClientByUserId(userId: number): Promise<Client | undefined>;
+
+  // ─── Monitored Reviews ───
+  upsertMonitoredReview(data: InsertMonitoredReview): Promise<{ review: MonitoredReview; isNew: boolean }>;
+  getMonitoredReviewById(id: number): Promise<MonitoredReview | undefined>;
+  updateMonitoredReview(id: number, updates: Record<string, any>): Promise<MonitoredReview | undefined>;
+  findMonitoredReviewByDedupKey(dedupKey: string): Promise<MonitoredReview | undefined>;
+  listMonitoredReviews(opts?: { clientId?: number; platform?: string; isNew?: boolean; minRating?: number; maxRating?: number; limit?: number; offset?: number }): Promise<MonitoredReview[]>;
+  countMonitoredReviews(opts?: { clientId?: number; isNew?: boolean }): Promise<number>;
+  getMonitoredReviewStats(clientId?: number): Promise<{ total: number; averageRating: number; newCount: number; withResponse: number; byRating: Record<number, number> }>;
+  markMonitoredReviewsAcknowledged(ids: number[]): Promise<void>;
+  listClientsForReviewSync(limit?: number): Promise<Client[]>;
+  getClientReputationService(clientId: number): Promise<{ serviceId: string; status: string; metadata: any } | null>;
+  updateClientServiceMetadata(clientId: number, serviceId: string, metadata: Record<string, any>): Promise<void>;
+  getClientByWidgetToken(token: string): Promise<Client | undefined>;
+  ensureWidgetToken(clientId: number): Promise<string>;
+  getWidgetReviews(clientId: number, minRating: number, limit: number): Promise<{ reviewer_name: string; rating: number; review_text: string | null; published_at: Date | null; platform: string }[]>;
+  countReviewsMissingGoogleName(clientId?: number): Promise<number>;
+
   // CRM Overview
   getCrmOverview(): Promise<{
     totalClients: number;
@@ -254,7 +276,7 @@ export interface IStorage {
   getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined>;
   listTradeLineModeChanges(clientServiceId: number, limit?: number): Promise<TradelineModeLog[]>;
   incrementTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date, increments: { voiceMinutes?: number; calls?: number; sms?: number }): Promise<TradelineUsage>;
-=======
+
   // ─── SocialSync ───
   upsertSocialSyncProfile(data: InsertSocialSyncProfile): Promise<SocialSyncProfile>;
   getSocialSyncProfile(clientId: number): Promise<SocialSyncProfile | undefined>;
@@ -292,11 +314,6 @@ export interface IStorage {
   createReviewSyncLog(data: InsertReviewSyncLog): Promise<ReviewSyncLog>;
 
   // ─── Review Requests ───
-  createReviewRequest(data: InsertReviewRequest): Promise<ReviewRequest>;
-  fetchDueReviewRequests(limit?: number): Promise<ReviewRequest[]>;
-  updateReviewRequest(id: number, updates: Record<string, any>): Promise<void>;
-  listReviewRequests(clientId: number, limit?: number): Promise<ReviewRequest[]>;
-  getReviewRequestByDedupKey(key: string): Promise<ReviewRequest | undefined>;
 
   // ─── Service Costs ───
   logServiceCost(data: InsertServiceCostLog): Promise<ServiceCostLog>;
@@ -1083,10 +1100,26 @@ export class DatabaseStorage implements IStorage {
    * Unlike updateTradeLineConfig (which deep-merges the tradeline sub-key),
    * this replaces the entire metadata object.
    */
-  async updateClientServiceMetadata(clientServiceId: number, metadata: Record<string, any>): Promise<void> {
+  async updateClientServiceMetadata(clientServiceId: number, metadata: Record<string, any>): Promise<void>;
+  async updateClientServiceMetadata(clientId: number, serviceId: string, metadata: Record<string, any>): Promise<void>;
+  async updateClientServiceMetadata(
+    clientOrServiceId: number,
+    serviceIdOrMetadata: string | Record<string, any>,
+    maybeMetadata?: Record<string, any>,
+  ): Promise<void> {
+    if (typeof serviceIdOrMetadata === "string") {
+      await db.update(clientServices)
+        .set({ metadata: maybeMetadata ?? {}, updated_at: new Date() })
+        .where(and(
+          eq(clientServices.client_id, clientOrServiceId),
+          eq(clientServices.service_id, serviceIdOrMetadata),
+        ));
+      return;
+    }
+
     await db.update(clientServices)
-      .set({ metadata, updated_at: new Date() })
-      .where(eq(clientServices.id, clientServiceId));
+      .set({ metadata: serviceIdOrMetadata, updated_at: new Date() })
+      .where(eq(clientServices.id, clientOrServiceId));
   }
 
   async getActiveServiceCount(): Promise<number> {
@@ -1697,7 +1730,9 @@ export class DatabaseStorage implements IStorage {
     const profit = revenue - totalCost;
     const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
 
-    return { revenue, voiceCost, smsCost, aiCost, totalCost, profit, margin };
+      return { revenue, voiceCost, smsCost, aiCost, totalCost, profit, margin };
+  }
+
   // ─── SocialSync ───
 
   async upsertSocialSyncProfile(data: InsertSocialSyncProfile): Promise<SocialSyncProfile> {
@@ -1922,6 +1957,34 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  async findReviewRequestByIdempotencyKey(key: string): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.idempotency_key, key))
+      .limit(1);
+    return row;
+  }
+
+  async getReviewRequestByDedupKey(key: string): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.dedup_key, key))
+      .limit(1);
+    return row;
+  }
+
+  async getReviewRequestByToken(token: string): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.access_token, token))
+      .limit(1);
+    return row;
+  }
+
+  async getReviewRequestById(id: number): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.id, id))
+      .limit(1);
+    return row;
+  }
+
   async fetchDueReviewRequests(limit = 20): Promise<ReviewRequest[]> {
     const now = new Date();
     return db.select().from(reviewRequests)
@@ -1934,22 +1997,291 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async updateReviewRequest(id: number, updates: Record<string, any>): Promise<void> {
-    await db.update(reviewRequests).set({ ...updates, updated_at: new Date() }).where(eq(reviewRequests.id, id));
-  }
-
-  async listReviewRequests(clientId: number, limit = 50): Promise<ReviewRequest[]> {
+  async fetchDueReviewFollowups(limit = 20): Promise<ReviewRequest[]> {
+    const now = new Date();
     return db.select().from(reviewRequests)
-      .where(eq(reviewRequests.client_id, clientId))
-      .orderBy(desc(reviewRequests.created_at))
+      .where(and(
+        eq(reviewRequests.status, "sent"),
+        sql`${reviewRequests.next_followup_at} IS NOT NULL`,
+        lte(reviewRequests.next_followup_at, now),
+        sql`${reviewRequests.sequence_step} < 2`,
+      ))
+      .orderBy(reviewRequests.next_followup_at)
       .limit(limit);
   }
 
-  async getReviewRequestByDedupKey(key: string): Promise<ReviewRequest | undefined> {
-    const [row] = await db.select().from(reviewRequests)
-      .where(eq(reviewRequests.dedup_key, key))
+  async updateReviewRequest(id: number, updates: Record<string, any>): Promise<ReviewRequest | undefined> {
+    const [row] = await db.update(reviewRequests)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(reviewRequests.id, id))
+      .returning();
+    return row;
+  }
+
+  private buildReviewRequestConditions(opts: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean }) {
+    const conditions = [];
+    if (opts.clientId) conditions.push(eq(reviewRequests.client_id, opts.clientId));
+    if (opts.status) conditions.push(eq(reviewRequests.status, opts.status));
+    if (opts.triggerSource) conditions.push(eq(reviewRequests.trigger_source, opts.triggerSource));
+    if (opts.hasFeedback === true) conditions.push(sql`${reviewRequests.internal_feedback} IS NOT NULL`);
+    if (opts.hasFeedback === false) conditions.push(sql`${reviewRequests.internal_feedback} IS NULL`);
+    if (opts.dueForFollowup) {
+      conditions.push(eq(reviewRequests.status, "sent"));
+      conditions.push(sql`${reviewRequests.next_followup_at} IS NOT NULL`);
+      conditions.push(lte(reviewRequests.next_followup_at, new Date()));
+      conditions.push(sql`${reviewRequests.sequence_step} < 2`);
+    }
+    return conditions.length ? and(...conditions) : undefined;
+  }
+
+  async listReviewRequests(clientId: number, limit?: number): Promise<ReviewRequest[]>;
+  async listReviewRequests(opts?: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean; limit?: number; offset?: number }): Promise<ReviewRequest[]>;
+  async listReviewRequests(
+    clientIdOrOpts: number | { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean; limit?: number; offset?: number } = {},
+    limitArg?: number,
+  ): Promise<ReviewRequest[]> {
+    const opts = typeof clientIdOrOpts === "number"
+      ? { clientId: clientIdOrOpts, limit: limitArg }
+      : clientIdOrOpts;
+    const { limit = 50, offset = 0 } = opts;
+    const where = this.buildReviewRequestConditions(opts);
+    return db.select().from(reviewRequests)
+      .where(where)
+      .orderBy(desc(reviewRequests.created_at))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async countReviewRequests(opts: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean } = {}): Promise<number> {
+    const where = this.buildReviewRequestConditions(opts);
+    const [row] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(reviewRequests)
+      .where(where);
+    return row?.count ?? 0;
+  }
+
+  async getReviewRequestStats(): Promise<{ total: number; pending: number; sent: number; clicked: number; routed_positive: number; routed_negative: number; feedback_captured: number; completed: number; failed: number; stopped: number; due_for_followup: number }> {
+    const now = new Date();
+    const [row] = await db.select({
+      total: sql<number>`count(*)::int`,
+      pending: sql<number>`count(*) filter (where ${reviewRequests.status} = 'pending')::int`,
+      sent: sql<number>`count(*) filter (where ${reviewRequests.status} = 'sent')::int`,
+      clicked: sql<number>`count(*) filter (where ${reviewRequests.status} = 'clicked')::int`,
+      routed_positive: sql<number>`count(*) filter (where ${reviewRequests.status} = 'routed_positive')::int`,
+      routed_negative: sql<number>`count(*) filter (where ${reviewRequests.status} = 'routed_negative')::int`,
+      feedback_captured: sql<number>`count(*) filter (where ${reviewRequests.status} = 'feedback_captured')::int`,
+      completed: sql<number>`count(*) filter (where ${reviewRequests.status} = 'completed')::int`,
+      failed: sql<number>`count(*) filter (where ${reviewRequests.status} = 'failed')::int`,
+      stopped: sql<number>`count(*) filter (where ${reviewRequests.status} = 'stopped')::int`,
+      due_for_followup: sql<number>`count(*) filter (where ${reviewRequests.status} = 'sent' and ${reviewRequests.next_followup_at} is not null and ${reviewRequests.next_followup_at} <= ${now} and ${reviewRequests.sequence_step} < 2)::int`,
+    }).from(reviewRequests);
+    return row || { total: 0, pending: 0, sent: 0, clicked: 0, routed_positive: 0, routed_negative: 0, feedback_captured: 0, completed: 0, failed: 0, stopped: 0, due_for_followup: 0 };
+  }
+
+  async stopReviewRequestsForBooking(bookingId: number): Promise<void> {
+    await db.update(reviewRequests)
+      .set({ status: "stopped", updated_at: new Date() })
+      .where(and(
+        eq(reviewRequests.booking_id, bookingId),
+        sql`${reviewRequests.status} IN ('pending', 'sent')`,
+      ));
+  }
+
+  async findClientByUserId(userId: number): Promise<Client | undefined> {
+    const [row] = await db.select().from(clients)
+      .where(eq(clients.user_id, userId))
       .limit(1);
     return row;
+  }
+
+  // ═══════════════════════════════════════════════
+  // Monitored Reviews
+  // ═══════════════════════════════════════════════
+
+  async upsertMonitoredReview(data: InsertMonitoredReview): Promise<{ review: MonitoredReview; isNew: boolean }> {
+    // Check if already exists
+    const existing = await this.findMonitoredReviewByDedupKey(data.dedup_key);
+    if (existing) {
+      // Update if response was added or review text changed
+      const updates: Record<string, any> = { last_synced_at: new Date(), updated_at: new Date() };
+      let changed = false;
+
+      if (data.response_text && !existing.response_text) {
+        updates.response_text = data.response_text;
+        updates.response_date = data.response_date;
+        updates.response_added = true;
+        changed = true;
+      }
+      if (data.review_text && data.review_text !== existing.review_text) {
+        updates.review_text = data.review_text;
+        changed = true;
+      }
+      if (data.raw_payload) {
+        updates.raw_payload = data.raw_payload;
+      }
+      // Backfill google_review_name if we now have it but didn't before
+      if (data.google_review_name && !existing.google_review_name) {
+        updates.google_review_name = data.google_review_name;
+      }
+
+      const [updated] = await db.update(monitoredReviews)
+        .set(updates)
+        .where(eq(monitoredReviews.id, existing.id))
+        .returning();
+      return { review: updated, isNew: false };
+    }
+
+    // Insert new
+    const [row] = await db.insert(monitoredReviews).values(data).returning();
+    return { review: row, isNew: true };
+  }
+
+  async getMonitoredReviewById(id: number): Promise<MonitoredReview | undefined> {
+    const [row] = await db.select().from(monitoredReviews)
+      .where(eq(monitoredReviews.id, id))
+      .limit(1);
+    return row;
+  }
+
+  async updateMonitoredReview(id: number, updates: Record<string, any>): Promise<MonitoredReview | undefined> {
+    const [row] = await db.update(monitoredReviews)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(monitoredReviews.id, id))
+      .returning();
+    return row;
+  }
+
+  async findMonitoredReviewByDedupKey(dedupKey: string): Promise<MonitoredReview | undefined> {
+    const [row] = await db.select().from(monitoredReviews)
+      .where(eq(monitoredReviews.dedup_key, dedupKey))
+      .limit(1);
+    return row;
+  }
+
+  async listMonitoredReviews(opts: { clientId?: number; platform?: string; isNew?: boolean; minRating?: number; maxRating?: number; limit?: number; offset?: number } = {}): Promise<MonitoredReview[]> {
+    const { clientId, platform, isNew, minRating, maxRating, limit = 50, offset = 0 } = opts;
+    const conditions = [];
+    if (clientId) conditions.push(eq(monitoredReviews.client_id, clientId));
+    if (platform) conditions.push(eq(monitoredReviews.platform, platform));
+    if (isNew !== undefined) conditions.push(eq(monitoredReviews.is_new, isNew));
+    if (minRating) conditions.push(sql`${monitoredReviews.rating} >= ${minRating}`);
+    if (maxRating) conditions.push(sql`${monitoredReviews.rating} <= ${maxRating}`);
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(monitoredReviews)
+      .where(where)
+      .orderBy(desc(monitoredReviews.published_at))
+      .limit(limit).offset(offset);
+  }
+
+  async countMonitoredReviews(opts: { clientId?: number; isNew?: boolean } = {}): Promise<number> {
+    const conditions = [];
+    if (opts.clientId) conditions.push(eq(monitoredReviews.client_id, opts.clientId));
+    if (opts.isNew !== undefined) conditions.push(eq(monitoredReviews.is_new, opts.isNew));
+    const where = conditions.length ? and(...conditions) : undefined;
+    const [row] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(monitoredReviews).where(where);
+    return row?.count ?? 0;
+  }
+
+  async getMonitoredReviewStats(clientId?: number): Promise<{ total: number; averageRating: number; newCount: number; withResponse: number; byRating: Record<number, number> }> {
+    const cond = clientId ? eq(monitoredReviews.client_id, clientId) : undefined;
+    const [row] = await db.select({
+      total: sql<number>`count(*)::int`,
+      averageRating: sql<number>`coalesce(round(avg(${monitoredReviews.rating})::numeric, 2), 0)::float`,
+      newCount: sql<number>`count(*) filter (where ${monitoredReviews.is_new} = true)::int`,
+      withResponse: sql<number>`count(*) filter (where ${monitoredReviews.response_text} is not null)::int`,
+      r1: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 1)::int`,
+      r2: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 2)::int`,
+      r3: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 3)::int`,
+      r4: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 4)::int`,
+      r5: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 5)::int`,
+    }).from(monitoredReviews).where(cond);
+    return {
+      total: row?.total ?? 0,
+      averageRating: row?.averageRating ?? 0,
+      newCount: row?.newCount ?? 0,
+      withResponse: row?.withResponse ?? 0,
+      byRating: { 1: row?.r1 ?? 0, 2: row?.r2 ?? 0, 3: row?.r3 ?? 0, 4: row?.r4 ?? 0, 5: row?.r5 ?? 0 },
+    };
+  }
+
+  async markMonitoredReviewsAcknowledged(ids: number[]): Promise<void> {
+    if (ids.length === 0) return;
+    await db.update(monitoredReviews)
+      .set({ is_new: false, updated_at: new Date() })
+      .where(sql`${monitoredReviews.id} = ANY(ARRAY[${sql.raw(ids.join(","))}]::int[])`);
+  }
+
+  async listClientsForReviewSync(limit = 20): Promise<Client[]> {
+    return db.select().from(clients)
+      .where(and(
+        sql`(${clients.google_place_id} IS NOT NULL OR ${clients.facebook_page_url} IS NOT NULL)`,
+        sql`${clients.status} IN ('active', 'onboarding')`,
+      ))
+      .orderBy(sql`${clients.last_review_sync_at} ASC NULLS FIRST`)
+      .limit(limit);
+  }
+
+  async getClientReputationService(clientId: number): Promise<{ serviceId: string; status: string; metadata: any } | null> {
+    const [row] = await db.select({
+      serviceId: clientServices.service_id,
+      status: clientServices.status,
+      metadata: clientServices.metadata,
+    }).from(clientServices)
+      .where(and(
+        eq(clientServices.client_id, clientId),
+        sql`${clientServices.service_id} LIKE 'reputationshield-%'`,
+        sql`${clientServices.status} IN ('active', 'onboarding', 'pending')`,
+      ))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async getClientByWidgetToken(token: string): Promise<Client | undefined> {
+    const [row] = await db.select().from(clients)
+      .where(eq(clients.widget_token, token))
+      .limit(1);
+    return row;
+  }
+
+  async ensureWidgetToken(clientId: number): Promise<string> {
+    const [existing] = await db.select({ widget_token: clients.widget_token })
+      .from(clients).where(eq(clients.id, clientId)).limit(1);
+    if (existing?.widget_token) return existing.widget_token;
+    const token = crypto.randomUUID().replace(/-/g, "");
+    await db.update(clients).set({ widget_token: token, updated_at: new Date() })
+      .where(eq(clients.id, clientId));
+    return token;
+  }
+
+  async getWidgetReviews(clientId: number, minRating: number, limit: number): Promise<{ reviewer_name: string; rating: number; review_text: string | null; published_at: Date | null; platform: string }[]> {
+    return db.select({
+      reviewer_name: monitoredReviews.reviewer_name,
+      rating: monitoredReviews.rating,
+      review_text: monitoredReviews.review_text,
+      published_at: monitoredReviews.published_at,
+      platform: monitoredReviews.platform,
+    }).from(monitoredReviews)
+      .where(and(
+        eq(monitoredReviews.client_id, clientId),
+        sql`${monitoredReviews.rating} >= ${minRating}`,
+        sql`${monitoredReviews.review_text} IS NOT NULL`,
+        sql`length(${monitoredReviews.review_text}) > 10`,
+      ))
+      .orderBy(desc(monitoredReviews.published_at))
+      .limit(limit);
+  }
+
+  async countReviewsMissingGoogleName(clientId?: number): Promise<number> {
+    const conditions = [
+      eq(monitoredReviews.platform, "google"),
+      sql`${monitoredReviews.google_review_name} IS NULL`,
+      sql`${monitoredReviews.response_text} IS NULL`,
+    ];
+    if (clientId) conditions.push(eq(monitoredReviews.client_id, clientId));
+    const [row] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(monitoredReviews).where(and(...conditions));
+    return row?.count ?? 0;
   }
 
   // ─── Service Costs ───

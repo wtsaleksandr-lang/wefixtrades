@@ -70,6 +70,7 @@ export interface TradeLineContext {
   channels: TradelineConfig["channels"];
   booking: TradelineConfig["booking"];
   phoneRouting: TradelineConfig["phoneRouting"];
+}
 /* ─── Portal types ─── */
 
 export type PortalBehaviorMode = "portal_general" | "portal_onboarding" | "portal_billing" | "portal_support";
@@ -142,6 +143,7 @@ export function buildSystemPrompt(
   auditContext?: AuditContext,
   memory?: MemoryContext,
   pageContext?: PageContext,
+  tradeLineContext?: TradeLineContext,
   portalContext?: PortalContext,
 ): string {
   // Admin surface gets a focused prompt without marketing cruft
@@ -152,6 +154,8 @@ export function buildSystemPrompt(
   // TradeLine per-client voice/chat gets a focused prompt
   if (surface === "vapi" && tradeLineContext) {
     return buildTradeLinePrompt(tradeLineContext);
+  }
+
   // Portal surface gets a focused prompt with client data
   if (surface === "portal") {
     return buildPortalPrompt(portalContext, memory);
@@ -373,6 +377,9 @@ IMPORTANT:
 - If you don't know something specific, say "I'll make sure the team gets back to you on that"
 - Always end by confirming next steps so the caller knows what to expect`);
 /* ─── Portal surface builder ─── */
+  return parts.join("\n");
+}
+
 function buildPortalPrompt(ctx?: PortalContext, memory?: MemoryContext): string {
   const parts: string[] = [];
 

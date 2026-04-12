@@ -352,6 +352,22 @@ export function registerBookingRoutes(app: Express): void {
         sendBookingNotificationToBusiness(updated!, calc).catch(() => {});
       }
 
+      // Trigger review request when job marked completed
+      if (status === "completed" && booking.status !== "completed") {
+        import("../services/reviewRequestService")
+          .then(async ({ createPostJobReviewRequest, processReviewRequest }) => {
+            const result = await createPostJobReviewRequest(updated!, calc);
+            if (result.created && result.reviewRequest) {
+              await processReviewRequest(result.reviewRequest);
+            } else {
+              console.log(`[ReviewRequest] Skipped for booking ${bookingId}: ${result.reason}`);
+            }
+          })
+          .catch((err) => {
+            console.error(`[ReviewRequest] Error for booking ${bookingId}:`, err.message);
+          });
+      }
+
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ error: err.message });

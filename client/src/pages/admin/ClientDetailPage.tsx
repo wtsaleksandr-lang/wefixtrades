@@ -26,8 +26,10 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TaskCard, ClientTasksEmptyState, isOverdue, type TaskItem } from "@/components/admin/TaskCard";
+import { ServiceOpsCard, ServiceOpsSection, HelpCue, HelpText, type OpsStatus } from "@/components/admin/ServiceOps";
+import { Star as StarIcon } from "lucide-react";
 import MapguardOpsTab from "@/components/admin/MapguardOpsTab";
-
+import ModeToggle from "@/components/portal/ModeToggle";
 import SocialSyncTab from "@/components/admin/SocialSyncTab";
 
 /* ─── Types ─── */
@@ -241,6 +243,17 @@ export default function ClientDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/services`] }),
   });
 
+  const updateServiceCost = useMutation({
+    mutationFn: async ({ id, cost_cents }: { id: number; cost_cents: number }) => {
+      const res = await apiRequest("PATCH", `/api/admin/crm/client-services/${id}`, { cost_cents });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/services`] });
+      toast({ title: "Cost updated" });
+    },
+  });
+
   const updateStatus = useMutation({
     mutationFn: async (status: string) => {
       const res = await apiRequest("PATCH", `/api/admin/crm/clients/${clientId}`, { status });
@@ -428,6 +441,8 @@ export default function ClientDetailPage() {
 
   const totalRevenue = (services ?? []).reduce((acc, s) => acc + (s.price_cents ?? 0), 0);
   const totalCost = (services ?? []).reduce((acc, s) => acc + (s.cost_cents ?? 0), 0);
+  const totalProfit = totalRevenue - totalCost;
+  const marginPct = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0;
 
   return (
     <AdminLayout pageContext={{
@@ -521,7 +536,7 @@ export default function ClientDetailPage() {
           </div>
 
           {/* Quick stats */}
-          <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-100">
+          <div className="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-100">
             <div>
               <p className="text-xs text-gray-500">Monthly Revenue</p>
               <p className="text-lg font-semibold text-gray-900">{fmt(totalRevenue)}</p>
@@ -532,16 +547,21 @@ export default function ClientDetailPage() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Profit</p>
-              <p className="text-lg font-semibold text-emerald-700">{fmt(totalRevenue - totalCost)}</p>
+              <p className={`text-lg font-semibold ${totalProfit >= 0 ? "text-emerald-700" : "text-red-600"}`}>{fmt(totalProfit)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Margin</p>
+              <p className={`text-lg font-semibold ${marginPct >= 50 ? "text-emerald-700" : marginPct >= 20 ? "text-amber-600" : "text-red-600"}`}>{marginPct}%</p>
             </div>
           </div>
         </Card>
 
         {/* Tabs */}
         <Tabs defaultValue="services">
-          <TabsList className="w-full grid grid-cols-5">
+          <TabsList className="w-full grid grid-cols-7">
             <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            <TabsTrigger value="reputation">Reputation</TabsTrigger>
             <TabsTrigger value="mapguard">MapGuard</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
@@ -567,6 +587,8 @@ export default function ClientDetailPage() {
                       <TableHead>Status</TableHead>
                       <TableHead>Mode</TableHead>
                       <TableHead>Price</TableHead>
+                      <TableHead>Cost</TableHead>
+                      <TableHead>Margin</TableHead>
                       <TableHead></TableHead>
                       <TableHead className="text-right">Enabled</TableHead>
                     </TableRow>
@@ -574,7 +596,7 @@ export default function ClientDetailPage() {
                   <TableBody>
                     {services?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-6 text-gray-500 text-sm">
+                        <TableCell colSpan={8} className="text-center py-6 text-gray-500 text-sm">
                           No services assigned yet.
                         </TableCell>
                       </TableRow>
@@ -585,6 +607,55 @@ export default function ClientDetailPage() {
                           <TableCell><StatusBadge status={s.status} /></TableCell>
                           <TableCell className="text-xs text-gray-500 capitalize">{s.fulfillment_mode || "-"}</TableCell>
                           <TableCell className="text-sm">{fmt(s.price_cents)}{s.billing_period === "monthly" ? "/mo" : ""}</TableCell>
+                          <TableCell className="text-sm">
+                            <div className="flex items-center gap-1">
+                              <input
+                                id={`cost-input-${s.id}`}
+                                type="number"
+                                className="w-20 h-7 px-2 text-xs border border-gray-200 rounded text-right focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                defaultValue={s.cost_cents ? (s.cost_cents / 100).toFixed(0) : ""}
+                                placeholder="0"
+                                onBlur={(e) => {
+                                  const val = Math.round(parseFloat(e.target.value || "0") * 100);
+                                  if (val !== (s.cost_cents ?? 0)) updateServiceCost.mutate({ id: s.id, cost_cents: val });
+                                }}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                              />
+                              {s.service_id.startsWith("reputationshield") && (
+                                <button
+                                  className="text-[10px] text-blue-500 hover:underline whitespace-nowrap"
+                                  title="Estimate cost from usage data"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const res = await fetch(`/api/admin/crm/client-services/${s.id}/cost-suggestion`, { credentials: "include" });
+                                      if (!res.ok) return;
+                                      const data = await res.json();
+                                      const input = document.getElementById(`cost-input-${s.id}`) as HTMLInputElement;
+                                      if (input && data.totalEstimateCents > 0) {
+                                        input.value = (data.totalEstimateCents / 100).toFixed(0);
+                                        toast({
+                                          title: `Suggested: $${(data.totalEstimateCents / 100).toFixed(2)}/mo`,
+                                          description: data.costs.map((c: any) => `${c.label}: $${(c.estimate_cents / 100).toFixed(2)}`).join(" · "),
+                                        });
+                                      } else {
+                                        toast({ title: "No usage data yet", description: "Cost estimate will be available after the first billing period." });
+                                      }
+                                    } catch { toast({ title: "Could not estimate cost" }); }
+                                  }}
+                                >
+                                  Suggest
+                                </button>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {s.price_cents && s.price_cents > 0 ? (
+                              <span className={`font-medium ${((s.price_cents - (s.cost_cents ?? 0)) / s.price_cents * 100) >= 50 ? "text-emerald-600" : ((s.price_cents - (s.cost_cents ?? 0)) / s.price_cents * 100) >= 20 ? "text-amber-600" : "text-red-600"}`}>
+                                {Math.round(((s.price_cents - (s.cost_cents ?? 0)) / s.price_cents) * 100)}%
+                              </span>
+                            ) : <span className="text-gray-400">—</span>}
+                          </TableCell>
                           <TableCell className="text-sm">
                             <div className="flex gap-1">
                               {s.status === "pending" && (
@@ -922,6 +993,11 @@ export default function ClientDetailPage() {
             </Card>
           </TabsContent>
 
+          {/* ─── Reputation Tab ─── */}
+          <TabsContent value="reputation" className="mt-4">
+            <ReputationOpsPanel clientId={client.id} />
+          </TabsContent>
+
           {/* ─── Notes Tab ─── */}
           <TabsContent value="notes" className="mt-4 space-y-3">
             <Card className="p-4">
@@ -1111,6 +1187,272 @@ export default function ClientDetailPage() {
         </Dialog>
       </div>
     </AdminLayout>
+  );
+}
+
+/* ─── Reputation Ops Panel (inline component) ─── */
+
+function ReputationOpsPanel({ clientId }: { clientId: number }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
+
+  const { data, isLoading, refetch } = useQuery<any>({
+    queryKey: ["/api/admin/crm/clients", clientId, "reputation-ops"],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/crm/clients/${clientId}/reputation-ops`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const disconnectGoogleMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/crm/clients/${clientId}/google-disconnect`);
+      return res.json();
+    },
+    onSuccess: () => { refetch(); toast({ title: "Google disconnected" }); },
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/crm/monitored-reviews/sync", { client_id: clientId });
+      return res.json();
+    },
+    onSuccess: () => { toast({ title: "Review sync triggered" }); setTimeout(() => refetch(), 5000); },
+  });
+
+  const toggleSettingMutation = useMutation({
+    mutationFn: async (updates: Record<string, any>) => {
+      const res = await apiRequest("PATCH", `/api/admin/crm/clients/${clientId}/reputation-config`, updates);
+      return res.json();
+    },
+    onSuccess: () => { refetch(); toast({ title: "Setting updated" }); },
+  });
+
+  function copyToClipboard(text: string, label: string) {
+    navigator.clipboard.writeText(text);
+    toast({ title: `${label} copied` });
+  }
+
+  if (isLoading) {
+    return <div className="flex justify-center py-8"><Skeleton className="h-40 w-full" /></div>;
+  }
+
+  if (!data?.hasService) {
+    return (
+      <Card className="p-6 text-center text-gray-500 text-sm">
+        <ShieldCheck className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+        No ReputationShield service active for this client.
+      </Card>
+    );
+  }
+
+  const t = data.tasks;
+  const s = data.stats;
+  const origin = window.location.origin;
+
+  function taskStatus(done: boolean, blocked?: boolean, optional?: boolean): OpsStatus {
+    if (done) return "done";
+    if (blocked) return "blocked";
+    if (optional) return "optional";
+    return "not_started";
+  }
+
+  const setupTasks = [
+    { done: t.googlePlaceId.done },
+    { done: t.facebookPageUrl.done },
+    { done: t.googleConnected.done },
+    { done: t.widgetEnabled.done },
+  ];
+  const setupDone = setupTasks.filter((x) => x.done).length;
+
+  const opsTasks = [
+    { done: t.remindersEnabled.done },
+    { done: t.reportsEnabled.done },
+    { done: t.lowRatingAlerts.done },
+    { done: t.aiDraftsAvailable.done },
+  ];
+  const opsDone = opsTasks.filter((x) => x.done).length;
+
+  return (
+    <div className="space-y-4">
+      {/* Header row */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="secondary" className="text-xs bg-[#F0F7F4] text-[#2D6A4F]">
+            {data.tier ? data.tier.charAt(0).toUpperCase() + data.tier.slice(1) : "—"} Plan
+          </Badge>
+          <Badge variant="secondary" className={`text-xs ${data.serviceStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+            {data.serviceStatus}
+          </Badge>
+          {s.lowRatingNoResponse > 0 && (
+            <Badge variant="secondary" className="text-xs bg-red-50 text-red-700">
+              {s.lowRatingNoResponse} low-rating review{s.lowRatingNoResponse !== 1 ? "s" : ""} need response
+            </Badge>
+          )}
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          onClick={() => navigate("/admin/crm/reviews")}
+        >
+          <StarIcon className="w-3 h-3 mr-1" /> Open Reviews
+        </Button>
+      </div>
+
+      {/* Setup & Connection */}
+      <ServiceOpsSection title="Setup & Connection" subtitle="Required for full service delivery" completedCount={setupDone} totalCount={setupTasks.length}>
+        <ServiceOpsCard
+          title="Google Business Profile"
+          status={taskStatus(t.googlePlaceId.done)}
+          description={t.googlePlaceId.done ? `Google Place ID configured (${t.googlePlaceId.value})` : "Required for review monitoring and response posting. Find it in Google Maps → Share → Place ID."}
+          nextStep={!t.googlePlaceId.done ? "Add the client's Google Place ID in their profile settings." : undefined}
+        >
+          {t.googlePlaceId.done && (
+            <button onClick={() => copyToClipboard(t.googlePlaceId.value, "Place ID")} className="text-[11px] text-blue-600 hover:underline mt-1">
+              Copy Place ID
+            </button>
+          )}
+        </ServiceOpsCard>
+
+        <ServiceOpsCard
+          title="Facebook Page URL"
+          status={taskStatus(t.facebookPageUrl.done, false, true)}
+          description={t.facebookPageUrl.done ? t.facebookPageUrl.value : "Optional. Enables Facebook review monitoring and routing."}
+          nextStep={!t.facebookPageUrl.done ? "Ask the client for their Facebook business page URL." : undefined}
+          waitingOn={!t.facebookPageUrl.done ? "client" : null}
+        />
+
+        <ServiceOpsCard
+          title="Google Account Connected"
+          status={taskStatus(t.googleConnected.done, false, !t.googleConnected.oauthConfigured)}
+          description={t.googleConnected.done ? "Connected — can post responses directly to Google." : t.googleConnected.oauthConfigured ? "Not connected yet." : "Google OAuth not configured on this server."}
+          nextStep={!t.googleConnected.done && t.googleConnected.oauthConfigured ? "Initiate the Google connection flow below." : undefined}
+        >
+          {t.googleConnected.oauthConfigured && (
+            <div className="flex gap-2 mt-2">
+              {!t.googleConnected.done ? (
+                <button
+                  onClick={async () => {
+                    const res = await fetch(`/api/admin/crm/google/connect?clientId=${clientId}`, { credentials: "include" });
+                    const data = await res.json();
+                    if (data.authUrl) {
+                      copyToClipboard(data.authUrl, "Google connection link");
+                    }
+                  }}
+                  className="text-[11px] font-medium text-white bg-blue-600 hover:bg-blue-700 px-2.5 py-1 rounded-md transition-colors"
+                >
+                  Copy Connection Link
+                </button>
+              ) : (
+                <button
+                  onClick={() => { if (confirm("Disconnect Google for this client?")) disconnectGoogleMutation.mutate(); }}
+                  className="text-[11px] text-red-600 hover:underline"
+                >
+                  Disconnect
+                </button>
+              )}
+            </div>
+          )}
+        </ServiceOpsCard>
+
+        <ServiceOpsCard
+          title="Review Widget"
+          status={taskStatus(t.widgetEnabled.done)}
+          description={t.widgetEnabled.done ? `Enabled (${t.widgetEnabled.type || "badge"} type)` : "Shows reviews on the client's website."}
+          nextStep={!t.widgetEnabled.done ? "Enable the widget and install embed code on the client's site." : undefined}
+          waitingOn={t.widgetEnabled.done ? null : "internal"}
+        >
+          {t.widgetToken.done && (
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => copyToClipboard(`<script src="${origin}/widget/embed.js" data-wft-widget="${t.widgetEnabled.type || "carousel"}" data-wft-token="${t.widgetToken.value}"></script>`, "Widget embed code")}
+                className="text-[11px] font-medium text-white bg-[#2D6A4F] hover:bg-[#1B4332] px-2.5 py-1 rounded-md transition-colors"
+              >
+                Copy Embed Code
+              </button>
+              <HelpCue text="A unique ID that identifies this client's widget. Included in the embed code automatically.">
+                <button
+                  onClick={() => copyToClipboard(t.widgetToken.value, "Widget token")}
+                  className="text-[11px] text-blue-600 hover:underline"
+                >
+                  Copy Token
+                </button>
+              </HelpCue>
+            </div>
+          )}
+        </ServiceOpsCard>
+      </ServiceOpsSection>
+
+      {/* Active Features */}
+      <ServiceOpsSection title="Active Features" subtitle="Automated service components" completedCount={opsDone} totalCount={opsTasks.length}>
+        <ServiceOpsCard
+          title="Follow-up Reminders"
+          status={taskStatus(t.remindersEnabled.done)}
+          description="Automatic follow-ups when customers don't respond to review requests."
+          action={!t.remindersEnabled.done ? { label: "Enable", onClick: () => toggleSettingMutation.mutate({ reminders_enabled: true }) } : undefined}
+        />
+        <ServiceOpsCard
+          title="Monthly Reports"
+          status={taskStatus(t.reportsEnabled.done)}
+          description="Periodic email showing review growth and reputation metrics."
+          action={!t.reportsEnabled.done ? { label: "Enable", onClick: () => toggleSettingMutation.mutate({ report_enabled: true }) } : undefined}
+        />
+        <ServiceOpsCard
+          title="Low-Rating Alerts"
+          status={taskStatus(t.lowRatingAlerts.done)}
+          description="Instant email alert when a 1-2 star review is detected."
+          action={!t.lowRatingAlerts.done ? { label: "Enable", onClick: () => toggleSettingMutation.mutate({ low_rating_alerts: true }) } : undefined}
+        />
+        <ServiceOpsCard
+          title="AI Response Drafts"
+          status={taskStatus(t.aiDraftsAvailable.done)}
+          description={t.aiDraftsAvailable.done ? "Available — AI can draft responses for this client's reviews." : "Requires Pro plan or higher."}
+        />
+        <ServiceOpsCard
+          title="Channel Preference"
+          status="done"
+          description={`Requests sent via: ${t.channelPreference.value}. Auto = SMS first (higher conversion), email fallback.`}
+        />
+      </ServiceOpsSection>
+
+      {/* Operational Health */}
+      <ServiceOpsSection title="Operational Health">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <button onClick={() => navigate("/admin/crm/reviews")} className="text-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+            <div className="text-lg font-semibold text-gray-900">{s.totalReviews}</div>
+            <div className="text-[11px] text-gray-500">Reviews Tracked</div>
+          </button>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <div className="text-lg font-semibold text-gray-900">{s.totalRequests}</div>
+            <div className="text-[11px] text-gray-500">Requests Sent</div>
+          </div>
+          <button
+            onClick={s.lowRatingNoResponse > 0 ? () => navigate("/admin/crm/reviews") : undefined}
+            className={`text-center p-3 rounded-lg transition-colors ${s.lowRatingNoResponse > 0 ? "bg-red-50 hover:bg-red-100 cursor-pointer" : "bg-gray-50"}`}
+          >
+            <div className={`text-lg font-semibold ${s.lowRatingNoResponse > 0 ? "text-red-700" : "text-gray-900"}`}>{s.lowRatingNoResponse}</div>
+            <div className="text-[11px] text-gray-500">Low-Rating Unresponded</div>
+          </button>
+          <div className={`text-center p-3 rounded-lg ${s.missingGoogleName > 0 ? "bg-amber-50" : "bg-gray-50"}`}>
+            <div className="text-lg font-semibold text-gray-900">{s.missingGoogleName}</div>
+            <HelpCue text="Reviews without a Google API identifier cannot be posted to. Trigger a re-sync to attempt recovery.">
+              <span className="text-[11px] text-gray-500">Missing Post ID</span>
+            </HelpCue>
+            {s.missingGoogleName > 0 && (
+              <button
+                onClick={() => syncMutation.mutate()}
+                className="text-[10px] text-blue-600 hover:underline mt-1 block mx-auto"
+              >
+                Re-sync now
+              </button>
+            )}
+          </div>
+        </div>
+      </ServiceOpsSection>
+    </div>
   );
 }
 

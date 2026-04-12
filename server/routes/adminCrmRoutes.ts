@@ -1,9 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { requireAdmin, hashPassword } from "../auth";
 import { storage } from "../storage";
-import { getTradeLineDefaultConfig, getTradeLineReadiness, advanceSetupStage } from "@shared/schema";
-import { sendOnboardingEmail } from "../lib/onboardingEmail";
-import { getTaskAutomation } from "../services/taskAutomation";
+import { advanceSetupStage, getTradeLineReadiness } from "@shared/schema";
 import crypto from "crypto";
 
 export function registerAdminCrmRoutes(app: Express): void {
@@ -236,73 +234,6 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/admin/crm/fulfillment/:id/process", requireAdmin, async (req: Request, res: Response) => {
-    try {
-      const id = parseInt(req.params.id as string);
-
-      // Load the task (use updateFulfillmentTask with empty update to get current state)
-      const task = await storage.updateFulfillmentTask(id, {});
-      if (!task) return res.status(404).json({ error: "Fulfillment task not found" });
-
-      // Look up automation
-      const automation = getTaskAutomation(task.title);
-      if (!automation) {
-        return res.status(400).json({ error: "This task cannot be automated", title: task.title });
-      }
-
-      // Mark running
-      await storage.updateFulfillmentTask(id, { automation_status: "running" });
-
-      let result;
-      try {
-        result = await automation.handler(task);
-      } catch (err: any) {
-        await storage.updateFulfillmentTask(id, {
-          automation_status: "failed",
-          last_action: `Error: ${err.message}`,
-          last_action_at: new Date(),
-        });
-        return res.status(500).json({ error: `Automation failed: ${err.message}` });
-      }
-
-      // Update task based on result
-      const updates: Record<string, any> = {
-        automation_status: result.success ? "completed" : "failed",
-        last_action: result.message,
-        last_action_at: new Date(),
-      };
-
-      // Auto tasks get marked delivered on success
-      let cascade;
-      if (automation.type === "auto" && result.success) {
-        updates.status = "delivered";
-        updates.completed_at = new Date();
-      }
-
-      const updatedTask = await storage.updateFulfillmentTask(id, updates);
-
-      // Run completion cascade if auto-delivered
-      if (updates.status === "delivered" && updatedTask?.client_service_id) {
-        cascade = await storage.checkAndCompleteService(updatedTask.client_service_id);
-      }
-
-      await storage.logAdminActivity({
-        actor_type: "human",
-        actor_id: (req.user as any)?.id,
-        actor_name: (req.user as any)?.name || (req.user as any)?.email,
-        action: `fulfillment.process.${automation.action}`,
-        entity_type: "fulfillment_task",
-        entity_id: id,
-        summary: `Processed task "${task.title}" (${automation.type}): ${result.message}`,
-      });
-
-      res.json({ task: updatedTask, result, cascade });
-    } catch (err: any) {
-      console.error("[admin-crm] Process task error:", err.message);
-      res.status(500).json({ error: "Failed to process task" });
-    }
-  });
-
   /* ═══════════════════════════════════════════
      Suppliers
      ═══════════════════════════════════════════ */
@@ -523,10 +454,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       const service = await storage.getServiceById(service_id);
       if (!service) return res.status(404).json({ error: "Service not found in catalog" });
 
-      // 1. Create client_service (with TradeLine defaults if applicable)
-      const tradelineDefaults = getTradeLineDefaultConfig(service_id);
-      const metadata = tradelineDefaults ? { tradeline: tradelineDefaults } : undefined;
-
+      // 1. Create client_service
       const clientService = await storage.createClientService({
         client_id: clientId,
         service_id,
@@ -535,18 +463,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         fulfillment_mode: fulfillment_mode || "internal",
         price_cents: price_override ?? service.default_price,
         billing_period: service.billing_period,
-        metadata,
       });
-
-      // Auto-populate TradeLine notifications from client contact info
-      if (tradelineDefaults) {
-        const notifications: { email: string[]; sms: string[] } = { email: [], sms: [] };
-        if (client.contact_email) notifications.email.push(client.contact_email);
-        if (client.contact_phone) notifications.sms.push(client.contact_phone);
-        if (notifications.email.length || notifications.sms.length) {
-          await storage.updateTradeLineConfig(clientService.id, { notifications });
-        }
-      }
 
       // 2. Create invoice
       const payment = await storage.createClientPayment({
@@ -570,24 +487,6 @@ export function registerAdminCrmRoutes(app: Express): void {
           status: "not_sent",
           actor_type: "human",
         });
-
-        // Send onboarding email immediately
-        if (onboarding?.access_token && client.contact_email) {
-          const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
-          const sent = await sendOnboardingEmail({
-            client,
-            serviceName: service.name,
-            accessToken: onboarding.access_token,
-            baseUrl,
-          });
-          if (sent) {
-            await storage.updateOnboardingSubmission(onboarding.id, {
-              status: "sent",
-              sent_at: new Date(),
-            });
-            onboarding = { ...onboarding, status: "sent" };
-          }
-        }
       }
 
       // 4. Create tasks from template
@@ -627,32 +526,11 @@ export function registerAdminCrmRoutes(app: Express): void {
         metadata: { service_id, tasks_created: tasks.length, has_onboarding: !!onboarding },
       });
 
-      // 7. Ensure portal login exists
-      let portalAccount = null;
-      try {
-        const result = await storage.ensurePortalAccount(clientId);
-        if (result.created) {
-          portalAccount = { email: result.user.email, temporary_password: result.tempPassword };
-          await storage.logAdminActivity({
-            actor_type: "human",
-            actor_id: (req.user as any)?.id,
-            actor_name: (req.user as any)?.name || (req.user as any)?.email,
-            action: "portal.auto_created",
-            entity_type: "client",
-            entity_id: clientId,
-            summary: `Auto-created portal account for ${result.user.email}`,
-          });
-        }
-      } catch (err: any) {
-        console.warn(`[admin-crm] Could not auto-create portal account: ${err.message}`);
-      }
-
       res.status(201).json({
         clientService,
         payment,
         onboarding,
         tasksCreated: tasks.length,
-        portalAccount,
       });
     } catch (err: any) {
       console.error("[admin-crm] Provision error:", err.message);
@@ -798,6 +676,10 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  // ═══════════════════════════════════════════════
+  // Review Requests
+  // ═══════════════════════════════════════════════
+
   /* ═══════════════════════════════════════════
      QuoteQuick Admin Overview
      ═══════════════════════════════════════════ */
@@ -833,14 +715,12 @@ export function registerAdminCrmRoutes(app: Express): void {
       const calcs = await storage.getCalculatorsByUserId(client.user_id);
       const results = [];
 
-      // Plan tier → monthly revenue mapping (cents)
       const PLAN_REVENUE: Record<string, number> = {
-        'free': 0,
-        'starter': 4900,  // $49/mo
-        'business': 9900,  // $99/mo
+        free: 0,
+        starter: 4900,
+        business: 9900,
       };
-      // Estimated monthly cost to deliver QuoteQuick per calculator (hosting, compute, email)
-      const QQ_COST_CENTS = 500; // ~$5/mo estimated infra cost per calculator
+      const QQ_COST_CENTS = 500;
 
       let totalRevenue = 0;
       let totalCost = 0;
@@ -848,9 +728,9 @@ export function registerAdminCrmRoutes(app: Express): void {
       for (const calc of calcs) {
         const deploy = await storage.getDeploymentStatus(calc.id);
         const leadCount = await storage.getLeadCountSince(calc.id, new Date(0));
-        const tier = calc.plan_tier ?? 'free';
+        const tier = calc.plan_tier ?? "free";
         const revenue = PLAN_REVENUE[tier] ?? 0;
-        const cost = tier === 'free' ? 0 : QQ_COST_CENTS;
+        const cost = tier === "free" ? 0 : QQ_COST_CENTS;
 
         totalRevenue += revenue;
         totalCost += cost;
@@ -863,13 +743,13 @@ export function registerAdminCrmRoutes(app: Express): void {
           plan_tier: tier,
           total_views: calc.total_views ?? 0,
           total_leads: leadCount,
-          status: deploy?.status ?? 'draft',
+          status: deploy?.status ?? "draft",
           created_at: calc.created_at,
           calculator_url: `/calculator?slug=${calc.slug}`,
           edit_url: `/EditCalculator?token=${calc.edit_token}`,
           price_cents: revenue,
           cost_cents: cost,
-           });
+        });
       }
 
       res.json({
@@ -888,7 +768,7 @@ export function registerAdminCrmRoutes(app: Express): void {
   });
 
   /* ═══════════════════════════════════════════
-     TradeLine — Admin Read/Write
+     TradeLine - Admin Read/Write
      ═══════════════════════════════════════════ */
 
   /**
@@ -897,7 +777,7 @@ export function registerAdminCrmRoutes(app: Express): void {
    */
   app.get("/api/admin/crm/tradeline/:clientServiceId", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
+      const csId = parseInt(req.params.clientServiceId as string);
       if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
 
       const cs = await storage.getClientServiceById(csId);
@@ -921,7 +801,6 @@ export function registerAdminCrmRoutes(app: Express): void {
         usage: usage ?? null,
         recentCalls: calls,
         profitability,
-        // Convenience fields for UI
         setupStage: config?.setupStage ?? "not_started",
         assistantStatus: config?.assistant?.status ?? "not_built",
         assistantError: config?.assistant?.lastBuildError || null,
@@ -939,7 +818,7 @@ export function registerAdminCrmRoutes(app: Express): void {
    */
   app.post("/api/admin/crm/tradeline/:clientServiceId/config", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
+      const csId = parseInt(req.params.clientServiceId as string);
       if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
 
       const cs = await storage.getClientServiceById(csId);
@@ -961,7 +840,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         action: "tradeline.config_updated",
         entity_type: "client_service",
         entity_id: csId,
-        summary: `Updated TradeLine config`,
+        summary: "Updated TradeLine config",
       });
 
       res.json({ config: updated });
@@ -977,7 +856,7 @@ export function registerAdminCrmRoutes(app: Express): void {
    */
   app.post("/api/admin/crm/tradeline/:clientServiceId/mode", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
+      const csId = parseInt(req.params.clientServiceId as string);
       if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
 
       const cs = await storage.getClientServiceById(csId);
@@ -1017,7 +896,7 @@ export function registerAdminCrmRoutes(app: Express): void {
    */
   app.get("/api/admin/crm/tradeline/:clientServiceId/usage", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
+      const csId = parseInt(req.params.clientServiceId as string);
       if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
 
       const cs = await storage.getClientServiceById(csId);
@@ -1044,7 +923,7 @@ export function registerAdminCrmRoutes(app: Express): void {
    */
   app.post("/api/admin/crm/tradeline/:clientServiceId/install-path", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
+      const csId = parseInt(req.params.clientServiceId as string);
       if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
 
       const cs = await storage.getClientServiceById(csId);
@@ -1061,15 +940,27 @@ export function registerAdminCrmRoutes(app: Express): void {
         return res.status(400).json({ error: "embedMode must be direct_embed or hosted_fallback" });
       }
 
-      // Read current config to safely advance stage (never regress)
       const currentConfig = await storage.getTradeLineConfig(csId);
       const safeStage = currentConfig
         ? advanceSetupStage(currentConfig.setupStage, "configuring")
         : "configuring";
 
       const config = await storage.updateTradeLineConfig(csId, {
-        website: { accessAvailable, embedMode },
-        channels: { hostedFallback: embedMode === "hosted_fallback" },
+        website: {
+          ...(currentConfig?.website ?? {}),
+          hostedUrl: currentConfig?.website?.hostedUrl ?? "",
+          domainStatus: currentConfig?.website?.domainStatus ?? "not_needed",
+          accessAvailable,
+          embedMode,
+        },
+        channels: {
+          ...(currentConfig?.channels ?? {}),
+          voice: currentConfig?.channels?.voice ?? false,
+          websiteChat: currentConfig?.channels?.websiteChat ?? false,
+          websiteVoice: currentConfig?.channels?.websiteVoice ?? false,
+          sms: currentConfig?.channels?.sms ?? false,
+          hostedFallback: embedMode === "hosted_fallback",
+        },
         setupStage: safeStage,
       });
 
@@ -1096,7 +987,7 @@ export function registerAdminCrmRoutes(app: Express): void {
    */
   app.get("/api/admin/crm/tradeline/:clientServiceId/readiness", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
+      const csId = parseInt(req.params.clientServiceId as string);
       if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
 
       const cs = await storage.getClientServiceById(csId);
@@ -1120,7 +1011,7 @@ export function registerAdminCrmRoutes(app: Express): void {
    */
   app.post("/api/admin/crm/tradeline/:clientServiceId/go-live", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
+      const csId = parseInt(req.params.clientServiceId as string);
       if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
 
       const cs = await storage.getClientServiceById(csId);
@@ -1132,8 +1023,6 @@ export function registerAdminCrmRoutes(app: Express): void {
       if (!config) return res.status(400).json({ error: "TradeLine config not initialized" });
 
       const readiness = getTradeLineReadiness(config);
-
-      // Also check that all setup tasks are in an acceptable state
       const pendingTaskCount = await storage.countPendingTasks(csId);
       if (pendingTaskCount > 0) {
         readiness.issues.push(`${pendingTaskCount} fulfillment task(s) still pending or in progress`);
@@ -1153,7 +1042,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         action: "tradeline.go_live",
         entity_type: "client_service",
         entity_id: csId,
-        summary: `Marked TradeLine as live`,
+        summary: "Marked TradeLine as live",
       });
 
       res.json({ config: updated });
@@ -1169,7 +1058,7 @@ export function registerAdminCrmRoutes(app: Express): void {
    */
   app.post("/api/admin/crm/tradeline/:clientServiceId/build-assistant", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
+      const csId = parseInt(req.params.clientServiceId as string);
       if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
 
       const cs = await storage.getClientServiceById(csId);
@@ -1200,16 +1089,1127 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.status(500).json({ error: err.message || "Failed to build assistant" });
     }
   });
-}
-        assistantId: result.assistantId,
-        skipped: result.skipped,
-        skipReason: result.skipReason,
-        templateId: result.definition?.templateId,
-        inputHash: result.definition?.inputHash,
+
+  const REVIEW_TERMINAL_STATUSES = [
+    "completed", "stopped", "failed",
+    "routed_positive", "routed_negative", "feedback_captured",
+  ];
+
+  /**
+   * GET /api/admin/crm/review-requests
+   * List with filters: status, clientId, triggerSource, hasFeedback, dueForFollowup
+   */
+  app.get("/api/admin/crm/review-requests", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = req.query.clientId ? parseInt(req.query.clientId as string) : undefined;
+      const status = req.query.status as string | undefined;
+      const triggerSource = req.query.triggerSource as string | undefined;
+      const hasFeedback = req.query.hasFeedback === "true" ? true : req.query.hasFeedback === "false" ? false : undefined;
+      const dueForFollowup = req.query.dueForFollowup === "true" ? true : undefined;
+      const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+
+      const filterOpts = { clientId, status, triggerSource, hasFeedback, dueForFollowup };
+      const [data, total] = await Promise.all([
+        storage.listReviewRequests({ ...filterOpts, limit, offset }),
+        storage.countReviewRequests(filterOpts),
+      ]);
+      res.json({ data, total });
+    } catch (err: any) {
+      console.error("[admin-crm] List review requests error:", err.message);
+      res.status(500).json({ error: "Failed to list review requests" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/review-requests/stats
+   * Operational summary: counts by status + due for followup.
+   */
+  app.get("/api/admin/crm/review-requests/stats", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const stats = await storage.getReviewRequestStats();
+      res.json(stats);
+    } catch (err: any) {
+      console.error("[admin-crm] Review request stats error:", err.message);
+      res.status(500).json({ error: "Failed to get stats" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/review-requests/:id
+   * Single review request detail.
+   */
+  app.get("/api/admin/crm/review-requests/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const rr = await storage.getReviewRequestById(id);
+      if (!rr) return res.status(404).json({ error: "Review request not found" });
+      res.json(rr);
+    } catch (err: any) {
+      console.error("[admin-crm] Get review request error:", err.message);
+      res.status(500).json({ error: "Failed to get review request" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/review-requests
+   * Create a manual review request + send immediately.
+   */
+  app.post("/api/admin/crm/review-requests", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { client_id, customer_name, customer_email, customer_phone, channel, job_label } = req.body;
+      if (!client_id || !customer_name) {
+        return res.status(400).json({ error: "client_id and customer_name are required" });
+      }
+
+      const { createManualReviewRequest, processReviewRequest } = await import("../services/reviewRequestService");
+      const result = await createManualReviewRequest({
+        clientId: client_id,
+        customerName: customer_name,
+        customerEmail: customer_email,
+        customerPhone: customer_phone,
+        channel,
+        jobLabel: job_label,
+      });
+
+      if (!result.created) {
+        return res.status(409).json({ error: result.reason });
+      }
+
+      // Send immediately
+      if (result.reviewRequest) {
+        processReviewRequest(result.reviewRequest).catch((err: any) => {
+          console.error("[admin-crm] Review request send error:", err.message);
+        });
+      }
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review_request.created",
+        entity_type: "review_request",
+        entity_id: result.reviewRequest?.id ?? null,
+        summary: `Manual review request for "${customer_name}" (client ${client_id})`,
+      });
+
+      res.status(201).json({ created: true, id: result.reviewRequest?.id });
+    } catch (err: any) {
+      console.error("[admin-crm] Create review request error:", err.message);
+      res.status(500).json({ error: "Failed to create review request" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/review-requests/:id/stop
+   * Stop a review request and cancel all pending follow-ups.
+   * Only allowed if not already in a terminal state.
+   */
+  app.post("/api/admin/crm/review-requests/:id/stop", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const rr = await storage.getReviewRequestById(id);
+      if (!rr) return res.status(404).json({ error: "Review request not found" });
+
+      if (REVIEW_TERMINAL_STATUSES.includes(rr.status)) {
+        return res.status(400).json({ error: `Cannot stop — already in terminal status: ${rr.status}` });
+      }
+
+      const updated = await storage.updateReviewRequest(id, {
+        status: "stopped",
+        next_followup_at: null,
+        completed_at: new Date(),
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review_request.stopped",
+        entity_type: "review_request",
+        entity_id: id,
+        summary: `Stopped review request #${id} (was: ${rr.status}, step ${rr.sequence_step})`,
+      });
+
+      res.json(updated);
+    } catch (err: any) {
+      console.error("[admin-crm] Stop review request error:", err.message);
+      res.status(500).json({ error: "Failed to stop review request" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/review-requests/:id/resend
+   * Re-send the initial review request email.
+   * Only allowed if the request is in a failed or stopped state.
+   * Resets to sent status and schedules next follow-up.
+   */
+  app.post("/api/admin/crm/review-requests/:id/resend", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const rr = await storage.getReviewRequestById(id);
+      if (!rr) return res.status(404).json({ error: "Review request not found" });
+
+      // Only allow resend from failed or stopped
+      if (!["failed", "stopped"].includes(rr.status)) {
+        return res.status(400).json({ error: `Cannot resend — status is "${rr.status}". Only failed or stopped requests can be resent.` });
+      }
+
+      // Reset to pending so processReviewRequest can handle it
+      await storage.updateReviewRequest(id, {
+        status: "pending",
+        run_at: new Date(),
+        attempts: 0,
+        last_error: null,
+        sequence_step: 0,
+        next_followup_at: null,
+        completed_at: null,
+      });
+
+      const refreshed = await storage.getReviewRequestById(id);
+      if (refreshed) {
+        const { processReviewRequest } = await import("../services/reviewRequestService");
+        processReviewRequest(refreshed).catch((err: any) => {
+          console.error("[admin-crm] Review resend error:", err.message);
+        });
+      }
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review_request.resent",
+        entity_type: "review_request",
+        entity_id: id,
+        summary: `Resent review request #${id} (was: ${rr.status})`,
+      });
+
+      res.json({ ok: true, id });
+    } catch (err: any) {
+      console.error("[admin-crm] Resend review request error:", err.message);
+      res.status(500).json({ error: "Failed to resend review request" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/review-requests/:id/nudge
+   * Manually trigger the next follow-up step immediately.
+   * Only works if the request is in 'sent' status with sequence_step < 2.
+   */
+  app.post("/api/admin/crm/review-requests/:id/nudge", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const rr = await storage.getReviewRequestById(id);
+      if (!rr) return res.status(404).json({ error: "Review request not found" });
+
+      if (rr.status !== "sent") {
+        return res.status(400).json({ error: `Cannot nudge — status is "${rr.status}". Only sent requests can be nudged.` });
+      }
+
+      if (rr.sequence_step >= 2) {
+        return res.status(400).json({ error: "Sequence already complete (step 2 reached). Cannot nudge further." });
+      }
+
+      // Set next_followup_at to now so the worker picks it up immediately
+      await storage.updateReviewRequest(id, {
+        next_followup_at: new Date(),
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review_request.nudged",
+        entity_type: "review_request",
+        entity_id: id,
+        summary: `Nudged review request #${id} to send step ${rr.sequence_step + 1} immediately`,
+      });
+
+      res.json({ ok: true, id, nextStep: rr.sequence_step + 1 });
+    } catch (err: any) {
+      console.error("[admin-crm] Nudge review request error:", err.message);
+      res.status(500).json({ error: "Failed to nudge review request" });
+    }
+  });
+
+  /**
+   * PATCH /api/admin/crm/review-requests/:id
+   * Generic update — guarded against unsafe transitions.
+   */
+  app.patch("/api/admin/crm/review-requests/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const rr = await storage.getReviewRequestById(id);
+      if (!rr) return res.status(404).json({ error: "Review request not found" });
+
+      // Guard: don't allow status changes via raw PATCH — use action endpoints instead
+      if (req.body.status) {
+        return res.status(400).json({ error: "Use /stop, /resend, or /nudge endpoints to change status" });
+      }
+
+      // Allow updating safe fields only
+      const safeFields = ["customer_name", "customer_email", "customer_phone", "channel", "google_place_id", "review_url"];
+      const updates: Record<string, any> = {};
+      for (const key of safeFields) {
+        if (req.body[key] !== undefined) updates[key] = req.body[key];
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+
+      const updated = await storage.updateReviewRequest(id, updates);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review_request.updated",
+        entity_type: "review_request",
+        entity_id: id,
+        summary: `Updated review request #${id} fields: ${Object.keys(updates).join(", ")}`,
+        metadata: { fields: Object.keys(updates) },
+      });
+
+      res.json(updated);
+    } catch (err: any) {
+      console.error("[admin-crm] Update review request error:", err.message);
+      res.status(500).json({ error: "Failed to update review request" });
+    }
+  });
+
+  // ═══════════════════════════════════════════════
+  // Monitored Reviews
+  // ═══════════════════════════════════════════════
+
+  /**
+   * GET /api/admin/crm/monitored-reviews
+   * List public reviews with filters.
+   */
+  app.get("/api/admin/crm/monitored-reviews", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = req.query.clientId ? parseInt(req.query.clientId as string) : undefined;
+      const platform = req.query.platform as string | undefined;
+      const isNew = req.query.isNew === "true" ? true : req.query.isNew === "false" ? false : undefined;
+      const minRating = req.query.minRating ? parseInt(req.query.minRating as string) : undefined;
+      const maxRating = req.query.maxRating ? parseInt(req.query.maxRating as string) : undefined;
+      const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+
+      const [data, total] = await Promise.all([
+        storage.listMonitoredReviews({ clientId, platform, isNew, minRating, maxRating, limit, offset }),
+        storage.countMonitoredReviews({ clientId, isNew }),
+      ]);
+
+      // Enrich with client business_name for admin use
+      const clientIds = [...new Set(data.map((r: any) => r.client_id).filter(Boolean))];
+      const clientMap = new Map<number, string>();
+      for (const cid of clientIds) {
+        const c = await storage.getClientById(cid);
+        if (c) clientMap.set(cid, c.business_name);
+      }
+      const enriched = data.map((r: any) => ({
+        ...r,
+        business_name: r.client_id ? clientMap.get(r.client_id) || null : null,
+      }));
+
+      res.json({ data: enriched, total });
+    } catch (err: any) {
+      console.error("[admin-crm] List monitored reviews error:", err.message);
+      res.status(500).json({ error: "Failed to list monitored reviews" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/monitored-reviews/stats
+   * Review monitoring summary: counts, average rating, distribution.
+   */
+  app.get("/api/admin/crm/monitored-reviews/stats", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = req.query.clientId ? parseInt(req.query.clientId as string) : undefined;
+      const stats = await storage.getMonitoredReviewStats(clientId);
+      res.json(stats);
+    } catch (err: any) {
+      console.error("[admin-crm] Monitored review stats error:", err.message);
+      res.status(500).json({ error: "Failed to get stats" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/monitored-reviews/acknowledge
+   * Mark reviews as acknowledged (is_new = false).
+   */
+  app.post("/api/admin/crm/monitored-reviews/acknowledge", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "ids array is required" });
+      }
+      await storage.markMonitoredReviewsAcknowledged(ids);
+      res.json({ ok: true, acknowledged: ids.length });
+    } catch (err: any) {
+      console.error("[admin-crm] Acknowledge reviews error:", err.message);
+      res.status(500).json({ error: "Failed to acknowledge reviews" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/monitored-reviews/sync
+   * Trigger an immediate review sync for a specific client.
+   */
+  app.post("/api/admin/crm/monitored-reviews/sync", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { client_id } = req.body;
+      if (!client_id) return res.status(400).json({ error: "client_id is required" });
+
+      const client = await storage.getClientById(client_id);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+      if (!client.google_place_id) {
+        return res.status(400).json({ error: "Client has no google_place_id configured" });
+      }
+
+      // Fire sync in background
+      const { processReviewMonitoring } = await import("../jobs/reviewMonitorWorker");
+      // We can't easily sync a single client through the batch function,
+      // so we update the sync timestamp to null to make it highest priority, then run
+      await storage.updateClient(client_id, { last_review_sync_at: null as any });
+
+      processReviewMonitoring().catch((err: any) => {
+        console.error("[admin-crm] Manual review sync error:", err.message);
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review_monitoring.manual_sync",
+        entity_type: "client",
+        entity_id: client_id,
+        summary: `Triggered manual review sync for ${client.business_name}`,
+      });
+
+      res.json({ ok: true, message: "Sync triggered" });
+    } catch (err: any) {
+      console.error("[admin-crm] Manual review sync error:", err.message);
+      res.status(500).json({ error: "Failed to trigger sync" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/monitored-reviews/:id/draft-response
+   * Generate an AI draft response for a review.
+   * Stores the draft on the review record for later editing/use.
+   */
+  app.post("/api/admin/crm/monitored-reviews/:id/draft-response", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const review = await storage.getMonitoredReviewById(id);
+      if (!review) return res.status(404).json({ error: "Review not found" });
+
+      // Load client context for business name + trade
+      const client = review.client_id ? (await storage.getClientById(review.client_id)) ?? null : null;
+
+      // Feature gating: check if client's plan includes AI drafts
+      if (review.client_id) {
+        const { extractTier, canAccessFeature } = await import("@shared/reputationConfig");
+        const svc = await storage.getClientReputationService(review.client_id);
+        const tier = svc ? extractTier(svc.serviceId) : null;
+        if (!canAccessFeature(tier, "aiDrafts")) {
+          return res.status(403).json({ error: "AI response drafts require the Pro plan or higher", upgrade: true });
+        }
+      }
+
+      const { generateReviewDraft } = await import("../services/reviewDraftService");
+      const toneOverride = req.body?.tone as string | undefined;
+      const validTones = ["positive", "negative", "neutral"];
+      const tone = toneOverride && validTones.includes(toneOverride) ? toneOverride as any : undefined;
+      const result = await generateReviewDraft(review, client, tone);
+
+      // Persist the draft
+      await storage.updateMonitoredReview(review.id, {
+        draft_response: result.draft,
+        draft_generated_at: new Date(),
+        draft_model: result.model,
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review.draft_generated",
+        entity_type: "monitored_review",
+        entity_id: id,
+        summary: `AI draft response generated for ${review.rating}★ review by ${review.reviewer_name}`,
+        metadata: {
+          tone: result.tone,
+          model: result.model,
+          generated: result.generated,
+          error: result.error || null,
+        },
+      });
+
+      res.json({
+        draft: result.draft,
+        tone: result.tone,
+        model: result.model,
+        generated: result.generated,
+        error: result.error || null,
       });
     } catch (err: any) {
-      console.error("[admin-crm] TradeLine build-assistant error:", err.message);
-      res.status(500).json({ error: err.message || "Failed to build assistant" });
+      console.error("[admin-crm] Draft response error:", err.message);
+      res.status(500).json({ error: "Failed to generate draft response" });
+    }
+  });
+
+  /**
+   * PATCH /api/admin/crm/monitored-reviews/:id/draft-response
+   * Save an admin-edited draft response.
+   */
+  app.patch("/api/admin/crm/monitored-reviews/:id/draft-response", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const { draft_response } = req.body;
+      if (typeof draft_response !== "string") {
+        return res.status(400).json({ error: "draft_response string is required" });
+      }
+
+      const review = await storage.getMonitoredReviewById(id);
+      if (!review) return res.status(404).json({ error: "Review not found" });
+
+      await storage.updateMonitoredReview(review.id, {
+        draft_response: draft_response.trim().slice(0, 2000),
+      });
+
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[admin-crm] Save draft error:", err.message);
+      res.status(500).json({ error: "Failed to save draft" });
+    }
+  });
+
+  // ═══════════════════════════════════════════════
+  // ReputationShield Config (Admin)
+  // ═══════════════════════════════════════════════
+
+  /**
+   * GET /api/admin/crm/clients/:id/reputation-config
+   * View a client's ReputationShield tier, features, and settings.
+   */
+  app.get("/api/admin/crm/clients/:id/reputation-config", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id as string);
+      const { extractTier, mergeSettings, TIER_FEATURES, TIER_LABELS } = await import("@shared/reputationConfig");
+
+      const svc = await storage.getClientReputationService(clientId);
+      if (!svc) {
+        return res.json({ active: false, tier: null, features: {}, settings: null, serviceId: null });
+      }
+
+      const tier = extractTier(svc.serviceId);
+      const settings = mergeSettings(svc.metadata?.reputation_settings);
+      const features = tier ? TIER_FEATURES[tier] : {};
+
+      res.json({
+        active: true,
+        tier,
+        tierLabel: tier ? TIER_LABELS[tier] : null,
+        serviceId: svc.serviceId,
+        status: svc.status,
+        features,
+        settings,
+        metadata: svc.metadata,
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] Reputation config error:", err.message);
+      res.status(500).json({ error: "Failed to load config" });
+    }
+  });
+
+  /**
+   * PATCH /api/admin/crm/clients/:id/reputation-config
+   * Update a client's ReputationShield settings (admin override).
+   */
+  app.patch("/api/admin/crm/clients/:id/reputation-config", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id as string);
+      const { mergeSettings } = await import("@shared/reputationConfig");
+
+      const svc = await storage.getClientReputationService(clientId);
+      if (!svc) {
+        return res.status(404).json({ error: "No ReputationShield service found for this client" });
+      }
+
+      const current = svc.metadata?.reputation_settings ?? {};
+      const updated = mergeSettings({ ...current, ...req.body });
+      const metadata = { ...svc.metadata, reputation_settings: updated };
+
+      await storage.updateClientServiceMetadata(clientId, svc.serviceId, metadata);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "reputation.settings_updated",
+        entity_type: "client",
+        entity_id: clientId,
+        summary: `Updated ReputationShield settings for client #${clientId}`,
+        metadata: { fields: Object.keys(req.body) },
+      });
+
+      res.json({ ok: true, settings: updated });
+    } catch (err: any) {
+      console.error("[admin-crm] Reputation config update error:", err.message);
+      res.status(500).json({ error: "Failed to update config" });
+    }
+  });
+
+  // ═══════════════════════════════════════════════
+  // Google Business Connection + Review Posting
+  // ═══════════════════════════════════════════════
+
+  /**
+   * GET /api/admin/crm/google/connect?clientId=X
+   * Initiates Google OAuth flow for a client.
+   */
+  app.get("/api/admin/crm/google/connect", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.query.clientId as string);
+      if (!clientId) return res.status(400).json({ error: "clientId required" });
+
+      const { isGoogleOAuthConfigured, getGoogleAuthUrl } = await import("../services/googleBusinessService");
+      if (!isGoogleOAuthConfigured()) {
+        return res.status(503).json({ error: "Google OAuth is not configured on this server" });
+      }
+
+      const state = JSON.stringify({ clientId, adminId: (req.user as any)?.id });
+      const authUrl = getGoogleAuthUrl(state);
+      res.json({ authUrl });
+    } catch (err: any) {
+      console.error("[admin-crm] Google connect error:", err.message);
+      res.status(500).json({ error: "Failed to initiate Google connection" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/google/callback?code=...&state=...
+   * Google OAuth callback — exchanges code for tokens.
+   */
+  app.get("/api/admin/crm/google/callback", async (req: Request, res: Response) => {
+    try {
+      const code = req.query.code as string;
+      const stateStr = req.query.state as string;
+      if (!code || !stateStr) return res.status(400).send("Missing code or state");
+
+      let state: { clientId: number; adminId?: number; source?: string };
+      try { state = JSON.parse(stateStr); } catch { return res.status(400).send("Invalid state"); }
+
+      const { handleGoogleCallback } = await import("../services/googleBusinessService");
+      const result = await handleGoogleCallback(code, state.clientId);
+
+      const actorType = state.source === "portal" ? "client" : "human";
+      if (result.ok) {
+        await storage.logAdminActivity({
+          actor_type: actorType,
+          actor_id: state.adminId ?? null,
+          actor_name: null,
+          action: "google.connected",
+          entity_type: "client",
+          entity_id: state.clientId,
+          summary: `Google Business Profile connected for client #${state.clientId} (via ${state.source || "admin"})`,
+        });
+
+        if (state.source === "portal") {
+          res.redirect("/portal/reviews?google_connected=true");
+        } else {
+          res.redirect(`/admin/crm/clients/${state.clientId}?google_connected=true`);
+        }
+      } else {
+        const errorParam = encodeURIComponent(result.error || "Unknown error");
+        if (state.source === "portal") {
+          res.redirect(`/portal/reviews?google_error=${errorParam}`);
+        } else {
+          res.redirect(`/admin/crm/clients/${state.clientId}?google_error=${errorParam}`);
+        }
+      }
+    } catch (err: any) {
+      console.error("[admin-crm] Google callback error:", err.message);
+      res.status(500).send("Google connection failed");
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/clients/:id/google-status
+   * Check if a client has a Google Business connection.
+   */
+  /**
+   * GET /api/admin/crm/clients/:id/google-status
+   * Detailed Google Business connection status.
+   */
+  app.get("/api/admin/crm/clients/:id/google-status", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id as string);
+      const { isGoogleOAuthConfigured } = await import("../services/googleBusinessService");
+      const client = await storage.getClientById(clientId);
+      const creds = client?.google_credentials as any;
+      const connected = !!(creds?.refresh_token || creds?.access_token);
+
+      res.json({
+        oauthConfigured: isGoogleOAuthConfigured(),
+        connected,
+        connectedAt: creds?.connected_at || null,
+        hasRefreshToken: !!creds?.refresh_token,
+        tokenExpiry: creds?.expiry_date ? new Date(creds.expiry_date).toISOString() : null,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/clients/:id/google-disconnect
+   * Disconnect Google Business for a client. Clears stored credentials.
+   */
+  app.post("/api/admin/crm/clients/:id/google-disconnect", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id as string);
+      await storage.updateClient(clientId, { google_credentials: null } as any);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "google.disconnected",
+        entity_type: "client",
+        entity_id: clientId,
+        summary: `Google Business Profile disconnected for client #${clientId}`,
+      });
+
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[admin-crm] Google disconnect error:", err.message);
+      res.status(500).json({ error: "Failed to disconnect" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/monitored-reviews/:id/post-eligibility
+   * Check if a review can be posted to Google (for UI gating).
+   */
+  app.get("/api/admin/crm/monitored-reviews/:id/post-eligibility", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const reviewId = parseInt(req.params.id as string);
+      const review = await storage.getMonitoredReviewById(reviewId);
+      if (!review) return res.status(404).json({ error: "Not found" });
+
+      const issues: string[] = [];
+      if (review.platform !== "google") issues.push("Only Google reviews can be posted to");
+      if (!review.google_review_name) issues.push("Missing Google review identifier (review may predate posting support)");
+      if (review.response_text) issues.push("Response already exists");
+      if (!review.client_id) issues.push("No associated client");
+
+      let googleConnected = false;
+      if (review.client_id && issues.length === 0) {
+        const { hasGoogleConnection } = await import("../services/googleBusinessService");
+        googleConnected = await hasGoogleConnection(review.client_id);
+        if (!googleConnected) issues.push("Google Business not connected for this client");
+      }
+
+      res.json({
+        eligible: issues.length === 0,
+        issues,
+        googleConnected,
+        hasReviewName: !!review.google_review_name,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/monitored-reviews/:id/post-to-google
+   * Post a draft response to Google for a monitored review.
+   */
+  app.post("/api/admin/crm/monitored-reviews/:id/post-to-google", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const reviewId = parseInt(req.params.id as string);
+      const review = await storage.getMonitoredReviewById(reviewId);
+      if (!review) return res.status(404).json({ error: "Review not found" });
+
+      // Must be a Google review
+      if (review.platform !== "google") {
+        return res.status(400).json({ error: "Only Google reviews can be posted to. This is a " + review.platform + " review." });
+      }
+
+      // Must have a client
+      if (!review.client_id) {
+        return res.status(400).json({ error: "Review has no associated client" });
+      }
+
+      // Feature gating: posting requires Scale/Premium tier
+      const { extractTier, canAccessFeature } = await import("@shared/reputationConfig");
+      const svc = await storage.getClientReputationService(review.client_id);
+      const tier = svc ? extractTier(svc.serviceId) : null;
+      // For now, posting is available to all tiers with Google connection (can be gated later)
+
+      // Get the response text
+      const responseText = (req.body.response_text || review.draft_response || "").trim();
+      if (!responseText || responseText.length < 5) {
+        return res.status(400).json({ error: "Response text is required (minimum 5 characters)" });
+      }
+
+      // Need Google review name for posting
+      if (!review.google_review_name) {
+        return res.status(400).json({
+          error: "This review does not have a Google API identifier. It may have been collected before posting support was added, or the identifier was not available from the review source.",
+          code: "NO_REVIEW_NAME",
+        });
+      }
+
+      // Check Google connection
+      const { hasGoogleConnection, postGoogleReviewReply } = await import("../services/googleBusinessService");
+      const connected = await hasGoogleConnection(review.client_id);
+      if (!connected) {
+        return res.status(400).json({
+          error: "Google Business Profile is not connected for this client. Connect it first via Settings.",
+          code: "NOT_CONNECTED",
+        });
+      }
+
+      // Post the reply
+      const postResult = await postGoogleReviewReply(review.client_id, review.google_review_name, responseText);
+      if (!postResult.ok) {
+        return res.status(502).json({ error: postResult.error, code: "POST_FAILED" });
+      }
+
+      // Update local record
+      await storage.updateMonitoredReview(reviewId, {
+        response_text: responseText,
+        response_date: new Date(),
+        posted_via: "reputationshield",
+        posted_at: new Date(),
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review.response_posted",
+        entity_type: "monitored_review",
+        entity_id: reviewId,
+        summary: `Posted response to Google for ${review.rating}★ review by ${review.reviewer_name}`,
+        metadata: { platform: "google", clientId: review.client_id },
+      });
+
+      res.json({ ok: true, postedAt: new Date().toISOString() });
+    } catch (err: any) {
+      console.error("[admin-crm] Post to Google error:", err.message);
+      res.status(500).json({ error: "Failed to post response to Google" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/monitored-reviews/backfill-status
+   * Count of Google reviews missing google_review_name (can't post to).
+   */
+  app.get("/api/admin/crm/monitored-reviews/backfill-status", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = req.query.clientId ? parseInt(req.query.clientId as string) : undefined;
+      const missingCount = await storage.countReviewsMissingGoogleName(clientId);
+      res.json({ missingGoogleName: missingCount });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/clients/:id/reputation-ops
+   * Operational delivery status for a client's ReputationShield service.
+   * Returns task-by-task status to power the admin delivery panel.
+   */
+  app.get("/api/admin/crm/clients/:id/reputation-ops", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id as string);
+      const client = await storage.getClientById(clientId);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+
+      const { extractTier, mergeSettings, canAccessFeature } = await import("@shared/reputationConfig");
+      const { hasGoogleConnection, isGoogleOAuthConfigured } = await import("../services/googleBusinessService");
+
+      const svc = await storage.getClientReputationService(clientId);
+      const tier = svc ? extractTier(svc.serviceId) : null;
+      const settings = svc ? mergeSettings(svc.metadata?.reputation_settings) : null;
+      const ws = settings?.widget;
+
+      // Gather operational data
+      const googleConnected = tier ? await hasGoogleConnection(clientId) : false;
+      const missingGoogleName = tier ? await storage.countReviewsMissingGoogleName(clientId) : 0;
+
+      // Review stats
+      const [reviewStats] = await (await import("../db")).db.select({
+        total: (await import("drizzle-orm")).sql<number>`count(*)::int`,
+        noResponse: (await import("drizzle-orm")).sql<number>`count(*) filter (where ${(await import("@shared/schema")).monitoredReviews.response_text} is null and ${(await import("@shared/schema")).monitoredReviews.rating} <= 2)::int`,
+      }).from((await import("@shared/schema")).monitoredReviews)
+        .where((await import("drizzle-orm")).eq((await import("@shared/schema")).monitoredReviews.client_id, clientId));
+
+      // Request stats
+      const [requestStats] = await (await import("../db")).db.select({
+        total: (await import("drizzle-orm")).sql<number>`count(*)::int`,
+      }).from((await import("@shared/schema")).reviewRequests)
+        .where((await import("drizzle-orm")).eq((await import("@shared/schema")).reviewRequests.client_id, clientId));
+
+      res.json({
+        hasService: !!svc,
+        tier,
+        serviceStatus: svc?.status ?? null,
+        tasks: {
+          googlePlaceId: { value: client.google_place_id, done: !!client.google_place_id },
+          facebookPageUrl: { value: client.facebook_page_url, done: !!client.facebook_page_url },
+          googleConnected: { done: googleConnected, oauthConfigured: isGoogleOAuthConfigured() },
+          widgetEnabled: { done: !!ws?.enabled, type: ws?.type ?? null },
+          widgetToken: { value: client.widget_token, done: !!client.widget_token },
+          remindersEnabled: { done: settings?.reminders_enabled ?? false },
+          reportsEnabled: { done: settings?.report_enabled ?? false },
+          lowRatingAlerts: { done: settings?.low_rating_alerts ?? false },
+          aiDraftsAvailable: { done: canAccessFeature(tier, "aiDrafts") },
+          googlePostingAvailable: { done: googleConnected && canAccessFeature(tier, "competitorTracking") },
+          channelPreference: { value: settings?.channel_preference ?? "auto" },
+        },
+        stats: {
+          totalReviews: reviewStats?.total ?? 0,
+          lowRatingNoResponse: reviewStats?.noResponse ?? 0,
+          totalRequests: requestStats?.total ?? 0,
+          missingGoogleName,
+        },
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] reputation-ops error:", err.message);
+      res.status(500).json({ error: "Failed to load operational status" });
+    }
+  });
+
+  // ═══════════════════════════════════════════════
+  // Bulk Review Actions
+  // ═══════════════════════════════════════════════
+
+  /**
+   * POST /api/admin/crm/monitored-reviews/bulk-draft
+   * Generate AI drafts for multiple reviews.
+   */
+  app.post("/api/admin/crm/monitored-reviews/bulk-draft", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "ids array is required" });
+      }
+      if (ids.length > 50) {
+        return res.status(400).json({ error: "Maximum 50 reviews per batch" });
+      }
+
+      const { generateReviewDraft } = await import("../services/reviewDraftService");
+      const { extractTier, canAccessFeature } = await import("@shared/reputationConfig");
+
+      const results = { drafted: 0, skipped: 0, failed: 0, details: [] as { id: number; status: string; reason?: string }[] };
+
+      for (const id of ids) {
+        const review = await storage.getMonitoredReviewById(id);
+        if (!review) { results.skipped++; results.details.push({ id, status: "skipped", reason: "Not found" }); continue; }
+        if (review.response_text) { results.skipped++; results.details.push({ id, status: "skipped", reason: "Already has response" }); continue; }
+        if (!review.review_text || review.review_text.length < 5) { results.skipped++; results.details.push({ id, status: "skipped", reason: "No review text" }); continue; }
+
+        // Check tier gating
+        if (review.client_id) {
+          const svc = await storage.getClientReputationService(review.client_id);
+          const tier = svc ? extractTier(svc.serviceId) : null;
+          if (!canAccessFeature(tier, "aiDrafts")) { results.skipped++; results.details.push({ id, status: "skipped", reason: "Tier lacks AI drafts" }); continue; }
+        }
+
+        try {
+          const client = review.client_id ? (await storage.getClientById(review.client_id)) ?? null : null;
+          const result = await generateReviewDraft(review, client);
+          await storage.updateMonitoredReview(id, {
+            draft_response: result.draft,
+            draft_generated_at: new Date(),
+            draft_model: result.model,
+          });
+          results.drafted++;
+          results.details.push({ id, status: "drafted" });
+        } catch (err: any) {
+          results.failed++;
+          results.details.push({ id, status: "failed", reason: err.message });
+        }
+      }
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review.bulk_draft",
+        entity_type: "monitored_review",
+        entity_id: null,
+        summary: `Bulk drafted ${results.drafted} reviews (${results.skipped} skipped, ${results.failed} failed)`,
+        metadata: { total: ids.length, ...results },
+      });
+
+      res.json(results);
+    } catch (err: any) {
+      console.error("[admin-crm] Bulk draft error:", err.message);
+      res.status(500).json({ error: "Bulk draft failed" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/monitored-reviews/bulk-post
+   * Post draft responses to Google for multiple reviews.
+   */
+  app.post("/api/admin/crm/monitored-reviews/bulk-post", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "ids array is required" });
+      }
+      if (ids.length > 25) {
+        return res.status(400).json({ error: "Maximum 25 reviews per bulk post" });
+      }
+
+      const { postGoogleReviewReply, hasGoogleConnection } = await import("../services/googleBusinessService");
+
+      const results = { posted: 0, skipped: 0, failed: 0, details: [] as { id: number; status: string; reason?: string }[] };
+
+      // Pre-check: cache Google connection status per client
+      const connectionCache = new Map<number, boolean>();
+
+      for (const id of ids) {
+        const review = await storage.getMonitoredReviewById(id);
+        if (!review) { results.skipped++; results.details.push({ id, status: "skipped", reason: "Not found" }); continue; }
+        if (review.platform !== "google") { results.skipped++; results.details.push({ id, status: "skipped", reason: "Not a Google review" }); continue; }
+        if (review.response_text) { results.skipped++; results.details.push({ id, status: "skipped", reason: "Already has response" }); continue; }
+        if (!review.google_review_name) { results.skipped++; results.details.push({ id, status: "skipped", reason: "Missing Google review ID" }); continue; }
+        if (!review.draft_response || review.draft_response.trim().length < 5) { results.skipped++; results.details.push({ id, status: "skipped", reason: "No draft response" }); continue; }
+        if (!review.client_id) { results.skipped++; results.details.push({ id, status: "skipped", reason: "No client" }); continue; }
+
+        // Check Google connection (cached)
+        if (!connectionCache.has(review.client_id)) {
+          connectionCache.set(review.client_id, await hasGoogleConnection(review.client_id));
+        }
+        if (!connectionCache.get(review.client_id)) {
+          results.skipped++; results.details.push({ id, status: "skipped", reason: "Google not connected" }); continue;
+        }
+
+        try {
+          const postResult = await postGoogleReviewReply(review.client_id, review.google_review_name, review.draft_response.trim());
+          if (postResult.ok) {
+            await storage.updateMonitoredReview(id, {
+              response_text: review.draft_response.trim(),
+              response_date: new Date(),
+              posted_via: "reputationshield",
+              posted_at: new Date(),
+            });
+            results.posted++;
+            results.details.push({ id, status: "posted" });
+          } else {
+            results.failed++;
+            results.details.push({ id, status: "failed", reason: postResult.error });
+          }
+        } catch (err: any) {
+          results.failed++;
+          results.details.push({ id, status: "failed", reason: err.message });
+        }
+      }
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "review.bulk_post",
+        entity_type: "monitored_review",
+        entity_id: null,
+        summary: `Bulk posted ${results.posted} responses to Google (${results.skipped} skipped, ${results.failed} failed)`,
+        metadata: { total: ids.length, ...results },
+      });
+
+      res.json(results);
+    } catch (err: any) {
+      console.error("[admin-crm] Bulk post error:", err.message);
+      res.status(500).json({ error: "Bulk post failed" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/client-services/:id/cost-suggestion
+   * Estimates monthly delivery cost for a service based on actual usage data.
+   */
+  app.get("/api/admin/crm/client-services/:id/cost-suggestion", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const serviceId = parseInt(req.params.id as string);
+      const { db } = await import("../db");
+      const { reviewRequests, monitoredReviews, aiUsageLogs, clientServices } = await import("@shared/schema");
+      const { eq, and, gte, sql } = await import("drizzle-orm");
+
+      // Get the service to find client_id and service type
+      const [svc] = await db.select().from(clientServices).where(eq(clientServices.id, serviceId)).limit(1);
+      if (!svc || !svc.client_id) return res.status(404).json({ error: "Service not found" });
+
+      const clientId = svc.client_id;
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const isReputation = svc.service_id.startsWith("reputationshield");
+
+      const costs: { label: string; estimate_cents: number; detail: string }[] = [];
+
+      if (isReputation) {
+        // SMS cost: count outbound SMS review requests in last 30 days
+        const [smsStats] = await db.select({
+          count: sql<number>`count(*) filter (where ${reviewRequests.channel} = 'sms' and ${reviewRequests.status} != 'pending')::int`,
+        }).from(reviewRequests).where(and(
+          eq(reviewRequests.client_id, clientId),
+          gte(reviewRequests.created_at, thirtyDaysAgo),
+        ));
+        const smsCount = smsStats?.count ?? 0;
+        const smsCostCents = Math.round(smsCount * 0.75); // $0.0075 per SMS = 0.75 cents
+        costs.push({ label: "Twilio SMS", estimate_cents: smsCostCents, detail: `${smsCount} messages @ $0.0075` });
+
+        // AI drafting cost: count drafts generated in last 30 days
+        const [draftStats] = await db.select({
+          count: sql<number>`count(*) filter (where ${monitoredReviews.draft_generated_at} >= ${thirtyDaysAgo})::int`,
+        }).from(monitoredReviews).where(eq(monitoredReviews.client_id, clientId));
+        const draftCount = draftStats?.count ?? 0;
+        // Estimate ~500 tokens per draft (input+output), Haiku pricing
+        const aiCostCents = Math.round(draftCount * 0.04); // ~$0.0004 per draft = 0.04 cents
+        costs.push({ label: "AI Drafts (Claude)", estimate_cents: aiCostCents, detail: `${draftCount} drafts @ ~$0.0004` });
+
+        // Outscraper: estimate based on monitoring frequency (4x/day sync attempts, ~$0.002 per review fetched)
+        const [reviewCount] = await db.select({
+          count: sql<number>`count(*)::int`,
+        }).from(monitoredReviews).where(eq(monitoredReviews.client_id, clientId));
+        // Roughly 4 syncs/month * 30 reviews fetched * $0.002 per review
+        const outscrCostCents = Math.round(4 * 30 * 0.2); // ~$0.24/month = 24 cents
+        costs.push({ label: "Outscraper (monitoring)", estimate_cents: outscrCostCents, detail: `~4 syncs/mo @ 30 reviews` });
+
+        // Email cost (negligible)
+        const [emailStats] = await db.select({
+          count: sql<number>`count(*) filter (where ${reviewRequests.channel} = 'email' and ${reviewRequests.status} != 'pending')::int`,
+        }).from(reviewRequests).where(and(
+          eq(reviewRequests.client_id, clientId),
+          gte(reviewRequests.created_at, thirtyDaysAgo),
+        ));
+        const emailCount = emailStats?.count ?? 0;
+        if (emailCount > 0) {
+          costs.push({ label: "Email (SMTP)", estimate_cents: Math.max(1, Math.round(emailCount * 0.01)), detail: `${emailCount} emails @ ~$0.0001` });
+        }
+      }
+
+      const totalCents = costs.reduce((sum, c) => sum + c.estimate_cents, 0);
+
+      res.json({
+        serviceId: svc.service_id,
+        clientId,
+        period: "last 30 days",
+        costs,
+        totalEstimateCents: totalCents,
+        currentCostCents: svc.cost_cents ?? 0,
+      });
+    } catch (err: any) {
+      console.error("[admin-crm] Cost suggestion error:", err.message);
+      res.status(500).json({ error: "Failed to estimate costs" });
     }
   });
 }

@@ -104,6 +104,7 @@ async function buildContext(req: AssistantRequest): Promise<{
         req.auditContext,
         stored?.memory,
         req.pageContext,
+        undefined,
         req.portalContext,
       );
 
@@ -126,6 +127,7 @@ async function buildContext(req: AssistantRequest): Promise<{
     req.auditContext,
     memoryContext,
     req.pageContext,
+    undefined,
     req.portalContext,
   );
 

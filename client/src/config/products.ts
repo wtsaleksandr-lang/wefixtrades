@@ -19,7 +19,7 @@ function buildPricingSection(product: ProductDef, note?: string) {
   };
 }
 
-export type ProductCategory = "core" | "ai" | "growth";
+export type ProductCategory = "core" | "ai" | "growth" | "reputation";
 
 export type HeroVisualVariant = "calculator" | "chat" | "voice" | "dashboard" | "website" | "social" | "reviews";
 
@@ -320,44 +320,48 @@ export const PRODUCT_PAGES: ProductPage[] = [
   {
     slug: "reputationshield",
     name: "ReputationShield\u2122",
-    shortTagline: "Done-For-You Review & Reputation Management",
-    seoTitle: "ReputationShield\u2122 \u2014 Get More 5-Star Reviews | WeFixTrades",
-    seoDescription: "Get more 5-star reviews without lifting a finger. Automated review requests, AI-powered responses, negative review alerts, and a reputation dashboard.",
+    shortTagline: "Automated Review Growth + Reputation Protection",
+    seoTitle: "ReputationShield\u2122 \u2014 Turn Completed Jobs Into 5-Star Reviews | WeFixTrades",
+    seoDescription: "Automated review requests, private feedback shield, AI responses, and Google posting. Built for plumbers, electricians, and trades businesses. From $79/mo.",
     category: "reputation",
     heroVisualType: "reviews",
-    primaryCTA: { label: "Start Getting More Reviews", href: "/Wizard" },
-    secondaryCTA: { label: "See Pricing", href: "/pricing" },
+    primaryCTA: { label: "Start Getting Reviews \u2014 Free Trial", href: "/Wizard" },
+    secondaryCTA: { label: "Compare Plans", href: "#pricing" },
     highlights: [
-      "More reviews \u2192 higher ranking on Google",
-      "Higher rating \u2192 more customers choose you",
-      "Faster growth without ads",
-      "Stronger trust before the first call",
-      "No time wasted chasing reviews",
-      "Everything handled for you",
+      "Customers get a friendly SMS or email after every job \u2014 automatically",
+      "Unhappy customers tell you privately instead of posting a 1-star review",
+      "Your best reviews show up on your website with our review widget",
+      "AI drafts professional responses you can post to Google in one click",
+      "Monthly reports prove your reputation is growing \u2014 delivered to your inbox",
+      "QR codes let techs collect reviews in person, right after the job",
     ],
     outcomes: [
-      { title: "More calls", desc: "People choose businesses with more reviews." },
-      { title: "Higher conversion", desc: "Customers trust you before calling." },
-      { title: "Better ranking", desc: "More reviews = stronger Google visibility." },
+      { title: "More 5-star reviews, automatically", desc: "Every completed job triggers a friendly SMS or email. Smart reminders follow up. QR codes let techs collect reviews on-site. No awkward asking." },
+      { title: "Fewer public complaints", desc: "Unhappy customers see a private feedback form \u2014 not the Google review page. You get the complaint. Google doesn\u2019t. You fix it before it goes public." },
+      { title: "Respond faster than your competitors", desc: "AI drafts professional replies in seconds. Edit if you want, then post directly to Google. Low-rating alerts notify you instantly so you can respond the same day." },
     ],
     howItWorks: [
-      { title: "We start collecting reviews", desc: "Automatic requests go out after every job \u2014 SMS, email, or both." },
-      { title: "We respond to every review", desc: "Positive or negative \u2014 every review gets a professional response from our team." },
-      { title: "Your reputation grows", desc: "More reviews, better rating, stronger visibility. Month after month." },
+      { title: "You finish a job", desc: "Your customer gets a friendly text asking about their experience. No awkward conversations. It just happens." },
+      { title: "The shield decides", desc: "Happy? They go straight to Google or Facebook to leave a review. Unhappy? They tell you privately first \u2014 not the internet." },
+      { title: "Your reputation grows", desc: "More reviews. Better responses. Monthly reports in your inbox. A widget on your website showing your best reviews to every visitor." },
     ],
-    bestFor: ["Plumbers", "HVAC Technicians", "Electricians", "Roofers", "Cleaners", "Landscapers", "Painters", "Contractors"],
+    bestFor: ["Plumbers", "HVAC Technicians", "Electricians", "Roofers", "Cleaners", "Landscapers", "Painters", "General Contractors"],
     visuals: [
-      { title: "Review Growth", desc: "Watch your review count and rating improve month over month." },
-      { title: "AI-Powered Responses", desc: "Every review gets a professional, personalized response \u2014 posted automatically for positive reviews." },
-      { title: "Your Reputation Dashboard", desc: "See your review count, rating trend, response rate, and request results in your client portal." },
+      { title: "The Shield in Action", desc: "When a customer is unhappy, they see a private feedback form \u2014 not the Google review page. You get the complaint. Google doesn\u2019t." },
+      { title: "AI Response Drafts", desc: "Click \u201cDraft Response\u201d and get a professional, human-sounding reply in seconds. Edit it, then post it directly to Google." },
+      { title: "Your Reputation Dashboard", desc: "Total reviews, average rating, new this month, reviews needing replies, private feedback captured \u2014 all in one place." },
     ],
     faq: [
-      { q: "Do I need to do anything?", a: "No. Review requests go out automatically after completed jobs. Positive reviews get replied to instantly. Negative reviews are flagged and handled by our team." },
+      { q: "Do I need to do anything after setup?", a: "Almost nothing. Review requests go out automatically after every job. You can also send them manually or hand customers a QR code. AI drafts responses for you. Reports arrive in your inbox." },
+      { q: "What is the \u201cshield\u201d?", a: "When a customer has a bad experience, they see a private feedback form instead of being sent to Google. You get the complaint and a chance to make it right \u2014 before it becomes a public 1-star review." },
+      { q: "How do review requests get sent?", a: "By SMS or email, automatically after each completed job. SMS is the default because it gets 3\u20135x more responses. You can also generate QR codes for in-person collection." },
       { q: "How do you respond to reviews?", a: "AI generates personalized, professional responses matching your business tone. Positive reviews are replied to automatically. Negative reviews get a carefully drafted response reviewed before posting." },
+      { q: "Can I respond to reviews from here?", a: "Yes. AI drafts a professional response based on the review text and your business type. On the Pro plan you can edit and copy it. On Scale, you can post it directly to Google with one click." },
       { q: "Will this help me get more reviews?", a: "Yes. Automated SMS and email requests after every job significantly increase the number of reviews you receive. We track which requests lead to reviews." },
-      { q: "What if I get a bad review?", a: "You get an instant alert. We draft a calm, professional response. Risky reviews are escalated for human attention \u2014 never auto-replied." },
+      { q: "What if I get a bad review anyway?", a: "You\u2019ll get an instant email alert. AI drafts a calm, professional response. You can post it quickly \u2014 fast responses show future customers you care." },
+      { q: "How is this different from Podium or NiceJob?", a: "ReputationShield is built specifically for trades businesses, costs a fraction of Podium ($399+/mo), and includes AI response drafting that NiceJob doesn\u2019t offer. No contracts, no sales calls, transparent pricing." },
     ],
-    pricingSection: buildPricingSection(REPUTATIONSHIELD, "Currently works with Google Business Profile. More platforms coming soon."),
+    pricingSection: buildPricingSection(REPUTATIONSHIELD, "Works with Google and Facebook. No contracts. Cancel anytime."),
     related: ["mapguard", "socialsync", "tradeline"],
   },
   {
@@ -454,4 +458,5 @@ export const CATEGORY_LABELS: Record<ProductCategory, string> = {
   core: "Core Tools",
   ai: "AI Employees",
   growth: "Growth Services",
+  reputation: "Reputation",
 };

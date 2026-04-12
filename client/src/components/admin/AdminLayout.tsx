@@ -21,6 +21,7 @@ import {
   KeyRound,
   LogOut,
   ExternalLink,
+  Star,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -52,6 +53,7 @@ const NAV_ITEMS = [
   { label: "Billing", href: "/admin/crm/billing", icon: CreditCard },
   { label: "Suppliers", href: "/admin/crm/suppliers", icon: Factory },
   { label: "Services", href: "/admin/crm/services", icon: Wrench },
+  { label: "Reviews", href: "/admin/crm/reviews", icon: Star },
   { label: "SocialSync", href: "/admin/crm/socialsync", icon: Share2 },
   { label: "Sales", href: "/admin/crm/sales", icon: Target },
 ];
