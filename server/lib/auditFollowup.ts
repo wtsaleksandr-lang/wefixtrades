@@ -88,7 +88,7 @@ You had ${ctx.topIssues.length} issue${ctx.topIssues.length !== 1 ? "s" : ""} fl
 
 ${svcLine}
 
-Most businesses see results within 2–4 weeks.
+With RankFlow, we handle your local SEO every month — page optimization, local listings, and progress tracking — so you can focus on jobs, not marketing.
 
 View your report: {{report_link}}
 
@@ -110,8 +110,9 @@ Since you audited ${ctx.businessName}, we wanted to share what we're seeing from
 
 Your current score is ${ctx.score}/100. There's real room to grow.
 
-Ready to fix the gaps? View your report and pick the services that match:
-{{report_link}}
+Ready to fix the gaps? RankFlow handles your local SEO every month — we do the work, you see the progress.
+
+View your report: {{report_link}}
 
 — The WeFixTrades Team`;
     },

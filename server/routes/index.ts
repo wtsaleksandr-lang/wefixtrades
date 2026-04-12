@@ -29,6 +29,7 @@ import { registerSocialSyncRoutes } from "./socialSyncRoutes";
 import { registerReputationRoutes } from "./reputationRoutes";
 import { registerSalesRoutes } from "./salesRoutes";
 import { registerMediaRoute } from "../services/socialSync/mediaService";
+import { registerRankFlowRoutes } from "./rankflowRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -63,6 +64,7 @@ export async function registerRoutes(
   registerMediaRoute(app);
   registerReviewPublicRoutes(app);
   registerWidgetRoutes(app);
+  registerRankFlowRoutes(app);
 
   return httpServer;
 }

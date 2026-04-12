@@ -26,6 +26,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TaskCard, ClientTasksEmptyState, isOverdue, type TaskItem } from "@/components/admin/TaskCard";
+import RankFlowTab from "@/components/admin/RankFlowTab";
 import { ServiceOpsCard, ServiceOpsSection, HelpCue, HelpText, type OpsStatus } from "@/components/admin/ServiceOps";
 import { Star as StarIcon } from "lucide-react";
 import MapguardOpsTab from "@/components/admin/MapguardOpsTab";
@@ -558,11 +559,12 @@ export default function ClientDetailPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="services">
-          <TabsList className="w-full grid grid-cols-7">
+          <TabsList className="w-full grid grid-cols-8">
             <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="reputation">Reputation</TabsTrigger>
             <TabsTrigger value="mapguard">MapGuard</TabsTrigger>
+            <TabsTrigger value="rankflow">RankFlow</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
             <TabsTrigger value="socialsync">SocialSync</TabsTrigger>
@@ -904,6 +906,11 @@ export default function ClientDetailPage() {
                 />
               ))
             )}
+          </TabsContent>
+
+          {/* ─── RankFlow Tab ─── */}
+          <TabsContent value="rankflow" className="mt-4">
+            <RankFlowTab clientId={clientId!} />
           </TabsContent>
 
           {/* ─── MapGuard Tab ─── */}

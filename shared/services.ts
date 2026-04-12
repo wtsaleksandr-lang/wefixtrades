@@ -124,7 +124,7 @@ export const SERVICES: Service[] = [
     name: RANKFLOW.name,
     tagline: RANKFLOW.tagline,
     description:
-      "Ongoing SEO that brings consistent organic traffic and leads to your trades business.",
+      "Done-for-you local SEO that improves your search visibility every month.",
     price: lowestMonthly(RANKFLOW)!,
     priceLabel: `From ${formatPrice(lowestMonthly(RANKFLOW)!)}/mo`,
     billingPeriod: "monthly",

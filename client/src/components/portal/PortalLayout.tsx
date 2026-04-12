@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   Menu,
   LogOut,
+  TrendingUp,
   Star,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { label: "Reviews", href: "/portal/reviews", icon: Star },
   { label: "Social Media", href: "/portal/socialsync", icon: Share2 },
   { label: "Reputation", href: "/portal/reputation", icon: ShieldCheck },
+  { label: "SEO", href: "/portal/rankflow", icon: TrendingUp },
   { label: "Billing", href: "/portal/billing", icon: CreditCard },
   { label: "Help", href: "/portal/help", icon: HelpCircle },
   { label: "Settings", href: "/portal/settings", icon: Settings },

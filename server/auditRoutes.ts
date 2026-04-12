@@ -2979,4 +2979,29 @@ router.get("/report/:id/pdf", async (req: Request, res: Response) => {
   }
 });
 
+/* ─── GET /report/:id/rankflow-recommendation ─── */
+import { recommendRankFlowTier } from "./services/rankflow/auditConversion";
+
+router.get("/report/:id/rankflow-recommendation", async (req: Request, res: Response) => {
+  try {
+    const reportId = req.params.id;
+    const [report] = await db.select().from(auditReports).where(eq(auditReports.id, reportId)).limit(1);
+    if (!report) return res.status(404).json({ error: "Report not found" });
+
+    const auditData = report.audit_data as any;
+    const recommendation = recommendRankFlowTier({
+      scores: auditData?.scores,
+      detectedIssues: auditData?.detectedIssues,
+      business: auditData?.business,
+      trade: auditData?.trade,
+      city: auditData?.city,
+      keywords: auditData?.keywords,
+    });
+
+    res.json(recommendation);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
