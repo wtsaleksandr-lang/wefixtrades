@@ -115,19 +115,13 @@ async function main() {
       { title: "Test review request flow", sort_order: 5, default_handled_by: "internal" },
       { title: "Go live & send first review batch", sort_order: 6, default_handled_by: "internal", human_review_required: true },
     ],
-    "webboost-setup": [
+    "webfix": [
       { title: "Collect access credentials & website URL", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client" },
-      { title: "Run PageSpeed & Core Web Vitals audit", sort_order: 2, default_handled_by: "internal" },
-      { title: "Implement speed fixes", sort_order: 3, default_handled_by: "internal" },
-      { title: "Implement SEO fixes", sort_order: 4, default_handled_by: "internal" },
-      { title: "Run after audit & verify improvements", sort_order: 5, default_handled_by: "internal" },
-      { title: "Send before/after performance report", sort_order: 6, default_handled_by: "internal", human_review_required: true },
-    ],
-    "webboost-care": [
-      { title: "Run monthly performance scan", sort_order: 1, default_handled_by: "internal" },
-      { title: "Fix regressions or new issues", sort_order: 2, default_handled_by: "internal" },
-      { title: "Apply security & plugin updates", sort_order: 3, default_handled_by: "internal" },
-      { title: "Send monthly health report", sort_order: 4, default_handled_by: "internal" },
+      { title: "Run speed & SEO audit", sort_order: 2, default_handled_by: "internal" },
+      { title: "Implement Core Web Vitals fixes", sort_order: 3, default_handled_by: "internal" },
+      { title: "Implement technical SEO fixes", sort_order: 4, default_handled_by: "internal" },
+      { title: "GBP audit + quick fixes", sort_order: 5, default_handled_by: "internal" },
+      { title: "Send completion report", sort_order: 6, default_handled_by: "internal", human_review_required: true },
     ],
     "socialsync": [
       { title: "Collect onboarding info & brand assets", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
@@ -148,13 +142,6 @@ async function main() {
       { title: "Client review & revision round", sort_order: 8, default_waiting_on: "client" },
       { title: "Launch & DNS cutover", sort_order: 9, default_handled_by: "internal", human_review_required: true },
       { title: "Post-launch QA & handoff", sort_order: 10, default_handled_by: "internal", human_review_required: true },
-    ],
-    "fix-optimize": [
-      { title: "Collect access & issue list", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client" },
-      { title: "Audit site for fixable issues", sort_order: 2, default_handled_by: "internal" },
-      { title: "Prioritize & scope fixes", sort_order: 3, default_handled_by: "internal" },
-      { title: "Implement fixes", sort_order: 4, default_handled_by: "internal" },
-      { title: "QA & send completion report", sort_order: 5, default_handled_by: "internal", human_review_required: true },
     ],
     "tradeline": [
       { title: "Collect onboarding info", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client" },
@@ -196,7 +183,7 @@ async function main() {
 
   const ONBOARDING: Record<string, { name: string; steps: Array<{ key: string; label: string; type: string; required: boolean }> }> = {
     "mapguard-setup": {
-      name: "MapGuard Setup Onboarding",
+      name: "MapSetup Onboarding",
       steps: [
         { key: "business_name", label: "Business name", type: "text", required: true },
         { key: "business_address", label: "Full business address", type: "text", required: true },
@@ -246,24 +233,13 @@ async function main() {
         { key: "booking_settings", label: "Booking preferences", type: "text", required: false },
       ],
     },
-    "webboost-setup": {
-      name: "WebBoost Setup Onboarding",
+    "webfix": {
+      name: "WebFix Onboarding",
       steps: [
         { key: "website_url", label: "Website URL", type: "text", required: true },
         { key: "access_available", label: "Can you provide hosting/CMS access?", type: "select", required: true },
-        { key: "goal", label: "Main goal", type: "select", required: true },
+        { key: "main_issue", label: "Main issue", type: "select", required: true },
         { key: "keywords", label: "Target keywords", type: "text", required: false },
-        { key: "competitors", label: "Competitor websites", type: "text", required: false },
-      ],
-    },
-    "webboost-care": {
-      name: "WebBoost Care Onboarding",
-      steps: [
-        { key: "website_url", label: "Website URL", type: "text", required: true },
-        { key: "access_available", label: "Can you provide hosting/CMS access?", type: "select", required: true },
-        { key: "goal", label: "Main goal", type: "select", required: true },
-        { key: "keywords", label: "Target keywords", type: "text", required: false },
-        { key: "competitors", label: "Competitor websites", type: "text", required: false },
       ],
     },
     "reputationshield": {
@@ -298,14 +274,6 @@ async function main() {
         { key: "logo", label: "Logo available", type: "checkbox", required: false },
         { key: "competitors", label: "Competitor websites you like", type: "text", required: false },
         { key: "extra_pages", label: "Extra pages needed", type: "text", required: false },
-      ],
-    },
-    "fix-optimize": {
-      name: "Fix & Optimize Onboarding",
-      steps: [
-        { key: "website_url", label: "Website URL", type: "text", required: true },
-        { key: "main_issue", label: "Main issue", type: "select", required: true },
-        { key: "access", label: "Can you provide hosting/CMS access?", type: "text", required: false },
       ],
     },
   };

@@ -176,53 +176,8 @@ export const QUOTEQUICK: ProductDef = {
 };
 
 /* ═══════════════════════════════════════════
-   D. WEBBOOST
+   D. (REMOVED — WebBoost replaced by WebFix one-time)
    ═══════════════════════════════════════════ */
-export const WEBBOOST: ProductDef = {
-  id: "webboost",
-  name: "WebBoost™",
-  tagline: "Website SEO and speed optimization",
-  category: "website",
-  setup: 349,
-  tiers: [
-    {
-      id: "webboost-setup",
-      name: "Setup",
-      price: 349,
-      billingPeriod: "one-time",
-      features: [
-        "Full PageSpeed audit",
-        "Core Web Vitals fixes",
-        "Image & asset optimisation",
-        "Before/after speed report",
-      ],
-    },
-    {
-      id: "webboost-basic",
-      name: "Basic",
-      price: 79,
-      billingPeriod: "monthly",
-      features: [
-        "Monitoring",
-        "Updates",
-        "Backups",
-      ],
-    },
-    {
-      id: "webboost-pro",
-      name: "Pro",
-      price: 129,
-      billingPeriod: "monthly",
-      highlighted: true,
-      badge: "Most Popular",
-      features: [
-        "SEO fixes",
-        "Performance optimization",
-        "Priority updates",
-      ],
-    },
-  ],
-};
 
 /* ═══════════════════════════════════════════
    D2. WEBCARE
@@ -230,7 +185,7 @@ export const WEBBOOST: ProductDef = {
 export const WEBCARE: ProductDef = {
   id: "webcare",
   name: "WebCare™",
-  tagline: "Ongoing website maintenance for trades businesses",
+  tagline: "Your website stays updated, secure, and working",
   category: "website",
   tiers: [
     {
@@ -239,9 +194,9 @@ export const WEBCARE: ProductDef = {
       price: 79,
       billingPeriod: "monthly",
       features: [
-        "Monthly updates & security patches",
-        "Uptime monitoring with alerts",
-        "Daily backups",
+        "Monthly software & security updates",
+        "24/7 uptime monitoring",
+        "Daily automated backups",
         "1 content change per month",
         "Email support",
       ],
@@ -256,7 +211,7 @@ export const WEBCARE: ProductDef = {
       features: [
         "Everything in Basic",
         "4 content changes per month",
-        "Speed & performance checks",
+        "Monthly performance checks",
         "Priority support (24 hr response)",
       ],
     },
@@ -268,21 +223,22 @@ export const WEBCARE: ProductDef = {
    ═══════════════════════════════════════════ */
 export const MAPGUARD: ProductDef = {
   id: "mapguard",
-  name: "MapGuard™",
-  tagline: "Google Maps GBP optimization",
+  name: "MapGuard\u2122",
+  tagline: "Keep your Google Business Profile optimized and ranking",
   category: "visibility",
   setup: 397,
   tiers: [
     {
       id: "mapguard-setup",
-      name: "Setup",
+      name: "MapSetup\u2122",
       price: 397,
       billingPeriod: "one-time",
       features: [
-        "Full profile audit & rebuild",
-        "Category & service area optimisation",
-        "Description & keyword tuning",
-        "Photos & posts launch plan",
+        "Full GBP audit & rebuild from scratch",
+        "Category, services & area optimization",
+        "Business description & keyword tuning",
+        "Photo uploads & first posts",
+        "Before/after visibility report",
       ],
     },
     {
@@ -291,8 +247,10 @@ export const MAPGUARD: ProductDef = {
       price: 99,
       billingPeriod: "monthly",
       features: [
-        "2 GBP posts/month",
-        "Listing monitoring",
+        "2 Google Business posts/month",
+        "Profile monitoring & alerts",
+        "Listing accuracy checks",
+        "Monthly ranking snapshot",
       ],
     },
     {
@@ -303,9 +261,11 @@ export const MAPGUARD: ProductDef = {
       highlighted: true,
       badge: "Most Popular",
       features: [
-        "4 GBP posts/month",
-        "Review responses",
-        "Keyword optimization",
+        "4 Google Business posts/month",
+        "Review response management",
+        "Local keyword optimization",
+        "Competitor tracking",
+        "Monthly performance report",
       ],
     },
   ],
@@ -316,8 +276,8 @@ export const MAPGUARD: ProductDef = {
    ═══════════════════════════════════════════ */
 export const REPUTATIONSHIELD: ProductDef = {
   id: "reputationshield",
-  name: "ReputationShield™",
-  tagline: "Review and reputation management",
+  name: "ReputationShield\u2122",
+  tagline: "Get more 5-star reviews and protect your reputation",
   category: "reputation",
   tiers: [
     {
@@ -326,8 +286,10 @@ export const REPUTATIONSHIELD: ProductDef = {
       price: 79,
       billingPeriod: "monthly",
       features: [
-        "Review monitoring",
-        "Alerts",
+        "Automated review requests after jobs",
+        "Review monitoring across platforms",
+        "Instant alerts for new reviews",
+        "Monthly review growth report",
       ],
     },
     {
@@ -338,8 +300,11 @@ export const REPUTATIONSHIELD: ProductDef = {
       highlighted: true,
       badge: "Most Popular",
       features: [
-        "AI + human-reviewed responses",
-        "Negative review handling",
+        "Everything in Basic",
+        "Professional review responses (AI + human)",
+        "Negative review handling & resolution",
+        "Review widget for your website",
+        "Bi-weekly growth report",
       ],
     },
     {
@@ -348,8 +313,11 @@ export const REPUTATIONSHIELD: ProductDef = {
       price: 179,
       billingPeriod: "monthly",
       features: [
-        "Review growth strategy",
-        "Priority handling",
+        "Everything in Pro",
+        "Review growth strategy & coaching",
+        "Priority response handling",
+        "Competitor review analysis",
+        "Weekly detailed reporting",
       ],
     },
   ],
@@ -360,8 +328,8 @@ export const REPUTATIONSHIELD: ProductDef = {
    ═══════════════════════════════════════════ */
 export const SOCIALSYNC: ProductDef = {
   id: "socialsync",
-  name: "SocialSync™",
-  tagline: "Social media management and automation",
+  name: "SocialSync\u2122",
+  tagline: "We post on social media so you don\u2019t have to",
   category: "visibility",
   tiers: [
     {
@@ -370,8 +338,10 @@ export const SOCIALSYNC: ProductDef = {
       price: 99,
       billingPeriod: "monthly",
       features: [
-        "8 posts/month",
-        "1 platform",
+        "8 posts/month created for you",
+        "1 platform (Facebook or Instagram)",
+        "Job photos & updates posted",
+        "Monthly content calendar",
       ],
     },
     {
@@ -382,9 +352,11 @@ export const SOCIALSYNC: ProductDef = {
       highlighted: true,
       badge: "Most Popular",
       features: [
-        "12 posts/month",
-        "2 platforms",
-        "GBP posting included",
+        "12 posts/month created for you",
+        "Facebook + Instagram",
+        "Google Business posts included",
+        "Branded content templates",
+        "Monthly engagement report",
       ],
     },
     {
@@ -393,31 +365,151 @@ export const SOCIALSYNC: ProductDef = {
       price: 199,
       billingPeriod: "monthly",
       features: [
-        "20 posts/month",
-        "Multi-platform",
-        "Priority content",
+        "20 posts/month created for you",
+        "All platforms (FB, IG, Google, LinkedIn)",
+        "Priority content creation",
+        "Custom graphics & captions",
+        "Weekly reporting",
+      ],
+    },
+  ],
+};
+
+/* (FIX_OPTIMIZE moved → WEBFIX above) */
+
+/* ═══════════════════════════════════════════
+   H2. WEBFIX (formerly Fix & Optimize)
+   ═══════════════════════════════════════════ */
+export const WEBFIX: ProductDef = {
+  id: "webfix",
+  name: "WebFix\u2122",
+  tagline: "One-time fixes to make your website faster and work properly",
+  category: "website",
+  tiers: [
+    {
+      id: "webfix",
+      name: "WebFix",
+      price: 249,
+      billingPeriod: "one-time",
+      features: [
+        "Page speed optimization (Core Web Vitals)",
+        "Broken links, errors & 404 cleanup",
+        "Mobile responsiveness fixes",
+        "Contact form & CTA troubleshooting",
+        "Image compression & performance tuning",
+      ],
+    },
+  ],
+};
+
+/** @deprecated Use WEBFIX instead */
+export const FIX_OPTIMIZE = WEBFIX;
+
+/* ═══════════════════════════════════════════
+   I. RANKFLOW (SEO)
+   ═══════════════════════════════════════════ */
+export const RANKFLOW: ProductDef = {
+  id: "rankflow",
+  name: "RankFlow™",
+  tagline: "Ongoing SEO that brings consistent traffic and leads",
+  category: "visibility",
+  tiers: [
+    {
+      id: "rankflow-starter",
+      name: "Starter",
+      price: 349,
+      billingPeriod: "monthly",
+      features: [
+        "Keyword research & targeting",
+        "On-page SEO optimization",
+        "Monthly content recommendations",
+        "Google Search Console setup",
+        "Monthly ranking reports",
+      ],
+    },
+    {
+      id: "rankflow-growth",
+      name: "Growth",
+      price: 599,
+      billingPeriod: "monthly",
+      badge: "Most Popular",
+      highlighted: true,
+      features: [
+        "Everything in Starter",
+        "Content creation (2 pages/mo)",
+        "Link building outreach",
+        "Competitor analysis",
+        "Local SEO optimization",
+        "Bi-weekly ranking reports",
+      ],
+    },
+    {
+      id: "rankflow-pro",
+      name: "Pro",
+      price: 899,
+      billingPeriod: "monthly",
+      features: [
+        "Everything in Growth",
+        "Content creation (4 pages/mo)",
+        "Technical SEO audits",
+        "Schema markup implementation",
+        "Priority support",
+        "Weekly ranking reports",
       ],
     },
   ],
 };
 
 /* ═══════════════════════════════════════════
-   FIX & OPTIMIZE (one-time)
+   J. ADFLOW (Ads)
    ═══════════════════════════════════════════ */
-export const FIX_OPTIMIZE: ProductDef = {
-  id: "fix-optimize",
-  name: "Fix & Optimize™",
-  tagline: "Website fixes, tweaks, and optimization",
-  category: "website",
+export const ADFLOW: ProductDef = {
+  id: "adflow",
+  name: "AdFlow™",
+  tagline: "Done-for-you ads that bring leads fast",
+  category: "leads",
   tiers: [
     {
-      id: "fix-optimize",
-      name: "Fix & Optimize",
-      price: 249,
-      billingPeriod: "one-time",
+      id: "adflow-starter",
+      name: "Starter",
+      price: 399,
+      billingPeriod: "monthly",
       features: [
-        "WebBoost Setup (lite)",
-        "MapGuard audit + quick fixes",
+        "Google Ads campaign setup",
+        "Ad copy & creative",
+        "Keyword targeting",
+        "Monthly performance reports",
+        "Budget optimization",
+      ],
+    },
+    {
+      id: "adflow-growth",
+      name: "Growth",
+      price: 699,
+      billingPeriod: "monthly",
+      badge: "Most Popular",
+      highlighted: true,
+      features: [
+        "Everything in Starter",
+        "Google + Facebook Ads",
+        "Landing page optimization",
+        "A/B testing",
+        "Bi-weekly performance calls",
+        "Retargeting campaigns",
+      ],
+    },
+    {
+      id: "adflow-pro",
+      name: "Pro",
+      price: 999,
+      billingPeriod: "monthly",
+      features: [
+        "Everything in Growth",
+        "Google + Facebook + Instagram",
+        "Video ad creation",
+        "Advanced audience targeting",
+        "Weekly optimization calls",
+        "Dedicated account manager",
       ],
     },
   ],
@@ -428,12 +520,13 @@ export const ALL_PRODUCTS: ProductDef[] = [
   SITELAUNCH,
   TRADELINE,
   QUOTEQUICK,
-  WEBBOOST,
+  ADFLOW,
   WEBCARE,
   MAPGUARD,
+  RANKFLOW,
   REPUTATIONSHIELD,
   SOCIALSYNC,
-  FIX_OPTIMIZE,
+  WEBFIX,
 ];
 
 /* ═══════════════════════════════════════════
@@ -479,19 +572,18 @@ export const BUNDLE_PRO: BundleDef = {
     { productId: "socialsync", tierId: "socialsync-growth", label: "SocialSync Growth", value: 149 },
     { productId: "mapguard", tierId: "mapguard-pro", label: "MapGuard Pro", value: 149 },
     { productId: "reputationshield", tierId: "reputationshield-pro", label: "ReputationShield Pro", value: 129 },
-    { productId: "webboost", tierId: "webboost-pro", label: "WebBoost Pro", value: 129 },
   ],
 };
 
 export const BUNDLE_FIX: BundleDef = {
   id: "bundle-fix",
-  name: "Fix & Optimize™",
-  tagline: "Quick website fixes and optimization",
+  name: "WebFix\u2122",
+  tagline: "One-time website fixes to make your site faster and work properly",
   price: 249,
   billingPeriod: "one-time",
   includes: [
-    { productId: "webboost", tierId: "webboost-setup", label: "WebBoost Setup (lite)", value: 349 },
-    { productId: "mapguard", tierId: "mapguard-setup", label: "MapGuard audit + quick fixes", value: 397 },
+    { productId: "webfix", tierId: "webfix", label: "Website speed & SEO fixes", value: 249 },
+    { productId: "mapguard", tierId: "mapguard-setup", label: "MapSetup\u2122 \u2014 GBP audit + fixes", value: 397 },
   ],
 };
 

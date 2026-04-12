@@ -2483,9 +2483,9 @@ WRITING RULES:
 - Never fabricate data not present in auditData. If a field is null or missing, work around it.
 - Return valid JSON only. No markdown fences. No text outside the JSON. Use null for missing data.
 - For the actionPlan array, reference the specific WeFixTrades services that fix each issue:
-  * MapGuard Setup ($299 one-time) — fixes GBP issues, low visibility, missing description
-  * MapGuard Ongoing ($149/mo) — ongoing Maps ranking maintenance
-  * WebBoost Setup ($449 one-time) — fixes slow website, Core Web Vitals, mobile speed
+  * MapSetup™ ($397 one-time) — fixes GBP issues, low visibility, missing description
+  * MapGuard™ Ongoing ($149/mo) — ongoing Maps ranking maintenance
+  * WebFix™ ($249 one-time) — fixes slow website, Core Web Vitals, mobile speed
   * ReputationShield ($99/mo) — fixes low reviews, bad rating, reputation gaps
   * AI ChatLine ($149/mo) — fixes after-hours gaps, missed leads, no quote tool
   * AI CallLine ($199/mo) — fixes missed calls, after-hours phone coverage

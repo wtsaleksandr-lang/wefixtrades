@@ -119,7 +119,7 @@ const FIELD_CONFIG: Record<string, FieldEnrichment> = {
     helperText: "How you want bookings to work.",
   },
 
-  // WebBoost
+  // WebFix / RankFlow
   access_available: {
     helperText: "We need login access to your hosting or CMS to make changes.",
     options: [
@@ -182,7 +182,7 @@ const FIELD_CONFIG: Record<string, FieldEnrichment> = {
     helperText: "Beyond the standard pages (Home, About, Services, Contact).",
   },
 
-  // Fix & Optimize
+  // WebFix
   main_issue: {
     helperText: "What's the biggest problem with your current site?",
     options: [

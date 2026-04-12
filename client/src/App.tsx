@@ -131,7 +131,7 @@ function Router() {
       <Route path="/product">{() => <Redirect to="/products" />}</Route>
       <Route path="/platform" component={MarketingProduct} />
       <Route path="/pricing" component={PricingUnified} />
-      <Route path="/plans" component={PricingUnified} />
+      <Route path="/plans">{() => <Redirect to="/pricing" />}</Route>
       <Route path="/checkout/success" component={CheckoutSuccess} />
       <Route path="/checkout/cancelled" component={CheckoutCancelled} />
       <Route path="/login" component={LoginPage} />

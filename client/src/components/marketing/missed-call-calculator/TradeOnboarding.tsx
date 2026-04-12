@@ -158,7 +158,8 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
             margin: '0 0 12px',
           }}
         >
-          What trade are you in?
+          How much are missed calls{' '}
+          <span style={{ color: '#EF4444' }}>costing you?</span>
         </motion.h1>
 
         <motion.p
@@ -170,10 +171,10 @@ export default function TradeOnboarding({ onSelect, previousTradeId }: TradeOnbo
             color: mkt.textMuted,
             lineHeight: 1.5,
             margin: '0 auto',
-            maxWidth: 420,
+            maxWidth: 460,
           }}
         >
-          We'll prefill typical numbers for your industry so you get relevant estimates.
+          Select your trade and we'll show you the revenue you're losing every week to unanswered calls.
         </motion.p>
       </div>
 
