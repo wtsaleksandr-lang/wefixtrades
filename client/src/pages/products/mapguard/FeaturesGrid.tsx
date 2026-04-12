@@ -13,12 +13,12 @@ import {
 } from "./styles";
 
 const BENEFITS = [
-  { icon: MapPin, title: "More calls from nearby customers", desc: "Show up where people are already searching and ready to hire." },
-  { icon: Phone, title: "Get more calls without paying for ads", desc: "Organic visibility that brings in leads every month." },
-  { icon: ShieldCheck, title: "Build trust before they even click", desc: "Reviews, photos, and activity make customers choose you." },
-  { icon: CalendarCheck, title: "Stay active and visible every week", desc: "Regular posts and updates keep your profile fresh." },
-  { icon: Trophy, title: "Beat competitors in your area", desc: "Optimized profiles outrank incomplete ones." },
-  { icon: UserCheck, title: "Everything handled for you", desc: "We do the work. You focus on the job." },
+  { icon: MapPin, title: "Show up when customers search nearby", desc: "We optimize your profile so you appear in Google Maps when people search for your trade in your area." },
+  { icon: Phone, title: "More calls without running ads", desc: "Organic Google Maps visibility brings in leads every month without ad spend." },
+  { icon: ShieldCheck, title: "We actively fix issues affecting your visibility", desc: "Ranking drops, review problems, profile gaps \u2014 our team acts on them, not just reports them." },
+  { icon: CalendarCheck, title: "Your profile stays active and fresh", desc: "Regular posts and profile updates keep your listing engaged and performing." },
+  { icon: Trophy, title: "Stay ahead of local competitors", desc: "We track your competitors and adjust your strategy so you maintain your position." },
+  { icon: UserCheck, title: "Fully managed \u2014 you do nothing", desc: "We handle the optimization, monitoring, fixes, and reporting. You focus on running your business." },
 ];
 
 function BenefitCard({ benefit, delay }: { benefit: typeof BENEFITS[0]; delay: number }) {
@@ -97,11 +97,11 @@ export default function FeaturesGrid() {
             Benefits
           </div>
           <h2 style={sectionHeading}>
-            What You Get{" "}
-            <span style={{ color: mkt.accent }}>With MapGuard</span>
+            What MapGuard{" "}
+            <span style={{ color: mkt.accent }}>Does For You</span>
           </h2>
           <p style={sectionSub}>
-            No jargon. No complicated tools. Simple outcomes for your business.
+            No tools to learn. No work on your end. Just results delivered to you every month.
           </p>
         </div>
 

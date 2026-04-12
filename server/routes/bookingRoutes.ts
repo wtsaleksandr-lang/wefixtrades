@@ -15,10 +15,14 @@ function generateTimeSlots(
   durationMinutes: number, bufferMinutes: number,
   existingBookings: { time: string; duration_minutes: number }[]
 ): string[] {
-  const [startH, startM] = startTime.split(":").map(Number);
-  const [endH, endM] = endTime.split(":").map(Number);
-  const startMinutes = startH * 60 + startM;
-  const endMinutes = endH * 60 + endM;
+  const [startH, startM] = (startTime || "09:00").split(":").map(Number);
+  const [endH, endM] = (endTime || "17:00").split(":").map(Number);
+  const startMinutes = startH * 60 + (startM || 0);
+  const endMinutes = endH * 60 + (endM || 0);
+
+  // Guard: invalid time range or duration
+  if (isNaN(startMinutes) || isNaN(endMinutes) || startMinutes >= endMinutes) return [];
+  if (!durationMinutes || durationMinutes <= 0) return [];
 
   const bookedRanges = existingBookings.map(b => {
     const [bh, bm] = b.time.split(":").map(Number);
@@ -45,7 +49,7 @@ function generateTimeSlots(
 }
 
 const createBookingBody = z.object({
-  calculator_id: z.number(),
+  calculator_id: z.number().int().positive(),
   customer_name: z.string().min(1),
   customer_email: z.string().email().optional(),
   customer_phone: z.string().optional(),
@@ -58,11 +62,23 @@ const createBookingBody = z.object({
 export function registerBookingRoutes(app: Express): void {
   app.get("/api/bookings/availability", async (req, res) => {
     try {
-      const calculatorId = parseInt(req.query.calculator_id as string);
+      const rawId = parseInt(req.query.calculator_id as string);
       const date = req.query.date as string;
-      if (!calculatorId || !date) return res.status(400).json({ error: "calculator_id and date required" });
+      if (isNaN(rawId) || !date) return res.status(400).json({ error: "calculator_id and date required" });
 
-      const calc = await storage.getCalculatorById(calculatorId);
+      // Validate date format
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: "Invalid date format. Use YYYY-MM-DD." });
+      }
+
+      // Reject past dates
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      if (date < todayStr) {
+        return res.json({ slots: [], message: "Cannot book past dates" });
+      }
+
+      const calc = await storage.getCalculatorById(rawId);
       if (!calc) return res.status(404).json({ error: "Calculator not found" });
 
       const settings = (calc.calculator_settings as any) || {};
@@ -77,10 +93,18 @@ export function registerBookingRoutes(app: Express): void {
         return res.json({ slots: [], message: "Not a working day" });
       }
 
-      const existingBookings = await storage.getConfirmedBookingsForDate(calculatorId, date);
+      const startTime = avail.start_time || "09:00";
+      const endTime = avail.end_time || "17:00";
+
+      // Guard: start must be before end
+      if (startTime >= endTime) {
+        return res.json({ slots: [], message: "Invalid business hours configuration" });
+      }
+
+      const existingBookings = await storage.getConfirmedBookingsForDate(rawId, date);
       const slots = generateTimeSlots(
-        avail.start_time || "09:00",
-        avail.end_time || "17:00",
+        startTime,
+        endTime,
         bookingSettings.slot_duration_minutes || 60,
         avail.buffer_minutes || 0,
         existingBookings
@@ -88,7 +112,7 @@ export function registerBookingRoutes(app: Express): void {
 
       res.json({ slots, date, working_day: true });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: "Failed to fetch availability" });
     }
   });
 
@@ -120,26 +144,30 @@ export function registerBookingRoutes(app: Express): void {
       let depositAmount = 0;
       const requiresDeposit = bookingSettings.require_deposit && bookingSettings.stripe_account_id;
       if (requiresDeposit) {
-        if (bookingSettings.deposit_type === "percentage" && body.quote_amount) {
-          depositAmount = Math.round(body.quote_amount * (bookingSettings.deposit_value || 0) / 100);
+        const quoteForDeposit = body.quote_amount != null && Number.isFinite(body.quote_amount) ? body.quote_amount : 0;
+        if (bookingSettings.deposit_type === "percentage" && quoteForDeposit > 0) {
+          depositAmount = Math.round(quoteForDeposit * (bookingSettings.deposit_value || 0) / 100);
         } else {
           depositAmount = bookingSettings.deposit_value || 0;
         }
       }
 
+      // Preserve 0 as valid quote_amount (don't coerce to null)
+      const safeQuoteAmount = body.quote_amount != null && Number.isFinite(body.quote_amount) ? body.quote_amount : null;
+
       const booking = await storage.createBooking({
         calculator_id: body.calculator_id,
-        customer_name: body.customer_name,
-        customer_email: body.customer_email || null,
-        customer_phone: body.customer_phone || null,
+        customer_name: body.customer_name.trim(),
+        customer_email: body.customer_email?.trim() || null,
+        customer_phone: body.customer_phone?.trim() || null,
         date: body.date,
         time: body.time,
         duration_minutes: duration,
         status: requiresDeposit ? "pending" : "confirmed",
         deposit_amount: depositAmount,
         deposit_paid: false,
-        quote_amount: body.quote_amount || null,
-        notes: body.notes || null,
+        quote_amount: safeQuoteAmount,
+        notes: body.notes?.trim() || null,
       });
 
       if (!requiresDeposit) {
@@ -308,7 +336,7 @@ export function registerBookingRoutes(app: Express): void {
 
       const bookingId = parseInt(req.params.id);
       const { status } = req.body;
-      if (!["pending", "confirmed", "cancelled"].includes(status)) {
+      if (!["pending", "confirmed", "completed", "cancelled"].includes(status)) {
         return res.status(400).json({ error: "Invalid status" });
       }
 
@@ -322,6 +350,22 @@ export function registerBookingRoutes(app: Express): void {
       if (status === "confirmed" && booking.status !== "confirmed") {
         sendBookingConfirmationToCustomer(updated!, calc).catch(() => {});
         sendBookingNotificationToBusiness(updated!, calc).catch(() => {});
+      }
+
+      // Trigger review request when job marked completed
+      if (status === "completed" && booking.status !== "completed") {
+        import("../services/reviewRequestService")
+          .then(async ({ createPostJobReviewRequest, processReviewRequest }) => {
+            const result = await createPostJobReviewRequest(updated!, calc);
+            if (result.created && result.reviewRequest) {
+              await processReviewRequest(result.reviewRequest);
+            } else {
+              console.log(`[ReviewRequest] Skipped for booking ${bookingId}: ${result.reason}`);
+            }
+          })
+          .catch((err) => {
+            console.error(`[ReviewRequest] Error for booking ${bookingId}:`, err.message);
+          });
       }
 
       res.json(updated);

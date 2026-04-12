@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X } from "lucide-react";
+import { Menu as MenuIcon, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/components/primitives/Logo";
 import { NAV_LINKS, NAV_MOBILE_BREAKPOINT } from "@/site/navigation";
-import { DesktopNavItem } from "./DesktopNavItem";
+import { Menu, MenuItem } from "@/components/ui/navbar-menu";
 import { MobileNavItem } from "./MobileNavItem";
 import { mkt } from "@/theme/tokens";
 
@@ -38,9 +38,11 @@ export function useNavIsMobile() {
 }
 
 export function MarketingNav() {
+  const [active, setActive] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuEpoch, setMenuEpoch] = useState(0);
   const navCardRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const menuPanelRef = useRef<HTMLDivElement>(null);
   const [menuTop, setMenuTop] = useState<number>(92);
@@ -206,6 +208,7 @@ export function MarketingNav() {
           }}
         >
           <div
+            ref={innerRef}
             style={{
               maxWidth: 1280,
               margin: "0 auto",
@@ -221,26 +224,18 @@ export function MarketingNav() {
             <Logo />
 
             {!isMobile && (
-              <nav
-                aria-label="Main navigation"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 2,
-                  flex: "0 1 auto",
-                }}
-              >
-                {NAV_LINKS.map(({ label, href, children }) => (
-                  <DesktopNavItem
+              <Menu setActive={setActive} containerRef={innerRef}>
+                {NAV_LINKS.map(({ label, href, children: navChildren }) => (
+                  <MenuItem
                     key={href}
-                    label={label}
+                    setActive={setActive}
+                    active={active}
+                    item={label}
                     href={href}
-                    children={children}
-                    isActive={isActive(href)}
-                    headerRef={navCardRef}
+                    children={navChildren}
                   />
                 ))}
-              </nav>
+              </Menu>
             )}
 
             <div
@@ -377,7 +372,7 @@ export function MarketingNav() {
                     {menuOpen ? (
                       <X size={22} strokeWidth={1.5} />
                     ) : (
-                      <Menu size={22} strokeWidth={1.5} />
+                      <MenuIcon size={22} strokeWidth={1.5} />
                     )}
                   </div>
                 </button>

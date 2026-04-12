@@ -1,7 +1,8 @@
 import type { Express, Request, Response } from "express";
 import crypto from "crypto";
 import { assistantStream, assistantSync, isReady, type AssistantRequest } from "../services/assistant";
-import type { ChatSurface, AuditContext } from "../services/promptBuilder";
+import type { ChatSurface, AuditContext, PortalContext } from "../services/promptBuilder";
+import { assemblePortalContext } from "../services/portalAssistantContext";
 import type { ChatMessage } from "../services/aiService";
 import { chatRateLimiter } from "../services/rateLimiter";
 import { db } from "../db";
@@ -10,7 +11,7 @@ import { eq } from "drizzle-orm";
 import { shouldInjectTools, ADMIN_TOOLS, storePendingAction } from "../services/adminTools";
 
 /* ─── Validation ─── */
-const VALID_SURFACES: ChatSurface[] = ["website", "audit", "dashboard", "admin", "vapi"];
+const VALID_SURFACES: ChatSurface[] = ["website", "audit", "dashboard", "admin", "vapi", "portal"];
 
 function validateMessages(messages: any): messages is ChatMessage[] {
   return (
@@ -114,15 +115,38 @@ async function parseAssistantRequest(req: Request): Promise<
     }
   }
 
+  // Portal surface: assemble context from DB using authenticated user
+  let portalCtx: PortalContext | undefined;
+  let resolvedUserId: number | undefined = typeof userId === "number" ? userId : undefined;
+  if (surface === "portal") {
+    const sessionUserId = (req as any).user?.id;
+    if (!sessionUserId) {
+      return { ok: false, status: 401, error: "Authentication required for portal surface." };
+    }
+    resolvedUserId = sessionUserId;
+
+    const { page, onboardingId, currentResponses } = req.body || {};
+    portalCtx = await assemblePortalContext(
+      sessionUserId,
+      typeof page === "string" ? page : undefined,
+      typeof onboardingId === "number" ? onboardingId : undefined,
+      currentResponses ? { currentResponses } : undefined,
+    ).catch((err) => {
+      console.error("[chat] Portal context assembly error:", err);
+      return undefined;
+    });
+  }
+
   return {
     ok: true,
     assistantReq: {
       surface,
       messages: messages.slice(-20),
-      sessionId: sid,
-      userId: typeof userId === "number" ? userId : undefined,
+      sessionId: surface === "portal" ? `portal_${resolvedUserId}` : sid,
+      userId: resolvedUserId,
       auditContext: auditCtx,
       pageContext: surface === "admin" && clientPageCtx ? clientPageCtx : undefined,
+      portalContext: portalCtx,
       reportId: typeof reportId === "string" ? reportId : undefined,
       // Admin surface needs more tokens for task summaries and operational detail
       maxTokens: surface === "admin" ? 1000 : undefined,
