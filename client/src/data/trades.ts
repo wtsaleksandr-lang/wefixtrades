@@ -18,7 +18,7 @@ export const CATEGORIES: Category[] = [
   { id: "emergency", label: "Emergency Services", icon: "AlertTriangle" },
   { id: "auto", label: "Auto & Mobile Services", icon: "Car" },
   { id: "pro", label: "Professional Services", icon: "Briefcase" },
-  { id: "custom", label: "Custom / Not Listed", icon: "Plus" },
+  { id: "custom", label: "My trade isn't listed", icon: "Plus" },
 ];
 
 export const TRADES: Trade[] = [

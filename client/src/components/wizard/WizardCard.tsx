@@ -877,19 +877,19 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                       <div style={{
                         position: 'absolute', top: '6px', right: '6px',
                         width: '20px', height: '20px', borderRadius: '50%',
-                        background: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: p.colors.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
                         <Check style={{ width: '12px', height: '12px', color: 'white' }} />
                       </div>
                     )}
                     <div data-testid={`icon-container-${cat.id}`} style={{
                       width: '40px', height: '40px', borderRadius: '12px',
-                      background: sel ? '#2D6A4F' : '#EF4444',
-                      border: `1.5px solid ${sel ? '#2D6A4F' : '#EF4444'}`,
+                      background: sel ? p.colors.accent : '#F3F4F6',
+                      border: `1.5px solid ${sel ? p.colors.accent : '#E5E7EB'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
+                      flexShrink: 0, transition: 'all 0.15s ease',
                     }}>
-                      <Icon style={{ width: '20px', height: '20px', color: 'white', flexShrink: 0 }} />
+                      <Icon style={{ width: '20px', height: '20px', color: sel ? 'white' : p.colors.muted, flexShrink: 0 }} />
                     </div>
                     <span style={{
                       fontSize: '12px', fontWeight: 600, textAlign: 'center', lineHeight: 1.3,
