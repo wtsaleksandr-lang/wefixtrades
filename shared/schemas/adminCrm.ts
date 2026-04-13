@@ -274,6 +274,32 @@ export const insertInternalNoteSchema = createInsertSchema(internalNotes).omit({
 export type InsertInternalNote = z.infer<typeof insertInternalNoteSchema>;
 export type InternalNote = typeof internalNotes.$inferSelect;
 
+/* ─── Ops Snapshots ─── */
+// Stores the output of each Background AI Ops Engine run.
+// raw_signals: the deterministic detector output (OpsSignal[]) — system truth.
+// ai_output:   the AI summarization of those signals — explanation layer only.
+// Both are stored separately so signals remain reusable by future routing engines.
+export const opsSnapshots = pgTable("ops_snapshots", {
+  id: serial("id").primaryKey(),
+  snapshot_type: varchar("snapshot_type", { length: 50 }).notNull(),
+  // daily_summary | onboarding_scan | task_triage | ticket_triage
+  generated_at: timestamp("generated_at").defaultNow().notNull(),
+  period_start: timestamp("period_start"),
+  period_end: timestamp("period_end"),
+  raw_signals: jsonb("raw_signals").notNull(),     // OpsSignal[] — deterministic, no AI
+  ai_output: jsonb("ai_output"),                   // DailyOpsSummaryOutput — AI explanation only
+  prompt_version: varchar("prompt_version", { length: 30 }),
+  detector_version: varchar("detector_version", { length: 30 }),
+  model_used: varchar("model_used", { length: 80 }),
+  input_tokens: integer("input_tokens"),
+  output_tokens: integer("output_tokens"),
+  estimated_cost_usd: integer("estimated_cost_usd"), // micro-cents (same as aiUsageLogs)
+  signal_count: integer("signal_count").notNull().default(0),
+  metadata: jsonb("metadata"),
+});
+export type OpsSnapshot = typeof opsSnapshots.$inferSelect;
+export type InsertOpsSnapshot = typeof opsSnapshots.$inferInsert;
+
 /* ─── Admin Activity Log ─── */
 export const adminActivityLog = pgTable("admin_activity_log", {
   id: serial("id").primaryKey(),
