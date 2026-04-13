@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, MessageCircle, Send, RefreshCw, Settings2, Zap, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, RefreshCw, Settings2, AlertTriangle } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import type { PortalChatContext } from "@/components/portal/PortalChatWidget";
 import { getFieldConfig } from "@/config/onboardingFields";
 import { useOnboardingResponses } from "@/context/OnboardingContext";
 
@@ -56,6 +57,7 @@ export default function PortalOnboarding() {
   const { setResponses: syncToContext } = useOnboardingResponses();
   const [validationError, setValidationError] = useState<string | null>(null);
   const [helpField, setHelpField] = useState<{ label: string; example?: string; helperText?: string } | null>(null);
+
   const { data, isLoading, error, refetch } = useQuery<OnboardingData>({
     queryKey: ["/api/portal/onboarding", submissionId],
     queryFn: async () => {
@@ -159,8 +161,19 @@ export default function PortalOnboarding() {
   const requiredSteps = data?.steps.filter((s) => s.required) ?? [];
   const optionalSteps = data?.steps.filter((s) => !s.required) ?? [];
 
+  // Build onboarding context for the global chat widget
+  const chatContext: PortalChatContext | undefined =
+    data && !isSubmitted
+      ? {
+          service_name: data.service_name ?? "service",
+          service_id: data.service_id ?? undefined,
+          fields: data.steps.map((s) => ({ key: s.key, label: s.label, required: s.required })),
+          current_responses: responses,
+        }
+      : undefined;
+
   return (
-    <PortalLayout>
+    <PortalLayout chatContext={chatContext}>
       <div className="max-w-2xl mx-auto space-y-6 pb-20">
         <Link href="/portal/services" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Services
@@ -291,9 +304,6 @@ export default function PortalOnboarding() {
 
       {/* Help modal */}
       {helpField && <HelpModal field={helpField} onClose={() => setHelpField(null)} />}
-
-      {/* Legacy AI Chat FAB + Panel removed — the global PortalChatWidget
-          now handles onboarding context via OnboardingContext (Phase 3). */}
     </PortalLayout>
   );
 }
@@ -329,11 +339,6 @@ function PortalSetupProgress({ clientServiceId, approvedAt }: { clientServiceId:
     const id = setInterval(poll, 2500);
     return () => { active = false; clearInterval(id); };
   }, [clientServiceId, isTradeLine]);
-
-  // Stop polling once terminal
-  useEffect(() => {
-    // cleanup handled by the interval's active flag
-  }, [isTerminal]);
 
   const steps = isTradeLine ? [
     { label: "Configuration received", done: true },

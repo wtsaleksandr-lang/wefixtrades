@@ -925,9 +925,10 @@ export class DatabaseStorage implements IStorage {
       .where(condition)
       .groupBy(supportTickets.status);
 
-    const counts: Record<string, number> = { open: 0, in_progress: 0, waiting_on_customer: 0, resolved: 0, closed: 0 };
+    const counts: Record<string, number> = { total: 0, open: 0, in_progress: 0, waiting_on_customer: 0, resolved: 0, closed: 0 };
     for (const row of rows) {
       counts[row.status] = row.count;
+      counts.total += row.count;
     }
     return counts;
   }
