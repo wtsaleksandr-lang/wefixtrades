@@ -18,7 +18,7 @@
     "test:crm:regression": "npx playwright test tests/e2e/admin-crm/admin-crm.regression.spec.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.80.0",
+    "@anthropic-ai/sdk": "^0.88.0",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@radix-ui/react-accordion": "^1.2.4",
@@ -64,7 +64,7 @@
     "connect-pg-simple": "^10.0.0",
     "date-fns": "^3.6.0",
     "dotenv": "^17.3.1",
-    "drizzle-orm": "^0.39.3",
+    "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.7.0",
     "embla-carousel-react": "^8.6.0",
     "express": "^5.0.1",
