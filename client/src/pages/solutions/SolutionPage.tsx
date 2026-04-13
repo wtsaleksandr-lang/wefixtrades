@@ -70,7 +70,7 @@ const SOLUTIONS: SolutionConfig[] = [
       { name: "AI CallLine\u2122", icon: "phone", desc: "Never miss an emergency HVAC call again.", href: "/products/ai-callline" },
       { name: "QuoteQuick Pro\u2122", icon: "calculator", desc: "Instant AC / furnace install estimates.", href: "/products/quotequick" },
       { name: "MapGuard\u2122", icon: "map", desc: "Outrank franchise competitors locally.", href: "/products/mapguard" },
-      { name: "WebBoost\u2122", icon: "rocket", desc: "Fast site = more booked appointments.", href: "/products/webboost" },
+      { name: "RankFlow\u2122", icon: "rocket", desc: "Rank higher = more organic leads.", href: "/products/rankflow" },
     ],
     outcomes: [
       { stat: "0", label: "Missed after-hours calls" },

@@ -101,7 +101,7 @@ const FAQS = [
   },
   {
     q: "Are there setup fees?",
-    a: "Some products like MapGuard Setup and WebBoost Setup are one-time services. Monthly subscription products do not have separate setup fees.",
+    a: "Some products like MapSetup\u2122 and WebFix\u2122 are one-time services. Monthly subscription products do not have separate setup fees.",
   },
   {
     q: "Can I bundle multiple products?",

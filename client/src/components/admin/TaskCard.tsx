@@ -1,10 +1,14 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Inbox, Play, MessageSquare, CheckCircle, Clock, User, Factory, Wrench, Bot, Zap, ArrowRight } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Inbox, Play, MessageSquare, CheckCircle, Clock, User, Factory, Wrench, Bot, Zap, ArrowRight, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 
 /* ─── Types ─── */
 export interface TaskItem {
@@ -96,6 +100,31 @@ export function isOverdue(dueAt: string | null, status: string): boolean {
   return new Date(dueAt) < new Date();
 }
 
+/* ─── Automation type detection (mirrors server-side patterns) ─── */
+const AUTO_PATTERNS = [
+  "Configure TradeLine assistant",
+  "Configure notifications",
+  "Configure lead notifications",
+  "Configure notifications + callback flow",
+];
+const ASSIST_PATTERNS = [
+  "Prepare widget or hosted fallback",
+  "Prepare website widget or hosted fallback",
+  "Install widget / provision hosted link",
+  "Configure phone routing",
+];
+
+function getAutomationType(title: string): "auto" | "assist" | "manual" {
+  const clean = title.replace(/^\[\d{4}-\d{2}\]\s*/, "");
+  for (const p of AUTO_PATTERNS) {
+    if (clean.includes(p) || p.includes(clean)) return "auto";
+  }
+  for (const p of ASSIST_PATTERNS) {
+    if (clean.includes(p) || p.includes(clean)) return "assist";
+  }
+  return "manual";
+}
+
 /** Returns the single best next-action for a task based on its status. */
 function getPrimaryAction(status: string): { label: string; nextStatus: string } | null {
   switch (status) {
@@ -128,7 +157,7 @@ function WaitingOnChip({
   const icon = WAITING_ON_ICON[value];
   const isClickable = !!onClick;
 
-  return (
+  const chip = (
     <button
       type="button"
       onClick={(e) => { e.preventDefault(); onClick?.(); }}
@@ -140,6 +169,19 @@ function WaitingOnChip({
       {icon}
       <span className="capitalize">{value}</span>
     </button>
+  );
+
+  if (!isClickable) return chip;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{chip}</TooltipTrigger>
+        <TooltipContent side="top" className="text-xs max-w-[180px]">
+          Waiting on: who's currently blocking this task. Click to cycle — client → supplier → internal → clear.
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -158,6 +200,34 @@ export function TaskCard({
   const overdue = isOverdue(task.due_at, task.status);
   const action = getPrimaryAction(task.status);
   const updated = timeAgo(task.updated_at || task.created_at);
+  const autoType = getAutomationType(task.title);
+  const canProcess = autoType !== "manual" && !["delivered", "cancelled"].includes(task.status);
+  const isRunning = task.automation_status === "running";
+
+  const { toast } = useToast();
+  const [processing, setProcessing] = useState(false);
+
+  async function handleProcess() {
+    setProcessing(true);
+    try {
+      const res = await fetch(`/api/admin/crm/fulfillment/${task.id}/process`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Process failed", description: data.error || "Unknown error", variant: "destructive" });
+        return;
+      }
+      toast({
+        title: autoType === "auto" ? "Task processed" : "Assist result",
+        description: data.result?.message?.substring(0, 200) || "Done",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setProcessing(false);
+    }
+  }
 
   return (
     <Card className={`border-l-[3px] ${PRIORITY_BORDER[task.priority] || "border-l-transparent"} ${overdue ? "ring-1 ring-red-200 bg-red-50/30" : ""}`}>
@@ -175,18 +245,43 @@ export function TaskCard({
               <p className="text-sm font-medium text-gray-900 line-clamp-2">{task.title}</p>
             )}
           </div>
-          {action && (
-            <Button
-              size="sm"
-              className={`h-7 px-3 text-xs shrink-0 ${ACTION_STYLES[action.label] || "bg-gray-600 text-white"}`}
-              onClick={(e) => {
-                e.preventDefault();
-                onStatusChange(task.id, action.nextStatus);
-              }}
-            >
-              {action.label}
-            </Button>
-          )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {canProcess && (
+              <Button
+                size="sm"
+                variant="outline"
+                className={`h-7 px-2.5 text-xs ${
+                  autoType === "auto"
+                    ? "border-blue-200 text-blue-700 hover:bg-blue-50"
+                    : "border-purple-200 text-purple-700 hover:bg-purple-50"
+                }`}
+                disabled={processing || isRunning}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleProcess();
+                }}
+              >
+                {processing || isRunning ? (
+                  <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                ) : (
+                  <Zap className="w-3 h-3 mr-1" />
+                )}
+                {autoType === "auto" ? "Process" : "Assist"}
+              </Button>
+            )}
+            {action && (
+              <Button
+                size="sm"
+                className={`h-7 px-3 text-xs ${ACTION_STYLES[action.label] || "bg-gray-600 text-white"}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onStatusChange(task.id, action.nextStatus);
+                }}
+              >
+                {action.label}
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Row 2: Meta */}

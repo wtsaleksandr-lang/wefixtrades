@@ -2483,9 +2483,9 @@ WRITING RULES:
 - Never fabricate data not present in auditData. If a field is null or missing, work around it.
 - Return valid JSON only. No markdown fences. No text outside the JSON. Use null for missing data.
 - For the actionPlan array, reference the specific WeFixTrades services that fix each issue:
-  * MapGuard Setup ($299 one-time) — fixes GBP issues, low visibility, missing description
-  * MapGuard Ongoing ($149/mo) — ongoing Maps ranking maintenance
-  * WebBoost Setup ($449 one-time) — fixes slow website, Core Web Vitals, mobile speed
+  * MapSetup™ ($397 one-time) — fixes GBP issues, low visibility, missing description
+  * MapGuard™ Ongoing ($149/mo) — ongoing Maps ranking maintenance
+  * WebFix™ ($249 one-time) — fixes slow website, Core Web Vitals, mobile speed
   * ReputationShield ($99/mo) — fixes low reviews, bad rating, reputation gaps
   * AI ChatLine ($149/mo) — fixes after-hours gaps, missed leads, no quote tool
   * AI CallLine ($199/mo) — fixes missed calls, after-hours phone coverage
@@ -2836,14 +2836,15 @@ router.post('/save-lead', async (req: Request, res: Response) => {
       source_page: source_page || null,
     });
 
-    // 2. Send PDF email (non-blocking)
-    if (reportId) {
-      import("./lib/sendAuditReport").then(({ sendAuditReportEmail }) => {
-        sendAuditReportEmail({ reportId, recipientEmail: email.trim() }).catch((err) => {
-          console.error("[audit-lead] PDF email error:", err?.message);
+      // 2. Send PDF email (non-blocking)
+      if (reportId) {
+        import("./lib/sendAuditReport").then(({ sendAuditReportEmail }) => {
+          const origin = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+          sendAuditReportEmail({ reportId, recipientEmail: email.trim(), origin }).catch((err) => {
+            console.error("[audit-lead] PDF email error:", err?.message);
+          });
         });
-      });
-    }
+      }
 
     // 3. Enqueue follow-up sequence (non-blocking)
     enqueueAuditFollowupSequence({
@@ -2976,6 +2977,31 @@ router.get("/report/:id/pdf", async (req: Request, res: Response) => {
     if (!res.headersSent) {
       return res.status(500).json({ ok: false, error: "PDF generation failed" });
     }
+  }
+});
+
+/* ─── GET /report/:id/rankflow-recommendation ─── */
+import { recommendRankFlowTier } from "./services/rankflow/auditConversion";
+
+router.get("/report/:id/rankflow-recommendation", async (req: Request, res: Response) => {
+  try {
+    const reportId = req.params.id;
+    const [report] = await db.select().from(auditReports).where(eq(auditReports.id, reportId)).limit(1);
+    if (!report) return res.status(404).json({ error: "Report not found" });
+
+    const auditData = report.audit_data as any;
+    const recommendation = recommendRankFlowTier({
+      scores: auditData?.scores,
+      detectedIssues: auditData?.detectedIssues,
+      business: auditData?.business,
+      trade: auditData?.trade,
+      city: auditData?.city,
+      keywords: auditData?.keywords,
+    });
+
+    res.json(recommendation);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 

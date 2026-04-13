@@ -15,13 +15,25 @@ import { registerTwilioRoutes } from "./twilioRoutes";
 import { registerChatRoutes } from "./chatRoutes";
 import { registerAdminRoutes } from "./adminRoutes";
 import { registerAdminCrmRoutes } from "./adminCrmRoutes";
+import { registerAdminToolRoutes } from "./adminToolRoutes";
 import { registerStripeBillingRoutes } from "./stripeBillingRoutes";
 import { registerOnboardingPublicRoutes } from "./onboardingPublicRoutes";
 import { registerVapiRoutes } from "./vapiRoutes";
 import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
 import { registerPortalRoutes } from "./portalRoutes";
+import { registerAdminSupportRoutes } from "./adminSupportRoutes";
 import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
 import { registerDemoLeadRoutes } from "./demoLeadRoutes";
+import { registerAdminOpsRoutes } from "./adminOpsRoutes";
+import { registerAdminOutboundRoutes } from "./adminOutboundRoutes";
+import { registerReviewPublicRoutes } from "./reviewPublicRoutes";
+import { registerWidgetRoutes } from "./widgetRoutes";
+import { registerMapguardRoutes } from "./mapguardRoutes";
+import { registerSocialSyncRoutes } from "./socialSyncRoutes";
+import { registerReputationRoutes } from "./reputationRoutes";
+import { registerSalesRoutes } from "./salesRoutes";
+import { registerMediaRoute } from "../services/socialSync/mediaService";
+import { registerRankFlowRoutes } from "./rankflowRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -42,13 +54,25 @@ export async function registerRoutes(
   registerChatRoutes(app);
   registerAdminRoutes(app);
   registerAdminCrmRoutes(app);
+  registerAdminToolRoutes(app);
   registerStripeBillingRoutes(app);
   registerOnboardingPublicRoutes(app);
   registerVapiRoutes(app);
   registerPublicCheckoutRoutes(app);
   registerPortalRoutes(app);
+  registerAdminSupportRoutes(app);
   registerMissedCallLeadRoutes(app);
   registerDemoLeadRoutes(app);
+  registerAdminOpsRoutes(app);
+  registerAdminOutboundRoutes(app);
+  registerMapguardRoutes(app);
+  registerSocialSyncRoutes(app);
+  registerReputationRoutes(app);
+  registerSalesRoutes(app);
+  registerMediaRoute(app);
+  registerReviewPublicRoutes(app);
+  registerWidgetRoutes(app);
+  registerRankFlowRoutes(app);
 
   return httpServer;
 }

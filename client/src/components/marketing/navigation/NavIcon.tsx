@@ -24,6 +24,8 @@ import {
   Paintbrush,
   Hammer,
   Building2,
+  TrendingUp,
+  Target,
 } from "lucide-react";
 
 const ICON_MAP: Record<NavIconKey, typeof Workflow> = {
@@ -51,6 +53,8 @@ const ICON_MAP: Record<NavIconKey, typeof Workflow> = {
   paintbrush: Paintbrush,
   hammer: Hammer,
   building2: Building2,
+  trendingUp: TrendingUp,
+  target: Target,
 };
 
 export function NavIcon({

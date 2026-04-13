@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import nodemailer from "nodemailer";
 import { storage } from "../storage";
+import { captureIntakeEvent } from "../services/intakeService";
 import {
   enqueueMissedCallFollowups,
   buildImmediateResultsEmail,
@@ -90,6 +91,17 @@ export function registerMissedCallLeadRoutes(app: Express): void {
       enqueueMissedCallFollowups(ctx).catch((err) => {
         console.error("[missed-call-lead] Followup enqueue error:", err?.message);
       });
+
+      captureIntakeEvent({
+        sourceType:    'public_form',
+        eventType:     'missed_call_lead.submitted',
+        correlationId: `missed-call-${lead.id}`,
+        actorType:     'anonymous',
+        entityType:    'missed_call_lead',
+        entityId:      String(lead.id),
+        rawPayload:    req.body,
+        context:       { ipAddress: req.ip, userAgent: req.headers['user-agent'] as string | undefined },
+      }).catch(() => {});
 
       console.log("[missed-call-lead] Saved lead", lead.id, email, trade, estimatedAnnualLoss);
       return res.json({ ok: true, leadId: lead.id });

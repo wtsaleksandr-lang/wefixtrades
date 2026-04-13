@@ -38,7 +38,21 @@ export default function PortalServices() {
     },
   });
 
-  const { data: qqData } = useQuery<{ calculator: { id: number; business_name: string; slug: string; edit_token: string; plan_tier: string; total_views: number; total_leads: number; status: string } | null }>({
+  const { data: qqData } = useQuery<{ calculator: {
+    id: number;
+    business_name: string;
+    trade_type: string | null;
+    slug: string;
+    plan_tier: string;
+    total_views: number;
+    total_leads: number;
+    status: string;
+    calculator_url: string | null;
+    edit_url: string | null;
+    preview_url: string | null;
+    edit_token_expired: boolean;
+    created_at: string | null;
+  } | null }>({
     queryKey: ["/api/portal/quotequick/summary"],
     queryFn: async () => {
       const res = await fetch("/api/portal/quotequick/summary", { credentials: "include" });
@@ -92,6 +106,9 @@ export default function PortalServices() {
                     }`}>
                       {qqData.calculator.status === "live" ? "Live" : "Draft"}
                     </span>
+                    {qqData.calculator.trade_type && (
+                      <span className="text-[10px] text-gray-400 capitalize">{qqData.calculator.trade_type}</span>
+                    )}
                     <span className="text-[10px] text-gray-400 capitalize">{qqData.calculator.plan_tier}</span>
                   </div>
                 </div>
@@ -102,14 +119,29 @@ export default function PortalServices() {
               <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {qqData.calculator.total_views.toLocaleString()} views</span>
               <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {qqData.calculator.total_leads.toLocaleString()} leads</span>
             </div>
-            <a
-              href={`/dashboard?token=${qqData.calculator.edit_token}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs text-[#2D6A4F] font-medium hover:underline"
-            >
-              Open Dashboard <ExternalLink className="w-3 h-3" />
-            </a>
+            <div className="flex items-center gap-3">
+              {qqData.calculator.calculator_url && (
+                <a
+                  href={qqData.calculator.calculator_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-gray-600 font-medium hover:text-gray-900 transition-colors"
+                >
+                  View Live <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+              {qqData.calculator.edit_url && (
+                <a
+                  href={qqData.calculator.edit_url}
+                  className="inline-flex items-center gap-1.5 text-xs text-[#2D6A4F] font-medium hover:underline"
+                >
+                  Edit Calculator <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+              {qqData.calculator.edit_token_expired && (
+                <span className="text-[10px] text-amber-600 font-medium">Edit access expired</span>
+              )}
+            </div>
           </div>
         )}
 

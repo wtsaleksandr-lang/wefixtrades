@@ -1,8 +1,9 @@
-// FROZEN — scheduled for rebuild in Phase 3 (Builder Wizard). Do not add features.
+// QuoteQuick calculator owner dashboard — overview, leads, analytics, settings, bookings.
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { queryClient, apiRequest } from '@/lib/queryClient';
+import { trackEvent } from '@/lib/trackEvent';
 import { platformTheme } from '@/theme/platformTheme';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -190,8 +191,125 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
   const { calculator, status, hosted_url, subdomain, custom_domain, custom_domain_status, stats, plan_tier } = data;
   const currentPlan = plan_tier || calculator?.plan_tier || "free";
 
+  // Trial expiry detection
+  const createdAt = calculator?.created_at ? new Date(calculator.created_at) : null;
+  const daysSinceCreation = createdAt ? Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+  const isTrialExpired = currentPlan === 'free' && daysSinceCreation >= 14 && status !== 'live';
+  const isTrialActive = currentPlan === 'free' && daysSinceCreation < 14;
+  const trialDaysLeft = isTrialActive ? Math.max(0, 14 - daysSinceCreation) : 0;
+
+  // Upgrade success detection
+  const params = new URLSearchParams(window.location.search);
+  const justUpgraded = params.get('upgraded') === '1';
+
+  // Checkout handler
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [billingAnnual, setBillingAnnual] = useState(false);
+  const startCheckout = async (plan: 'solo' | 'business') => {
+    setCheckoutLoading(plan);
+    try {
+      const res = await fetch('/api/calculators/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          calculator_id: calculator.id,
+          token,
+          plan,
+          billing: billingAnnual ? 'annual' : 'monthly',
+        }),
+      });
+      const data = await res.json();
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        setCheckoutLoading(null);
+      }
+    } catch {
+      setCheckoutLoading(null);
+    }
+  };
+
   return (
     <div>
+      {/* Upgrade success banner */}
+      {justUpgraded && (
+        <div data-testid="banner-upgraded" style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px',
+          background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: p.radius.sm,
+          marginBottom: 20,
+        }}>
+          <Check style={{ width: 16, height: 16, color: '#059669' }} />
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 600, color: '#065F46', margin: 0 }}>
+              Your calculator is live!
+            </p>
+            <p style={{ fontSize: 12, color: '#047857', margin: '2px 0 0' }}>
+              Your quote page is active and ready to receive leads.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Trial expired banner */}
+      {isTrialExpired && (
+        <div data-testid="banner-trial-expired" style={{
+          padding: '20px', borderRadius: p.radius.sm,
+          background: '#FEF2F2', border: '1px solid #FECACA',
+          marginBottom: 20,
+        }}>
+          <p style={{ fontSize: 15, fontWeight: 700, color: '#991B1B', margin: '0 0 4px' }}>
+            Your trial has ended and your calculator is paused.
+          </p>
+          <p style={{ fontSize: 13, color: '#B91C1C', margin: '0 0 14px', lineHeight: 1.5 }}>
+            Choose a plan to turn it back on instantly. Your leads and settings are still saved.
+          </p>
+          {/* Billing toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <button onClick={() => setBillingAnnual(false)} style={{
+              padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: 600,
+              background: !billingAnnual ? '#fff' : 'transparent',
+              color: !billingAnnual ? p.colors.heading : '#9B2C2C',
+              boxShadow: !billingAnnual ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            }}>Monthly</button>
+            <button onClick={() => setBillingAnnual(true)} style={{
+              padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: 600,
+              background: billingAnnual ? '#fff' : 'transparent',
+              color: billingAnnual ? p.colors.heading : '#9B2C2C',
+              boxShadow: billingAnnual ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            }}>Annual <span style={{ fontSize: 10, color: '#059669' }}>Save 20%</span></button>
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => startCheckout('solo')}
+              disabled={!!checkoutLoading}
+              style={{
+                padding: '10px 20px', borderRadius: 8, border: `1px solid ${p.colors.border}`,
+                background: '#fff', color: p.colors.heading, cursor: 'pointer',
+                fontSize: 13, fontWeight: 700, opacity: checkoutLoading ? 0.6 : 1,
+              }}
+            >
+              {checkoutLoading === 'solo' ? 'Redirecting...' : `Solo — $${billingAnnual ? 39 : 49}/mo`}
+            </button>
+            <button
+              onClick={() => startCheckout('business')}
+              disabled={!!checkoutLoading}
+              style={{
+                padding: '10px 20px', borderRadius: 8, border: 'none',
+                background: p.colors.accent, color: '#fff', cursor: 'pointer',
+                fontSize: 13, fontWeight: 700, opacity: checkoutLoading ? 0.6 : 1,
+              }}
+            >
+              {checkoutLoading === 'business' ? 'Redirecting...' : `Business — $${billingAnnual ? 79 : 99}/mo`}
+            </button>
+          </div>
+          <p style={{ fontSize: 11, color: '#9B2C2C', margin: '10px 0 0' }}>
+            No data was deleted. Reactivation is instant.
+          </p>
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
@@ -199,14 +317,24 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
             <PlanBadge plan={currentPlan} />
           </div>
           <p style={{ ...p.typography.body, color: p.colors.muted }}>{calculator.trade_type}</p>
-          {currentPlan === 'free' && (
-            <a href="/pricing" style={{
+          {isTrialActive && trialDaysLeft <= 7 && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6,
+              fontSize: 11, fontWeight: 700, color: '#D97706', textDecoration: 'none',
+              background: '#FFFBEB', border: '1px solid #FDE68A', padding: '3px 10px', borderRadius: 20,
+            }}>
+              <Clock size={9} /> {trialDaysLeft} day{trialDaysLeft !== 1 ? 's' : ''} left in trial
+            </span>
+          )}
+          {currentPlan === 'free' && !isTrialExpired && trialDaysLeft > 7 && (
+            <button onClick={() => startCheckout('solo')} style={{
               display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6,
               fontSize: 11, fontWeight: 700, color: '#2D6A4F', textDecoration: 'none',
               background: '#F0F7F4', border: '1px solid #A7F3D0', padding: '3px 10px', borderRadius: 20,
+              cursor: 'pointer',
             }}>
-              <Sparkles size={9} /> Upgrade to unlock all features
-            </a>
+              <Sparkles size={9} /> Upgrade — from $49/mo
+            </button>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -257,6 +385,26 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
           }}>
             {custom_domain_status === 'active' ? 'Active' : custom_domain_status === 'pending_dns' ? 'Pending DNS' : custom_domain_status}
           </span>
+        </div>
+      )}
+
+      {/* Zero-view nudge: calculator is live but no one has seen it */}
+      {status === 'live' && stats.total_views === 0 && (
+        <div data-testid="nudge-zero-views" style={{
+          display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px',
+          background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: p.radius.sm,
+          marginBottom: 24,
+        }}>
+          <Eye style={{ width: 16, height: 16, color: '#D97706', flexShrink: 0, marginTop: 1 }} />
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#92400E', margin: '0 0 4px' }}>
+              Your calculator is live, but no one has seen it yet.
+            </p>
+            <p style={{ fontSize: 12, color: '#A16207', margin: '0 0 8px', lineHeight: 1.5 }}>
+              Copy your link or add it to your website to start getting quote requests.
+            </p>
+            {hosted_url && <CopyButton text={hosted_url} />}
+          </div>
         </div>
       )}
 

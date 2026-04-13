@@ -424,8 +424,11 @@ Return ONLY the JSON pricing config object.`;
       }
 
       const ticket = await storage.createSupportTicket({
+        client_id: 0,
+        subject: description.slice(0, 100),
         description,
         calculator_id: calculator.id,
+        source: "ai_escalation",
         status: "open",
         transcript_json: (transcript || []) as any,
         admin_notified: false,

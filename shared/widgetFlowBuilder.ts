@@ -33,6 +33,8 @@ export interface FlowBuilderSettings {
     expiration_enabled?: boolean;
     valid_days?: number;
   };
+  /** Service type options for the service_type select question */
+  serviceTypes?: Array<{ value: string; label: string }>;
 }
 
 /* ─── Builder ─── */
@@ -44,12 +46,27 @@ export function buildWidgetFlow(
 ): WizardFlow {
   // If the template already has wizard_steps, use them directly.
   // This allows fully custom flows defined at the template level.
+  // Populate any empty service_type select options from calculator settings.
   if (template.wizard_steps && template.wizard_steps.length > 0) {
+    const serviceTypes: Array<{ value: string; label: string }> =
+      (settings as any).serviceTypes ?? [];
+
+    const steps = template.wizard_steps.map((step) => {
+      if (!serviceTypes.length || step.type !== 'question') return step;
+      const questions = step.questions.map((q) => {
+        if (q.id === 'service_type' && q.type === 'select' && (!q.options || q.options.length === 0)) {
+          return { ...q, options: serviceTypes };
+        }
+        return q;
+      });
+      return { ...step, questions };
+    });
+
     return {
       version: 1,
       id: `flow_${template.id}`,
       name: template.name,
-      steps: template.wizard_steps,
+      steps,
       settings: {
         progress_style: template.layout_style === 'multi_step' ? 'bar' : 'hidden',
         allow_back_navigation: true,

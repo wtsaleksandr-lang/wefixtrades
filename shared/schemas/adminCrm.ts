@@ -35,6 +35,11 @@ export const clients = pgTable("clients", {
   contact_email: text("contact_email"),
   contact_phone: text("contact_phone"),
   website_url: text("website_url"),
+  google_place_id: text("google_place_id"),
+  facebook_page_url: text("facebook_page_url"),
+  google_credentials: jsonb("google_credentials"), // OAuth tokens for Google Business API
+  widget_token: varchar("widget_token", { length: 64 }).unique(),
+  last_review_sync_at: timestamp("last_review_sync_at"),
   trade_type: varchar("trade_type", { length: 100 }),
   status: varchar("status", { length: 30 }).notNull().default("lead"),
   // lead | onboarding | active | paused | churned
@@ -43,7 +48,9 @@ export const clients = pgTable("clients", {
   stripe_customer_id: text("stripe_customer_id"),
   automation_enabled: boolean("automation_enabled").notNull().default(true),
   human_override: boolean("human_override").notNull().default(false),
+  demo_mode: boolean("demo_mode").notNull().default(false),
   metadata: jsonb("metadata"),                             // flexible extra data
+  journey_summary: text("journey_summary"),                 // pre-signup website chat summary
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -267,6 +274,32 @@ export const insertInternalNoteSchema = createInsertSchema(internalNotes).omit({
 export type InsertInternalNote = z.infer<typeof insertInternalNoteSchema>;
 export type InternalNote = typeof internalNotes.$inferSelect;
 
+/* ─── Ops Snapshots ─── */
+// Stores the output of each Background AI Ops Engine run.
+// raw_signals: the deterministic detector output (OpsSignal[]) — system truth.
+// ai_output:   the AI summarization of those signals — explanation layer only.
+// Both are stored separately so signals remain reusable by future routing engines.
+export const opsSnapshots = pgTable("ops_snapshots", {
+  id: serial("id").primaryKey(),
+  snapshot_type: varchar("snapshot_type", { length: 50 }).notNull(),
+  // daily_summary | onboarding_scan | task_triage | ticket_triage
+  generated_at: timestamp("generated_at").defaultNow().notNull(),
+  period_start: timestamp("period_start"),
+  period_end: timestamp("period_end"),
+  raw_signals: jsonb("raw_signals").notNull(),     // OpsSignal[] — deterministic, no AI
+  ai_output: jsonb("ai_output"),                   // DailyOpsSummaryOutput — AI explanation only
+  prompt_version: varchar("prompt_version", { length: 30 }),
+  detector_version: varchar("detector_version", { length: 30 }),
+  model_used: varchar("model_used", { length: 80 }),
+  input_tokens: integer("input_tokens"),
+  output_tokens: integer("output_tokens"),
+  estimated_cost_usd: integer("estimated_cost_usd"), // micro-cents (same as aiUsageLogs)
+  signal_count: integer("signal_count").notNull().default(0),
+  metadata: jsonb("metadata"),
+});
+export type OpsSnapshot = typeof opsSnapshots.$inferSelect;
+export type InsertOpsSnapshot = typeof opsSnapshots.$inferInsert;
+
 /* ─── Admin Activity Log ─── */
 export const adminActivityLog = pgTable("admin_activity_log", {
   id: serial("id").primaryKey(),
@@ -286,3 +319,383 @@ export const adminActivityLog = pgTable("admin_activity_log", {
 export const insertAdminActivityLogSchema = createInsertSchema(adminActivityLog).omit({ id: true, created_at: true });
 export type InsertAdminActivityLog = z.infer<typeof insertAdminActivityLogSchema>;
 export type AdminActivityLog = typeof adminActivityLog.$inferSelect;
+
+/* ─── Monitored Reviews ─── */
+export const monitoredReviews = pgTable("monitored_reviews", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").references(() => clients.id),
+  google_place_id: text("google_place_id").notNull(),
+
+  // Platform: "google" (extensible to yelp, facebook, etc.)
+  platform: varchar("platform", { length: 30 }).notNull().default("google"),
+
+  // Dedup key: "placeId:externalId" or "placeId:reviewer:rating:date"
+  dedup_key: varchar("dedup_key", { length: 512 }).notNull().unique(),
+
+  // External identifiers
+  external_review_id: text("external_review_id"),
+  google_review_name: text("google_review_name"), // Google API resource name for reply posting
+
+  // Review content
+  reviewer_name: text("reviewer_name").notNull(),
+  rating: integer("rating").notNull(),
+  review_text: text("review_text"),
+  published_at: timestamp("published_at"),
+
+  // Owner response
+  response_text: text("response_text"),
+  response_date: timestamp("response_date"),
+
+  // Tracking
+  raw_payload: jsonb("raw_payload"),
+  first_seen_at: timestamp("first_seen_at").defaultNow(),
+  last_synced_at: timestamp("last_synced_at").defaultNow(),
+
+  // Change detection flags
+  is_new: boolean("is_new").notNull().default(true),           // true until admin acknowledges
+  response_added: boolean("response_added").notNull().default(false), // set when response_text first appears
+
+  // AI draft response
+  draft_response: text("draft_response"),
+  draft_generated_at: timestamp("draft_generated_at"),
+  draft_model: varchar("draft_model", { length: 60 }),
+
+  // Response posting tracking
+  posted_via: varchar("posted_via", { length: 30 }), // "reputationshield" | "manual" | null
+  posted_at: timestamp("posted_at"),
+
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+export const insertMonitoredReviewSchema = createInsertSchema(monitoredReviews).omit({
+  id: true, created_at: true, updated_at: true, first_seen_at: true, last_synced_at: true,
+});
+export type InsertMonitoredReview = z.infer<typeof insertMonitoredReviewSchema>;
+export type MonitoredReview = typeof monitoredReviews.$inferSelect;
+
+/* ─── TradeLine Config (stored in client_services.metadata) ─── */
+export const tradelineConfigSchema = z.object({
+  variant: z.enum(["call_backup", "chat", "complete"]).default("call_backup"),
+  currentMode: z.enum(["available", "on_the_job", "after_hours"]).default("available"),
+  setupStage: z.enum([
+    "not_started",
+    "onboarding",
+    "configuring",
+    "awaiting_website_access",
+    "awaiting_client_action",
+    "ready_for_testing",
+    "live",
+  ]).default("not_started"),
+  channels: z.object({
+    voice: z.boolean().default(true),
+    websiteChat: z.boolean().default(false),
+    websiteVoice: z.boolean().default(false),
+    sms: z.boolean().default(true),
+    hostedFallback: z.boolean().default(false),
+  }).default({}),
+  businessHours: z.object({
+    timezone: z.string().default("America/Toronto"),
+    schedule: z.record(z.any()).default({}),
+  }).default({}),
+  phoneRouting: z.object({
+    primaryBusinessNumber: z.string().default(""),
+    forwardingMode: z.enum(["no_answer", "immediate", "after_hours_only"]).default("no_answer"),
+    ringTimeoutSeconds: z.number().default(20),
+  }).default({}),
+  notifications: z.object({
+    sms: z.array(z.string()).default([]),
+    email: z.array(z.string()).default([]),
+  }).default({}),
+  website: z.object({
+    embedMode: z.enum(["none", "direct_embed", "hosted_fallback"]).default("none"),
+    domainStatus: z.enum(["not_needed", "pending", "connected", "live"]).default("not_needed"),
+    hostedUrl: z.string().default(""),
+    accessAvailable: z.boolean().nullable().default(null),
+  }).default({}),
+  booking: z.object({
+    enabled: z.boolean().default(true),
+    mode: z.enum(["request_only", "book_if_available"]).default("request_only"),
+  }).default({}),
+  assistant: z.object({
+    status: z.enum(["not_built", "building", "built", "failed"]).default("not_built"),
+    templateId: z.string().default(""),
+    inputHash: z.string().default(""),
+    vapiAssistantId: z.string().default(""),
+    lastBuiltAt: z.string().default(""),
+    lastBuildError: z.string().default(""),
+    manualOverride: z.boolean().default(false),
+  }).default({}),
+  voice: z.object({
+    presetId: z.string().default("professional-female"),
+    label: z.string().default("Professional Female"),
+    provider: z.string().default("11labs"),
+    voiceId: z.string().default("21m00Tcm4TlvDq8ikWAM"),
+    language: z.string().default("en"),
+  }).default({}),
+  personality: z.object({
+    tone: z.enum(["friendly", "professional", "direct"]).default("friendly"),
+    humor: z.enum(["off", "light"]).default("off"),
+    profanity: z.boolean().default(false),
+    language: z.enum(["en", "es", "fr"]).default("en"),
+  }).default({}),
+  widgetStyle: z.object({
+    preset: z.enum(["clean", "bold", "minimal"]).default("clean"),
+    bubbleLabel: z.string().default("Need help? Ask us"),
+    accentMode: z.enum(["default", "brand"]).default("default"),
+  }).default({}),
+}).default({});
+export type TradelineConfig = z.infer<typeof tradelineConfigSchema>;
+
+/**
+ * Returns default TradeLine config for a given service_id variant.
+ * Returns null if the service_id is not a TradeLine variant.
+ */
+export function getTradeLineDefaultConfig(serviceId: string): TradelineConfig | null {
+  switch (serviceId) {
+    case "tradeline-call-backup":
+      return tradelineConfigSchema.parse({
+        variant: "call_backup",
+        currentMode: "available",
+        channels: { voice: true, websiteChat: false, websiteVoice: false, sms: true, hostedFallback: false },
+        website: { embedMode: "none" },
+      });
+    case "tradeline-chat":
+      return tradelineConfigSchema.parse({
+        variant: "chat",
+        currentMode: "available",
+        channels: { voice: false, websiteChat: true, websiteVoice: true, sms: false, hostedFallback: false },
+        website: { embedMode: "direct_embed" },
+      });
+    case "tradeline-complete":
+      return tradelineConfigSchema.parse({
+        variant: "complete",
+        currentMode: "available",
+        channels: { voice: true, websiteChat: true, websiteVoice: true, sms: true, hostedFallback: false },
+        website: { embedMode: "direct_embed" },
+      });
+    default:
+      // Legacy "tradeline" or tier-based IDs (tradeline-starter, tradeline-pro, etc.)
+      if (serviceId === "tradeline" || serviceId.startsWith("tradeline-")) {
+        return tradelineConfigSchema.parse({
+          variant: "complete",
+          currentMode: "available",
+        });
+      }
+      return null;
+  }
+}
+
+/**
+ * Check whether a TradeLine config is ready for go-live.
+ * Pure logic — no DB calls.
+ */
+export function getTradeLineReadiness(config: TradelineConfig): { ready: boolean; issues: string[] } {
+  const issues: string[] = [];
+  const needsVoice = config.variant === "call_backup" || config.variant === "complete";
+  const needsWebsite = config.variant === "chat" || config.variant === "complete";
+
+  // Stage check
+  if (config.setupStage !== "ready_for_testing" && config.setupStage !== "live") {
+    issues.push(`Setup stage is "${config.setupStage}" — must be "ready_for_testing" or "live"`);
+  }
+
+  // Voice checks
+  if (needsVoice && !config.phoneRouting.primaryBusinessNumber) {
+    issues.push("Primary business phone number is required");
+  }
+
+  // Website checks
+  if (needsWebsite) {
+    if (config.website.embedMode === "none") {
+      issues.push("Website embed mode not set — choose direct embed or hosted fallback");
+    } else if (config.website.embedMode === "hosted_fallback") {
+      if (!config.website.hostedUrl) {
+        issues.push("Hosted fallback URL is required");
+      }
+      if (config.website.domainStatus !== "connected" && config.website.domainStatus !== "live") {
+        issues.push(`Hosted domain status is "${config.website.domainStatus}" — must be "connected" or "live"`);
+      }
+    }
+    // direct_embed: no extra check — admin confirms install via fulfillment task
+  }
+
+  // Assistant check
+  if (config.assistant.status !== "built") {
+    issues.push(`Assistant is "${config.assistant.status}" — must be "built"`);
+  }
+
+  return { ready: issues.length === 0, issues };
+}
+
+/**
+ * Extract TradeLine config updates from onboarding form responses.
+ * Returns a partial TradelineConfig that can be deep-merged into the existing config.
+ * Only maps fields that directly reduce manual setup work.
+ */
+export function mapOnboardingToTradeLineConfig(
+  responses: Record<string, any>,
+  variant: "call_backup" | "chat" | "complete",
+): Partial<TradelineConfig> {
+  const config: Record<string, any> = {};
+
+  // Phone routing (call_backup + complete)
+  if (variant === "call_backup" || variant === "complete") {
+    const phoneRouting: Record<string, any> = {};
+    if (responses.primary_phone) phoneRouting.primaryBusinessNumber = responses.primary_phone;
+    if (responses.forwarding_preference) {
+      const fwdMap: Record<string, string> = {
+        "no-answer": "no_answer", "no_answer": "no_answer",
+        "immediate": "immediate",
+        "after-hours only": "after_hours_only", "after_hours_only": "after_hours_only", "after-hours-only": "after_hours_only",
+      };
+      const mapped = fwdMap[responses.forwarding_preference.toLowerCase()];
+      if (mapped) phoneRouting.forwardingMode = mapped;
+    }
+    if (responses.ring_timeout) {
+      const timeout = parseInt(responses.ring_timeout);
+      if (!isNaN(timeout) && timeout > 0) phoneRouting.ringTimeoutSeconds = timeout;
+    }
+    if (Object.keys(phoneRouting).length) config.phoneRouting = phoneRouting;
+  }
+
+  // Website (chat + complete)
+  if (variant === "chat" || variant === "complete") {
+    const website: Record<string, any> = {};
+    if (responses.website_access != null) {
+      const raw = String(responses.website_access).toLowerCase();
+      website.accessAvailable = raw === "yes" || raw === "true";
+    }
+    if (responses.install_mode) {
+      const modeRaw = String(responses.install_mode).toLowerCase().replace(/\s+/g, "_");
+      if (modeRaw.includes("direct") || modeRaw.includes("embed")) {
+        website.embedMode = "direct_embed";
+      } else if (modeRaw.includes("hosted") || modeRaw.includes("fallback")) {
+        website.embedMode = "hosted_fallback";
+      }
+    }
+    if (Object.keys(website).length) config.website = website;
+  }
+
+  // Booking
+  if (responses.booking_enabled != null) {
+    const raw = String(responses.booking_enabled).toLowerCase();
+    config.booking = { enabled: raw === "yes" || raw === "true" || raw === "on" };
+  }
+
+  // Advance setupStage to "configuring" since onboarding is done
+  config.setupStage = "configuring";
+
+  return config as Partial<TradelineConfig>;
+}
+
+/**
+ * Stage ordering for safe auto-advancement.
+ * Only advances forward — never regresses.
+ */
+const STAGE_ORDER: TradelineConfig["setupStage"][] = [
+  "not_started",
+  "onboarding",
+  "configuring",
+  "awaiting_website_access",
+  "awaiting_client_action",
+  "ready_for_testing",
+  "live",
+];
+
+/**
+ * Advance setupStage forward only — never regresses.
+ * Returns the new stage, or the current stage if target is behind.
+ */
+export function advanceSetupStage(
+  current: TradelineConfig["setupStage"],
+  target: TradelineConfig["setupStage"],
+): TradelineConfig["setupStage"] {
+  const currentIdx = STAGE_ORDER.indexOf(current);
+  const targetIdx = STAGE_ORDER.indexOf(target);
+  return targetIdx > currentIdx ? target : current;
+}
+
+/**
+ * Compute the appropriate setupStage based on current config state.
+ * Does not regress — only advances from the current stage.
+ */
+export function computeSetupStage(config: TradelineConfig): TradelineConfig["setupStage"] {
+  let stage = config.setupStage;
+  const needsWebsite = config.variant === "chat" || config.variant === "complete";
+
+  // If we have an assistant built and config looks complete, suggest ready_for_testing
+  if (config.assistant.status === "built") {
+    const readiness = getTradeLineReadiness({
+      ...config,
+      // Temporarily override stage to avoid circular check
+      setupStage: "ready_for_testing",
+    });
+    // Filter out assistant check since we just confirmed it's built
+    const realIssues = readiness.issues.filter(i => !i.includes("Assistant is"));
+    if (realIssues.length === 0) {
+      stage = advanceSetupStage(stage, "ready_for_testing");
+    }
+  }
+
+  // If website access is needed but not yet determined
+  if (needsWebsite && config.website.accessAvailable === null && config.website.embedMode === "direct_embed") {
+    stage = advanceSetupStage(stage, "awaiting_website_access");
+  }
+
+  return stage;
+}
+
+/* ─── TradeLine Usage ─── */
+export const tradelineUsage = pgTable("tradeline_usage", {
+  id: serial("id").primaryKey(),
+  client_service_id: integer("client_service_id").notNull().references(() => clientServices.id),
+  period_start: timestamp("period_start").notNull(),
+  period_end: timestamp("period_end").notNull(),
+  voice_minutes_used: integer("voice_minutes_used").notNull().default(0),
+  sms_count: integer("sms_count").notNull().default(0),
+  calls_count: integer("calls_count").notNull().default(0),
+  included_minutes: integer("included_minutes").notNull().default(200),
+  overage_minutes: integer("overage_minutes").notNull().default(0),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+export const insertTradelineUsageSchema = createInsertSchema(tradelineUsage).omit({ id: true, created_at: true, updated_at: true });
+export type InsertTradelineUsage = z.infer<typeof insertTradelineUsageSchema>;
+export type TradelineUsage = typeof tradelineUsage.$inferSelect;
+
+/* ─── TradeLine Call Log ─── */
+export const tradelineCallLog = pgTable("tradeline_call_log", {
+  id: serial("id").primaryKey(),
+  client_service_id: integer("client_service_id").notNull().references(() => clientServices.id),
+  vapi_call_id: varchar("vapi_call_id", { length: 100 }).unique(),
+  direction: varchar("direction", { length: 20 }).notNull().default("inbound"),
+  // inbound | outbound
+  caller_number: varchar("caller_number", { length: 30 }),
+  duration_seconds: integer("duration_seconds").default(0),
+  outcome: varchar("outcome", { length: 30 }).notNull().default("answered"),
+  // answered | missed | voicemail | failed | transferred
+  started_at: timestamp("started_at"),
+  ended_at: timestamp("ended_at"),
+  summary: text("summary"),
+  transcript_json: jsonb("transcript_json"),
+  recording_url: text("recording_url"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export const insertTradelineCallLogSchema = createInsertSchema(tradelineCallLog).omit({ id: true, created_at: true });
+export type InsertTradelineCallLog = z.infer<typeof insertTradelineCallLogSchema>;
+export type TradelineCallLog = typeof tradelineCallLog.$inferSelect;
+
+/* ─── TradeLine Mode Log ─── */
+export const tradelineModeLog = pgTable("tradeline_mode_log", {
+  id: serial("id").primaryKey(),
+  client_service_id: integer("client_service_id").notNull().references(() => clientServices.id),
+  old_mode: varchar("old_mode", { length: 30 }).notNull(),
+  new_mode: varchar("new_mode", { length: 30 }).notNull(),
+  // available | on_the_job | after_hours
+  changed_by: varchar("changed_by", { length: 30 }).notNull().default("client"),
+  // client | admin | schedule | system
+  created_at: timestamp("created_at").defaultNow(),
+});
+export const insertTradelineModeLogSchema = createInsertSchema(tradelineModeLog).omit({ id: true, created_at: true });
+export type InsertTradelineModeLog = z.infer<typeof insertTradelineModeLogSchema>;
+export type TradelineModeLog = typeof tradelineModeLog.$inferSelect;

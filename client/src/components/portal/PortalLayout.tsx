@@ -3,14 +3,19 @@ import {
   LayoutDashboard,
   Wrench,
   CreditCard,
+  ShieldCheck,
+  Share2,
   Settings,
   HelpCircle,
+  Shield,
   ChevronLeft,
   Menu,
   LogOut,
+  TrendingUp,
+  Star,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,10 +25,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import PortalChatWidget, { type PortalChatContext } from "./PortalChatWidget";
+
+const PortalChatWidget = lazy(() => import("./PortalChatWidget"));
+import { OnboardingProvider } from "@/context/OnboardingContext";
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/portal", icon: LayoutDashboard },
   { label: "Services", href: "/portal/services", icon: Wrench },
+  { label: "Reviews", href: "/portal/reviews", icon: Star },
+  { label: "Social Media", href: "/portal/socialsync", icon: Share2 },
+  { label: "Reputation", href: "/portal/reputation", icon: ShieldCheck },
+  { label: "SEO", href: "/portal/rankflow", icon: TrendingUp },
   { label: "Billing", href: "/portal/billing", icon: CreditCard },
   { label: "Help", href: "/portal/help", icon: HelpCircle },
   { label: "Settings", href: "/portal/settings", icon: Settings },
@@ -34,7 +47,14 @@ function isActive(location: string, href: string): boolean {
   return location.startsWith(href);
 }
 
-export default function PortalLayout({ children }: { children: React.ReactNode }) {
+export default function PortalLayout({
+  children,
+  chatContext,
+}: {
+  children: React.ReactNode;
+  /** Optional page-specific context for the global assistant (e.g. onboarding form fields) */
+  chatContext?: PortalChatContext;
+}) {
   const [location, navigate] = useLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -54,6 +74,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const initials = (user?.name || user?.email || "C").charAt(0).toUpperCase();
 
   return (
+    <OnboardingProvider>
     <div className="flex h-screen bg-[#F6F7F9] overflow-hidden">
       {/* Mobile overlay */}
       {mobileOpen && (
@@ -173,6 +194,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           {children}
         </main>
       </div>
+
+      {/* Global portal assistant — single entry point for all portal pages */}
+      <PortalChatWidget chatContext={chatContext} />
     </div>
+    </OnboardingProvider>
   );
 }
