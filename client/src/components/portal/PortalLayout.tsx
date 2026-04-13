@@ -15,7 +15,7 @@ import {
   Star,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useState, lazy, Suspense } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,8 +26,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import PortalChatWidget, { type PortalChatContext } from "./PortalChatWidget";
-
-const PortalChatWidget = lazy(() => import("./PortalChatWidget"));
 import { OnboardingProvider } from "@/context/OnboardingContext";
 
 const NAV_ITEMS = [
