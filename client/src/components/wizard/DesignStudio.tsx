@@ -561,40 +561,99 @@ function AppearanceTab({ settings, onChange }: {
       )}
 
       <SectionHeader title="Button Style" />
-      <ChipGroup
-        options={[
-          { value: 'soft-rounded', label: 'Soft Rounded' },
-          { value: 'sharp', label: 'Sharp' },
-          { value: 'pill', label: 'Pill' },
-        ]}
-        value={settings.button_style}
-        onChange={v => onChange('button_style', v)}
-        testIdPrefix="btn-style"
-      />
+      <p style={{ fontSize: 11, color: p.colors.muted, margin: '-4px 0 8px', lineHeight: 1.4 }}>How your action buttons appear to customers</p>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {([
+          { value: 'soft-rounded', label: 'Soft', radius: '8px' },
+          { value: 'sharp', label: 'Sharp', radius: '2px' },
+          { value: 'pill', label: 'Pill', radius: '999px' },
+        ] as const).map(opt => {
+          const active = settings.button_style === opt.value;
+          return (
+            <button key={opt.value} data-testid={`btn-style-${opt.value}`}
+              onClick={() => onChange('button_style', opt.value)}
+              style={{
+                flex: 1, padding: '12px 8px', borderRadius: 12, cursor: 'pointer',
+                border: active ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
+                background: active ? p.colors.accentLighter : '#fff',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                transition: 'all 0.15s ease',
+              }}>
+              <div style={{
+                padding: '6px 20px', fontSize: 12, fontWeight: 600, color: '#fff',
+                background: settings.accent_color || p.colors.accent,
+                borderRadius: opt.radius,
+              }}>
+                Get Quote
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 500, color: active ? p.colors.accentDark : p.colors.muted }}>{opt.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
       <SectionHeader title="Border Radius" />
-      <ChipGroup
-        options={[
-          { value: 'compact', label: 'Compact' },
-          { value: 'medium', label: 'Medium' },
-          { value: 'large', label: 'Large' },
-        ]}
-        value={settings.border_radius}
-        onChange={v => onChange('border_radius', v)}
-        testIdPrefix="radius"
-      />
+      <p style={{ fontSize: 11, color: p.colors.muted, margin: '-4px 0 8px', lineHeight: 1.4 }}>How soft or sharp UI corners look</p>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {([
+          { value: 'compact', label: 'Compact', radius: '4px' },
+          { value: 'medium', label: 'Medium', radius: '12px' },
+          { value: 'large', label: 'Large', radius: '20px' },
+        ] as const).map(opt => {
+          const active = settings.border_radius === opt.value;
+          return (
+            <button key={opt.value} data-testid={`radius-${opt.value}`}
+              onClick={() => onChange('border_radius', opt.value)}
+              style={{
+                flex: 1, padding: '12px 8px', borderRadius: 12, cursor: 'pointer',
+                border: active ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
+                background: active ? p.colors.accentLighter : '#fff',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                transition: 'all 0.15s ease',
+              }}>
+              <div style={{
+                width: 48, height: 32, borderRadius: opt.radius,
+                border: `2px solid ${active ? p.colors.accent : '#d1d5db'}`,
+                background: active ? 'rgba(45,106,79,0.06)' : '#f9fafb',
+              }} />
+              <span style={{ fontSize: 11, fontWeight: 500, color: active ? p.colors.accentDark : p.colors.muted }}>{opt.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
       <SectionHeader title="Surface Style" />
-      <ChipGroup
-        options={[
-          { value: 'solid', label: 'Solid' },
-          { value: 'glassmorphic', label: 'Glassmorphic' },
-          { value: 'elevated', label: 'Elevated' },
-        ]}
-        value={settings.surface_style}
-        onChange={v => onChange('surface_style', v)}
-        testIdPrefix="surface"
-      />
+      <p style={{ fontSize: 11, color: p.colors.muted, margin: '-4px 0 8px', lineHeight: 1.4 }}>Controls depth and layering of your quote card</p>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {([
+          { value: 'solid', label: 'Solid', bg: '#fff', shadow: 'none', border: '1px solid #e5e7eb' },
+          { value: 'glassmorphic', label: 'Glass', bg: 'rgba(255,255,255,0.7)', shadow: 'none', border: '1px solid rgba(255,255,255,0.5)', extra: 'backdropFilter:blur(8px)' },
+          { value: 'elevated', label: 'Elevated', bg: '#fff', shadow: '0 4px 16px rgba(0,0,0,0.1)', border: '1px solid #f3f4f6' },
+        ] as const).map(opt => {
+          const active = settings.surface_style === opt.value;
+          return (
+            <button key={opt.value} data-testid={`surface-${opt.value}`}
+              onClick={() => onChange('surface_style', opt.value)}
+              style={{
+                flex: 1, padding: '12px 8px', borderRadius: 12, cursor: 'pointer',
+                border: active ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
+                background: active ? p.colors.accentLighter : '#fafbfc',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                transition: 'all 0.15s ease',
+              }}>
+              <div style={{
+                width: 56, height: 36, borderRadius: 8,
+                background: opt.bg, boxShadow: opt.shadow, border: opt.border,
+                ...(opt.value === 'glassmorphic' ? { backdropFilter: 'blur(8px)' } : {}),
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <div style={{ width: 28, height: 4, borderRadius: 2, background: '#d1d5db' }} />
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 500, color: active ? p.colors.accentDark : p.colors.muted }}>{opt.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
       <SectionHeader title="Font" />
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>

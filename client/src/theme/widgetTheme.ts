@@ -17,9 +17,33 @@ export interface WidgetThemeConfig {
 
 const wc = colors.widget;
 
+/* Font mapping from appearance enum to CSS font-family */
+const FONT_MAP: Record<string, string> = {
+  inter: 'Inter, system-ui, sans-serif',
+  georgia: 'Georgia, serif',
+  montserrat: 'Montserrat, sans-serif',
+  merriweather: 'Merriweather, serif',
+  'roboto-mono': '"Roboto Mono", monospace',
+};
+
+/* Radius scale mapping from appearance enum */
+const RADIUS_SCALE: Record<string, { sm: string; md: string; lg: string; xl: string }> = {
+  compact: { sm: '4px', md: '6px', lg: '8px', xl: '10px' },
+  medium: { sm: radius.sm, md: radius.md, lg: radius.lg, xl: radius.xl },
+  large: { sm: '10px', md: '16px', lg: '20px', xl: '24px' },
+};
+
+/* Button border-radius from appearance enum */
+const BUTTON_RADIUS_MAP: Record<string, string> = {
+  'soft-rounded': '8px',
+  sharp: '2px',
+  pill: '999px',
+};
+
 export function getWidgetTheme(overrides?: WidgetThemeConfig, primaryColor?: string) {
   const accent = primaryColor || overrides?.accent || wc.defaultAccent;
   const rgb = hexToRgb(accent);
+  const radiusScale = RADIUS_SCALE[overrides?.radius || 'medium'] || RADIUS_SCALE.medium;
 
   return {
     colors: {
@@ -48,22 +72,20 @@ export function getWidgetTheme(overrides?: WidgetThemeConfig, primaryColor?: str
       danger: colors.status.danger,
     },
     shadows: {
-      card: '0 4px 20px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04)',
+      card: overrides?.surfaceVariant === 'elevated'
+        ? '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)'
+        : '0 4px 20px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04)',
       button: `0 2px 8px rgba(${rgb},0.25)`,
       buttonHover: `0 4px 16px rgba(${rgb},0.35)`,
       focus: `0 0 0 3px rgba(${rgb},0.2)`,
       selected: `0 0 0 3px rgba(${rgb},0.15)`,
     },
-    radius: {
-      sm: radius.sm,
-      md: radius.md,
-      lg: radius.lg,
-      xl: radius.xl,
-    },
+    radius: radiusScale,
     typography: {
-      fontFamily: overrides?.font || 'Inter, system-ui, sans-serif',
+      fontFamily: FONT_MAP[overrides?.font || ''] || overrides?.font || 'Inter, system-ui, sans-serif',
     },
-    buttonStyle: overrides?.buttonStyle || 'rounded',
+    buttonStyle: overrides?.buttonStyle || 'soft-rounded',
+    buttonRadius: BUTTON_RADIUS_MAP[overrides?.buttonStyle || 'soft-rounded'] || '8px',
     surfaceVariant: overrides?.surfaceVariant || 'solid',
     logoUrl: overrides?.logoUrl || '',
   };

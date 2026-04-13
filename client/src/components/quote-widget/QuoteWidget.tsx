@@ -107,10 +107,20 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
     return { calculator, pricingConfig, template, flow, isEmbed };
   }, [calculator, isEmbed]);
 
-  const theme = useMemo(
-    () => getWidgetTheme(calculator.theme_overrides as any, calculator.primary_color),
-    [calculator.theme_overrides, calculator.primary_color],
-  );
+  const theme = useMemo(() => {
+    const calcSettings = (calculator.calculator_settings || {}) as Record<string, any>;
+    const appearance = calcSettings.appearance || {};
+    // Merge appearance settings into theme config
+    const themeConfig = {
+      ...(calculator.theme_overrides as any || {}),
+      accent: appearance.accent_color || undefined,
+      font: appearance.font || undefined,
+      buttonStyle: appearance.button_style || undefined,
+      surfaceVariant: appearance.surface_style || undefined,
+      radius: appearance.border_radius || undefined,
+    };
+    return getWidgetTheme(themeConfig, calculator.primary_color);
+  }, [calculator.theme_overrides, calculator.primary_color, calculator.calculator_settings]);
 
   const demoTracked = useRef(false);
   useEffect(() => {
