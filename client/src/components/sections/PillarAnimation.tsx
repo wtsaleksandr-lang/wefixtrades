@@ -42,11 +42,11 @@ const PILLARS: Pillar[] = [
   },
   {
     id: "quickquote",
-    name: "QuickQuote",
+    name: "QuoteQuick",
     accent: "#fee09f",
     TabIcon: Calculator,
     ContentIcon: Zap,
-    title: "QuickQuote Pro™",
+    title: "QuoteQuick Pro™",
     pitch:
       "Customers get an instant price the moment they reach out. The lead lands on your phone automatically — with a follow-up sent if they don't respond.",
   },

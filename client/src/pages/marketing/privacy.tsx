@@ -17,7 +17,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function PrivacyPage() {
   useEffect(() => {
-    document.title = "Privacy Policy — QuickQuotePro";
+    document.title = "Privacy Policy — QuoteQuick Pro";
   }, []);
 
   return (
@@ -46,7 +46,7 @@ export default function PrivacyPage() {
               border: `1px solid ${mkt.border}`,
             }}>
               <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.8, marginBottom: 36 }}>
-                QuickQuotePro ("we", "our", or "us"), operated by WeFixTrades, is committed to protecting your privacy. This Privacy Policy explains how we collect, use, share, and protect information about you when you use our services.
+                QuoteQuick Pro ("we", "our", or "us"), operated by WeFixTrades, is committed to protecting your privacy. This Privacy Policy explains how we collect, use, share, and protect information about you when you use our services.
               </p>
 
               <Section title="1. Data We Collect">
@@ -64,7 +64,7 @@ export default function PrivacyPage() {
               <Section title="2. How We Use Your Data">
                 <p>We use collected information to:</p>
                 <ul style={{ paddingLeft: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <li>Provide, maintain, and improve the QuickQuotePro platform and services.</li>
+                  <li>Provide, maintain, and improve the QuoteQuick Pro platform and services.</li>
                   <li>Process payments and manage your subscription.</li>
                   <li>Send service-related notifications, updates, and support communications.</li>
                   <li>Power AI features including chat, SMS responses, and pricing estimations.</li>
@@ -134,7 +134,7 @@ export default function PrivacyPage() {
 
               <Section title="9. Children's Privacy">
                 <p>
-                  QuickQuotePro is not intended for use by children under 16. We do not knowingly collect personal information from children under 16. If you believe a child has provided us with personal information, please contact us immediately.
+                  QuoteQuick Pro is not intended for use by children under 16. We do not knowingly collect personal information from children under 16. If you believe a child has provided us with personal information, please contact us immediately.
                 </p>
               </Section>
 

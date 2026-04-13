@@ -76,7 +76,7 @@ export default function DocsPage() {
   useScrollReveal();
   const [search, setSearch] = useState("");
 
-  useEffect(() => { document.title = "Docs — QuickQuotePro"; }, []);
+  useEffect(() => { document.title = "Docs — QuoteQuick Pro"; }, []);
 
   const filtered = GUIDES.filter((g) =>
     search === "" ||

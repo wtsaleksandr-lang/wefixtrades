@@ -3,7 +3,7 @@ import DocsLayout, { InfoBox, DocH2, DocH3, Checklist, Accordion } from "@/compo
 import { mkt } from "@/theme/tokens";
 
 export default function DocsTroubleshooting() {
-  useEffect(() => { document.title = "Troubleshooting — QuickQuotePro Docs"; }, []);
+  useEffect(() => { document.title = "Troubleshooting — QuoteQuick Pro Docs"; }, []);
 
   return (
     <DocsLayout

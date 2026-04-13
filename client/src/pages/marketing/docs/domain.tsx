@@ -3,7 +3,7 @@ import DocsLayout, { Step, CodeBlock, Accordion, InfoBox, DocH2, DocH3, Checklis
 import { mkt } from "@/theme/tokens";
 
 export default function DocsDomain() {
-  useEffect(() => { document.title = "Custom Domain — QuickQuotePro Docs"; }, []);
+  useEffect(() => { document.title = "Custom Domain — QuoteQuick Pro Docs"; }, []);
 
   return (
     <DocsLayout
@@ -24,7 +24,7 @@ export default function DocsDomain() {
       <Checklist items={[
         "Free on all plans — available immediately",
         "Share it anywhere: Google Business, email signature, social media",
-        "Your customers see the QuickQuotePro domain in the URL",
+        "Your customers see the QuoteQuick Pro domain in the URL",
       ]} />
 
       <DocH2>Custom Subdomain (Recommended)</DocH2>
@@ -33,7 +33,7 @@ export default function DocsDomain() {
       </p>
       <CodeBlock lang="text" code={`https://quotes.yourbusiness.com`} />
       <Checklist items={[
-        "Fully branded — no mention of QuickQuotePro in the URL",
+        "Fully branded — no mention of QuoteQuick Pro in the URL",
         "SSL certificate issued and renewed automatically",
         "Takes 10–30 minutes to set up once DNS is configured",
         "Requires one CNAME record added to your domain's DNS",

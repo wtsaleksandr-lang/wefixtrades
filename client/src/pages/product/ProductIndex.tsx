@@ -8,7 +8,7 @@ import { mkt, colors, shadows } from "@/theme/tokens";
 const PRIMARY_PRODUCTS = [
   {
     slug: "quickquote",
-    name: "QuickQuotePro",
+    name: "QuoteQuick Pro",
     tagline: "Instant quotes + booking on your website",
     outcomes: [
       "Visitors get real estimates in seconds — no phone tag",

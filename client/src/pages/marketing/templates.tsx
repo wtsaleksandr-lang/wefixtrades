@@ -38,7 +38,7 @@ export default function TemplatesPage() {
   useScrollReveal();
   const [activeFilter, setActiveFilter] = useState("All");
 
-  useEffect(() => { document.title = "Calculator Templates — QuickQuotePro"; }, []);
+  useEffect(() => { document.title = "Calculator Templates — QuoteQuick Pro"; }, []);
 
   const filtered = activeFilter === "All" ? TEMPLATES : TEMPLATES.filter((t) => t.tag === activeFilter);
 

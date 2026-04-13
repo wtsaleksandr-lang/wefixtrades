@@ -9,7 +9,7 @@ import {
 
 export default function BundlesPage() {
   useEffect(() => {
-    document.title = "Bundles — QuickQuotePro + WeFixTrades";
+    document.title = "Bundles — QuoteQuick Pro + WeFixTrades";
   }, []);
 
   const [openFaq, setOpenFaq] = useState<number | null>(null);

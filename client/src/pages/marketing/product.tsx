@@ -343,7 +343,7 @@ const DEEP_SECTIONS: DeepSection[] = [
       "6 templates: single-page, two-column, multi-step, packages, range+gate, estimate+book",
       "Trade auto-selection — AI recommends the best template for you",
       "Slider inputs replace steppers for a premium feel",
-      "White-label: custom domain, your branding, no QuickQuotePro logo",
+      "White-label: custom domain, your branding, no QuoteQuick Pro logo",
     ],
     cta: "Browse Templates",
     ctaHref: "/templates",
@@ -359,7 +359,7 @@ export default function ProductPage() {
   useScrollReveal();
 
   useEffect(() => {
-    document.title = "Product — QuickQuotePro | Everything Trades Need to Convert Leads";
+    document.title = "Product — QuoteQuick Pro | Everything Trades Need to Convert Leads";
   }, []);
 
   return (
@@ -427,7 +427,7 @@ export default function ProductPage() {
                 marginBottom: 40,
                 maxWidth: 500,
               }}>
-                QuickQuotePro combines instant estimates, booking, AI employees, and automation into one conversion engine built specifically for trades.
+                QuoteQuick Pro combines instant estimates, booking, AI employees, and automation into one conversion engine built specifically for trades.
               </p>
 
               <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>

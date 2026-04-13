@@ -37,7 +37,7 @@ const SERVICES: ServiceCard[] = [
   },
   {
     id: "quickquote",
-    title: "QuickQuote",
+    title: "QuoteQuick",
     tagline: "Instant Estimates",
     description:
       "Give customers instant estimates right on your website. Our smart calculator turns browsers into booked jobs — no phone tag, no delays, no missed revenue.",

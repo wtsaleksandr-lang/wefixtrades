@@ -17,7 +17,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function TermsPage() {
   useEffect(() => {
-    document.title = "Terms of Service — QuickQuotePro";
+    document.title = "Terms of Service — QuoteQuick Pro";
   }, []);
 
   return (
@@ -46,12 +46,12 @@ export default function TermsPage() {
               border: `1px solid ${mkt.border}`,
             }}>
               <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.8, marginBottom: 36 }}>
-                These Terms of Service ("Terms") govern your access to and use of QuickQuotePro, a product of WeFixTrades Pty Ltd ("Company", "we", "us", or "our"). By creating an account or using our services, you agree to be bound by these Terms.
+                These Terms of Service ("Terms") govern your access to and use of QuoteQuick Pro, a product of WeFixTrades Pty Ltd ("Company", "we", "us", or "our"). By creating an account or using our services, you agree to be bound by these Terms.
               </p>
 
               <Section title="1. Acceptance of Terms">
                 <p>
-                  By accessing or using QuickQuotePro (the "Service"), you confirm that you are at least 18 years old, have the legal authority to enter into these Terms on behalf of yourself or your organisation, and agree to comply with all applicable laws and regulations.
+                  By accessing or using QuoteQuick Pro (the "Service"), you confirm that you are at least 18 years old, have the legal authority to enter into these Terms on behalf of yourself or your organisation, and agree to comply with all applicable laws and regulations.
                 </p>
                 <p style={{ marginTop: 12 }}>
                   If you do not agree to these Terms, you may not access or use the Service. We reserve the right to update these Terms at any time. Continued use of the Service after changes constitutes acceptance.
@@ -60,7 +60,7 @@ export default function TermsPage() {
 
               <Section title="2. Service Description">
                 <p>
-                  QuickQuotePro is a SaaS platform that provides trades businesses with tools for:
+                  QuoteQuick Pro is a SaaS platform that provides trades businesses with tools for:
                 </p>
                 <ul style={{ paddingLeft: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
                   <li>Instant online estimate and quote calculators</li>
@@ -77,7 +77,7 @@ export default function TermsPage() {
 
               <Section title="3. Subscription and Billing">
                 <p>
-                  QuickQuotePro is offered on a subscription basis. By subscribing to a paid plan, you agree to:
+                  QuoteQuick Pro is offered on a subscription basis. By subscribing to a paid plan, you agree to:
                 </p>
                 <ul style={{ paddingLeft: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
                   <li><strong>Payment:</strong> Pay the applicable subscription fees in advance on a monthly or annual basis. All prices are in AUD unless otherwise stated.</li>
@@ -110,7 +110,7 @@ export default function TermsPage() {
 
               <Section title="5. Intellectual Property Ownership">
                 <p>
-                  <strong>Our IP:</strong> QuickQuotePro, including all software, algorithms, designs, trademarks, and documentation, is owned by WeFixTrades Pty Ltd and protected by intellectual property laws. You may not copy, modify, or distribute our platform without express written permission.
+                  <strong>Our IP:</strong> QuoteQuick Pro, including all software, algorithms, designs, trademarks, and documentation, is owned by WeFixTrades Pty Ltd and protected by intellectual property laws. You may not copy, modify, or distribute our platform without express written permission.
                 </p>
                 <p style={{ marginTop: 12 }}>
                   <strong>Your content:</strong> You retain ownership of all content, data, and configurations you create within the platform ("Customer Content"), including your calculator templates, pricing logic, and brand assets. By using our Service, you grant us a non-exclusive, royalty-free licence to process and display your Customer Content solely to provide the Service.
