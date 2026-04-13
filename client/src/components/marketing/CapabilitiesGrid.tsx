@@ -15,7 +15,7 @@ export default function CapabilitiesGrid({ items, heading, sectionId }: Capabili
   return (
     <section
       id={sectionId}
-      style={{ background: mkt.bg, padding: "72px 28px" }}
+      style={{ background: mkt.sectionLight, padding: "72px 28px" }}
       data-testid="product-capabilities"
     >
       <div
