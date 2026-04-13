@@ -25,8 +25,10 @@ export default function LoginPage() {
       }
       return res.json();
     },
-    onSuccess: (data: { user: { role?: string } }) => {
-      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+    onSuccess: async (data: { user: { role?: string } }) => {
+      // Set the auth cache immediately so RequirePortal sees the user
+      queryClient.setQueryData(["auth", "me"], data.user);
+      await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
 
       // Best-effort: link anonymous website chat session to the newly logged-in user
       // so the portal assistant can resume context. Fire-and-forget.
