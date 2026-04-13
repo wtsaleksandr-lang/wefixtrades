@@ -759,8 +759,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     e.target.value = '';
   };
 
+  const showSidePreview = step > 0 && step !== 5;
+
   return (
     <>
+      <div className={showSidePreview ? "wizard-dual-layout" : ""}>
       <Shell step={visualStep(step)} total={TOTAL_STEPS} onHelp={() => setShowHelp(true)}
         title={STEP_TITLES[step]} subtitle={STEP_SUBTITLES[step]}
         generating={generateMutation.isPending} genProgress={genProgress}
@@ -945,11 +948,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           </div>
         )}
 
-        {/* Step 1: Preview & Polish (reframed from Design — now shows live preview first) */}
+        {/* Step 1: Preview & Polish (side panel shows live preview on desktop) */}
         {step === 1 && (
           <div>
-            {/* Live preview — real interactive QuoteWidget */}
-            <div className="animate-fade-in-up" style={{
+            {/* Mobile-only: inline preview (hidden on desktop where side panel shows) */}
+            <div className="lg:hidden animate-fade-in-up" style={{
               marginBottom: '24px', padding: '16px', borderRadius: p.radius.lg,
               border: `1px solid ${p.colors.border}`, background: p.colors.surfaceRaised,
             }}>
@@ -1391,6 +1394,56 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           isOpen={showPreview} onToggle={() => setShowPreview(p => !p)} step={step} />
 
       </Shell>
+
+      {/* Desktop side preview panel — sticky, visible from step 1 onward */}
+      {showSidePreview && (
+        <div className="wizard-side-preview">
+          <div style={{
+            position: 'sticky', top: 80,
+            borderRadius: '16px', overflow: 'hidden',
+            border: `1px solid ${p.colors.border}`,
+            background: '#fff',
+            boxShadow: p.shadows.wizardCard,
+          }}>
+            <div style={{
+              padding: '12px 16px',
+              borderBottom: `1px solid ${p.colors.borderLight}`,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <Eye style={{ width: 14, height: 14, color: p.colors.accent }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: p.colors.heading }}>Live Preview</span>
+              <span style={{ fontSize: 11, color: p.colors.muted, marginLeft: 'auto' }}>Customer view</span>
+            </div>
+            <div style={{ background: '#f8fafb' }} className="widget-scope">
+              <QuoteWidget calculator={previewCalculatorData} isEmbed />
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+
+      {/* Dual-column CSS */}
+      <style>{`
+        .wizard-dual-layout {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 24px;
+          align-items: start;
+        }
+        @media (min-width: 900px) {
+          .wizard-dual-layout {
+            grid-template-columns: minmax(400px, 480px) minmax(320px, 1fr);
+          }
+        }
+        .wizard-side-preview {
+          display: none;
+        }
+        @media (min-width: 900px) {
+          .wizard-side-preview {
+            display: block;
+          }
+        }
+      `}</style>
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </>
