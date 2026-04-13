@@ -157,8 +157,12 @@ export default function SupportTicketDetailPage() {
     },
     onSuccess: () => {
       setReplyText("");
+      toast({ title: "Message sent" });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/support/tickets", ticketId] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/support/tickets"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to send message", description: err.message, variant: "destructive" });
     },
   });
 

@@ -97,6 +97,9 @@ export default function ClientsPage() {
       toast({ title: "Client created", description: name });
       navigate(`/admin/crm/clients/${data.id}`);
     },
+    onError: (err: Error) => {
+      toast({ title: "Failed to create client", description: err.message, variant: "destructive" });
+    },
   });
 
   return (

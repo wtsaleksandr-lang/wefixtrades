@@ -76,6 +76,9 @@ export default function BillingPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
       toast({ title: "Payment updated", description: `Marked as ${status}` });
     },
+    onError: (err: Error) => {
+      toast({ title: "Failed to update payment", description: err.message, variant: "destructive" });
+    },
   });
 
   const payments = data?.data ?? [];

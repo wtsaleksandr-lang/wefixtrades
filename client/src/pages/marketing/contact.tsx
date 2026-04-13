@@ -61,7 +61,7 @@ export default function ContactPage() {
         {/* Page Header */}
         <section style={{ background: mkt.dark, padding: "72px 24px 64px" }}>
           <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
-            <h1 style={{ fontSize: 40, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2, marginBottom: 16, margin: "0 0 16px" }}>
+            <h1 style={{ fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2, marginBottom: 16, margin: "0 0 16px" }} className="text-2xl sm:text-[40px]">
               Get in Touch
             </h1>
             <p style={{ fontSize: 18, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, margin: 0 }}>
@@ -76,9 +76,9 @@ export default function ContactPage() {
             maxWidth: 1000,
             margin: "0 auto",
             display: "grid",
-            gridTemplateColumns: "1fr 1.6fr",
+            gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.6fr)",
             gap: 48,
-          }}>
+          }} className="max-[640px]:!grid-cols-1">
             {/* Left: Contact Info */}
             <div>
               <h2 style={{ fontSize: 22, fontWeight: 700, color: mkt.text, marginBottom: 32, margin: "0 0 32px" }}>

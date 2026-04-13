@@ -45,6 +45,9 @@ export default function InboxPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
       toast({ title: "Task updated", description: `Moved to ${status.replace(/_/g, " ")}` });
     },
+    onError: (err: Error) => {
+      toast({ title: "Failed to update task", description: err.message, variant: "destructive" });
+    },
   });
 
   const updateWaitingOn = useMutation({
@@ -55,6 +58,9 @@ export default function InboxPage() {
     onSuccess: (_data, { waiting_on }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
       toast({ title: "Waiting on updated", description: waiting_on ? `Now waiting on ${waiting_on}` : "Cleared" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to update", description: err.message, variant: "destructive" });
     },
   });
 
