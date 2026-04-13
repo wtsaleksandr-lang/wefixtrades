@@ -47,7 +47,7 @@ test.describe("Regression: AI Copilot", () => {
     const promptChip = adminPage.getByText("What should I focus on")
       .or(adminPage.getByText("Summarize this page"))
       .or(adminPage.getByText("What needs attention"));
-    await expect(promptChip).toBeVisible({ timeout: 5000 });
+    await expect(promptChip.first()).toBeVisible({ timeout: 5000 });
 
     // Close the drawer
     await copilotBtn.click();
