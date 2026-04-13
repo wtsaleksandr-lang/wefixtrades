@@ -138,10 +138,10 @@ function getPrimaryAction(status: string): { label: string; nextStatus: string }
 }
 
 const ACTION_STYLES: Record<string, string> = {
-  "Start": "bg-[#2D6A4F] hover:bg-[#1B4332] text-white",
-  "Done": "bg-emerald-600 hover:bg-emerald-700 text-white",
-  "Follow up": "bg-amber-500 hover:bg-amber-600 text-white",
-  "Resolve": "bg-red-500 hover:bg-red-600 text-white",
+  "Start": "border-2 border-[#2D6A4F] text-[#2D6A4F] bg-white hover:bg-[#F0F7F4] font-semibold",
+  "Done": "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-semibold",
+  "Follow up": "border-2 border-amber-500 text-amber-600 bg-white hover:bg-amber-50 font-semibold",
+  "Resolve": "border-2 border-red-500 text-red-600 bg-white hover:bg-red-50 font-semibold",
 };
 
 const WAITING_CYCLE = [null, "client", "supplier", "internal"] as const;

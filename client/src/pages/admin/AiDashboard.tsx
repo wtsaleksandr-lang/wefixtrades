@@ -89,8 +89,16 @@ export default function AiDashboard() {
       {/* Sidebar */}
       <div style={{ width: 220, background: c.surface, borderRight: `1px solid ${c.border}`, padding: "20px 0", flexShrink: 0, position: "sticky", top: 0, height: "100vh", overflow: "auto" }}>
         <div style={{ padding: "0 16px 20px", borderBottom: `1px solid ${c.borderLight}` }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: c.text }}>AI Operations</div>
-          <div style={{ fontSize: 11, color: c.muted, marginTop: 2 }}>WeFixTrades Admin</div>
+          <a href="/admin/crm" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: c.muted, textDecoration: "none", marginBottom: 8 }}>
+            <ArrowLeft size={12} /> Back to CRM
+          </a>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <img src="/favicon.svg" alt="" style={{ width: 24, height: 24 }} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: c.text }}>AI Operations</div>
+              <div style={{ fontSize: 11, color: c.muted }}>WeFixTrades Admin</div>
+            </div>
+          </div>
         </div>
         <div style={{ padding: "12px 8px" }}>
           {TABS.map(t => {

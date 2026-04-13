@@ -277,7 +277,7 @@ function StatCard({
   color: string;
 }) {
   const inner = (
-    <Card className="p-4 hover:shadow-sm transition-shadow cursor-default">
+    <Card className={`p-4 transition-all duration-150 ${href ? "cursor-pointer hover:border-gray-300 hover:shadow-md active:scale-[0.98]" : "cursor-default"}`}>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
@@ -289,7 +289,7 @@ function StatCard({
       </div>
     </Card>
   );
-  if (href) return <Link href={href}>{inner}</Link>;
+  if (href) return <Link href={href} className="block">{inner}</Link>;
   return inner;
 }
 
@@ -333,11 +333,11 @@ export default function CrmOverview() {
           ) : (
             <>
               <StatCard label="Clients" value={data?.totalClients ?? 0} icon={Users} href="/admin/crm/clients" color="bg-[#2D6A4F]" />
-              <StatCard label="Active Services" value={data?.activeServices ?? 0} icon={Wrench} color="bg-blue-500" />
-              <StatCard label="Onboarding" value={data?.pendingOnboarding ?? 0} icon={ClipboardList} color="bg-amber-500" />
+              <StatCard label="Active Services" value={data?.activeServices ?? 0} icon={Wrench} href="/admin/crm/services" color="bg-blue-500" />
+              <StatCard label="Onboarding" value={data?.pendingOnboarding ?? 0} icon={ClipboardList} href="/admin/crm/inbox" color="bg-amber-500" />
               <StatCard label="Open Tasks" value={data?.openFulfillment ?? 0} icon={Truck} href="/admin/crm/inbox" color="bg-purple-500" />
-              <StatCard label="Unpaid" value={formatCurrency(data?.unpaidAmount ?? 0)} icon={CreditCard} color="bg-red-500" />
-              <StatCard label="Revenue (Mo)" value={formatCurrency(data?.monthlyRevenue ?? 0)} icon={TrendingUp} color="bg-emerald-500" />
+              <StatCard label="Unpaid" value={formatCurrency(data?.unpaidAmount ?? 0)} icon={CreditCard} href="/admin/crm/billing" color="bg-red-500" />
+              <StatCard label="Revenue (Mo)" value={formatCurrency(data?.monthlyRevenue ?? 0)} icon={TrendingUp} href="/admin/crm/billing" color="bg-emerald-500" />
             </>
           )}
         </div>

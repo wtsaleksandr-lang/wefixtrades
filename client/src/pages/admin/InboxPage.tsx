@@ -124,6 +124,12 @@ export default function InboxPage() {
           </Select>
         </div>
 
+        {/* Priority legend */}
+        <div className="flex items-center gap-4 text-[10px] text-gray-400">
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-500 shrink-0" /> Urgent</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400 shrink-0" /> High priority</span>
+        </div>
+
         {/* Content */}
         {isLoading ? (
           <div className="space-y-2">
