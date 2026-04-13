@@ -22,6 +22,7 @@ import {
   KeyRound,
   LogOut,
   ExternalLink,
+  Megaphone,
   LifeBuoy,
   Star,
 } from "lucide-react";
@@ -60,6 +61,12 @@ const NAV_ITEMS = [
   { label: "Reviews", href: "/admin/crm/reviews", icon: Star },
   { label: "SocialSync", href: "/admin/crm/socialsync", icon: Share2 },
   { label: "Sales", href: "/admin/crm/sales", icon: Target },
+];
+
+const OUTBOUND_ITEMS = [
+  { label: "Prospects", href: "/admin/outbound/prospects", icon: Users },
+  { label: "Campaigns", href: "/admin/outbound/campaigns", icon: Megaphone },
+  { label: "Pipeline", href: "/admin/outbound/pipeline", icon: CreditCard },
 ];
 
 const SECONDARY_ITEMS = [
@@ -488,6 +495,33 @@ export default function AdminLayout({
 
           <div className="mt-6 mb-2 px-3">
             <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+              Outbound
+            </span>
+          </div>
+          <div className="space-y-0.5">
+            {OUTBOUND_ITEMS.map((item) => {
+              const active = isActive(location, item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]",
+                    active
+                      ? "bg-[#F0F7F4] text-[#2D6A4F] font-medium"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  )}
+                >
+                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 mb-2 px-3">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
               Other
             </span>
           </div>
@@ -535,6 +569,7 @@ export default function AdminLayout({
             </Button>
             <h1 className="text-sm font-medium text-gray-700">
               {NAV_ITEMS.find((item) => isActive(location, item.href))?.label ??
+                OUTBOUND_ITEMS.find((item) => isActive(location, item.href))?.label ??
                 SECONDARY_ITEMS.find((item) => isActive(location, item.href))?.label ??
                 "Admin"}
             </h1>

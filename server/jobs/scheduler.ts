@@ -9,6 +9,8 @@ import { processReviewFollowups } from "./reviewFollowupWorker";
 import { processReviewMonitoring } from "./reviewMonitorWorker";
 import { processReputationReports } from "./reputationReportWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
+import { runDailyOpsIntelligence } from "./opsIntelligenceJob";
+import { processOutboundSync } from "./outboundSyncWorker";
 import { processRankFlowPlans } from "./rankflowWorker";
 import { processRankFlowTracking } from "./trackingWorker";
 import { processMapguardScans } from "./mapguardScanWorker";
@@ -131,6 +133,16 @@ export function initScheduler() {
     }
   });
 
+  // Background AI Ops Engine — runs daily at 07:00 UTC
+  cron.schedule("0 7 * * *", async () => {
+    console.log("[Scheduler] Running daily ops intelligence...");
+    try {
+      await runJob("ops_daily_intelligence", runDailyOpsIntelligence);
+    } catch (err: any) {
+      console.error("[Scheduler] ops_daily_intelligence cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
   cron.schedule("* * * * *", async () => {
     try {
       await processReviewFollowups();
@@ -157,6 +169,7 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+
   cron.schedule("0 3 * * *", async () => {
     console.log("[Scheduler] Running chat memory cleanup...");
     try {
@@ -168,6 +181,16 @@ export function initScheduler() {
       console.error("[Scheduler] chat_memory_cleanup cron handler error:", err.message);
     }
   }, { timezone: "UTC" });
+
+  // Outbound sync — push pending prospects to Instantly/Smartlead every 15 minutes
+  cron.schedule("*/15 * * * *", async () => {
+    try {
+      await runJob("outbound_sync", processOutboundSync);
+    } catch (err: any) {
+      console.error("[Scheduler] outbound_sync cron handler error:", err.message);
+    }
+  });
+
 
   cron.schedule("0 4 * * 1", async () => {
     console.log("[Scheduler] Running RankFlow plan generation...");
@@ -256,6 +279,7 @@ export function initScheduler() {
   console.log("[Scheduler] Jobs scheduled:");
   console.log("  - Daily aggregation: 02:00 UTC every day");
   console.log("  - Chat memory cleanup: 03:00 UTC every day");
+  console.log("  - Background ops intelligence: 07:00 UTC every day");
   console.log("  - Trial lifecycle emails: 09:00 UTC every day");
   console.log("  - Weekly email report: 13:00 UTC every Monday (~8AM EST)");
   console.log("  - RankFlow plan generation: 04:00 UTC every Monday");
@@ -266,6 +290,7 @@ export function initScheduler() {
   console.log("  - Notification queue worker: every minute");
   console.log("  - Follow-up jobs worker: every minute");
   console.log("  - Audit follow-up worker: every minute");
+  console.log("  - Outbound sync worker: every 15 minutes");
   console.log("  - Review follow-up worker: every minute");
   console.log("  - Review monitoring: every 6 hours");
   console.log("  - Reputation reports: 09:00 UTC daily");

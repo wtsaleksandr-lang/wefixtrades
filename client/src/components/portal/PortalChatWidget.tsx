@@ -1,504 +1,368 @@
-import { useEffect, useRef, useState } from "react";
-import { Send, X, Sparkles } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import {
-  readSSEStream, sendChatMessage,
-  loadPortalMessages, savePortalMessages,
-  loadPortalOpenState, savePortalOpenState,
-  type ChatMessage,
-} from "@/lib/chatHelpers";
-import { usePortalPageContext } from "@/hooks/usePortalPageContext";
-import { useAuth } from "@/hooks/useAuth";
-import { useOnboardingResponses } from "@/context/OnboardingContext";
+  MessageCircle, X, Send, Loader2, ClipboardList, CheckCircle2,
+} from "lucide-react";
 
-/* ─── Constants ─── */
-const GREETING: ChatMessage = {
-  role: "assistant",
-  content: "Hey! I'm your portal assistant. Ask me about your services, billing, setup — anything.",
-};
+/* ─── Types ─── */
+export interface PortalChatContext {
+  /** "help" for general support (escalation enabled), or omit for onboarding */
+  surface?: "help";
+  /** Onboarding context — passed when user is on an onboarding form */
+  service_name?: string;
+  service_id?: string;
+  fields?: { key: string; label: string; required: boolean }[];
+  current_responses?: Record<string, any>;
+}
 
-export default function PortalChatWidget() {
-  const { user } = useAuth();
-  const { label, page, onboardingId, suggestions: defaultSuggestions } = usePortalPageContext();
-  const { responses: onboardingResponses } = useOnboardingResponses();
+interface EscalationDraft {
+  subject: string;
+  category: string;
+  description: string;
+  ai_summary: string | null;
+}
 
-  const [open, setOpen] = useState(() => loadPortalOpenState());
-  const [visible, setVisible] = useState(() => loadPortalOpenState());
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    const saved = loadPortalMessages();
-    return saved.length > 0 ? saved : [GREETING];
-  });
+const CATEGORIES = [
+  { value: "general", label: "General" },
+  { value: "billing", label: "Billing" },
+  { value: "service", label: "Service" },
+  { value: "onboarding", label: "Onboarding" },
+  { value: "access", label: "Access" },
+  { value: "other", label: "Other" },
+];
+
+const SUGGESTIONS = [
+  "How do I complete my setup form?",
+  "When will my service go live?",
+  "How do I check my billing status?",
+  "What does my service include?",
+];
+
+/**
+ * PortalChatWidget — single global portal assistant.
+ *
+ * Rendered by PortalLayout on every portal page.
+ * One floating FAB → one chat panel → one API endpoint.
+ *
+ * Context-aware:
+ *  - Default (no chatContext or surface="help"): general support + escalation
+ *  - Onboarding context: form-field-aware assistant, no escalation
+ */
+export default function PortalChatWidget({
+  chatContext,
+}: {
+  chatContext?: PortalChatContext;
+}) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [input, setInput] = useState("");
-  const [streaming, setStreaming] = useState(false);
-  const [activeSuggestions, setActiveSuggestions] = useState<string[]>([]);
-  const [threadHydrated, setThreadHydrated] = useState(false);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(false);
 
-  const sessionId = useRef(`portal_${user?.id ?? "anon"}`);
+  // Escalation state
+  const [escalationDraft, setEscalationDraft] = useState<EscalationDraft | null>(null);
+  const [draftSubject, setDraftSubject] = useState("");
+  const [draftCategory, setDraftCategory] = useState("general");
+  const [draftDescription, setDraftDescription] = useState("");
+  const [submittingTicket, setSubmittingTicket] = useState(false);
+  const [ticketCreated, setTicketCreated] = useState<{ id: number } | null>(null);
+  const [escalationCooldown, setEscalationCooldown] = useState(0);
 
-  // Two-phase open: `visible` mounts with closed styles, then `open` triggers transition
-  function handleOpen() {
-    setVisible(true);
-    requestAnimationFrame(() => requestAnimationFrame(() => setOpen(true)));
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading, escalationDraft]);
+
+  // Determine context for this request
+  const isOnboarding = !!(chatContext?.service_name && chatContext?.fields);
+  const escalationEnabled = !isOnboarding; // Only on help surface
+
+  // Build the context payload for the API
+  function buildContext() {
+    if (isOnboarding) {
+      return {
+        service_name: chatContext!.service_name,
+        service_id: chatContext!.service_id,
+        fields: chatContext!.fields,
+        current_responses: chatContext!.current_responses,
+      };
+    }
+    return {
+      surface: "help",
+      skip_escalation: escalationCooldown > 0,
+    };
   }
-  function handleClose() {
-    setOpen(false);
-    // Wait for transition to finish before hiding
-    setTimeout(() => setVisible(false), 250);
-  }
 
-  // Hydrate from server thread when page changes
-  useEffect(() => {
-    let cancelled = false;
-    async function hydrate() {
-      try {
-        const res = await fetch(
-          `/api/portal/thread/messages?page=${encodeURIComponent(page)}`,
-          { credentials: "include" },
-        );
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
-        if (cancelled) return;
-        if (data.messages && data.messages.length > 0) {
-          const threadMsgs: ChatMessage[] = data.messages.map((m: any) => ({
-            role: m.role as "user" | "assistant",
-            content: m.content,
-          }));
-          setMessages([GREETING, ...threadMsgs]);
-        } else {
-          setMessages([GREETING]);
-        }
-      } catch {
-        // Network error — keep current messages
-      } finally {
-        if (!cancelled) setThreadHydrated(true);
-      }
-    }
-    hydrate();
-    return () => { cancelled = true; };
-  }, [page]);
-
-  // Persist
-  useEffect(() => { savePortalMessages(messages); }, [messages]);
-  useEffect(() => { savePortalOpenState(open); }, [open]);
-
-  // Scroll to bottom
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (container) {
-      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-    }
-  }, [messages, streaming]);
-
-  // Trap scroll inside chat panel
-  useEffect(() => {
-    const el = messagesContainerRef.current;
-    if (!el) return;
-    function onWheel(e: WheelEvent) {
-      const { scrollTop, scrollHeight, clientHeight } = el!;
-      const atTop = scrollTop <= 0 && e.deltaY < 0;
-      const atBottom = scrollTop + clientHeight >= scrollHeight - 1 && e.deltaY > 0;
-      if (atTop || atBottom) e.preventDefault();
-      e.stopPropagation();
-    }
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [visible]);
-
-  // Show default suggestions when chat opens or page changes
-  useEffect(() => {
-    if (open && !streaming && messages.length > 0) {
-      const last = messages[messages.length - 1];
-      if (last.role === "assistant" && last.content) {
-        setActiveSuggestions(defaultSuggestions);
-      }
-    }
-  }, [open, page]);
-
-  // Focus input when panel opens
-  useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 260);
-    }
-  }, [open]);
-
-  async function handleSend(text?: string) {
-    const msg = (text ?? input).trim();
-    if (!msg || streaming) return;
+  async function send(text?: string) {
+    const msg = (text || input).trim();
+    if (!msg || loading) return;
+    const updated = [...messages, { role: "user" as const, content: msg }];
+    setMessages(updated);
     setInput("");
-    setActiveSuggestions([]);
+    setLoading(true);
+    setEscalationDraft(null);
+    setTicketCreated(null);
 
-    const newMessages: ChatMessage[] = [...messages, { role: "user", content: msg }];
-    setMessages(newMessages);
-    setStreaming(true);
+    const currentCooldown = escalationCooldown;
+    if (currentCooldown > 0) setEscalationCooldown(currentCooldown - 1);
 
     try {
-      const res = await sendChatMessage({
-        surface: "portal",
-        messages: newMessages,
-        sessionId: sessionId.current,
-        page,
-        onboardingId,
-        currentResponses: onboardingId && Object.keys(onboardingResponses).length > 0
-          ? onboardingResponses
-          : undefined,
+      const res = await fetch("/api/portal/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          messages: updated.map((m) => ({ role: m.role, content: m.content })),
+          context: buildContext(),
+        }),
       });
+      const data = await res.json();
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: data.reply || "Sorry, something went wrong.",
+      }]);
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: err.error || "Sorry, I'm having trouble connecting right now. Please try again in a moment.",
-        }]);
-        setStreaming(false);
-        return;
+      // Handle escalation draft (only for help surface)
+      if (escalationEnabled && data.escalation_draft) {
+        const draft = data.escalation_draft as EscalationDraft;
+        setEscalationDraft(draft);
+        setDraftSubject(draft.subject);
+        setDraftCategory(draft.category);
+        setDraftDescription(draft.description);
       }
-
-      setMessages(prev => [...prev, { role: "assistant", content: "" }]);
-      await readSSEStream(res, (accumulated) => {
-        setMessages(prev => {
-          const copy = [...prev];
-          copy[copy.length - 1] = { role: "assistant", content: accumulated };
-          return copy;
-        });
-      });
-
-      setActiveSuggestions(defaultSuggestions.slice(0, 2));
     } catch {
-      setMessages(prev => {
-        const copy = [...prev];
-        const last = copy[copy.length - 1];
-        if (last && last.role === "assistant" && !last.content) {
-          copy[copy.length - 1] = { role: "assistant", content: "Something went wrong. Please try again." };
-        } else {
-          copy.push({ role: "assistant", content: "Something went wrong. Please try again." });
-        }
-        return copy;
-      });
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: "Something went wrong. Please try again.",
+      }]);
+    } finally {
+      setLoading(false);
     }
-    setStreaming(false);
   }
+
+  async function submitEscalationTicket() {
+    if (!draftSubject.trim() || !draftDescription.trim() || submittingTicket) return;
+    setSubmittingTicket(true);
+    try {
+      const transcript = messages.map((m) => ({ role: m.role, content: m.content }));
+      const res = await fetch("/api/portal/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          subject: draftSubject.trim(),
+          message: draftDescription.trim(),
+          category: draftCategory,
+          source: "ai_escalation",
+          ai_summary: escalationDraft?.ai_summary || null,
+          transcript_json: transcript,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to create ticket");
+      }
+      const data = await res.json();
+      setTicketCreated({ id: data.id });
+      setEscalationDraft(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/tickets"] });
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: `Ticket #${data.id} has been created. Our team will review it and get back to you.`,
+      }]);
+    } catch (err) {
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: `Sorry, I couldn't create the ticket: ${(err as Error).message}. You can create one manually from the Help page.`,
+      }]);
+      setEscalationDraft(null);
+    } finally {
+      setSubmittingTicket(false);
+    }
+  }
+
+  function dismissDraft() {
+    setEscalationDraft(null);
+    setEscalationCooldown(2);
+    setMessages((prev) => [...prev, {
+      role: "assistant",
+      content: "No problem. You can create a ticket from the Help page anytime, or keep chatting here.",
+    }]);
+  }
+
+  const title = isOnboarding ? "Setup Assistant" : "Support";
 
   return (
     <>
-      {/* FAB button — visible when panel is closed */}
-      <button
-        onClick={handleOpen}
-        aria-label="Open portal assistant"
-        className="wft-chat-fab"
-        style={{
-          position: "fixed",
-          bottom: 24,
-          right: 24,
-          zIndex: 50,
-          width: 52,
-          height: 52,
-          borderRadius: "50%",
-          background: "linear-gradient(135deg, #2D6A4F 0%, #1B4332 100%)",
-          border: "none",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: "0 4px 16px rgba(45, 106, 79, 0.35)",
-          transition: "transform 0.25s ease, box-shadow 0.25s ease, opacity 0.2s ease",
-          opacity: visible ? 0 : 1,
-          pointerEvents: visible ? "none" : "auto",
-          transform: visible ? "scale(0.8)" : "scale(1)",
-        }}
-        onMouseEnter={e => {
-          if (!visible) {
-            (e.currentTarget as HTMLElement).style.transform = "scale(1.08)";
-            (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 24px rgba(45, 106, 79, 0.45)";
-          }
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLElement).style.transform = visible ? "scale(0.8)" : "scale(1)";
-          (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(45, 106, 79, 0.35)";
-        }}
-      >
-        <Sparkles size={22} color="#fff" />
-      </button>
-
-      {/* Backdrop — mobile only, with blur */}
-      {visible && (
-        <div
-          className="wft-chat-backdrop"
-          onClick={handleClose}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 49,
-            background: open ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0)",
-            backdropFilter: open ? "blur(6px)" : "blur(0px)",
-            WebkitBackdropFilter: open ? "blur(6px)" : "blur(0px)",
-            transition: "background 0.25s ease, backdrop-filter 0.25s ease, -webkit-backdrop-filter 0.25s ease",
-          }}
-        />
+      {/* FAB — always visible when panel is closed */}
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          className="fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-[#2D6A4F] text-white shadow-lg hover:bg-[#1B4332] flex items-center justify-center transition-colors"
+          title="Need help? Chat with our assistant"
+        >
+          <MessageCircle className="w-5 h-5" />
+        </button>
       )}
 
-      {/* Chat panel — always in DOM when visible, animated via open class */}
-      {visible && (
-        <div
-          className={`wft-chat-panel ${open ? "wft-chat-panel--open" : ""}`}
-          onWheel={e => e.stopPropagation()}
-        >
+      {/* Chat panel */}
+      {open && (
+        <div className="fixed bottom-4 right-4 z-50 w-80 sm:w-96 max-h-[520px] flex flex-col bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden">
           {/* Header */}
-          <div style={{
-            background: "linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%)",
-            padding: "12px 16px",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            flexShrink: 0,
-          }}>
-            <Sparkles size={18} color="rgba(255,255,255,0.7)" style={{ flexShrink: 0 }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>
-                Portal Assistant — {label}
-              </div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", display: "flex", alignItems: "center", gap: 4, marginTop: 1 }}>
-                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#22C55E", display: "inline-block" }} />
-                Always available
-              </div>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-[#2D6A4F] shrink-0">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="w-4 h-4 text-white" />
+              <span className="text-sm font-medium text-white">{title}</span>
             </div>
             <button
-              onClick={handleClose}
-              aria-label="Close assistant"
-              style={{
-                background: "none",
-                border: "none",
-                color: "rgba(255,255,255,0.5)",
-                cursor: "pointer",
-                padding: 4,
-                borderRadius: 6,
-                display: "flex",
-                alignItems: "center",
-                transition: "color 0.15s",
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#fff"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)"; }}
+              onClick={() => setOpen(false)}
+              className="p-1 rounded hover:bg-white/20 text-white"
             >
-              <X size={18} />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* Messages */}
-          <div
-            ref={messagesContainerRef}
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              overscrollBehavior: "contain",
-              WebkitOverflowScrolling: "touch",
-              padding: "14px 12px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              background: "#F9FAFB",
-            }}
-          >
-            {messages.map((msg, i) => {
-              const isAssistant = msg.role === "assistant";
-              return (
-                <div key={i} style={{ alignSelf: isAssistant ? "flex-start" : "flex-end", maxWidth: "84%" }}>
-                  <div
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: isAssistant ? "14px 14px 14px 4px" : "14px 14px 4px 14px",
-                      fontSize: 13,
-                      lineHeight: 1.55,
-                      ...(isAssistant
-                        ? { background: "#fff", color: "#1A1A2E", border: "1px solid #E5E7EB" }
-                        : { background: "linear-gradient(135deg, #2D6A4F, #1B4332)", color: "#fff" }),
-                      wordBreak: "break-word" as const,
-                      whiteSpace: "pre-wrap" as const,
-                    }}
-                  >
-                    {msg.content || "\u00A0"}
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[180px] max-h-[340px]">
+            {messages.length === 0 && !isOnboarding && (
+              <div className="text-center py-3">
+                <p className="text-xs text-gray-400 mb-2">Ask anything about your services, billing, or account.</p>
+                <div className="flex flex-wrap gap-1.5 justify-center">
+                  {SUGGESTIONS.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => send(s)}
+                      className="px-2.5 py-1 text-[11px] text-gray-600 bg-gray-50 border border-gray-200 rounded-full hover:bg-gray-100 transition-colors"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {messages.length === 0 && isOnboarding && (
+              <div className="flex justify-start">
+                <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-700">
+                  Hi! I'm here to help you fill out the {chatContext?.service_name} setup form. Ask me anything about any of the fields.
+                </div>
+              </div>
+            )}
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                  m.role === "user" ? "bg-[#2D6A4F] text-white" : "bg-gray-100 text-gray-700"
+                }`}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
+
+            {/* Escalation draft card */}
+            {escalationDraft && !ticketCreated && (
+              <div className="border border-[#2D6A4F]/30 bg-[#F0F7F4] rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <ClipboardList className="w-3.5 h-3.5 text-[#2D6A4F]" />
+                  <p className="text-xs font-medium text-gray-900">Support Ticket Draft</p>
+                </div>
+                <p className="text-[10px] text-gray-500">Review and edit. No ticket until you confirm.</p>
+
+                <div className="space-y-1.5">
+                  <div className="grid grid-cols-[1fr_auto] gap-1.5">
+                    <div>
+                      <label className="text-[9px] font-medium text-gray-500 uppercase tracking-wider">Subject</label>
+                      <input
+                        value={draftSubject}
+                        onChange={(e) => setDraftSubject(e.target.value)}
+                        className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#2D6A4F]/30 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-medium text-gray-500 uppercase tracking-wider">Category</label>
+                      <select
+                        value={draftCategory}
+                        onChange={(e) => setDraftCategory(e.target.value)}
+                        className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#2D6A4F]/30 bg-white"
+                      >
+                        {CATEGORIES.map((c) => (
+                          <option key={c.value} value={c.value}>{c.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-medium text-gray-500 uppercase tracking-wider">Description</label>
+                    <textarea
+                      value={draftDescription}
+                      onChange={(e) => setDraftDescription(e.target.value)}
+                      rows={2}
+                      className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#2D6A4F]/30 bg-white resize-none"
+                    />
                   </div>
                 </div>
-              );
-            })}
 
-            {/* Typing indicator */}
-            {streaming && messages[messages.length - 1]?.content === "" && (
-              <div style={{ display: "flex", gap: 4, padding: "8px 14px", alignSelf: "flex-start" }}>
-                {[0, 1, 2].map(i => (
-                  <span key={i} style={{
-                    width: 6, height: 6, borderRadius: "50%", background: "#2D6A4F",
-                    animation: `wftDotBounce 1.4s ease-in-out ${i * 0.2}s infinite both`,
-                  }} />
-                ))}
-              </div>
-            )}
-
-            {/* Suggestion pills */}
-            {!streaming && activeSuggestions.length > 0 && (
-              <div style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 6,
-                paddingTop: 4,
-                alignSelf: "flex-start",
-                maxWidth: "90%",
-              }}>
-                {activeSuggestions.slice(0, 3).map((s, i) => (
+                <div className="flex items-center gap-1.5">
                   <button
-                    key={i}
-                    onClick={() => handleSend(s)}
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: 20,
-                      border: "1px solid #D1D5DB",
-                      background: "#fff",
-                      color: "#2D6A4F",
-                      fontSize: 12,
-                      fontWeight: 500,
-                      cursor: "pointer",
-                      transition: "all 0.15s",
-                      lineHeight: 1.3,
-                    }}
-                    onMouseEnter={e => {
-                      (e.currentTarget as HTMLElement).style.background = "#F0F7F4";
-                      (e.currentTarget as HTMLElement).style.borderColor = "#2D6A4F";
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLElement).style.background = "#fff";
-                      (e.currentTarget as HTMLElement).style.borderColor = "#D1D5DB";
-                    }}
+                    onClick={submitEscalationTicket}
+                    disabled={!draftSubject.trim() || !draftDescription.trim() || submittingTicket}
+                    className="px-3 py-1 text-xs font-medium text-white bg-[#2D6A4F] rounded hover:bg-[#1B4332] disabled:opacity-60 transition-colors"
                   >
-                    {s}
+                    {submittingTicket ? "Creating..." : "Create Ticket"}
                   </button>
-                ))}
+                  <button
+                    onClick={dismissDraft}
+                    disabled={submittingTicket}
+                    className="px-3 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded hover:bg-gray-50 transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                </div>
               </div>
             )}
 
-            <div ref={messagesEndRef} />
+            {/* Ticket created confirmation */}
+            {ticketCreated && (
+              <div className="border border-emerald-200 bg-emerald-50 rounded-lg p-2.5 flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <div>
+                  <p className="text-xs font-medium text-emerald-800">Ticket #{ticketCreated.id} created</p>
+                  <Link href={`/portal/help/tickets/${ticketCreated.id}`} className="text-[10px] text-emerald-700 underline hover:no-underline">
+                    View ticket
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-gray-100 rounded-lg px-3 py-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                </div>
+              </div>
+            )}
+            <div ref={endRef} />
           </div>
 
           {/* Input */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "10px 12px",
-            borderTop: "1px solid #E5E7EB",
-            background: "#fff",
-            flexShrink: 0,
-          }}>
+          <div className="border-t border-gray-100 p-2 flex gap-2 shrink-0">
             <input
-              ref={inputRef}
               value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder="Ask anything..."
-              disabled={streaming}
-              style={{
-                flex: 1,
-                border: "1px solid #E5E7EB",
-                borderRadius: 10,
-                padding: "10px 14px",
-                fontSize: 13,
-                outline: "none",
-                fontFamily: "inherit",
-                background: streaming ? "#F9FAFB" : "#fff",
-                transition: "border-color 0.15s",
-              }}
-              onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = "#2D6A4F"; }}
-              onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; }}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
+              placeholder={isOnboarding ? "Ask about any field..." : "Type your question..."}
+              className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
             />
             <button
-              onClick={() => handleSend()}
-              disabled={streaming}
-              aria-label="Send message"
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 10,
-                border: "none",
-                background: "linear-gradient(135deg, #2D6A4F, #1B4332)",
-                color: "#fff",
-                cursor: streaming ? "default" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                opacity: streaming ? 0.6 : 1,
-                transition: "opacity 0.15s",
-                flexShrink: 0,
-              }}
+              onClick={() => send()}
+              disabled={loading || !input.trim()}
+              className="p-2 rounded-lg bg-[#2D6A4F] text-white hover:bg-[#1B4332] disabled:opacity-40 transition-colors"
             >
-              <Send size={16} />
+              <Send className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes wftDotBounce {
-          0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-          40% { transform: scale(1); opacity: 1; }
-        }
-
-        /* ─── Desktop panel ─── */
-        .wft-chat-panel {
-          position: fixed;
-          bottom: 24px;
-          right: 24px;
-          z-index: 50;
-          width: min(380px, 32vw);
-          height: 75vh;
-          max-height: 640px;
-          min-height: 360px;
-          border-radius: 16px;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-          background: #fff;
-          box-shadow: 0 8px 40px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08);
-          font-family: Inter, system-ui, sans-serif;
-          /* Closed state — slide down + fade */
-          opacity: 0;
-          transform: translateY(16px) scale(0.97);
-          transition: opacity 0.25s ease, transform 0.25s ease;
-          pointer-events: none;
-        }
-        .wft-chat-panel--open {
-          opacity: 1;
-          transform: translateY(0) scale(1);
-          pointer-events: auto;
-        }
-
-        /* ─── Desktop: no backdrop ─── */
-        @media (min-width: 769px) {
-          .wft-chat-backdrop {
-            display: none !important;
-          }
-        }
-
-        /* ─── Mobile: full-screen bottom sheet ─── */
-        @media (max-width: 768px) {
-          .wft-chat-panel {
-            bottom: 0;
-            right: 0;
-            left: 0;
-            width: 100%;
-            height: 100vh;
-            height: 100dvh;
-            max-height: 100vh;
-            max-height: 100dvh;
-            min-height: unset;
-            border-radius: 0;
-            /* Mobile closed: slide up from bottom */
-            transform: translateY(100%);
-            opacity: 1;
-          }
-          .wft-chat-panel--open {
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </>
   );
 }

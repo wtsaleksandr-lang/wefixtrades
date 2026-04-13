@@ -37,7 +37,7 @@ const STATUS_TABS = [
   { value: "", label: "All" },
   { value: "open", label: "Open" },
   { value: "in_progress", label: "In Progress" },
-  { value: "waiting_on_customer", label: "Waiting" },
+  { value: "waiting_on_customer", label: "Waiting on Client" },
   { value: "resolved", label: "Resolved" },
   { value: "closed", label: "Closed" },
 ] as const;
@@ -230,9 +230,13 @@ export default function SupportInboxPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs ${PRIORITY_STYLES[t.priority] || "text-gray-600"}`}>
-                          {t.priority === "urgent" ? "!!!" : t.priority === "high" ? "!!" : ""}
-                        </span>
+                        {(t.priority === "urgent" || t.priority === "high") && (
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${
+                            t.priority === "urgent" ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"
+                          }`}>
+                            {t.priority}
+                          </span>
+                        )}
                         <p className="text-sm font-medium text-gray-900 truncate">{t.subject}</p>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">

@@ -300,4 +300,21 @@ export function registerAdminSupportRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to create ticket" });
     }
   });
+
+  /**
+   * GET /api/admin/crm/team
+   * Returns admin users for assignee dropdowns.
+   */
+  app.get("/api/admin/crm/team", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const admins = await db
+        .select({ id: users.id, name: users.name, email: users.email })
+        .from(users)
+        .where(eq(users.role, "admin"));
+      res.json(admins);
+    } catch (err) {
+      console.error("[admin-support] Team list error:", err);
+      res.status(500).json({ error: "Failed to load team" });
+    }
+  });
 }
