@@ -336,6 +336,17 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     setSelected(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   const detectedIssues: string[] = report?.detectedIssues || [];
   const recommendedServices: any[] = report?.recommendedServices || getServicesForIssues(detectedIssues);
+
+  // RankFlow recommendation
+  const [rfRec, setRfRec] = useState<{ recommended_tier: string; reason: string; highlights: string[]; cta_text: string; prefill: any } | null>(null);
+  useEffect(() => {
+    if (reportId) {
+      fetch(`/api/audit/report/${reportId}/rankflow-recommendation`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data) setRfRec(data); })
+        .catch(() => {});
+    }
+  }, [reportId]);
   const totalPrice = selected.reduce((sum, id) => {
     const s = SERVICES.find(sv => sv.id === id);
     return sum + (s?.price || 0);
@@ -985,7 +996,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
   const REVIEWS = [
     { platform: 'google', name: 'Mike T.', business: 'MT Plumbing & Drains', location: 'Toronto, ON', rating: 5, text: 'Within 3 weeks of fixing our Google profile we started getting 8-10 more calls per week. The MapGuard service paid for itself in the first month easily.', date: '2 months ago', avatar: 'MT' },
-    { platform: 'facebook', name: 'Sarah K.', business: 'Kline HVAC Services', location: 'Mississauga, ON', rating: 5, text: 'Our mobile website was scoring 42/100. After WebBoost we jumped to 91. Calls from mobile went up noticeably within weeks. Worth every penny.', date: '6 weeks ago', avatar: 'SK' },
+    { platform: 'facebook', name: 'Sarah K.', business: 'Kline HVAC Services', location: 'Mississauga, ON', rating: 5, text: 'Our mobile website was scoring 42/100. After WebFix we jumped to 91. Calls from mobile went up noticeably within weeks. Worth every penny.', date: '6 weeks ago', avatar: 'SK' },
     { platform: 'trustpilot', name: 'James R.', business: 'Rapids Electrical', location: 'Brampton, ON', rating: 5, text: 'The AI chat handles after-hours leads automatically now. I wake up to job summaries every morning. Already booked 4 jobs this week that I would have missed.', date: '1 month ago', avatar: 'JR' },
     { platform: 'google', name: 'Dave M.', business: 'Metro Locksmith Pro', location: 'North York, ON', rating: 5, text: 'Was skeptical at first but the results speak for themselves. Went from invisible on Google Maps to showing up in the top 3 for locksmith searches in my area.', date: '3 months ago', avatar: 'DM' },
     { platform: 'facebook', name: 'Linda C.', business: 'Crystal Clean Services', location: 'Scarborough, ON', rating: 5, text: 'As a cleaning business owner I had no time to manage my online presence. WeFixTrades handles everything. My reviews went from 12 to 67 in 2 months.', date: '5 weeks ago', avatar: 'LC' },
@@ -1989,6 +2000,93 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           {recommendedServices.length === 0 && (
             <div style={{ textAlign: 'center', padding: '32px 16px', fontSize: 13, color: GREY }}>
               No specific issues detected — your profile looks strong!
+            </div>
+          )}
+
+          {/* RANKFLOW CTA */}
+          {rfRec && (
+            <div style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%)', borderRadius: r16, padding: '28px 22px', marginTop: 24 }}>
+              {/* Header */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ padding: '3px 10px', borderRadius: 10, background: CYAN, color: DARK, fontSize: 10, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+                    Recommended: {rfRec.recommended_tier}
+                  </span>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: WHITE, lineHeight: 1.3 }}>
+                  {rfRec.headline}
+                </div>
+              </div>
+
+              {/* Reason */}
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, marginBottom: 16 }}>
+                {rfRec.reason}
+              </div>
+
+              {/* Specific findings from audit */}
+              {rfRec.specific_findings && rfRec.specific_findings.length > 0 && (
+                <div style={{ background: 'rgba(0,0,0,0.15)', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 8 }}>
+                    Why this plan — from your audit
+                  </div>
+                  {rfRec.specific_findings.map((f: string, i: number) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: '#FBBF24', lineHeight: 1.5, marginBottom: 4 }}>
+                      <span style={{ flexShrink: 0, marginTop: 2 }}>⚠</span> {f}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* What you get */}
+              <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, marginBottom: 20 }}>
+                {rfRec.highlights.map((h: string, i: number) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'rgba(255,255,255,0.9)', lineHeight: 1.5 }}>
+                    <span style={{ color: CYAN, flexShrink: 0, marginTop: 1 }}>✓</span> {h}
+                  </div>
+                ))}
+              </div>
+
+              {/* Visual flow: Audit → Fix → Rank → Calls */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 20, flexWrap: 'wrap' as const }}>
+                {["Audit done", "We fix issues", "Rankings improve", "More calls"].map((step, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ padding: '4px 10px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: i === 0 ? CYAN : 'rgba(255,255,255,0.1)', color: i === 0 ? DARK : 'rgba(255,255,255,0.6)' }}>
+                      {step}
+                    </span>
+                    {i < 3 && <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>→</span>}
+                  </div>
+                ))}
+              </div>
+
+              {/* CTA buttons */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' as const }}>
+                <a
+                  href={`/portal/rankflow?prefill=${encodeURIComponent(JSON.stringify(rfRec.prefill))}`}
+                  style={{
+                    display: 'inline-block', padding: '14px 28px', borderRadius: 10, fontSize: 15, fontWeight: 700,
+                    background: CYAN, color: DARK, textDecoration: 'none', textAlign: 'center' as const,
+                  }}
+                >
+                  {rfRec.cta_text}
+                </a>
+                <a
+                  href="/products/rankflow"
+                  style={{
+                    display: 'inline-block', padding: '14px 24px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    background: 'transparent', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.2)',
+                    textDecoration: 'none', textAlign: 'center' as const,
+                  }}
+                >
+                  See Full Details
+                </a>
+              </div>
+
+              {/* Urgency + trust */}
+              <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 12, marginTop: 14, fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
+                <span>⚡ {rfRec.urgency_text}</span>
+                <span>✓ Month-to-month — no contracts</span>
+                <span>✓ Cancel anytime</span>
+              </div>
             </div>
           )}
 

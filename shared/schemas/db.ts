@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -548,3 +548,45 @@ export const insertAiConversationArchiveSchema = createInsertSchema(aiConversati
 });
 export type InsertAiConversationArchive = z.infer<typeof insertAiConversationArchiveSchema>;
 export type AiConversationArchive = typeof aiConversationArchive.$inferSelect;
+
+/* ─── Assistant Threads ─── */
+export const assistantThreads = pgTable("assistant_threads", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").references(() => users.id).notNull(),
+  surface: varchar("surface", { length: 30 }).notNull().default("portal"),
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  title: text("title"),
+  page_context: varchar("page_context", { length: 60 }),
+  metadata: jsonb("metadata").default({}),
+  message_count: integer("message_count").notNull().default(0),
+  last_message_at: timestamp("last_message_at"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAssistantThreadSchema = createInsertSchema(assistantThreads).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+export type InsertAssistantThread = z.infer<typeof insertAssistantThreadSchema>;
+export type AssistantThread = typeof assistantThreads.$inferSelect;
+
+/* ─── Assistant Messages ─── */
+export const assistantMessages = pgTable("assistant_messages", {
+  id: serial("id").primaryKey(),
+  thread_id: integer("thread_id").references(() => assistantThreads.id).notNull(),
+  role: varchar("role", { length: 20 }).notNull(),
+  content: text("content").notNull(),
+  token_count: integer("token_count"),
+  created_at: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_assistant_messages_thread_created").on(table.thread_id, table.created_at),
+]);
+
+export const insertAssistantMessageSchema = createInsertSchema(assistantMessages).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertAssistantMessage = z.infer<typeof insertAssistantMessageSchema>;
+export type AssistantMessage = typeof assistantMessages.$inferSelect;

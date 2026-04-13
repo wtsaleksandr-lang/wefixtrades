@@ -15,7 +15,6 @@ export const FOOTER_LINKS = {
     { label: "QuoteQuick Pro\u2122", href: "/products/quickquotepro" },
     { label: "MapGuard\u2122", href: "/products/mapguard" },
     { label: "ReputationShield\u2122", href: "/products/reputationshield" },
-    { label: "WebBoost\u2122", href: "/products/webboost" },
     { label: "SocialSync\u2122", href: "/products/socialsync" },
     { label: "SiteLaunch\u2122", href: "/products/sitelaunch" },
     { label: "WebCare\u2122", href: "/products/webcare" },
@@ -28,7 +27,7 @@ export const FOOTER_LINKS = {
     { label: "For Cleaners", href: "/solutions/for-cleaners" },
   ],
   Resources: [
-    { label: "Plans", href: "/plans" },
+    { label: "Pricing", href: "/pricing" },
     { label: "Demo Center", href: "/demos" },
     { label: "Docs", href: "/docs" },
     { label: "Blog", href: "/blog" },
@@ -61,11 +60,12 @@ export type ProductConfig = {
 
 export const PRODUCTS: ProductConfig[] = [
   { slug: "tradeline", name: "24/7 TradeLine™", tagline: "24/7 lead handling for busy trades.", primaryCtaLabel: "Start Free", primaryCtaHref: "/signup", secondaryCtaLabel: "View Live Demo", secondaryCtaHref: "/demo", icon: "workflow", bullets: ["AI call + chat answering", "Instant estimates", "Auto follow-ups", "Review requests"] },
-  { slug: "quickquotepro", name: "QuoteQuick Pro™", tagline: "Instant quote calculators for trades.", primaryCtaLabel: "Start Free", primaryCtaHref: "/signup", secondaryCtaLabel: "View Live Demo", secondaryCtaHref: "/demo/quotequick", icon: "calculator", bullets: ["Instant estimates", "Lead capture", "Trade-specific logic", "Embed anywhere"] },
+  { slug: "quickquotepro", name: "QuoteQuick Pro™", tagline: "Instant quotes on your website. Qualified leads in your inbox.", primaryCtaLabel: "Start Free — 14 Days", primaryCtaHref: "/Wizard", secondaryCtaLabel: "Try a Live Demo", secondaryCtaHref: "/tools/quote-demo", icon: "calculator", bullets: ["Customers get instant prices", "Every quote captures a lead", "Live in 5 minutes", "Works with Jobber, HCP, etc."] },
   { slug: "mapguard", name: "MapGuard™", tagline: "Google Business Profile optimization.", primaryCtaLabel: "Start Free", primaryCtaHref: "/signup", secondaryCtaLabel: "See Pricing", secondaryCtaHref: "/pricing", icon: "map", bullets: ["Rank higher locally", "Fix profile gaps", "Improve reviews & CTR", "Ongoing updates"] },
   { slug: "reputationshield", name: "ReputationShield™", tagline: "Reviews + reputation automation.", primaryCtaLabel: "Start Free", primaryCtaHref: "/signup", secondaryCtaLabel: "See Pricing", secondaryCtaHref: "/pricing", icon: "shield", bullets: ["Review requests", "Response guidance", "Reputation monitoring", "Trust boost"] },
-  { slug: "webboost", name: "WebBoost™", tagline: "Speed + SEO optimization.", primaryCtaLabel: "Start", primaryCtaHref: "/pricing", secondaryCtaLabel: "Run Free Audit", secondaryCtaHref: "/free-audit", icon: "rocket", bullets: ["PageSpeed improvements", "Technical SEO fixes", "Core Web Vitals", "Conversion tuning"] },
+  { slug: "rankflow", name: "RankFlow™", tagline: "Ongoing SEO for trades.", primaryCtaLabel: "See Pricing", primaryCtaHref: "/pricing", secondaryCtaLabel: "Learn More", secondaryCtaHref: "/products/rankflow", icon: "rocket", bullets: ["Keyword targeting", "Content creation", "Ranking reports", "Local SEO"] },
+  { slug: "adflow", name: "AdFlow™", tagline: "Done-for-you ad campaigns.", primaryCtaLabel: "See Pricing", primaryCtaHref: "/pricing", secondaryCtaLabel: "Learn More", secondaryCtaHref: "/products/adflow", icon: "target", bullets: ["Google & Facebook ads", "Targeted to homeowners", "Budget optimization", "Clear ROI reporting"] },
   { slug: "socialsync", name: "SocialSync™", tagline: "Social media management + automation.", primaryCtaLabel: "See Pricing", primaryCtaHref: "/pricing", secondaryCtaLabel: "Examples", secondaryCtaHref: "/case-studies", icon: "share", bullets: ["Consistent posting", "Brand consistency", "Automation setup", "Basic analytics"] },
   { slug: "sitelaunch", name: "SiteLaunch™", tagline: "High-converting websites for trades.", primaryCtaLabel: "See Pricing", primaryCtaHref: "/pricing", secondaryCtaLabel: "Examples", secondaryCtaHref: "/case-studies", icon: "layout", bullets: ["Fast, clean pages", "Conversion focused", "Mobile-first", "SEO-ready"] },
-  { slug: "webcare", name: "WebCare™", tagline: "Website + GBP maintenance.", primaryCtaLabel: "Start", primaryCtaHref: "/pricing", secondaryCtaLabel: "See what's included", secondaryCtaHref: "/products/webcare", icon: "refresh", bullets: ["Monthly updates", "Security patches", "Uptime monitoring", "Content changes"] },
+  { slug: "webcare", name: "WebCare™", tagline: "Ongoing website maintenance.", primaryCtaLabel: "Start", primaryCtaHref: "/pricing", secondaryCtaLabel: "See what's included", secondaryCtaHref: "/products/webcare", icon: "refresh", bullets: ["Monthly updates", "Security patches", "Uptime monitoring", "Content changes"] },
 ];

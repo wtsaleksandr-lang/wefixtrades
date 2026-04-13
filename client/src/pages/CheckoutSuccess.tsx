@@ -45,10 +45,26 @@ export default function CheckoutSuccess() {
               fontSize: 16,
               color: mkt.text,
               lineHeight: 1.6,
-              margin: 0,
+              margin: "0 0 16px",
             }}>
               Thank you — your services are being set up now.
             </p>
+
+            <div style={{
+              background: "rgba(16,185,129,0.08)",
+              border: "1px solid rgba(16,185,129,0.2)",
+              borderRadius: 10,
+              padding: "12px 16px",
+              fontSize: 14,
+              fontWeight: 600,
+              color: "#10B981",
+              textAlign: "center",
+            }}>
+              Next step: check your email and complete setup
+              <div style={{ fontSize: 12, fontWeight: 400, color: mkt.text, marginTop: 4 }}>
+                Takes 2–3 minutes. We'll handle the rest.
+              </div>
+            </div>
           </div>
 
           {/* Email notice */}

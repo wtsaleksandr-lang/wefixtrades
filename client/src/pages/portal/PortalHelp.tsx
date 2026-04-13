@@ -391,14 +391,11 @@ export default function PortalHelp() {
         {/* Header */}
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Help</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Find answers, ask AI, or contact us.</p>
+          <p className="text-sm text-gray-500 mt-0.5">Find answers or contact us.</p>
         </div>
 
         {/* FAQ */}
         <FaqSection />
-
-        {/* AI Help */}
-        <AiHelpSection />
 
         {/* Contact / Tickets */}
         <TicketSection />

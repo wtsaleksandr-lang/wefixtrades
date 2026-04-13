@@ -3,7 +3,8 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, colors, shadows } from "@/theme/tokens";
 import voiceAssistantIcon from "@assets/voice-assistant-icon_1772080241394.webp";
 import chatAssistantIcon from "@assets/chat-assistant-icon_1772080241379.webp";
-import webboostIcon from "@assets/webboost-icon_1772080241365.webp";
+// WebBoost removed — using placeholder for legacy icon reference
+const webboostIcon = "";
 import webcareIcon from "@assets/webcare-icon_1772080241410.webp";
 import mapguardIcon from "@assets/mapguard-icon_1772080241423.webp";
 import calendarIcon from "@assets/calendar-icon_1772080241291.webp";
@@ -12,8 +13,8 @@ import quickquoteIcon from "@assets/quickquote-icon_1772080241349.webp";
 import socialsyncIcon from "@assets/socialsync-icon_1772080241338.webp";
 import reputationshieldIcon from "@assets/reputationshield-icon_1772080241309.webp";
 import {
-  TRADELINE, QUOTEQUICK, WEBBOOST, MAPGUARD, SITELAUNCH,
-  FIX_OPTIMIZE, SOCIALSYNC, REPUTATIONSHIELD,
+  TRADELINE, QUOTEQUICK, RANKFLOW, MAPGUARD, SITELAUNCH,
+  WEBFIX, SOCIALSYNC, REPUTATIONSHIELD,
   lowestMonthly, formatPrice,
 } from "@/config/pricing";
 
@@ -242,19 +243,19 @@ export default function ServicesPage() {
     },
     {
       id: "seo",
-      img: webboostIcon,
-      title: "WebBoost",
-      desc: "Website SEO and speed optimization. Rank higher on Google with fast-loading, optimised pages that convert visitors.",
-      from: `From ${formatPrice(lowestMonthly(WEBBOOST)!)}/mo + ${formatPrice(WEBBOOST.setup!)} setup`,
+      img: "",
+      title: "RankFlow",
+      desc: "Done-for-you local SEO. We handle keyword targeting, page optimization, local listings, and monthly progress tracking.",
+      from: `From ${formatPrice(lowestMonthly(RANKFLOW)!)}/mo`,
       testid: "service-seo",
       btnTestid: "button-request-info-seo",
     },
     {
       id: "webcare",
       img: webcareIcon,
-      title: "WebBoost Care",
-      desc: "Ongoing website performance & SEO maintenance. Keep your site fast, secure, and ranking.",
-      from: `From ${formatPrice(lowestMonthly(WEBBOOST)!)}/mo`,
+      title: "WebCare",
+      desc: "Ongoing website maintenance. Updates, backups, and monitoring so your site stays working.",
+      from: `From $79/mo`,
       testid: "service-webcare",
       btnTestid: "button-request-info-webcare",
     },
@@ -262,7 +263,7 @@ export default function ServicesPage() {
       id: "gmb",
       img: mapguardIcon,
       title: "MapGuard",
-      desc: "Google Maps GBP optimization. Get found by local customers searching for your trade with citations and review strategy.",
+      desc: "Fully managed Google Maps visibility. We monitor, optimize, and fix your profile every month so you show up when customers search.",
       from: `From ${formatPrice(lowestMonthly(MAPGUARD)!)}/mo + ${formatPrice(MAPGUARD.setup!)} setup`,
       testid: "service-gmb",
       btnTestid: "button-request-info-gmb",
@@ -288,9 +289,9 @@ export default function ServicesPage() {
     {
       id: "quickquote",
       img: quickquoteIcon,
-      title: "Fix & Optimize™",
+      title: "WebFix\u2122",
       desc: "One-off website fixes, tweaks, and optimization. Broken pages, slow loading, SEO issues, design tweaks.",
-      from: `${formatPrice(FIX_OPTIMIZE.tiers[0].price)} one-time`,
+      from: `${formatPrice(WEBFIX.tiers[0].price)} one-time`,
       testid: "service-quickquote",
       btnTestid: "button-request-info-quickquote",
     },
@@ -390,7 +391,7 @@ export default function ServicesPage() {
                     <option value="">Select a service...</option>
                     <option value="voice-assistant">24/7 Lead Assistant Voice</option>
                     <option value="chat-assistant">24/7 Lead Assistant Chat</option>
-                    <option value="seo">WebBoost (SEO + Speed)</option>
+                    <option value="seo">RankFlow (Local SEO)</option>
                     <option value="webcare">WebCare (Maintenance)</option>
                     <option value="gmb">MapGuard (Google Maps)</option>
                     <option value="booking">Booking & Calendar Integration</option>

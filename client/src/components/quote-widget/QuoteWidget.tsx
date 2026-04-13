@@ -1,7 +1,7 @@
-import { useMemo, useEffect, useRef } from 'react';
-import { ChevronLeft, ArrowRight } from 'lucide-react';
+import { useMemo, useEffect, useRef, Component, type ReactNode } from 'react';
+import { ChevronLeft, ArrowRight, AlertTriangle } from 'lucide-react';
 import { trackEvent } from '@/lib/trackEvent';
-import { validatePricingConfig } from '@shared/pricingConfig';
+import { validatePricingConfig, CALL_FOR_QUOTE_FALLBACK } from '@shared/pricingConfig';
 import { getTemplateById } from '@shared/templateLibrary';
 import { buildWidgetFlow, type FlowBuilderSettings } from '@shared/widgetFlowBuilder';
 import { getWidgetTheme } from '@/theme/widgetTheme';
@@ -13,6 +13,37 @@ import { evaluateVisibility } from './visibility';
 import type { CalculatorData, WidgetConfig } from './types';
 
 import { eff } from './designTokens';
+
+/* ─── Error Boundary ─── */
+
+interface ErrorBoundaryState { error: Error | null }
+
+class WidgetErrorBoundary extends Component<{ children: ReactNode; businessName?: string }, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error) {
+    if (process.env.NODE_ENV !== 'production') console.error('[QuoteWidget] Render error:', error);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{
+          maxWidth: '576px', margin: '0 auto', padding: '40px 24px',
+          textAlign: 'center', fontFamily: eff.font,
+        }}>
+          <AlertTriangle style={{ width: 32, height: 32, color: '#d97706', margin: '0 auto 16px' }} />
+          <p style={{ fontSize: '16px', fontWeight: 600, color: eff.text, margin: '0 0 8px' }}>
+            Something went wrong loading this calculator
+          </p>
+          <p style={{ fontSize: '14px', color: eff.textBody, margin: 0 }}>
+            Please refresh the page or contact {this.props.businessName || 'the business'} directly.
+          </p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /* ─── Public Props (matches CalculatorWidget interface) ─── */
 
@@ -32,13 +63,22 @@ interface QuoteWidgetProps {
  */
 export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidgetProps) {
   const config = useMemo<WidgetConfig>(() => {
-    const validation = validatePricingConfig(calculator.pricing_config);
+    // Guard: missing or null pricing_config falls back to call-for-quote
+    const rawPricing = calculator.pricing_config ?? CALL_FOR_QUOTE_FALLBACK;
+    const validation = validatePricingConfig(rawPricing);
+    if (!validation.valid) {
+      if (process.env.NODE_ENV !== 'production') console.warn('[QuoteWidget] Invalid pricing config, using fallback:', validation.errors);
+    }
     const pricingConfig = validation.config;
 
     const calcSettings = (calculator.calculator_settings || {}) as Record<string, any>;
     const uiTemplate = calcSettings.ui_template || {};
     const templateId: string = uiTemplate.template_id || 'classic_single';
+    // Guard: invalid template ID falls back to classic_single
     const template = getTemplateById(templateId) || getTemplateById('classic_single')!;
+    if (!getTemplateById(templateId)) {
+      console.warn(`[QuoteWidget] Unknown template "${templateId}", using classic_single`);
+    }
 
     const bookingSettings = calcSettings.booking_settings || {};
     const flowSettings: FlowBuilderSettings = {
@@ -49,9 +89,20 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
       leadForm: calcSettings.lead_form,
       promotionsEnabled: calcSettings.promotions?.enabled === true,
       quoteRules: calcSettings.quote_rules,
+      serviceTypes: calcSettings.serviceTypes,
     };
 
     const flow = buildWidgetFlow(pricingConfig, template, flowSettings);
+
+    // Guard: empty steps — ensure at least lead_capture + confirmation
+    if (!flow.steps || flow.steps.length === 0) {
+      if (process.env.NODE_ENV !== 'production') console.warn('[QuoteWidget] Flow produced 0 steps, injecting minimal flow');
+      flow.steps = [
+        { id: 'price_reveal', type: 'price_reveal', title: 'Your Estimate', questions: [], config: { show_progress: true, can_skip: false, auto_advance: false } },
+        { id: 'lead_capture', type: 'lead_capture', title: 'Get your detailed quote', questions: [], config: { show_progress: true, can_skip: false, auto_advance: false } },
+        { id: 'confirmation', type: 'confirmation', title: "You're all set!", questions: [], config: { show_progress: false, can_skip: false, auto_advance: false } },
+      ];
+    }
 
     return { calculator, pricingConfig, template, flow, isEmbed };
   }, [calculator, isEmbed]);
@@ -70,18 +121,20 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
   }, [calculator.id, calculator.slug]);
 
   return (
-    <WidgetProvider config={config}>
-      <div
-        className="mx-auto w-full"
-        style={{
-          maxWidth: '576px',
-          fontFamily: eff.font,
-          color: eff.text,
-        }}
-      >
-        <WidgetCard theme={theme} calculator={calculator} />
-      </div>
-    </WidgetProvider>
+    <WidgetErrorBoundary businessName={calculator.business_name}>
+      <WidgetProvider config={config}>
+        <div
+          className="mx-auto w-full"
+          style={{
+            maxWidth: '576px',
+            fontFamily: eff.font,
+            color: eff.text,
+          }}
+        >
+          <WidgetCard theme={theme} calculator={calculator} />
+        </div>
+      </WidgetProvider>
+    </WidgetErrorBoundary>
   );
 }
 
@@ -107,6 +160,17 @@ function WidgetCard({
   } = useWidgetState();
 
   const accentColor = theme.colors.primary;
+
+  // Track preview interaction (AHA moment) — fire once when user changes any answer or advances a step
+  const previewTrackedRef = useRef(false);
+  const isPreview = config.calculator.id < 0;
+  const answerCount = Object.keys(answers).length;
+  useEffect(() => {
+    if (isPreview && !previewTrackedRef.current && (answerCount > 0 || currentStepIndex > 0)) {
+      previewTrackedRef.current = true;
+      trackEvent('wizard_preview_interacted');
+    }
+  }, [isPreview, answerCount, currentStepIndex]);
 
   // Filter visible steps for progress display
   const visibleStepCount = config.flow.steps.filter((s) => {
@@ -139,15 +203,32 @@ function WidgetCard({
         overflow: 'hidden',
       }}
     >
+      {/* Widget baseline styles */}
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .eff-widget-header { padding: 20px 28px; }
+        .eff-widget-progress { padding: 20px 28px 0; }
+        .eff-widget-body { padding: 28px; }
+        .eff-widget-nav { padding: 20px 28px; }
+        .eff-widget-help { top: 28px; right: 28px; }
+        @media (max-width: 480px) {
+          .eff-widget-header { padding: 16px 20px; }
+          .eff-widget-progress { padding: 16px 20px 0; }
+          .eff-widget-body { padding: 20px; }
+          .eff-widget-nav { padding: 16px 20px; }
+          .eff-widget-help { top: 20px; right: 20px; }
+        }
+      `}</style>
+
       {/* ─── Header ─── */}
       {(calculator.business_name || calculator.logo_url) && (
         <div
+          className="eff-widget-header"
           style={{
-            padding: '24px 32px',
             borderBottom: `1px solid ${eff.buttonBorder}`,
             display: 'flex',
             alignItems: 'center',
-            gap: '16px',
+            gap: '14px',
           }}
         >
           {calculator.logo_url && (
@@ -155,8 +236,8 @@ function WidgetCard({
               src={calculator.logo_url}
               alt={calculator.business_name}
               style={{
-                height: '40px',
-                width: '40px',
+                height: '36px',
+                width: '36px',
                 borderRadius: eff.radiusMd,
                 objectFit: 'contain',
               }}
@@ -188,26 +269,25 @@ function WidgetCard({
 
       {/* ─── Progress Bar ─── */}
       {showProgress && (
-        <div style={{ padding: '24px 32px 0' }}>
+        <div className="eff-widget-progress">
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: '8px',
+            marginBottom: '6px',
           }}>
             <span style={{
               fontSize: '12px',
               fontWeight: 600,
               color: eff.textBody,
-              letterSpacing: '0.02em',
-              fontFamily: eff.fontMono,
-              textTransform: 'uppercase' as const,
+              letterSpacing: '0.01em',
+              fontFamily: eff.font,
             }}>
-              Step {currentStepIndex + 1} / {visibleStepCount}
+              Step {currentStepIndex + 1} of {visibleStepCount}
             </span>
           </div>
           <div style={{
-            height: '4px',
+            height: '3px',
             borderRadius: '2px',
             background: eff.bg,
             overflow: 'hidden',
@@ -226,12 +306,10 @@ function WidgetCard({
       )}
 
       {/* ─── Step Content ─── */}
-      <div style={{ padding: '32px', position: 'relative' }}>
+      <div className="eff-widget-body" style={{ position: 'relative' }}>
         {currentStep.help && (
-          <div style={{
+          <div className="eff-widget-help" style={{
             position: 'absolute',
-            top: '32px',
-            right: '32px',
             zIndex: 10,
           }}>
             <StepHelp help={currentStep.help} />
@@ -243,9 +321,9 @@ function WidgetCard({
       {/* ─── Navigation ─── */}
       {(showBack || showNext || canSkip) && (
         <div
+          className="eff-widget-nav"
           style={{
             borderTop: `1px solid ${eff.buttonBorder}`,
-            padding: '24px 32px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',

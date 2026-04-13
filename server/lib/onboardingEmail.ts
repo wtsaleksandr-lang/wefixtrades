@@ -29,36 +29,73 @@ export async function sendOnboardingEmail(params: OnboardingEmailParams): Promis
   const contactName = params.client.contact_name || params.client.business_name;
 
   const html = `
-    <div style="font-family: 'Inter', system-ui, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 20px; color: #1a1a2e;">
-      <div style="text-align: center; margin-bottom: 32px;">
-        <div style="display: inline-block; background: #66E8FA; color: #181D1F; font-size: 13px; font-weight: 800; padding: 4px 14px; border-radius: 999px; letter-spacing: 0.04em;">WeFixTrades</div>
-      </div>
+    <div style="font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #0B0F14; padding: 40px 16px;">
+      <div style="max-width: 480px; margin: 0 auto;">
 
-      <h1 style="font-size: 22px; font-weight: 700; color: #1a1a2e; margin: 0 0 8px;">Welcome aboard, ${contactName}!</h1>
-      <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
-        Thank you for your purchase. To get started with <strong>${params.serviceName}</strong>,
-        we need a few details from you.
-      </p>
-
-      <div style="background: #f7f8fa; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-        <div style="font-size: 13px; font-weight: 600; color: #1a1a2e; margin-bottom: 12px;">
-          Please complete your onboarding form:
+        <!-- Logo -->
+        <div style="text-align: center; margin-bottom: 32px;">
+          <span style="display: inline-block; background: rgba(102,232,250,0.12); color: #66E8FA; font-size: 12px; font-weight: 800; padding: 5px 16px; border-radius: 999px; letter-spacing: 0.06em;">WeFixTrades</span>
         </div>
-        <a href="${onboardingUrl}" style="display: inline-block; background: #66E8FA; color: #181D1F; font-size: 14px; font-weight: 700; padding: 12px 28px; border-radius: 10px; text-decoration: none;">
-          Complete Onboarding &rarr;
-        </a>
-      </div>
 
-      <div style="font-size: 13px; color: #888; line-height: 1.6; margin-bottom: 24px;">
-        <strong>What happens next:</strong><br/>
-        1. Fill out the short form (takes ~5 minutes)<br/>
-        2. Our team reviews your details and starts setup<br/>
-        3. You'll receive updates as we progress
-      </div>
+        <!-- Card -->
+        <div style="background: #151A21; border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 36px 28px;">
 
-      <div style="border-top: 1px solid #eee; padding-top: 16px; font-size: 12px; color: #999; line-height: 1.5;">
-        If the button doesn't work, copy and paste this link:<br/>
-        <a href="${onboardingUrl}" style="color: #66E8FA; word-break: break-all;">${onboardingUrl}</a>
+          <!-- Headline -->
+          <h1 style="font-size: 24px; font-weight: 700; color: #F0F0F0; margin: 0 0 6px; text-align: center;">
+            Your system is ready
+          </h1>
+          <p style="font-size: 14px; color: #8B919A; margin: 0 0 28px; text-align: center;">
+            Takes 2\u20133 minutes. We'll handle the rest.
+          </p>
+
+          <!-- CTA -->
+          <a href="${onboardingUrl}" style="display: block; background: #66E8FA; color: #0B0F14; font-size: 15px; font-weight: 700; padding: 14px 24px; border-radius: 10px; text-decoration: none; text-align: center;">
+            Complete Setup
+          </a>
+
+          <!-- Divider -->
+          <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 28px 0;"></div>
+
+          <!-- Steps -->
+          <p style="font-size: 12px; font-weight: 600; color: #8B919A; text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 16px;">
+            What happens next
+          </p>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px 12px 8px 0; vertical-align: top; width: 24px;">
+                <span style="display: inline-block; width: 22px; height: 22px; background: rgba(102,232,250,0.12); color: #66E8FA; font-size: 11px; font-weight: 700; border-radius: 6px; text-align: center; line-height: 22px;">1</span>
+              </td>
+              <td style="padding: 8px 0; font-size: 13px; color: #CDD1D6; line-height: 1.4;">
+                You answer a few quick questions
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px 8px 0; vertical-align: top;">
+                <span style="display: inline-block; width: 22px; height: 22px; background: rgba(102,232,250,0.12); color: #66E8FA; font-size: 11px; font-weight: 700; border-radius: 6px; text-align: center; line-height: 22px;">2</span>
+              </td>
+              <td style="padding: 8px 0; font-size: 13px; color: #CDD1D6; line-height: 1.4;">
+                We configure your system automatically
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px 8px 0; vertical-align: top;">
+                <span style="display: inline-block; width: 22px; height: 22px; background: rgba(102,232,250,0.12); color: #66E8FA; font-size: 11px; font-weight: 700; border-radius: 6px; text-align: center; line-height: 22px;">3</span>
+              </td>
+              <td style="padding: 8px 0; font-size: 13px; color: #CDD1D6; line-height: 1.4;">
+                You go live and start capturing jobs
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Footer -->
+        <p style="font-size: 12px; color: #555B63; text-align: center; margin: 24px 0 0; line-height: 1.5;">
+          No technical work required. Everything is handled for you.
+        </p>
+        <p style="font-size: 11px; color: #3A3F47; text-align: center; margin: 16px 0 0; line-height: 1.5;">
+          If the button doesn\u2019t work, copy this link:<br/>
+          <a href="${onboardingUrl}" style="color: #66E8FA; word-break: break-all;">${onboardingUrl}</a>
+        </p>
       </div>
     </div>
   `;
@@ -67,7 +104,7 @@ export async function sendOnboardingEmail(params: OnboardingEmailParams): Promis
     await transporter.sendMail({
       from: `WeFixTrades <${getFromAddress()}>`,
       to: params.client.contact_email,
-      subject: `Complete your onboarding for ${params.serviceName} — WeFixTrades`,
+      subject: `Your system is ready — let's finish setup`,
       html,
     });
     console.log(`[onboarding-email] Sent onboarding email to ${params.client.contact_email} for ${params.serviceName}`);

@@ -13,7 +13,6 @@ const PRICING_TO_PRODUCT_SLUG: Record<string, string> = {
   "booking": "booking-addon",
   "ai-chat": "ai-chat",
   "ai-voice": "ai-voice",
-  "webboost": "webboost",
   "webcare": "webcare",
   "mapguard": "mapguard",
   "socialsync": "socialsync",
