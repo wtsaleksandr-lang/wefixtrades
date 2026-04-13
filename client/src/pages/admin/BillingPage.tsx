@@ -81,8 +81,27 @@ export default function BillingPage() {
   const payments = data?.data ?? [];
   const unpaidTotal = data?.unpaidTotal ?? 0;
 
+  const now = new Date();
+  const pendingPayments = payments.filter((p) => p.status === "pending");
+  const failedPayments = payments.filter((p) => p.status === "failed");
+  const overduePayments = pendingPayments.filter(
+    (p) => p.due_at && new Date(p.due_at) < now
+  );
+
   return (
-    <AdminLayout pageContext={{ page: "billing", unpaidAmount: unpaidTotal }}>
+    <AdminLayout pageContext={{
+      page: "billing",
+      unpaidAmount: unpaidTotal,
+      activeFilters: statusFilter !== "all" ? statusFilter : undefined,
+      pendingPaymentsCount: pendingPayments.length,
+      failedPaymentsCount: failedPayments.length,
+      overduePaymentsCount: overduePayments.length,
+      topPendingPayments: pendingPayments.slice(0, 6).map((p) => ({
+        client_name: p.client_name || `Client #${p.client_id}`,
+        amount_cents: p.amount_cents,
+        due_at: p.due_at,
+      })),
+    }}>
       <div className="max-w-5xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">

@@ -3,8 +3,9 @@
  * Prices and features derived from shared/pricing.ts (single source of truth).
  */
 import {
-  SITELAUNCH, TRADELINE, QUOTEQUICK, WEBBOOST, MAPGUARD,
-  REPUTATIONSHIELD, SOCIALSYNC, lowestMonthly, formatPrice,
+  SITELAUNCH, TRADELINE, QUOTEQUICK, MAPGUARD,
+  REPUTATIONSHIELD, SOCIALSYNC, WEBFIX, RANKFLOW, ADFLOW,
+  lowestMonthly, formatPrice,
   type ProductDef,
 } from "./pricing";
 
@@ -25,7 +26,7 @@ export type Service = {
 export const SERVICES: Service[] = [
   {
     id: "mapguard-setup",
-    name: MAPGUARD.name + " Setup",
+    name: "MapSetup\u2122",
     tagline: "One-time Google Business Profile optimisation sprint",
     description:
       "We audit and rebuild your Google Business Profile from scratch — fixing every gap that's hurting your local ranking and costing you calls.",
@@ -44,9 +45,9 @@ export const SERVICES: Service[] = [
   {
     id: "mapguard-ongoing",
     name: MAPGUARD.name + " Ongoing",
-    tagline: "Monthly Google Maps maintenance & growth",
+    tagline: "Fully managed Google Maps visibility — monitoring, fixing, improving",
     description:
-      "Monthly profile updates, post scheduling, and review strategy to keep your Maps ranking climbing and your profile ahead of competitors.",
+      "We monitor your rankings weekly, fix issues as they arise, and execute optimization work every month. You receive clear reports showing your progress.",
     price: lowestMonthly(MAPGUARD)!,
     priceLabel: `From ${formatPrice(lowestMonthly(MAPGUARD)!)}/mo`,
     billingPeriod: "monthly",
@@ -68,7 +69,7 @@ export const SERVICES: Service[] = [
     name: REPUTATIONSHIELD.name,
     tagline: REPUTATIONSHIELD.tagline,
     description:
-      "Automated review request campaigns, response templates, and monitoring to build trust signals that convert browsers into callers.",
+      "Automated review requests after completed jobs, AI-powered review responses, negative review alerts, and a client-facing reputation dashboard.",
     price: lowestMonthly(REPUTATIONSHIELD)!,
     priceLabel: `From ${formatPrice(lowestMonthly(REPUTATIONSHIELD)!)}/mo`,
     billingPeriod: "monthly",
@@ -102,13 +103,13 @@ export const SERVICES: Service[] = [
     isPopular: true,
   },
   {
-    id: "webboost-setup",
-    name: WEBBOOST.name + " Setup",
-    tagline: "One-time speed & SEO upgrade for your website",
+    id: "webfix",
+    name: WEBFIX.name,
+    tagline: WEBFIX.tagline,
     description:
-      "We audit your site, fix the PageSpeed issues, and resolve Core Web Vitals problems in a single sprint — giving Google a reason to rank you higher.",
-    price: WEBBOOST.setup!,
-    priceLabel: `${formatPrice(WEBBOOST.setup!)} one-time`,
+      "One-time website fixes covering speed, SEO structure, and Google Maps profile cleanup.",
+    price: WEBFIX.tiers[0].price,
+    priceLabel: `${formatPrice(WEBFIX.tiers[0].price)} one-time`,
     billingPeriod: "one-time",
     category: "website",
     fixesIssues: [
@@ -116,26 +117,39 @@ export const SERVICES: Service[] = [
       "low-search-ranking",
       "low-visibility",
     ],
-    features: WEBBOOST.tiers[0].features,
+    features: WEBFIX.tiers[0].features,
   },
   {
-    id: "webboost-care",
-    name: WEBBOOST.name + " Care",
-    tagline: "Ongoing website performance & SEO maintenance",
+    id: "rankflow",
+    name: RANKFLOW.name,
+    tagline: RANKFLOW.tagline,
     description:
-      "Monthly checks to keep your site fast, secure, and ranking. We catch regressions before Google does.",
-    price: lowestMonthly(WEBBOOST)!,
-    priceLabel: `From ${formatPrice(lowestMonthly(WEBBOOST)!)}/mo`,
+      "Done-for-you local SEO that improves your search visibility every month.",
+    price: lowestMonthly(RANKFLOW)!,
+    priceLabel: `From ${formatPrice(lowestMonthly(RANKFLOW)!)}/mo`,
     billingPeriod: "monthly",
-    category: "website",
+    category: "visibility",
     fixesIssues: [
-      "slow-website",
       "low-search-ranking",
+      "low-visibility",
     ],
-    features: [
-      ...WEBBOOST.tiers[1].features,
-      ...WEBBOOST.tiers[2].features.filter(f => !WEBBOOST.tiers[1].features.includes(f)).map(f => `${f} (Pro)`),
+    features: RANKFLOW.tiers[0].features,
+  },
+  {
+    id: "adflow",
+    name: ADFLOW.name,
+    tagline: ADFLOW.tagline,
+    description:
+      "Done-for-you Google and Facebook ads that bring qualified leads fast.",
+    price: lowestMonthly(ADFLOW)!,
+    priceLabel: `From ${formatPrice(lowestMonthly(ADFLOW)!)}/mo`,
+    billingPeriod: "monthly",
+    category: "leads",
+    fixesIssues: [
+      "low-visibility",
+      "few-leads",
     ],
+    features: ADFLOW.tiers[0].features,
   },
   {
     id: "sitelaunch",
@@ -179,7 +193,7 @@ export const SERVICES: Service[] = [
     name: SOCIALSYNC.name,
     tagline: SOCIALSYNC.tagline,
     description:
-      "Consistent social media presence with trade-specific content, scheduling, and engagement tracking.",
+      "AI-generated social media content published automatically to Facebook, Instagram, and Google Business Profile. Full autopilot posting.",
     price: lowestMonthly(SOCIALSYNC)!,
     priceLabel: `From ${formatPrice(lowestMonthly(SOCIALSYNC)!)}/mo`,
     billingPeriod: "monthly",

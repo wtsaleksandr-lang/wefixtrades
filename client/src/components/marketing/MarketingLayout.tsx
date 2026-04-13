@@ -14,23 +14,23 @@ const SiteChatWidget = lazy(() => import("@/components/SiteChatWidget"));
 
 const ftLink: CSSProperties = {
   display: "block",
-  fontSize: 13,
+  fontSize: 12,
   fontWeight: 400,
   color: "rgba(255,255,255,0.45)",
   textDecoration: "none",
   lineHeight: 1.3,
-  padding: "5px 0",
+  padding: "4px 0",
   transition: "color 0.15s ease",
 };
 
 const ftHeading: CSSProperties = {
-  fontSize: 11,
+  fontSize: 10,
   fontWeight: 600,
   color: mkt.accent,
   textTransform: "uppercase",
   letterSpacing: "0.08em",
-  paddingBottom: 10,
-  marginBottom: 12,
+  paddingBottom: 8,
+  marginBottom: 10,
   borderBottom: "1px solid rgba(255,255,255,0.08)",
 };
 
@@ -60,25 +60,64 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
       }}
     >
       {/* ── Main footer grid ───────────────────────────────────────── */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 24px 0" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 20px 0" }}>
         <div className="mkt-footer-grid">
-          {/* Col 1 — Products */}
+          {/* Col 1 — Products (core only) */}
           <div>
             <div style={ftHeading}>Products</div>
             <FtLink href="/products/tradeline">24/7 TradeLine™</FtLink>
-            <FtLink href="/solutions/instant-quotes">Instant Quotes</FtLink>
-            <FtLink href="/solutions/review-engine">Review Engine</FtLink>
-            <FtLink href="/solutions/visibility-boost">Visibility Boost</FtLink>
+            <FtLink href="/products/quickquotepro">QuoteQuick Pro™</FtLink>
+            <FtLink href="/products/mapguard">MapGuard™</FtLink>
+            <FtLink href="/products/reputationshield">ReputationShield™</FtLink>
+            <FtLink href="/products/socialsync">SocialSync™</FtLink>
+            <FtLink href="/products/rankflow">RankFlow™</FtLink>
+            <FtLink href="/products/adflow">AdFlow™</FtLink>
+            <Link
+              href="/products"
+              style={{
+                ...ftLink,
+                fontSize: 12,
+                fontWeight: 500,
+                color: mkt.accent,
+                marginTop: 6,
+                opacity: 0.7,
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.7"; }}
+            >
+              View All Products →
+            </Link>
           </div>
 
-          {/* Col 2 — Solutions */}
+          {/* Col 2 — Solutions (grouped) */}
           <div>
             <div style={ftHeading}>Solutions</div>
-            <FtLink href="/industries/plumbing">Plumbing</FtLink>
-            <FtLink href="/industries/hvac">HVAC</FtLink>
-            <FtLink href="/industries/electrical">Electrical</FtLink>
-            <FtLink href="/industries/roofing">Roofing</FtLink>
-            <FtLink href="/industries/cleaning">Cleaning</FtLink>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.25)", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>By Trade</div>
+            <FtLink href="/solutions/for-plumbers">Plumbing</FtLink>
+            <FtLink href="/solutions/for-hvac">HVAC</FtLink>
+            <FtLink href="/solutions/for-electricians">Electrical</FtLink>
+            <FtLink href="/solutions/for-roofers">Roofing</FtLink>
+            <FtLink href="/solutions/for-cleaners">Cleaning</FtLink>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.25)", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginTop: 10, marginBottom: 6 }}>By Goal</div>
+            <FtLink href="/products/tradeline">Get more calls</FtLink>
+            <FtLink href="/products/quickquotepro">Automate quotes</FtLink>
+            <FtLink href="/products/mapguard">Improve Google ranking</FtLink>
+            <FtLink href="/products/reputationshield">Get more reviews</FtLink>
+            <Link
+              href="/solutions/for-plumbers"
+              style={{
+                ...ftLink,
+                fontSize: 12,
+                fontWeight: 500,
+                color: mkt.accent,
+                marginTop: 6,
+                opacity: 0.7,
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.7"; }}
+            >
+              View All Solutions →
+            </Link>
           </div>
 
           {/* Col 3 — Resources */}
@@ -86,7 +125,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             <div style={ftHeading}>Resources</div>
             <FtLink href="/about">About Us</FtLink>
             <FtLink href="/contact">Contact Sales</FtLink>
-            <FtLink href="/plans">Pricing</FtLink>
+            <FtLink href="/pricing">Pricing</FtLink>
             {!isAuthenticated && <FtLink href="/login">Login</FtLink>}
             {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}
           </div>
@@ -181,16 +220,11 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
         .mkt-footer-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 40px;
+          gap: 36px;
         }
         @media (max-width: 768px) {
           .mkt-footer-grid {
             grid-template-columns: 1fr 1fr;
-            gap: 28px 24px;
-          }
-        }
-        @media (max-width: 400px) {
-          .mkt-footer-grid {
             gap: 24px 20px;
           }
         }

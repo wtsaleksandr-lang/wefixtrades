@@ -3,10 +3,9 @@ import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, colors, shadows } from "@/theme/tokens";
 import mapguardIcon from "@assets/mapguard-icon_1772080241423.webp";
-import webboostIcon from "@assets/webboost-icon_1772080241365.webp";
 import reputationshieldIcon from "@assets/reputationshield-icon_1772080241309.webp";
 import socialsyncIcon from "@assets/socialsync-icon_1772080241338.webp";
-import { MAPGUARD, WEBBOOST, REPUTATIONSHIELD, SOCIALSYNC, lowestMonthly, formatPrice } from "@/config/pricing";
+import { MAPGUARD, REPUTATIONSHIELD, SOCIALSYNC, RANKFLOW, lowestMonthly, formatPrice } from "@/config/pricing";
 
 const services = [
   {
@@ -26,20 +25,20 @@ const services = [
     from: `From ${formatPrice(lowestMonthly(MAPGUARD)!)}/mo`,
   },
   {
-    id: "webboost",
-    icon: webboostIcon,
-    title: "WebBoost",
-    subtitle: "SEO & Website Speed Optimisation",
+    id: "rankflow",
+    icon: mapguardIcon,
+    title: "RankFlow",
+    subtitle: "Done-for-You Local SEO",
     description:
-      "Rank higher on Google with a fast-loading, optimised website that converts visitors into leads. We handle technical SEO, content, and performance tuning.",
+      "We improve your local search visibility every month. Keyword targeting, page optimization, local listings, and clear progress tracking \u2014 all handled for you.",
     included: [
-      "Technical SEO audit and fixes (meta, schema, sitemap)",
-      "Page speed optimisation (Core Web Vitals)",
-      "Monthly keyword tracking and content recommendations",
-      "On-page SEO for service and location pages",
-      "Monthly performance report with traffic insights",
+      "Keyword research & on-page optimization",
+      "SEO page creation for your services (Growth+)",
+      "Local citation & directory building",
+      "Google Search Console monitoring",
+      "Monthly progress dashboard",
     ],
-    from: `From ${formatPrice(lowestMonthly(WEBBOOST)!)}/mo`,
+    from: `From ${formatPrice(lowestMonthly(RANKFLOW)!)}/mo`,
   },
   {
     id: "reputationshield",

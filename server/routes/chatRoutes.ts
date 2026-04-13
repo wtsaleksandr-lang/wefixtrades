@@ -1,14 +1,17 @@
 import type { Express, Request, Response } from "express";
+import crypto from "crypto";
 import { assistantStream, assistantSync, isReady, type AssistantRequest } from "../services/assistant";
-import type { ChatSurface, AuditContext } from "../services/promptBuilder";
+import type { ChatSurface, AuditContext, PortalContext } from "../services/promptBuilder";
+import { assemblePortalContext } from "../services/portalAssistantContext";
 import type { ChatMessage } from "../services/aiService";
 import { chatRateLimiter } from "../services/rateLimiter";
 import { db } from "../db";
 import { auditReports } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { shouldInjectTools, ADMIN_TOOLS, storePendingAction } from "../services/adminTools";
 
 /* ─── Validation ─── */
-const VALID_SURFACES: ChatSurface[] = ["website", "audit", "dashboard", "admin", "vapi"];
+const VALID_SURFACES: ChatSurface[] = ["website", "audit", "dashboard", "admin", "vapi", "portal"];
 
 function validateMessages(messages: any): messages is ChatMessage[] {
   return (
@@ -112,16 +115,41 @@ async function parseAssistantRequest(req: Request): Promise<
     }
   }
 
+  // Portal surface: assemble context from DB using authenticated user
+  let portalCtx: PortalContext | undefined;
+  let resolvedUserId: number | undefined = typeof userId === "number" ? userId : undefined;
+  if (surface === "portal") {
+    const sessionUserId = (req as any).user?.id;
+    if (!sessionUserId) {
+      return { ok: false, status: 401, error: "Authentication required for portal surface." };
+    }
+    resolvedUserId = sessionUserId;
+
+    const { page, onboardingId, currentResponses } = req.body || {};
+    portalCtx = await assemblePortalContext(
+      sessionUserId,
+      typeof page === "string" ? page : undefined,
+      typeof onboardingId === "number" ? onboardingId : undefined,
+      currentResponses ? { currentResponses } : undefined,
+    ).catch((err) => {
+      console.error("[chat] Portal context assembly error:", err);
+      return undefined;
+    });
+  }
+
   return {
     ok: true,
     assistantReq: {
       surface,
       messages: messages.slice(-20),
-      sessionId: sid,
-      userId: typeof userId === "number" ? userId : undefined,
+      sessionId: surface === "portal" ? `portal_${resolvedUserId}` : sid,
+      userId: resolvedUserId,
       auditContext: auditCtx,
       pageContext: surface === "admin" && clientPageCtx ? clientPageCtx : undefined,
+      portalContext: portalCtx,
       reportId: typeof reportId === "string" ? reportId : undefined,
+      // Admin surface needs more tokens for task summaries and operational detail
+      maxTokens: surface === "admin" ? 1000 : undefined,
     },
   };
 }
@@ -148,6 +176,43 @@ async function writeStream(res: Response, req: AssistantRequest): Promise<void> 
       }
     }
 
+    // Check whether the model decided to call a tool
+    try {
+      const finalMsg = await stream.finalMessage();
+      if (finalMsg.stop_reason === "tool_use" && req.tools?.length && req.userId) {
+        const toolUseBlock = finalMsg.content.find((b: any) => b.type === "tool_use") as any;
+        if (toolUseBlock) {
+          const callId = crypto.randomUUID();
+          const toolInput = toolUseBlock.input as Record<string, unknown>;
+
+          // Resolve display fields from page context to avoid a DB round-trip
+          const taskId = toolInput.task_id as number | undefined;
+          const taskFromCtx = req.pageContext?.topTasks?.find((t) => t.id === taskId);
+          const display = {
+            task_title: taskFromCtx?.title ?? (taskId ? `Task #${taskId}` : "Unknown task"),
+            current_status: taskFromCtx?.status ?? "unknown",
+            proposed_status: (toolInput.status as string) ?? "",
+            reason: toolInput.reason as string | undefined,
+          };
+
+          // Store action server-side — client only gets the call_id
+          storePendingAction({
+            call_id: callId,
+            tool_name: toolUseBlock.name,
+            args: toolInput,
+            user_id: req.userId,
+            session_id: req.sessionId,
+            expires: Date.now() + 5 * 60 * 1000,
+            metadata: { current_status: display.current_status },
+          });
+
+          res.write(`data: ${JSON.stringify({ tool_call: { call_id: callId, tool_name: toolUseBlock.name, display } })}\n\n`);
+        }
+      }
+    } catch {
+      // If finalMessage fails, skip tool_call event — proceed to [DONE]
+    }
+
     res.write("data: [DONE]\n\n");
     res.end();
 
@@ -155,12 +220,11 @@ async function writeStream(res: Response, req: AssistantRequest): Promise<void> 
   } catch (err: any) {
     console.error("[chat] Stream error:", err?.message);
     if (headersSent) {
-      // SSE is already open — send error as an SSE event so the client sees it
       res.write(`data: ${JSON.stringify({ error: "Something went wrong. Please try again." })}\n\n`);
       res.write("data: [DONE]\n\n");
       res.end();
     } else {
-      throw err; // Let the route handler send a JSON error
+      throw err;
     }
   }
 }
@@ -187,6 +251,21 @@ export function registerChatRoutes(app: Express): void {
       const parsed = await parseAssistantRequest(req);
       if (!parsed.ok) {
         return res.status(parsed.status).json({ error: parsed.error });
+      }
+
+      // Admin surface is internal-only — require authenticated admin session
+      if (parsed.assistantReq.surface === "admin") {
+        if (!req.isAuthenticated?.() || (req.user as Express.User | undefined)?.role !== "admin") {
+          return res.status(401).json({ error: "Admin access required" });
+        }
+        // Bind userId from authenticated session (not client-supplied) for admin
+        parsed.assistantReq.userId = (req.user as Express.User).id;
+
+        // Inject tools + Sonnet when all four criteria are met
+        if (shouldInjectTools(parsed.assistantReq.pageContext)) {
+          parsed.assistantReq.tools = ADMIN_TOOLS;
+          parsed.assistantReq.model = "claude-sonnet-4-6";
+        }
       }
 
       await writeStream(res, parsed.assistantReq);
@@ -221,6 +300,14 @@ export function registerChatRoutes(app: Express): void {
       const parsed = await parseAssistantRequest(req);
       if (!parsed.ok) {
         return res.status(parsed.status).json({ error: parsed.error });
+      }
+
+      // Admin surface is internal-only — require authenticated admin session
+      if (parsed.assistantReq.surface === "admin") {
+        if (!req.isAuthenticated?.() || (req.user as Express.User | undefined)?.role !== "admin") {
+          return res.status(401).json({ error: "Admin access required" });
+        }
+        parsed.assistantReq.userId = (req.user as Express.User).id;
       }
 
       const result = await assistantSync(parsed.assistantReq);

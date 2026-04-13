@@ -276,6 +276,40 @@ export function registerDashboardRoutes(app: Express): void {
     }
   });
 
+  // Unpublish: move to draft (not publicly accessible, preview only)
+  app.post("/api/dashboard/unpublish", async (req, res) => {
+    try {
+      const body = z.object({ token: z.string() }).safeParse(req.body);
+      if (!body.success) return res.status(400).json({ error: "Invalid request" });
+
+      const calculator = await requireCalcByToken(body.data.token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      const settings = (calculator.calculator_settings as any) || {};
+      const publish = settings.publish || {};
+
+      await storage.updateCalculator(calculator.id, {
+        calculator_settings: {
+          ...settings,
+          publish: {
+            ...publish,
+            status: 'draft',
+          },
+        },
+      });
+
+      await storage.upsertDeploymentStatus({
+        calculator_id: calculator.id,
+        status: 'draft',
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Unpublish error:", error);
+      res.status(500).json({ error: "Failed to unpublish" });
+    }
+  });
+
   // ============ LEAD STATUS ============
 
   app.patch("/api/dashboard/leads/:id/status", async (req, res) => {

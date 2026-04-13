@@ -15,6 +15,7 @@ import type { Express, Request, Response } from "express";
 import Stripe from "stripe";
 import { storage } from "../storage";
 import type { ServiceCatalogRow } from "@shared/schema";
+import { getTradeLineDefaultConfig } from "@shared/schema";
 
 function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -108,6 +109,10 @@ export function registerPublicCheckoutRoutes(app: Express): void {
         const existing = await storage.findClientServiceByServiceId(client.id, svc.id);
         if (existing) continue;
 
+        // Set TradeLine config defaults if this is a TradeLine service
+        const tradelineDefaults = getTradeLineDefaultConfig(svc.id);
+        const metadata = tradelineDefaults ? { tradeline: tradelineDefaults } : undefined;
+
         const cs = await storage.createClientService({
           client_id: client.id,
           service_id: svc.id,
@@ -116,7 +121,18 @@ export function registerPublicCheckoutRoutes(app: Express): void {
           fulfillment_mode: "internal",
           price_cents: svc.default_price,
           billing_period: svc.billing_period,
+          metadata,
         });
+
+        // Auto-populate TradeLine notifications from client contact info
+        if (tradelineDefaults) {
+          const notifications: { email: string[]; sms: string[] } = { email: [], sms: [] };
+          if (client.contact_email) notifications.email.push(client.contact_email);
+          if (client.contact_phone) notifications.sms.push(client.contact_phone);
+          if (notifications.email.length || notifications.sms.length) {
+            await storage.updateTradeLineConfig(cs.id, { notifications });
+          }
+        }
 
         // Create pending payment record (webhook will mark it paid)
         await storage.createClientPayment({
