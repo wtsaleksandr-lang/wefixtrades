@@ -1,22 +1,32 @@
-import { Search, Settings, Rocket } from "lucide-react";
+import { Search, Settings, Wrench, Eye, FileText } from "lucide-react";
 import { mkt } from "@/theme/tokens";
 import { HEADING_FONT, BODY_FONT, GLASS, sectionHeading, sectionSub, SECTION_PAD, MAX_W } from "./styles";
 
 const STEPS = [
   {
     icon: Search,
-    title: "Audit",
-    desc: "We scan your current profile and show you exactly what\u2019s missing or holding you back.",
+    title: "We analyze your profile",
+    desc: "We run a full audit of your Google Business Profile to find what\u2019s missing, what\u2019s hurting your ranking, and where you stand against competitors.",
+  },
+  {
+    icon: Wrench,
+    title: "We fix and optimize it",
+    desc: "Our team rebuilds your profile \u2014 categories, description, photos, keywords, and service areas are all optimized for your trade and location.",
+  },
+  {
+    icon: Eye,
+    title: "We monitor it continuously",
+    desc: "Our system scans your visibility, rankings, and competitors every week. When something changes, we know about it immediately.",
   },
   {
     icon: Settings,
-    title: "Optimize",
-    desc: "We fix everything \u2014 structure, content, categories, photos, and visibility signals.",
+    title: "We handle all visibility issues for you",
+    desc: "Ranking drops, review problems, profile changes \u2014 our team takes action immediately. No action required on your end.",
   },
   {
-    icon: Rocket,
-    title: "Maintain",
-    desc: "We keep your profile active and improving every month \u2014 posts, reviews, adjustments.",
+    icon: FileText,
+    title: "We report progress monthly",
+    desc: "Every month you receive a clear report showing your score, ranking changes, and exactly what we did to improve your visibility.",
   },
 ];
 
@@ -35,7 +45,7 @@ export default function HowItWorks() {
             <span style={{ color: mkt.accent }}>Works</span>
           </h2>
           <p style={sectionSub}>
-            You don't need to log into anything — we handle it.
+            A fully managed service — you never need to log in, learn tools, or lift a finger.
           </p>
         </div>
 

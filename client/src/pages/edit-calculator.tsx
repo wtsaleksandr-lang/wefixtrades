@@ -1,12 +1,13 @@
-// FROZEN — scheduled for rebuild in Phase 3 (Builder Wizard). Do not add features.
+// Edit calculator page — manages business details, branding, pricing, lead form, and deployment.
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, AlertTriangle, Check, Copy, ExternalLink, RefreshCw, Lock, Building2, Palette, MessageSquare, Save, Clock, DollarSign, ChevronDown, ChevronUp, Plus, Trash2, GripVertical, Calculator } from 'lucide-react';
+import { Loader2, AlertTriangle, Check, Copy, ExternalLink, RefreshCw, Lock, Building2, Palette, MessageSquare, Save, Clock, DollarSign, ChevronDown, ChevronUp, Plus, Trash2, GripVertical, Calculator, Eye, Globe, Code2 } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import { trackEvent } from '@/lib/trackEvent';
 
 interface QuestionOption {
   label: string;
@@ -29,7 +30,7 @@ interface PricingConfig {
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-  const copy = () => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const copy = () => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); trackEvent('calculator_link_copied'); };
   return (
     <button onClick={copy} className="p-1.5 rounded-md hover:bg-slate-100 flex-shrink-0 transition-colors" data-testid="button-copy">
       {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-400" />}
@@ -212,6 +213,86 @@ function QuestionEditor({
 
 const PRESET_COLORS = ['#0284C7', '#0ea5e9', '#2563EB', '#059669', '#f59e0b', '#ef4444', '#7C3AED', '#ec4899'];
 
+/* ─── Deploy Section ─── */
+
+function DeployCopyRow({ label, code, testId }: { label: string; code: string; testId: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); trackEvent('calculator_embed_copied', { type: label }); };
+  return (
+    <div className="mt-2">
+      <div className="flex items-center justify-between bg-slate-900 rounded-lg px-3 py-2.5">
+        <pre className="text-xs text-slate-300 font-mono flex-1 truncate mr-3 whitespace-pre-wrap" style={{ margin: 0 }}>{code}</pre>
+        <button onClick={copy} className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-white transition-colors px-2 py-1 rounded" data-testid={testId}>
+          {copied ? <><Check className="w-3 h-3" /> Copied</> : <><Copy className="w-3 h-3" /> Copy</>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DeploySection({ slug, origin }: { slug: string; origin: string }) {
+  const [showEmbed, setShowEmbed] = useState(false);
+  const calcUrl = `${origin}/calculator?slug=${slug}`;
+  const hostedUrl = `${slug}.estimate.ai`;
+  const inlineEmbed = `<script src="${origin}/embed-widget.js"\n  data-calculator-slug="${slug}"\n  async>\n</script>\n<div id="quotequick-widget"></div>`;
+  const popupEmbed = `<script src="${origin}/embed-widget.js"\n  data-calculator-slug="${slug}"\n  data-mode="popup"\n  data-button-label="Get a Free Quote"\n  async>\n</script>`;
+
+  return (
+    <Card className="shadow-sm mb-5 animate-fade-in-up animation-delay-150" data-testid="deploy-section">
+      <CardContent className="p-6">
+        <SectionHeader icon={Globe} title="Deploy Your Calculator" iconBg="bg-emerald-50" iconColor="text-emerald-700" />
+
+        {/* Share a Link */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <Label className="text-xs font-semibold text-slate-500">Share a Link</Label>
+            <span className="text-xs text-slate-400">No website needed</span>
+          </div>
+          <div className="flex items-center gap-2 bg-emerald-50 rounded-lg px-3 py-2.5 border border-emerald-100">
+            <span className="text-sm text-emerald-700 flex-1 truncate font-mono text-xs font-semibold">{hostedUrl}</span>
+            <CopyButton text={`https://${hostedUrl}`} />
+          </div>
+        </div>
+
+        {/* Add to Website */}
+        <div className="mb-4">
+          <button
+            onClick={() => setShowEmbed(!showEmbed)}
+            className="flex items-center justify-between w-full text-left"
+            data-testid="toggle-embed-code"
+          >
+            <div>
+              <Label className="text-xs font-semibold text-slate-500 cursor-pointer">Add to Your Website</Label>
+              <p className="text-xs text-slate-400 mt-0.5">Paste code into your site to show the calculator.</p>
+            </div>
+            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showEmbed ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showEmbed && (
+            <div className="mt-3 space-y-4 animate-fade-in-up">
+              <div>
+                <p className="text-xs font-semibold text-slate-500 mb-1">Inline Widget</p>
+                <p className="text-xs text-slate-400">Paste this where you want the calculator to appear on your page.</p>
+                <DeployCopyRow label="Inline" code={inlineEmbed} testId="copy-inline-embed" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 mb-1">Popup Button</p>
+                <p className="text-xs text-slate-400">Adds a floating "Get a Free Quote" button to your site.</p>
+                <DeployCopyRow label="Popup" code={popupEmbed} testId="copy-popup-embed" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Recovery note */}
+        <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+          You can come back to this page anytime to copy your link or embed code.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function EditCalculator() {
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token');
@@ -271,7 +352,7 @@ export default function EditCalculator() {
     const allowedKeys = [
       'business_name', 'tagline', 'logo_url', 'owner_email', 'owner_phone',
       'website_url', 'primary_color', 'cta_button_text', 'lead_thank_you_message',
-      'theme_overrides', 'pricing_config',
+      'theme_overrides', 'pricing_config', 'calculator_settings',
     ];
     const updates: Record<string, any> = {};
     for (const key of allowedKeys) {
@@ -432,13 +513,19 @@ export default function EditCalculator() {
         </div>
 
         <div className="flex gap-2 mb-7 flex-wrap animate-fade-in-up animation-delay-100">
+          <a href={`${calcUrl}&preview=${token}`} target="_blank" rel="noopener noreferrer">
+            <Button size="sm" variant="outline" data-testid="link-preview-calculator"><Eye className="mr-1.5 w-3.5 h-3.5" /> Preview</Button>
+          </a>
           <a href={calcUrl} target="_blank" rel="noopener noreferrer">
-            <Button size="sm" variant="outline" data-testid="link-view-calculator"><ExternalLink className="mr-1.5 w-3.5 h-3.5" /> View Calculator</Button>
+            <Button size="sm" variant="outline" data-testid="link-view-calculator"><ExternalLink className="mr-1.5 w-3.5 h-3.5" /> View Live</Button>
           </a>
           <a href={leadsUrl}>
             <Button size="sm" variant="outline" data-testid="link-view-leads">View Leads</Button>
           </a>
         </div>
+
+        {/* ─── Deploy Section ─── */}
+        <DeploySection slug={calculator.slug} origin={origin} />
 
         <div className="space-y-5 animate-fade-in-up animation-delay-200">
           <Card className="shadow-sm">

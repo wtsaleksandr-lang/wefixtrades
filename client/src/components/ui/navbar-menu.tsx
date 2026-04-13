@@ -1,0 +1,267 @@
+import React, {
+  createContext,
+  useContext,
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
+import { createPortal } from "react-dom";
+import { motion } from "motion/react";
+import { Link } from "wouter";
+import { Plus } from "lucide-react";
+import type { NavItemChild } from "@/site/navigation";
+import { NavIcon } from "@/components/marketing/navigation/NavIcon";
+import { mkt } from "@/theme/tokens";
+import type { CSSProperties } from "react";
+
+// ── Animation config ─────────────────────────────────────────────────────────
+const transition = {
+  type: "spring" as const,
+  mass: 0.5,
+  damping: 11.5,
+  stiffness: 100,
+  restDelta: 0.001,
+  restSpeed: 0.001,
+};
+
+// ── Menu context (shared between Menu + MenuItem) ────────────────────────────
+interface MenuCtx {
+  containerRef: React.RefObject<HTMLDivElement>;
+  scheduleClose: () => void;
+  cancelClose: () => void;
+}
+const MenuContext = createContext<MenuCtx | null>(null);
+
+// ── Visual styles (from DesktopNavItem) ──────────────────────────────────────
+const topItemBase: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
+  padding: "5px 10px",
+  borderRadius: 10,
+  fontSize: 13,
+  fontWeight: 500,
+  fontFamily: "'DM Mono', monospace",
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  color: mkt.text,
+  background: "transparent",
+  border: "1px solid transparent",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  transition: "background 0.18s ease, border-color 0.18s ease",
+};
+
+const topHoverOn = (el: HTMLElement) => {
+  el.style.background = "rgba(255,255,255,0.06)";
+  el.style.borderColor = "rgba(255,255,255,0.12)";
+};
+
+const topHoverOff = (el: HTMLElement) => {
+  el.style.background = "transparent";
+  el.style.borderColor = "transparent";
+};
+
+// ── MenuItem ─────────────────────────────────────────────────────────────────
+export const MenuItem = ({
+  setActive,
+  active,
+  item,
+  href,
+  children,
+}: {
+  setActive: (item: string | null) => void;
+  active: string | null;
+  item: string;
+  href?: string;
+  children?: NavItemChild[];
+}) => {
+  const hasChildren = !!(children && children.length > 0);
+  const isOpen = active === item;
+  const ctx = useContext(MenuContext);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !ctx?.containerRef.current) {
+      setRect(null);
+      return;
+    }
+    const measure = () =>
+      setRect(ctx.containerRef.current!.getBoundingClientRect());
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [isOpen, ctx]);
+
+  return (
+    <div onMouseEnter={() => setActive(item)}>
+      {hasChildren ? (
+        <motion.button
+          transition={{ duration: 0.3 }}
+          style={{ ...topItemBase, margin: 0 }}
+          onMouseEnter={(e) => topHoverOn(e.currentTarget as HTMLElement)}
+          onMouseLeave={(e) => topHoverOff(e.currentTarget as HTMLElement)}
+          aria-expanded={isOpen}
+          aria-haspopup="true"
+        >
+          {item}
+          <Plus
+            size={11}
+            strokeWidth={2}
+            style={{
+              transition: "transform 0.22s ease, opacity 0.2s ease",
+              transform: isOpen ? "rotate(45deg)" : "rotate(0deg)",
+              opacity: 0.95,
+              color: mkt.accent,
+            }}
+          />
+        </motion.button>
+      ) : (
+        <Link
+          href={href || "#"}
+          data-testid={`nav-link-${item.toLowerCase()}`}
+          style={{ ...topItemBase, textDecoration: "none" }}
+          onMouseEnter={(e) => topHoverOn(e.currentTarget as HTMLElement)}
+          onMouseLeave={(e) => topHoverOff(e.currentTarget as HTMLElement)}
+        >
+          {item}
+        </Link>
+      )}
+
+      {/* Dropdown — portaled to body, fixed positioning */}
+      {isOpen &&
+        hasChildren &&
+        rect &&
+        ctx &&
+        createPortal(
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={transition}
+            onMouseEnter={ctx.cancelClose}
+            onMouseLeave={ctx.scheduleClose}
+            style={{
+              position: "fixed",
+              left: rect.left + rect.width / 2,
+              top: rect.bottom + 6,
+              transform: "translateX(-50%)",
+              width: Math.min(1080, rect.width),
+              maxWidth: "calc(100vw - 24px)",
+              zIndex: 9999,
+            }}
+          >
+            <motion.div
+              transition={transition}
+              layoutId="active"
+              className="mkt-dropdown-tray"
+              style={{
+                padding: 10,
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gridAutoFlow: "row",
+                gap: 8,
+                boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
+              }}
+            >
+              <motion.div layout style={{ display: "contents" }}>
+                {children!.map(
+                  ({ label, href: childHref, description, icon }) => (
+                    <Link
+                      key={childHref + label}
+                      href={childHref}
+                      className="mkt-menu-card"
+                    >
+                      <div
+                        className="mkt-menu-card-icon"
+                        style={{ color: mkt.accent }}
+                        aria-hidden
+                      >
+                        <NavIcon icon={icon} />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 650,
+                            color: mkt.text,
+                            lineHeight: 1.2,
+                            marginBottom: 3,
+                          }}
+                        >
+                          {label}
+                        </div>
+                        {description && (
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 450,
+                              color: mkt.textMuted,
+                              lineHeight: 1.35,
+                            }}
+                          >
+                            {description}
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+                  ),
+                )}
+              </motion.div>
+            </motion.div>
+          </motion.div>,
+          document.body,
+        )}
+    </div>
+  );
+};
+
+// ── Menu container ───────────────────────────────────────────────────────────
+export const Menu = ({
+  setActive,
+  containerRef,
+  children,
+}: {
+  setActive: (item: string | null) => void;
+  containerRef: React.RefObject<HTMLDivElement>;
+  children: React.ReactNode;
+}) => {
+  const closeTimer = useRef<number | null>(null);
+
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  }, []);
+
+  const scheduleClose = useCallback(() => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => setActive(null), 150);
+  }, [setActive, cancelClose]);
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+
+  return (
+    <MenuContext.Provider value={{ containerRef, scheduleClose, cancelClose }}>
+      <nav
+        aria-label="Main navigation"
+        onMouseLeave={scheduleClose}
+        onMouseEnter={cancelClose}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          flex: "0 1 auto",
+        }}
+      >
+        {children}
+      </nav>
+    </MenuContext.Provider>
+  );
+};

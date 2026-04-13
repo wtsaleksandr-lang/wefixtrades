@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import nodemailer from "nodemailer";
 import { storage } from "../storage";
+import { captureIntakeEvent } from "../services/intakeService";
 import {
   buildDemoQuoteEmail,
   buildInternalNotificationEmail,
@@ -139,6 +140,17 @@ export function registerDemoLeadRoutes(app: Express): void {
           );
         });
       }
+
+      captureIntakeEvent({
+        sourceType:    'public_form',
+        eventType:     'demo_lead.submitted',
+        correlationId: `demo-lead-${lead.id}`,
+        actorType:     'anonymous',
+        entityType:    'demo_quote_lead',
+        entityId:      String(lead.id),
+        rawPayload:    req.body,
+        context:       { ipAddress: req.ip, userAgent: req.headers['user-agent'] as string | undefined },
+      }).catch(() => {});
 
       console.log(
         "[demo-lead] Saved lead",

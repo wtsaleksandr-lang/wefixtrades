@@ -81,6 +81,11 @@ export default function CrmOverview() {
       monthlyRevenue: data?.monthlyRevenue,
       totalOpenTasks: data?.openFulfillment,
       unpaidAmount: data?.unpaidAmount,
+      pendingOnboardingCount: data?.pendingOnboarding,
+      overdueTasksCount: data?.recentTasks?.filter(
+        (t) => t.due_at && new Date(t.due_at) < new Date() && !["delivered", "cancelled"].includes(t.status)
+      ).length,
+      blockedCount: data?.recentTasks?.filter((t) => t.status === "blocked").length,
     }}>
       <div className="max-w-6xl mx-auto space-y-6">
         <div>

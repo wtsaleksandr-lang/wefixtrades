@@ -155,7 +155,8 @@ export default function MissedCallCalculatorShell({ initialTradeId }: ShellProps
                 textAlign: 'center',
               }}
             >
-              Missed-call cost estimate
+              Your {selectedPreset.label.toLowerCase()} business is{' '}
+              <span style={{ color: '#EF4444' }}>losing money</span> right now
               <span style={{
                 display: 'block',
                 fontSize: 'clamp(14px, 2vw, 16px)',
@@ -164,7 +165,7 @@ export default function MissedCallCalculatorShell({ initialTradeId }: ShellProps
                 letterSpacing: 0,
                 marginTop: 6,
               }}>
-                for {selectedPreset.label.toLowerCase()} businesses
+                Adjust the sliders to see how much missed calls cost you.
               </span>
             </h2>
 

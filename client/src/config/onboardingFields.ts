@@ -63,9 +63,47 @@ const FIELD_CONFIG: Record<string, FieldEnrichment> = {
   },
 
   // TradeLine
+  primary_phone: {
+    placeholder: "e.g. 0412 345 678",
+    helperText: "Your main business number — customers call this.",
+  },
   phone_number: {
     placeholder: "e.g. 0412 345 678",
     helperText: "The number customers call. We'll set up call handling on this.",
+  },
+  forwarding_preference: {
+    helperText: "When should AI answer instead of you?",
+    options: [
+      { value: "no-answer", label: "Only when I miss a call" },
+      { value: "immediate", label: "Answer all calls immediately" },
+      { value: "after-hours only", label: "Only outside business hours" },
+    ],
+  },
+  escalation_number: {
+    placeholder: "e.g. 0412 999 888",
+    helperText: "For urgent or overflow calls — if different from your main number.",
+  },
+  website_access: {
+    helperText: "If yes, we'll install it for you. If not, we'll give you a hosted version — no problem.",
+    options: [
+      { value: "yes", label: "Yes, I can provide access" },
+      { value: "no", label: "No — give me a hosted page" },
+    ],
+  },
+  install_mode: {
+    helperText: "Direct embed goes on your site. Hosted fallback is a page we create for you.",
+    options: [
+      { value: "direct embed", label: "Install on my website" },
+      { value: "hosted fallback", label: "Give me a hosted page" },
+    ],
+  },
+  lead_destination: {
+    helperText: "Where should new leads be sent?",
+    options: [
+      { value: "email", label: "Email only" },
+      { value: "phone", label: "Phone/SMS only" },
+      { value: "both", label: "Both email and phone" },
+    ],
   },
   business_hours: {
     placeholder: "e.g. Mon–Fri 7am–5pm, Sat 8am–12pm",
@@ -119,7 +157,7 @@ const FIELD_CONFIG: Record<string, FieldEnrichment> = {
     helperText: "How you want bookings to work.",
   },
 
-  // WebBoost
+  // WebFix / RankFlow
   access_available: {
     helperText: "We need login access to your hosting or CMS to make changes.",
     options: [
@@ -182,7 +220,7 @@ const FIELD_CONFIG: Record<string, FieldEnrichment> = {
     helperText: "Beyond the standard pages (Home, About, Services, Contact).",
   },
 
-  // Fix & Optimize
+  // WebFix
   main_issue: {
     helperText: "What's the biggest problem with your current site?",
     options: [

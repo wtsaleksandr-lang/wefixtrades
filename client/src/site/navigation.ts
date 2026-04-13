@@ -26,7 +26,9 @@ export type NavIconKey =
   | "keyRound"
   | "paintbrush"
   | "hammer"
-  | "building2";
+  | "building2"
+  | "trendingUp"
+  | "target";
 
 export type NavItemChild = {
   label: string;
@@ -57,8 +59,9 @@ export const NAV_LINKS: NavItem[] = [
       { label: "QuoteQuick Pro\u2122", href: "/products/quickquotepro", description: "Instant quotes on your site.", icon: "calculator" },
       { label: "MapGuard\u2122", href: "/products/mapguard", description: "Google Maps optimization.", icon: "mapPinned" },
       { label: "ReputationShield\u2122", href: "/products/reputationshield", description: "Reviews + reputation.", icon: "shieldCheck" },
-      { label: "WebBoost\u2122", href: "/products/webboost", description: "Speed + SEO optimization.", icon: "rocket" },
       { label: "SocialSync\u2122", href: "/products/socialsync", description: "Social media automation.", icon: "share2" },
+      { label: "RankFlow\u2122", href: "/products/rankflow", description: "Ongoing SEO for trades.", icon: "trendingUp" },
+      { label: "AdFlow\u2122", href: "/products/adflow", description: "Done-for-you ad campaigns.", icon: "target" },
       { label: "SiteLaunch\u2122", href: "/products/sitelaunch", description: "High-converting websites.", icon: "layout" },
     ],
   },
@@ -90,7 +93,7 @@ export const NAV_LINKS: NavItem[] = [
     ],
   },
   { label: "Templates", href: "/templates" },
-  { label: "Plans", href: "/plans" },
+  { label: "Pricing", href: "/pricing" },
   {
     label: "Resources",
     href: "/demos",

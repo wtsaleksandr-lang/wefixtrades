@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { trackEvent } from '@/lib/trackEvent';
-import { Send, CheckCircle2, Loader2 } from 'lucide-react';
+import { Send, Loader2, Lock } from 'lucide-react';
+import HelpTip from '../HelpTip';
 import { Checkbox } from '@/components/ui/checkbox';
 import { calculateEstimate } from '@shared/calculateEstimate';
 import { useWidgetState } from '../useWidgetState';
@@ -27,6 +28,7 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
     updateLead,
     estimateInputs,
     answers,
+    nextStep,
   } = useWidgetState();
 
   // Derive current estimate for quote_amount (same pattern as PriceRevealStep)
@@ -38,6 +40,8 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; phone?: string }>({});
+  // Ref-based guard prevents double-submit across re-renders
+  const submitLockRef = useRef(false);
 
   const smsConsent = state.lead.smsConsent;
 
@@ -71,39 +75,55 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (submitting || leadSubmitted) return;
+    if (submitting || leadSubmitted || submitLockRef.current) return;
 
     if (!validateFields()) return;
 
+    submitLockRef.current = true;
     setSubmitting(true);
     setError(null);
 
     try {
       const isDemo = config.calculator.id === 0;
+      const isPreview = config.calculator.id < 0;
+
+      // Preview mode: skip API call, just advance
+      if (isPreview) {
+        dispatch({ type: 'MARK_LEAD_SUBMITTED' });
+        nextStep();
+        return;
+      }
+
+      // Ensure answers is always a non-null object
+      const safeAnswers = (answers && typeof answers === 'object') ? answers : {};
+
+      // Ensure quote_amount is a finite number or null
+      const rawTotal = estimate?.total;
+      const safeQuoteAmount = (rawTotal != null && Number.isFinite(rawTotal)) ? rawTotal : null;
 
       const endpoint = isDemo ? '/api/demo-leads' : '/api/leads';
       const body = isDemo
         ? {
-            email: leadData.email || null,
-            name: leadData.name || null,
-            phone: leadData.phone || null,
-            company: leadData.company || null,
+            email: leadData.email.trim() || null,
+            name: leadData.name.trim() || null,
+            phone: leadData.phone.trim() || null,
+            company: leadData.company.trim() || null,
             trade: (config.calculator.slug || '').replace('demo-', ''),
             demoBusinessName: config.calculator.business_name || null,
-            quoteAmount: estimate?.total ?? null,
-            answers: answers,
+            quoteAmount: safeQuoteAmount,
+            answers: safeAnswers,
             smsConsent: smsConsent,
             source_tool: "demo",
             source_page: typeof window !== "undefined" ? window.location.pathname : null,
           }
         : {
             calculator_id: config.calculator.id,
-            name: leadData.name || null,
-            email: leadData.email || null,
-            phone: leadData.phone || null,
-            company: leadData.company || null,
-            quote_amount: estimate?.total ?? null,
-            answers: answers,
+            name: leadData.name.trim() || null,
+            email: leadData.email.trim() || null,
+            phone: leadData.phone.trim() || null,
+            company: leadData.company.trim() || null,
+            quote_amount: safeQuoteAmount,
+            answers: safeAnswers,
             sms_consent: smsConsent,
             consent_timestamp: smsConsent ? new Date().toISOString() : null,
           };
@@ -125,9 +145,13 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
 
       dispatch({ type: 'MARK_LEAD_SUBMITTED' });
       if (config.calculator.id === 0) {
-        trackEvent("demo_lead_submitted", { trade: (config.calculator.slug || "").replace("demo-", ""), quoteAmount: estimate?.total ?? null });
+        trackEvent("demo_lead_submitted", { trade: (config.calculator.slug || "").replace("demo-", ""), quoteAmount: safeQuoteAmount });
       }
+      // Advance to next step (booking or confirmation)
+      nextStep();
     } catch (err) {
+      // Allow retry on failure
+      submitLockRef.current = false;
       if (err instanceof DOMException && err.name === 'AbortError') {
         setError('Request timed out. Please try again.');
       } else {
@@ -138,61 +162,22 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
     }
   }
 
-  // ─── Already submitted state ───
-  if (leadSubmitted) {
-    return (
-      <div role="status" aria-live="polite" style={{ textAlign: 'center', padding: '24px 0' }}>
-        <div style={{
-          width: '56px',
-          height: '56px',
-          borderRadius: '50%',
-          background: eff.bg,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 16px',
-        }}>
-          <CheckCircle2 style={{ width: 28, height: 28, color: eff.buttonBg }} />
-        </div>
-        <h3 style={{ ...stepTitleStyle, textAlign: 'center' }}>
-          {config.calculator.lead_thank_you_message || 'Thank you!'}
-        </h3>
-        <p style={{ ...stepSubtitleStyle, textAlign: 'center' }}>
-          You'll receive your quote by email within a few minutes.
-        </p>
-        <a href="/tools" style={{
-          display: 'inline-block', marginTop: 12,
-          fontSize: '13px', color: eff.buttonBg, textDecoration: 'none', fontWeight: 600,
-        }}>
-          Explore more free tools &rarr;
-        </a>
-      </div>
-    );
-  }
+  // ─── Already submitted: auto-advance if user navigates back here ───
+  useEffect(() => {
+    if (leadSubmitted) nextStep();
+  }, [leadSubmitted, nextStep]);
 
   // ─── Form ───
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {step.title && <h3 style={stepTitleStyle}>{step.title}</h3>}
-      {step.subtitle && <p style={stepSubtitleStyle}>{step.subtitle}</p>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div>
+        <h3 style={stepTitleStyle}>Where should we send your quote?</h3>
+        <p style={{ ...stepSubtitleStyle, margin: '6px 0 0' }}>
+          We'll email you a detailed breakdown. No account needed.
+        </p>
+      </div>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <div>
-          <label htmlFor="lead-name" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
-            Name
-          </label>
-          <input
-            id="lead-name"
-            type="text"
-            placeholder="Your name"
-            value={leadData.name}
-            onChange={(e) => updateLead('name', e.target.value)}
-            style={inputStyle}
-            onFocus={(e) => { e.currentTarget.style.borderColor = eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
-          />
-        </div>
-
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div>
           <label htmlFor="lead-email" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
             Email
@@ -201,52 +186,56 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
             id="lead-email"
             type="email"
             placeholder="you@example.com"
+            autoComplete="email"
             value={leadData.email}
             onChange={(e) => { updateLead('email', e.target.value); setFieldErrors(p => ({ ...p, email: undefined })); setError(null); }}
             style={{
               ...inputStyle,
-              ...(fieldErrors.email ? { borderColor: '#dc2626' } : {}),
+              ...(fieldErrors.email ? { borderColor: eff.error } : {}),
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = fieldErrors.email ? '#dc2626' : eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = fieldErrors.email ? '#dc2626' : eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = fieldErrors.email ? eff.error : eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = fieldErrors.email ? eff.error : eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
           {fieldErrors.email && (
-            <p style={{ fontSize: '12px', color: '#dc2626', margin: '4px 0 0' }}>{fieldErrors.email}</p>
+            <p style={{ fontSize: '12px', color: eff.error, margin: '4px 0 0' }}>{fieldErrors.email}</p>
           )}
         </div>
 
         <div>
           <label htmlFor="lead-phone" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
-            Phone
+            Phone <span style={{ fontWeight: 400, color: eff.textBody }}>(optional)</span>
+            <HelpTip text="Email alone is enough. Adding your phone helps the business reach you faster if needed." />
           </label>
           <input
             id="lead-phone"
             type="tel"
             placeholder="(555) 123-4567"
+            autoComplete="tel"
             value={leadData.phone}
             onChange={(e) => { updateLead('phone', e.target.value); setFieldErrors(p => ({ ...p, phone: undefined })); setError(null); }}
             style={{
               ...inputStyle,
-              ...(fieldErrors.phone ? { borderColor: '#dc2626' } : {}),
+              ...(fieldErrors.phone ? { borderColor: eff.error } : {}),
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = fieldErrors.phone ? '#dc2626' : eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = fieldErrors.phone ? '#dc2626' : eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = fieldErrors.phone ? eff.error : eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = fieldErrors.phone ? eff.error : eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
           {fieldErrors.phone && (
-            <p style={{ fontSize: '12px', color: '#dc2626', margin: '4px 0 0' }}>{fieldErrors.phone}</p>
+            <p style={{ fontSize: '12px', color: eff.error, margin: '4px 0 0' }}>{fieldErrors.phone}</p>
           )}
         </div>
 
         <div>
-          <label htmlFor="lead-company" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
-            Company <span style={{ fontWeight: 400, color: eff.textBody }}>(optional)</span>
+          <label htmlFor="lead-name" style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
+            Name <span style={{ fontWeight: 400, color: eff.textBody }}>(optional)</span>
           </label>
           <input
-            id="lead-company"
+            id="lead-name"
             type="text"
-            placeholder="Company name"
-            value={leadData.company}
-            onChange={(e) => updateLead('company', e.target.value)}
+            placeholder="Your name"
+            autoComplete="name"
+            value={leadData.name}
+            onChange={(e) => updateLead('name', e.target.value)}
             style={inputStyle}
             onFocus={(e) => { e.currentTarget.style.borderColor = eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
@@ -257,8 +246,8 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
         <label style={{
           display: 'flex',
           alignItems: 'flex-start',
-          gap: '12px',
-          padding: '8px 0',
+          gap: '10px',
+          padding: '4px 0',
           cursor: 'pointer',
         }}>
           <Checkbox
@@ -269,14 +258,13 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
             className="h-5 w-5 rounded border-[#d5e1e7] data-[state=checked]:bg-[#394247] data-[state=checked]:border-[#394247] data-[state=checked]:text-[#e4edf1] focus-visible:ring-[#d5e1e7]"
             style={{ marginTop: '2px' }}
           />
-          <span style={{ fontSize: '12px', color: eff.textBody, lineHeight: 1.6 }}>
-            I agree to receive text messages about my quote from this business.
-            Message &amp; data rates may apply.
+          <span style={{ fontSize: '13px', color: eff.textBody, lineHeight: 1.5 }}>
+            Send me text updates about my quote.
           </span>
         </label>
 
         {error && (
-          <p style={{ fontSize: '14px', color: '#dc2626', margin: 0 }}>{error}</p>
+          <p style={{ fontSize: '14px', color: eff.error, margin: 0 }}>{error}</p>
         )}
 
         <button
@@ -296,8 +284,23 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
           ) : (
             <Send style={{ width: 16, height: 16 }} />
           )}
-          {config.calculator.cta_button_text || 'Get My Quote'}
+          {config.calculator.cta_button_text || 'Send My Quote'}
         </button>
+
+        {/* Trust line */}
+        <p style={{
+          fontSize: '12px',
+          color: eff.textBody,
+          textAlign: 'center',
+          margin: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '5px',
+        }}>
+          <Lock style={{ width: 11, height: 11, opacity: 0.6 }} />
+          Your info is shared only with this business.
+        </p>
       </form>
     </div>
   );

@@ -113,10 +113,10 @@ export default function PortalBilling() {
                       {data.summary.next_due_amount_cents
                         ? formatCents(data.summary.next_due_amount_cents)
                         : "-"}
+                      {data.summary.next_due_at && (
+                        <span className="text-xs font-normal text-gray-400 ml-1.5">on {formatDate(data.summary.next_due_at)}</span>
+                      )}
                     </p>
-                    {data.summary.next_due_at && (
-                      <p className="text-[10px] text-gray-400">{formatDate(data.summary.next_due_at)}</p>
-                    )}
                   </div>
                 </div>
               </div>
