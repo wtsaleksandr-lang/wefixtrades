@@ -592,8 +592,8 @@ function AppearanceTab({ settings, onChange }: {
         })}
       </div>
 
-      <SectionHeader title="Border Radius" />
-      <p style={{ fontSize: 11, color: p.colors.muted, margin: '-4px 0 8px', lineHeight: 1.4 }}>How soft or sharp UI corners look</p>
+      <SectionHeader title="Corner Style" />
+      <p style={{ fontSize: 11, color: p.colors.muted, margin: '-4px 0 8px', lineHeight: 1.4 }}>How rounded or sharp the edges appear</p>
       <div style={{ display: 'flex', gap: 8 }}>
         {([
           { value: 'compact', label: 'Compact', radius: '4px' },
@@ -622,12 +622,12 @@ function AppearanceTab({ settings, onChange }: {
         })}
       </div>
 
-      <SectionHeader title="Surface Style" />
-      <p style={{ fontSize: 11, color: p.colors.muted, margin: '-4px 0 8px', lineHeight: 1.4 }}>Controls depth and layering of your quote card</p>
+      <SectionHeader title="Card Style" />
+      <p style={{ fontSize: 11, color: p.colors.muted, margin: '-4px 0 8px', lineHeight: 1.4 }}>How your quote card looks — flat, frosted, or raised</p>
       <div style={{ display: 'flex', gap: 8 }}>
         {([
           { value: 'solid', label: 'Solid', bg: '#fff', shadow: 'none', border: '1px solid #e5e7eb' },
-          { value: 'glassmorphic', label: 'Glass', bg: 'rgba(255,255,255,0.7)', shadow: 'none', border: '1px solid rgba(255,255,255,0.5)', extra: 'backdropFilter:blur(8px)' },
+          { value: 'glassmorphic', label: 'Frosted', bg: 'rgba(255,255,255,0.7)', shadow: 'none', border: '1px solid rgba(255,255,255,0.5)', extra: 'backdropFilter:blur(8px)' },
           { value: 'elevated', label: 'Elevated', bg: '#fff', shadow: '0 4px 16px rgba(0,0,0,0.1)', border: '1px solid #f3f4f6' },
         ] as const).map(opt => {
           const active = settings.surface_style === opt.value;

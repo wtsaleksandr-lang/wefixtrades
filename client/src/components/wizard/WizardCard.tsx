@@ -140,24 +140,24 @@ function visualStep(internalStep: number): number {
 
 const STEP_TITLES = [
   'What does your business do?',
-  'Preview & polish',
+  'Customize your calculator',
   'Set your pricing',
-  'Lead capture setup',
-  'Almost done!',
+  'Contact form setup',
+  'Quick accuracy check',
   'You\u2019re live!',
 ];
 const STEP_SUBTITLES = [
-  'Pick your trade and we\u2019ll set everything up for you.',
-  'This is what your customers will see. Tweak if needed.',
-  'Enter your rates. AI builds the pricing logic.',
-  'Choose what info to collect. Quick.',
-  'Run two test quotes to confirm your numbers.',
+  'Tell us your trade and we\u2019ll set everything up.',
+  'Pick your colors and branding. See changes live on the right.',
+  'Choose how you charge. We\u2019ll build the quote logic for you.',
+  'Choose what info to collect from customers.',
+  'Test a couple of quotes to make sure the numbers look right.',
   'Copy your link and start getting leads.',
 ];
 const STEP_HINTS = [
   'Next: set your pricing',
-  'Ready to publish',
-  'Next: preview your calculator',
+  'All set! Review and publish below.',
+  'Next: customize your calculator',
   '',
   'Publishing your calculator...',
   '',
@@ -179,6 +179,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const [pricingDraftLoading, setPricingDraftLoading] = useState(false);
   const [showCustomInHelp, setShowCustomInHelp] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const saveFlashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -337,6 +338,13 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     }
 
     setValidationErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      setTimeout(() => {
+        const firstErr = document.querySelector('[data-error-field]');
+        firstErr?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+      return;
+    }
     if (Object.keys(errs).length === 0) {
       if (ws.isCustomTrade && ws.customTradeData.charge_method === 'not_sure') {
         triggerPricingDraft();
@@ -1061,8 +1069,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 userSelect: 'none',
               }}>
                 <ChevronDown style={{ width: '14px', height: '14px' }} />
-                Advanced design settings
-                <span style={{ fontSize: '11px', fontWeight: 400, color: p.colors.subtle }}>(optional)</span>
+                Customize look &amp; feel
+                <span style={{ fontSize: '11px', fontWeight: 400, color: p.colors.subtle }}>(recommended)</span>
               </summary>
               <DesignStudio
                 settings={ws.calculatorSettings}
@@ -1085,14 +1093,40 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               onMouseLeave={e => { e.currentTarget.style.color = p.colors.muted; }}
             >
               <Settings2 style={{ width: '13px', height: '13px' }} />
-              Customize lead form fields
+              Customize customer contact form
             </button>
 
-            {/* Publish directly from preview — no need for separate test step */}
+            {/* Publish with confirmation */}
             <div style={{ marginTop: '16px' }}>
+              {showPublishConfirm && !generateMutation.isPending && (
+                <div style={{
+                  padding: '16px', borderRadius: p.radius.md, marginBottom: '12px',
+                  background: '#F0FDF4', border: '1px solid #BBF7D0',
+                }}>
+                  <p style={{ fontSize: '14px', fontWeight: 600, color: '#065F46', marginBottom: '8px' }}>Ready to go live?</p>
+                  <div style={{ fontSize: '13px', color: '#047857', lineHeight: 1.8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                      <span>Trade</span><strong>{selectedTradeLabel || ws.customTradeData?.short_description || 'Custom'}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                      <span>Leads sent to</span><strong>{ws.ownerEmail}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', alignItems: 'center' }}>
+                      <span>Brand color</span><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: ws.primaryColor }} /><strong>{ws.primaryColor}</strong></div>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#059669', marginTop: '8px' }}>You can always edit after publishing.</p>
+                </div>
+              )}
               <button
                 data-testid="button-publish-from-preview"
-                onClick={() => generateMutation.mutate()}
+                onClick={() => {
+                  if (!showPublishConfirm && !generateMutation.isPending) {
+                    setShowPublishConfirm(true);
+                    return;
+                  }
+                  generateMutation.mutate();
+                }}
                 disabled={generateMutation.isPending}
                 style={{
                   width: '100%', padding: '16px', borderRadius: p.radius.lg,
@@ -1105,6 +1139,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               >
                 {generateMutation.isPending ? (
                   <><Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> Building your calculator...</>
+                ) : showPublishConfirm ? (
+                  <><Zap style={{ width: '16px', height: '16px' }} /> Confirm &amp; Publish</>
                 ) : (
                   <><Zap style={{ width: '16px', height: '16px' }} /> Publish My Calculator</>
                 )}
@@ -1156,10 +1192,14 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     }}>
                       <CheckCircle2 style={{ width: '18px', height: '18px', color: '#059669', flexShrink: 0, marginTop: '1px' }} />
                       <div>
-                        <p style={{ fontSize: '14px', fontWeight: 600, color: '#065F46', marginBottom: '4px' }}>AI Draft Ready</p>
+                        <p style={{ fontSize: '14px', fontWeight: 600, color: '#065F46', marginBottom: '4px' }}>Pricing ready for review</p>
                         <p style={{ fontSize: '13px', color: '#047857', lineHeight: 1.5 }}>
-                          Confidence: {Math.round((ws.calculatorSettings.pricing_draft?.confidence_score || 0) * 100)}%
-                          {ws.calculatorSettings.pricing_draft?.needs_human_review && ' — Review recommended'}
+                          {(() => {
+                            const score = Math.round((ws.calculatorSettings.pricing_draft?.confidence_score || 0) * 100);
+                            if (score >= 80) return 'Strong match — pricing looks accurate for your trade.';
+                            if (score >= 60) return 'Good match — we recommend reviewing the numbers below.';
+                            return 'Needs adjustment — please review carefully before continuing.';
+                          })()}
                         </p>
                       </div>
                     </div>
@@ -1206,9 +1246,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     }}>
                       <TriangleAlert style={{ width: '18px', height: '18px', color: '#D97706', flexShrink: 0, marginTop: '1px' }} />
                       <div>
-                        <p style={{ fontSize: '14px', fontWeight: 600, color: '#92400E', marginBottom: '4px' }}>Fallback Mode</p>
+                        <p style={{ fontSize: '14px', fontWeight: 600, color: '#92400E', marginBottom: '4px' }}>We'll use "Request a Quote" mode</p>
                         <p style={{ fontSize: '13px', color: '#A16207', lineHeight: 1.5 }}>
-                          AI couldn't generate high-confidence pricing. Your calculator will use a safe price range / request quote fallback.
+                          We couldn't auto-generate confident pricing for your trade. Instead, your calculator will ask customers to request a quote — you'll respond with a price. You can try again or continue.
                         </p>
                       </div>
                     </div>
@@ -1864,15 +1904,16 @@ function InputField({ id, testId, label, sublabel, required, value, onChange, pl
       {multiline ? (
         <textarea id={id} data-testid={testId} value={value}
           onChange={e => onChange(e.target.value)} placeholder={placeholder}
-          rows={rows || 3} className="premium-input" style={{ resize: 'vertical' }} />
+          rows={rows || 3} className="premium-input"
+          style={error ? { resize: 'vertical', borderColor: p.colors.danger, background: '#FEF2F2' } : { resize: 'vertical' }} />
       ) : (
         <input id={id} data-testid={testId} type={type || 'text'}
           value={value} onChange={e => onChange(e.target.value)}
           placeholder={placeholder} className="premium-input"
-          style={error ? { borderColor: p.colors.danger } : undefined}
+          style={error ? { borderColor: p.colors.danger, background: '#FEF2F2' } : undefined}
         />
       )}
-      {error && <p style={{ fontSize: '12px', color: p.colors.danger, marginTop: '4px' }}>{error}</p>}
+      {error && <p data-error-field={id} style={{ fontSize: '12px', color: p.colors.danger, marginTop: '4px', display: 'flex', alignItems: 'center', gap: 4 }}>⚠ {error}</p>}
     </div>
   );
 }
@@ -2026,9 +2067,9 @@ function Footer({ onBack, onNext, nextDisabled, backDisabled, children, hint }: 
           style={{
             display: 'flex', alignItems: 'center', gap: '6px',
             padding: '10px 16px', borderRadius: p.radius.md,
-            border: '1px solid #F5D76E', background: '#FEF9E7',
+            border: `1px solid ${p.colors.border}`, background: '#FFFFFF',
             cursor: backDisabled ? 'default' : 'pointer',
-            fontSize: '14px', fontWeight: 600, color: backDisabled ? p.colors.subtle : '#000000',
+            fontSize: '14px', fontWeight: 500, color: backDisabled ? p.colors.subtle : p.colors.muted,
             transition: p.transitions.fast, opacity: backDisabled ? 0.5 : 1,
             WebkitTapHighlightColor: 'transparent', minHeight: '44px',
           }}
