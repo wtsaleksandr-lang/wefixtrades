@@ -10,6 +10,7 @@ import { processReviewMonitoring } from "./reviewMonitorWorker";
 import { processReputationReports } from "./reputationReportWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
 import { runDailyOpsIntelligence } from "./opsIntelligenceJob";
+import { processOutboundSync } from "./outboundSyncWorker";
 import { processRankFlowPlans } from "./rankflowWorker";
 import { processRankFlowTracking } from "./trackingWorker";
 import { processMapguardScans } from "./mapguardScanWorker";
@@ -181,6 +182,16 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  // Outbound sync — push pending prospects to Instantly/Smartlead every 15 minutes
+  cron.schedule("*/15 * * * *", async () => {
+    try {
+      await runJob("outbound_sync", processOutboundSync);
+    } catch (err: any) {
+      console.error("[Scheduler] outbound_sync cron handler error:", err.message);
+    }
+  });
+
+
   cron.schedule("0 4 * * 1", async () => {
     console.log("[Scheduler] Running RankFlow plan generation...");
     try {
@@ -279,6 +290,7 @@ export function initScheduler() {
   console.log("  - Notification queue worker: every minute");
   console.log("  - Follow-up jobs worker: every minute");
   console.log("  - Audit follow-up worker: every minute");
+  console.log("  - Outbound sync worker: every 15 minutes");
   console.log("  - Review follow-up worker: every minute");
   console.log("  - Review monitoring: every 6 hours");
   console.log("  - Reputation reports: 09:00 UTC daily");
