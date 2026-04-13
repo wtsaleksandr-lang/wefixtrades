@@ -1,115 +1,159 @@
-# CLAUDE.md — WeFix Trades project handoff
+# WeFixTrades — Claude Code Context
 
-## Active branch
-`claude/outbound-lead-management-mZbUU`
-
-All outbound work lives here. Do not push to main/master without explicit approval.
+This file gives Claude Code (in VS Code or CLI) orientation before starting any task.
+Read it before touching any file.
 
 ---
 
-## Stack
-- **Monorepo** — `/client` (React 18 + Vite) · `/server` (Express.js) · `/shared` (Drizzle ORM schemas)
-- **DB** — PostgreSQL via Drizzle ORM. Schemas in `shared/schemas/`
-- **Routing (client)** — Wouter
-- **Data fetching** — TanStack React Query; API helper at `client/src/lib/queryClient.ts`
-- **UI kit** — Radix UI primitives + Tailwind CSS. Component library at `client/src/components/ui/`
-- **Auth** — session-based; admin routes require `requireAdmin` middleware
+## Project Overview
+
+WeFixTrades is a SaaS platform that sells digital marketing and automation services to trades
+businesses (plumbers, electricians, roofers, etc.). It is evolving into an AI-operated service
+control tower. The codebase is a TypeScript monorepo:
+
+- **Backend:** Node.js + Express v5, Drizzle ORM, PostgreSQL
+- **Frontend:** React 18, Vite
+- **Jobs:** node-cron (in-process scheduler, no external queue server)
+- **AI:** Anthropic Claude (primary), OpenAI (secondary), Vapi (voice)
+- **Payments:** Stripe (subscriptions + one-time)
+- **Comms:** Twilio (SMS/WhatsApp), Nodemailer (SMTP)
 
 ---
 
-## What has been built (this branch)
+## Directory Structure
 
-### V1 — Outbound lead management foundation (commits `04cf418`, `1ca1914`)
-- DB schema for `prospects`, `prospect_enrichment`, `campaign_prospects`, `campaigns`, `outbound_opportunities`
-- CSV import from Outscraper format
-- Heuristic enrichment (website/phone/review signals)
-- Prospect review queue (approve/reject/blacklist)
-- Campaign CRUD + Instantly/Smartlead sync stub
-- Kanban pipeline (`positive_reply → booked_call → trial_started → paid → lost`)
-- Reply webhook classification
-
-### V2 — Offer targeting + AI enrichment + template layer (commits `0f1397a`, `0ae9db1`)
-
-**Schema extensions** (`shared/schemas/outbound.ts`):
-- `prospects` table: `target_offer varchar(30)`, `priority_score integer`
-- `prospect_enrichment`: `ai_reason_to_target text`, `ai_first_line text`, `ai_offer_angle text`, `ai_cta_variant text`
-- `campaign_prospects`: `reply_type varchar(20)`, `reply_intent varchar(30)`, `ai_next_action text`
-
-**New services**:
-- `server/services/prospectTargeting.ts` — `assignTargetOffer()` rule tree + `computePriorityScore()` (0–100 deterministic)
-- `server/services/replyIntelligence.ts` — `classifyReplyFull()` with heuristic intent + optional Claude Haiku next-action
-- `server/services/prospectEnrichment.ts` — extended to 7 AI output fields; Claude prompt upgraded (max_tokens 700)
-
-**Template layer (client)**:
-- `client/src/lib/outboundTemplates.ts` — 4 offers × 3 angles × 6 message types = 72 independent templates (code-based, no DB)
-- `client/src/lib/templateMerge.ts` — `renderTemplate()` + `buildMergeFields()` with 13 merge fields
-- `client/src/components/outbound/TemplatePreview.tsx` — full-featured dialog with offer/angle/message-type selectors + Copy button
-
-**Offers**: `quotequick` | `reputationshield` | `socialsync` | `tradeline`
-**Message types**: `first_touch` | `follow_up_1` | `follow_up_2` | `breakup` | `contact_form` | `dm`
-
-**Merge fields**: `{{business_name}}` `{{first_name}}` `{{city}}` `{{state}}` `{{trade}}` `{{review_count}}` `{{rating}}` `{{ai_first_line}}` `{{ai_first_line_callout}}` `{{ai_offer_angle}}` `{{ai_cta_variant}}` `{{sender_name}}`
-
-`{{ai_first_line_callout}}` renders as: `{ai_first_line}\n\n(so this stood out when I looked you up)` — makes AI observations feel human.
-
-### V2.1 — Template fixes + tracking (commit `4525622`)
-- Each angle now owns its own full `messages: Record<MessageType, MessageConfig>` — real content variation, not just label changes
-- `trackEvent("template_copied", { offer, angle, message_type, prospect_id })` fires on Copy
-- `TemplatePreview.tsx` message lookup fixed: `angle.messages[selectedType]` (was broken `offer.messages[selectedType]`)
-
-### V2.2 — UI polish (commit `59156ca`)
-- **ProspectsPage**: `?` tooltips on Score + Priority column headers; "Heuristic only" → "No AI yet · run AI Enrich ↑"
-- **CampaignsPage**: `?` tooltip on External Campaign ID field; tooltip on Push button; `?` on Sync column header
-- **PipelinePage**: `?` tooltip on Positive Reply stage; contact info collapsed from 3 stacked rows to single inline row
-
----
-
-## Key file locations
-
-| Purpose | Path |
-|---|---|
-| Outbound DB schema | `shared/schemas/outbound.ts` |
-| All outbound API routes | `server/routes/adminOutboundRoutes.ts` |
-| Offer targeting rules | `server/services/prospectTargeting.ts` |
-| Reply classification | `server/services/replyIntelligence.ts` |
-| AI enrichment service | `server/services/prospectEnrichment.ts` |
-| Template config (72 templates) | `client/src/lib/outboundTemplates.ts` |
-| Template merge utility | `client/src/lib/templateMerge.ts` |
-| Template preview dialog | `client/src/components/outbound/TemplatePreview.tsx` |
-| Prospects page | `client/src/pages/admin/outbound/ProspectsPage.tsx` |
-| Campaigns page | `client/src/pages/admin/outbound/CampaignsPage.tsx` |
-| Pipeline page | `client/src/pages/admin/outbound/PipelinePage.tsx` |
-| Event tracking stub | `client/src/lib/trackEvent.ts` |
-| Tooltip component | `client/src/components/ui/tooltip.tsx` |
-
----
-
-## DB migration note
-The V2 schema columns (`target_offer`, `priority_score`, AI fields, reply intelligence fields) were added to Drizzle schema definitions but **no migration has been run yet**. Before testing end-to-end, run:
-```bash
-npm run db:push   # or whatever the project's drizzle migration command is
 ```
-Check `package.json` scripts for the exact command.
+/shared/schemas/      ← DB table definitions (Drizzle + Zod)
+  db.ts               ← leads, bookings, support tickets, notification queue, job logs
+  adminCrm.ts         ← clients, services, fulfillment tasks, onboarding, payments, orders
+  pricing.ts          ← pricing draft/job states
+
+/server/
+  routes/             ← Express route handlers (one file per domain)
+  jobs/               ← Background workers (scheduler.ts, notificationWorker.ts, etc.)
+  services/           ← Business logic helpers (aiService, promptBuilder, vapiService, etc.)
+  lib/                ← Email transport, PDF generation, onboarding email, etc.
+  storage.ts          ← Main data access layer (IStorage interface, ~1200 lines)
+  auth.ts             ← Session auth (Passport.js, local strategy)
+
+/client/src/
+  pages/              ← React pages (admin/, portal/, public/)
+  components/         ← Shared UI components
+  config/             ← portalLabels.ts (status → display string mappings)
+
+/docs/                ← Architecture plans and research
+```
 
 ---
 
-## Coding conventions
-- **No raw `{{tokens}}`** ever shown to operator — `FIELD_HINTS` in `templateMerge.ts` provides fallback text
-- **Tooltip pattern**: `import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"` + `HelpCircle` from lucide-react. `TooltipProvider` is already in `App.tsx`.
-- **Large file writes**: scaffold first (~50 lines), then fill content in sequential `Edit` calls (~100 lines each) to avoid timeout
-- **API calls**: use `apiRequest()` from `@/lib/queryClient` for mutating requests; plain `fetch` for queries
-- **Admin brand color**: `#2D6A4F` (green) / `#1B4332` (hover)
-- **TypeScript**: pre-existing ambient errors `TS2688` (@types/node) and `TS5101` (baseUrl) are known and harmless — ignore them
+## Active Feature Branch
+
+**Branch:** `claude/design-rules-routing-engine-N2UmT`
+
+This branch is currently in the **planning phase** for the Rules & Routing Engine.
+The implementation plan is at: `docs/rules-routing-engine-plan.md`
 
 ---
 
-## Potential next tasks (not started)
-- **DB migration**: run `db:push` to apply V2 schema changes to the actual database
-- **Instantly/Smartlead sync**: `server/services/outreachPlatform.ts` exists as a stub — wire up real API calls
-- **Sequence scheduling**: add send-time logic to campaign_prospects (no UI yet)
-- **Template editing**: TemplatePreview is read-only; editable inline copy is deferred
-- **Template versioning**: no version history yet
-- **`contact_confidence` display**: field exists in heuristic logic but not shown in ProspectsPage Contact cell
-- **`trackEvent` backend**: currently logs to console only — swap for a real analytics endpoint
-- **Sort by priority**: `?sort=priority` is supported by the API but no UI toggle exists on ProspectsPage yet
-- **Reply intelligence UI**: `reply_type`, `reply_intent`, `ai_next_action` are stored on `campaign_prospects` but not surfaced anywhere in the UI
+## Current Work: Rules & Routing Engine
+
+### What this is
+
+A deterministic business logic layer that:
+- Reads existing DB state (no new data sources needed)
+- Applies typed rule functions per entity type
+- Assigns items to named work queues
+- Writes results to a new `routing_events` table
+- Produces audit trail in existing `adminActivityLog`
+- Does NOT use LLM judgment for routing decisions
+
+### What is NOT done yet
+
+- The `routing_events` table does not exist yet
+- No `server/engine/` directory exists yet
+- The routing worker has not been written
+- No queue assignment logic exists anywhere
+
+### Key design decisions already made
+
+See `docs/rules-routing-engine-plan.md` for the full plan. Summary:
+
+1. **New table:** `routing_events` — tracks queue assignments with full lifecycle
+   (`active` → `system_resolved` | `admin_acknowledged` | `snoozed`)
+2. **Re-queue policy:** `admin_acknowledged` is terminal for that event *instance*, but
+   if the underlying condition still holds past a per-queue threshold, a NEW event is created
+3. **New directory:** `server/engine/` with `types.ts`, `thresholds.ts`, `evaluator.ts`,
+   `routingWorker.ts`, and `rules/` subdirectory
+4. **Scheduler:** routingWorker added to `server/jobs/scheduler.ts` as a 5-minute cron
+5. **Phase 1 first:** Schema + storage methods only — no rule logic yet
+
+### Recommended first step
+
+Add `routing_events` table to `shared/schemas/adminCrm.ts` and add four storage methods
+to `server/storage.ts`:
+- `createRoutingEvent(data)` — idempotent insert
+- `systemResolveRoutingEvent(entityType, entityId, queue)` — condition cleared
+- `adminAcknowledgeRoutingEvent(id, userId)` — human acted on this instance
+- `listQueueItems(queue, limit)` — active/snoozed events for a queue
+
+---
+
+## Key Status Fields (already in DB — do not redefine)
+
+```
+clients.status:               lead | onboarding | active | paused | churned
+clientServices.status:        pending | onboarding | active | paused | cancelled | completed
+fulfillmentTasks.status:      not_started | submitted | in_progress | waiting | blocked | delivered | cancelled
+fulfillmentTasks.priority:    low | normal | high | urgent
+fulfillmentTasks.waiting_on:  client | supplier | internal
+fulfillmentTasks.handled_by:  internal | supplier | automation
+fulfillmentTasks.automation_status: idle | running | completed | failed
+fulfillmentTasks.escalation_flag:   boolean (exists, currently unused)
+fulfillmentTasks.human_review_required: boolean (exists, currently unused)
+onboardingSubmissions.status: not_sent | sent | viewed | submitted | approved | needs_followup
+clientPayments.status:        pending | paid | failed | partial | refunded
+supportTickets.status:        open | in_progress | waiting_on_customer | resolved | closed
+supportTickets.priority:      low | normal | high | urgent
+supportTickets.category:      general | billing | service | onboarding | access | other
+actor_type (all tables):      human | ai_agent | system
+```
+
+---
+
+## Coding Conventions
+
+- TypeScript strict mode throughout
+- Drizzle ORM for all DB queries — no raw SQL except in migrations
+- Zod schemas generated from Drizzle tables via `createInsertSchema()`
+- All admin mutations logged to `adminActivityLog` with `actor_type`
+- Background jobs use `jobLogs` table for run tracking (create + update pattern)
+- Workers are run via node-cron in `server/jobs/scheduler.ts` — no external queue server
+- No raw `console.log` in production paths — use prefixed `[Worker]`, `[Engine]`, etc.
+- New routes are registered in `server/routes/index.ts`
+
+---
+
+## Do Not Change Without Reading the Plan
+
+- `shared/schemas/adminCrm.ts` — understand existing tables before adding
+- `server/storage.ts` — large file; add methods at the end of the relevant section
+- `server/jobs/scheduler.ts` — overlap guard logic is important; do not break existing jobs
+- `server/routes/adminCrmRoutes.ts` — already has many routes; add routing endpoints in a
+  clearly separated block
+
+---
+
+## Previous Work on This Branch
+
+The support ticket system (schema, storage, admin routes, portal UI) was completed in earlier
+commits on this branch. It is fully functional. Do not modify support ticket code unless
+explicitly required by the routing engine implementation.
+
+---
+
+## References
+
+- Full routing engine plan: `docs/rules-routing-engine-plan.md`
+- Support ticket plan (completed): `docs/support-ticket-system-plan.md`
+- DB schema: `shared/schemas/db.ts` and `shared/schemas/adminCrm.ts`
+- Status label mappings: `client/src/config/portalLabels.ts`
