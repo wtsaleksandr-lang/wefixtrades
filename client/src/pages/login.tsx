@@ -5,11 +5,13 @@ import { queryClient } from "@/lib/queryClient";
 import { getSessionId } from "@/lib/chatHelpers";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [, navigate] = useLocation();
+  usePageTitle("Sign In");
 
   const login = useMutation({
     mutationFn: async () => {

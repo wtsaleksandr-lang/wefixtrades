@@ -219,7 +219,7 @@ export default function SupportInboxPage() {
           ) : tickets.length === 0 ? (
             <div className="text-center py-16">
               <MessageSquare className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-500">No tickets found.</p>
+              <p className="text-sm text-gray-500">No support tickets yet. Tickets will appear here when clients submit them from the portal.</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-50">

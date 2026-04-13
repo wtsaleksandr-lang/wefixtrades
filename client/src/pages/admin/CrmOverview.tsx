@@ -363,7 +363,7 @@ export default function CrmOverview() {
               </div>
             ) : !data?.recentClients?.length ? (
               <div className="px-4 pb-4">
-                <p className="text-sm text-gray-500">No clients yet.</p>
+                <p className="text-sm text-gray-500">No clients yet. <a href="/admin/crm/clients" className="text-[#2D6A4F] hover:underline">Add your first client</a> to get started.</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
