@@ -3708,6 +3708,18 @@ export default function ProductPage() {
 
   return (
     <MarketingLayout>
+      <style>{`
+        @media (max-width: 640px) {
+          [data-testid^="product-page-"] section {
+            padding-top: 40px !important;
+            padding-bottom: 40px !important;
+          }
+          [data-testid^="product-page-"] section[data-testid="product-pricing"] {
+            padding-top: 48px !important;
+            padding-bottom: 48px !important;
+          }
+        }
+      `}</style>
       <div data-testid={`product-page-${product.slug}`}>
 
         {/* ── §1 HERO SHELL (merged with visual) ── */}

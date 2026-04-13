@@ -46,10 +46,10 @@ export default function ProductHeroShell({
     <>
       <style>{`
         .product-hero-shell {
-          min-height: 640px;
+          min-height: auto;
         }
         @media (min-width: 768px) {
-          .product-hero-shell { min-height: 720px; }
+          .product-hero-shell { min-height: 640px; }
         }
         @media (max-width: 768px) {
           .product-hero-backdrop { padding: 10px 8px 0 !important; }
@@ -106,7 +106,7 @@ export default function ProductHeroShell({
             ref={heroRef}
             style={{
               background: "transparent",
-              padding: "120px 28px 48px",
+              padding: "clamp(64px, 10vw, 120px) 28px 48px",
               position: "relative",
             }}
           >
