@@ -1373,8 +1373,10 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           </div>
         )}
 
-        <LivePreview ws={ws} tradeLabel={selectedTradeLabel} categoryLabel={selectedCategoryLabel}
-          isOpen={showPreview} onToggle={() => setShowPreview(p => !p)} step={step} />
+        {/* LivePreview accordion removed — real QuoteWidget is shown in:
+           1. Side panel (desktop, sticky right column)
+           2. Inline preview (mobile, inside Step 1)
+           The old LivePreview was a static summary, not the actual calculator. */}
 
       </Shell>
 
