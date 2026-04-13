@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -293,6 +294,7 @@ function StatCard({
 }
 
 export default function CrmOverview() {
+  usePageTitle("Overview");
   const { data, isLoading } = useQuery<Overview>({
     queryKey: ["/api/admin/crm/overview"],
   });

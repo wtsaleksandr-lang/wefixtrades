@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 /**
  * MapGuard Client Portal Dashboard
  *
@@ -144,6 +145,7 @@ function ChartTooltipContent({ active, payload, label }: any) {
 
 /* ─── Main Page ─── */
 export default function PortalMapguard() {
+  usePageTitle("MapGuard");
   const { data, isLoading, error } = useQuery<MapguardData>({
     queryKey: ["/api/portal/mapguard"],
     queryFn: async () => {

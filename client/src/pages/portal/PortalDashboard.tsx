@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
 import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw, PhoneCall, Clock } from "lucide-react";
 import { Link } from "wouter";
@@ -73,6 +74,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function PortalDashboard() {
+  usePageTitle("Dashboard");
   const { data, isLoading, error, refetch } = useQuery<OverviewData>({
     queryKey: ["/api/portal/overview"],
     queryFn: async () => {

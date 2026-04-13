@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
@@ -62,6 +63,7 @@ async function fetchJson(url: string) {
 
 /* ─── Main Component ─── */
 export default function AiDashboard() {
+  usePageTitle("AI Dashboard");
   const { user, isLoading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
   const [tab, setTab] = useState<Tab>("overview");

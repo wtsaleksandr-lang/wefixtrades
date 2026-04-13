@@ -201,7 +201,7 @@ export default function TermsPage() {
                 </p>
                 <div style={{ marginTop: 12, padding: "16px 20px", background: mkt.accentTint, borderRadius: 8, fontSize: 14, lineHeight: 1.8 }}>
                   <strong>WeFixTrades Pty Ltd</strong><br />
-                  Email: <a href="mailto:contact@wefxtrades.com" style={{ color: mkt.accent, textDecoration: "none" }}>contact@wefxtrades.com</a><br />
+                  Email: <a href="mailto:contact@wefixtrades.com" style={{ color: mkt.accent, textDecoration: "none" }}>contact@wefixtrades.com</a><br />
                   Response time: Usually within 2 business hours
                 </div>
               </Section>

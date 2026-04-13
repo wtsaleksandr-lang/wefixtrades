@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Share2, CheckCircle, Clock, Calendar, ImageIcon, Settings, X } from "lucide-react";
@@ -41,6 +42,7 @@ const STATUS_MESSAGES: Record<string, { headline: string; sub: string }> = {
 };
 
 export default function PortalSocialSync() {
+  usePageTitle("Social Media");
   const [selectedPost, setSelectedPost] = useState<PostItem | null>(null);
 
   const { data, isLoading } = useQuery<SocialSyncReport>({

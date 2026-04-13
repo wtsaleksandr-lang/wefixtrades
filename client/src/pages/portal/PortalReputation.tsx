@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Star, TrendingUp, MessageSquare, Send, CheckCircle, HelpCircle } from "lucide-react";
@@ -47,6 +48,7 @@ function Stars({ count }: { count: number }) {
 }
 
 export default function PortalReputation() {
+  usePageTitle("Reputation");
   const { data, isLoading } = useQuery<ReputationReport>({
     queryKey: ["/api/portal/reputation"],
     refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes

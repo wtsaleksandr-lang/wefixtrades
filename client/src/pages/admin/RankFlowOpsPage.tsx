@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -66,6 +67,7 @@ const RISK_STYLES: Record<string, { bg: string; text: string; label: string }> =
 
 /* ─── Main Page ─── */
 export default function RankFlowOpsPage() {
+  usePageTitle("RankFlow");
   const [filter, setFilter] = useState<FilterKey>("all");
 
   const { data, isLoading } = useQuery<OpsOverview>({

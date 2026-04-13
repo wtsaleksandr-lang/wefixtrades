@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, CreditCard, Clock, CheckCircle, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
@@ -42,6 +43,7 @@ function formatDate(dateStr: string | null): string {
 }
 
 export default function PortalBilling() {
+  usePageTitle("Billing");
   const { data, isLoading, error, refetch } = useQuery<BillingData>({
     queryKey: ["/api/portal/billing"],
     queryFn: async () => {

@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, ArrowRight, Calculator, Eye, Users, ExternalLink, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
@@ -29,6 +30,7 @@ const CATEGORY_STYLES: Record<string, string> = {
 };
 
 export default function PortalServices() {
+  usePageTitle("Services");
   const { data, isLoading, error, refetch } = useQuery<{ services: ServiceRow[] }>({
     queryKey: ["/api/portal/services"],
     queryFn: async () => {

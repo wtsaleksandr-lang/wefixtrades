@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
@@ -47,6 +48,7 @@ function fmt(cents: number | null) {
 }
 
 export default function ServicesPage() {
+  usePageTitle("Services");
   const { data: catalog, isLoading } = useQuery<ServiceCatalogItem[]>({
     queryKey: ["/api/admin/crm/services"],
   });

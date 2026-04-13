@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
@@ -55,6 +56,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function ClientsPage() {
+  usePageTitle("Clients");
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const { toast } = useToast();

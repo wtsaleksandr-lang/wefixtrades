@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -76,6 +77,7 @@ function ConnBadge({ status }: { status: string }) {
 /* ─── Page ─── */
 
 export default function SocialSyncOpsPage() {
+  usePageTitle("SocialSync");
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [filter, setFilter] = useState<string>("all");

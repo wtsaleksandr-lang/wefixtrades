@@ -7,7 +7,7 @@ import { mkt, colors, shadows, radius } from "@/theme/tokens";
 
 export default function ContactPage() {
   useEffect(() => {
-    document.title = "Contact — QuickQuotePro";
+    document.title = "Contact — WeFixTrades";
   }, []);
 
   const [form, setForm] = useState(() => {
@@ -101,8 +101,8 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Email</div>
-                    <a href="mailto:contact@wefxtrades.com" style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}>
-                      contact@wefxtrades.com
+                    <a href="mailto:contact@wefixtrades.com" style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}>
+                      contact@wefixtrades.com
                     </a>
                   </div>
                 </div>

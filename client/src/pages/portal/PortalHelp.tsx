@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -280,6 +281,7 @@ function formatDate(d: string | null): string {
 
 /* ─── Main Page ─── */
 export default function PortalHelp() {
+  usePageTitle("Help");
   return (
     <PortalLayout chatContext={{ surface: "help" }}>
       <div className="max-w-3xl mx-auto space-y-6">

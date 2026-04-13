@@ -104,7 +104,7 @@ export default function PrivacyPage() {
                   <li><strong>Objection:</strong> Object to processing based on legitimate interests.</li>
                   <li><strong>Opt-out of marketing:</strong> Unsubscribe from marketing emails at any time via the link in our emails.</li>
                 </ul>
-                <p style={{ marginTop: 12 }}>To exercise any of these rights, contact us at <a href="mailto:contact@wefxtrades.com" style={{ color: mkt.accent, textDecoration: "none" }}>contact@wefxtrades.com</a>.</p>
+                <p style={{ marginTop: 12 }}>To exercise any of these rights, contact us at <a href="mailto:contact@wefixtrades.com" style={{ color: mkt.accent, textDecoration: "none" }}>contact@wefixtrades.com</a>.</p>
               </Section>
 
               <Section title="6. Cookie Policy">
@@ -150,7 +150,7 @@ export default function PrivacyPage() {
                 </p>
                 <div style={{ marginTop: 12, padding: "16px 20px", background: mkt.accentTint, borderRadius: 8, fontSize: 14, lineHeight: 1.8 }}>
                   <strong>WeFixTrades Pty Ltd</strong><br />
-                  Email: <a href="mailto:contact@wefxtrades.com" style={{ color: mkt.accent, textDecoration: "none" }}>contact@wefxtrades.com</a><br />
+                  Email: <a href="mailto:contact@wefixtrades.com" style={{ color: mkt.accent, textDecoration: "none" }}>contact@wefixtrades.com</a><br />
                   Response time: Usually within 2 business hours
                 </div>
               </Section>
