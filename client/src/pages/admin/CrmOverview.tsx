@@ -85,7 +85,7 @@ function OpsIntelligenceWidget() {
             <AlertTriangle className="w-3.5 h-3.5 text-white" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">AI Ops Intelligence</h3>
+            <h3 className="text-sm font-semibold text-gray-900">Daily Operations Summary</h3>
             {generatedAt && (
               <p className="text-[10px] text-gray-400">
                 Last run {generatedAt}
@@ -118,11 +118,11 @@ function OpsIntelligenceWidget() {
         ) : isError ? (
           <div className="flex items-center gap-2 text-sm text-red-600">
             <AlertTriangle className="w-4 h-4 shrink-0" />
-            Failed to load ops summary. Check server logs.
+            Something went wrong loading the daily summary. Please try again later.
           </div>
         ) : !snapshot ? (
           <div className="text-center py-6">
-            <p className="text-sm text-gray-500 mb-3">No ops snapshot yet. Run the first analysis.</p>
+            <p className="text-sm text-gray-500 mb-3">No daily summary yet. Run your first operations check.</p>
             <TriggerOpsRunButton />
           </div>
         ) : !aiOutput ? (
@@ -131,7 +131,7 @@ function OpsIntelligenceWidget() {
             <div>
               <p className="font-medium">AI summarization failed for this run.</p>
               <p className="text-xs text-amber-600 mt-0.5">
-                {snapshot.signal_count} signals were detected. Check server logs for error details.
+                {snapshot.signal_count} issues were detected but the AI summary couldn't be generated. Try running again.
               </p>
             </div>
           </div>

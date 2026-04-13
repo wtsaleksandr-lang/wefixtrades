@@ -242,6 +242,7 @@ export default function ClientDetailPage() {
       return res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/services`] }),
+    onError: (err: Error) => { toast({ title: "Failed to update service", description: err.message, variant: "destructive" }); },
   });
 
   const updateServiceCost = useMutation({
@@ -253,6 +254,7 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/services`] });
       toast({ title: "Cost updated" });
     },
+    onError: (err: Error) => { toast({ title: "Failed to update cost", description: err.message, variant: "destructive" }); },
   });
 
   const updateStatus = useMutation({
@@ -265,6 +267,7 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/clients"] });
       toast({ title: "Client updated", description: `Status changed to ${status}` });
     },
+    onError: (err: Error) => { toast({ title: "Failed to update status", description: err.message, variant: "destructive" }); },
   });
 
   // Edit client
@@ -298,6 +301,7 @@ export default function ClientDetailPage() {
       setShowEdit(false);
       toast({ title: "Client updated", description: "Details saved" });
     },
+    onError: (err: Error) => { toast({ title: "Failed to save", description: err.message, variant: "destructive" }); },
   });
 
   const updateTaskStatus = useMutation({
@@ -311,6 +315,7 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
       toast({ title: "Task updated", description: `Moved to ${status.replace(/_/g, " ")}` });
     },
+    onError: (err: Error) => { toast({ title: "Failed to update task", description: err.message, variant: "destructive" }); },
   });
 
   // Add note
@@ -328,6 +333,7 @@ export default function ClientDetailPage() {
       setNoteText("");
       queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/notes`] });
     },
+    onError: (err: Error) => { toast({ title: "Failed to add note", description: err.message, variant: "destructive" }); },
   });
 
   // Add service dialog
@@ -352,6 +358,7 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
       toast({ title: "Service provisioned", description: `${data.tasksCreated} tasks created` });
     },
+    onError: (err: Error) => { toast({ title: "Failed to provision service", description: err.message, variant: "destructive" }); },
   });
 
   // Generate monthly tasks for recurring services
@@ -365,6 +372,7 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
       toast({ title: "Tasks generated", description: `${data.tasksCreated} tasks for ${data.month}` });
     },
+    onError: (err: Error) => { toast({ title: "Failed to generate tasks", description: err.message, variant: "destructive" }); },
   });
 
   // Stripe checkout
@@ -383,7 +391,7 @@ export default function ClientDetailPage() {
       }
     },
     onError: () => {
-      toast({ title: "Checkout failed", description: "Could not create checkout session. Check Stripe config." });
+      toast({ title: "Checkout failed", description: "Could not create checkout session. Stripe may not be configured yet.", variant: "destructive" });
     },
   });
 
@@ -402,6 +410,7 @@ export default function ClientDetailPage() {
         setPortalResult({ email: data.email, temporary_password: data.temporary_password });
       }
     },
+    onError: (err: Error) => { toast({ title: "Failed to create portal access", description: err.message, variant: "destructive" }); },
   });
 
   // Update payment status
@@ -416,6 +425,7 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/payments"] });
       toast({ title: "Payment updated", description: `Marked as ${status}` });
     },
+    onError: (err: Error) => { toast({ title: "Failed to update payment", description: err.message, variant: "destructive" }); },
   });
 
   if (isLoading) {
