@@ -24,6 +24,7 @@ import { registerPortalRoutes } from "./portalRoutes";
 import { registerAdminSupportRoutes } from "./adminSupportRoutes";
 import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
 import { registerDemoLeadRoutes } from "./demoLeadRoutes";
+import { registerAdminOutboundRoutes } from "./adminOutboundRoutes";
 import { registerReviewPublicRoutes } from "./reviewPublicRoutes";
 import { registerWidgetRoutes } from "./widgetRoutes";
 import { registerMapguardRoutes } from "./mapguardRoutes";
@@ -61,6 +62,7 @@ export async function registerRoutes(
   registerAdminSupportRoutes(app);
   registerMissedCallLeadRoutes(app);
   registerDemoLeadRoutes(app);
+  registerAdminOutboundRoutes(app);
   registerMapguardRoutes(app);
   registerSocialSyncRoutes(app);
   registerReputationRoutes(app);

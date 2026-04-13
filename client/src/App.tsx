@@ -74,6 +74,9 @@ import RankFlowOpsPage from "@/pages/admin/RankFlowOpsPage";
 import ProfilePage from "@/pages/admin/ProfilePage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import ChangePasswordPage from "@/pages/admin/ChangePasswordPage";
+import ProspectsPage from "@/pages/admin/outbound/ProspectsPage";
+import CampaignsPage from "@/pages/admin/outbound/CampaignsPage";
+import PipelinePage from "@/pages/admin/outbound/PipelinePage";
 import SocialSyncOpsPage from "@/pages/admin/SocialSyncOpsPage";
 import SalesPipelinePage from "@/pages/admin/SalesPipelinePage";
 import OnboardingForm from "@/pages/OnboardingForm";
@@ -122,6 +125,12 @@ function Router() {
       <Route path="/admin/crm/settings">{() => <RequirePortal><SettingsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/change-password">{() => <RequirePortal><ChangePasswordPage /></RequirePortal>}</Route>
       <Route path="/admin/crm">{() => <RequirePortal><CrmOverview /></RequirePortal>}</Route>
+
+      {/* Outbound lead management */}
+      <Route path="/admin/outbound/prospects">{() => <RequirePortal><ProspectsPage /></RequirePortal>}</Route>
+      <Route path="/admin/outbound/campaigns">{() => <RequirePortal><CampaignsPage /></RequirePortal>}</Route>
+      <Route path="/admin/outbound/pipeline">{() => <RequirePortal><PipelinePage /></RequirePortal>}</Route>
+      <Route path="/admin/outbound">{() => <Redirect to="/admin/outbound/prospects" />}</Route>
 
       {/* Client portal */}
       <Route path="/portal/onboarding/:id">{() => <RequireClient><PortalOnboarding /></RequireClient>}</Route>
