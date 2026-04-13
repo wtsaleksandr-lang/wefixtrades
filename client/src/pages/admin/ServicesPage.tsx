@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface ServiceCatalogItem {
@@ -32,14 +31,14 @@ const CATEGORY_COLORS: Record<string, string> = {
 const CORE_SERVICES = [
   { id: "tradeline", name: "24/7 TradeLine™", category: "leads", description: "Chat + Voice + DMs — the full lead engine. Every inbound channel covered." },
   { id: "quotequick", name: "QuoteQuick Pro™", category: "leads", description: "Instant quote calculator for trades websites. Captures leads with real pricing." },
-  { id: "mapguard-setup", name: "MapGuard™ Setup", category: "visibility", description: "One-time Google Business Profile optimization sprint." },
+  { id: "mapguard-setup", name: "MapSetup™", category: "visibility", description: "One-time Google Business Profile optimization sprint." },
   { id: "mapguard-ongoing", name: "MapGuard™ Ongoing", category: "visibility", description: "Monthly Google Maps maintenance and growth." },
   { id: "reputationshield", name: "ReputationShield™", category: "reputation", description: "Review generation, response templates, and reputation monitoring." },
-  { id: "webboost-setup", name: "WebBoost™ Setup", category: "website", description: "One-time speed & SEO upgrade for existing websites." },
-  { id: "webboost-care", name: "WebBoost™ Care", category: "website", description: "Ongoing website performance and SEO maintenance." },
   { id: "socialsync", name: "SocialSync™", category: "visibility", description: "Social media content and posting for trades businesses." },
   { id: "sitelaunch", name: "SiteLaunch™", category: "website", description: "High-converting website built for trades. Launched in 2 weeks." },
-  { id: "fix-optimize", name: "Fix & Optimize™", category: "website", description: "Website fixes, tweaks, and optimization packages." },
+  { id: "webfix", name: "WebFix™", category: "website", description: "Website fixes, tweaks, and optimization." },
+  { id: "rankflow", name: "RankFlow™", category: "visibility", description: "Ongoing SEO that brings consistent traffic and leads." },
+  { id: "adflow", name: "AdFlow™", category: "leads", description: "Done-for-you ads that bring leads fast." },
 ];
 
 function fmt(cents: number | null) {
@@ -75,8 +74,18 @@ export default function ServicesPage() {
     };
   });
 
+  const topByClients = [...merged]
+    .sort((a, b) => b.activeClients - a.activeClients)
+    .filter((s) => s.activeClients > 0)
+    .slice(0, 6)
+    .map((s) => ({ name: s.name, activeClients: s.activeClients }));
+
   return (
-    <AdminLayout pageContext={{ page: "services" }}>
+    <AdminLayout pageContext={{
+      page: "services",
+      serviceCatalogCount: merged.length,
+      topServicesByClients: topByClients.length > 0 ? topByClients : undefined,
+    }}>
       <div className="max-w-5xl mx-auto space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Services</h2>

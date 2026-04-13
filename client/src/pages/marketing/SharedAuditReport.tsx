@@ -245,7 +245,7 @@ export default function SharedAuditReport() {
                   {item.wefixtrades_can_help && (
                     <div className={s.wftBanner}>
                       <span className={s.wftBannerText}>WeFixTrades can handle this for you</span>
-                      <a className={s.wftBannerLink} href="/plans">See how &rarr;</a>
+                      <a className={s.wftBannerLink} href="/pricing">See how &rarr;</a>
                     </div>
                   )}
                 </div>

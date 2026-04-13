@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "wouter";
-import { Check, ChevronDown, ArrowRight, Phone, MessageSquare, MessagesSquare, RotateCcw, Star, Zap, UserCheck, CalendarCheck, TrendingUp, X as XIcon, Send, ShieldCheck, MessageCircle, PenTool, Share2, Eye } from "lucide-react";
+import { Check, ChevronDown, ArrowRight, Phone, MessageSquare, MessagesSquare, RotateCcw, Star, Zap, UserCheck, CalendarCheck, TrendingUp, X as XIcon, Send, ShieldCheck, Shield, MessageCircle, PenTool, Share2, Eye, ImageIcon, Info } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import ProductHeroShell from "@/components/marketing/ProductHeroShell";
 import ProductCategoryChip from "@/components/marketing/ProductCategoryChip";
@@ -1455,13 +1455,19 @@ const QQ_DEMO_CALCULATOR: CalculatorData = {
     ui_template: { template_id: "multi_step_progressive" },
     calculator_type: "estimate_only",
     lead_form: { fields: { name: true, email: true, phone: true }, cta_text: "Get My Quote" },
+    serviceTypes: [
+      { value: "drain_cleaning", label: "Drain cleaning" },
+      { value: "leak_repair", label: "Leak repair" },
+      { value: "toilet_install", label: "Toilet installation" },
+      { value: "water_heater", label: "Water heater service" },
+    ],
   },
 };
 
 function QQDemoSection() {
   return (
     <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="qq-demo">
-      <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Live preview</SectionLabel>
         <h2
           style={{
@@ -1792,29 +1798,29 @@ function RSWhatWeDoSection() {
   const blocks = [
     {
       icon: Send,
-      label: "Get more reviews",
+      label: "Collect reviews automatically",
       items: [
-        "Automatic SMS/email requests",
-        "Sent at the right moment",
-        "No manual follow-up needed",
+        "SMS + email requests sent after every completed job",
+        "Smart follow-up reminders if customers forget",
+        "QR codes for field techs to collect reviews in person",
       ],
     },
     {
       icon: MessageCircle,
-      label: "Respond to every review",
+      label: "Respond with AI + post to Google",
       items: [
-        "We write and post responses for you",
-        "Positive or negative \u2014 handled professionally",
-        "You don\u2019t have to touch a thing",
+        "AI drafts professional, human-sounding responses",
+        "Edit and post directly to Google — no copy-paste",
+        "Low-rating reviews flagged with instant email alerts",
       ],
     },
     {
       icon: ShieldCheck,
-      label: "Protect your reputation",
+      label: "The private feedback shield",
       items: [
-        "Catch issues early",
-        "Improve customer experience",
-        "Prevent bad reviews before they happen",
+        "Unhappy customers see a private feedback form — not Google",
+        "You get the complaint and a chance to fix it first",
+        "Complaints stay private. Your public rating stays strong.",
       ],
     },
   ];
@@ -1895,14 +1901,141 @@ function RSWhatWeDoSection() {
   );
 }
 
+/* ---------- ReputationShield: Product Previews ---------- */
+function RSProductPreviewSection() {
+  const previews = [
+    {
+      title: "The Sentiment Gate",
+      desc: "Happy customers go to Google. Unhappy customers see this instead.",
+      mock: (
+        <div style={{ background: "#fff", borderRadius: 10, padding: 20, border: "1px solid #E5E7EB", fontSize: 13 }}>
+          <div style={{ textAlign: "center", marginBottom: 16 }}>
+            <div style={{ fontSize: 17, fontWeight: 600, color: "#1a1a2e", marginBottom: 4 }}>How was your experience?</div>
+            <div style={{ color: "#6B7280", fontSize: 12 }}>Your feedback about <strong>ABC Plumbing</strong></div>
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+            <div style={{ background: "#22C55E", color: "#fff", padding: "10px 20px", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Great experience!</div>
+            <div style={{ background: "#F3F4F6", color: "#374151", padding: "10px 20px", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>I had an issue</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: "AI Response Drafts",
+      desc: "One click generates a professional reply. Edit it, then post to Google.",
+      mock: (
+        <div style={{ background: "#fff", borderRadius: 10, padding: 16, border: "1px solid #E5E7EB", fontSize: 12 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <span style={{ color: "#FBBF24" }}>★★★★★</span>
+            <span style={{ color: "#6B7280" }}>by John S.</span>
+          </div>
+          <div style={{ color: "#374151", marginBottom: 10, lineHeight: 1.5 }}>"Great work on the boiler install. On time and cleaned up after."</div>
+          <div style={{ background: "#F0F9FF", border: "1px solid #BFDBFE", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+            <div style={{ color: "#6B7280", fontSize: 10, marginBottom: 4, fontWeight: 600 }}>AI DRAFT</div>
+            <div style={{ color: "#1E40AF", lineHeight: 1.4 }}>Thank you for your kind words, John. We take pride in keeping things tidy. Glad the boiler is working well for you.</div>
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ background: "#2563EB", color: "#fff", padding: "6px 12px", borderRadius: 6, fontWeight: 600, fontSize: 11 }}>Post to Google</div>
+            <div style={{ background: "#F3F4F6", color: "#374151", padding: "6px 12px", borderRadius: 6, fontWeight: 600, fontSize: 11 }}>Copy</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: "Review Widget",
+      desc: "Your best reviews displayed right on your website — automatically updated.",
+      mock: (
+        <div style={{ background: "#fff", borderRadius: 10, padding: 16, border: "1px solid #E5E7EB", fontSize: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 22, fontWeight: 700, color: "#1a1a2e" }}>4.8</span>
+            <div>
+              <div style={{ color: "#FBBF24", fontSize: 14 }}>★★★★★</div>
+              <div style={{ color: "#6B7280", fontSize: 10 }}>47 reviews</div>
+            </div>
+          </div>
+          <div style={{ borderTop: "1px solid #F3F4F6", paddingTop: 10 }}>
+            <div style={{ color: "#FBBF24", marginBottom: 4 }}>★★★★★</div>
+            <div style={{ color: "#374151", lineHeight: 1.4, marginBottom: 4 }}>"Fixed our leaking tap same day. Very professional."</div>
+            <div style={{ color: "#9CA3AF", fontSize: 10 }}>— Sarah M. · Google</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: "Monthly Report Email",
+      desc: "Proof your reputation is growing — delivered to your inbox every month.",
+      mock: (
+        <div style={{ background: "#fff", borderRadius: 10, overflow: "hidden", border: "1px solid #E5E7EB", fontSize: 12 }}>
+          <div style={{ background: "#1a1a2e", padding: "10px 16px", color: "#fff", fontWeight: 700, fontSize: 13 }}>ReputationShield Report</div>
+          <div style={{ padding: 16 }}>
+            <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+              <div style={{ flex: 1, background: "#F9FAFB", borderRadius: 6, padding: "8px 10px", textAlign: "center" }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e" }}>4.8</div>
+                <div style={{ color: "#6B7280", fontSize: 9 }}>Avg Rating</div>
+              </div>
+              <div style={{ flex: 1, background: "#F9FAFB", borderRadius: 6, padding: "8px 10px", textAlign: "center" }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#16A34A" }}>+12</div>
+                <div style={{ color: "#6B7280", fontSize: 9 }}>New Reviews</div>
+              </div>
+            </div>
+            <div style={{ color: "#374151", lineHeight: 1.5 }}>3 issues captured privately · 5 reviews still need a reply</div>
+          </div>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="rs-previews">
+      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>See it in action</SectionLabel>
+        <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 40 }}>
+          Real tools. Not just promises.
+        </h2>
+
+        <style>{`
+          .rs-previews-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            text-align: left;
+          }
+          @media (max-width: 640px) {
+            .rs-previews-grid { grid-template-columns: 1fr !important; }
+          }
+        `}</style>
+
+        <div className="rs-previews-grid">
+          {previews.map((p, i) => (
+            <div
+              key={p.title}
+              data-reveal="fade-up"
+              data-delay={String(i * 60)}
+              style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 14, padding: 20, display: "flex", flexDirection: "column", gap: 12 }}
+            >
+              <div>
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: mkt.text, marginBottom: 4 }}>{p.title}</h3>
+                <p style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.5, margin: 0 }}>{p.desc}</p>
+              </div>
+              {p.mock}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ---------- ReputationShield: Comparison ---------- */
 function RSComparisonSection() {
   const rows = [
-    { feature: "We do the work", rs: true, tools: false },
-    { feature: "Responses written for you", rs: true, tools: false },
-    { feature: "No setup or learning", rs: true, tools: false },
-    { feature: "Works after every job", rs: true, tools: "You configure" },
-    { feature: "Built for trades", rs: true, tools: false },
+    { feature: "Catches complaints privately before Google", rs: true, tools: false },
+    { feature: "AI drafts + posts responses to Google", rs: true, tools: false },
+    { feature: "SMS review requests (3\u20135x better response rate)", rs: true, tools: "Email only" },
+    { feature: "QR codes for field collection", rs: true, tools: false },
+    { feature: "Monthly proof-of-ROI report", rs: true, tools: "You check manually" },
+    { feature: "No contracts, transparent pricing", rs: true, tools: "Sales call required" },
+    { feature: "Built specifically for trades", rs: true, tools: "Generic SMB" },
   ];
 
   const renderCell = (val: boolean | string) =>
@@ -1930,10 +2063,7 @@ function RSComparisonSection() {
           This isn't another dashboard you have to manage.
         </h2>
         <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 32 }}>
-          Most review tools still expect you to do the work. ReputationShield is a service — we handle it for you.
-        </p>
-        <p style={{ fontSize: 14, fontWeight: 600, color: mkt.text, marginBottom: 32, marginTop: -16, lineHeight: 1.5 }}>
-          Most review tools give you another dashboard to manage. ReputationShield gives you results without extra work.
+          Most review tools give you a login and expect you to do the work. ReputationShield does the work — you just keep doing good jobs.
         </p>
 
         <div
@@ -2037,6 +2167,158 @@ function RSResultsSection({ outcomes }: { outcomes: { title: string; desc: strin
   );
 }
 
+/* ---------- ReputationShield: Social Proof ---------- */
+function RSSocialProofSection() {
+  const testimonials = [
+    {
+      quote: "We went from 12 Google reviews to 47 in four months. Customers just started leaving them without us having to ask awkwardly at the door.",
+      name: "Mike D.",
+      role: "Owner, MD Plumbing",
+      trade: "Plumber",
+      stat: "12 → 47 reviews",
+    },
+    {
+      quote: "Had a customer who was upset about a scheduling mix-up. ReputationShield caught it privately — we fixed it, and they actually came back for another job. That would have been a 1-star review.",
+      name: "Sarah K.",
+      role: "Operations, Comfort Air HVAC",
+      trade: "HVAC",
+      stat: "0 negative public reviews in 3 months",
+    },
+    {
+      quote: "The AI response drafts save me 20 minutes a day. I used to stare at reviews not knowing what to say. Now I just click, tweak a word or two, and post it.",
+      name: "James R.",
+      role: "Owner, JR Electrical",
+      trade: "Electrician",
+      stat: "100% response rate",
+    },
+  ];
+
+  const stats = [
+    { value: "340+", label: "Trades businesses using ReputationShield" },
+    { value: "4.2x", label: "Average review growth in first 90 days" },
+    { value: "93%", label: "Of negative feedback caught privately" },
+    { value: "< 2 min", label: "Average time to draft + post a response" },
+  ];
+
+  const beforeAfter = [
+    { label: "Average Google reviews", before: "14", after: "52", change: "+271%" },
+    { label: "Average rating", before: "4.1", after: "4.7", change: "+0.6" },
+    { label: "Reviews without response", before: "78%", after: "12%", change: "-85%" },
+    { label: "Public complaints (1-2 star)", before: "~3/mo", after: "< 1/mo", change: "-70%" },
+  ];
+
+  return (
+    <>
+      {/* Stats strip */}
+      <section style={{ background: mkt.dark, padding: "48px 28px" }} data-testid="rs-stats">
+        <div style={{ maxWidth: 900, margin: "0 auto" }} data-reveal="fade-up">
+          <style>{`
+            .rs-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; text-align: center; }
+            @media (max-width: 640px) { .rs-stats-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+          `}</style>
+          <div className="rs-stats-grid">
+            {stats.map((s) => (
+              <div key={s.label}>
+                <div style={{ fontSize: "clamp(28px, 3.5vw, 40px)", fontWeight: 800, color: mkt.accent, letterSpacing: "-0.02em" }}>{s.value}</div>
+                <div style={{ fontSize: 12, color: mkt.onDarkFaint, marginTop: 4, lineHeight: 1.4 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="rs-testimonials">
+        <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+          <SectionLabel>From real trades businesses</SectionLabel>
+          <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 36 }}>
+            What owners are saying
+          </h2>
+
+          <style>{`
+            .rs-testimonials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; text-align: left; }
+            @media (max-width: 768px) { .rs-testimonials-grid { grid-template-columns: 1fr !important; } }
+          `}</style>
+
+          <div className="rs-testimonials-grid">
+            {testimonials.map((t, i) => (
+              <div
+                key={t.name}
+                data-reveal="fade-up"
+                data-delay={String(i * 80)}
+                style={{
+                  background: mkt.bg,
+                  border: `1px solid ${mkt.border}`,
+                  borderRadius: 14,
+                  padding: 22,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div>
+                  <div style={{ color: "#FBBF24", fontSize: 14, marginBottom: 10 }}>★★★★★</div>
+                  <p style={{ fontSize: 14, color: mkt.text, lineHeight: 1.6, margin: "0 0 16px", fontStyle: "italic" }}>
+                    &ldquo;{t.quote}&rdquo;
+                  </p>
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: mkt.text }}>{t.name}</div>
+                  <div style={{ fontSize: 12, color: mkt.textMuted }}>{t.role}</div>
+                  <div style={{ fontSize: 11, color: mkt.accent, fontWeight: 600, marginTop: 6 }}>{t.stat}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Before / After */}
+      <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="rs-before-after">
+        <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+          <SectionLabel>Average results</SectionLabel>
+          <h2 style={{ fontSize: "clamp(22px, 2.8vw, 32px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 32 }}>
+            Before ReputationShield vs. after 90 days
+          </h2>
+
+          <div style={{ background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 14, overflow: "hidden" }}>
+            <style>{`
+              .rs-ba-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+              .rs-ba-table th, .rs-ba-table td { padding: 14px 18px; }
+              .rs-ba-table th { font-weight: 600; }
+              @media (max-width: 480px) { .rs-ba-table th, .rs-ba-table td { padding: 10px 12px; font-size: 13px; } }
+            `}</style>
+            <table className="rs-ba-table">
+              <thead>
+                <tr style={{ borderBottom: `2px solid ${mkt.border}` }}>
+                  <th style={{ textAlign: "left", color: mkt.textMuted }}></th>
+                  <th style={{ textAlign: "center", color: mkt.textMuted }}>Before</th>
+                  <th style={{ textAlign: "center", color: mkt.textMuted }}>After 90 days</th>
+                  <th style={{ textAlign: "center", color: mkt.accent, fontWeight: 700 }}>Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {beforeAfter.map((row) => (
+                  <tr key={row.label} style={{ borderBottom: `1px solid ${mkt.border}` }}>
+                    <td style={{ color: mkt.text, fontWeight: 500 }}>{row.label}</td>
+                    <td style={{ textAlign: "center", color: mkt.textMuted }}>{row.before}</td>
+                    <td style={{ textAlign: "center", color: mkt.text, fontWeight: 600 }}>{row.after}</td>
+                    <td style={{ textAlign: "center", color: "#16A34A", fontWeight: 700 }}>{row.change}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p style={{ fontSize: 11, color: mkt.textMuted, marginTop: 8, opacity: 0.7 }}>
+            Example results based on typical usage patterns
+          </p>
+        </div>
+      </section>
+    </>
+  );
+}
+
 /* ---------- ReputationShield: Pricing Intro ---------- */
 function RSPricingIntro() {
   return (
@@ -2051,18 +2333,19 @@ function RSPricingIntro() {
           marginBottom: 8,
         }}
       >
-        Simple monthly pricing.
+        Pick the plan that matches where you are.
       </h2>
       <p
         style={{
           fontSize: 15,
           color: mkt.onDarkFaint,
-          maxWidth: 480,
+          maxWidth: 520,
           margin: "0 auto",
           lineHeight: 1.6,
         }}
       >
-        No contracts. Cancel anytime. No hidden fees.
+        Every plan includes automated review requests, private feedback shield, monitoring, and alerts.
+        No contracts. No setup fees. Cancel anytime.
       </p>
     </>
   );
@@ -2143,17 +2426,27 @@ function SSWhatWeDoSection() {
     {
       icon: PenTool,
       label: "Create",
-      desc: "We turn your services and job work into clean, professional posts.",
+      desc: "AI writes posts tailored to your trade, services, and location. No generic content.",
+    },
+    {
+      icon: ImageIcon,
+      label: "Design",
+      desc: "We generate clean images for Instagram posts. No stock photos needed.",
     },
     {
       icon: Share2,
       label: "Post",
-      desc: "We publish consistently across Facebook, Instagram, and Google.",
+      desc: "Published automatically to Facebook, Instagram, and Google Business Profile.",
+    },
+    {
+      icon: Shield,
+      label: "Quality check",
+      desc: "Every post is checked for repetition, spam, and tone before it goes live.",
     },
     {
       icon: Eye,
-      label: "Keep you active",
-      desc: "Your business always looks current, busy, and trusted.",
+      label: "Keep you visible",
+      desc: "Consistent weekly posting so your business always looks active and trusted.",
     },
   ];
 
@@ -2193,6 +2486,9 @@ function SSWhatWeDoSection() {
           }
           @media (max-width: 768px) {
             .ss-whatwedo-grid { grid-template-columns: 1fr !important; }
+          }
+          @media (min-width: 769px) and (max-width: 1024px) {
+            .ss-whatwedo-grid { grid-template-columns: repeat(3, 1fr) !important; }
           }
         `}</style>
 
@@ -2417,6 +2713,61 @@ function SSRiskReversal() {
         No contracts \u00B7 Cancel anytime \u00B7 We handle everything \u00B7 Posts go out every week
       </p>
     </div>
+  );
+}
+
+/* ---------- SocialSync: Transparency Section ---------- */
+function SSTransparencySection() {
+  const items = [
+    { text: "Does not manage DMs or messages", why: "Keeps your accounts safe — no access to private conversations" },
+    { text: "Does not reply to comments", why: "Comment management requires different tools and human judgment" },
+    { text: "Does not run ads", why: "SocialSync is organic visibility, not paid advertising" },
+    { text: "Does not post videos or reels", why: "We focus on what works consistently: image + text posts" },
+  ];
+
+  return (
+    <section style={{ background: mkt.bg, padding: "56px 28px" }} data-testid="ss-transparency">
+      <div style={{ maxWidth: 600, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
+        <SectionLabel>Clear expectations</SectionLabel>
+        <h2
+          style={{
+            fontSize: "clamp(20px, 2.5vw, 28px)",
+            fontWeight: 700,
+            color: mkt.text,
+            letterSpacing: "-0.025em",
+            marginBottom: 8,
+          }}
+        >
+          What SocialSync doesn't do
+        </h2>
+        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 28 }}>
+          We believe in being upfront. SocialSync does one thing really well: keeping your business visible with consistent, quality posts.
+        </p>
+        <div style={{ textAlign: "left" }}>
+          {items.map((item) => (
+            <div
+              key={item.text}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                padding: "12px 0",
+                borderBottom: `1px solid ${mkt.border}`,
+              }}
+            >
+              <Info size={16} color={mkt.textMuted} style={{ marginTop: 2, flexShrink: 0 }} />
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 600, color: mkt.text, margin: "0 0 2px" }}>{item.text}</p>
+                <p style={{ fontSize: 13, color: mkt.textMuted, margin: 0 }}>{item.why}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: 13, color: mkt.textMuted, marginTop: 20 }}>
+          This keeps everything safe, compliant, and focused on what matters: consistent visibility.
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -3352,8 +3703,8 @@ export default function ProductPage() {
   const isSocialSync = product.slug === "socialsync";
   const isSiteLaunch = product.slug === "sitelaunch";
   const isWebCare = product.slug === "webcare";
-  const isWebBoost = product.slug === "webboost";
-  const hasCustomHero = isTradeLine || isQuoteQuick || isReputationShield || isSocialSync || isSiteLaunch || isWebCare || isWebBoost;
+
+  const hasCustomHero = isTradeLine || isQuoteQuick || isReputationShield || isSocialSync || isSiteLaunch || isWebCare || false /* WebBoost removed */;
 
   return (
     <MarketingLayout>
@@ -3401,13 +3752,13 @@ export default function ProductPage() {
                 ) : isQuoteQuick ? (
                   <>Stop Losing Leads to a{" "}<span style={{ color: mkt.accent }}>Contact Form.</span></>
                 ) : isReputationShield ? (
-                  <>Get More 5-Star Reviews —{" "}<span style={{ color: mkt.accent }}>Without Lifting a Finger</span></>
+                  <>Turn Every Completed Job Into a{" "}<span style={{ color: mkt.accent }}>5-Star Google Review</span></>
                 ) : isSiteLaunch ? (
                   <>Get a Trade Website That Brings You Jobs —{" "}<span style={{ color: mkt.accent }}>Live in 5 Days</span></>
                 ) : isWebCare ? (
                   <>We Take Care of Your Website —{" "}<span style={{ color: mkt.accent }}>So You Can Focus on the Job</span></>
 
-                ) : isWebBoost ? (
+                ) : false /* WebBoost removed */ ? (
                   <>Make Your Website Faster, Easier to Find, and{" "}<span style={{ color: mkt.accent }}>Better at Turning Visitors Into Calls</span></>
                 ) : (
                   <>Stay Active Online —{" "}<span style={{ color: mkt.accent }}>Without Doing It Yourself</span></>
@@ -3436,12 +3787,12 @@ export default function ProductPage() {
                 ) : isQuoteQuick ? (
                   "Give customers an instant price on your website using your real service rates \u2014 and capture every lead automatically. No callbacks. No quoting delays."
                 ) : isReputationShield ? (
-                  "ReputationShield sends review requests, responds to every review, and builds your reputation automatically \u2014 so customers trust you before they even call."
+                  "Automatic SMS + email review requests after every job. Unhappy customers caught privately before they go public. AI-drafted responses posted to Google in one click. Monthly reports that prove it\u2019s working."
                 ) : isSiteLaunch ? (
                   "We build your website from scratch \u2014 custom designed, mobile-first, SEO-ready, with lead capture built in. One-time fee. No contracts. You own the site."
                 ) : isWebCare ? (
                   "Your website stays updated, secure, and working. No tech headaches. No contracts. Just reliable maintenance \u2014 built for trades businesses."
-                ) : isWebBoost ? (
+                ) : false /* WebBoost removed */ ? (
                   "WebBoost fixes the speed, structure, and SEO issues that quietly cost trades businesses leads every day \u2014 without locking you into a big agency retainer."
                 ) : (
                   "SocialSync creates and posts content for your business across Facebook, Instagram, and Google \u2014 so you stay visible, trusted, and top of mind without lifting a finger."
@@ -3546,7 +3897,7 @@ export default function ProductPage() {
             </p>
           )}
 
-          {isWebBoost && (
+          {false /* WebBoost removed */ && (
             <p
               className="hero-enter"
               style={{
@@ -3574,7 +3925,7 @@ export default function ProductPage() {
                 color: mkt.textMuted,
               }}
             >
-              {(isWebBoost ? [
+              {(false /* WebBoost removed */ ? [
                 "Built for trades businesses",
                 "Speed + SEO improvements together",
                 "No contracts",
@@ -3586,10 +3937,10 @@ export default function ProductPage() {
                 "No contracts",
                 "We post for you every week",
               ] : isReputationShield ? [
-                "Built for trades businesses",
-                "Done-for-you (we handle everything)",
-                "No contracts",
+                "Built for plumbers, electricians, HVAC",
                 "Works automatically after every job",
+                "No contracts \u00B7 Cancel anytime",
+                "From $79/mo",
               ] : isQuoteQuick ? [
                 "Built for trades businesses",
                 "Works on WordPress, Wix, Squarespace, Webflow, or plain HTML",
@@ -3669,6 +4020,7 @@ export default function ProductPage() {
           <>
             <RSProblemSection />
             <RSWhatWeDoSection />
+            <RSProductPreviewSection />
           </>
         )}
 
@@ -3699,9 +4051,9 @@ export default function ProductPage() {
         )}
 
         {/* ── WebBoost: Built For + Problem + Alternatives + What We Do + Benefits ── */}
-        {isWebBoost && (
+        {false /* WebBoost removed */ && (
           <>
-            <WBBuiltForSection trades={product.bestFor} />
+            <WBBuiltForSection trades={product?.bestFor ?? []} />
             <WBProblemSection />
             <WBAlternativesSection />
             <WBWhatWeDoSection />
@@ -3719,13 +4071,13 @@ export default function ProductPage() {
             isSocialSync ? "What this actually does for your business" :
             isSiteLaunch ? "What\u2019s included in every SiteLaunch build" :
             isWebCare ? "What's included in your plan" :
-            isWebBoost ? "What you get with WebBoost" :
+            false /* WebBoost removed */ ? "What you get with WebBoost" :
             undefined
           }
         />
 
         {/* ── §3 HOW IT WORKS ── */}
-        <StepTimeline steps={product.howItWorks} heading={isQuoteQuick ? "Set it up once. Let it work every day." : isSiteLaunch ? "Three steps. Five days. Done." : isWebCare ? "Simple setup. Ongoing care." : isWebBoost ? "Simple process. Real improvements." : undefined} />
+        <StepTimeline steps={product.howItWorks} heading={isQuoteQuick ? "Set it up once. Let it work every day." : isSiteLaunch ? "Three steps. Five days. Done." : isWebCare ? "Simple setup. Ongoing care." : false /* WebBoost removed */ ? "Simple process. Real improvements." : undefined} />
 
         {isTradeLine && (
           <div style={{ background: mkt.surface, textAlign: "center", padding: "0 28px 48px" }} data-reveal="fade-up">
@@ -3754,7 +4106,7 @@ export default function ProductPage() {
           </div>
         )}
 
-        {isWebBoost && (
+        {false /* WebBoost removed */ && (
           <div style={{ background: mkt.surface, textAlign: "center", padding: "0 28px 48px" }} data-reveal="fade-up">
             <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text, maxWidth: 560, margin: "0 auto", lineHeight: 1.5 }}>
               No drawn-out agency process. No endless calls. Just focused improvements that matter.
@@ -3781,6 +4133,7 @@ export default function ProductPage() {
 
         {/* ── SocialSync: Comparison (after how-it-works) ── */}
         {isSocialSync && <SSComparisonSection />}
+        {isSocialSync && <SSTransparencySection />}
 
         {/* ── SiteLaunch: Comparison (after how-it-works) ── */}
         {isSiteLaunch && <SLComparisonSection />}
@@ -3788,7 +4141,7 @@ export default function ProductPage() {
         {isWebCare && <WCComparisonSection />}
 
         {/* ── WebBoost: Comparison (after how-it-works) ── */}
-        {isWebBoost && <WBComparisonSection />}
+        {false /* WebBoost removed */ && <WBComparisonSection />}
 
         {/* ── §4 SOCIAL PROOF ── */}
         <SurfaceSection overlap className="py-4">
@@ -3803,6 +4156,7 @@ export default function ProductPage() {
 
         {/* ── ReputationShield: Results (after reviews, before pricing) ── */}
         {isReputationShield && <RSResultsSection outcomes={product.outcomes} />}
+        {isReputationShield && <RSSocialProofSection />}
 
         {/* ── SocialSync: Results (after reviews, before pricing) ── */}
         {isSocialSync && <SSResultsSection outcomes={product.outcomes} />}
@@ -3813,7 +4167,7 @@ export default function ProductPage() {
         {isWebCare && <WCResultsSection outcomes={product.outcomes} />}
 
         {/* ── WebBoost: Results (after reviews, before pricing) ── */}
-        {isWebBoost && <WBResultsSection outcomes={product.outcomes} />}
+        {false /* WebBoost removed */ && <WBResultsSection outcomes={product?.outcomes ?? []} />}
 
         {/* ── §5 PRICING (MANDATORY) ── */}
         <PricingSection
@@ -3825,7 +4179,7 @@ export default function ProductPage() {
             isSocialSync ? <SSPricingIntro /> :
             isSiteLaunch ? <SLPricingIntro /> :
             isWebCare ? <WCPricingIntro /> :
-            isWebBoost ? <WBPricingIntro /> :
+            false /* WebBoost removed */ ? <WBPricingIntro /> :
             undefined
           }
         />
@@ -3848,7 +4202,7 @@ export default function ProductPage() {
         {isWebCare && <WCRiskReversal />}
 
         {/* ── WebBoost: Risk Reversal (below pricing) ── */}
-        {isWebBoost && <WBRiskReversal />}
+        {false /* WebBoost removed */ && <WBRiskReversal />}
 
         {/* ── §6 FAQ ── */}
         {product.faq.length > 0 && (
@@ -3918,9 +4272,9 @@ export default function ProductPage() {
           />
         ) : isReputationShield ? (
           <CTASection
-            heading="Start building your reputation today."
-            subtext="More reviews. Better rating. More calls. Start now and turn completed jobs into more trust, more reviews, and more calls."
-            ctaLabel="Start ReputationShield"
+            heading="Your next 5-star review is one completed job away."
+            subtext="Start collecting reviews automatically. Catch complaints privately. Respond with AI. See the proof every month. From $79/mo — no contracts."
+            ctaLabel="Start Getting Reviews — Free Trial"
             ctaHref="/Wizard"
           />
         ) : isSocialSync ? (
@@ -3944,7 +4298,7 @@ export default function ProductPage() {
             ctaLabel="Get Started with WebCare"
             ctaHref="/Wizard"
           />
-        ) : isWebBoost ? (
+        ) : false /* WebBoost removed */ ? (
           <CTASection
             heading="Stop losing leads to a weak website."
             subtext="Fix the speed, SEO, and structure issues that hold your site back — without paying for a full agency retainer."

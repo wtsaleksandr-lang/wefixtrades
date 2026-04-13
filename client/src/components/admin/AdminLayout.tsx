@@ -14,12 +14,17 @@ import {
   DollarSign,
   Sparkles,
   Wrench,
+  TrendingUp,
+  Share2,
+  Target,
   User,
   Settings,
   KeyRound,
   LogOut,
   ExternalLink,
   Megaphone,
+  LifeBuoy,
+  Star,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,9 +53,14 @@ const NAV_ITEMS = [
   { label: "Overview", href: "/admin/crm", icon: LayoutDashboard },
   { label: "Clients", href: "/admin/crm/clients", icon: Users },
   { label: "Inbox", href: "/admin/crm/inbox", icon: Inbox },
+  { label: "Support", href: "/admin/crm/support", icon: LifeBuoy, countKey: "support" as const },
   { label: "Billing", href: "/admin/crm/billing", icon: CreditCard },
   { label: "Suppliers", href: "/admin/crm/suppliers", icon: Factory },
+  { label: "RankFlow", href: "/admin/crm/rankflow", icon: TrendingUp },
   { label: "Services", href: "/admin/crm/services", icon: Wrench },
+  { label: "Reviews", href: "/admin/crm/reviews", icon: Star },
+  { label: "SocialSync", href: "/admin/crm/socialsync", icon: Share2 },
+  { label: "Sales", href: "/admin/crm/sales", icon: Target },
 ];
 
 const OUTBOUND_ITEMS = [
@@ -386,6 +396,18 @@ export default function AdminLayout({
   const [quickAdd, setQuickAdd] = useState<string | null>(null);
   const [copilotOpen, setCopilotOpen] = useState(false);
 
+  // Support ticket unresolved count for nav badge
+  const { data: supportCounts } = useQuery<{ open: number; in_progress: number; waiting_on_customer: number }>({
+    queryKey: ["/api/admin/crm/support/tickets/counts"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/crm/support/tickets/counts", { credentials: "include" });
+      if (!res.ok) return { open: 0, in_progress: 0, waiting_on_customer: 0 };
+      return res.json();
+    },
+    refetchInterval: 60000, // refresh every minute
+  });
+  const supportUnresolved = (supportCounts?.open ?? 0) + (supportCounts?.in_progress ?? 0) + (supportCounts?.waiting_on_customer ?? 0);
+
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
     navigate("/login");
@@ -446,6 +468,7 @@ export default function AdminLayout({
           <div className="space-y-0.5">
             {NAV_ITEMS.map((item) => {
               const active = isActive(location, item.href);
+              const badgeCount = item.countKey === "support" ? supportUnresolved : 0;
               return (
                 <Link
                   key={item.href}
@@ -459,7 +482,12 @@ export default function AdminLayout({
                   )}
                 >
                   <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {badgeCount > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-red-500 text-white">
+                      {badgeCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}

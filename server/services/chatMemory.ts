@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { chatMemory } from "@shared/schema";
-import { eq, and, gt, lt } from "drizzle-orm";
+import { eq, and, gt, lt, desc } from "drizzle-orm";
 import type { ChatMessage } from "./aiService";
 import type { MemoryContext, ChatSurface } from "./promptBuilder";
 
@@ -37,6 +37,47 @@ export async function getMemory(sessionId: string): Promise<{
     },
     messages: (row.messages_json as ChatMessage[]) || [],
   };
+}
+
+/* ─── Get memory by authenticated user ID (portal cross-session lookup) ─── */
+export async function getMemoryByUserId(userId: number): Promise<{
+  id: number;
+  memory: MemoryContext;
+  messages: ChatMessage[];
+} | null> {
+  const now = new Date();
+  const rows = await db
+    .select()
+    .from(chatMemory)
+    .where(and(eq(chatMemory.user_id, userId), gt(chatMemory.expires_at, now)))
+    .orderBy(desc(chatMemory.updated_at))
+    .limit(1);
+
+  if (!rows.length) return null;
+
+  const row = rows[0];
+  return {
+    id: row.id,
+    memory: {
+      userName: row.user_name ?? undefined,
+      businessType: row.business_type ?? undefined,
+      serviceArea: row.service_area ?? undefined,
+      websiteUrl: row.website_url ?? undefined,
+      reportId: row.report_id ?? undefined,
+      previousTopics: (row.previous_topics as string[]) || [],
+      interestedInPricing: row.interested_in_pricing ?? false,
+      interestedInBooking: row.interested_in_booking ?? false,
+    },
+    messages: (row.messages_json as ChatMessage[]) || [],
+  };
+}
+
+/* ─── Link anonymous session to authenticated user (website→portal continuity) ─── */
+export async function linkSessionToUser(sessionId: string, userId: number): Promise<void> {
+  await db
+    .update(chatMemory)
+    .set({ user_id: userId, updated_at: new Date() })
+    .where(eq(chatMemory.session_id, sessionId));
 }
 
 /* ─── Save/update session memory ─── */
