@@ -3986,45 +3986,17 @@ export default function ProductPage() {
           )}
         </ProductHeroShell>
 
-        {/* ── TradeLine: Built For + Problem + Solution (between hero and capabilities) ── */}
+        {/* ── TradeLine: Problem + Solution (between hero and capabilities) ── */}
         {isTradeLine && (
           <>
-            <TradeLineBuiltForSection trades={product.bestFor} />
             <TradeLineProblemSection />
             <TradeLineSolutionSection />
-
-            {/* Mid-page CTA */}
-            <div
-              style={{ background: mkt.surface, textAlign: "center", padding: "48px 28px" }}
-              data-reveal="fade-up"
-            >
-              <Link
-                href="/Wizard"
-                className="mkt-btn-primary"
-                style={{
-                  padding: "14px 32px",
-                  borderRadius: 9999,
-                  background: mkt.accent,
-                  color: mkt.buttonText,
-                  fontSize: 15,
-                  fontWeight: 700,
-                  textDecoration: "none",
-                  display: "inline-block",
-                }}
-              >
-                Start Your Free Trial
-              </Link>
-              <p style={{ fontSize: 13, color: mkt.textMuted, marginTop: 12, opacity: 0.75 }}>
-                Takes less than 15 minutes to set up
-              </p>
-            </div>
           </>
         )}
 
-        {/* ── QuoteQuick: Built For + Problem + Solution + Demo (between hero and capabilities) ── */}
+        {/* ── QuoteQuick: Problem + Solution (between hero and capabilities) ── */}
         {isQuoteQuick && (
           <>
-            <QQBuiltForSection trades={product.bestFor} />
             <QQProblemSection />
             <QQSolutionSection />
           </>
@@ -4047,19 +4019,17 @@ export default function ProductPage() {
           </>
         )}
 
-        {/* ── SiteLaunch: Built For + Problem + Differentiation (between hero and capabilities) ── */}
+        {/* ── SiteLaunch: Problem + Differentiation (between hero and capabilities) ── */}
         {isSiteLaunch && (
           <>
-            <SLBuiltForSection trades={product.bestFor} />
             <SLProblemSection />
             <SLDifferentiationSection />
           </>
         )}
 
-        {/* ── WebCare: Built For + Problem + What We Do (between hero and capabilities) ── */}
+        {/* ── WebCare: Problem + What We Do (between hero and capabilities) ── */}
         {isWebCare && (
           <>
-            <WCBuiltForSection trades={product.bestFor} />
             <WCProblemSection />
             <WCWhatWeDoSection />
           </>
@@ -4128,12 +4098,6 @@ export default function ProductPage() {
             </p>
           </div>
         )}
-
-        {/* ── TradeLine: Multi-channel Comparison (after how-it-works) ── */}
-        {isTradeLine && <TradeLineComparisonSection />}
-
-        {/* ── TradeLine: Voicemail objection (after comparison) ── */}
-        {isTradeLine && <TradeLineVoicemailSection />}
 
         {/* ── QuoteQuick: Demo + Comparison (after how-it-works) ── */}
         {isQuoteQuick && (
