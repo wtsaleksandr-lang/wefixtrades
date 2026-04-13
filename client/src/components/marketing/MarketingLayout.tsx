@@ -1,6 +1,7 @@
 import { useEffect, lazy, Suspense, type CSSProperties, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { ShieldCheck, Lock, Award } from "lucide-react";
+import { ShieldCheck, Lock, Award, ChevronDown } from "lucide-react";
+import { useState } from "react";
 import { usePageView } from "@/hooks/usePageView";
 import { useLenis } from "@/hooks/useLenis";
 import { useAuth } from "@/hooks/useAuth";
@@ -47,6 +48,23 @@ function FtLink({ href, children }: { href: string; children: React.ReactNode })
   );
 }
 
+function CollapsibleFooterSection({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className="mkt-ft-toggle"
+        style={{ ...ftHeading, width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+      >
+        <span>{title}</span>
+        <ChevronDown size={12} className="mkt-ft-chevron" style={{ transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "rotate(0)", opacity: 0.4 }} />
+      </button>
+      {open && children}
+    </div>
+  );
+}
+
 function MarketingFooter({ isMobile }: { isMobile: boolean }) {
   const { isAuthenticated, isPortalUser } = useAuth();
 
@@ -62,9 +80,8 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
       {/* ── Main footer grid ───────────────────────────────────────── */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 20px 0" }}>
         <div className="mkt-footer-grid">
-          {/* Col 1 — Products (core only) */}
-          <div>
-            <div style={ftHeading}>Products</div>
+          {/* Col 1 — Products */}
+          <CollapsibleFooterSection title="Products" defaultOpen={!isMobile}>
             <FtLink href="/products/tradeline">24/7 TradeLine™</FtLink>
             <FtLink href="/products/quickquotepro">QuoteQuick Pro™</FtLink>
             <FtLink href="/products/mapguard">MapGuard™</FtLink>
@@ -72,75 +89,39 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             <FtLink href="/products/socialsync">SocialSync™</FtLink>
             <FtLink href="/products/rankflow">RankFlow™</FtLink>
             <FtLink href="/products/adflow">AdFlow™</FtLink>
-            <Link
-              href="/products"
-              style={{
-                ...ftLink,
-                fontSize: 12,
-                fontWeight: 500,
-                color: mkt.accent,
-                marginTop: 6,
-                opacity: 0.7,
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.7"; }}
-            >
-              View All Products →
-            </Link>
-          </div>
+          </CollapsibleFooterSection>
 
-          {/* Col 2 — Solutions (grouped) */}
-          <div>
-            <div style={ftHeading}>Solutions</div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.25)", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>By Trade</div>
+          {/* Col 2 — Solutions */}
+          <CollapsibleFooterSection title="Solutions" defaultOpen={!isMobile}>
             <FtLink href="/solutions/for-plumbers">Plumbing</FtLink>
             <FtLink href="/solutions/for-hvac">HVAC</FtLink>
             <FtLink href="/solutions/for-electricians">Electrical</FtLink>
             <FtLink href="/solutions/for-roofers">Roofing</FtLink>
             <FtLink href="/solutions/for-cleaners">Cleaning</FtLink>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.25)", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginTop: 10, marginBottom: 6 }}>By Goal</div>
-            <FtLink href="/products/tradeline">Get more calls</FtLink>
-            <FtLink href="/products/quickquotepro">Automate quotes</FtLink>
-            <FtLink href="/products/mapguard">Improve Google ranking</FtLink>
-            <FtLink href="/products/reputationshield">Get more reviews</FtLink>
             <Link
-              href="/solutions/for-plumbers"
-              style={{
-                ...ftLink,
-                fontSize: 12,
-                fontWeight: 500,
-                color: mkt.accent,
-                marginTop: 6,
-                opacity: 0.7,
-              }}
+              href="/products"
+              style={{ ...ftLink, fontSize: 12, fontWeight: 500, color: mkt.accent, marginTop: 6, opacity: 0.7 }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.7"; }}
             >
-              View All Solutions →
+              All Solutions →
             </Link>
-          </div>
+          </CollapsibleFooterSection>
 
-          {/* Col 3 — Resources */}
-          <div>
-            <div style={ftHeading}>Resources</div>
+          {/* Col 3 — Resources + Tools */}
+          <CollapsibleFooterSection title="Resources" defaultOpen={!isMobile}>
             <FtLink href="/about">About Us</FtLink>
             <FtLink href="/contact">Contact Sales</FtLink>
             <FtLink href="/pricing">Pricing</FtLink>
+            <FtLink href="/tools/free-audit">Free Audit Tool</FtLink>
+            <FtLink href="/tools/missed-call-calculator">Missed Call Calculator</FtLink>
+            <FtLink href="/tools/quote-demo">Quote Demo</FtLink>
             {!isAuthenticated && <FtLink href="/login">Login</FtLink>}
             {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}
-          </div>
+          </CollapsibleFooterSection>
 
-          {/* Col 4 — Free Tools */}
-          <div>
-            <div style={ftHeading}>Free Tools</div>
-            <FtLink href="/tools/free-audit">Google Business Audit</FtLink>
-            <FtLink href="/tools/missed-call-calculator">Missed Call Calculator</FtLink>
-            <FtLink href="/tools/quote-demo">Instant Quote Demo</FtLink>
-          </div>
-
-          {/* Col 5 — Legal */}
-          <div>
-            <div style={ftHeading}>Legal</div>
+          {/* Col 4 — Legal */}
+          <CollapsibleFooterSection title="Legal" defaultOpen={!isMobile}>
             <FtLink href="/privacy">Privacy Policy</FtLink>
             <FtLink href="/terms">Terms of Service</FtLink>
             <FtLink href="/terms">Cookie Policy</FtLink>
@@ -168,7 +149,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
                 Sign out
               </button>
             )}
-          </div>
+          </CollapsibleFooterSection>
         </div>
       </div>
 
@@ -220,20 +201,36 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
         .mkt-footer-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 36px;
+          gap: 32px;
         }
+        /* Desktop: hide chevrons, always show content */
+        .mkt-ft-chevron { display: none; }
+        .mkt-ft-toggle { cursor: default !important; }
+
         @media (max-width: 768px) {
           .mkt-footer-grid {
             grid-template-columns: 1fr 1fr;
             gap: 24px 20px;
           }
         }
-        @media (max-width: 640px) {
+        @media (max-width: 480px) {
+          .mkt-footer-grid {
+            grid-template-columns: 1fr;
+            gap: 8px;
+          }
+          /* On small mobile: show chevrons for collapsible behavior */
+          .mkt-ft-chevron { display: block !important; }
+          .mkt-ft-toggle { cursor: pointer !important; }
           .mkt-footer-bottom {
             flex-direction: column !important;
           }
           .mkt-footer-trust {
             gap: 12px !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .mkt-footer-bottom {
+            flex-direction: column !important;
           }
         }
       `}</style>
