@@ -180,6 +180,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const [showCustomInHelp, setShowCustomInHelp] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [mobileMode, setMobileMode] = useState<'edit' | 'preview'>('edit');
   const saveFlashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -645,17 +646,37 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const genError = generateMutation.error ? (generateMutation.error as Error).message : null;
 
   const resolvedPricingConfig = useMemo(() => {
+    // 1. Custom trade with explicit charge method → use mapper
     if (ws.isCustomTrade && ws.customTradeData.charge_method !== 'not_sure') {
       const mapResult = mapPricingIntakeToConfig(ws.customTradeData, ws.stage2Data);
       if (mapResult.success) return mapResult.config;
     }
+    // 2. Custom trade with AI draft → use draft config
     if (ws.isCustomTrade && ws.calculatorSettings.pricing_draft?.status === 'ready' && ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType) {
       return ws.calculatorSettings.pricing_draft.pricing_config;
     }
+    // 3. Standard trade with manual pricing mode → convert to PricingConfigV1
+    const mode = ws.calculatorSettings?.pricing_mode;
+    if (mode && mode !== 'ai_suggested') {
+      if (mode === 'hourly') {
+        const rate = ws.calculatorSettings?.manual_hourly_rate || 75;
+        return { pricingType: 'hourly', unitName: 'hour', rate, baseFee: 0, minQuantity: 1, maxQuantity: 12 };
+      }
+      if (mode === 'fixed') {
+        const price = ws.calculatorSettings?.manual_fixed_price || 200;
+        return { pricingType: 'price_range_only', rangeLabel: 'Estimated Cost', rangeMin: price, rangeMax: price };
+      }
+      if (mode === 'range') {
+        const min = ws.calculatorSettings?.manual_range_min || 100;
+        const max = ws.calculatorSettings?.manual_range_max || 500;
+        return { pricingType: 'price_range_only', rangeLabel: 'Estimated Cost', rangeMin: min, rangeMax: max };
+      }
+    }
+    // 4. Standard trade with AI mode or default → use trade defaults
     const trade = TRADES.find(tr => tr.id === ws.selectedTrade);
     if (trade && (trade as any).defaultPricing) return (trade as any).defaultPricing;
     return { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 };
-  }, [ws.isCustomTrade, ws.customTradeData, ws.stage2Data, ws.calculatorSettings.pricing_draft, ws.selectedTrade]);
+  }, [ws.isCustomTrade, ws.customTradeData, ws.stage2Data, ws.calculatorSettings.pricing_draft, ws.selectedTrade, ws.calculatorSettings?.pricing_mode, ws.calculatorSettings?.manual_hourly_rate, ws.calculatorSettings?.manual_fixed_price, ws.calculatorSettings?.manual_range_min, ws.calculatorSettings?.manual_range_max]);
 
   // Synthetic CalculatorData for live preview (no DB save required)
   const previewCalculatorData = useMemo<CalculatorData>(() => ({
@@ -771,7 +792,34 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
   return (
     <>
-      <div className={showSidePreview ? "wizard-dual-layout" : ""}>
+      {/* Mobile Edit/Preview toggle — only visible on small screens when preview is available */}
+      {showSidePreview && (
+        <div className="wizard-mobile-toggle" style={{
+          display: 'none', gap: 0, marginBottom: 12, borderRadius: 10, overflow: 'hidden',
+          border: `1px solid ${p.colors.border}`, background: '#F3F4F6',
+        }}>
+          <button onClick={() => setMobileMode('edit')} style={{
+            flex: 1, padding: '10px 0', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
+            background: mobileMode === 'edit' ? '#fff' : 'transparent',
+            color: mobileMode === 'edit' ? p.colors.heading : p.colors.muted,
+            boxShadow: mobileMode === 'edit' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+            borderRadius: mobileMode === 'edit' ? 8 : 0, margin: 2, transition: 'all 0.15s ease',
+          }}>
+            ✏️ Edit
+          </button>
+          <button onClick={() => setMobileMode('preview')} style={{
+            flex: 1, padding: '10px 0', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
+            background: mobileMode === 'preview' ? '#fff' : 'transparent',
+            color: mobileMode === 'preview' ? p.colors.heading : p.colors.muted,
+            boxShadow: mobileMode === 'preview' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+            borderRadius: mobileMode === 'preview' ? 8 : 0, margin: 2, transition: 'all 0.15s ease',
+          }}>
+            👁 Preview
+          </button>
+        </div>
+      )}
+
+      <div className={showSidePreview ? `wizard-dual-layout ${mobileMode === 'preview' ? 'wizard-mobile-preview' : 'wizard-mobile-edit'}` : ""}>
       <Shell step={visualStep(step)} total={TOTAL_STEPS} onHelp={() => setShowHelp(true)}
         title={STEP_TITLES[step]} subtitle={STEP_SUBTITLES[step]}
         generating={generateMutation.isPending} genProgress={genProgress}
@@ -1447,7 +1495,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       )}
       </div>
 
-      {/* Dual-column CSS */}
+      {/* Dual-column + mobile toggle CSS */}
       <style>{`
         .wizard-dual-layout {
           display: grid;
@@ -1459,6 +1507,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           .wizard-dual-layout {
             grid-template-columns: minmax(400px, 480px) minmax(320px, 1fr);
           }
+          .wizard-mobile-toggle { display: none !important; }
         }
         .wizard-side-preview {
           display: none;
@@ -1467,6 +1516,13 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           .wizard-side-preview {
             display: block;
           }
+        }
+        /* Mobile: show toggle bar */
+        @media (max-width: 899px) {
+          .wizard-mobile-toggle { display: flex !important; }
+          .wizard-mobile-preview > .wizard-side-preview { display: block !important; }
+          .wizard-mobile-preview > div:first-child { display: none; }
+          .wizard-mobile-edit > .wizard-side-preview { display: none; }
         }
       `}</style>
 
