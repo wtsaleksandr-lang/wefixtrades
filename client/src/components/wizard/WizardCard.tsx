@@ -568,6 +568,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         let pricingConfig: any;
 
         if (ws.isCustomTrade && ws.customTradeData.charge_method !== 'not_sure') {
+          // Custom trade with explicit charge method → use mapper
           const mapResult = mapPricingIntakeToConfig(ws.customTradeData, ws.stage2Data);
           if (mapResult.success) {
             pricingConfig = mapResult.config;
@@ -576,17 +577,34 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             throw new Error(mapResult.errors[0] || 'Please go back and fill in all required pricing fields.');
           }
         } else if (ws.isCustomTrade && ws.calculatorSettings.pricing_draft?.status === 'ready' && ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType) {
+          // Custom trade with AI draft → use draft config
           pricingConfig = ws.calculatorSettings.pricing_draft.pricing_config;
           setGenProgress(50);
+        } else if (ws.calculatorSettings?.pricing_mode && ws.calculatorSettings.pricing_mode !== 'ai_suggested') {
+          // Standard trade with manual pricing mode → use resolvedPricingConfig (already computed)
+          pricingConfig = resolvedPricingConfig;
+          setGenProgress(50);
         } else {
-          const aiRes = await apiRequest('POST', '/api/ai/generate-pricing', {
-            trade_type: tradeLabel,
-            business_description: tradeLabel,
-            services: tradeLabel,
-          });
-          const aiData = await aiRes.json();
-          if (!aiData.success || !aiData.pricing_config) throw new Error(aiData.error || 'Failed to generate pricing.');
-          pricingConfig = aiData.pricing_config;
+          // AI-suggested mode → try AI generation, fall back to safe defaults if it fails
+          try {
+            const aiRes = await apiRequest('POST', '/api/ai/generate-pricing', {
+              trade_type: tradeLabel,
+              business_description: tradeLabel,
+              services: tradeLabel,
+            });
+            const aiData = await aiRes.json();
+            if (aiData.success && aiData.pricing_config) {
+              pricingConfig = aiData.pricing_config;
+            } else {
+              // AI returned but without valid config → use safe fallback
+              console.warn('[Wizard] AI pricing returned no config, using fallback');
+              pricingConfig = { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50, minQuantity: 1, maxQuantity: 12 };
+            }
+          } catch (aiErr) {
+            // AI endpoint failed entirely → use safe fallback instead of breaking
+            console.warn('[Wizard] AI pricing generation failed, using fallback:', aiErr);
+            pricingConfig = { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50, minQuantity: 1, maxQuantity: 12 };
+          }
         }
         setGenProgress(70);
         const createRes = await apiRequest('POST', '/api/calculators', {
@@ -1169,6 +1187,15 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               <button
                 data-testid="button-publish-from-preview"
                 onClick={() => {
+                  // Pre-publish validation
+                  if (!ws.businessName.trim()) {
+                    alert('Please enter your business name before publishing.');
+                    return;
+                  }
+                  if (!ws.ownerEmail.trim()) {
+                    alert('Please enter your email so leads can reach you.');
+                    return;
+                  }
                   if (!showPublishConfirm && !generateMutation.isPending) {
                     setShowPublishConfirm(true);
                     return;
@@ -1490,6 +1517,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             <div style={{ background: '#f8fafb' }} className="widget-scope">
               <QuoteWidget calculator={previewCalculatorData} isEmbed />
             </div>
+
+            {/* Feature toggle previews — show what enabled features will look like */}
+            <FeatureTogglePreviews layout={ws.calculatorSettings?.ui_template?.layout} primaryColor={ws.primaryColor} />
           </div>
         </div>
       )}
@@ -1808,6 +1838,83 @@ const DollarSign = ({ style, ...rest }: any) => (
     <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
   </svg>
 );
+
+/** Preview sections for enabled feature toggles — renders below the QuoteWidget */
+function FeatureTogglePreviews({ layout, primaryColor }: { layout?: any; primaryColor?: string }) {
+  const sticky = layout?.sticky_summary;
+  const breakdown = layout?.show_breakdown;
+  const trust = layout?.show_trust_block;
+  const testimonials = layout?.show_testimonials;
+  const accent = primaryColor || '#2D6A4F';
+
+  if (!sticky && !breakdown && !trust && !testimonials) return null;
+
+  return (
+    <div style={{ padding: '12px 14px', borderTop: `1px solid ${p.colors.borderLight}`, background: '#fff' }}>
+      <p style={{ fontSize: 10, fontWeight: 700, color: p.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+        Enabled features
+      </p>
+
+      {sticky && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 10, marginBottom: 8,
+          background: accent, color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 600 }}>Estimated Total</span>
+          <span style={{ fontSize: 16, fontWeight: 700 }}>$285</span>
+        </div>
+      )}
+
+      {breakdown && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8, marginBottom: 8,
+          border: `1px solid ${p.colors.borderLight}`, background: '#FAFBFC',
+        }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: p.colors.heading, marginBottom: 6 }}>Price Breakdown</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: p.colors.muted, marginBottom: 3 }}>
+            <span>Labor (3 hrs × $75)</span><span>$225</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: p.colors.muted, marginBottom: 3 }}>
+            <span>Call-out fee</span><span>$60</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 600, color: p.colors.heading, borderTop: `1px solid ${p.colors.borderLight}`, paddingTop: 4 }}>
+            <span>Total</span><span>$285</span>
+          </div>
+        </div>
+      )}
+
+      {trust && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8, marginBottom: 8,
+          border: `1px solid ${p.colors.borderLight}`, background: '#F0FDF4',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <Shield style={{ width: 14, height: 14, color: '#059669', flexShrink: 0 }} />
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 600, color: '#065F46', margin: 0 }}>Verified & Insured</p>
+            <p style={{ fontSize: 10, color: '#047857', margin: 0 }}>Licensed · Background checked · Satisfaction guaranteed</p>
+          </div>
+        </div>
+      )}
+
+      {testimonials && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8, marginBottom: 4,
+          border: `1px solid ${p.colors.borderLight}`, background: '#FFFBEB',
+        }}>
+          <div style={{ display: 'flex', gap: 2, marginBottom: 4 }}>
+            {[1,2,3,4,5].map(i => <span key={i} style={{ fontSize: 12, color: '#F59E0B' }}>★</span>)}
+          </div>
+          <p style={{ fontSize: 12, color: p.colors.body, lineHeight: 1.4, margin: 0, fontStyle: 'italic' }}>
+            "Fast, professional, and great price. Will definitely use again."
+          </p>
+          <p style={{ fontSize: 11, color: p.colors.muted, marginTop: 4 }}>— Recent customer</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function GeneratingAnimation({ progress, businessName }: { progress: number; businessName: string }) {
   const messages = [
