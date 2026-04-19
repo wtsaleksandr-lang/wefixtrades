@@ -534,19 +534,27 @@ export default function CapabilitiesShowcase() {
           style={{
             position: "relative",
             height: SLIDER_H,
-            borderRadius: 14,
+            borderRadius: 16,
             overflow: "hidden",
-            background: "#f5fcff",
-            border: "1px solid #d5e1e7",
-            boxShadow: "0 1px 3px rgba(34,40,42,0.06)",
           }}
         >
+          {/* background card behind content area */}
+          <div style={{
+            position: "absolute",
+            top: CARD_TOP, left: 0, right: 0, bottom: 0,
+            background: "#f5fcff",
+            border: "1px solid #d5e1e7",
+            borderTop: "none",
+            borderRadius: "0 0 10px 10px",
+            boxShadow: "0 1px 3px rgba(34,40,42,0.06)",
+          }} />
+
           {/* buttons row */}
           <div
             className="cs-buttons-wrap"
             style={{
               position: "relative", zIndex: 2,
-              display: "flex", flexDirection: "row", gap: 0,
+              display: "flex", flexDirection: "row", gap: GAP,
             }}
           >
             {TABS.map((t, i) => {
@@ -564,10 +572,9 @@ export default function CapabilitiesShowcase() {
                     data-testid={`cs-tab-${t.key}`}
                     onClick={() => startCycle(i)}
                     style={{
-                      height: BUTTON_H, borderRadius: 0,
+                      height: BUTTON_H, borderRadius: 10,
                       background: "transparent",
-                      border: "none",
-                      borderRight: "1px solid #d5e1e7",
+                      border: "1px solid #d5e1e7",
                       boxShadow: "none",
                       display: "flex", alignItems: "center",
                       padding: 3, gap: 10,
@@ -610,9 +617,8 @@ export default function CapabilitiesShowcase() {
 
           {/* content layer */}
           <div style={{
-            position: "absolute", top: BUTTON_H,
+            position: "absolute", top: CARD_TOP + GAP,
             left: 0, right: 0, bottom: 0, zIndex: 1,
-            borderTop: "1px solid #d5e1e7",
           }}>
             {TABS.map((t, i) => {
               const isActive = i === active;
