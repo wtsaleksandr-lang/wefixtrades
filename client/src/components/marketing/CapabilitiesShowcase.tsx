@@ -362,9 +362,9 @@ export default function CapabilitiesShowcase() {
           display: grid;
           grid-template-rows: 0fr;
           transition: grid-template-rows 0.42s cubic-bezier(0.4, 0, 0.2, 1);
-          border-radius: 0 0 14px 14px;
+          border-radius: 0 0 10px 10px;
           background: rgba(255,255,255,0.36);
-          border: 1px solid rgba(255,255,255,0.28);
+          border: 1px solid #d5e1e7;
           border-top: none;
           overflow: hidden;
         }
@@ -446,9 +446,10 @@ export default function CapabilitiesShowcase() {
                     onClick={() => startCycle(i)}
                     style={{
                       height: BUTTON_H,
-                      borderRadius: 10,
+                      borderRadius: isActive ? "10px 10px 0 0" : 10,
                       background: "transparent",
                       border: "1px solid #d5e1e7",
+                      borderBottom: isActive ? "none" : undefined,
                       boxShadow: "none",
                       display: "flex",
                       alignItems: "center",
