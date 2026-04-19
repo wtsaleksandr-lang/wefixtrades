@@ -544,7 +544,7 @@ export default function CapabilitiesShowcase() {
             top: CARD_TOP, left: 0, right: 0, bottom: 0,
             background: "#f5fcff",
             border: "1px solid #d5e1e7",
-            borderRadius: 20,
+            borderRadius: 10,
             boxShadow: "0 1px 3px rgba(34,40,42,0.06)",
           }} />
 
@@ -554,6 +554,7 @@ export default function CapabilitiesShowcase() {
             style={{
               position: "relative", zIndex: 2,
               display: "flex", flexDirection: "row", gap: GAP,
+              borderBottom: "1px solid #d5e1e7",
             }}
           >
             {TABS.map((t, i) => {
