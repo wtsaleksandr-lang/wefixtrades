@@ -431,7 +431,7 @@ export default function CapabilitiesShowcase() {
 
         {/* ── mobile accordion ──────────────────────────────── */}
         {isMobile && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {TABS.map((t, i) => {
               const Icon = t.icon;
               const isActive = i === active;
