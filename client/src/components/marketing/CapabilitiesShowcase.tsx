@@ -473,7 +473,7 @@ export default function CapabilitiesShowcase() {
                     {/* icon badge */}
                     <div style={{
                       width: BADGE_SIZE, height: BADGE_SIZE,
-                      borderRadius: 14, background: t.badgeBg,
+                      borderRadius: 10, background: t.badgeBg,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexShrink: 0, position: "relative", zIndex: 1,
                     }}>
@@ -589,7 +589,7 @@ export default function CapabilitiesShowcase() {
                     {/* icon badge */}
                     <div style={{
                       width: BADGE_SIZE, height: BADGE_SIZE,
-                      borderRadius: 14, background: t.badgeBg,
+                      borderRadius: 10, background: t.badgeBg,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexShrink: 0, position: "relative", zIndex: 1,
                     }}>
