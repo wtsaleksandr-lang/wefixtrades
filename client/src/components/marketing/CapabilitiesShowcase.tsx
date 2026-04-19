@@ -55,9 +55,9 @@ const TABS = [
 type TabKey = (typeof TABS)[number]["key"];
 
 const CYCLE_MS = 8000;
-const BUTTON_H = 40; // height of each button strip (px)
+const BUTTON_H = 44; // height of each button strip (px)
 const SLIDER_H = 490; // total slider height (px)
-const GAP = 2;
+const GAP = 4;
 const BADGE_SIZE = 34; // icon badge width/height (px)
 
 /* ── per-tab mockup panels ───────────────────────────────────────────── */
@@ -466,7 +466,7 @@ export default function CapabilitiesShowcase() {
                     {/* timeline fill */}
                     <div style={{
                       position: "absolute", inset: 0,
-                      background: t.timelineBg,
+                      background: "rgba(255,255,255,0.42)",
                       width: isActive ? `${progress * 100}%` : "0%",
                       transition: isActive ? "width 60ms linear" : "none",
                       borderRadius: "inherit", zIndex: 0,
@@ -582,8 +582,8 @@ export default function CapabilitiesShowcase() {
                     onClick={() => startCycle(i)}
                     style={{
                       height: BUTTON_H, borderRadius: 10,
-                      background: "transparent",
-                      border: `1px solid ${isActive ? t.accentColor : "#d5e1e7"}`,
+                      background: isActive ? "rgba(255,255,255,0.55)" : "transparent",
+                      border: "1px solid #d5e1e7",
                       boxShadow: "none",
                       display: "flex", alignItems: "center",
                       padding: 3, gap: 10,
@@ -593,7 +593,7 @@ export default function CapabilitiesShowcase() {
                     {/* timeline fill */}
                     <div style={{
                       position: "absolute", inset: 0,
-                      background: t.timelineBg,
+                      background: "rgba(255,255,255,0.42)",
                       width: isActive ? `${progress * 100}%` : "0%",
                       transition: isActive ? "width 60ms linear" : "none",
                       borderRadius: "inherit", zIndex: 0,
@@ -609,8 +609,10 @@ export default function CapabilitiesShowcase() {
                     </div>
                     <span style={{
                       position: "relative", zIndex: 2,
-                      fontFamily: "Satoshi, sans-serif",
-                      fontSize: 13, fontWeight: 600, color: "#1C2B33",
+                      fontFamily: "'DM Mono', monospace",
+                      fontSize: 12, fontWeight: 500, color: "#5f6f77",
+                      textTransform: "uppercase" as const,
+                      letterSpacing: "0.06em",
                       whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                       paddingRight: 14,
                     }}>
