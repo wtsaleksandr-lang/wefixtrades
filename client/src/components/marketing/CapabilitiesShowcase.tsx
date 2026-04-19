@@ -466,7 +466,7 @@ export default function CapabilitiesShowcase() {
                     {/* timeline fill */}
                     <div style={{
                       position: "absolute", inset: 0,
-                      background: t.timelineBg,
+                      background: "rgba(255,255,255,0.72)",
                       width: isActive ? `${progress * 100}%` : "0%",
                       transition: isActive ? "width 60ms linear" : "none",
                       borderRadius: "inherit", zIndex: 0,
@@ -582,7 +582,7 @@ export default function CapabilitiesShowcase() {
                     onClick={() => startCycle(i)}
                     style={{
                       height: BUTTON_H, borderRadius: 10,
-                      background: isActive ? t.badgeBg : "transparent",
+                      background: isActive ? "rgba(255,255,255,0.72)" : "transparent",
                       border: `1px solid ${isActive ? t.accentColor : "#d5e1e7"}`,
                       boxShadow: "none",
                       display: "flex", alignItems: "center",
@@ -593,7 +593,7 @@ export default function CapabilitiesShowcase() {
                     {/* timeline fill */}
                     <div style={{
                       position: "absolute", inset: 0,
-                      background: t.timelineBg,
+                      background: "rgba(255,255,255,0.72)",
                       width: isActive ? `${progress * 100}%` : "0%",
                       transition: isActive ? "width 60ms linear" : "none",
                       borderRadius: "inherit", zIndex: 0,
