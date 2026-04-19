@@ -534,27 +534,19 @@ export default function CapabilitiesShowcase() {
           style={{
             position: "relative",
             height: SLIDER_H,
-            borderRadius: 16,
+            borderRadius: 14,
             overflow: "hidden",
-          }}
-        >
-          {/* background card behind content area */}
-          <div style={{
-            position: "absolute",
-            top: CARD_TOP, left: 0, right: 0, bottom: 0,
             background: "#f5fcff",
             border: "1px solid #d5e1e7",
-            borderTop: "none",
-            borderRadius: "0 0 10px 10px",
             boxShadow: "0 1px 3px rgba(34,40,42,0.06)",
-          }} />
-
+          }}
+        >
           {/* buttons row */}
           <div
             className="cs-buttons-wrap"
             style={{
               position: "relative", zIndex: 2,
-              display: "flex", flexDirection: "row", gap: GAP,
+              display: "flex", flexDirection: "row", gap: 0,
             }}
           >
             {TABS.map((t, i) => {
@@ -572,9 +564,10 @@ export default function CapabilitiesShowcase() {
                     data-testid={`cs-tab-${t.key}`}
                     onClick={() => startCycle(i)}
                     style={{
-                      height: BUTTON_H, borderRadius: 10,
+                      height: BUTTON_H, borderRadius: 0,
                       background: "transparent",
-                      border: "1px solid #d5e1e7",
+                      border: "none",
+                      borderRight: "1px solid #d5e1e7",
                       boxShadow: "none",
                       display: "flex", alignItems: "center",
                       padding: 3, gap: 10,
@@ -617,8 +610,9 @@ export default function CapabilitiesShowcase() {
 
           {/* content layer */}
           <div style={{
-            position: "absolute", top: CARD_TOP + GAP,
+            position: "absolute", top: BUTTON_H,
             left: 0, right: 0, bottom: 0, zIndex: 1,
+            borderTop: "1px solid #d5e1e7",
           }}>
             {TABS.map((t, i) => {
               const isActive = i === active;
