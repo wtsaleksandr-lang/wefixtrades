@@ -363,9 +363,8 @@ export default function CapabilitiesShowcase() {
           grid-template-rows: 0fr;
           transition: grid-template-rows 0.42s cubic-bezier(0.4, 0, 0.2, 1);
           border-radius: 0;
-          background: rgba(255,255,255,0.25);
+          background: transparent;
           border: none;
-          border-bottom: 1px solid rgba(255,255,255,0.18);
           overflow: hidden;
         }
         .cs-mob-content.cs-mob-open {
@@ -432,12 +431,17 @@ export default function CapabilitiesShowcase() {
 
         {/* ── mobile accordion ──────────────────────────────── */}
         {isMobile && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {TABS.map((t, i) => {
               const Icon = t.icon;
               const isActive = i === active;
               return (
-                <div key={t.key}>
+                <div key={t.key} style={{
+                  borderRadius: 14,
+                  background: isActive ? "rgba(255,255,255,0.30)" : "transparent",
+                  border: "1px solid rgba(255,255,255,0.22)",
+                  overflow: "hidden",
+                }}>
                   {/* button strip */}
                   <div
                     role="button"
@@ -449,7 +453,6 @@ export default function CapabilitiesShowcase() {
                       borderRadius: 0,
                       background: "transparent",
                       border: "none",
-                      borderBottom: "1px solid rgba(255,255,255,0.18)",
                       boxShadow: "none",
                       display: "flex",
                       alignItems: "center",
@@ -487,14 +490,6 @@ export default function CapabilitiesShowcase() {
                     }}>
                       {t.label}
                     </span>
-                    {/* chevron */}
-                    <span style={{
-                      position: "absolute", right: 16, zIndex: 2,
-                      fontSize: 12, color: "#394247",
-                      transform: isActive ? "rotate(180deg)" : "rotate(0deg)",
-                      transition: "transform 0.35s ease",
-                      opacity: 0.5,
-                    }}>▼</span>
                   </div>
 
                   {/* expandable content */}
