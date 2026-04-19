@@ -195,8 +195,8 @@ export function MarketingNav() {
             marginTop: 4,
             borderRadius: 12,
             background: "rgba(34,40,42,0.72)",
-            backdropFilter: "blur(14px) saturate(1.2)",
-            WebkitBackdropFilter: "blur(14px) saturate(1.2)",
+            backdropFilter: "blur(30px) saturate(1.2)",
+            WebkitBackdropFilter: "blur(30px) saturate(1.2)",
             border: "1px solid rgba(255,255,255,0.10)",
             boxShadow: scrolled
               ? "0 8px 24px rgba(0,0,0,0.25)"
@@ -278,11 +278,11 @@ export function MarketingNav() {
                     data-testid="nav-cta-start-free"
                     style={{
                       padding: "8px 18px",
-                      borderRadius: 9,
+                      borderRadius: 10,
                       background: mkt.buttonBg,
                       color: mkt.buttonText,
                       fontSize: 12,
-                      fontWeight: 500,
+                      fontWeight: 600,
                       fontFamily: "'DM Mono', monospace",
                       textTransform: "uppercase" as const,
                       letterSpacing: "0.08em",
@@ -308,9 +308,9 @@ export function MarketingNav() {
                     data-testid="nav-cta-tradeline"
                     style={{
                       padding: "8px 18px",
-                      borderRadius: 9,
+                      borderRadius: 10,
                       background: "transparent",
-                      color: mkt.accent,
+                      color: "#e4edf1",
                       fontSize: 12,
                       fontWeight: 500,
                       fontFamily: "'DM Mono', monospace",
@@ -321,19 +321,19 @@ export function MarketingNav() {
                       alignItems: "center",
                       justifyContent: "center",
                       whiteSpace: "nowrap",
-                      border: `1px solid ${mkt.accent}`,
+                      border: "1px solid #394247",
                       transition: "background 0.2s ease, color 0.2s ease",
                     }}
                     onMouseEnter={(e) => {
                       const el = e.currentTarget as HTMLElement;
-                      el.style.background = mkt.accent;
-                      el.style.color = mkt.buttonText;
-                      el.style.boxShadow = `0 0 16px rgba(102,232,250,0.35)`;
+                      el.style.background = "#394247";
+                      el.style.color = "#e4edf1";
+                      el.style.boxShadow = "none";
                     }}
                     onMouseLeave={(e) => {
                       const el = e.currentTarget as HTMLElement;
                       el.style.background = "transparent";
-                      el.style.color = mkt.accent;
+                      el.style.color = "#e4edf1";
                       el.style.boxShadow = "none";
                     }}
                   >

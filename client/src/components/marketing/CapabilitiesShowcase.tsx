@@ -55,9 +55,9 @@ const TABS = [
 type TabKey = (typeof TABS)[number]["key"];
 
 const CYCLE_MS = 8000;
-const BUTTON_H = 44; // height of each button strip (px)
+const BUTTON_H = 40; // height of each button strip (px)
 const SLIDER_H = 490; // total slider height (px)
-const GAP = 4;
+const GAP = 2;
 const BADGE_SIZE = 34; // icon badge width/height (px)
 
 /* ── per-tab mockup panels ───────────────────────────────────────────── */
@@ -72,7 +72,7 @@ function BillingMockup() {
         background: "rgba(255,255,255,0.92)",
         borderRadius: 16,
         padding: "18px 16px",
-        boxShadow: "0 12px 40px rgba(0,0,0,0.10)",
+        boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase" }}>Invoice</span>
@@ -93,8 +93,8 @@ function BillingMockup() {
       </div>
       <div style={{
         position: "absolute", right: 0, bottom: 0,
-        background: "#1C2B33", borderRadius: 14, padding: "12px 14px",
-        boxShadow: "0 12px 32px rgba(0,0,0,0.22)", minWidth: 140,
+        background: "#22282a", borderRadius: 16, padding: "12px 14px",
+        boxShadow: "0 8px 24px rgba(34,40,42,0.12)", minWidth: 140,
       }}>
         <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>Last payment</div>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#34D399", marginBottom: 3 }}>$1,200.00</div>
@@ -114,7 +114,7 @@ function ChargingMockup() {
         background: "rgba(255,255,255,0.92)",
         borderRadius: 16,
         padding: "16px 14px",
-        boxShadow: "0 12px 40px rgba(0,0,0,0.10)",
+        boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <div style={{ display: "flex", gap: 4 }}>
@@ -140,8 +140,8 @@ function ChargingMockup() {
       </div>
       <div style={{
         position: "absolute", right: 0, bottom: 0,
-        width: 150, background: "#1C2B33", borderRadius: 20, padding: "12px 12px 16px",
-        boxShadow: "0 16px 48px rgba(0,0,0,0.25)",
+        width: 150, background: "#22282a", borderRadius: 16, padding: "12px 12px 16px",
+        boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
       }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
           <div style={{ position: "relative", width: 46, height: 46, flexShrink: 0 }}>
@@ -181,7 +181,7 @@ function CatalogMockup() {
         position: "absolute", left: "50%", top: "50%",
         transform: "translate(-50%, -50%)",
         width: 230, background: "rgba(255,255,255,0.92)", borderRadius: 16,
-        padding: "16px 14px", boxShadow: "0 12px 40px rgba(0,0,0,0.10)",
+        padding: "16px 14px", boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase" }}>Product Catalog</span>
@@ -207,8 +207,8 @@ function CatalogMockup() {
       </div>
       <div style={{
         position: "absolute", right: 0, bottom: 0,
-        background: "#1C2B33", borderRadius: 14, padding: "12px 14px",
-        boxShadow: "0 12px 32px rgba(0,0,0,0.22)", minWidth: 130,
+        background: "#22282a", borderRadius: 16, padding: "12px 14px",
+        boxShadow: "0 8px 24px rgba(34,40,42,0.12)", minWidth: 130,
       }}>
         <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>Catalog sync</div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -233,7 +233,7 @@ function EventsMockup() {
         position: "absolute", left: "50%", top: "50%",
         transform: "translate(-50%, -50%)",
         width: 230, background: "rgba(255,255,255,0.92)", borderRadius: 16,
-        padding: "16px 14px", boxShadow: "0 12px 40px rgba(0,0,0,0.10)",
+        padding: "16px 14px", boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase" }}>Event Stream</span>
@@ -260,8 +260,8 @@ function EventsMockup() {
       </div>
       <div style={{
         position: "absolute", right: 0, bottom: 0,
-        background: "#1C2B33", borderRadius: 14, padding: "12px 14px",
-        boxShadow: "0 12px 32px rgba(0,0,0,0.22)", minWidth: 136,
+        background: "#22282a", borderRadius: 16, padding: "12px 14px",
+        boxShadow: "0 8px 24px rgba(34,40,42,0.12)", minWidth: 136,
       }}>
         <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>Avg latency</div>
         <div style={{ fontSize: 18, fontWeight: 700, color: "#3BB5C8" }}>22ms</div>
@@ -318,8 +318,8 @@ export default function CapabilitiesShowcase() {
     <section
       data-testid="capabilities-showcase"
       style={{
-        background: "#dfe8e6",
-        padding: isMobile ? "64px 16px" : "96px 28px",
+        background: "#e4edf1",
+        padding: isMobile ? "64px 16px" : "80px 28px",
         borderRadius: "28px 28px 0 0",
         marginTop: -28,
         position: "relative",
@@ -395,25 +395,26 @@ export default function CapabilitiesShowcase() {
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
         {/* ── heading ───────────────────────────────────────── */}
-        <div style={{ textAlign: "center", marginBottom: 52 }}>
+        <div style={{ textAlign: "left", marginBottom: 32 }}>
           <div style={{
-            fontSize: 12,
-            letterSpacing: "0.18em",
-            fontWeight: 600,
+            fontSize: "0.8em",
+            letterSpacing: "0.12em",
+            fontWeight: 800,
+            fontFamily: "monospace",
             textTransform: "uppercase" as const,
-            color: "rgba(15,30,35,0.50)",
-            marginBottom: 18,
+            color: "#92a6b0",
+            opacity: 0.7,
+            marginBottom: 8,
           }}>
-            &#123; Efficiency, Scalability, and Agility &#125;
+            [ Efficiency, Scalability, and Agility ]
           </div>
           <h2 style={{ margin: 0 }}>
             <span style={{
               display: "block",
               fontSize: "clamp(32px, 4.5vw, 54px)",
-              fontWeight: 400,
-              lineHeight: 1.1,
-              letterSpacing: "-0.025em",
-              color: "#0F1E23",
+              fontWeight: 800,
+              lineHeight: 1.05,
+              color: "#394247",
             }}>
               Unparalleled
             </span>
@@ -422,8 +423,7 @@ export default function CapabilitiesShowcase() {
               fontSize: "clamp(34px, 4.8vw, 58px)",
               fontWeight: 800,
               lineHeight: 1.05,
-              letterSpacing: "-0.03em",
-              color: "#0F1E23",
+              color: "#22282a",
             }}>
               BSS/OSS Capabilities
             </span>
@@ -549,10 +549,10 @@ export default function CapabilitiesShowcase() {
           <div style={{
             position: "absolute",
             top: CARD_TOP, left: 0, right: 0, bottom: 0,
-            background: "rgba(255,255,255,0.36)",
-            border: "1px solid rgba(255,255,255,0.28)",
-            borderRadius: 16,
-            boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+            background: "#f5fcff",
+            border: "1px solid #d5e1e7",
+            borderRadius: 20,
+            boxShadow: "0 1px 3px rgba(34,40,42,0.06)",
           }} />
 
           {/* buttons row */}
@@ -561,6 +561,9 @@ export default function CapabilitiesShowcase() {
             style={{
               position: "relative", zIndex: 2,
               display: "flex", flexDirection: "row", gap: GAP,
+              outline: "1px solid #d5e1e7",
+              borderRadius: 10,
+              padding: 2,
             }}
           >
             {TABS.map((t, i) => {
@@ -579,9 +582,9 @@ export default function CapabilitiesShowcase() {
                     onClick={() => startCycle(i)}
                     style={{
                       height: BUTTON_H, borderRadius: 10,
-                      background: isActive ? "rgba(255,255,255,0.42)" : "rgba(255,255,255,0.16)",
-                      border: `1px solid ${isActive ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.20)"}`,
-                      boxShadow: isActive ? "0 2px 12px rgba(0,0,0,0.07)" : "none",
+                      background: isActive ? "#fee09f" : "transparent",
+                      border: `1px solid ${isActive ? "#f7b430" : "#d5e1e7"}`,
+                      boxShadow: "none",
                       display: "flex", alignItems: "center",
                       padding: 3, gap: 10,
                       cursor: "pointer", position: "relative", overflow: "hidden",
@@ -649,14 +652,14 @@ export default function CapabilitiesShowcase() {
                   >
                     <h3 style={{
                       fontSize: "clamp(20px, 2.2vw, 28px)", fontWeight: 700,
-                      lineHeight: 1.2, color: "#0F1E23",
+                      lineHeight: 1.2, color: "#22282a",
                       letterSpacing: "-0.02em", margin: "0 0 16px",
                     }}>
                       {t.title}
                     </h3>
                     <p style={{
                       fontSize: 15, lineHeight: 1.7,
-                      color: "rgba(15,30,35,0.62)", margin: 0,
+                      color: "#5f6f77", margin: 0,
                     }}>
                       {t.desc}
                     </p>
