@@ -582,8 +582,8 @@ export default function CapabilitiesShowcase() {
                     onClick={() => startCycle(i)}
                     style={{
                       height: BUTTON_H, borderRadius: 10,
-                      background: isActive ? "#fee09f" : "transparent",
-                      border: `1px solid ${isActive ? "#f7b430" : "#d5e1e7"}`,
+                      background: isActive ? t.badgeBg : "transparent",
+                      border: `1px solid ${isActive ? t.accentColor : "#d5e1e7"}`,
                       boxShadow: "none",
                       display: "flex", alignItems: "center",
                       padding: 3, gap: 10,
