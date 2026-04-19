@@ -534,8 +534,6 @@ export default function CapabilitiesShowcase() {
           style={{
             position: "relative",
             height: SLIDER_H,
-            borderRadius: 16,
-            overflow: "hidden",
           }}
         >
           {/* background card behind content area */}
