@@ -1,7 +1,13 @@
-import { useContext, useCallback, useMemo } from 'react';
+import { useContext, useCallback } from 'react';
 import { WidgetContext } from './WidgetContext';
 import { calculateEstimate } from '@shared/calculateEstimate';
-import type { WidgetAction, LeadFormData } from './types';
+import type { LeadFormData } from './types';
+import {
+  getNextVisibleStepIndex,
+  getPrevVisibleStepIndex,
+  countVisibleSteps,
+  getVisibleStepPosition,
+} from './visibility';
 
 /**
  * Convenience hook for accessing widget state and dispatching actions.
@@ -29,17 +35,34 @@ export function useWidgetState() {
     [state.answers],
   );
 
-  /* ─── Navigation ─── */
+  /* ─── Navigation (visibility-aware) ─── */
 
-  const nextStep = useCallback(() => dispatch({ type: 'NEXT_STEP' }), [dispatch]);
-  const prevStep = useCallback(() => dispatch({ type: 'PREV_STEP' }), [dispatch]);
+  const steps = config.flow.steps;
+
+  const nextStep = useCallback(() => {
+    const target = getNextVisibleStepIndex(steps, state.currentStepIndex, state.answers);
+    if (target !== state.currentStepIndex) {
+      dispatch({ type: 'GO_TO_STEP', index: target });
+    }
+  }, [dispatch, steps, state.currentStepIndex, state.answers]);
+
+  const prevStep = useCallback(() => {
+    const target = getPrevVisibleStepIndex(steps, state.currentStepIndex, state.answers);
+    if (target !== state.currentStepIndex) {
+      dispatch({ type: 'GO_TO_STEP', index: target });
+    }
+  }, [dispatch, steps, state.currentStepIndex, state.answers]);
+
   const goToStep = useCallback(
     (index: number) => dispatch({ type: 'GO_TO_STEP', index }),
     [dispatch],
   );
 
-  const isFirstStep = state.currentStepIndex === 0;
-  const isLastStep = state.currentStepIndex === totalSteps - 1;
+  const isFirstStep = getPrevVisibleStepIndex(steps, state.currentStepIndex, state.answers) === state.currentStepIndex;
+  const isLastStep = getNextVisibleStepIndex(steps, state.currentStepIndex, state.answers) === state.currentStepIndex;
+
+  const visibleStepCount = countVisibleSteps(steps, state.answers);
+  const visibleStepPosition = getVisibleStepPosition(steps, state.currentStepIndex, state.answers);
 
   /* ─── Pricing ─── */
 
@@ -82,6 +105,8 @@ export function useWidgetState() {
     goToStep,
     isFirstStep,
     isLastStep,
+    visibleStepCount,
+    visibleStepPosition,
 
     // Pricing
     estimate: state.estimate,

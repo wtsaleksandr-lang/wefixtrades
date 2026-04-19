@@ -9,7 +9,6 @@ import { WidgetProvider } from './WidgetContext';
 import { useWidgetState } from './useWidgetState';
 import StepRenderer from './StepRenderer';
 import StepHelp from './StepHelp';
-import { evaluateVisibility } from './visibility';
 import type { CalculatorData, WidgetConfig } from './types';
 
 import { eff } from './designTokens';
@@ -90,6 +89,7 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
       promotionsEnabled: calcSettings.promotions?.enabled === true,
       quoteRules: calcSettings.quote_rules,
       serviceTypes: calcSettings.serviceTypes,
+      tradeInputs: calcSettings.trade_inputs,
     };
 
     const flow = buildWidgetFlow(pricingConfig, template, flowSettings);
@@ -167,6 +167,8 @@ function WidgetCard({
     isLastStep,
     answers,
     config,
+    visibleStepCount,
+    visibleStepPosition,
   } = useWidgetState();
 
   const accentColor = theme.colors.primary;
@@ -181,12 +183,6 @@ function WidgetCard({
       trackEvent('wizard_preview_interacted');
     }
   }, [isPreview, answerCount, currentStepIndex]);
-
-  // Filter visible steps for progress display
-  const visibleStepCount = config.flow.steps.filter((s) => {
-    if (!s.visible_when?.length) return true;
-    return evaluateVisibility(s.visible_when, answers);
-  }).length;
 
   const showProgress =
     currentStep.config.show_progress &&
@@ -293,7 +289,7 @@ function WidgetCard({
               letterSpacing: '0.01em',
               fontFamily: eff.font,
             }}>
-              Step {currentStepIndex + 1} of {visibleStepCount}
+              Step {visibleStepPosition} of {visibleStepCount}
             </span>
           </div>
           <div style={{
@@ -307,7 +303,7 @@ function WidgetCard({
                 height: '100%',
                 borderRadius: '2px',
                 transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                width: `${((currentStepIndex + 1) / visibleStepCount) * 100}%`,
+                width: `${(visibleStepPosition / visibleStepCount) * 100}%`,
                 background: eff.buttonBg,
               }}
             />

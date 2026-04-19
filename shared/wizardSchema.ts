@@ -54,6 +54,8 @@ export const conditionOperatorSchema = z.enum([
   "less_than",
   "includes",
   "not_includes",
+  "in",
+  "not_in",
 ]);
 
 export type ConditionOperator = z.infer<typeof conditionOperatorSchema>;

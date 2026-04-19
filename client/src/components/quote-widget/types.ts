@@ -109,9 +109,10 @@ export interface WidgetState {
 export type WidgetAction =
   | { type: 'SET_ANSWER'; questionId: string; value: string | number | boolean | string[] }
   | { type: 'GO_TO_STEP'; index: number }
-  | { type: 'NEXT_STEP' }
-  | { type: 'PREV_STEP' }
+  | { type: 'CLEAR_HIDDEN_ANSWERS'; questionIds: string[] }
   | { type: 'SET_ESTIMATE'; estimate: EstimateResult }
+  // NEXT_STEP / PREV_STEP removed — all navigation uses GO_TO_STEP
+  // via visibility-aware helpers in useWidgetState.ts
   | { type: 'UPDATE_LEAD'; field: keyof LeadFormData; value: string }
   | { type: 'SET_SMS_CONSENT'; value: boolean }
   | { type: 'MARK_LEAD_SUBMITTED' }
