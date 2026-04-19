@@ -541,11 +541,10 @@ export default function CapabilitiesShowcase() {
           {/* background card behind content area */}
           <div style={{
             position: "absolute",
-            top: CARD_TOP, left: 0, right: 0, bottom: 0,
+            top: CARD_TOP + 6, left: 0, right: 0, bottom: 0,
             background: "#f5fcff",
             border: "1px solid #d5e1e7",
-            borderTop: "none",
-            borderRadius: "0 0 10px 10px",
+            borderRadius: 10,
             boxShadow: "0 1px 3px rgba(34,40,42,0.06)",
           }} />
 
