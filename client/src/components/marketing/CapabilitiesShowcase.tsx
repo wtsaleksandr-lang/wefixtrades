@@ -446,15 +446,10 @@ export default function CapabilitiesShowcase() {
                     onClick={() => startCycle(i)}
                     style={{
                       height: BUTTON_H,
-                      borderRadius: isActive ? "10px 10px 0 0" : 10,
-                      background: isActive
-                        ? "rgba(255,255,255,0.42)"
-                        : "rgba(255,255,255,0.16)",
-                      border: `1px solid ${isActive
-                        ? "rgba(255,255,255,0.55)"
-                        : "rgba(255,255,255,0.20)"}`,
-                      borderBottom: isActive ? "none" : undefined,
-                      boxShadow: isActive ? "0 2px 12px rgba(0,0,0,0.07)" : "none",
+                      borderRadius: 10,
+                      background: "transparent",
+                      border: "1px solid #d5e1e7",
+                      boxShadow: "none",
                       display: "flex",
                       alignItems: "center",
                       padding: 3, gap: 10,
