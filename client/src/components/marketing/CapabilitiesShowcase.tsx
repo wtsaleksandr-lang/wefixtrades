@@ -544,7 +544,8 @@ export default function CapabilitiesShowcase() {
             top: CARD_TOP, left: 0, right: 0, bottom: 0,
             background: "#f5fcff",
             border: "1px solid #d5e1e7",
-            borderRadius: 20,
+            borderTop: "none",
+            borderRadius: "0 0 20px 20px",
             boxShadow: "0 1px 3px rgba(34,40,42,0.06)",
           }} />
 
