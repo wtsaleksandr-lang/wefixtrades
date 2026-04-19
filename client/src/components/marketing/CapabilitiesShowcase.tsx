@@ -450,7 +450,7 @@ export default function CapabilitiesShowcase() {
                     onClick={() => startCycle(i)}
                     style={{
                       height: BUTTON_H,
-                      borderRadius: 0,
+                      borderRadius: 12,
                       background: "transparent",
                       border: "none",
                       boxShadow: "none",
