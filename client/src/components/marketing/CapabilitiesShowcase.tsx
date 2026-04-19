@@ -58,7 +58,7 @@ const CYCLE_MS = 8000;
 const BUTTON_H = 44; // height of each button strip (px)
 const SLIDER_H = 490; // total slider height (px)
 const GAP = 4;
-const BADGE_SIZE = 34; // icon badge width/height (px)
+const BADGE_SIZE = 40; // icon badge width/height (px)
 
 /* ── per-tab mockup panels ───────────────────────────────────────────── */
 
@@ -473,7 +473,7 @@ export default function CapabilitiesShowcase() {
                     {/* icon badge */}
                     <div style={{
                       width: BADGE_SIZE, height: BADGE_SIZE,
-                      borderRadius: 10, background: t.badgeBg,
+                      borderRadius: 14, background: t.badgeBg,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexShrink: 0, position: "relative", zIndex: 1,
                     }}>
@@ -539,7 +539,7 @@ export default function CapabilitiesShowcase() {
           {/* background card behind content area */}
           <div style={{
             position: "absolute",
-            top: CARD_TOP + 6, left: 0, right: 0, bottom: 0,
+            top: CARD_TOP + 2, left: 0, right: 0, bottom: 0,
             background: "#f5fcff",
             border: "1px solid #d5e1e7",
             borderRadius: 10,
@@ -571,7 +571,7 @@ export default function CapabilitiesShowcase() {
                     style={{
                       height: BUTTON_H, borderRadius: 10,
                       background: "transparent",
-                      border: "1px solid #d5e1e7",
+                      border: "1px solid rgba(255,255,255,0.22)",
                       boxShadow: "none",
                       display: "flex", alignItems: "center",
                       padding: 3, gap: 10,
@@ -589,7 +589,7 @@ export default function CapabilitiesShowcase() {
                     {/* icon badge */}
                     <div style={{
                       width: BADGE_SIZE, height: BADGE_SIZE,
-                      borderRadius: 10, background: t.badgeBg,
+                      borderRadius: 14, background: t.badgeBg,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexShrink: 0, position: "relative", zIndex: 1,
                     }}>
