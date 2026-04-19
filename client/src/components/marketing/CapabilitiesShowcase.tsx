@@ -362,10 +362,10 @@ export default function CapabilitiesShowcase() {
           display: grid;
           grid-template-rows: 0fr;
           transition: grid-template-rows 0.42s cubic-bezier(0.4, 0, 0.2, 1);
-          border-radius: 0 0 10px 10px;
-          background: rgba(255,255,255,0.36);
-          border: 1px solid #d5e1e7;
-          border-top: none;
+          border-radius: 0;
+          background: rgba(255,255,255,0.25);
+          border: none;
+          border-bottom: 1px solid rgba(255,255,255,0.18);
           overflow: hidden;
         }
         .cs-mob-content.cs-mob-open {
@@ -432,7 +432,7 @@ export default function CapabilitiesShowcase() {
 
         {/* ── mobile accordion ──────────────────────────────── */}
         {isMobile && (
-          <div style={{ display: "flex", flexDirection: "column", gap: GAP }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
             {TABS.map((t, i) => {
               const Icon = t.icon;
               const isActive = i === active;
@@ -446,10 +446,10 @@ export default function CapabilitiesShowcase() {
                     onClick={() => startCycle(i)}
                     style={{
                       height: BUTTON_H,
-                      borderRadius: isActive ? "10px 10px 0 0" : 10,
+                      borderRadius: 0,
                       background: "transparent",
-                      border: "1px solid #d5e1e7",
-                      borderBottom: isActive ? "none" : undefined,
+                      border: "none",
+                      borderBottom: "1px solid rgba(255,255,255,0.18)",
                       boxShadow: "none",
                       display: "flex",
                       alignItems: "center",
@@ -470,17 +470,19 @@ export default function CapabilitiesShowcase() {
                     {/* icon badge */}
                     <div style={{
                       width: BADGE_SIZE, height: BADGE_SIZE,
-                      borderRadius: 8, background: t.badgeBg,
+                      borderRadius: 10, background: t.badgeBg,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexShrink: 0, position: "relative", zIndex: 1,
                     }}>
-                      <Icon size={17} color={t.iconColor} strokeWidth={2} />
+                      <Icon size={17} color="#22282a" strokeWidth={2} />
                     </div>
                     {/* label */}
                     <span style={{
                       position: "relative", zIndex: 2,
-                      fontFamily: "Satoshi, sans-serif",
-                      fontSize: 13, fontWeight: 600, color: "#1C2B33",
+                      fontFamily: "'DM Mono', monospace",
+                      fontSize: 12, fontWeight: 500, color: "#394247",
+                      textTransform: "uppercase" as const,
+                      letterSpacing: "0.06em",
                       paddingRight: 14,
                     }}>
                       {t.label}
@@ -488,7 +490,7 @@ export default function CapabilitiesShowcase() {
                     {/* chevron */}
                     <span style={{
                       position: "absolute", right: 16, zIndex: 2,
-                      fontSize: 12, color: "#1C2B33",
+                      fontSize: 12, color: "#394247",
                       transform: isActive ? "rotate(180deg)" : "rotate(0deg)",
                       transition: "transform 0.35s ease",
                       opacity: 0.5,
@@ -597,11 +599,11 @@ export default function CapabilitiesShowcase() {
                     {/* icon badge */}
                     <div style={{
                       width: BADGE_SIZE, height: BADGE_SIZE,
-                      borderRadius: 8, background: t.badgeBg,
+                      borderRadius: 10, background: t.badgeBg,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexShrink: 0, position: "relative", zIndex: 1,
                     }}>
-                      <Icon size={17} color={t.iconColor} strokeWidth={2} />
+                      <Icon size={17} color="#22282a" strokeWidth={2} />
                     </div>
                     <span style={{
                       position: "relative", zIndex: 2,
