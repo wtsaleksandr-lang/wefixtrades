@@ -55,12 +55,11 @@ export default function CTASection({ heading, subtext, ctaLabel, ctaHref }: CTAS
       <section
         data-testid="cta-section"
         style={{
-          background: DARK,
-          borderRadius: "28px 28px 0 0",
-          marginTop: -28,
+          background: "transparent",
           position: "relative",
-          zIndex: 10,
+          zIndex: 20,
           padding: "clamp(48px, 8vw, 80px) clamp(16px, 5vw, 40px)",
+          marginBottom: -120,
         }}
       >
         <Link href={ctaHref ?? "/demo"} style={{ textDecoration: "none", display: "block" }}>
