@@ -644,15 +644,30 @@ async function main() {
       console.log(`  ○ ${template.name} — skipped (${serviceId} not in service_catalog)`);
       continue;
     }
-    // Delete existing, re-insert
-    await db.delete(onboardingTemplates).where(eq(onboardingTemplates.service_id, serviceId));
-    await db.insert(onboardingTemplates).values({
-      service_id: serviceId,
-      name: template.name,
-      steps: template.steps,
-      is_active: true,
-    });
-    console.log(`  ✓ ${template.name}`);
+    // Update in place if exists (preserves row id → preserves onboarding_submissions FK refs)
+    const existing = await db.select({ id: onboardingTemplates.id })
+      .from(onboardingTemplates)
+      .where(eq(onboardingTemplates.service_id, serviceId))
+      .limit(1);
+    if (existing.length > 0) {
+      await db.update(onboardingTemplates)
+        .set({
+          name: template.name,
+          steps: template.steps,
+          is_active: true,
+          updated_at: new Date(),
+        })
+        .where(eq(onboardingTemplates.id, existing[0].id));
+      console.log(`  ✓ ${template.name} (updated)`);
+    } else {
+      await db.insert(onboardingTemplates).values({
+        service_id: serviceId,
+        name: template.name,
+        steps: template.steps,
+        is_active: true,
+      });
+      console.log(`  ✓ ${template.name} (inserted)`);
+    }
   }
 
   console.log(`\nDone — services, task templates, and onboarding templates seeded.`);
