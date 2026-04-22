@@ -28,6 +28,70 @@ interface WelcomeArtifact {
   kind: "link" | "text" | "code";
 }
 
+interface ServiceCopy {
+  hero: string;                 // One-line headline replacement
+  intro: string;                // Paragraph under headline
+  firstAction?: string;         // Optional next-step callout ("Here's your embed code...")
+}
+
+function getServiceCopy(serviceId: string): ServiceCopy {
+  if (serviceId.startsWith("quotequick")) return {
+    hero: "Your instant quote calculator is live",
+    intro: "Customers visiting your website can now get real-time quotes and submit qualified leads straight to your inbox.",
+    firstAction: "Grab the embed code from your portal and paste it into your site's footer — takes 30 seconds.",
+  };
+  if (serviceId.startsWith("tradeline")) return {
+    hero: "Your AI employee is answering 24/7",
+    intro: "Every inbound call and chat is now handled by your trained AI assistant. You'll get an SMS for every lead in real time.",
+    firstAction: "Watch the first few conversations in your call log and tweak tone or pricing rules any time.",
+  };
+  if (serviceId.startsWith("mapguard")) return {
+    hero: "Your Google Business Profile is optimized",
+    intro: "We rebuilt your profile, uploaded fresh photos, and scheduled your first batch of posts. Monthly monitoring is live.",
+    firstAction: "Your first visibility report drops in ~30 days. We'll alert you immediately if anything breaks.",
+  };
+  if (serviceId.startsWith("reputationshield")) return {
+    hero: "Review automation is active",
+    intro: "New reviews are now monitored across Google (and any other platforms you gave us). Request automation runs on the schedule you picked.",
+    firstAction: "Negative reviews under 4 stars will ping you before they post publicly — check the dashboard for your first batch.",
+  };
+  if (serviceId.startsWith("rankflow")) return {
+    hero: "Your SEO plan is in motion",
+    intro: "Google Search Console is connected, target keywords are locked in, and your first batch of on-page work is already underway.",
+    firstAction: "Your first ranking report will land in 2 weeks with early movement data and next-cycle actions.",
+  };
+  if (serviceId.startsWith("socialsync")) return {
+    hero: "Your content calendar is scheduled",
+    intro: "We've generated a month of posts tailored to your trade. You'll approve each one before it goes live.",
+    firstAction: "Check your approval queue — the first posts are waiting for your thumbs-up.",
+  };
+  if (serviceId.startsWith("adflow")) return {
+    hero: "Your ad campaigns are running",
+    intro: "Tracking, creatives, and targeting are all live. The white-label team is monitoring daily for the first week to dial in performance.",
+    firstAction: "Your first performance snapshot drops in 7 days. We'll flag winners and losers so you can decide where to double down.",
+  };
+  if (serviceId === "sitelaunch-template") return {
+    hero: "Your new site is live",
+    intro: "Built from a proven trade template, populated with your content, and published. Mobile-first, SEO-ready, lead-capture wired.",
+    firstAction: "Share the link with a customer and watch your first form submission land in your inbox.",
+  };
+  if (serviceId.startsWith("sitelaunch")) return {
+    hero: "Your custom website is live",
+    intro: "Design finalized, 5 pages built, on-page SEO set, and DNS cut over. You own everything — we're just the team that shipped it.",
+    firstAction: "Send the first link to a customer and keep an eye on your analytics — the first data should arrive within 24 hours.",
+  };
+  if (serviceId === "webfix") return {
+    hero: "All fixes deployed",
+    intro: "Every issue from your brief has been addressed, tested, and pushed live. No action needed from your side.",
+    firstAction: "Review the before/after summary in your portal — keep it for your records or share with your team.",
+  };
+  // Fallback
+  return {
+    hero: "Your service is up and running",
+    intro: "Everything is configured and live. Here's what you need to get started.",
+  };
+}
+
 function buildArtifacts(serviceId: string, _cs: ClientService, baseUrl: string): WelcomeArtifact[] {
   // Portal link is always relevant
   const artifacts: WelcomeArtifact[] = [
@@ -35,10 +99,10 @@ function buildArtifacts(serviceId: string, _cs: ClientService, baseUrl: string):
   ];
 
   if (serviceId.startsWith("quotequick")) {
-    artifacts.push({ label: "Calculator", value: `${baseUrl}/portal/calculators`, kind: "link" });
+    artifacts.push({ label: "Calculator & embed code", value: `${baseUrl}/portal/services`, kind: "link" });
   }
   if (serviceId.startsWith("tradeline")) {
-    artifacts.push({ label: "Call log & chat history", value: `${baseUrl}/portal/tradeline`, kind: "link" });
+    artifacts.push({ label: "Call log & chat history", value: `${baseUrl}/portal/services`, kind: "link" });
   }
   if (serviceId.startsWith("mapguard")) {
     artifacts.push({ label: "Visibility report", value: `${baseUrl}/portal/mapguard`, kind: "link" });
@@ -50,13 +114,13 @@ function buildArtifacts(serviceId: string, _cs: ClientService, baseUrl: string):
     artifacts.push({ label: "Ranking dashboard", value: `${baseUrl}/portal/rankflow`, kind: "link" });
   }
   if (serviceId.startsWith("socialsync")) {
-    artifacts.push({ label: "Content approval queue", value: `${baseUrl}/portal/social`, kind: "link" });
+    artifacts.push({ label: "Content approval queue", value: `${baseUrl}/portal/socialsync`, kind: "link" });
   }
   if (serviceId.startsWith("adflow")) {
-    artifacts.push({ label: "Campaign dashboard", value: `${baseUrl}/portal/adflow`, kind: "link" });
+    artifacts.push({ label: "Campaign dashboard", value: `${baseUrl}/portal/services`, kind: "link" });
   }
   if (serviceId.startsWith("sitelaunch") || serviceId === "webfix") {
-    artifacts.push({ label: "Site & handoff details", value: `${baseUrl}/portal/sites`, kind: "link" });
+    artifacts.push({ label: "Site & handoff details", value: `${baseUrl}/portal/services`, kind: "link" });
   }
 
   return artifacts;
@@ -65,6 +129,7 @@ function buildArtifacts(serviceId: string, _cs: ClientService, baseUrl: string):
 function buildHtml(params: {
   contactName: string;
   serviceName: string;
+  copy: ServiceCopy;
   artifacts: WelcomeArtifact[];
   supportEmail: string;
 }): string {
@@ -96,13 +161,20 @@ function buildHtml(params: {
           <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades</span>
         </div>
         <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
-          <p style="font-size:12px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 8px;">You're live</p>
-          <h1 style="font-size:26px;font-weight:700;color:#F0F0F0;margin:0 0 8px;line-height:1.25;">
-            ${params.serviceName} is up and running
+          <p style="font-size:12px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 8px;">You're live · ${params.serviceName}</p>
+          <h1 style="font-size:26px;font-weight:700;color:#F0F0F0;margin:0 0 12px;line-height:1.25;">
+            ${params.copy.hero}
           </h1>
-          <p style="font-size:14px;color:#CDD1D6;line-height:1.6;margin:0 0 24px;">
-            Hi ${params.contactName}, everything is configured and live. Here's what you need.
+          <p style="font-size:14px;color:#CDD1D6;line-height:1.6;margin:0 0 14px;">
+            Hi ${params.contactName}, ${params.copy.intro}
           </p>
+          ${params.copy.firstAction ? `
+          <div style="background:rgba(102,232,250,0.06);border-left:2px solid #66E8FA;border-radius:4px;padding:12px 14px;margin:0 0 24px;">
+            <p style="font-size:13px;color:#CDD1D6;line-height:1.55;margin:0;">
+              <strong style="color:#66E8FA;font-weight:600;">Next:</strong> ${params.copy.firstAction}
+            </p>
+          </div>
+          ` : `<div style="height:10px;"></div>`}
 
           <table style="width:100%;border-collapse:separate;border-spacing:0;">
             ${artifactRows}
@@ -161,6 +233,7 @@ export async function sendWelcomePackage(clientServiceId: number): Promise<boole
   const contactName = client.contact_name || client.business_name || "there";
 
   const artifacts = buildArtifacts(cs.service_id, cs, baseUrl);
+  const copy = getServiceCopy(cs.service_id);
 
   try {
     await transporter.sendMail({
@@ -168,7 +241,7 @@ export async function sendWelcomePackage(clientServiceId: number): Promise<boole
       to: client.contact_email,
       replyTo: supportEmail,
       subject: `${serviceName} is live — welcome aboard`,
-      html: buildHtml({ contactName, serviceName, artifacts, supportEmail }),
+      html: buildHtml({ contactName, serviceName, copy, artifacts, supportEmail }),
     });
 
     // Mark as sent

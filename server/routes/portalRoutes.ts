@@ -503,6 +503,48 @@ export function registerPortalRoutes(app: Express) {
   });
 
   /**
+   * GET /api/portal/onboarding
+   * List pending onboarding submissions for the authenticated client.
+   * Pending = status in ('not_sent', 'sent', 'viewed', 'needs_followup').
+   * Used by the portal dashboard "Complete your setup" card.
+   */
+  app.get("/api/portal/onboarding", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const rows = await db
+        .select({
+          id: onboardingSubmissions.id,
+          client_service_id: onboardingSubmissions.client_service_id,
+          service_id: clientServices.service_id,
+          service_name: serviceCatalog.name,
+          status: onboardingSubmissions.status,
+          sent_at: onboardingSubmissions.sent_at,
+          created_at: onboardingSubmissions.created_at,
+          has_draft: sql<boolean>`
+            ${onboardingSubmissions.responses} IS NOT NULL
+            AND jsonb_typeof(${onboardingSubmissions.responses}) = 'object'
+            AND ${onboardingSubmissions.responses}::text <> '{}'
+          `,
+        })
+        .from(onboardingSubmissions)
+        .leftJoin(clientServices, eq(onboardingSubmissions.client_service_id, clientServices.id))
+        .leftJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
+        .where(and(
+          eq(onboardingSubmissions.client_id, clientId),
+          sql`${onboardingSubmissions.status} IN ('not_sent', 'sent', 'viewed', 'needs_followup')`,
+        ))
+        .orderBy(desc(onboardingSubmissions.created_at));
+
+      res.json({ submissions: rows });
+    } catch (err) {
+      console.error("Portal pending-onboarding error:", err);
+      res.status(500).json({ error: "Failed to load pending onboarding" });
+    }
+  });
+
+  /**
    * GET /api/portal/onboarding/:id
    * Returns onboarding submission with template steps, scoped to client.
    */

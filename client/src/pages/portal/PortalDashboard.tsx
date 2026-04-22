@@ -1,10 +1,21 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
-import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw, PhoneCall, Clock } from "lucide-react";
+import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw, PhoneCall, Clock, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { TASK_STATUS_STYLES, TASK_STATUS_LABELS, statusLabel } from "@/config/portalLabels";
 import ModeToggle from "@/components/portal/ModeToggle";
+
+interface PendingOnboardingRow {
+  id: number;
+  client_service_id: number;
+  service_id: string;
+  service_name: string;
+  status: string;
+  sent_at: string | null;
+  created_at: string;
+  has_draft: boolean;
+}
 
 interface OverviewData {
   business_name: string;
@@ -89,6 +100,15 @@ export default function PortalDashboard() {
     queryFn: async () => {
       const res = await fetch("/api/portal/socialsync-profile", { credentials: "include" });
       if (!res.ok) return { exists: false };
+      return res.json();
+    },
+  });
+
+  const { data: pendingOnboarding } = useQuery<{ submissions: PendingOnboardingRow[] }>({
+    queryKey: ["/api/portal/onboarding"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/onboarding", { credentials: "include" });
+      if (!res.ok) return { submissions: [] };
       return res.json();
     },
   });
@@ -189,6 +209,55 @@ export default function PortalDashboard() {
               href="/portal/billing"
             />
           </div>
+
+          {/* Pending onboarding card — only shows if there are any forms to complete */}
+          {pendingOnboarding?.submissions && pendingOnboarding.submissions.length > 0 && (
+            <div className="bg-white rounded-xl border border-amber-200 p-5">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
+                    <ClipboardList className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Complete your setup</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      We need a few details before we can launch your service
+                      {pendingOnboarding.submissions.length > 1 ? "s" : ""}.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="divide-y divide-gray-100 border-t border-gray-100">
+                {pendingOnboarding.submissions.map((sub) => (
+                  <Link
+                    key={sub.id}
+                    href={`/portal/onboarding/${sub.id}`}
+                    className="flex items-center justify-between py-3 hover:bg-gray-50 -mx-5 px-5 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{sub.service_name}</p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">
+                          {sub.has_draft ? "Draft saved — continue" : "Not started"}
+                          {sub.status === "viewed" && !sub.has_draft ? " · viewed" : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                        sub.has_draft
+                          ? "bg-blue-50 text-blue-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}>
+                        {sub.has_draft ? "In progress" : "Start"}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* QuoteQuick card */}
           {qqData?.calculator && (
