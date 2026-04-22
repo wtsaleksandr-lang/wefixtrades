@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { requireAdmin, hashPassword } from "../auth";
 import { storage } from "../storage";
 import { advanceSetupStage, getTradeLineReadiness } from "@shared/schema";
+import { dispatchTaskToSupplier } from "../services/supplierDispatch";
 import crypto from "crypto";
 
 export function registerAdminCrmRoutes(app: Express): void {
@@ -228,7 +229,15 @@ export function registerAdminCrmRoutes(app: Express): void {
         cascade = await storage.checkAndCompleteService(task.client_service_id);
       }
 
-      res.json({ ...task, cascade });
+      // Auto-dispatch to supplier when a task moves into in_progress/submitted
+      // with handled_by: supplier + supplier_id. Idempotent (no-ops if already dispatched).
+      let supplier_dispatch;
+      if (task.handled_by === "supplier" && task.supplier_id &&
+          (task.status === "in_progress" || task.status === "submitted")) {
+        supplier_dispatch = await dispatchTaskToSupplier(task.id);
+      }
+
+      res.json({ ...task, cascade, supplier_dispatch });
     } catch (err: any) {
       res.status(500).json({ error: "Failed to update fulfillment task" });
     }
