@@ -3,6 +3,7 @@ import { requireAdmin, hashPassword } from "../auth";
 import { storage } from "../storage";
 import { advanceSetupStage, getTradeLineReadiness } from "@shared/schema";
 import { dispatchTaskToSupplier } from "../services/supplierDispatch";
+import { sendWelcomePackage } from "../lib/welcomeEmail";
 import crypto from "crypto";
 
 export function registerAdminCrmRoutes(app: Express): void {
@@ -227,6 +228,14 @@ export function registerAdminCrmRoutes(app: Express): void {
       let cascade;
       if (task.status === "delivered" && task.client_service_id) {
         cascade = await storage.checkAndCompleteService(task.client_service_id);
+
+        // Send welcome package when the service transitions to active/completed
+        // (non-blocking — idempotent on the service record)
+        if (cascade?.serviceCompleted || cascade?.serviceActivated) {
+          sendWelcomePackage(task.client_service_id).catch(err =>
+            console.warn(`[welcome-email] send failed for client_service #${task.client_service_id}:`, err.message),
+          );
+        }
       }
 
       // Auto-dispatch to supplier when a task moves into in_progress/submitted

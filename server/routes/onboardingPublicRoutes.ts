@@ -79,11 +79,12 @@ export function registerOnboardingPublicRoutes(app: Express): void {
         submitted_at: new Date(),
       });
 
-      // TradeLine orchestration: map answers → config → trigger build
+      // Service-specific post-submit orchestration
       if (submission.client_service_id) {
         try {
           const cs = await storage.getClientServiceById(submission.client_service_id);
           if (cs && cs.service_id.startsWith("tradeline")) {
+            // TradeLine: deterministic mapping (mapOnboardingToTradeLineConfig)
             const config = await storage.getTradeLineConfig(cs.id);
             if (config) {
               const updates = mapOnboardingToTradeLineConfig(responses, config.variant);
@@ -101,9 +102,17 @@ export function registerOnboardingPublicRoutes(app: Express): void {
                 console.warn(`[tradeline] Auto-build assistant failed for service #${cs.id}:`, err.message),
               );
             });
+          } else if (cs) {
+            // Non-TradeLine: AI-powered extraction (non-blocking)
+            // Fills client fields + client_service.metadata.config from raw responses
+            import("../services/onboardingAI").then(({ processOnboardingSubmission }) => {
+              processOnboardingSubmission(submission.id).catch(err =>
+                console.warn(`[onboarding-ai] Processing failed for submission #${submission.id}:`, err.message),
+              );
+            });
           }
         } catch (err) {
-          console.warn("[onboarding] TradeLine orchestration error:", err);
+          console.warn("[onboarding] Post-submit orchestration error:", err);
         }
       }
 
