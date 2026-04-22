@@ -1,6 +1,20 @@
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, jsonb, json, boolean, uuid, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+/* ─── Sessions (managed by connect-pg-simple) ─── */
+// This table is created/managed automatically by connect-pg-simple when
+// `createTableIfMissing: true` is set on the PgStore. We declare it here
+// so Drizzle push/migrate doesn't flag it as an unknown table and try to
+// drop it. Do NOT modify these columns — they must match what
+// connect-pg-simple expects.
+export const session = pgTable("session", {
+  sid: varchar("sid").primaryKey().notNull(),
+  sess: json("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+}, (table) => ({
+  expireIdx: index("IDX_session_expire").on(table.expire),
+}));
 
 /* ─── Users ─── */
 export const users = pgTable("users", {
