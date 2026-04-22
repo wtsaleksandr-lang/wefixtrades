@@ -661,5 +661,16 @@ async function main() {
 
 main().catch((err) => {
   console.error("Failed to seed services:", err.message);
+  // Surface underlying PostgreSQL details (code, detail, hint, table, column)
+  // Drizzle wraps the original error on .cause; postgres-js exposes code/detail/hint directly.
+  const cause = (err as any).cause ?? err;
+  if (cause) {
+    console.error("Underlying error:");
+    for (const key of ["code", "detail", "hint", "table", "column", "constraint", "routine", "severity"]) {
+      const val = cause[key];
+      if (val !== undefined && val !== null) console.error(`  ${key}: ${val}`);
+    }
+    if (cause.stack) console.error(cause.stack.split("\n").slice(0, 5).join("\n"));
+  }
   process.exit(1);
 });
