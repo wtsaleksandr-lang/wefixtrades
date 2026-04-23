@@ -140,6 +140,21 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  /**
+   * GET /api/admin/crm/client-services/:id
+   * Fetch a single client_service (used by the Service Ops admin page).
+   */
+  app.get("/api/admin/crm/client-services/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const svc = await storage.getClientServiceById(id);
+      if (!svc) return res.status(404).json({ error: "Client service not found" });
+      res.json(svc);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to load client service" });
+    }
+  });
+
   app.patch("/api/admin/crm/client-services/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id as string);
@@ -158,6 +173,156 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.json(svc);
     } catch (err: any) {
       res.status(500).json({ error: "Failed to update client service" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/client-services/:id/sitelaunch-template
+   *
+   * Admin form submit for SiteLaunch-Template fulfillment.
+   * Writes the chosen template ID + content block into
+   * client_service.metadata.config.sitelaunch_template.
+   *
+   * Body: {
+   *   template_id: string,      // e.g. "trade-classic-v2"
+   *   brand_colors?: string,    // hex pair
+   *   logo_url?: string,
+   *   content: {                // structured content for the template
+   *     hero_title?: string,
+   *     hero_sub?: string,
+   *     about?: string,
+   *     services: Array<{ name: string; description: string }>,
+   *     service_area?: string,
+   *     contact: { phone: string; email: string; address?: string; hours?: string },
+   *   },
+   *   domain?: string,
+   *   notes?: string,
+   * }
+   */
+  app.post("/api/admin/crm/client-services/:id/sitelaunch-template", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const body = req.body || {};
+      if (!body.template_id || typeof body.template_id !== "string") {
+        return res.status(400).json({ error: "template_id is required" });
+      }
+      if (!body.content || typeof body.content !== "object") {
+        return res.status(400).json({ error: "content block is required" });
+      }
+      const cs = await storage.getClientServiceById(id);
+      if (!cs) return res.status(404).json({ error: "Client service not found" });
+      if (cs.service_id !== "sitelaunch-template") {
+        return res.status(400).json({ error: `Endpoint only applies to sitelaunch-template (got "${cs.service_id}")` });
+      }
+
+      const existingMeta = (cs.metadata as any) || {};
+      const nextMeta = {
+        ...existingMeta,
+        config: {
+          ...(existingMeta.config || {}),
+          sitelaunch_template: {
+            template_id: body.template_id,
+            brand_colors: body.brand_colors,
+            logo_url: body.logo_url,
+            content: body.content,
+            domain: body.domain,
+            notes: body.notes,
+            saved_at: new Date().toISOString(),
+            saved_by: (req.user as any)?.email || (req.user as any)?.id,
+          },
+        },
+      };
+
+      const updated = await storage.updateClientService(id, { metadata: nextMeta });
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "sitelaunch_template.configured",
+        entity_type: "client_service",
+        entity_id: id,
+        summary: `SiteLaunch template "${body.template_id}" configured for service #${id}`,
+        metadata: { template_id: body.template_id, fields: Object.keys(body.content) },
+      });
+      res.json({ ok: true, client_service: updated });
+    } catch (err: any) {
+      console.error("[sitelaunch-template] Save failed:", err.message);
+      res.status(500).json({ error: "Failed to save SiteLaunch template config" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/client-services/:id/adflow-metrics
+   *
+   * Admin form submit for AdFlow monthly metrics. Populates
+   * client_service.metadata.latest_report which the AdFlow report email
+   * uses when the monthly-report task is marked delivered.
+   *
+   * Body: {
+   *   impressions?: number,
+   *   clicks?: number,
+   *   conversions?: number,
+   *   cost_spent_cents?: number,
+   *   cpc_cents?: number,
+   *   ctr_pct?: number,
+   *   leads_generated?: number,
+   *   top_creative?: string,
+   *   notes?: string,
+   *   period_start?: string,   // ISO date
+   *   period_end?: string,     // ISO date
+   * }
+   */
+  app.post("/api/admin/crm/client-services/:id/adflow-metrics", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const body = req.body || {};
+      const cs = await storage.getClientServiceById(id);
+      if (!cs) return res.status(404).json({ error: "Client service not found" });
+      if (!cs.service_id.startsWith("adflow")) {
+        return res.status(400).json({ error: `Endpoint only applies to AdFlow (got "${cs.service_id}")` });
+      }
+
+      // Whitelist the fields — don't let the admin dump arbitrary data into metadata
+      const numericField = (v: any): number | undefined => (v === null || v === undefined || v === "" ? undefined : Number(v));
+      const metrics = {
+        impressions: numericField(body.impressions),
+        clicks: numericField(body.clicks),
+        conversions: numericField(body.conversions),
+        cost_spent_cents: numericField(body.cost_spent_cents),
+        cpc_cents: numericField(body.cpc_cents),
+        ctr_pct: numericField(body.ctr_pct),
+        leads_generated: numericField(body.leads_generated),
+        top_creative: typeof body.top_creative === "string" ? body.top_creative.slice(0, 200) : undefined,
+        notes: typeof body.notes === "string" ? body.notes.slice(0, 1000) : undefined,
+        period_start: typeof body.period_start === "string" ? body.period_start : undefined,
+        period_end: typeof body.period_end === "string" ? body.period_end : undefined,
+      };
+
+      const existingMeta = (cs.metadata as any) || {};
+      const nextMeta = {
+        ...existingMeta,
+        latest_report: {
+          ...metrics,
+          updated_at: new Date().toISOString(),
+          updated_by: (req.user as any)?.email || (req.user as any)?.id,
+        },
+      };
+
+      const updated = await storage.updateClientService(id, { metadata: nextMeta });
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "adflow_metrics.updated",
+        entity_type: "client_service",
+        entity_id: id,
+        summary: `AdFlow metrics updated for service #${id}${metrics.leads_generated ? ` — ${metrics.leads_generated} leads` : ""}`,
+        metadata: { period_start: metrics.period_start, period_end: metrics.period_end },
+      });
+      res.json({ ok: true, client_service: updated });
+    } catch (err: any) {
+      console.error("[adflow-metrics] Save failed:", err.message);
+      res.status(500).json({ error: "Failed to save AdFlow metrics" });
     }
   });
 

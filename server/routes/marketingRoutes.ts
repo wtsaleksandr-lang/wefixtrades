@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { z } from "zod";
 import { db } from "../db";
-import { salesLeads } from "@shared/schema";
+import { salesLeads, clientServices, adminActivityLog } from "@shared/schema";
+import { eq, sql } from "drizzle-orm";
 import { sendContactAck, sendContactInternalNotification } from "../lib/contactEmails";
 
 const BASE_URL = "https://wefixtrades.com";
@@ -105,5 +106,75 @@ export function registerMarketingRoutes(app: Express): void {
 
   app.post("/api/analytics/pageview", async (req, res) => {
     return res.json({ ok: true });
+  });
+
+  /**
+   * GET /api/exit-survey/:token?reason=<id>
+   *
+   * Fired when a cancelled customer clicks one of the reason links in
+   * their cancellation-confirmation email. Logs the reason against the
+   * client_service and shows a friendly thank-you page.
+   *
+   * Intentionally idempotent and forgiving — if the token doesn't match,
+   * the customer still gets a thank-you page; we just don't record.
+   */
+  app.get("/api/exit-survey/:token", async (req, res) => {
+    const token = req.params.token as string;
+    const reason = (req.query.reason as string || "").slice(0, 40);
+
+    // Try to find the client_service with this exit_survey_token
+    try {
+      if (reason && token) {
+        // Use JSONB containment to find the matching service
+        const rows = await db.execute(sql`
+          SELECT id, metadata FROM client_services
+          WHERE metadata->>'exit_survey_token' = ${token}
+          LIMIT 1
+        `);
+        const first = (rows as any).rows?.[0] || (rows as any)[0];
+        if (first) {
+          const meta = (first.metadata as any) || {};
+          await db.update(clientServices)
+            .set({
+              metadata: { ...meta, exit_reason: reason, exit_reason_at: new Date().toISOString() },
+              updated_at: new Date(),
+            } as any)
+            .where(eq(clientServices.id, first.id));
+
+          // Log for admin visibility
+          await db.insert(adminActivityLog).values({
+            actor_type: "system",
+            actor_name: "Exit Survey",
+            action: "cancellation.exit_reason_captured",
+            entity_type: "client_service",
+            entity_id: first.id,
+            summary: `Exit reason: ${reason}`,
+          } as any).catch(() => {});
+        }
+      }
+    } catch (err: any) {
+      console.warn("[exit-survey] Failed to record reason:", err.message);
+    }
+
+    // Friendly thank-you page (no data exposure, no PII, no auth leak)
+    res.type("html").send(`
+      <!doctype html>
+      <html><head><meta charset="utf-8"><title>Thanks — WeFixTrades</title>
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <style>
+        body{font-family:system-ui,-apple-system,sans-serif;background:#0B0F14;color:#F0F0F0;margin:0;padding:60px 20px;display:flex;align-items:center;justify-content:center;min-height:100vh;}
+        .card{max-width:460px;background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:40px 32px;text-align:center;}
+        h1{font-size:22px;font-weight:700;margin:0 0 12px;}
+        p{font-size:14px;color:#CDD1D6;line-height:1.6;margin:0 0 16px;}
+        a{color:#66E8FA;text-decoration:none;}
+        .tag{display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:20px;}
+      </style></head><body>
+      <div class="card">
+        <span class="tag">WeFixTrades</span>
+        <h1>Thanks for the feedback</h1>
+        <p>That one click tells us a lot — and we actually read every one.</p>
+        <p>If you change your mind, your data is kept for 90 days and your services can be reactivated in a few clicks. <a href="https://wefixtrades.com">Visit the site</a>.</p>
+      </div></body></html>
+    `);
   });
 }

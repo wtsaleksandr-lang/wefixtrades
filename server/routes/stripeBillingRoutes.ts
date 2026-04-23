@@ -13,6 +13,8 @@ import { storage } from "../storage";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
 import { sendPaymentReceipt } from "../lib/paymentReceiptEmail";
 import { sendAccountWelcome } from "../lib/accountWelcomeEmail";
+import { sendPaymentFailedEmail } from "../lib/paymentFailedEmail";
+import { sendCancellationEmail } from "../lib/cancellationEmail";
 import { getTradeLineDefaultConfig } from "@shared/schema";
 
 function getStripe(): Stripe | null {
@@ -456,6 +458,14 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice) {
     actor_type: "system",
   });
 
+  // Send branded heads-up email to the customer (non-blocking, idempotent)
+  sendPaymentFailedEmail({
+    clientId: client.id,
+    invoiceId: invoice.id || "",
+    amountCents: invoice.amount_due ?? 0,
+    nextAttemptAt: invoice.next_payment_attempt ? new Date(invoice.next_payment_attempt * 1000) : null,
+  }).catch(err => console.warn(`[payment-failed] email send failed:`, err.message));
+
   console.log(`[billing-webhook] Payment failed for client ${client.id}`);
 }
 
@@ -471,6 +481,12 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   for (const svc of services) {
     if (svc.billing_period === "monthly" && svc.status === "active") {
       await storage.updateClientService(svc.id, { status: "cancelled", cancelled_at: new Date() });
+
+      // Send branded cancellation confirmation + exit survey (non-blocking, idempotent per service)
+      sendCancellationEmail({
+        clientServiceId: svc.id,
+        cancellationContext: "stripe",
+      }).catch(err => console.warn(`[cancellation-email] send failed for service #${svc.id}:`, err.message));
     }
   }
 

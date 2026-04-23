@@ -2,158 +2,230 @@ import { useEffect } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, shadows, radius } from "@/theme/tokens";
 
+/**
+ * Privacy Policy — WeFixTrades Inc.
+ *
+ * AI-drafted baseline covering the main US/Canada requirements plus a
+ * reasonable GDPR posture for the EU traffic we may incidentally receive.
+ * Have an attorney review before expanding into regulated verticals
+ * (healthcare, finance), enterprise deals, or EU market entry.
+ *
+ * Last full review: 2026-04-23.
+ */
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section style={{ marginBottom: 40 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${mkt.border}` }}>
+    <section style={{ marginBottom: 36 }}>
+      <h2 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 14, paddingBottom: 8, borderBottom: `1px solid ${mkt.border}` }}>
         {title}
       </h2>
-      <div style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.8 }}>
+      <div style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.75 }}>
         {children}
       </div>
     </section>
   );
 }
 
+const EFFECTIVE = "April 23, 2026";
+
 export default function PrivacyPage() {
   useEffect(() => {
-    document.title = "Privacy Policy — QuoteQuick Pro";
+    document.title = "Privacy Policy — WeFixTrades";
   }, []);
 
   return (
     <MarketingLayout>
       <div data-testid="privacy-page" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-        {/* Page Header */}
-        <section style={{ background: mkt.dark, padding: "72px 24px 64px" }}>
+        {/* ── Header ── */}
+        <section style={{ background: mkt.dark, padding: "72px 24px 56px" }}>
           <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
-            <h1 style={{ fontSize: 40, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2, margin: "0 0 16px" }}>
+            <h1 style={{ fontSize: 40, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2, margin: "0 0 14px" }}>
               Privacy Policy
             </h1>
-            <p style={{ fontSize: 16, color: "rgba(255,255,255,0.6)", margin: 0 }}>
-              Last updated: February 2026
+            <p style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", margin: 0 }}>
+              Effective {EFFECTIVE}
             </p>
           </div>
         </section>
 
-        {/* Content */}
-        <section style={{ background: mkt.surface, padding: "64px 24px 80px" }}>
+        <section style={{ background: mkt.surface, padding: "56px 24px 80px" }}>
           <div style={{ maxWidth: 760, margin: "0 auto" }}>
             <div style={{
               background: mkt.bg,
               borderRadius: radius.md,
-              padding: "48px 48px",
+              padding: "44px",
               boxShadow: shadows.card,
               border: `1px solid ${mkt.border}`,
             }}>
-              <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.8, marginBottom: 36 }}>
-                QuoteQuick Pro ("we", "our", or "us"), operated by WeFixTrades, is committed to protecting your privacy. This Privacy Policy explains how we collect, use, share, and protect information about you when you use our services.
+              <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.75, marginBottom: 32 }}>
+                This Privacy Policy explains how WeFixTrades Inc. ("<strong>WeFixTrades</strong>", "<strong>we</strong>", "<strong>us</strong>", "<strong>our</strong>") collects, uses, shares, and protects information when you visit our website, use our Service, or communicate with us. If you don't agree with this policy, don't use the Service.
               </p>
 
-              <Section title="1. Data We Collect">
-                <p>We collect the following types of information:</p>
-                <ul style={{ paddingLeft: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <li><strong>Account information:</strong> Name, email address, phone number, and business details provided when you register.</li>
-                  <li><strong>Usage data:</strong> Pages visited, features used, calculator configurations, lead data generated through your widget.</li>
-                  <li><strong>Payment information:</strong> Billing details processed securely through Stripe. We do not store card numbers.</li>
-                  <li><strong>Communications:</strong> Messages, support tickets, and email correspondence.</li>
-                  <li><strong>Device & technical data:</strong> IP address, browser type, device identifiers, and log files for security and diagnostics.</li>
-                  <li><strong>Customer lead data:</strong> Information submitted through your embedded quote calculator by end-users (your customers).</li>
+              <Section title="1. Who this policy applies to">
+                <p>This policy applies to two groups:</p>
+                <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                  <li><strong>Customers</strong> — trades businesses that buy a subscription or service from us.</li>
+                  <li><strong>Visitors</strong> — anyone browsing our public website, filling in a form, or calling our published phone line.</li>
                 </ul>
-              </Section>
-
-              <Section title="2. How We Use Your Data">
-                <p>We use collected information to:</p>
-                <ul style={{ paddingLeft: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <li>Provide, maintain, and improve the QuoteQuick Pro platform and services.</li>
-                  <li>Process payments and manage your subscription.</li>
-                  <li>Send service-related notifications, updates, and support communications.</li>
-                  <li>Power AI features including chat, SMS responses, and pricing estimations.</li>
-                  <li>Analyse usage patterns to improve product performance.</li>
-                  <li>Comply with legal obligations and protect against fraud or abuse.</li>
-                  <li>Send marketing communications where you have opted in (you may opt out at any time).</li>
-                </ul>
-              </Section>
-
-              <Section title="3. Third-Party Services">
-                <p>We integrate with the following third-party services that may process your data:</p>
-                <ul style={{ paddingLeft: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <li><strong>OpenAI:</strong> Powers our AI Employee chat, voice, and pricing validation features. Data sent to OpenAI is subject to their privacy policy. We do not send personally identifiable information unless explicitly included in your configuration.</li>
-                  <li><strong>Stripe:</strong> Processes all subscription payments and deposit collections. Stripe is PCI-DSS compliant. We do not store payment card data.</li>
-                  <li><strong>Twilio:</strong> Powers SMS and WhatsApp messaging features. Messages sent through your AI Employee are processed via Twilio's infrastructure.</li>
-                  <li><strong>Google:</strong> Analytics and Maps API services.</li>
-                  <li><strong>Amazon Web Services:</strong> Cloud infrastructure and data storage.</li>
-                </ul>
-              </Section>
-
-              <Section title="4. Data Sharing">
-                <p>We do not sell your personal information. We may share data with:</p>
-                <ul style={{ paddingLeft: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <li>Service providers listed above, only as necessary to provide our services.</li>
-                  <li>Legal authorities when required by law or to protect our rights.</li>
-                  <li>Acquirers in the event of a merger, acquisition, or sale of assets (you will be notified).</li>
-                </ul>
-              </Section>
-
-              <Section title="5. Your Rights">
-                <p>Depending on your location, you may have the following rights:</p>
-                <ul style={{ paddingLeft: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <li><strong>Access:</strong> Request a copy of the personal data we hold about you.</li>
-                  <li><strong>Correction:</strong> Request we correct inaccurate or incomplete data.</li>
-                  <li><strong>Deletion:</strong> Request deletion of your personal data (subject to legal retention requirements).</li>
-                  <li><strong>Portability:</strong> Request a machine-readable export of your data.</li>
-                  <li><strong>Objection:</strong> Object to processing based on legitimate interests.</li>
-                  <li><strong>Opt-out of marketing:</strong> Unsubscribe from marketing emails at any time via the link in our emails.</li>
-                </ul>
-                <p style={{ marginTop: 12 }}>To exercise any of these rights, contact us at <a href="mailto:contact@wefixtrades.com" style={{ color: mkt.accent, textDecoration: "none" }}>contact@wefixtrades.com</a>.</p>
-              </Section>
-
-              <Section title="6. Cookie Policy">
-                <p>We use cookies and similar technologies to:</p>
-                <ul style={{ paddingLeft: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <li><strong>Essential cookies:</strong> Required for authentication, security, and core platform functionality.</li>
-                  <li><strong>Analytics cookies:</strong> Help us understand how users interact with our platform (e.g., page views, feature usage).</li>
-                  <li><strong>Preference cookies:</strong> Remember your settings and configuration choices.</li>
-                </ul>
-                <p style={{ marginTop: 12 }}>You can control cookies through your browser settings. Disabling essential cookies may affect platform functionality.</p>
-              </Section>
-
-              <Section title="7. Data Retention">
-                <p>We retain your data for as long as your account is active or as needed to provide services. After account deletion:</p>
-                <ul style={{ paddingLeft: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <li>Account data is deleted within 30 days.</li>
-                  <li>Lead data generated through your calculator may be retained for up to 90 days to allow data export.</li>
-                  <li>Billing records are retained for 7 years as required by law.</li>
-                </ul>
-              </Section>
-
-              <Section title="8. Security">
-                <p>
-                  We implement industry-standard security measures including TLS encryption for data in transit, encrypted storage for sensitive data, and regular security audits. However, no system is completely secure. We encourage you to use a strong, unique password and enable two-factor authentication when available.
+                <p style={{ marginTop: 12 }}>
+                  Our customers also operate systems on their own customers' behalf (for example, a plumber using TradeLine to answer calls from homeowners). In those flows, the plumber is the data controller of the homeowner's information and we act as the data processor. Our customers are responsible for their own privacy notices to their end users.
                 </p>
               </Section>
 
-              <Section title="9. Children's Privacy">
+              <Section title="2. Information we collect">
+                <p><strong>Information you give us directly:</strong></p>
+                <ul style={{ paddingLeft: 20, marginTop: 8, marginBottom: 12 }}>
+                  <li>Name, email, phone number, business name, trade type, service area</li>
+                  <li>Billing address and payment information (processed by Stripe — we don't store full card numbers)</li>
+                  <li>Onboarding form responses (services you offer, pricing, working hours, tone preferences)</li>
+                  <li>Content you upload (logos, photos, brand assets, review templates)</li>
+                  <li>Messages you send us (email, contact form, support tickets, phone call transcripts)</li>
+                </ul>
+
+                <p><strong>Information we collect automatically:</strong></p>
+                <ul style={{ paddingLeft: 20, marginTop: 8, marginBottom: 12 }}>
+                  <li>Device and browser info (user agent, screen size, time zone)</li>
+                  <li>IP address and approximate geolocation</li>
+                  <li>Usage events (pages viewed, features used, clicks, form submissions)</li>
+                  <li>Call metadata from Vapi (call time, duration, caller number, transcript)</li>
+                  <li>Cookies and similar storage — see "Cookies" below</li>
+                </ul>
+
+                <p><strong>Information we receive from third parties:</strong></p>
+                <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                  <li>Google (Business Profile data, Search Console metrics) when you connect these</li>
+                  <li>Meta (Facebook/Instagram Page info) when you connect these</li>
+                  <li>Stripe (payment confirmations, subscription status)</li>
+                  <li>Public sources (business directories, Google Maps) for our free audit tool</li>
+                </ul>
+              </Section>
+
+              <Section title="3. How we use information">
+                <p>We use the information above to:</p>
+                <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                  <li>Provide, maintain, and improve the Service</li>
+                  <li>Process payments and manage subscriptions</li>
+                  <li>Configure and run the services you've purchased (including training AI assistants with your business information)</li>
+                  <li>Send transactional emails (receipts, onboarding, service updates, support)</li>
+                  <li>Send marketing emails — only to people who've opted in; you can unsubscribe any time</li>
+                  <li>Detect and prevent fraud, abuse, and security incidents</li>
+                  <li>Comply with legal obligations</li>
+                  <li>Produce anonymized aggregate analytics that never identify an individual</li>
+                </ul>
+              </Section>
+
+              <Section title="4. Legal bases (for EU/UK visitors)">
+                <p>If you're in the EU or UK, we process your personal information on the following legal bases (as applicable):</p>
+                <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                  <li><strong>Contract</strong> — to deliver the Service you've signed up for</li>
+                  <li><strong>Legitimate interest</strong> — to run the business, keep the Service secure, measure performance</li>
+                  <li><strong>Consent</strong> — for marketing emails and non-essential cookies</li>
+                  <li><strong>Legal obligation</strong> — to comply with tax, accounting, and legal requests</li>
+                </ul>
+              </Section>
+
+              <Section title="5. How we share information">
                 <p>
-                  QuoteQuick Pro is not intended for use by children under 16. We do not knowingly collect personal information from children under 16. If you believe a child has provided us with personal information, please contact us immediately.
+                  We don't sell your personal information. We share it only with service providers who help us operate the Service, and only to the extent they need it. Those include:
+                </p>
+                <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                  <li><strong>Stripe</strong> — payment processing</li>
+                  <li><strong>Anthropic</strong> — the AI that powers our assistants and content generation</li>
+                  <li><strong>Vapi</strong> — voice AI for phone calls</li>
+                  <li><strong>Twilio</strong> — SMS (where applicable to a product you use)</li>
+                  <li><strong>ElevenLabs</strong> — voice synthesis for TradeLine</li>
+                  <li><strong>Deepgram</strong> — speech-to-text transcription</li>
+                  <li><strong>SendGrid / SMTP providers</strong> — transactional email</li>
+                  <li><strong>Google</strong> — Business Profile, Maps, analytics</li>
+                  <li><strong>Meta</strong> — Facebook / Instagram posting APIs</li>
+                  <li><strong>OpenAI</strong> — image generation for SocialSync</li>
+                  <li><strong>White-label service partners</strong> — third-party agencies and freelancers who fulfill specific services. We share only the minimum business info they need.</li>
+                  <li><strong>Hosting and infrastructure providers</strong> — cloud hosting, database, monitoring</li>
+                </ul>
+                <p style={{ marginTop: 12 }}>
+                  We may also share information: (a) with your consent; (b) to comply with legal process or government requests; (c) to protect rights, property, or safety; (d) in connection with a merger, acquisition, or sale of assets — in which case we'll notify active customers before the transfer.
                 </p>
               </Section>
 
-              <Section title="10. Changes to This Policy">
-                <p>
-                  We may update this Privacy Policy from time to time. We will notify you of significant changes via email or a prominent notice on our platform at least 14 days before they take effect. Your continued use of the service after the effective date constitutes acceptance of the revised policy.
+              <Section title="6. How long we keep information">
+                <p>We retain personal information for as long as your account is active or as needed to provide the Service, then:</p>
+                <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                  <li><strong>Active accounts</strong> — data retained while the subscription is active</li>
+                  <li><strong>Canceled accounts</strong> — retained for 90 days in case of reactivation, then anonymized</li>
+                  <li><strong>Billing records</strong> — retained for 7 years to meet tax and accounting requirements</li>
+                  <li><strong>Call recordings and transcripts</strong> — retained by Vapi per their policy (typically 7 days; longer on paid retention)</li>
+                  <li><strong>Support emails</strong> — retained while you're a customer, then archived for 2 years</li>
+                </ul>
+                <p style={{ marginTop: 12 }}>You can request earlier deletion — see "Your rights" below.</p>
+              </Section>
+
+              <Section title="7. Your rights">
+                <p>Depending on where you live, you may have the right to:</p>
+                <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                  <li>Access the personal information we hold about you</li>
+                  <li>Correct inaccurate information</li>
+                  <li>Delete your data ("right to be forgotten")</li>
+                  <li>Export your data in a portable format</li>
+                  <li>Object to or restrict certain processing</li>
+                  <li>Withdraw consent for marketing at any time</li>
+                  <li>Opt out of the sale or sharing of personal information (we don't do either, but the right is here if required by law)</li>
+                </ul>
+                <p style={{ marginTop: 12 }}>
+                  To exercise any of these rights, email <a href="mailto:privacy@wefixtrades.com" style={{ color: mkt.accent }}>privacy@wefixtrades.com</a>. We'll verify your identity and respond within 30 days (sooner where required by law).
+                </p>
+                <p style={{ marginTop: 12 }}>
+                  <strong>California residents:</strong> we comply with the CCPA/CPRA. In the past 12 months we have <em>not</em> sold or shared personal information for cross-context behavioral advertising.
+                </p>
+                <p style={{ marginTop: 12 }}>
+                  <strong>Canadian residents:</strong> we comply with PIPEDA and applicable provincial privacy laws.
                 </p>
               </Section>
 
-              <Section title="11. Contact Us">
+              <Section title="8. Cookies and similar technologies">
                 <p>
-                  If you have questions or concerns about this Privacy Policy or our data practices, please contact us:
+                  We use strictly necessary cookies for login sessions and security. With your consent, we may also use analytics cookies to measure site performance. We don't use third-party advertising trackers (no Meta Pixel, no Google Ads retargeting) on the public marketing site.
                 </p>
-                <div style={{ marginTop: 12, padding: "16px 20px", background: mkt.accentTint, borderRadius: 8, fontSize: 14, lineHeight: 1.8 }}>
-                  <strong>WeFixTrades Pty Ltd</strong><br />
-                  Email: <a href="mailto:contact@wefixtrades.com" style={{ color: mkt.accent, textDecoration: "none" }}>contact@wefixtrades.com</a><br />
-                  Response time: Usually within 2 business hours
-                </div>
+                <p>
+                  Within the customer portal, we use essential cookies required to keep you signed in and to deliver the services you're paying for. These can't be disabled without breaking the portal.
+                </p>
               </Section>
+
+              <Section title="9. Security">
+                <p>
+                  We protect personal information with industry-standard technical and organizational measures: TLS for data in transit, encryption at rest for sensitive fields (OAuth tokens, session data), access controls and audit logging, and regular dependency patching. No system is perfect — if we experience a breach involving your personal information, we'll notify affected customers without undue delay as required by law.
+                </p>
+              </Section>
+
+              <Section title="10. International transfers">
+                <p>
+                  We operate out of the United States. If you access the Service from outside the US, you understand your information may be transferred to, stored, and processed in the US and other jurisdictions where our service providers operate. For EU/UK transfers, we rely on Standard Contractual Clauses with our processors where applicable.
+                </p>
+              </Section>
+
+              <Section title="11. Children">
+                <p>
+                  The Service is not directed to children under 16. We don't knowingly collect information from children. If you believe we've inadvertently collected information from a child, email <a href="mailto:privacy@wefixtrades.com" style={{ color: mkt.accent }}>privacy@wefixtrades.com</a> and we'll delete it.
+                </p>
+              </Section>
+
+              <Section title="12. Changes to this Policy">
+                <p>
+                  We may update this Privacy Policy from time to time. If we make material changes, we'll notify active customers by email and post a notice on the Service at least 14 days before changes take effect. Continued use after the effective date means you accept the updated policy.
+                </p>
+              </Section>
+
+              <Section title="13. Contact">
+                <p>
+                  Questions about this Privacy Policy or our data practices? Email <a href="mailto:privacy@wefixtrades.com" style={{ color: mkt.accent }}>privacy@wefixtrades.com</a>. Postal address: WeFixTrades Inc., 1200 Market Street, Suite 400, Wilmington, DE 19801, United States.
+                </p>
+                <p>
+                  EU/UK customers: if you're not satisfied with our response, you have the right to complain to your local data protection authority.
+                </p>
+              </Section>
+
+              <p style={{ fontSize: 12, color: mkt.textFaint, marginTop: 40, paddingTop: 20, borderTop: `1px solid ${mkt.border}`, lineHeight: 1.6 }}>
+                Last updated {EFFECTIVE}. A Data Processing Addendum for GDPR-regulated customers is available on request.
+              </p>
             </div>
           </div>
         </section>
