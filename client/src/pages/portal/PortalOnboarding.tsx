@@ -187,9 +187,9 @@ export default function PortalOnboarding() {
 
         {error && (
           <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
-            <span>Failed to load the setup form.</span>
+            <span>We couldn't load your setup form. Refresh the page — if it keeps failing, the link may have expired and we can send a new one.</span>
             <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-              <RefreshCw className="w-3 h-3" /> Retry
+              <RefreshCw className="w-3 h-3" /> Try again
             </button>
           </div>
         )}
@@ -501,7 +501,7 @@ function FieldRow({
       <input
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={config.placeholder || (step.required ? "Required" : "Optional")}
+        placeholder={config.placeholder || (step.required ? "Type your answer here" : "Optional — skip if you're not sure")}
         className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] transition-colors"
       />
     </div>

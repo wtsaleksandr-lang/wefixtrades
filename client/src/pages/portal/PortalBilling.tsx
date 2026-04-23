@@ -71,9 +71,9 @@ export default function PortalBilling() {
 
         {error && (
           <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
-            <span>Failed to load billing.</span>
+            <span>We couldn't load your invoices right now. Try refreshing — or reach us from the Help tab.</span>
             <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-              <RefreshCw className="w-3 h-3" /> Retry
+              <RefreshCw className="w-3 h-3" /> Try again
             </button>
           </div>
         )}
@@ -144,8 +144,9 @@ export default function PortalBilling() {
                 <h2 className="text-sm font-semibold text-gray-900">Payment History</h2>
               </div>
               {data.payments.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm text-gray-400">
-                  No payments yet.
+                <div className="px-5 py-8 text-center">
+                  <p className="text-sm font-medium text-gray-700 mb-1">No invoices yet</p>
+                  <p className="text-xs text-gray-500 max-w-sm mx-auto">Once your first service is active, every invoice and payment will show up here.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">

@@ -1,5 +1,8 @@
 import type { Express } from "express";
 import { z } from "zod";
+import { db } from "../db";
+import { salesLeads } from "@shared/schema";
+import { sendContactAck, sendContactInternalNotification } from "../lib/contactEmails";
 
 const BASE_URL = "https://wefixtrades.com";
 
@@ -73,8 +76,31 @@ export function registerMarketingRoutes(app: Express): void {
     const parsed = contactSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid request" });
     const { name, email, subject, message } = parsed.data;
-    console.log(`[Contact] From: ${name} <${email}> | Subject: ${subject} | ${message.substring(0, 100)}`);
-    return res.json({ success: true });
+
+    // Persist to sales_leads so the message is never lost even if SMTP is down
+    let leadId = 0;
+    try {
+      const [row] = await db.insert(salesLeads).values({
+        business_name: name, // we don't collect business separately here — name is best-effort
+        contact_name: name,
+        email,
+        source: "inbound",
+        status: "new",
+        notes: `Subject: ${subject || "General"}\n\n${message}`,
+      }).returning({ id: salesLeads.id });
+      leadId = row?.id ?? 0;
+    } catch (err: any) {
+      console.error("[Contact] Failed to save lead:", err.message);
+      // Don't fail the request — still try to send notifications
+    }
+
+    // Fire both emails in parallel, non-blocking to the HTTP response
+    Promise.allSettled([
+      sendContactAck({ name, email, subject, message }),
+      leadId ? sendContactInternalNotification({ name, email, subject, message }, leadId) : Promise.resolve(false),
+    ]).catch(() => {});
+
+    return res.json({ success: true, lead_id: leadId || undefined });
   });
 
   app.post("/api/analytics/pageview", async (req, res) => {

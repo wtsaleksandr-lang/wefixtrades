@@ -62,10 +62,10 @@ export default function ContactPage() {
         <section style={{ background: mkt.dark, padding: "72px 24px 64px" }}>
           <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
             <h1 style={{ fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2, marginBottom: 16, margin: "0 0 16px" }} className="text-2xl sm:text-[40px]">
-              Get in Touch
+              Talk to our team
             </h1>
             <p style={{ fontSize: 18, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, margin: 0 }}>
-              We'd love to hear from you. Drop us a message and we'll get back to you quickly.
+              Sales, support, partnerships, or a question before you sign up — we read every message and respond within one business day.
             </p>
           </div>
         </section>
@@ -122,8 +122,8 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Response Time</div>
-                    <div style={{ fontSize: 15, color: mkt.textMuted, fontWeight: 500 }}>Usually within 2 hours</div>
-                    <div style={{ fontSize: 14, color: mkt.textMuted, marginTop: 2 }}>During business hours (Mon–Fri)</div>
+                    <div style={{ fontSize: 15, color: mkt.textMuted, fontWeight: 500 }}>Within one business day</div>
+                    <div style={{ fontSize: 14, color: mkt.textMuted, marginTop: 2 }}>Most replies land in a few hours</div>
                   </div>
                 </div>
 
@@ -156,11 +156,9 @@ export default function ContactPage() {
                 borderRadius: radius.md,
                 border: `1px solid ${mkt.accentGlow}`,
               }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: mkt.accent, marginBottom: 6 }}>Working Hours</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: mkt.accent, marginBottom: 6 }}>Already a customer?</div>
                 <div style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7 }}>
-                  Monday – Friday: 9am – 6pm AEST<br />
-                  Saturday: 10am – 2pm AEST<br />
-                  Sunday: Closed
+                  Open a support ticket from your portal for the fastest route — your message lands directly in your account file.
                 </div>
               </div>
             </div>
@@ -187,9 +185,9 @@ export default function ContactPage() {
                   }}>
                     <Mail size={24} color={mkt.accent} />
                   </div>
-                  <h3 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 12, margin: "0 0 12px" }}>Message Sent!</h3>
+                  <h3 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 12, margin: "0 0 12px" }}>Message received</h3>
                   <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, margin: 0 }}>
-                    Thanks for reaching out. We'll get back to you within 2 hours.
+                    Thanks — we've logged your message and a confirmation is on its way to your inbox. We reply within one business day.
                   </p>
                 </div>
               ) : (

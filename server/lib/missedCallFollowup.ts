@@ -98,25 +98,18 @@ See TradeLine plans: {{tradeline_link}}
   {
     step: "calc_day5",
     offsetDays: 5,
-    subject: (ctx) => {
-      const lost = Math.round((ctx.estimatedAnnualLoss / 365) * 5);
-      return `${formatDollars(lost)} lost since you ran your report — time to fix it`;
-    },
+    subject: () => `A week later — want to see how TradeLine would handle it?`,
     body: (ctx) => {
-      const lostSince = Math.round((ctx.estimatedAnnualLoss / 365) * 5);
       return `Hi there,
 
-It's been 5 days since you calculated your missed call cost. In that time, an estimated ${formatDollars(lostSince)} in potential ${ctx.trade} jobs went unanswered.
+A week ago you ran our missed-call calculator. No pressure to do anything with the number — but if it's still sitting on your mind, here's the short version of what TradeLine actually does:
 
-Every day without a solution, the gap grows.
+- Answers every inbound call 24/7 in a real conversation, not a menu
+- Texts the caller back automatically if they hang up before you pick up
+- Sends you a notification the moment a lead comes in, with the transcript
+- Live in under 30 minutes, starting at $97/mo
 
-TradeLine is the fastest way to stop the bleeding:
-- Set up in under 10 minutes
-- AI handles calls immediately
-- You get notified of every lead
-- Starting at $97/mo
-
-Start recovering lost revenue today: {{tradeline_link}}
+If it's not a fit for your ${ctx.trade} business, ignore this email — we won't keep emailing. If it is, take a look: {{tradeline_link}}
 
 — The WeFixTrades Team`;
     },

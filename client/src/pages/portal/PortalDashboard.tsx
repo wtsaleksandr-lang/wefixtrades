@@ -156,9 +156,9 @@ export default function PortalDashboard() {
       )}
       {error && (
         <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
-          <span>Failed to load dashboard.</span>
+          <span>We hit a snag loading your dashboard. A refresh usually fixes it.</span>
           <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-            <RefreshCw className="w-3 h-3" /> Retry
+            <RefreshCw className="w-3 h-3" /> Try again
           </button>
         </div>
       )}
@@ -412,8 +412,9 @@ export default function PortalDashboard() {
               <h2 className="text-sm font-semibold text-gray-900">Recent Activity</h2>
             </div>
             {data.recent_activity.length === 0 ? (
-              <div className="px-5 py-8 text-center text-sm text-gray-400">
-                No activity yet. Your service updates will appear here.
+              <div className="px-5 py-8 text-center">
+                <p className="text-sm font-medium text-gray-700 mb-1">Nothing happening yet</p>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">Once your services go live, task updates, call logs, and new leads will land here in real time.</p>
               </div>
             ) : (
               <ul className="divide-y divide-gray-50">

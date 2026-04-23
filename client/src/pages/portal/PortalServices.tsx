@@ -79,16 +79,17 @@ export default function PortalServices() {
 
         {error && (
           <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
-            <span>Failed to load services.</span>
+            <span>We couldn't pull up your services. Try again — if it keeps failing, the Help tab is the fastest way to reach us.</span>
             <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-              <RefreshCw className="w-3 h-3" /> Retry
+              <RefreshCw className="w-3 h-3" /> Try again
             </button>
           </div>
         )}
 
         {data && data.services.length === 0 && !qqData?.calculator && (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-            <p className="text-sm text-gray-500">No services yet. Once you purchase a service, it will appear here.</p>
+            <p className="text-sm font-medium text-gray-700 mb-1">No services yet</p>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto">Once you pick a service from our catalog, you'll see it here with its setup form, tasks, and live status.</p>
           </div>
         )}
 
