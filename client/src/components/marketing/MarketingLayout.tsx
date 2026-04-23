@@ -182,6 +182,21 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
         {/* Company info + copyright */}
         <div className="mkt-footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
           <div>
+            <div style={{ display: "flex", gap: 14, marginBottom: 8, flexWrap: "wrap" }}>
+              <a
+                href="tel:+15551234567"
+                style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
+                data-testid="footer-phone"
+              >
+                📞 +1 (555) 123-4567 · AI-answered 24/7
+              </a>
+              <a
+                href="mailto:contact@wefixtrades.com"
+                style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
+              >
+                ✉️ contact@wefixtrades.com
+              </a>
+            </div>
             <p style={{ fontSize: 11, color: "rgba(255,255,255,0.22)", margin: "0 0 4px", lineHeight: 1.5 }}>
               &copy; {new Date().getFullYear()} WeFixTrades Inc. All rights reserved.
             </p>

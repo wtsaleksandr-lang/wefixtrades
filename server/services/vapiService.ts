@@ -452,6 +452,7 @@ export function buildAssistantConfig(): Record<string, any> {
 
   return {
     assistant: {
+      name: "WeFixTrades Sales & Support",
       model: {
         provider: "custom-llm",
         url: config.serverUrl
@@ -460,14 +461,21 @@ export function buildAssistantConfig(): Record<string, any> {
       },
       voice: {
         provider: "11labs",
-        voiceId: "21m00Tcm4TlvDq8ikWAM",  // Placeholder — configure in Vapi dashboard
+        // Override in Vapi dashboard or via env to pick a branded voice.
+        voiceId: process.env.VAPI_WFT_VOICE_ID || "21m00Tcm4TlvDq8ikWAM",
       },
-      firstMessage: "Hi, thanks for calling WeFixTrades! I can help you learn about our services, get a quick estimate, or schedule a consultation. What can I help you with?",
+      firstMessage:
+        "Hi, thanks for calling WeFixTrades. I'm the AI assistant — I can walk you through our services, pricing, and how we'd help your business, or get a human on the line if you need one. What brings you in today?",
+      endCallMessage:
+        "Thanks for calling WeFixTrades. We'll follow up by email shortly — have a great rest of your day.",
+      maxDurationSeconds: 900, // 15 min hard cap
+      recordingEnabled: true,
       transcriber: {
         provider: "deepgram",
         model: "nova-2",
         language: "en",
       },
+      endCallPhrases: ["goodbye", "bye", "thanks bye"],
     },
   };
 }

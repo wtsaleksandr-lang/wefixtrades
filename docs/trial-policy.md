@@ -22,7 +22,7 @@ Last updated: 2026-04-23
 
 | Product | Offer type | Duration | Card at start? | Status in code |
 |---|---|---|---|---|
-| **QuoteQuick Pro** | Free trial | 14 days (+3 grace) | No | ✅ Fully wired — reference implementation |
+| **QuoteQuick Pro** | Free trial | 14 days (+3 grace) | No | ⚠️ Backend wired; wizard still being polished. Soft-launch only. |
 | **TradeLine (all tiers)** | Money-back guarantee | 30 days | Yes | ✅ Billing wired; refund is manual admin action |
 | **ReputationShield** | Money-back guarantee | 30 days | Yes | ✅ Billing wired; refund is manual admin action |
 | **MapGuard** | Money-back guarantee | 30 days | Yes | ✅ Billing wired; refund is manual admin action |

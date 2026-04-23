@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { Mail, Clock, LayoutDashboard } from "lucide-react";
+import { Mail, Clock, LayoutDashboard, Phone } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { mkt, colors, shadows, radius } from "@/theme/tokens";
@@ -86,6 +86,34 @@ export default function ContactPage() {
               </h2>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+                <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                  <div style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    background: mkt.accentTint,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}>
+                    <Phone size={18} color={mkt.accent} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>AI-answered line — 24/7</div>
+                    <a
+                      href="tel:+15551234567"
+                      data-testid="contact-phone"
+                      style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}
+                    >
+                      +1 (555) 123-4567
+                    </a>
+                    <div style={{ fontSize: 12, color: mkt.textMuted, marginTop: 4, lineHeight: 1.5 }}>
+                      Our AI answers any question about pricing, services, or how we'd help your business. Escalates to a human for anything complex.
+                    </div>
+                  </div>
+                </div>
+
                 <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
                   <div style={{
                     width: 40,
