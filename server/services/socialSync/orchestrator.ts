@@ -241,7 +241,10 @@ export async function generateWeekForClient(
 
     result.posts_generated++;
 
-    // 7. Enqueue for publishing
+    // 7. Enqueue for publishing. Post status = "pending_approval" so the
+    //    customer gets a review window before it publishes. The queue worker
+    //    auto-approves at scheduled_for if the customer doesn't act (matches
+    //    the "done-for-you" product promise — silence = implicit consent).
     try {
       await storage.enqueueSocialSyncJob({
         client_id: clientId,
@@ -253,7 +256,7 @@ export async function generateWeekForClient(
         max_attempts: 3,
       } as any);
 
-      await storage.updateSocialSyncPost(genResult.post.id, { status: "queued" } as any);
+      await storage.updateSocialSyncPost(genResult.post.id, { status: "pending_approval" } as any);
       result.posts_queued++;
     } catch (err: any) {
       result.errors.push(`Enqueue failed for post ${genResult.post.id}: ${err.message}`);

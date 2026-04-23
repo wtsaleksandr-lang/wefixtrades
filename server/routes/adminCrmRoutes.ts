@@ -4,6 +4,7 @@ import { storage } from "../storage";
 import { advanceSetupStage, getTradeLineReadiness } from "@shared/schema";
 import { dispatchTaskToSupplier } from "../services/supplierDispatch";
 import { sendWelcomePackage } from "../lib/welcomeEmail";
+import { compileAndSendAdFlowReport } from "../services/adflowReports";
 import crypto from "crypto";
 
 export function registerAdminCrmRoutes(app: Express): void {
@@ -234,6 +235,15 @@ export function registerAdminCrmRoutes(app: Express): void {
         if (cascade?.serviceCompleted || cascade?.serviceActivated) {
           sendWelcomePackage(task.client_service_id).catch(err =>
             console.warn(`[welcome-email] send failed for client_service #${task.client_service_id}:`, err.message),
+          );
+        }
+
+        // AdFlow monthly report: when a "Monthly performance report" task is
+        // delivered on an AdFlow service, compile and email the report.
+        // Idempotent per period on the client_service metadata.
+        if (task.title.toLowerCase().includes("monthly performance report")) {
+          compileAndSendAdFlowReport(task.client_service_id).catch(err =>
+            console.warn(`[adflow-report] compile failed for client_service #${task.client_service_id}:`, err.message),
           );
         }
       }

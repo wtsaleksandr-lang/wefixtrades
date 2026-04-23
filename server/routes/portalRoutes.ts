@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { requireClient, hashPassword, verifyPassword } from "../auth";
 import { storage } from "../storage";
 import { db } from "../db";
-import { eq, and, desc, sql, gte } from "drizzle-orm";
+import { eq, and, asc, desc, sql, gte } from "drizzle-orm";
 import { chat as aiChat } from "../services/aiService";
 import { generateMonthlyPlan } from "../services/rankflow/planGenerator";
 import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
@@ -34,11 +34,12 @@ import {
   monitoredReviews,
   mapguardSnapshots,
   mapguardTasks,
+  socialsyncPosts,
+  socialsyncPublishQueue,
   getTradeLineReadiness,
   mapOnboardingToTradeLineConfig,
   advanceSetupStage,
 } from "@shared/schema";
-import { storage } from "../storage";
 
 import { compileMonthlyReport } from "../services/mapguardReports";
 import { getExecutionUsage } from "../services/mapguardTaskEngine";
@@ -1554,7 +1555,10 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         service_focus: service_focus || null,
         tone: tone || "professional",
         frequency: frequency || "3_per_week",
-        autopilot: autopilot ?? false,
+        // Default to autopilot ON — customer expects content to flow after
+        // onboarding. They can review each post via the approval queue before
+        // it publishes; if they do nothing, posts auto-approve at scheduled time.
+        autopilot: autopilot ?? true,
         platform_preferences: platform_preferences || ["facebook", "instagram"],
       } as any);
 
@@ -1571,6 +1575,168 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
     } catch (err: any) {
       console.error("Portal SocialSync setup error:", err);
       res.status(500).json({ error: "Failed to save profile" });
+    }
+  });
+
+  /**
+   * GET /api/portal/socialsync/pending
+   * List posts awaiting customer approval (status=pending_approval),
+   * scoped to the authenticated client. Used by the portal approval queue UI.
+   */
+  app.get("/api/portal/socialsync/pending", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const rows = await db.select({
+        id: socialsyncPosts.id,
+        platform: socialsyncPosts.platform,
+        post_text: socialsyncPosts.post_text,
+        hashtags: socialsyncPosts.hashtags,
+        media_plan: socialsyncPosts.media_plan,
+        scheduled_for: socialsyncPosts.scheduled_for,
+        created_at: socialsyncPosts.created_at,
+      })
+        .from(socialsyncPosts)
+        .where(and(
+          eq(socialsyncPosts.client_id, clientId),
+          eq(socialsyncPosts.status, "pending_approval"),
+        ))
+        .orderBy(asc(socialsyncPosts.scheduled_for));
+
+      res.json({ posts: rows });
+    } catch (err) {
+      console.error("Portal socialsync pending error:", err);
+      res.status(500).json({ error: "Failed to load pending posts" });
+    }
+  });
+
+  /**
+   * POST /api/portal/socialsync/posts/:id/approve
+   * Customer explicitly approves a pending post — flips status to "queued"
+   * so the worker will publish at scheduled_for.
+   */
+  app.post("/api/portal/socialsync/posts/:id/approve", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const postId = parseInt(req.params.id as string);
+      if (isNaN(postId)) return res.status(400).json({ error: "Invalid post id" });
+
+      const post = await storage.getSocialSyncPostById(postId);
+      if (!post || post.client_id !== clientId) return res.status(404).json({ error: "Post not found" });
+      if (post.status !== "pending_approval") {
+        return res.status(400).json({ error: `Post is "${post.status}" — only pending_approval posts can be approved` });
+      }
+
+      const updated = await storage.updateSocialSyncPost(postId, { status: "queued" } as any);
+      await storage.createSocialSyncLog({
+        client_id: clientId,
+        entity_type: "post",
+        entity_id: postId,
+        action: "post.customer_approved",
+        status: "success",
+        details: { approved_via: "portal" },
+      });
+
+      res.json({ ok: true, post: updated });
+    } catch (err) {
+      console.error("Portal socialsync approve error:", err);
+      res.status(500).json({ error: "Failed to approve post" });
+    }
+  });
+
+  /**
+   * POST /api/portal/socialsync/posts/:id/reject
+   * Customer rejects a pending post — cancels the queue item and marks rejected.
+   */
+  app.post("/api/portal/socialsync/posts/:id/reject", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const postId = parseInt(req.params.id as string);
+      if (isNaN(postId)) return res.status(400).json({ error: "Invalid post id" });
+
+      const post = await storage.getSocialSyncPostById(postId);
+      if (!post || post.client_id !== clientId) return res.status(404).json({ error: "Post not found" });
+      if (post.status !== "pending_approval") {
+        return res.status(400).json({ error: `Post is "${post.status}" — only pending_approval posts can be rejected` });
+      }
+
+      // Mark post rejected. Worker validation will skip it on queue pickup.
+      await storage.updateSocialSyncPost(postId, {
+        status: "rejected",
+        failure_reason: (req.body?.reason as string) || "Rejected by customer",
+      } as any);
+
+      // Cancel any pending queue items for this post
+      await db.update(socialsyncPublishQueue)
+        .set({ status: "cancelled", updated_at: new Date() })
+        .where(and(
+          eq(socialsyncPublishQueue.post_id, postId),
+          sql`${socialsyncPublishQueue.status} IN ('pending', 'locked')`,
+        ));
+
+      await storage.createSocialSyncLog({
+        client_id: clientId,
+        entity_type: "post",
+        entity_id: postId,
+        action: "post.customer_rejected",
+        status: "info",
+        details: { rejected_via: "portal", reason: req.body?.reason },
+      });
+
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Portal socialsync reject error:", err);
+      res.status(500).json({ error: "Failed to reject post" });
+    }
+  });
+
+  /**
+   * PATCH /api/portal/socialsync/posts/:id
+   * Customer edits a pending post's text/hashtags. After edit the post is
+   * considered approved and moves to "queued".
+   * Body: { post_text?: string, hashtags?: string[] }
+   */
+  app.patch("/api/portal/socialsync/posts/:id", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const postId = parseInt(req.params.id as string);
+      if (isNaN(postId)) return res.status(400).json({ error: "Invalid post id" });
+
+      const post = await storage.getSocialSyncPostById(postId);
+      if (!post || post.client_id !== clientId) return res.status(404).json({ error: "Post not found" });
+      if (post.status !== "pending_approval") {
+        return res.status(400).json({ error: `Post is "${post.status}" — only pending_approval posts can be edited` });
+      }
+
+      const { post_text, hashtags } = req.body || {};
+      const updates: any = { status: "queued" };
+      if (typeof post_text === "string") {
+        if (post_text.trim().length < 10) return res.status(400).json({ error: "post_text must be at least 10 characters" });
+        if (post_text.length > 3000) return res.status(400).json({ error: "post_text too long" });
+        updates.post_text = post_text.trim();
+      }
+      if (Array.isArray(hashtags)) {
+        updates.hashtags = hashtags.slice(0, 30).map((h: any) => String(h));
+      }
+
+      const updated = await storage.updateSocialSyncPost(postId, updates);
+      await storage.createSocialSyncLog({
+        client_id: clientId,
+        entity_type: "post",
+        entity_id: postId,
+        action: "post.customer_edited",
+        status: "success",
+        details: { edited_fields: Object.keys(updates).filter(k => k !== "status") },
+      });
+
+      res.json({ ok: true, post: updated });
+    } catch (err) {
+      console.error("Portal socialsync edit error:", err);
+      res.status(500).json({ error: "Failed to edit post" });
     }
   });
 

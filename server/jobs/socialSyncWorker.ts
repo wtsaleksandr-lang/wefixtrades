@@ -159,6 +159,11 @@ function validateBeforePublish(
     return { valid: false, error: "Post has been cancelled", permanent: true };
   }
 
+  // Post rejected by customer — skip
+  if (post.status === "rejected") {
+    return { valid: false, error: "Post was rejected by customer", permanent: true };
+  }
+
   return { valid: true };
 }
 
@@ -212,6 +217,23 @@ async function processOneJob(job: SocialSyncQueueItem): Promise<{ published: boo
       await failJob(job, validation.error!, true);
     }
     return { published: false, error: validation.error };
+  }
+
+  // ─── Auto-approval at scheduled time ───
+  // If customer left the post in pending_approval (silence = consent),
+  // record implicit approval in the activity log before publishing.
+  if (post.status === "pending_approval") {
+    await storage.createSocialSyncLog({
+      client_id: job.client_id,
+      entity_type: "post",
+      entity_id: job.post_id,
+      action: "post.auto_approved",
+      status: "info",
+      details: {
+        reason: "scheduled_time_reached_without_customer_action",
+        queue_id: job.id,
+      },
+    });
   }
 
   // ─── Mark publishing ───
