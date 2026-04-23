@@ -4238,22 +4238,22 @@ export default function ProductPage() {
         {isTradeLine ? (
           <CTASection
             heading="Stop Missing Calls. Start Winning More Jobs."
-            subtext="Try TradeLine free for 14 days. No credit card. No contracts."
-            ctaLabel="Start Your Free Trial"
+            subtext="Live in 30 minutes. 30-day money-back guarantee. No contracts."
+            ctaLabel="Get Started"
             ctaHref="/Wizard"
           />
         ) : isQuoteQuick ? (
           <CTASection
             heading="Stop losing leads to slow quotes."
-            subtext="Give your customers instant pricing — and turn more website visitors into real quote requests."
+            subtext="Give your customers instant pricing — and turn more website visitors into real quote requests. 14-day free trial, no card required."
             ctaLabel="Start Your Free Trial"
             ctaHref="/Wizard"
           />
         ) : isReputationShield ? (
           <CTASection
             heading="Your next 5-star review is one completed job away."
-            subtext="Start collecting reviews automatically. Catch complaints privately. Respond with AI. See the proof every month. From $79/mo — no contracts."
-            ctaLabel="Start Getting Reviews — Free Trial"
+            subtext="Start collecting reviews automatically. Catch complaints privately. Respond with AI. See the proof every month. From $79/mo — 30-day money-back guarantee."
+            ctaLabel="Get Started"
             ctaHref="/Wizard"
           />
         ) : isSocialSync ? (

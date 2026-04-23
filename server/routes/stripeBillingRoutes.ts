@@ -11,6 +11,8 @@ import Stripe from "stripe";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
+import { sendPaymentReceipt } from "../lib/paymentReceiptEmail";
+import { sendAccountWelcome } from "../lib/accountWelcomeEmail";
 import { getTradeLineDefaultConfig } from "@shared/schema";
 
 function getStripe(): Stripe | null {
@@ -181,11 +183,17 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     await provisionOrConfirmService(session, clientId, serviceId, baseUrl);
   }
 
+  // Branded payment receipt — sent once per session, after all services provisioned.
+  // Stripe sends its own receipt; this one is on-brand and links back to the portal.
+  sendPaymentReceipt(session, clientId).catch(err =>
+    console.warn(`[payment-receipt] send failed for session ${session.id}:`, err.message),
+  );
+
   // Ensure portal login exists after payment is confirmed
   try {
-    const { created, tempPassword } = await storage.ensurePortalAccount(clientId);
+    const { user, created } = await storage.ensurePortalAccount(clientId);
     if (created) {
-      console.log(`[billing-webhook] Auto-created portal account for client #${clientId} (temp password generated)`);
+      console.log(`[billing-webhook] Auto-created portal account for client #${clientId}`);
       await storage.logAdminActivity({
         actor_type: "system",
         actor_name: "Stripe Webhook",
@@ -194,6 +202,15 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         entity_id: clientId,
         summary: `Auto-created portal account after payment`,
       });
+
+      // Send account-created welcome email with a magic "set password" link.
+      // We never email the temp password — the customer sets their own via the link.
+      const client = await storage.getClientById(clientId);
+      if (client) {
+        sendAccountWelcome({ user, client }).catch(err =>
+          console.warn(`[account-welcome] send failed for client #${clientId}:`, err.message),
+        );
+      }
     }
   } catch (err: any) {
     console.warn(`[billing-webhook] Could not auto-create portal account for client #${clientId}: ${err.message}`);
