@@ -90,4 +90,3 @@ expertMode = true
 [userenv]
 
 [userenv.shared]
-STRIPE_SECRET_KEY = "mk_1SoIorFWY4wju6QiFKWILzNl"
