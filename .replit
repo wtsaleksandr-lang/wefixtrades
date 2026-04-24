@@ -86,3 +86,8 @@ waitForPort = 5000
 [agent]
 integrations = ["javascript_openai_ai_integrations:2.0.0", "javascript_database:1.0.0", "javascript_auth_all_persistance:1.0.0", "javascript_stripe:1.0.0"]
 expertMode = true
+
+[userenv]
+
+[userenv.shared]
+STRIPE_SECRET_KEY = "mk_1SoIorFWY4wju6QiFKWILzNl"
