@@ -2,6 +2,8 @@ import { storage } from "../../storage";
 import { generateTopics } from "./topicGenerator";
 import { generatePostFromTopic, type ContentGenerationResult } from "./contentGenerator";
 import { checkContentMix } from "./qualityGate";
+import { createDraftFromSocialPost } from "../contentflow/draftService";
+import { autoApproveDraft } from "../contentflow/approvalService";
 import type { SocialSyncProfile, SocialSyncTopic } from "@shared/schema";
 
 /* ─── Frequency mapping ─── */
@@ -240,6 +242,20 @@ export async function generateWeekForClient(
     }
 
     result.posts_generated++;
+
+    // ContentFlow (Sprint 1): mirror the freshly-generated post into the
+    // unified draft table and record an auto-approval. Isolated in its own
+    // try/catch — any failure here must NOT affect the existing SocialSync
+    // publish flow (silence-as-consent remains untouched).
+    try {
+      const draft = await createDraftFromSocialPost({ post: genResult.post });
+      await autoApproveDraft({
+        draftId: draft.id,
+        notes: `SocialSync auto-approved — quality score ${genResult.post.quality_score ?? 0}`,
+      });
+    } catch (cfErr: any) {
+      result.errors.push(`ContentFlow draft failed for post ${genResult.post.id}: ${cfErr.message}`);
+    }
 
     // 7. Enqueue for publishing. Post status = "pending_approval" so the
     //    customer gets a review window before it publishes. The queue worker

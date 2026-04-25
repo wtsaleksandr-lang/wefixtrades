@@ -70,6 +70,8 @@ export const rankflowTasks = pgTable("rankflow_tasks", {
   actual_cost: numeric("actual_cost"),
   rejection_reason: text("rejection_reason"),
   batch_id: integer("batch_id"),
+  // ContentFlow linkage (nullable; FK enforced at DB level to avoid circular imports)
+  content_draft_id: integer("content_draft_id"),
   created_at: timestamp("created_at").defaultNow(),
 });
 

@@ -84,6 +84,11 @@ type User, type InsertUser,
   type ServiceCostLog, type InsertServiceCostLog,
   salesLeads,
   type SalesLead, type InsertSalesLead,
+  // ContentFlow
+  contentDrafts, contentApprovals, contentAssets,
+  type ContentDraft, type InsertContentDraft,
+  type ContentApproval, type InsertContentApproval,
+  type ContentAsset, type InsertContentAsset,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -2835,6 +2840,133 @@ export class DatabaseStorage implements IStorage {
   async getSalesLeadById(id: number): Promise<SalesLead | undefined> {
     const [row] = await db.select().from(salesLeads).where(eq(salesLeads.id, id)).limit(1);
     return row;
+  }
+
+  // ─── ContentFlow: Drafts ───
+
+  async createContentDraft(data: InsertContentDraft): Promise<ContentDraft> {
+    const [row] = await db.insert(contentDrafts).values(data).returning();
+    return row;
+  }
+
+  async getContentDraftById(id: number): Promise<ContentDraft | undefined> {
+    const [row] = await db.select().from(contentDrafts).where(eq(contentDrafts.id, id)).limit(1);
+    return row;
+  }
+
+  async getContentDraftBySocialPostId(postId: number): Promise<ContentDraft | undefined> {
+    const [row] = await db.select().from(contentDrafts)
+      .where(eq(contentDrafts.linked_social_post_id, postId))
+      .limit(1);
+    return row;
+  }
+
+  async getContentDraftByTaskId(taskId: number): Promise<ContentDraft | undefined> {
+    const [row] = await db.select().from(contentDrafts)
+      .where(eq(contentDrafts.linked_task_id, taskId))
+      .limit(1);
+    return row;
+  }
+
+  async listContentDrafts(opts: {
+    client_id?: number;
+    status?: string;
+    surface?: string;
+    kind?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<ContentDraft[]> {
+    const { client_id, status, surface, kind, limit = 50, offset = 0 } = opts;
+    const conditions = [];
+    if (client_id !== undefined) conditions.push(eq(contentDrafts.client_id, client_id));
+    if (status) conditions.push(eq(contentDrafts.status, status));
+    if (surface) conditions.push(eq(contentDrafts.surface, surface));
+    if (kind) conditions.push(eq(contentDrafts.kind, kind));
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(contentDrafts)
+      .where(where)
+      .orderBy(desc(contentDrafts.created_at))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async updateContentDraft(id: number, updates: Partial<InsertContentDraft>): Promise<ContentDraft | undefined> {
+    const [row] = await db.update(contentDrafts)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(contentDrafts.id, id))
+      .returning();
+    return row;
+  }
+
+  // ─── ContentFlow: Approvals ───
+
+  async createContentApproval(data: InsertContentApproval): Promise<ContentApproval> {
+    const [row] = await db.insert(contentApprovals).values(data).returning();
+    return row;
+  }
+
+  async listContentApprovals(draftId: number): Promise<ContentApproval[]> {
+    return db.select().from(contentApprovals)
+      .where(eq(contentApprovals.draft_id, draftId))
+      .orderBy(desc(contentApprovals.created_at));
+  }
+
+  // ─── ContentFlow: Assets ───
+
+  async createContentAsset(data: InsertContentAsset): Promise<ContentAsset> {
+    const [row] = await db.insert(contentAssets).values(data).returning();
+    return row;
+  }
+
+  async getContentAssetById(id: number): Promise<ContentAsset | undefined> {
+    const [row] = await db.select().from(contentAssets).where(eq(contentAssets.id, id)).limit(1);
+    return row;
+  }
+
+  async listContentAssets(clientId: number): Promise<ContentAsset[]> {
+    return db.select().from(contentAssets)
+      .where(eq(contentAssets.client_id, clientId))
+      .orderBy(desc(contentAssets.created_at));
+  }
+
+  /**
+   * Test/dev only — hard-delete a ContentFlow draft + its approvals and
+   * optionally the linked SocialSync post. Intended for Sprint 1
+   * verification scripts; never call from product code.
+   *
+   * Order is explicit: approvals → draft → post. The socialsync_posts
+   * FK to content_drafts is ON DELETE SET NULL so the draft can be
+   * removed before the post without a constraint violation.
+   */
+  async deleteContentDraftCascade(
+    draftId: number,
+    postId?: number,
+  ): Promise<{ deleted_draft: boolean; deleted_approvals: number; deleted_post: boolean }> {
+    const draft = await this.getContentDraftById(draftId);
+    const approvalsBefore = draft ? await this.listContentApprovals(draftId) : [];
+
+    if (approvalsBefore.length > 0) {
+      await db.delete(contentApprovals).where(eq(contentApprovals.draft_id, draftId));
+    }
+
+    let deleted_draft = false;
+    if (draft) {
+      await db.delete(contentDrafts).where(eq(contentDrafts.id, draftId));
+      deleted_draft = true;
+    }
+
+    const targetPostId = postId ?? draft?.linked_social_post_id ?? null;
+    let deleted_post = false;
+    if (targetPostId) {
+      await db.delete(socialsyncPosts).where(eq(socialsyncPosts.id, targetPostId));
+      deleted_post = true;
+    }
+
+    return {
+      deleted_draft,
+      deleted_approvals: approvalsBefore.length,
+      deleted_post,
+    };
   }
 }
 

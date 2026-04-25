@@ -68,6 +68,8 @@ export const socialsyncPosts = pgTable("socialsync_posts", {
   publish_result: jsonb("publish_result"),                     // response from publishing API (future)
   failure_reason: text("failure_reason"),
   created_by_system: boolean("created_by_system").notNull().default(true),
+  // ContentFlow linkage (nullable; FK enforced at DB level to avoid circular imports)
+  content_draft_id: integer("content_draft_id"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
