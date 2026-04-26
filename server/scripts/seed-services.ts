@@ -124,7 +124,9 @@ async function main() {
         billing_period: svc.billing_period,
         delivery_pattern: (svc as any).delivery_pattern || "one_time",
         sort_order: svc.sort_order,
-        is_active: true,
+        // is_active intentionally NOT set on conflict — preserves admin
+        // soft-retire decisions across re-seeds. New rows still default to
+        // is_active=true via the values() call above.
         updated_at: new Date(),
       },
     });
@@ -147,7 +149,8 @@ async function main() {
         billing_period: svc.billing_period,
         delivery_pattern: svc.delivery_pattern,
         sort_order: svc.sort_order,
-        is_active: true,
+        // is_active intentionally NOT set on conflict — preserves admin
+        // soft-retire decisions across re-seeds.
         updated_at: new Date(),
       },
     });

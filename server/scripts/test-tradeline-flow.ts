@@ -124,13 +124,15 @@ async function check(
 }
 
 /* ═══════════════════════════════════════════
-   SCENARIO 1: tradeline-complete (self-serve checkout)
+   SCENARIO 1: tradeline-pro (self-serve checkout)
+   Canonical $197 tier; replaced legacy tradeline-complete which was
+   soft-retired in the Phase 2 catalog cleanup.
    ═══════════════════════════════════════════ */
 
 async function testTradeLineComplete(cookie: string): Promise<TestContext> {
-  heading("SCENARIO 1: tradeline-complete — Self-Serve Checkout");
-  const serviceId = "tradeline-complete";
-  const email = `tl-test-complete-${Date.now()}@example.com`;
+  heading("SCENARIO 1: tradeline-pro — Self-Serve Checkout");
+  const serviceId = "tradeline-pro";
+  const email = `tl-test-pro-${Date.now()}@example.com`;
   const ctx: TestContext = { cookie, clientId: 0, serviceId, passed: 0, failed: 0, skipped: 0 };
 
   /* ── Step 1: Public checkout ── */
@@ -140,8 +142,8 @@ async function testTradeLineComplete(cookie: string): Promise<TestContext> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      business_name: "Test Complete Plumbing",
-      contact_name: "John Complete",
+      business_name: "Test Pro Plumbing",
+      contact_name: "John Pro",
       contact_email: email,
       contact_phone: "+447700900100",
       items: [serviceId],
@@ -602,7 +604,7 @@ async function main() {
   let totalPassed = 0;
   let totalFailed = 0;
 
-  // Scenario 1: tradeline-complete (self-serve)
+  // Scenario 1: tradeline-pro (self-serve) — replaces retired tradeline-complete
   const ctx1 = await testTradeLineComplete(cookie);
   clientIds.push(ctx1.clientId);
   totalPassed += ctx1.passed;
@@ -616,7 +618,7 @@ async function main() {
 
   /* ── Report ── */
   heading("RESULTS");
-  console.log(`  Scenario 1 (tradeline-complete):     ${ctx1.passed} passed, ${ctx1.failed} failed`);
+  console.log(`  Scenario 1 (tradeline-pro):          ${ctx1.passed} passed, ${ctx1.failed} failed`);
   console.log(`  Scenario 2 (tradeline-call-backup):  ${ctx2.passed} passed, ${ctx2.failed} failed`);
   console.log(`  ─────────────────────────────────────`);
   console.log(`  Total: ${totalPassed} passed, ${totalFailed} failed`);
