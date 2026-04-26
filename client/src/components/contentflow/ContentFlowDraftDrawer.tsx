@@ -136,9 +136,42 @@ export default function ContentFlowDraftDrawer({ draftId, open, onOpenChange }: 
     },
   });
 
+  const publishMutation = useMutation({
+    mutationFn: async () => {
+      if (draftId === null) throw new Error("no draftId");
+      // Default WordPress status is "draft" — admin reviews on the WP side
+      // before going live. Sprint 4 does not expose a one-click "publish" path.
+      const res = await apiRequest("POST", `/api/admin/contentflow/drafts/${draftId}/publish`, {
+        status: "draft",
+      });
+      return res.json();
+    },
+    onSuccess: (body: any) => {
+      toast({
+        title: "Published to WordPress",
+        description: body?.post_url ? `Saved as WP draft: ${body.post_url}` : "Saved as WP draft",
+      });
+      qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/drafts", draftId] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/queue"] });
+    },
+    onError: (e: any) => {
+      toast({ variant: "destructive", title: "Publish failed", description: e?.message || "Unknown error" });
+    },
+  });
+
   const draft = data?.draft;
   const isTerminal = draft ? ["published", "delivered", "failed"].includes(draft.status) : false;
-  const busy = approveMutation.isPending || rejectMutation.isPending;
+  const busy = approveMutation.isPending || rejectMutation.isPending || publishMutation.isPending;
+
+  // Publish-to-WordPress visibility: only for approved RankFlow articles.
+  // Read state from draft.metadata.wordpress (populated by the publisher).
+  const wpMeta = (draft?.metadata as any)?.wordpress as
+    | { post_id?: number; post_url?: string; published_at?: string; wp_status?: string; error?: string }
+    | undefined;
+  const canShowPublishUI = !!draft && draft.kind === "article" && draft.surface === "rankflow";
+  const isPublished = !!wpMeta?.post_url && !!wpMeta?.post_id;
+  const lastPublishError = wpMeta?.error;
+  const canTriggerPublish = canShowPublishUI && draft?.status === "approved" && !isPublished;
 
   return (
     <Sheet
@@ -347,12 +380,53 @@ export default function ContentFlowDraftDrawer({ draftId, open, onOpenChange }: 
                 <XCircle className="h-4 w-4 mr-1" />
                 Reject
               </Button>
+              {canTriggerPublish && (
+                <Button
+                  data-testid="publish-wordpress-btn"
+                  onClick={() => publishMutation.mutate()}
+                  disabled={busy}
+                  variant="outline"
+                  className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                >
+                  {publishMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                  {lastPublishError ? "Retry Publish" : "Publish to WordPress"}
+                </Button>
+              )}
               <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy} className="ml-auto">
                 Close
               </Button>
             </div>
 
-            {isTerminal && (
+            {/* WordPress publish status — visible only for RankFlow articles */}
+            {canShowPublishUI && isPublished && wpMeta?.post_url && (
+              <div className="rounded border border-blue-200 bg-blue-50 p-3 text-xs space-y-1" data-testid="wp-published-banner">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-blue-600">Published</Badge>
+                  <span className="text-blue-900">WordPress {wpMeta.wp_status ?? "draft"}</span>
+                  {wpMeta.published_at && (
+                    <span className="text-muted-foreground ml-auto">
+                      {new Date(wpMeta.published_at).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <a
+                  href={wpMeta.post_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-700 hover:underline inline-flex items-center gap-1 break-all"
+                >
+                  {wpMeta.post_url} <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            )}
+            {canShowPublishUI && lastPublishError && !isPublished && (
+              <div className="rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" data-testid="wp-publish-error">
+                <div className="font-medium">Last publish attempt failed</div>
+                <div className="mt-1 break-words">{lastPublishError}</div>
+              </div>
+            )}
+
+            {isTerminal && draft.status !== "published" && (
               <div className="text-xs text-muted-foreground italic">
                 Draft is in a terminal state ({draft.status}) — approve/reject are disabled.
               </div>
