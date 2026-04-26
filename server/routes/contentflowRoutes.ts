@@ -497,24 +497,34 @@ export function registerContentFlowRoutes(app: Express): void {
     );
 
     /**
-     * POST /api/admin/contentflow/__dev/wp-mock/wp-json/wp/v2/posts
+     * POST /api/__dev/wp-mock/wp-json/wp/v2/posts
      *
      * Stand-in for a WordPress instance. Mirrors the shape of the real
      * WP REST API's "create post" endpoint enough to exercise the
      * publisher end-to-end without a live WordPress install. Returns
      * { id, link, status } in the same field names WP uses.
      *
-     * Tests configure a client with cms_url pointing here. Production
-     * code never touches this — gated by NODE_ENV !== "production".
+     * Mounted OUTSIDE the admin route prefix because the publisher hits
+     * this endpoint with WordPress HTTP Basic Auth (the WP convention)
+     * — not with the admin session cookie. Putting it under
+     * /api/admin/... would cause the admin auth middleware to reject
+     * the publisher's call before the mock could see it.
+     *
+     * Production code never touches this — gated by NODE_ENV !== "production".
+     * The mock requires *some* Authorization header (mirroring real WP)
+     * so it can't be hit anonymously.
      *
      * Includes a deliberate failure mode: if the post `title` starts
      * with "FAIL_WP_500", the mock returns a 500 so the spec can
      * exercise the publisher's error path.
      */
     app.post(
-      "/api/admin/contentflow/__dev/wp-mock/wp-json/wp/v2/posts",
-      requireAdmin,
+      "/api/__dev/wp-mock/wp-json/wp/v2/posts",
       async (req: Request, res: Response) => {
+        // Lightweight auth check — mirrors what a real WP would enforce.
+        if (!req.headers.authorization || !/^basic\s/i.test(req.headers.authorization)) {
+          return res.status(401).json({ code: "rest_not_logged_in", message: "Authentication required" });
+        }
         const title = typeof req.body?.title === "string" ? req.body.title : "";
         const reqStatus = typeof req.body?.status === "string" ? req.body.status : "draft";
         if (title.startsWith("FAIL_WP_500")) {

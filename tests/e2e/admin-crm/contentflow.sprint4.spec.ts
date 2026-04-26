@@ -25,7 +25,7 @@ import { STORAGE_STATE_PATH } from "./global-setup";
 import { pool } from "../../../server/db";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
-const WP_MOCK_BASE = `${BASE_URL}/api/admin/contentflow/__dev/wp-mock`;
+const WP_MOCK_BASE = `${BASE_URL}/api/__dev/wp-mock`;
 
 type SuiteFixtures = {
   adminApi: APIRequestContext;
