@@ -107,20 +107,11 @@ interface FooterOpts {
   theme?: "dark" | "light";
 }
 
-const PRODUCTS: Array<{ name: string; href: string }> = [
+/** 3 flagship products surfaced in the footer. Everything else lives at /products. */
+const FLAGSHIP_PRODUCTS: Array<{ name: string; href: string }> = [
   { name: "TradeLine", href: "/products/tradeline" },
   { name: "QuoteQuick Pro", href: "/products/quickquotepro" },
   { name: "MapGuard", href: "/products/mapguard" },
-  { name: "ReputationShield", href: "/products/reputationshield" },
-  { name: "SocialSync", href: "/products/socialsync" },
-  { name: "RankFlow", href: "/products/rankflow" },
-  { name: "AdFlow", href: "/products/adflow" },
-];
-
-/** 6 powered-by names — laid out as 2 rows × 3 columns */
-const POWERED_BY: string[] = [
-  "Anthropic", "OpenAI", "Cloudflare",
-  "Twilio", "SendGrid", "Meta",
 ];
 
 export function buildLegalFooter(opts: FooterOpts | "dark" | "light" = {}): string {
@@ -128,6 +119,7 @@ export function buildLegalFooter(opts: FooterOpts | "dark" | "light" = {}): stri
   const params: FooterOpts = typeof opts === "string" ? { theme: opts } : opts;
   const isLight = params.theme === "light";
   const baseUrl = (process.env.APP_URL || "https://wefixtrades.com").replace(/\/$/, "");
+  const year = new Date().getFullYear();
 
   const palette = isLight ? {
     text: "#374151",
@@ -135,6 +127,7 @@ export function buildLegalFooter(opts: FooterOpts | "dark" | "light" = {}): stri
     faint: "#9CA3AF",
     tiny: "#C7CCD2",
     border: "#E5E7EB",
+    borderSoft: "#F3F4F6",
     accent: ACCENT,
     bright: "#111827",
   } : {
@@ -143,85 +136,82 @@ export function buildLegalFooter(opts: FooterOpts | "dark" | "light" = {}): stri
     faint: TEXT_FAINT,
     tiny: TEXT_TINY,
     border: BORDER,
+    borderSoft: "rgba(255,255,255,0.04)",
     accent: ACCENT,
     bright: TEXT_BRIGHT,
   };
 
-  const productLinks = PRODUCTS
-    .map((p) => `<a href="${baseUrl}${p.href}" style="display:inline-block;color:${palette.muted};font-size:11px;text-decoration:none;padding:3px 10px;margin:2px 4px 2px 0;border:1px solid ${palette.border};border-radius:999px;font-family:'Inter',system-ui,Arial,sans-serif;">${p.name}</a>`)
-    .join("");
+  // 3 flagship products inline, with a "View all" tail
+  const platformLine = FLAGSHIP_PRODUCTS
+    .map((p, i, arr) =>
+      `<a href="${baseUrl}${p.href}" style="color:${palette.text};text-decoration:none;font-weight:500;">${p.name}</a>${
+        i < arr.length - 1 ? `<span style="color:${palette.tiny};margin:0 8px;">·</span>` : ""
+      }`,
+    )
+    .join("") + ` <a href="${baseUrl}/products" style="color:${palette.muted};text-decoration:none;font-weight:500;margin-left:10px;">View all &rarr;</a>`;
 
-  // Powered-by row 1: indices 0-2
-  // Powered-by row 2: indices 3-5
-  const poweredRow = (start: number, end: number) =>
-    POWERED_BY.slice(start, end)
-      .map((name, i, arr) => `<span style="color:${palette.faint};font-size:10.5px;font-weight:600;letter-spacing:0.02em;font-family:'Inter',system-ui,Arial,sans-serif;">${name}</span>${i < arr.length - 1 ? `<span style="color:${palette.tiny};margin:0 10px;">·</span>` : ""}`)
-      .join("");
-
-  const unsubscribeBlock = params.marketing && params.recipientEmail
-    ? `
-      <p style="font-size:11px;color:${palette.faint};text-align:left;margin:14px 0 0;line-height:1.5;font-family:'Inter',system-ui,Arial,sans-serif;">
-        Don't want these reports? <a href="${buildUnsubscribeUrl(params.recipientEmail, baseUrl)}" style="color:${palette.muted};text-decoration:underline;">Unsubscribe</a>.
-      </p>`
+  const unsubscribeLink = params.marketing && params.recipientEmail
+    ? ` <span style="color:${palette.tiny};margin:0 8px;">·</span> <a href="${buildUnsubscribeUrl(params.recipientEmail, baseUrl)}" style="color:${palette.faint};text-decoration:underline;">Unsubscribe</a>`
     : "";
 
   return `
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="width:100%;max-width:560px;margin:24px auto 0;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="width:100%;max-width:560px;margin:36px auto 0;">
       <tr>
-        <td style="padding:24px 18px 0;border-top:1px solid ${palette.border};">
+        <td style="padding:0 4px;">
 
-          <!-- Brand wordmark + icon — LEFT-ALIGNED -->
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 10px;">
-            <tr>
-              <td style="vertical-align:middle;padding-right:9px;">
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;">
-                  <tr>
-                    <td align="center" valign="middle" width="28" height="28" style="width:28px;height:28px;background:#1a1f1e;border:1px solid rgba(255,255,255,0.18);border-radius:8px;color:${palette.accent};font-size:14px;font-weight:700;font-family:Arial,sans-serif;line-height:28px;text-align:center;">&#10003;</td>
-                  </tr>
-                </table>
-              </td>
-              <td style="vertical-align:middle;font-family:'Inter',system-ui,Arial,sans-serif;font-size:15px;font-weight:700;letter-spacing:-0.02em;color:${palette.bright};line-height:1;">
-                We<span style="color:${palette.accent};">Fix</span>Trades
-              </td>
-            </tr>
-          </table>
+          <!-- Hairline divider — soft fade for premium feel -->
+          <div style="height:1px;background:${palette.border};margin:0 0 32px;line-height:1px;font-size:0;">&nbsp;</div>
 
-          <!-- Tagline -->
-          <p style="text-align:left;margin:0 0 14px;font-family:'Inter',system-ui,Arial,sans-serif;font-size:11.5px;color:${palette.muted};line-height:1.5;font-style:italic;">
-            No contracts &middot; Cancel anytime &middot; Upfront pricing.<br/>
-            The most transparent SaaS for trades pros in North America.
+          <!-- Brand wordmark -->
+          <p style="margin:0 0 10px;font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:17px;font-weight:700;letter-spacing:-0.02em;color:${palette.bright};line-height:1;">
+            We<span style="color:${palette.accent};">Fix</span>Trades
           </p>
 
-          <!-- Product links -->
-          <p style="text-align:left;margin:0 0 14px;line-height:1.9;">
-            ${productLinks}
+          <!-- Confident value prop -->
+          <p style="margin:0 0 28px;font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:13px;color:${palette.muted};line-height:1.55;max-width:420px;">
+            Helping trade businesses win more jobs through automation, visibility, and lead systems.
           </p>
 
-          <!-- Email contacts -->
-          <p style="text-align:left;margin:0 0 18px;font-family:'Inter',system-ui,Arial,sans-serif;font-size:11.5px;color:${palette.muted};line-height:1.6;">
-            <a href="mailto:support@wefixtrades.com" style="color:${palette.muted};text-decoration:none;">support@wefixtrades.com</a>
+          <!-- Platform -->
+          <p style="margin:0 0 6px;font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:10px;color:${palette.faint};text-transform:uppercase;letter-spacing:0.1em;font-weight:600;">
+            Platform
+          </p>
+          <p style="margin:0 0 24px;font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:13px;color:${palette.text};line-height:1.6;">
+            ${platformLine}
+          </p>
+
+          <!-- Contact -->
+          <p style="margin:0 0 6px;font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:10px;color:${palette.faint};text-transform:uppercase;letter-spacing:0.1em;font-weight:600;">
+            Contact
+          </p>
+          <p style="margin:0 0 4px;font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:13px;color:${palette.text};line-height:1.65;">
+            <a href="mailto:support@wefixtrades.com" style="color:${palette.text};text-decoration:none;">support@wefixtrades.com</a>
+            <span style="color:${palette.tiny};margin:0 6px;">·</span>
+            <a href="mailto:sales@wefixtrades.com" style="color:${palette.text};text-decoration:none;">sales@wefixtrades.com</a>
+          </p>
+          <p style="margin:0 0 26px;font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:12px;color:${palette.faint};line-height:1.6;">
+            ${COMPANY_LOCATION}
+            <span style="color:${palette.tiny};margin:0 6px;">·</span>
+            <a href="tel:+19156153280" style="color:${palette.faint};text-decoration:none;">${COMPANY_PHONE}</a>
+          </p>
+
+          <!-- Trust pillars (max 2) -->
+          <p style="margin:0 0 22px;font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:11.5px;color:${palette.muted};line-height:1.6;letter-spacing:0.01em;">
+            Cancel anytime
             <span style="color:${palette.tiny};margin:0 8px;">·</span>
-            <a href="mailto:sales@wefixtrades.com" style="color:${palette.muted};text-decoration:none;">sales@wefixtrades.com</a>
+            Transparent pricing
+            <span style="color:${palette.tiny};margin:0 8px;">·</span>
+            Built on enterprise-grade infrastructure
           </p>
 
-          <!-- Powered by — left-aligned title + 2 rows × 3 names -->
-          <div style="padding-top:14px;border-top:1px solid ${palette.border};">
-            <p style="text-align:left;margin:0 0 6px;font-size:9.5px;color:${palette.tiny};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;font-family:'Inter',system-ui,Arial,sans-serif;">
-              Powered by
-            </p>
-            <p style="text-align:left;margin:0;line-height:1.4;">
-              ${poweredRow(0, 3)}
-            </p>
-            <p style="text-align:left;margin:3px 0 0;line-height:1.4;">
-              ${poweredRow(3, 6)}
-            </p>
-          </div>
-
-          ${unsubscribeBlock}
-
-          <!-- Tiny brand+contact line at bottom (replaces the LLC line) -->
-          <p style="text-align:left;margin:18px 0 0;font-family:'Inter',system-ui,Arial,sans-serif;font-size:9px;color:${palette.tiny};line-height:1.5;">
-            ${COMPANY_NAME} &middot; ${COMPANY_PHONE} &middot; ${COMPANY_LOCATION}
+          <!-- Final hairline + compliance row -->
+          <div style="height:1px;background:${palette.border};margin:0 0 14px;line-height:1px;font-size:0;">&nbsp;</div>
+          <p style="margin:0;font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:11px;color:${palette.tiny};line-height:1.5;">
+            &copy; ${year} ${COMPANY_NAME}
+            <span style="color:${palette.tiny};margin:0 8px;">·</span>
+            <a href="${baseUrl}/privacy" style="color:${palette.faint};text-decoration:none;">Privacy</a>
+            <span style="color:${palette.tiny};margin:0 8px;">·</span>
+            <a href="${baseUrl}/terms" style="color:${palette.faint};text-decoration:none;">Terms</a>${unsubscribeLink}
           </p>
         </td>
       </tr>
