@@ -15,15 +15,17 @@
 
 import { buildUnsubscribeUrl } from "./unsubscribeToken";
 
-const LEGAL_ENTITY_NAME = "MR Holdings & Trade LLC";
-const LEGAL_ENTITY_ADDRESS = "30 N. Gould St. Suite R · Sheridan, WY 82801";
-
 const ACCENT = "#66E8FA";
 const TEXT_BRIGHT = "#FAFAFA";
 const TEXT_MUTED = "#8B919A";
 const TEXT_FAINT = "#555B63";
 const TEXT_TINY = "#3D434A";
 const BORDER = "rgba(255,255,255,0.06)";
+const BORDER_SOFT = "rgba(255,255,255,0.10)";
+
+const COMPANY_NAME = "WeFixTrades";
+const COMPANY_PHONE = "+1 (915) 615-3280";
+const COMPANY_LOCATION = "Toronto, Canada";
 
 /* ═══════════════════════════════════════════
    HEADER — matches website navbar Logo.tsx
@@ -31,33 +33,30 @@ const BORDER = "rgba(255,255,255,0.06)";
 
 /**
  * Email-safe replication of the website navbar logo.
- * Table-based layout works in Gmail, Outlook, Apple Mail.
- *
- * Uses Unicode ✓ inside the icon box rather than SVG (Gmail strips SVG).
- * Visually close to the website's bracket+checkmark mark; close enough for
- * brand recognition.
+ * Centered as a unit. Icon (with subtle white border) on the left, then a
+ * stacked column with the wordmark and (optional) tagline directly under it.
+ * Tagline left-aligns with the "W" of WeFixTrades.
  */
 export function buildEmailHeader(opts: { tagline?: string } = {}): string {
+  const taglineRow = opts.tagline
+    ? `<div style="font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:10.5px;color:${TEXT_MUTED};letter-spacing:0.08em;text-transform:uppercase;line-height:1;margin-top:2px;">${opts.tagline}</div>`
+    : "";
+
   return `
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 28px;">
       <tr>
-        <td style="vertical-align:middle;padding-right:12px;">
+        <td style="vertical-align:middle;padding-right:10px;">
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;">
             <tr>
-              <td align="center" valign="middle" width="42" height="42" style="width:42px;height:42px;background:#1a1f1e;border:1.5px solid rgba(102,232,250,0.22);border-radius:11px;color:${ACCENT};font-size:20px;font-weight:700;font-family:Arial,sans-serif;line-height:42px;text-align:center;">&#10003;</td>
+              <td align="center" valign="middle" width="42" height="42" style="width:42px;height:42px;background:#1a1f1e;border:1px solid rgba(255,255,255,0.18);border-radius:11px;color:${ACCENT};font-size:20px;font-weight:700;font-family:Arial,sans-serif;line-height:42px;text-align:center;">&#10003;</td>
             </tr>
           </table>
         </td>
-        <td style="vertical-align:middle;font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-weight:700;font-size:20px;letter-spacing:-0.025em;color:${TEXT_BRIGHT};line-height:1;">
-          We<span style="color:${ACCENT};">Fix</span>Trades
+        <td style="vertical-align:middle;text-align:left;">
+          <div style="font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-weight:700;font-size:20px;letter-spacing:-0.025em;color:${TEXT_BRIGHT};line-height:1;">We<span style="color:${ACCENT};">Fix</span>Trades</div>
+          ${taglineRow}
         </td>
       </tr>
-      ${opts.tagline ? `
-      <tr>
-        <td colspan="2" style="padding-top:10px;text-align:center;font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:11px;color:${TEXT_MUTED};letter-spacing:0.05em;text-transform:uppercase;">
-          ${opts.tagline}
-        </td>
-      </tr>` : ""}
     </table>`;
 }
 
@@ -66,8 +65,9 @@ export function buildEmailHeader(opts: { tagline?: string } = {}): string {
    ═══════════════════════════════════════════ */
 
 /**
- * Friendly "Chat with us" card. Drop in above the footer on any email
+ * "Have a question?" card. Drop in above the footer on any email
  * where helping the recipient reach support is valuable.
+ * Wrapped in a subtle white border to lift it off the page.
  */
 export function buildChatBubble(): string {
   const chatUrl = `${(process.env.APP_URL || "https://wefixtrades.com").replace(/\/$/, "")}/#chat`;
@@ -75,7 +75,7 @@ export function buildChatBubble(): string {
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:18px auto 0;width:100%;max-width:560px;">
       <tr>
         <td>
-          <a href="${chatUrl}" style="display:block;background:#0F141A;border:1px solid ${BORDER};border-radius:12px;padding:14px 18px;text-decoration:none;font-family:'Inter',system-ui,Arial,sans-serif;">
+          <a href="${chatUrl}" style="display:block;background:#0F141A;border:1px solid ${BORDER_SOFT};border-radius:12px;padding:14px 18px;text-decoration:none;font-family:'Inter',system-ui,Arial,sans-serif;">
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
               <tr>
                 <td valign="middle" style="width:36px;">
@@ -83,7 +83,7 @@ export function buildChatBubble(): string {
                 </td>
                 <td valign="middle" style="padding-left:12px;">
                   <div style="font-size:13px;font-weight:700;color:${TEXT_BRIGHT};">Have a question?</div>
-                  <div style="font-size:12px;color:${TEXT_MUTED};margin-top:2px;">Chat with us — we usually reply in minutes.</div>
+                  <div style="font-size:12px;color:${TEXT_MUTED};margin-top:2px;">Chat with us — available 24/7.</div>
                 </td>
                 <td valign="middle" align="right" style="font-size:13px;font-weight:700;color:${ACCENT};white-space:nowrap;">→</td>
               </tr>
@@ -95,7 +95,7 @@ export function buildChatBubble(): string {
 }
 
 /* ═══════════════════════════════════════════
-   FOOTER — brand, products, contact, trust, legal
+   FOOTER — brand, products, powered-by, legal
    ═══════════════════════════════════════════ */
 
 interface FooterOpts {
@@ -117,16 +117,10 @@ const PRODUCTS: Array<{ name: string; href: string }> = [
   { name: "AdFlow", href: "/products/adflow" },
 ];
 
-const TRUST_BADGES: Array<{ icon: string; label: string }> = [
-  { icon: "🌐", label: "Google Business Profile Partner" },
-  { icon: "🔒", label: "256-bit SSL" },
-  { icon: "💳", label: "Stripe-secured payments" },
-  { icon: "📱", label: "Twilio A2P Registered" },
-  { icon: "🔐", label: "GDPR-ready" },
-];
-
+/** 6 powered-by names — laid out as 2 rows × 3 columns */
 const POWERED_BY: string[] = [
-  "Anthropic", "OpenAI", "Cloudflare", "Twilio", "SendGrid", "Vapi", "Meta",
+  "Anthropic", "OpenAI", "Cloudflare",
+  "Twilio", "SendGrid", "Meta",
 ];
 
 export function buildLegalFooter(opts: FooterOpts | "dark" | "light" = {}): string {
@@ -136,7 +130,6 @@ export function buildLegalFooter(opts: FooterOpts | "dark" | "light" = {}): stri
   const baseUrl = (process.env.APP_URL || "https://wefixtrades.com").replace(/\/$/, "");
 
   const palette = isLight ? {
-    bg: "transparent",
     text: "#374151",
     muted: "#6B7280",
     faint: "#9CA3AF",
@@ -145,7 +138,6 @@ export function buildLegalFooter(opts: FooterOpts | "dark" | "light" = {}): stri
     accent: ACCENT,
     bright: "#111827",
   } : {
-    bg: "transparent",
     text: "#CDD1D6",
     muted: TEXT_MUTED,
     faint: TEXT_FAINT,
@@ -156,20 +148,19 @@ export function buildLegalFooter(opts: FooterOpts | "dark" | "light" = {}): stri
   };
 
   const productLinks = PRODUCTS
-    .map((p) => `<a href="${baseUrl}${p.href}" style="display:inline-block;color:${palette.muted};font-size:11px;text-decoration:none;padding:3px 10px;margin:2px;border:1px solid ${palette.border};border-radius:999px;font-family:'Inter',system-ui,Arial,sans-serif;">${p.name}</a>`)
+    .map((p) => `<a href="${baseUrl}${p.href}" style="display:inline-block;color:${palette.muted};font-size:11px;text-decoration:none;padding:3px 10px;margin:2px 4px 2px 0;border:1px solid ${palette.border};border-radius:999px;font-family:'Inter',system-ui,Arial,sans-serif;">${p.name}</a>`)
     .join("");
 
-  const trustRow = TRUST_BADGES
-    .map((b) => `<span style="display:inline-block;color:${palette.muted};font-size:10.5px;margin:0 8px 4px 0;font-family:'Inter',system-ui,Arial,sans-serif;">${b.icon} ${b.label}</span>`)
-    .join("");
-
-  const poweredRow = POWERED_BY
-    .map((name, i) => `<span style="color:${palette.faint};font-size:10.5px;font-weight:600;letter-spacing:0.02em;font-family:'Inter',system-ui,Arial,sans-serif;">${name}</span>${i < POWERED_BY.length - 1 ? `<span style="color:${palette.tiny};margin:0 8px;">·</span>` : ""}`)
-    .join("");
+  // Powered-by row 1: indices 0-2
+  // Powered-by row 2: indices 3-5
+  const poweredRow = (start: number, end: number) =>
+    POWERED_BY.slice(start, end)
+      .map((name, i, arr) => `<span style="color:${palette.faint};font-size:10.5px;font-weight:600;letter-spacing:0.02em;font-family:'Inter',system-ui,Arial,sans-serif;">${name}</span>${i < arr.length - 1 ? `<span style="color:${palette.tiny};margin:0 10px;">·</span>` : ""}`)
+      .join("");
 
   const unsubscribeBlock = params.marketing && params.recipientEmail
     ? `
-      <p style="font-size:11px;color:${palette.faint};text-align:center;margin:16px 0 0;line-height:1.5;font-family:'Inter',system-ui,Arial,sans-serif;">
+      <p style="font-size:11px;color:${palette.faint};text-align:left;margin:14px 0 0;line-height:1.5;font-family:'Inter',system-ui,Arial,sans-serif;">
         Don't want these reports? <a href="${buildUnsubscribeUrl(params.recipientEmail, baseUrl)}" style="color:${palette.muted};text-decoration:underline;">Unsubscribe</a>.
       </p>`
     : "";
@@ -179,58 +170,60 @@ export function buildLegalFooter(opts: FooterOpts | "dark" | "light" = {}): stri
       <tr>
         <td style="padding:24px 18px 0;border-top:1px solid ${palette.border};">
 
-          <!-- Brand wordmark -->
-          <p style="text-align:center;margin:0 0 8px;font-family:'Inter',system-ui,Arial,sans-serif;font-size:15px;font-weight:700;letter-spacing:-0.02em;color:${palette.bright};">
-            We<span style="color:${palette.accent};">Fix</span>Trades
-          </p>
+          <!-- Brand wordmark + icon — LEFT-ALIGNED -->
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 10px;">
+            <tr>
+              <td style="vertical-align:middle;padding-right:9px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;">
+                  <tr>
+                    <td align="center" valign="middle" width="28" height="28" style="width:28px;height:28px;background:#1a1f1e;border:1px solid rgba(255,255,255,0.18);border-radius:8px;color:${palette.accent};font-size:14px;font-weight:700;font-family:Arial,sans-serif;line-height:28px;text-align:center;">&#10003;</td>
+                  </tr>
+                </table>
+              </td>
+              <td style="vertical-align:middle;font-family:'Inter',system-ui,Arial,sans-serif;font-size:15px;font-weight:700;letter-spacing:-0.02em;color:${palette.bright};line-height:1;">
+                We<span style="color:${palette.accent};">Fix</span>Trades
+              </td>
+            </tr>
+          </table>
 
           <!-- Tagline -->
-          <p style="text-align:center;margin:0 0 14px;font-family:'Inter',system-ui,Arial,sans-serif;font-size:11.5px;color:${palette.muted};line-height:1.5;font-style:italic;">
-            No contracts &middot; Cancel anytime &middot; Upfront pricing<br/>
-            The most transparent SaaS for trades pros in North America
+          <p style="text-align:left;margin:0 0 14px;font-family:'Inter',system-ui,Arial,sans-serif;font-size:11.5px;color:${palette.muted};line-height:1.5;font-style:italic;">
+            No contracts &middot; Cancel anytime &middot; Upfront pricing.<br/>
+            The most transparent SaaS for trades pros in North America.
           </p>
 
           <!-- Product links -->
-          <p style="text-align:center;margin:0 0 14px;line-height:1.9;">
+          <p style="text-align:left;margin:0 0 14px;line-height:1.9;">
             ${productLinks}
           </p>
 
-          <!-- Contact -->
-          <p style="text-align:center;margin:0 0 4px;font-family:'Inter',system-ui,Arial,sans-serif;font-size:11.5px;color:${palette.muted};line-height:1.7;">
-            <a href="tel:+19156153280" style="color:${palette.muted};text-decoration:none;">📞&nbsp;+1&nbsp;(915)&nbsp;615-3280</a>
-            <span style="color:${palette.tiny};margin:0 8px;">·</span>
+          <!-- Email contacts -->
+          <p style="text-align:left;margin:0 0 18px;font-family:'Inter',system-ui,Arial,sans-serif;font-size:11.5px;color:${palette.muted};line-height:1.6;">
             <a href="mailto:support@wefixtrades.com" style="color:${palette.muted};text-decoration:none;">support@wefixtrades.com</a>
             <span style="color:${palette.tiny};margin:0 8px;">·</span>
             <a href="mailto:sales@wefixtrades.com" style="color:${palette.muted};text-decoration:none;">sales@wefixtrades.com</a>
           </p>
-          <p style="text-align:center;margin:0 0 18px;font-family:'Inter',system-ui,Arial,sans-serif;font-size:11.5px;color:${palette.muted};">
-            Toronto, Canada
-          </p>
 
-          <!-- Trust badges -->
-          <p style="text-align:center;margin:0 0 12px;line-height:1.7;">
-            ${trustRow}
-          </p>
-
-          <!-- Powered by -->
-          <p style="text-align:center;margin:0;padding-top:10px;border-top:1px solid ${palette.border};line-height:1.6;">
-            <span style="font-size:9.5px;color:${palette.tiny};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;font-family:'Inter',system-ui,Arial,sans-serif;">Powered by</span>
-            <br/>
-            <span style="display:inline-block;margin-top:4px;">${poweredRow}</span>
-          </p>
+          <!-- Powered by — left-aligned title + 2 rows × 3 names -->
+          <div style="padding-top:14px;border-top:1px solid ${palette.border};">
+            <p style="text-align:left;margin:0 0 6px;font-size:9.5px;color:${palette.tiny};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;font-family:'Inter',system-ui,Arial,sans-serif;">
+              Powered by
+            </p>
+            <p style="text-align:left;margin:0;line-height:1.4;">
+              ${poweredRow(0, 3)}
+            </p>
+            <p style="text-align:left;margin:3px 0 0;line-height:1.4;">
+              ${poweredRow(3, 6)}
+            </p>
+          </div>
 
           ${unsubscribeBlock}
 
-          <!-- Tiny CAN-SPAM legal entity -->
-          <p style="text-align:center;margin:18px 0 0;font-family:'Inter',system-ui,Arial,sans-serif;font-size:9px;color:${palette.tiny};line-height:1.5;">
-            ${LEGAL_ENTITY_NAME} &middot; ${LEGAL_ENTITY_ADDRESS}
+          <!-- Tiny brand+contact line at bottom (replaces the LLC line) -->
+          <p style="text-align:left;margin:18px 0 0;font-family:'Inter',system-ui,Arial,sans-serif;font-size:9px;color:${palette.tiny};line-height:1.5;">
+            ${COMPANY_NAME} &middot; ${COMPANY_PHONE} &middot; ${COMPANY_LOCATION}
           </p>
         </td>
       </tr>
     </table>`;
 }
-
-export const LEGAL_ENTITY = {
-  name: LEGAL_ENTITY_NAME,
-  address: LEGAL_ENTITY_ADDRESS,
-};
