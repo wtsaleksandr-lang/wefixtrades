@@ -4,6 +4,7 @@ import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
 import { runQA } from "../services/rankflow/qaService";
 import { autoBatchUnbatchedTasks } from "../services/rankflow/batchService";
 import { WORKER_LIMITS, prioritizeProfiles } from "../services/rankflow/scalingConfig";
+import { createDraftFromRankflowTask, generateArticleBody } from "../services/contentflow/articleService";
 
 /**
  * Weekly job: generate plans and auto-process AI tasks.
@@ -43,7 +44,17 @@ export async function processRankFlowPlans(): Promise<{
 
         const taskDefs = generateTasksFromPlan(plan.id, planData, profile);
         for (const t of taskDefs) {
-          await storage.createRankFlowTask(t as any);
+          const task = await storage.createRankFlowTask(t as any);
+          if (task.type === "page_create") {
+            try {
+              const draft = await createDraftFromRankflowTask({ task, profile });
+              generateArticleBody(draft.id).catch((err) =>
+                console.error(`[contentflow] background article generation rejected for draft ${draft.id}:`, err),
+              );
+            } catch (hookErr: any) {
+              console.error(`[contentflow] article hook failed for task ${task.id}:`, hookErr.message);
+            }
+          }
         }
 
         await storage.updateMonthlyPlanStatus(plan.id, "active");

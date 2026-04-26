@@ -6,6 +6,7 @@ import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
 import { runQA } from "../services/rankflow/qaService";
 import { createVendorBatch, addTaskToBatch, buildDispatchPacket } from "../services/rankflow/batchService";
 import { getTierConfig } from "../services/rankflow/marginGuardrails";
+import { createDraftFromRankflowTask, generateArticleBody } from "../services/contentflow/articleService";
 
 export function registerRankFlowRoutes(app: Express): void {
 
@@ -64,6 +65,16 @@ export function registerRankFlowRoutes(app: Express): void {
       for (const t of taskDefs) {
         const task = await storage.createRankFlowTask(t as any);
         tasks.push(task);
+        if (task.type === "page_create") {
+          try {
+            const draft = await createDraftFromRankflowTask({ task, profile });
+            generateArticleBody(draft.id).catch((err) =>
+              console.error(`[contentflow] background article generation rejected for draft ${draft.id}:`, err),
+            );
+          } catch (hookErr: any) {
+            console.error(`[contentflow] article hook failed for task ${task.id}:`, hookErr.message);
+          }
+        }
       }
 
       await storage.updateMonthlyPlanStatus(plan.id, "active");

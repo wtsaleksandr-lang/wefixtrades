@@ -7,6 +7,7 @@ import { chat as aiChat } from "../services/aiService";
 import { generateMonthlyPlan } from "../services/rankflow/planGenerator";
 import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
 import { generateKeywordTargets, clusterKeywords, deriveTargetServices } from "../services/rankflow/keywordHelper";
+import { createDraftFromRankflowTask, generateArticleBody } from "../services/contentflow/articleService";
 import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../services/threadService";
 import { authRateLimiter } from "../services/rateLimiter";
 
@@ -2774,8 +2775,18 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         const taskDefs = generateTasksFromPlan(plan.id, planData, profile);
         let tasksCreated = 0;
         for (const t of taskDefs) {
-          await storage.createRankFlowTask(t as any);
+          const task = await storage.createRankFlowTask(t as any);
           tasksCreated++;
+          if (task.type === "page_create") {
+            try {
+              const draft = await createDraftFromRankflowTask({ task, profile });
+              generateArticleBody(draft.id).catch((err) =>
+                console.error(`[contentflow] background article generation rejected for draft ${draft.id}:`, err),
+              );
+            } catch (hookErr: any) {
+              console.error(`[contentflow] article hook failed for task ${task.id}:`, hookErr.message);
+            }
+          }
         }
 
         await storage.updateMonthlyPlanStatus(plan.id, "active");

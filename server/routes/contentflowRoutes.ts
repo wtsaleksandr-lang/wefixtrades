@@ -15,11 +15,62 @@ import type { Express, Request, Response } from "express";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
 import { createDraftFromSocialPost } from "../services/contentflow/draftService";
+import { generateArticleBody } from "../services/contentflow/articleService";
 import {
   autoApproveDraft,
   adminApproveDraft,
   adminRejectDraft,
 } from "../services/contentflow/approvalService";
+
+/* ─── Local markdown → HTML helpers (no dep) ──────────────────────────── */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * Convert article markdown to a minimal HTML body. Handles ATX headings
+ * (## / ###) and blank-line-separated paragraphs. Everything else is
+ * HTML-escaped and emitted as plain text — by design, since we have not
+ * pulled in a markdown library yet.
+ */
+function renderArticleHtml(input: { title: string | null; excerpt: string | null; bodyMd: string }): string {
+  const blocks = input.bodyMd.split(/\n\s*\n/);
+  const rendered: string[] = [];
+  for (const raw of blocks) {
+    const block = raw.trim();
+    if (!block) continue;
+    if (block.startsWith("### ")) {
+      rendered.push(`<h3>${escapeHtml(block.slice(4).trim())}</h3>`);
+    } else if (block.startsWith("## ")) {
+      rendered.push(`<h2>${escapeHtml(block.slice(3).trim())}</h2>`);
+    } else if (block.startsWith("# ")) {
+      rendered.push(`<h2>${escapeHtml(block.slice(2).trim())}</h2>`);
+    } else {
+      rendered.push(`<p>${escapeHtml(block)}</p>`);
+    }
+  }
+  const body = rendered.join("\n");
+  const titleHtml = input.title ? `<h1>${escapeHtml(input.title)}</h1>\n` : "";
+  const excerptHtml = input.excerpt ? `<p class="excerpt"><em>${escapeHtml(input.excerpt)}</em></p>\n` : "";
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(input.title || "Article")}</title>
+</head>
+<body>
+<article>
+${titleHtml}${excerptHtml}${body}
+</article>
+</body>
+</html>
+`;
+}
 
 export function registerContentFlowRoutes(app: Express): void {
   /**
@@ -91,7 +142,10 @@ export function registerContentFlowRoutes(app: Express): void {
         const linkedSocialPost = draft.linked_social_post_id
           ? await storage.getSocialSyncPostById(draft.linked_social_post_id)
           : null;
-        res.json({ draft, approvals, linkedSocialPost, linkedTask: null });
+        const linkedTask = draft.linked_task_id
+          ? await storage.getRankFlowTaskById(draft.linked_task_id)
+          : null;
+        res.json({ draft, approvals, linkedSocialPost, linkedTask });
       } catch (err: any) {
         res.status(500).json({ error: err.message });
       }
@@ -156,6 +210,119 @@ export function registerContentFlowRoutes(app: Express): void {
           : /terminal/i.test(err.message) ? 409
           : 500;
         res.status(status).json({ error: err.message });
+      }
+    },
+  );
+
+  /**
+   * POST /api/admin/contentflow/drafts/:id/regenerate-article
+   *
+   * Synchronously runs the AI generation step for an existing RankFlow
+   * article draft. Useful when (a) the original background generation
+   * failed, or (b) an admin wants a higher-quality re-roll. Replaces
+   * title/excerpt/body atomically. Never throws — wraps the service
+   * result and returns 422 on generation failure.
+   */
+  app.post(
+    "/api/admin/contentflow/drafts/:id/regenerate-article",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const draftId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(draftId)) {
+          return res.status(400).json({ error: "id must be a number" });
+        }
+        const result = await generateArticleBody(draftId);
+        if (!result.ok) {
+          return res.status(422).json({ error: result.error || "generation failed" });
+        }
+        res.json({ ok: true, draft: result.draft });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  /**
+   * GET /api/admin/contentflow/drafts/:id/export.md
+   *
+   * Returns a markdown document for a RankFlow article draft. Includes a
+   * minimal YAML front-matter block (title, excerpt) so the file can be
+   * fed straight into a static-site generator or copy-pasted into a CMS.
+   * Returns 404 if the draft is not an article or has no body yet.
+   */
+  app.get(
+    "/api/admin/contentflow/drafts/:id/export.md",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const draftId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(draftId)) {
+          return res.status(400).json({ error: "id must be a number" });
+        }
+        const draft = await storage.getContentDraftById(draftId);
+        if (!draft) return res.status(404).json({ error: "draft not found" });
+        if (draft.kind !== "article") {
+          return res.status(400).json({ error: "draft is not an article" });
+        }
+        if (!draft.body) {
+          return res.status(409).json({ error: "draft has no body yet — generate first" });
+        }
+        const lines: string[] = [];
+        lines.push("---");
+        if (draft.title) lines.push(`title: ${JSON.stringify(draft.title)}`);
+        if (draft.excerpt) lines.push(`excerpt: ${JSON.stringify(draft.excerpt)}`);
+        lines.push(`draft_id: ${draft.id}`);
+        lines.push("---");
+        lines.push("");
+        lines.push(draft.body);
+        const out = lines.join("\n");
+        res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+        res.setHeader("Content-Disposition", `inline; filename="article-${draft.id}.md"`);
+        res.send(out);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  /**
+   * GET /api/admin/contentflow/drafts/:id/export.html
+   *
+   * Returns a minimal copy-ready HTML document. Renders the markdown body
+   * via a small inline converter (no markdown dependency yet — the user
+   * deferred that to a later sprint). Headings (## / ###) become h2/h3,
+   * blank-line-separated paragraphs become <p>, everything else is
+   * HTML-escaped and wrapped in <pre> for fidelity. Good enough for
+   * copy/paste into a CMS; not a fully-featured renderer.
+   */
+  app.get(
+    "/api/admin/contentflow/drafts/:id/export.html",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const draftId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(draftId)) {
+          return res.status(400).json({ error: "id must be a number" });
+        }
+        const draft = await storage.getContentDraftById(draftId);
+        if (!draft) return res.status(404).json({ error: "draft not found" });
+        if (draft.kind !== "article") {
+          return res.status(400).json({ error: "draft is not an article" });
+        }
+        if (!draft.body) {
+          return res.status(409).json({ error: "draft has no body yet — generate first" });
+        }
+        const html = renderArticleHtml({
+          title: draft.title,
+          excerpt: draft.excerpt,
+          bodyMd: draft.body,
+        });
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.setHeader("Content-Disposition", `inline; filename="article-${draft.id}.html"`);
+        res.send(html);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
       }
     },
   );
