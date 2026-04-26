@@ -13,6 +13,7 @@ import { db } from "../db";
 import { clients, clientServices, serviceCatalog, clientPayments } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
+import { buildLegalFooter } from "./emailFooter";
 import type Stripe from "stripe";
 
 interface LineItem {
@@ -109,6 +110,7 @@ function buildHtml(params: {
         <p style="font-size:11px;color:#555B63;text-align:center;margin:20px 0 0;line-height:1.5;">
           WeFixTrades · Thanks for your business.
         </p>
+        ${buildLegalFooter()}
       </div>
     </div>
   `;

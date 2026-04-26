@@ -11,6 +11,7 @@ import { mapguardTasks } from "@shared/schemas/mapguard";
 import { clients, clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
 import { eq, and, sql, desc, gte, lte } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { buildLegalFooter } from "../lib/emailFooter";
 
 /* ═══════════════════════════════════════════
    TASK TYPE → CLIENT LANGUAGE
@@ -213,7 +214,7 @@ export async function compileMonthlyReport(clientId: number, year: number, month
    ═══════════════════════════════════════════ */
 
 const GRADE_COLORS: Record<string, string> = {
-  A: "#22C55E", B: "#00D4C8", C: "#F59E0B", D: "#EF4444",
+  A: "#22C55E", B: "#66E8FA", C: "#F59E0B", D: "#EF4444",
 };
 
 function esc(s: string): string {
@@ -229,88 +230,94 @@ function deltaText(delta: number | null, suffix = ""): string {
 
 export function buildMonthlyReportEmail(report: MonthlyReportData, portalUrl: string): { subject: string; html: string } {
   const grade = report.grade_end || "—";
-  const gradeColor = GRADE_COLORS[grade] || "#6B7280";
+  const gradeColor = GRADE_COLORS[grade] || "#8B919A";
   const movementLabel = { improving: "Improving", stable: "Stable", declining: "Needs attention", new: "Getting started" }[report.movement];
-  const movementColor = { improving: "#22C55E", stable: "#3B82F6", declining: "#F59E0B", new: "#3B82F6" }[report.movement];
+  const movementColor = { improving: "#22C55E", stable: "#66E8FA", declining: "#F59E0B", new: "#66E8FA" }[report.movement];
 
   // Activity bullets
   const activityHtml = report.completed_actions.length > 0
-    ? report.completed_actions.map(a => `<li style="margin-bottom:4px;color:#374151;font-size:13px;">${esc(a)}</li>`).join("")
-    : `<li style="color:#6b7280;font-size:13px;">We continued monitoring and improving your visibility</li>`;
+    ? report.completed_actions.map(a => `<li style="margin-bottom:4px;color:#CDD1D6;font-size:13px;">${esc(a)}</li>`).join("")
+    : `<li style="color:#8B919A;font-size:13px;">We continued monitoring and improving your visibility</li>`;
 
   const activeHtml = report.active_work.length > 0
-    ? `<p style="font-size:12px;color:#6b7280;margin:8px 0 0;">Currently working on: ${report.active_work.map(a => esc(a).toLowerCase()).join(", ")}</p>`
+    ? `<p style="font-size:12px;color:#8B919A;margin:8px 0 0;">Currently working on: ${report.active_work.map(a => esc(a).toLowerCase()).join(", ")}</p>`
     : "";
 
   const subject = `MapGuard Report: ${report.month_label} — ${esc(report.business_name)}`;
 
   const html = `<!DOCTYPE html>
-<html><body style="font-family:'Inter',Arial,sans-serif;margin:0;padding:0;background:#F3F4F6;">
-<table cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+<html><body style="margin:0;padding:0;font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;">
+<div style="background:#0B0F14;padding:40px 16px;">
+<div style="max-width:600px;margin:0 auto;">
+  <div style="text-align:center;margin-bottom:24px;">
+    <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades · MapGuard</span>
+  </div>
+
+  <table cellpadding="0" cellspacing="0" width="100%" style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;overflow:hidden;">
 
   <!-- Header -->
-  <tr><td style="padding:24px 28px;background:#2D6A4F;">
-    <p style="color:#ffffff;font-size:11px;font-weight:700;letter-spacing:0.05em;margin:0;opacity:0.8;">MAPGUARD MONTHLY REPORT</p>
-    <p style="color:#ffffff;font-size:18px;font-weight:600;margin:6px 0 0;">${esc(report.month_label)}</p>
-    <p style="color:#d1fae5;font-size:13px;margin:4px 0 0;">${esc(report.business_name)}</p>
+  <tr><td style="padding:26px 28px 20px;border-bottom:1px solid rgba(255,255,255,0.06);">
+    <p style="color:#66E8FA;font-size:11px;font-weight:700;letter-spacing:0.06em;margin:0;text-transform:uppercase;">MapGuard Monthly Report</p>
+    <p style="color:#F0F0F0;font-size:20px;font-weight:700;margin:6px 0 0;">${esc(report.month_label)}</p>
+    <p style="color:#8B919A;font-size:13px;margin:4px 0 0;">${esc(report.business_name)}</p>
   </td></tr>
 
   <!-- Score + Status -->
   <tr><td style="padding:24px 28px;">
     <table cellpadding="0" cellspacing="0" width="100%"><tr>
       <td style="vertical-align:top;">
-        <p style="font-size:12px;color:#6b7280;margin:0;text-transform:uppercase;letter-spacing:0.04em;">Visibility Score</p>
-        <p style="font-size:36px;font-weight:700;color:#111827;margin:4px 0 0;">${report.score_end ?? "—"}<span style="font-size:14px;color:#9ca3af;">/100</span></p>
+        <p style="font-size:11px;color:#8B919A;margin:0;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Visibility Score</p>
+        <p style="font-size:36px;font-weight:800;color:#F0F0F0;margin:6px 0 0;letter-spacing:-1px;">${report.score_end ?? "—"}<span style="font-size:14px;color:#555B63;font-weight:600;">/100</span></p>
         <p style="font-size:12px;margin:4px 0 0;">${deltaText(report.score_delta, " pts")}</p>
       </td>
       <td style="vertical-align:top;text-align:right;">
-        <div style="display:inline-block;background:${gradeColor};color:#fff;font-size:24px;font-weight:800;padding:12px 18px;border-radius:10px;">${grade}</div>
-        <p style="font-size:11px;color:${movementColor};font-weight:600;margin:6px 0 0;text-align:right;">${movementLabel}</p>
+        <div style="display:inline-block;background:${gradeColor};color:#0B0F14;font-size:24px;font-weight:800;padding:12px 18px;border-radius:10px;">${grade}</div>
+        <p style="font-size:11px;color:${movementColor};font-weight:700;margin:6px 0 0;text-align:right;text-transform:uppercase;letter-spacing:0.04em;">${movementLabel}</p>
       </td>
     </tr></table>
   </td></tr>
 
   <!-- Key Metrics -->
-  <tr><td style="padding:0 28px 24px;">
-    <table cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #e5e7eb;padding-top:16px;">
+  <tr><td style="padding:0 28px 20px;">
+    <table cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid rgba(255,255,255,0.06);padding-top:16px;">
       <tr>
         <td style="padding:8px 0;width:50%;">
-          <p style="font-size:11px;color:#6b7280;margin:0;text-transform:uppercase;">Rating</p>
-          <p style="font-size:18px;font-weight:600;color:#111827;margin:2px 0 0;">${report.rating_end?.toFixed(1) ?? "—"} ${deltaText(report.rating_delta)}</p>
+          <p style="font-size:11px;color:#8B919A;margin:0;text-transform:uppercase;letter-spacing:0.04em;">Rating</p>
+          <p style="font-size:18px;font-weight:700;color:#F0F0F0;margin:4px 0 0;">${report.rating_end?.toFixed(1) ?? "—"} ${deltaText(report.rating_delta)}</p>
         </td>
         <td style="padding:8px 0;width:50%;">
-          <p style="font-size:11px;color:#6b7280;margin:0;text-transform:uppercase;">Reviews</p>
-          <p style="font-size:18px;font-weight:600;color:#111827;margin:2px 0 0;">${report.reviews_end ?? "—"} ${report.reviews_gained != null && report.reviews_gained > 0 ? `<span style="color:#22C55E;font-size:13px;">+${report.reviews_gained} this month</span>` : ""}</p>
+          <p style="font-size:11px;color:#8B919A;margin:0;text-transform:uppercase;letter-spacing:0.04em;">Reviews</p>
+          <p style="font-size:18px;font-weight:700;color:#F0F0F0;margin:4px 0 0;">${report.reviews_end ?? "—"} ${report.reviews_gained != null && report.reviews_gained > 0 ? `<span style="color:#22C55E;font-size:13px;">+${report.reviews_gained} this month</span>` : ""}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:8px 0;width:50%;">
-          <p style="font-size:11px;color:#6b7280;margin:0;text-transform:uppercase;">Map Pack</p>
-          <p style="font-size:18px;font-weight:600;color:#111827;margin:2px 0 0;">${report.local_pack_end ?? "—"} <span style="font-size:12px;color:#6b7280;">keywords</span></p>
+          <p style="font-size:11px;color:#8B919A;margin:0;text-transform:uppercase;letter-spacing:0.04em;">Map Pack</p>
+          <p style="font-size:18px;font-weight:700;color:#F0F0F0;margin:4px 0 0;">${report.local_pack_end ?? "—"} <span style="font-size:12px;color:#8B919A;font-weight:500;">keywords</span></p>
         </td>
         <td style="padding:8px 0;width:50%;">
-          <p style="font-size:11px;color:#6b7280;margin:0;text-transform:uppercase;">Scans</p>
-          <p style="font-size:18px;font-weight:600;color:#111827;margin:2px 0 0;">${report.scans_this_month} <span style="font-size:12px;color:#6b7280;">this month</span></p>
+          <p style="font-size:11px;color:#8B919A;margin:0;text-transform:uppercase;letter-spacing:0.04em;">Scans</p>
+          <p style="font-size:18px;font-weight:700;color:#F0F0F0;margin:4px 0 0;">${report.scans_this_month} <span style="font-size:12px;color:#8B919A;font-weight:500;">this month</span></p>
         </td>
       </tr>
     </table>
   </td></tr>
 
   <!-- What We Did -->
-  <tr><td style="padding:0 28px 24px;">
-    <div style="background:#F9FAFB;border-radius:8px;padding:16px;">
-      <p style="font-size:13px;font-weight:600;color:#111827;margin:0 0 8px;">What we worked on</p>
+  <tr><td style="padding:0 28px 20px;">
+    <div style="background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px 18px;">
+      <p style="font-size:13px;font-weight:700;color:#F0F0F0;margin:0 0 10px;">What we worked on</p>
       <ul style="margin:0;padding-left:18px;line-height:1.7;">
         ${activityHtml}
       </ul>
       ${activeHtml}
-      ${report.total_completed > 0 ? `<p style="font-size:11px;color:#6b7280;margin:10px 0 0;">${report.total_completed} improvement${report.total_completed !== 1 ? "s" : ""} completed this month</p>` : ""}
+      ${report.total_completed > 0 ? `<p style="font-size:11px;color:#8B919A;margin:10px 0 0;">${report.total_completed} improvement${report.total_completed !== 1 ? "s" : ""} completed this month</p>` : ""}
     </div>
   </td></tr>
 
   <!-- Profile Status -->
-  <tr><td style="padding:0 28px 24px;">
-    <p style="font-size:13px;font-weight:600;color:#111827;margin:0 0 8px;">Profile status</p>
+  <tr><td style="padding:0 28px 20px;">
+    <p style="font-size:13px;font-weight:700;color:#F0F0F0;margin:0 0 10px;">Profile status</p>
     <table cellpadding="0" cellspacing="0" width="100%">
       ${profileRow("Website linked", report.has_website)}
       ${profileRow("Business description", report.has_description)}
@@ -319,16 +326,14 @@ export function buildMonthlyReportEmail(report: MonthlyReportData, portalUrl: st
   </td></tr>
 
   <!-- CTA -->
-  <tr><td style="padding:0 28px 24px;text-align:center;">
-    <a href="${portalUrl}/portal/mapguard" style="display:inline-block;background:#2D6A4F;color:#ffffff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View Full Dashboard</a>
+  <tr><td style="padding:0 28px 28px;text-align:center;">
+    <a href="${portalUrl}/portal/mapguard" style="display:inline-block;background:#66E8FA;color:#0B0F14;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">View Full Dashboard</a>
   </td></tr>
 
-  <!-- Footer -->
-  <tr><td style="padding:16px 28px;background:#f9fafb;text-align:center;border-top:1px solid #e5e7eb;">
-    <p style="font-size:11px;color:#9ca3af;margin:0;">MapGuard Monthly Report &middot; WeFixTrades</p>
-  </td></tr>
-
-</table>
+  </table>
+  ${buildLegalFooter()}
+</div>
+</div>
 </body></html>`;
 
   return { subject, html };
@@ -337,8 +342,8 @@ export function buildMonthlyReportEmail(report: MonthlyReportData, portalUrl: st
 function profileRow(label: string, ok: boolean, detail?: string): string {
   const icon = ok
     ? `<span style="color:#22C55E;font-weight:700;">&#10003;</span>`
-    : `<span style="color:#D1D5DB;">&#9675;</span>`;
-  return `<tr><td style="padding:3px 0;font-size:13px;color:${ok ? "#374151" : "#9ca3af"};">${icon} ${esc(label)}${detail ? ` <span style="color:#9ca3af;font-size:11px;">(${esc(detail)})</span>` : ""}</td></tr>`;
+    : `<span style="color:#3D434A;">&#9675;</span>`;
+  return `<tr><td style="padding:3px 0;font-size:13px;color:${ok ? "#CDD1D6" : "#555B63"};">${icon} ${esc(label)}${detail ? ` <span style="color:#8B919A;font-size:11px;">(${esc(detail)})</span>` : ""}</td></tr>`;
 }
 
 /* ═══════════════════════════════════════════

@@ -4,6 +4,7 @@
  */
 
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
+import { buildLegalFooter } from "./emailFooter";
 import type { Client, OnboardingSubmission } from "@shared/schema";
 
 interface OnboardingEmailParams {
@@ -97,6 +98,7 @@ export async function sendOnboardingEmail(params: OnboardingEmailParams): Promis
           <a href="${onboardingUrl}" style="color: #66E8FA; word-break: break-all;">${onboardingUrl}</a>
         </p>
       </div>
+      ${buildLegalFooter()}
     </div>
   `;
 

@@ -9,6 +9,7 @@
  */
 
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
+import { buildLegalFooter } from "./emailFooter";
 
 interface ContactPayload {
   name: string;
@@ -53,6 +54,7 @@ function buildAckHtml(p: ContactPayload): string {
         <p style="font-size:11px;color:#555B63;text-align:center;margin:20px 0 0;line-height:1.5;">
           Thanks for reaching out.
         </p>
+        ${buildLegalFooter()}
       </div>
     </div>
   `;

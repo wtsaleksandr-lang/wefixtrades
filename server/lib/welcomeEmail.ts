@@ -17,6 +17,7 @@
  */
 
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
+import { buildLegalFooter } from "./emailFooter";
 import { db } from "../db";
 import { clients, clientServices, serviceCatalog } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -194,6 +195,7 @@ function buildHtml(params: {
         <p style="font-size:11px;color:#555B63;text-align:center;margin:24px 0 0;line-height:1.5;">
           Thanks for choosing WeFixTrades.
         </p>
+        ${buildLegalFooter()}
       </div>
     </div>
   `;

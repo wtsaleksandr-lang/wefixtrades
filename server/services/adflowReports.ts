@@ -27,6 +27,7 @@ import { db } from "../db";
 import { clients, clientServices, serviceCatalog } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { buildLegalFooter } from "../lib/emailFooter";
 import { chat } from "./aiService";
 
 export interface AdFlowReportMetrics {
@@ -168,6 +169,7 @@ function buildHtml(params: {
         <p style="font-size:11px;color:#555B63;text-align:center;margin:24px 0 0;line-height:1.5;">
           Sent to <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a>
         </p>
+        ${buildLegalFooter()}
       </div>
     </div>
   `;

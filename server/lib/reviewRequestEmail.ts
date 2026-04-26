@@ -4,6 +4,7 @@
  */
 
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
+import { buildLegalFooter } from "./emailFooter";
 import type { ReviewRequest } from "@shared/schema";
 
 function escHtml(str: string): string {
@@ -49,6 +50,7 @@ export function buildReviewRequestEmailHtml(opts: {
     <p style="font-size:11px;color:#9ca3af;margin:0;">Sent on behalf of ${safeBiz}</p>
   </td></tr>
 </table>
+${buildLegalFooter("light")}
 </body></html>`;
 }
 
@@ -99,6 +101,7 @@ export function buildReminderEmailHtml(opts: {
     <p style="font-size:11px;color:#9ca3af;margin:0;">Sent on behalf of ${safeBiz}</p>
   </td></tr>
 </table>
+${buildLegalFooter("light")}
 </body></html>`;
 }
 

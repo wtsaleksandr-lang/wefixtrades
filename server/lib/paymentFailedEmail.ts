@@ -15,6 +15,7 @@ import { db } from "../db";
 import { clients, clientPayments } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
+import { buildLegalFooter } from "./emailFooter";
 
 interface SendParams {
   clientId: number;
@@ -74,6 +75,7 @@ function buildHtml(params: {
         <p style="font-size:11px;color:#555B63;text-align:center;margin:20px 0 0;line-height:1.5;">
           WeFixTrades · We've got you covered.
         </p>
+        ${buildLegalFooter()}
       </div>
     </div>
   `;
