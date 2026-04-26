@@ -46,6 +46,22 @@ control tower. The codebase is a TypeScript monorepo:
 
 ---
 
+## Git discipline (binding for any agent in this repo)
+
+1. Never commit directly to `main`. Always PR through a feature branch.
+2. Before every commit run `git branch --show-current` and verify it
+   matches your intended branch.
+3. Stage by explicit file path — never `git add -A` or `git add .`.
+4. Don't `git stash` across branch boundaries; working-tree state leaks
+   between branches that way.
+5. If another agent or human may be using the same checkout, before any
+   commit run `git status` and confirm the working tree contains only
+   your intended changes.
+6. Don't checkout, rebase, or commit on a branch you didn't create
+   unless you've been told to take it over.
+
+---
+
 ## Active Feature Branch
 
 **Branch:** `claude/design-rules-routing-engine-N2UmT`
