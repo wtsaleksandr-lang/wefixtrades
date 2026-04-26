@@ -72,6 +72,22 @@ function plusMonths(n: number): string {
   return d.toISOString().slice(0, 7);
 }
 
+/**
+ * Starter-tier rotation alternates page_create (odd months) with
+ * citation_build (even months). Pick the next odd-numbered month so the
+ * plan reliably contains a page_create task we can hook into.
+ */
+function nextOddMonth(offset = 0): string {
+  let n = 1 + offset;
+  for (let i = 0; i < 24; i++) {
+    const candidate = plusMonths(n);
+    const mm = parseInt(candidate.split("-")[1] || "0", 10);
+    if (mm % 2 === 1) return candidate;
+    n++;
+  }
+  return plusMonths(1);
+}
+
 function testId() {
   return `pw_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 }
@@ -106,7 +122,8 @@ test.describe("ContentFlow Sprint 3 — RankFlow article pipeline", () => {
     expect(profileRes.ok(), `profile PUT failed: ${await profileRes.text()}`).toBeTruthy();
 
     // Trigger plan generation — this exercises the production hook.
-    const planMonth = plusMonths(1);
+    // Use the next odd-numbered month (starter rotation phase A = page_create).
+    const planMonth = nextOddMonth(0);
     const planRes = await adminApi.post(
       `/api/rankflow/clients/${clientId}/generate-plan`,
       { data: { month: planMonth } },
@@ -201,7 +218,9 @@ test.describe("ContentFlow Sprint 3 — RankFlow article pipeline", () => {
   test("CF3-7 — admin reject on a second article transitions it to status=rejected", async ({ adminApi }) => {
     // Generate a second plan (different month) to get a fresh article draft
     // we can reject without un-doing CF3-4.
-    const secondMonth = plusMonths(2);
+    // Pick the *next* odd-numbered month after CF3-1's plan so the second
+    // plan also lands in starter rotation phase A and contains a page_create.
+    const secondMonth = nextOddMonth(2);
     const planRes = await adminApi.post(
       `/api/rankflow/clients/${clientId}/generate-plan`,
       { data: { month: secondMonth } },

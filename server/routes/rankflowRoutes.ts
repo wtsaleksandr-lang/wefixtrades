@@ -56,7 +56,11 @@ export function registerRankFlowRoutes(app: Express): void {
       const existing = await storage.getMonthlyPlan(clientId, month);
       if (existing) return res.status(409).json({ error: `Plan already exists for ${month}`, plan: existing });
 
-      const planData = generateMonthlyPlan(profile);
+      // Pass the requested month so rotation logic (Starter tier alternates
+      // page_create / citation_build by odd/even month) honors the caller's
+      // intent. Without this, rotation always used the *current* real month
+      // even for plans scheduled into the future.
+      const planData = generateMonthlyPlan(profile, month);
 
       const plan = await storage.createMonthlyPlan({
         client_id: clientId,

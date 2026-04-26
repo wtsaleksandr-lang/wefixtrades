@@ -2764,7 +2764,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       const existingPlan = await storage.getMonthlyPlan(clientId, month);
       if (!existingPlan) {
-        const planData = generateMonthlyPlan(profile);
+        const planData = generateMonthlyPlan(profile, month);
         const plan = await storage.createMonthlyPlan({
           client_id: clientId,
           month,
