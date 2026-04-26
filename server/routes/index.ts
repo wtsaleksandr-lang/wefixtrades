@@ -36,6 +36,7 @@ import { registerMediaRoute } from "../services/socialSync/mediaService";
 import { registerRankFlowRoutes } from "./rankflowRoutes";
 import { registerContentFlowRoutes } from "./contentflowRoutes";
 import { registerUnsubscribeRoutes } from "./unsubscribeRoutes";
+import { registerEmailChartsRoute } from "../services/emailCharts";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -77,6 +78,7 @@ export async function registerRoutes(
   registerWidgetRoutes(app);
   registerRankFlowRoutes(app);
   registerContentFlowRoutes(app);
+  registerEmailChartsRoute(app);
 
   return httpServer;
 }
