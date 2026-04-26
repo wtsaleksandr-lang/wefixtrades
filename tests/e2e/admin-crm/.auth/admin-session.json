@@ -2,10 +2,10 @@
   "cookies": [
     {
       "name": "connect.sid",
-      "value": "s%3AvimV4Jd9j18GatV0nrLwOb9yHFmkEJy_.vOYZnxmtqS8gJCJ9ZEeG%2F9OGaizYNFnDY%2FhGNEIKIDI",
+      "value": "s%3Av73ENHyKJi9SHgIwbDTE9CmBPylwU4jK.mukDRoVA7%2FNpc0af5hNqbuO93BdEsqtd8hRO54AOtGQ",
       "domain": "localhost",
       "path": "/",
-      "expires": 1775748014.372893,
+      "expires": 1777788393.222835,
       "httpOnly": true,
       "secure": false,
       "sameSite": "Lax"
@@ -17,7 +17,7 @@
       "localStorage": [
         {
           "name": "wft_chat_session",
-          "value": "s_1775143214227_jgh8ocln"
+          "value": "s_1777183593015_le6iy7c3"
         },
         {
           "name": "wft_chat_open",
