@@ -42,7 +42,12 @@ export function registerRankFlowRoutes(app: Express): void {
   app.post("/api/rankflow/clients/:id/generate-plan", requireAdmin, async (req: Request, res: Response) => {
     try {
       const clientId = parseInt(req.params.id as string);
-      const month = req.body.month || new Date().toISOString().slice(0, 7);
+      // Accept month via JSON body or query string; fall back to current month.
+      // Defensive against empty-body POSTs (req.body undefined when no parser fires).
+      const month =
+        (req.body && typeof req.body.month === "string" ? req.body.month : null) ||
+        (typeof req.query.month === "string" ? req.query.month : null) ||
+        new Date().toISOString().slice(0, 7);
 
       const profile = await storage.getRankFlowProfile(clientId);
       if (!profile) return res.status(404).json({ error: "RankFlow profile not found" });

@@ -30,23 +30,24 @@
  */
 
 import { test as baseTest, expect, type APIRequestContext } from "@playwright/test";
+import { STORAGE_STATE_PATH } from "./global-setup";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
-const ADMIN_EMAIL = process.env.TEST_ADMIN_EMAIL || "admin@wefixtrades.com";
-const ADMIN_PASSWORD = process.env.TEST_ADMIN_PASSWORD || "TestAdmin123!";
 
 type SuiteFixtures = {
   adminApi: APIRequestContext;
 };
 
+// Worker-scoped admin API context. Loads the persisted session cookies that
+// globalSetup wrote after a browser login — no fresh /api/auth/login call,
+// so this spec adds zero login attempts to the auth rate-limit budget.
 const test = baseTest.extend<{}, SuiteFixtures>({
   adminApi: [
     async ({ playwright }, use) => {
-      const ctx = await playwright.request.newContext({ baseURL: BASE_URL });
-      const loginRes = await ctx.post("/api/auth/login", {
-        data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+      const ctx = await playwright.request.newContext({
+        baseURL: BASE_URL,
+        storageState: STORAGE_STATE_PATH,
       });
-      expect(loginRes.ok(), `login failed: ${loginRes.status()}`).toBeTruthy();
       await use(ctx);
       await ctx.dispose();
     },
@@ -107,7 +108,8 @@ test.describe("ContentFlow Sprint 3 — RankFlow article pipeline", () => {
     // Trigger plan generation — this exercises the production hook.
     const planMonth = plusMonths(1);
     const planRes = await adminApi.post(
-      `/api/rankflow/clients/${clientId}/generate-plan?month=${planMonth}`,
+      `/api/rankflow/clients/${clientId}/generate-plan`,
+      { data: { month: planMonth } },
     );
     expect(planRes.ok(), `generate-plan failed: ${await planRes.text()}`).toBeTruthy();
     const planBody = await planRes.json();
@@ -201,7 +203,8 @@ test.describe("ContentFlow Sprint 3 — RankFlow article pipeline", () => {
     // we can reject without un-doing CF3-4.
     const secondMonth = plusMonths(2);
     const planRes = await adminApi.post(
-      `/api/rankflow/clients/${clientId}/generate-plan?month=${secondMonth}`,
+      `/api/rankflow/clients/${clientId}/generate-plan`,
+      { data: { month: secondMonth } },
     );
     expect(planRes.ok(), `second plan generate failed: ${await planRes.text()}`).toBeTruthy();
 
