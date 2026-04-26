@@ -31,6 +31,7 @@
 
 import { test as baseTest, expect, type APIRequestContext } from "@playwright/test";
 import { STORAGE_STATE_PATH } from "./global-setup";
+import { pool } from "../../../server/db";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
 
@@ -96,6 +97,46 @@ test.describe("ContentFlow Sprint 3 — RankFlow article pipeline", () => {
   let clientId = 0;
   let pageCreateTaskId = 0;
   let articleDraftId = 0;
+
+  /**
+   * Cascade-delete every row this spec wrote, scoped strictly to the test
+   * client created in CF3-1. Order respects foreign keys:
+   * approvals → drafts → qa_checks → tasks → plans → profile → client.
+   * Safe to run alongside other parallel spec files because everything is
+   * keyed on this spec's clientId.
+   */
+  test.afterAll(async () => {
+    if (!clientId) return;
+    try {
+      await pool.query(
+        `DELETE FROM content_approvals WHERE draft_id IN (SELECT id FROM content_drafts WHERE client_id = $1)`,
+        [clientId],
+      );
+      await pool.query(`DELETE FROM content_drafts WHERE client_id = $1`, [clientId]);
+      await pool.query(
+        `DELETE FROM rankflow_qa_checks WHERE task_id IN (SELECT id FROM rankflow_tasks WHERE client_id = $1)`,
+        [clientId],
+      );
+      await pool.query(`DELETE FROM rankflow_tasks WHERE client_id = $1`, [clientId]);
+      await pool.query(`DELETE FROM rankflow_monthly_plans WHERE client_id = $1`, [clientId]);
+      await pool.query(`DELETE FROM rankflow_keywords WHERE client_id = $1`, [clientId]);
+      await pool.query(`DELETE FROM rankflow_pages WHERE client_id = $1`, [clientId]);
+      await pool.query(`DELETE FROM rankflow_signals WHERE client_id = $1`, [clientId]);
+      await pool.query(`DELETE FROM rankflow_progress WHERE client_id = $1`, [clientId]);
+      await pool.query(`DELETE FROM rankflow_profiles WHERE client_id = $1`, [clientId]);
+      // Client may have downstream rows from other code paths; mirror the
+      // same FK-aware order cleanup-test-data.ts uses for safety.
+      await pool.query(`DELETE FROM fulfillment_tasks WHERE client_id = $1`, [clientId]);
+      await pool.query(`DELETE FROM client_payments WHERE client_id = $1`, [clientId]);
+      await pool.query(`DELETE FROM onboarding_submissions WHERE client_id = $1`, [clientId]);
+      await pool.query(`DELETE FROM client_services WHERE client_id = $1`, [clientId]);
+      await pool.query(`DELETE FROM internal_notes WHERE client_id = $1`, [clientId]);
+      await pool.query(`DELETE FROM orders WHERE client_id = $1`, [clientId]);
+      await pool.query(`DELETE FROM clients WHERE id = $1`, [clientId]);
+    } catch (err: any) {
+      console.warn("[sprint3 afterAll] cleanup warning:", err.message);
+    }
+  });
 
   test("CF3-1 — generate-plan creates a linked article draft for the page_create task", async ({ adminApi }) => {
     const id = testId();
