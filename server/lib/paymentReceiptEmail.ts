@@ -13,7 +13,7 @@ import { db } from "../db";
 import { clients, clientServices, serviceCatalog, clientPayments } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
-import { buildLegalFooter } from "./emailFooter";
+import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
 import type Stripe from "stripe";
 
 interface LineItem {
@@ -36,6 +36,7 @@ function buildHtml(params: {
   paidAt: Date;
   portalUrl: string;
   supportEmail: string;
+  recipientEmail: string;
 }): string {
   const rows = params.items
     .map((it) => `
@@ -59,9 +60,7 @@ function buildHtml(params: {
   return `
     <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
       <div style="max-width:520px;margin:0 auto;">
-        <div style="text-align:center;margin-bottom:32px;">
-          <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades</span>
-        </div>
+        ${buildEmailHeader()}
         <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
           <p style="font-size:12px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;">Payment received</p>
           <h1 style="font-size:24px;font-weight:700;color:#F0F0F0;margin:0 0 6px;line-height:1.25;">
@@ -107,10 +106,8 @@ function buildHtml(params: {
             Questions about this charge? Reply to this email or reach us at <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a>.
           </p>
         </div>
-        <p style="font-size:11px;color:#555B63;text-align:center;margin:20px 0 0;line-height:1.5;">
-          WeFixTrades · Thanks for your business.
-        </p>
-        ${buildLegalFooter()}
+        ${buildChatBubble()}
+        ${buildLegalFooter({ recipientEmail: params.recipientEmail })}
       </div>
     </div>
   `;
@@ -196,6 +193,7 @@ export async function sendPaymentReceipt(
         currency: session.currency || "usd",
         sessionId: session.id,
         paidAt: new Date(),
+        recipientEmail: client.contact_email,
         portalUrl: `${baseUrl}/portal/billing`,
         supportEmail,
       }),

@@ -11,7 +11,8 @@ import { mapguardTasks } from "@shared/schemas/mapguard";
 import { clients, clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
 import { eq, and, sql, desc, gte, lte } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
-import { buildLegalFooter } from "../lib/emailFooter";
+import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "../lib/emailFooter";
+import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 
 /* ═══════════════════════════════════════════
    TASK TYPE → CLIENT LANGUAGE
@@ -228,7 +229,7 @@ function deltaText(delta: number | null, suffix = ""): string {
   return `<span style="color:${color};font-weight:600;">${sign}${typeof delta === "number" && !Number.isInteger(delta) ? delta.toFixed(1) : delta}${suffix}</span>`;
 }
 
-export function buildMonthlyReportEmail(report: MonthlyReportData, portalUrl: string): { subject: string; html: string } {
+export function buildMonthlyReportEmail(report: MonthlyReportData, portalUrl: string, recipientEmail?: string): { subject: string; html: string } {
   const grade = report.grade_end || "—";
   const gradeColor = GRADE_COLORS[grade] || "#8B919A";
   const movementLabel = { improving: "Improving", stable: "Stable", declining: "Needs attention", new: "Getting started" }[report.movement];
@@ -249,9 +250,7 @@ export function buildMonthlyReportEmail(report: MonthlyReportData, portalUrl: st
 <html><body style="margin:0;padding:0;font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;">
 <div style="background:#0B0F14;padding:40px 16px;">
 <div style="max-width:600px;margin:0 auto;">
-  <div style="text-align:center;margin-bottom:24px;">
-    <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades · MapGuard</span>
-  </div>
+  ${buildEmailHeader({ tagline: "MapGuard Report" })}
 
   <table cellpadding="0" cellspacing="0" width="100%" style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;overflow:hidden;">
 
@@ -331,7 +330,8 @@ export function buildMonthlyReportEmail(report: MonthlyReportData, portalUrl: st
   </td></tr>
 
   </table>
-  ${buildLegalFooter()}
+  ${buildChatBubble()}
+  ${buildLegalFooter({ recipientEmail, marketing: true })}
 </div>
 </div>
 </body></html>`;
@@ -356,16 +356,21 @@ export async function sendMonthlyReportEmail(
   year: number,
   month: number,
 ): Promise<{ ok: boolean; error?: string }> {
+  if (await isEmailUnsubscribed(recipientEmail)) {
+    console.log(`[mapguard-report] Recipient ${recipientEmail} is unsubscribed — skipping`);
+    return { ok: false, error: "Recipient unsubscribed" };
+  }
+
   const report = await compileMonthlyReport(clientId, year, month);
   if (!report) return { ok: false, error: "Could not compile report data" };
 
   const transporter = getEmailTransporter();
   if (!transporter) return { ok: false, error: "SMTP not configured" };
 
-  const portalUrl = process.env.VAPI_SERVER_URL
-    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.co.uk");
+  const portalUrl = process.env.APP_URL || process.env.VAPI_SERVER_URL
+    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
 
-  const { subject, html } = buildMonthlyReportEmail(report, portalUrl);
+  const { subject, html } = buildMonthlyReportEmail(report, portalUrl, recipientEmail);
 
   try {
     await transporter.sendMail({

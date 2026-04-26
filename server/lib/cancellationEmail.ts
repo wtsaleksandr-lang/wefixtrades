@@ -18,7 +18,7 @@ import { db } from "../db";
 import { clients, clientServices, serviceCatalog } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
-import { buildLegalFooter } from "./emailFooter";
+import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
 
 interface SendParams {
   clientServiceId: number;
@@ -40,6 +40,7 @@ function buildHtml(params: {
   accessUntil: string | null;
   surveyBaseUrl: string;
   supportEmail: string;
+  recipientEmail: string;
 }): string {
   const reasonLinks = EXIT_REASONS.map(r =>
     `<a href="${params.surveyBaseUrl}?reason=${r.id}" style="display:block;padding:10px 14px;margin-bottom:6px;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:8px;color:#CDD1D6;font-size:13px;text-decoration:none;">
@@ -50,9 +51,7 @@ function buildHtml(params: {
   return `
     <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
       <div style="max-width:520px;margin:0 auto;">
-        <div style="text-align:center;margin-bottom:32px;">
-          <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades</span>
-        </div>
+        ${buildEmailHeader()}
         <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
           <p style="font-size:12px;font-weight:700;color:#8B919A;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;">Your cancellation is confirmed</p>
           <h1 style="font-size:22px;font-weight:700;color:#F0F0F0;margin:0 0 10px;line-height:1.3;">
@@ -81,10 +80,8 @@ function buildHtml(params: {
             Changed your mind? Just reply to this email — we can reactivate in minutes. Or reach us at <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a>.
           </p>
         </div>
-        <p style="font-size:11px;color:#555B63;text-align:center;margin:20px 0 0;line-height:1.5;">
-          Thanks for giving WeFixTrades a shot.
-        </p>
-        ${buildLegalFooter()}
+        ${buildChatBubble()}
+        ${buildLegalFooter({ recipientEmail: params.recipientEmail })}
       </div>
     </div>
   `;
@@ -138,6 +135,7 @@ export async function sendCancellationEmail(params: SendParams): Promise<boolean
         accessUntil,
         surveyBaseUrl: `${baseUrl}/api/exit-survey/${surveyToken}`,
         supportEmail,
+        recipientEmail: client.contact_email,
       }),
     });
 

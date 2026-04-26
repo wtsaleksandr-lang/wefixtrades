@@ -3,7 +3,7 @@
  * Dark theme — matches the marketing site (#0B0F14 / #66E8FA).
  */
 
-import { buildLegalFooter } from "./emailFooter";
+import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
 
 export function buildAuditReportEmail(opts: {
   businessName: string;
@@ -12,8 +12,9 @@ export function buildAuditReportEmail(opts: {
   executiveSummary: string;
   reportUrl: string;
   hasPdfAttachment: boolean;
+  recipientEmail?: string;
 }): { subject: string; html: string } {
-  const { businessName, score, grade, executiveSummary, reportUrl, hasPdfAttachment } = opts;
+  const { businessName, score, grade, executiveSummary, reportUrl, hasPdfAttachment, recipientEmail } = opts;
 
   const gradeColor: Record<string, string> = {
     A: "#22C55E",
@@ -41,9 +42,7 @@ export function buildAuditReportEmail(opts: {
 <body style="margin:0;padding:0;font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
   <div style="background:#0B0F14;padding:40px 16px;">
     <div style="max-width:560px;margin:0 auto;">
-      <div style="text-align:center;margin-bottom:32px;">
-        <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades · Audit Report</span>
-      </div>
+      ${buildEmailHeader({ tagline: "Audit Report" })}
 
       <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
         <p style="font-size:12px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;">Your audit is ready</p>
@@ -87,7 +86,8 @@ export function buildAuditReportEmail(opts: {
           <a href="${escHtml(reportUrl)}" style="color:#66E8FA;text-decoration:none;">${escHtml(reportUrl)}</a>
         </p>
       </div>
-      ${buildLegalFooter()}
+      ${buildChatBubble()}
+      ${buildLegalFooter({ recipientEmail, marketing: true })}
     </div>
   </div>
 </body>

@@ -9,7 +9,7 @@
  */
 
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
-import { buildLegalFooter } from "./emailFooter";
+import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
 
 interface ContactPayload {
   name: string;
@@ -31,9 +31,7 @@ function buildAckHtml(p: ContactPayload): string {
   return `
     <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
       <div style="max-width:480px;margin:0 auto;">
-        <div style="text-align:center;margin-bottom:32px;">
-          <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades</span>
-        </div>
+        ${buildEmailHeader()}
         <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
           <h1 style="font-size:22px;font-weight:700;color:#F0F0F0;margin:0 0 8px;line-height:1.3;">
             Got it, ${escapeHtml(p.name.split(" ")[0] || "thanks")} — we'll be in touch
@@ -51,10 +49,8 @@ function buildAckHtml(p: ContactPayload): string {
             If you need us sooner, just reply to this email — it lands in the same inbox our team is watching.
           </p>
         </div>
-        <p style="font-size:11px;color:#555B63;text-align:center;margin:20px 0 0;line-height:1.5;">
-          Thanks for reaching out.
-        </p>
-        ${buildLegalFooter()}
+        ${buildChatBubble()}
+        ${buildLegalFooter({ recipientEmail: p.email })}
       </div>
     </div>
   `;

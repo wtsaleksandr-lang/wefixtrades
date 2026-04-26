@@ -4,7 +4,7 @@
  */
 
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
-import { buildLegalFooter } from "./emailFooter";
+import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
 import type { Client, OnboardingSubmission } from "@shared/schema";
 
 interface OnboardingEmailParams {
@@ -33,10 +33,7 @@ export async function sendOnboardingEmail(params: OnboardingEmailParams): Promis
     <div style="font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #0B0F14; padding: 40px 16px;">
       <div style="max-width: 480px; margin: 0 auto;">
 
-        <!-- Logo -->
-        <div style="text-align: center; margin-bottom: 32px;">
-          <span style="display: inline-block; background: rgba(102,232,250,0.12); color: #66E8FA; font-size: 12px; font-weight: 800; padding: 5px 16px; border-radius: 999px; letter-spacing: 0.06em;">WeFixTrades</span>
-        </div>
+        ${buildEmailHeader()}
 
         <!-- Card -->
         <div style="background: #151A21; border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 36px 28px;">
@@ -98,7 +95,8 @@ export async function sendOnboardingEmail(params: OnboardingEmailParams): Promis
           <a href="${onboardingUrl}" style="color: #66E8FA; word-break: break-all;">${onboardingUrl}</a>
         </p>
       </div>
-      ${buildLegalFooter()}
+      ${buildChatBubble()}
+      ${buildLegalFooter({ recipientEmail: params.client.contact_email || undefined })}
     </div>
   `;
 

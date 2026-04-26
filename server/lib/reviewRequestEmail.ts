@@ -5,6 +5,7 @@
 
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildLegalFooter } from "./emailFooter";
+import { isEmailUnsubscribed } from "./unsubscribeStorage";
 import type { ReviewRequest } from "@shared/schema";
 
 function escHtml(str: string): string {
@@ -15,8 +16,9 @@ export function buildReviewRequestEmailHtml(opts: {
   customerName: string;
   businessName: string;
   feedbackUrl: string;
+  recipientEmail?: string;
 }): string {
-  const { customerName, businessName, feedbackUrl } = opts;
+  const { customerName, businessName, feedbackUrl, recipientEmail } = opts;
   const safeName = escHtml(customerName);
   const safeBiz = escHtml(businessName);
 
@@ -50,7 +52,7 @@ export function buildReviewRequestEmailHtml(opts: {
     <p style="font-size:11px;color:#9ca3af;margin:0;">Sent on behalf of ${safeBiz}</p>
   </td></tr>
 </table>
-${buildLegalFooter("light")}
+${buildLegalFooter({ theme: "light", recipientEmail, marketing: true })}
 </body></html>`;
 }
 
@@ -59,8 +61,9 @@ export function buildReminderEmailHtml(opts: {
   businessName: string;
   feedbackUrl: string;
   step: number; // 1 = first reminder, 2 = final
+  recipientEmail?: string;
 }): string {
-  const { customerName, businessName, feedbackUrl, step } = opts;
+  const { customerName, businessName, feedbackUrl, step, recipientEmail } = opts;
   const safeName = escHtml(customerName);
   const safeBiz = escHtml(businessName);
 
@@ -101,7 +104,7 @@ export function buildReminderEmailHtml(opts: {
     <p style="font-size:11px;color:#9ca3af;margin:0;">Sent on behalf of ${safeBiz}</p>
   </td></tr>
 </table>
-${buildLegalFooter("light")}
+${buildLegalFooter({ theme: "light", recipientEmail, marketing: true })}
 </body></html>`;
 }
 
@@ -140,6 +143,11 @@ export async function sendReviewRequestEmail(
     return { ok: false, error: "No access token" };
   }
 
+  if (await isEmailUnsubscribed(reviewRequest.customer_email)) {
+    console.log(`[review-request] Recipient ${reviewRequest.customer_email} is unsubscribed — skipping`);
+    return { ok: false, error: "Recipient unsubscribed" };
+  }
+
   const feedbackUrl = `${baseUrl}/review/${reviewRequest.access_token}`;
   const payload = reviewRequest.payload as any;
   const businessName = payload?.business_name || "your service provider";
@@ -149,6 +157,7 @@ export async function sendReviewRequestEmail(
     customerName,
     businessName,
     feedbackUrl,
+    recipientEmail: reviewRequest.customer_email,
   });
 
   try {

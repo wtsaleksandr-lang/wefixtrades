@@ -27,7 +27,8 @@ import { db } from "../db";
 import { clients, clientServices, serviceCatalog } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
-import { buildLegalFooter } from "../lib/emailFooter";
+import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "../lib/emailFooter";
+import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 import { chat } from "./aiService";
 
 export interface AdFlowReportMetrics {
@@ -110,6 +111,7 @@ function buildHtml(params: {
   metrics: AdFlowReportMetrics;
   portalUrl: string;
   supportEmail: string;
+  recipientEmail: string;
 }): string {
   const metricRow = (label: string, value: string, accent = false) => `
     <tr>
@@ -122,9 +124,7 @@ function buildHtml(params: {
   return `
     <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
       <div style="max-width:560px;margin:0 auto;">
-        <div style="text-align:center;margin-bottom:32px;">
-          <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades · AdFlow</span>
-        </div>
+        ${buildEmailHeader({ tagline: "AdFlow Report" })}
         <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
           <p style="font-size:11px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;">Monthly report · ${params.period}</p>
           <h1 style="font-size:22px;font-weight:700;color:#F0F0F0;margin:0 0 16px;line-height:1.3;">${params.serviceName}</h1>
@@ -166,10 +166,8 @@ function buildHtml(params: {
             Questions? Reply to this email and our team will get back to you.
           </p>
         </div>
-        <p style="font-size:11px;color:#555B63;text-align:center;margin:24px 0 0;line-height:1.5;">
-          Sent to <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a>
-        </p>
-        ${buildLegalFooter()}
+        ${buildChatBubble()}
+        ${buildLegalFooter({ recipientEmail: params.recipientEmail, marketing: true })}
       </div>
     </div>
   `;
@@ -202,6 +200,10 @@ export async function compileAndSendAdFlowReport(
   const [client] = await db.select().from(clients).where(eq(clients.id, cs.client_id)).limit(1);
   if (!client?.contact_email) return { sent: false, reason: "no_client_email" };
 
+  if (await isEmailUnsubscribed(client.contact_email)) {
+    return { sent: false, reason: "recipient_unsubscribed" };
+  }
+
   const transporter = getEmailTransporter();
   if (!transporter) return { sent: false, reason: "smtp_not_configured" };
 
@@ -227,7 +229,7 @@ export async function compileAndSendAdFlowReport(
       from: `WeFixTrades <${getFromAddress()}>`,
       to: client.contact_email,
       replyTo: supportEmail,
-      subject: `${serviceName} · ${period} performance report`,
+      subject: `Your ${period} performance update — ${serviceName}`,
       html: buildHtml({
         contactName,
         serviceName,
@@ -236,6 +238,7 @@ export async function compileAndSendAdFlowReport(
         metrics,
         portalUrl: `${baseUrl}/portal/services`,
         supportEmail,
+        recipientEmail: client.contact_email,
       }),
     });
 

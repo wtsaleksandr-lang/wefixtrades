@@ -7,7 +7,8 @@ import { db } from "../db";
 import { eq, and, gte, sql, desc } from "drizzle-orm";
 import { monitoredReviews, reviewRequests, clients } from "@shared/schema";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
-import { buildLegalFooter } from "./emailFooter";
+import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
+import { isEmailUnsubscribed } from "./unsubscribeStorage";
 
 /* ─── Data Aggregation ─── */
 
@@ -157,9 +158,7 @@ export function buildReportEmailHtml(data: ReportData, portalUrl: string): { sub
 <body style="margin:0;padding:0;font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
 <div style="background:#0B0F14;padding:40px 16px;">
 <div style="max-width:560px;margin:0 auto;">
-  <div style="text-align:center;margin-bottom:24px;">
-    <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades · ReputationShield</span>
-  </div>
+  ${buildEmailHeader({ tagline: "ReputationShield Report" })}
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;overflow:hidden;">
   <!-- Header -->
   <tr><td style="padding:24px 28px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">
@@ -202,7 +201,8 @@ export function buildReportEmailHtml(data: ReportData, portalUrl: string): { sub
     <p style="font-size:11px;color:#555B63;margin:14px 0 0;">You can adjust report settings in your portal.</p>
   </td></tr>
   </table>
-  ${buildLegalFooter()}
+  ${buildChatBubble()}
+  ${buildLegalFooter({ recipientEmail: data.contactEmail, marketing: true })}
 </div>
 </div>
 </body></html>`;
@@ -216,6 +216,11 @@ export async function sendReputationReport(data: ReportData, portalUrl: string):
   const transporter = getEmailTransporter();
   if (!transporter) return { ok: false, error: "SMTP not configured" };
   if (!data.contactEmail) return { ok: false, error: "No contact email" };
+
+  if (await isEmailUnsubscribed(data.contactEmail)) {
+    console.log(`[reputation-report] Recipient ${data.contactEmail} is unsubscribed — skipping`);
+    return { ok: false, error: "Recipient unsubscribed" };
+  }
 
   const { subject, html } = buildReportEmailHtml(data, portalUrl);
 
