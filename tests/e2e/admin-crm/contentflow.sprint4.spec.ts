@@ -355,6 +355,12 @@ test.describe("ContentFlow Sprint 4 — WordPress publishing", () => {
     expect(target, "should have a fresh draft draft to manipulate").toBeTruthy();
     const errDraftId = target.id;
 
+    // Generate body so the publisher gets past the missing_body short-circuit
+    // and actually reaches the WP mock — only then can we exercise wp_error.
+    const regen = await adminApi.post(`/api/admin/contentflow/drafts/${errDraftId}/regenerate-article`);
+    expect(regen.ok(), `regenerate failed for err draft: ${await regen.text()}`).toBeTruthy();
+
+    // Flip title to the failure-trigger prefix and approve in one step.
     await pool.query(
       `UPDATE content_drafts SET title = 'FAIL_WP_500 ' || COALESCE(title, ''), status = 'approved' WHERE id = $1`,
       [errDraftId],
