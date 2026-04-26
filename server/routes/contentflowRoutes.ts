@@ -21,56 +21,11 @@ import {
   adminApproveDraft,
   adminRejectDraft,
 } from "../services/contentflow/approvalService";
-
-/* ─── Local markdown → HTML helpers (no dep) ──────────────────────────── */
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/**
- * Convert article markdown to a minimal HTML body. Handles ATX headings
- * (## / ###) and blank-line-separated paragraphs. Everything else is
- * HTML-escaped and emitted as plain text — by design, since we have not
- * pulled in a markdown library yet.
- */
-function renderArticleHtml(input: { title: string | null; excerpt: string | null; bodyMd: string }): string {
-  const blocks = input.bodyMd.split(/\n\s*\n/);
-  const rendered: string[] = [];
-  for (const raw of blocks) {
-    const block = raw.trim();
-    if (!block) continue;
-    if (block.startsWith("### ")) {
-      rendered.push(`<h3>${escapeHtml(block.slice(4).trim())}</h3>`);
-    } else if (block.startsWith("## ")) {
-      rendered.push(`<h2>${escapeHtml(block.slice(3).trim())}</h2>`);
-    } else if (block.startsWith("# ")) {
-      rendered.push(`<h2>${escapeHtml(block.slice(2).trim())}</h2>`);
-    } else {
-      rendered.push(`<p>${escapeHtml(block)}</p>`);
-    }
-  }
-  const body = rendered.join("\n");
-  const titleHtml = input.title ? `<h1>${escapeHtml(input.title)}</h1>\n` : "";
-  const excerptHtml = input.excerpt ? `<p class="excerpt"><em>${escapeHtml(input.excerpt)}</em></p>\n` : "";
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>${escapeHtml(input.title || "Article")}</title>
-</head>
-<body>
-<article>
-${titleHtml}${excerptHtml}${body}
-</article>
-</body>
-</html>
-`;
-}
+import { renderArticleHtml, wrapInHtmlDocument } from "../services/contentflow/articleHtml";
+import {
+  publishDraftToWordpress,
+  getPublishStatus,
+} from "../services/contentflow/wordpressPublisher";
 
 export function registerContentFlowRoutes(app: Express): void {
   /**
@@ -313,14 +268,90 @@ export function registerContentFlowRoutes(app: Express): void {
         if (!draft.body) {
           return res.status(409).json({ error: "draft has no body yet — generate first" });
         }
-        const html = renderArticleHtml({
+        const bodyHtml = renderArticleHtml({
           title: draft.title,
           excerpt: draft.excerpt,
           bodyMd: draft.body,
         });
+        const html = wrapInHtmlDocument({ title: draft.title, bodyHtml });
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         res.setHeader("Content-Disposition", `inline; filename="article-${draft.id}.html"`);
         res.send(html);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  /**
+   * POST /api/admin/contentflow/drafts/:id/publish
+   *
+   * Manually publish an approved RankFlow article draft to the client's
+   * configured WordPress site. Body: { status?: "draft" | "publish" }
+   * (defaults to "draft" — admins explicitly opt into "publish").
+   *
+   * Status mapping:
+   *   200 — success: { post_id, post_url, wp_status, published_at }
+   *   404 — draft not found
+   *   409 — draft is not in 'approved' state, or not a RankFlow article
+   *   422 — client misconfigured (cms_type / missing creds / encryption)
+   *   502 — WordPress responded with an error or network failure
+   *   500 — unexpected error
+   */
+  app.post(
+    "/api/admin/contentflow/drafts/:id/publish",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const draftId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(draftId)) {
+          return res.status(400).json({ error: "id must be a number" });
+        }
+        const requested = req.body?.status;
+        const status: "draft" | "publish" = requested === "publish" ? "publish" : "draft";
+
+        const result = await publishDraftToWordpress(draftId, { status });
+        if (result.ok) {
+          return res.json({
+            ok: true,
+            post_id: result.post_id,
+            post_url: result.post_url,
+            wp_status: result.wp_status,
+            published_at: result.published_at,
+          });
+        }
+
+        const httpStatus =
+          result.reason === "draft_not_found" ? 404
+          : result.reason === "wrong_kind" || result.reason === "wrong_surface" || result.reason === "not_approved" || result.reason === "missing_body" ? 409
+          : result.reason === "no_profile" || result.reason === "wrong_cms_type" || result.reason === "missing_credentials" || result.reason === "encryption_unavailable" || result.reason === "decrypt_failed" ? 422
+          : result.reason === "wp_error" || result.reason === "network_error" ? 502
+          : 500;
+        return res.status(httpStatus).json({ ok: false, reason: result.reason, error: result.message });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  /**
+   * GET /api/admin/contentflow/drafts/:id/publish-status
+   *
+   * Non-network publish-status report for the admin UI.
+   * Possible states: not_configured | configured | published | failed.
+   */
+  app.get(
+    "/api/admin/contentflow/drafts/:id/publish-status",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const draftId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(draftId)) {
+          return res.status(400).json({ error: "id must be a number" });
+        }
+        const report = await getPublishStatus(draftId);
+        if (!report) return res.status(404).json({ error: "draft not found" });
+        res.json(report);
       } catch (err: any) {
         res.status(500).json({ error: err.message });
       }
@@ -462,6 +493,41 @@ export function registerContentFlowRoutes(app: Express): void {
         } catch (err: any) {
           res.status(500).json({ error: err.message });
         }
+      },
+    );
+
+    /**
+     * POST /api/admin/contentflow/__dev/wp-mock/wp-json/wp/v2/posts
+     *
+     * Stand-in for a WordPress instance. Mirrors the shape of the real
+     * WP REST API's "create post" endpoint enough to exercise the
+     * publisher end-to-end without a live WordPress install. Returns
+     * { id, link, status } in the same field names WP uses.
+     *
+     * Tests configure a client with cms_url pointing here. Production
+     * code never touches this — gated by NODE_ENV !== "production".
+     *
+     * Includes a deliberate failure mode: if the post `title` starts
+     * with "FAIL_WP_500", the mock returns a 500 so the spec can
+     * exercise the publisher's error path.
+     */
+    app.post(
+      "/api/admin/contentflow/__dev/wp-mock/wp-json/wp/v2/posts",
+      requireAdmin,
+      async (req: Request, res: Response) => {
+        const title = typeof req.body?.title === "string" ? req.body.title : "";
+        const reqStatus = typeof req.body?.status === "string" ? req.body.status : "draft";
+        if (title.startsWith("FAIL_WP_500")) {
+          return res.status(500).json({ code: "rest_internal_error", message: "Forced failure for test" });
+        }
+        // Realistic-looking response. Generated id stays small for human-readability.
+        const fakeId = Math.floor(Math.random() * 9000) + 1000;
+        res.json({
+          id: fakeId,
+          link: `https://example-test.invalid/?p=${fakeId}`,
+          status: reqStatus === "publish" ? "publish" : "draft",
+          title: { rendered: title },
+        });
       },
     );
   }
