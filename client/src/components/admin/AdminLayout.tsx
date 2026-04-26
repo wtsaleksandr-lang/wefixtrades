@@ -27,6 +27,7 @@ import {
   Star,
   Shield,
   ChevronDown,
+  Layers,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -66,6 +67,7 @@ const PRODUCTS_ITEMS = [
   { label: "RankFlow", href: "/admin/crm/rankflow", icon: TrendingUp },
   { label: "Reviews", href: "/admin/crm/reviews", icon: Star },
   { label: "SocialSync", href: "/admin/crm/socialsync", icon: Share2 },
+  { label: "ContentFlow", href: "/admin/contentflow", icon: Layers },
 ];
 
 const FINANCE_ITEMS = [

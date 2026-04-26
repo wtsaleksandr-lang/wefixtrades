@@ -79,6 +79,7 @@ import ProspectsPage from "@/pages/admin/outbound/ProspectsPage";
 import CampaignsPage from "@/pages/admin/outbound/CampaignsPage";
 import PipelinePage from "@/pages/admin/outbound/PipelinePage";
 import SocialSyncOpsPage from "@/pages/admin/SocialSyncOpsPage";
+import ContentFlowQueuePage from "@/pages/admin/ContentFlowQueuePage";
 import SalesPipelinePage from "@/pages/admin/SalesPipelinePage";
 import OnboardingForm from "@/pages/OnboardingForm";
 import ReviewFunnel from "@/pages/ReviewFunnel";
@@ -111,6 +112,7 @@ function Router() {
       <Route path="/admin/ai">{() => <RequirePortal><AiDashboard /></RequirePortal>}</Route>
       <Route path="/admin/crm/sales">{() => <RequirePortal><SalesPipelinePage /></RequirePortal>}</Route>
       <Route path="/admin/crm/socialsync">{() => <RequirePortal><SocialSyncOpsPage /></RequirePortal>}</Route>
+      <Route path="/admin/contentflow">{() => <RequirePortal><ContentFlowQueuePage /></RequirePortal>}</Route>
       <Route path="/admin/crm/clients/:id">{() => <RequirePortal><ClientDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/clients">{() => <RequirePortal><ClientsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/inbox">{() => <RequirePortal><InboxPage /></RequirePortal>}</Route>

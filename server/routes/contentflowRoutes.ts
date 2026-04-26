@@ -15,7 +15,11 @@ import type { Express, Request, Response } from "express";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
 import { createDraftFromSocialPost } from "../services/contentflow/draftService";
-import { autoApproveDraft } from "../services/contentflow/approvalService";
+import {
+  autoApproveDraft,
+  adminApproveDraft,
+  adminRejectDraft,
+} from "../services/contentflow/approvalService";
 
 export function registerContentFlowRoutes(app: Express): void {
   /**
@@ -64,6 +68,98 @@ export function registerContentFlowRoutes(app: Express): void {
     }
   });
 
+  /**
+   * GET /api/admin/contentflow/drafts/:id
+   *
+   * Returns the full picture for a single draft: the draft row itself,
+   * the append-only content_approvals trail, and the linked SocialSyncPost
+   * (when surface='socialsync'). RankFlow article support lands in a
+   * later sprint; for now linked_task is returned as null.
+   */
+  app.get(
+    "/api/admin/contentflow/drafts/:id",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const draftId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(draftId)) {
+          return res.status(400).json({ error: "id must be a number" });
+        }
+        const draft = await storage.getContentDraftById(draftId);
+        if (!draft) return res.status(404).json({ error: "draft not found" });
+        const approvals = await storage.listContentApprovals(draftId);
+        const linkedSocialPost = draft.linked_social_post_id
+          ? await storage.getSocialSyncPostById(draft.linked_social_post_id)
+          : null;
+        res.json({ draft, approvals, linkedSocialPost, linkedTask: null });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  /**
+   * POST /api/admin/contentflow/drafts/:id/approve
+   * Body: { notes?: string }
+   * Admin marks a draft as approved. Records the action in content_approvals
+   * with actor_type='admin'.
+   */
+  app.post(
+    "/api/admin/contentflow/drafts/:id/approve",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const draftId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(draftId)) {
+          return res.status(400).json({ error: "id must be a number" });
+        }
+        const adminUserId = (req.user as any)?.id;
+        if (!Number.isFinite(adminUserId)) {
+          return res.status(401).json({ error: "missing admin user id" });
+        }
+        const notes = typeof req.body?.notes === "string" ? req.body.notes : undefined;
+        const draft = await adminApproveDraft({ draftId, adminUserId, notes });
+        res.json({ ok: true, draft });
+      } catch (err: any) {
+        const status = /not found/i.test(err.message) ? 404
+          : /terminal/i.test(err.message) ? 409
+          : 500;
+        res.status(status).json({ error: err.message });
+      }
+    },
+  );
+
+  /**
+   * POST /api/admin/contentflow/drafts/:id/reject
+   * Body: { reason?: string }
+   * Admin marks a draft as rejected. Records the action in content_approvals
+   * with actor_type='admin'.
+   */
+  app.post(
+    "/api/admin/contentflow/drafts/:id/reject",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const draftId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(draftId)) {
+          return res.status(400).json({ error: "id must be a number" });
+        }
+        const adminUserId = (req.user as any)?.id;
+        if (!Number.isFinite(adminUserId)) {
+          return res.status(401).json({ error: "missing admin user id" });
+        }
+        const reason = typeof req.body?.reason === "string" ? req.body.reason : undefined;
+        const draft = await adminRejectDraft({ draftId, adminUserId, reason });
+        res.json({ ok: true, draft });
+      } catch (err: any) {
+        const status = /not found/i.test(err.message) ? 404
+          : /terminal/i.test(err.message) ? 409
+          : 500;
+        res.status(status).json({ error: err.message });
+      }
+    },
+  );
+
   /* ═══════════════════════════════════════════════════════════════════
      DEV-ONLY endpoints for Sprint 1 verification.
      Gated by NODE_ENV !== "production". Require admin auth.
@@ -98,6 +194,10 @@ export function registerContentFlowRoutes(app: Express): void {
           const quality_score = Number.isFinite(req.body?.quality_score)
             ? parseInt(String(req.body.quality_score), 10)
             : 85;
+          // Default true to preserve Sprint 1 spec semantics. Sprint 2 tests
+          // pass false so the draft lands in 'draft' status — required for
+          // exercising the admin Approve / Reject UI buttons.
+          const auto_approve = req.body?.auto_approve !== false;
 
           // 1. Insert a realistic SocialSyncPost (matches what contentGenerator.ts emits).
           const post = await storage.createSocialSyncPost({
@@ -116,12 +216,14 @@ export function registerContentFlowRoutes(app: Express): void {
             created_by_system: true,
           } as any);
 
-          // 2. Run the exact ContentFlow kernel hooks the orchestrator calls.
+          // 2. Run the ContentFlow kernel hooks the orchestrator calls.
           const draft = await createDraftFromSocialPost({ post });
-          const approved = await autoApproveDraft({
-            draftId: draft.id,
-            notes: `[DEV SIMULATION] auto-approved — quality score ${quality_score}`,
-          });
+          const final = auto_approve
+            ? await autoApproveDraft({
+                draftId: draft.id,
+                notes: `[DEV SIMULATION] auto-approved — quality score ${quality_score}`,
+              })
+            : draft;
 
           // 3. Read back the post to confirm back-ref column was populated.
           const refreshedPost = await storage.getSocialSyncPostById(post.id);
@@ -131,8 +233,8 @@ export function registerContentFlowRoutes(app: Express): void {
             draft_id: draft.id,
             post_status: refreshedPost?.status ?? null,
             post_content_draft_id: (refreshedPost as any)?.content_draft_id ?? null,
-            draft_status: approved.status,
-            auto_approved: approved.auto_approved,
+            draft_status: final.status,
+            auto_approved: final.auto_approved,
           });
         } catch (err: any) {
           res.status(500).json({ error: err.message });

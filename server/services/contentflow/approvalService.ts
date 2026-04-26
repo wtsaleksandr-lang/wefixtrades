@@ -2,8 +2,9 @@
  * ContentFlow — approval service.
  *
  * Mutates draft approval state and writes append-only rows to
- * content_approvals. Sprint 1 only exposes the `autoApprove` path —
- * admin/client approve/reject land in Sprint 2 once the UI is wired.
+ * content_approvals. Sprint 1 introduced `autoApprove`; Sprint 2 adds
+ * the admin-driven `adminApprove` and `adminReject` flows used by the
+ * /admin/contentflow queue UI.
  */
 import { storage } from "../../storage";
 import type { ContentDraft } from "@shared/schema";
@@ -48,6 +49,99 @@ export async function autoApproveDraft(input: AutoApproveInput): Promise<Content
     action: "auto_approved",
     notes: notes ?? "Auto-approved — no admin review required",
     metadata: metadata ?? null,
+  } as any);
+
+  return updated ?? existing;
+}
+
+/* ─── Admin-driven approval (Sprint 2) ───────────────────────────────── */
+
+export interface AdminApproveInput {
+  draftId: number;
+  adminUserId: number;
+  notes?: string;
+}
+
+export interface AdminRejectInput {
+  draftId: number;
+  adminUserId: number;
+  reason?: string;
+}
+
+/**
+ * Admin explicitly approves a draft from the queue UI.
+ *
+ * Allowed source states: 'draft', 'awaiting_admin', 'rejected'.
+ * Approving an already-approved draft is a no-op that still records the
+ * approval row (so the audit trail is honest) but doesn't double-stamp
+ * `admin_approved_at`. Approving a `published` / `delivered` draft is
+ * blocked — those are terminal.
+ */
+export async function adminApproveDraft(input: AdminApproveInput): Promise<ContentDraft> {
+  const { draftId, adminUserId, notes } = input;
+
+  const existing = await storage.getContentDraftById(draftId);
+  if (!existing) throw new Error(`ContentFlow draft ${draftId} not found`);
+
+  const terminal = new Set(["published", "delivered", "failed"]);
+  if (terminal.has(existing.status)) {
+    throw new Error(`Cannot approve draft in terminal status '${existing.status}'`);
+  }
+
+  const now = new Date();
+  const updated = await storage.updateContentDraft(draftId, {
+    status: "approved",
+    auto_approved: false,
+    admin_approved_at: existing.admin_approved_at ?? now,
+    admin_approved_by: existing.admin_approved_by ?? adminUserId,
+    rejected_at: null,
+    rejection_reason: null,
+  } as any);
+
+  await storage.createContentApproval({
+    draft_id: draftId,
+    actor_type: "admin" as ApprovalActorType,
+    actor_id: adminUserId,
+    action: "approved",
+    notes: notes ?? null,
+    metadata: null,
+  } as any);
+
+  return updated ?? existing;
+}
+
+/**
+ * Admin explicitly rejects a draft from the queue UI.
+ *
+ * Allowed source states: 'draft', 'awaiting_admin', 'awaiting_client',
+ * 'approved' (revoking an earlier approval). Rejecting a published /
+ * delivered / failed draft is blocked — those are terminal.
+ */
+export async function adminRejectDraft(input: AdminRejectInput): Promise<ContentDraft> {
+  const { draftId, adminUserId, reason } = input;
+
+  const existing = await storage.getContentDraftById(draftId);
+  if (!existing) throw new Error(`ContentFlow draft ${draftId} not found`);
+
+  const terminal = new Set(["published", "delivered", "failed"]);
+  if (terminal.has(existing.status)) {
+    throw new Error(`Cannot reject draft in terminal status '${existing.status}'`);
+  }
+
+  const now = new Date();
+  const updated = await storage.updateContentDraft(draftId, {
+    status: "rejected",
+    rejected_at: now,
+    rejection_reason: reason ?? null,
+  } as any);
+
+  await storage.createContentApproval({
+    draft_id: draftId,
+    actor_type: "admin" as ApprovalActorType,
+    actor_id: adminUserId,
+    action: "rejected",
+    notes: reason ?? null,
+    metadata: null,
   } as any);
 
   return updated ?? existing;
