@@ -108,8 +108,8 @@ interface DeltaShape {
 
 /**
  * Pick a header badge from a single primary delta + optional critical flag.
- * Returns "Up trending" if the metric improved by ≥10%, "Needs attention"
- * if it got materially worse, otherwise "On track".
+ * Returns "Improving" if the metric improved by ≥10%, "Needs attention"
+ * if it got materially worse, otherwise "Healthy".
  *
  * Pass `critical: true` to force "Needs attention" regardless of delta
  * (e.g. unanswered low-rating reviews).
@@ -122,10 +122,10 @@ export function deriveHeaderBadge(opts: {
   const d = opts.primaryDelta;
   if (d?.shown) {
     const pct = parseInt(d.pctText, 10) || 0;
-    if (d.good && pct >= 10) return { label: "Up trending", tone: "good" };
+    if (d.good && pct >= 10) return { label: "Improving", tone: "good" };
     if (!d.good && pct >= 10) return { label: "Needs attention", tone: "warn" };
   }
-  return { label: "On track", tone: "neutral" };
+  return { label: "Healthy", tone: "neutral" };
 }
 
 /* ─── Hero block (eyebrow + headline + summary + optional right-side meta) ─── */
