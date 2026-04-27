@@ -146,3 +146,154 @@ export async function adminRejectDraft(input: AdminRejectInput): Promise<Content
 
   return updated ?? existing;
 }
+
+/* ─── Client portal review (Sprint 6) ────────────────────────────────────
+ *
+ * Clients can approve, request changes on, or reject RankFlow article
+ * drafts that an admin has already approved. Decisions live in
+ * metadata.client_review (no schema migration) AND in the existing
+ * content_approvals audit trail (actor_type='client').
+ *
+ * Security boundary: every function takes the caller's clientId and
+ * refuses if it doesn't match the draft's client_id. The route layer
+ * resolves clientId from the authenticated session via withClientId().
+ */
+
+export interface ClientReviewInput {
+  draftId: number;
+  clientId: number;          // resolved from req.user → clients.user_id
+  note?: string;
+}
+
+type ClientReviewState = "approved" | "changes_requested" | "rejected";
+
+interface ClientReviewMeta {
+  state: ClientReviewState;
+  note: string | null;
+  decided_at: string;
+}
+
+async function loadAndAuthorize(draftId: number, clientId: number): Promise<ContentDraft> {
+  const existing = await storage.getContentDraftById(draftId);
+  if (!existing) {
+    const err: any = new Error(`ContentFlow draft ${draftId} not found`);
+    err.code = "not_found";
+    throw err;
+  }
+  if (existing.client_id !== clientId) {
+    const err: any = new Error("Not authorized to review this draft");
+    err.code = "forbidden";
+    throw err;
+  }
+  if (existing.kind !== "article" || existing.surface !== "rankflow") {
+    const err: any = new Error("Only RankFlow articles support client review");
+    err.code = "wrong_kind";
+    throw err;
+  }
+  return existing;
+}
+
+/**
+ * Re-read draft.metadata immediately before write and merge — same
+ * race-protection pattern Sprint 4 introduced for articleService and
+ * Sprint 5's queue. Without this, a concurrent publish or article
+ * regeneration could clobber the client_review key.
+ */
+async function mergeClientReviewMetadata(draftId: number, review: ClientReviewMeta): Promise<ContentDraft | undefined> {
+  const fresh = await storage.getContentDraftById(draftId);
+  if (!fresh) return undefined;
+  const existingMeta = (fresh.metadata || {}) as Record<string, any>;
+  return storage.updateContentDraft(draftId, {
+    metadata: { ...existingMeta, client_review: review },
+  } as any);
+}
+
+/**
+ * Sprint 6: client approves a draft. Sets metadata.client_review.state +
+ * client_approved_at + appends content_approvals row. Idempotent — re-
+ * approving is a no-op past the first decision.
+ */
+export async function clientApproveDraft(input: ClientReviewInput): Promise<ContentDraft> {
+  const existing = await loadAndAuthorize(input.draftId, input.clientId);
+
+  const now = new Date();
+  await storage.updateContentDraft(input.draftId, {
+    client_approved_at: existing.client_approved_at ?? now,
+  } as any);
+  const updated = await mergeClientReviewMetadata(input.draftId, {
+    state: "approved",
+    note: input.note ?? null,
+    decided_at: now.toISOString(),
+  });
+
+  await storage.createContentApproval({
+    draft_id: input.draftId,
+    actor_type: "client" as ApprovalActorType,
+    actor_id: input.clientId,
+    action: "approved",
+    notes: input.note ?? null,
+    metadata: null,
+  } as any);
+
+  return updated ?? existing;
+}
+
+/**
+ * Sprint 6: client requests changes. Does NOT change draft.status —
+ * keeps it at 'approved' so admin still controls publish gating, but
+ * marks metadata.client_review.state='changes_requested' so admin sees
+ * the request in the queue/drawer and can regenerate.
+ */
+export async function clientRequestChanges(input: ClientReviewInput): Promise<ContentDraft> {
+  const existing = await loadAndAuthorize(input.draftId, input.clientId);
+
+  const now = new Date();
+  const updated = await mergeClientReviewMetadata(input.draftId, {
+    state: "changes_requested",
+    note: input.note ?? null,
+    decided_at: now.toISOString(),
+  });
+
+  await storage.createContentApproval({
+    draft_id: input.draftId,
+    actor_type: "client" as ApprovalActorType,
+    actor_id: input.clientId,
+    action: "changes_requested",
+    notes: input.note ?? null,
+    metadata: null,
+  } as any);
+
+  return updated ?? existing;
+}
+
+/**
+ * Sprint 6: client rejects. Flips draft.status to 'rejected' and records
+ * metadata.client_review.state='rejected'. Admin can revive via
+ * regeneration + a fresh approval cycle.
+ */
+export async function clientRejectDraft(input: ClientReviewInput): Promise<ContentDraft> {
+  const existing = await loadAndAuthorize(input.draftId, input.clientId);
+
+  const now = new Date();
+  await storage.updateContentDraft(input.draftId, {
+    status: "rejected",
+    rejected_at: now,
+    rejection_reason: input.note ?? null,
+  } as any);
+  const updated = await mergeClientReviewMetadata(input.draftId, {
+    state: "rejected",
+    note: input.note ?? null,
+    decided_at: now.toISOString(),
+  });
+
+  await storage.createContentApproval({
+    draft_id: input.draftId,
+    actor_type: "client" as ApprovalActorType,
+    actor_id: input.clientId,
+    action: "rejected",
+    notes: input.note ?? null,
+    metadata: null,
+  } as any);
+
+  return updated ?? existing;
+}
