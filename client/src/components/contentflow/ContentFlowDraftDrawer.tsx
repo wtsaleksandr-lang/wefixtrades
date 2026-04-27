@@ -159,19 +159,113 @@ export default function ContentFlowDraftDrawer({ draftId, open, onOpenChange }: 
     },
   });
 
+  // Sprint 5: queue actions (queue / schedule / retry).
+  const [scheduledFor, setScheduledFor] = useState<string>("");
+
+  const queueMutation = useMutation({
+    mutationFn: async (opts: { scheduled_for: string | null }) => {
+      if (draftId === null) throw new Error("no draftId");
+      const res = await apiRequest("POST", `/api/admin/contentflow/drafts/${draftId}/queue-publish`, {
+        scheduled_for: opts.scheduled_for,
+        status: "draft",
+      });
+      return res.json();
+    },
+    onSuccess: (body: any) => {
+      const when = body?.scheduled_for
+        ? `scheduled for ${new Date(body.scheduled_for).toLocaleString()}`
+        : "queued for next worker tick";
+      toast({ title: "Queued for WordPress", description: when });
+      setScheduledFor("");
+      qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/drafts", draftId] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/queue"] });
+    },
+    onError: (e: any) => {
+      toast({ variant: "destructive", title: "Queue failed", description: e?.message || "Unknown error" });
+    },
+  });
+
+  const retryMutation = useMutation({
+    mutationFn: async () => {
+      if (draftId === null) throw new Error("no draftId");
+      const res = await apiRequest("POST", `/api/admin/contentflow/drafts/${draftId}/retry-publish`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Retry queued", description: "Draft will publish on the next worker tick." });
+      qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/drafts", draftId] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/queue"] });
+    },
+    onError: (e: any) => {
+      toast({ variant: "destructive", title: "Retry failed", description: e?.message || "Unknown error" });
+    },
+  });
+
+  /**
+   * "Tomorrow morning" preset = next 9:00 AM in the server's timezone.
+   * Per Sprint 5 brief: server timezone unless an existing user-tz system
+   * exists (none does at this layer).
+   */
+  function tomorrowMorningIso(): string {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(9, 0, 0, 0);
+    return d.toISOString();
+  }
+
   const draft = data?.draft;
   const isTerminal = draft ? ["published", "delivered", "failed"].includes(draft.status) : false;
-  const busy = approveMutation.isPending || rejectMutation.isPending || publishMutation.isPending;
+  const busy =
+    approveMutation.isPending ||
+    rejectMutation.isPending ||
+    publishMutation.isPending ||
+    queueMutation.isPending ||
+    retryMutation.isPending;
 
   // Publish-to-WordPress visibility: only for approved RankFlow articles.
-  // Read state from draft.metadata.wordpress (populated by the publisher).
+  // Read state from draft.metadata.wordpress (populated by the publisher
+  // and the Sprint 5 queue worker).
   const wpMeta = (draft?.metadata as any)?.wordpress as
-    | { post_id?: number; post_url?: string; published_at?: string; wp_status?: string; error?: string }
+    | {
+        // Sprint 4 keys
+        post_id?: number;
+        post_url?: string;
+        published_at?: string;
+        wp_status?: string;
+        error?: string;
+        // Sprint 5 keys
+        queue_status?: "queued" | "publishing" | "published" | "failed";
+        scheduled_for?: string | null;
+        attempts?: number;
+        last_error?: string | null;
+      }
     | undefined;
   const canShowPublishUI = !!draft && draft.kind === "article" && draft.surface === "rankflow";
   const isPublished = !!wpMeta?.post_url && !!wpMeta?.post_id;
-  const lastPublishError = wpMeta?.error;
+  const lastPublishError = wpMeta?.error || wpMeta?.last_error;
   const canTriggerPublish = canShowPublishUI && draft?.status === "approved" && !isPublished;
+
+  // Sprint 5 derived state.
+  const queueStatus = wpMeta?.queue_status ?? null;
+  const isScheduled =
+    queueStatus === "queued" &&
+    !!wpMeta?.scheduled_for &&
+    new Date(wpMeta.scheduled_for).getTime() > Date.now();
+  const isQueueFailed = queueStatus === "failed";
+  const isQueued = queueStatus === "queued" || queueStatus === "publishing";
+  const queueBadgeLabel = isPublished
+    ? "Published"
+    : queueStatus === "publishing"
+    ? "Publishing"
+    : isScheduled
+    ? "Scheduled"
+    : queueStatus === "queued"
+    ? "Queued"
+    : queueStatus === "failed"
+    ? "Failed"
+    : null;
+  const canTriggerQueue = canShowPublishUI && draft?.status === "approved" && !isPublished && !isQueued;
+  const canTriggerRetry = canShowPublishUI && isQueueFailed && !isPublished;
 
   return (
     <Sheet
@@ -392,10 +486,98 @@ export default function ContentFlowDraftDrawer({ draftId, open, onOpenChange }: 
                   {lastPublishError ? "Retry Publish" : "Publish to WordPress"}
                 </Button>
               )}
+              {canTriggerQueue && (
+                <Button
+                  data-testid="queue-wordpress-btn"
+                  onClick={() => queueMutation.mutate({ scheduled_for: scheduledFor || null })}
+                  disabled={busy}
+                  variant="outline"
+                  className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                >
+                  {queueMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                  {scheduledFor ? "Schedule Publish" : "Queue for Publish"}
+                </Button>
+              )}
+              {canTriggerRetry && (
+                <Button
+                  data-testid="retry-publish-btn"
+                  onClick={() => retryMutation.mutate()}
+                  disabled={busy}
+                  variant="outline"
+                  className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                >
+                  {retryMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                  Retry Publish
+                </Button>
+              )}
               <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy} className="ml-auto">
                 Close
               </Button>
             </div>
+
+            {/* Sprint 5: scheduling + queue badge — visible for approved RankFlow articles */}
+            {canShowPublishUI && draft?.status === "approved" && !isPublished && !isQueued && (
+              <div className="rounded border bg-muted/40 p-3 text-xs space-y-2" data-testid="schedule-publish-row">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Schedule publish (optional)</div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <input
+                    type="datetime-local"
+                    value={scheduledFor}
+                    onChange={(e) => setScheduledFor(e.target.value)}
+                    className="rounded border bg-background px-2 py-1 text-xs"
+                    data-testid="schedule-publish-input"
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      // "Tomorrow morning" preset = 9:00 AM next day in browser-local time
+                      // (then sent as UTC ISO to the server). Server timezone is UTC on Replit.
+                      const d = new Date();
+                      d.setDate(d.getDate() + 1);
+                      d.setHours(9, 0, 0, 0);
+                      // datetime-local wants YYYY-MM-DDTHH:mm without seconds.
+                      const pad = (n: number) => String(n).padStart(2, "0");
+                      setScheduledFor(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                    }}
+                    disabled={busy}
+                  >
+                    Tomorrow 9 AM
+                  </Button>
+                  {scheduledFor && (
+                    <Button size="sm" variant="ghost" onClick={() => setScheduledFor("")} disabled={busy}>
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {canShowPublishUI && queueBadgeLabel && (
+              <div
+                className="rounded border bg-muted/30 p-2 text-xs flex items-center gap-2"
+                data-testid={`queue-badge-${queueBadgeLabel.toLowerCase()}`}
+              >
+                <Badge
+                  variant="outline"
+                  className={
+                    queueBadgeLabel === "Published" ? "border-blue-300 text-blue-700"
+                    : queueBadgeLabel === "Publishing" ? "border-indigo-300 text-indigo-700 animate-pulse"
+                    : queueBadgeLabel === "Scheduled" ? "border-violet-300 text-violet-700"
+                    : queueBadgeLabel === "Queued" ? "border-emerald-300 text-emerald-700"
+                    : "border-red-300 text-red-700"
+                  }
+                >
+                  {queueBadgeLabel}
+                </Badge>
+                {isScheduled && wpMeta?.scheduled_for && (
+                  <span className="text-muted-foreground">runs at {new Date(wpMeta.scheduled_for).toLocaleString()}</span>
+                )}
+                {isQueueFailed && (
+                  <span className="text-muted-foreground">attempt {wpMeta?.attempts ?? 0}/3</span>
+                )}
+              </div>
+            )}
 
             {/* WordPress publish status — visible only for RankFlow articles */}
             {canShowPublishUI && isPublished && wpMeta?.post_url && (
