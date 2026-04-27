@@ -11,7 +11,7 @@
 
 import { db } from "../db";
 import { clients, clientServices, serviceCatalog } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 import { generateLineChart } from "./emailCharts";
@@ -454,4 +454,131 @@ export async function previewAdFlowReportHtml(opts: {
   });
 
   return { subject, html, chartLocalPath: chartResult?.localPath || null, senderName: ADFLOW_FROM_NAME };
+}
+
+/* ─── Batch sender (strict-gated monthly cron) ─── */
+
+/**
+ * Pure helper — returns true iff `periodStartRaw` parses to a date that
+ * falls within the previous calendar month relative to `now` (UTC).
+ *
+ * Returns false for: undefined, empty string, unparseable date, future
+ * date, or any date older than the start of the previous month.
+ *
+ * Exported for unit-testing the strict gate in isolation.
+ */
+export function isPeriodStartInPreviousMonth(
+  now: Date,
+  periodStartRaw: string | undefined | null,
+): boolean {
+  if (!periodStartRaw) return false;
+  const ps = new Date(periodStartRaw);
+  if (isNaN(ps.getTime())) return false;
+  const prevMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const prevMonthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)); // exclusive
+  return ps >= prevMonthStart && ps < prevMonthEnd;
+}
+
+/**
+ * Strict-gated batch sender for the AdFlow monthly cron.
+ *
+ * Unlike the other monthly reports (RankFlow / SocialSync / MapGuard),
+ * AdFlow metrics are NOT auto-collected — an admin manually enters them
+ * via POST /api/admin/crm/client-services/:id/adflow-metrics, which writes
+ * to client_service.metadata.latest_report.
+ *
+ * Because of that, an unguarded sweep would risk emailing zero-data or
+ * stale reports to clients whose admin forgot to enter this month's
+ * numbers. The cron fires on the 2nd of each month at 13:00 UTC, so the
+ * "current" report is the **previous calendar month**.
+ *
+ * Strict gate (in order):
+ *   1. Service must be active + enabled + service_id LIKE 'adflow%'
+ *   2. Client must have a non-empty contact_email
+ *   3. metadata.latest_report.period_start must exist AND fall within
+ *      the previous calendar month — otherwise the client is bucketed
+ *      as `skipped_missing_current_report` (covers both missing AND stale)
+ *   4. compileAndSendAdFlowReport() then runs its own idempotency check
+ *      via metadata.last_report_period (so re-runs same month are safe)
+ *
+ * Returns a job_logs-friendly metadata object — including a per-skip
+ * breakdown so ops can see at a glance which clients still need
+ * metrics entered for the month.
+ */
+export async function sendAllAdflowReports(): Promise<{
+  sent: number;
+  skipped: number;
+  errors: string[];
+  skipped_missing_current_report: number;
+  skipped_already_sent: number;
+  skipped_unsubscribed: number;
+  skipped_other: number;
+}> {
+  const now = new Date();
+
+  const activeServices = await db.select({
+    cs_id: clientServices.id,
+    metadata: clientServices.metadata,
+    business_name: clients.business_name,
+    contact_email: clients.contact_email,
+  })
+    .from(clientServices)
+    .innerJoin(clients, eq(clientServices.client_id, clients.id))
+    .innerJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
+    .where(and(
+      eq(clientServices.status, "active"),
+      eq(clientServices.enabled, true),
+      sql`${serviceCatalog.id} LIKE 'adflow%'`,
+      sql`${clients.contact_email} IS NOT NULL AND ${clients.contact_email} != ''`,
+    ));
+
+  let sent = 0;
+  let skipped = 0;
+  let skipped_missing_current_report = 0;
+  let skipped_already_sent = 0;
+  let skipped_unsubscribed = 0;
+  let skipped_other = 0;
+  const errors: string[] = [];
+
+  for (const svc of activeServices) {
+    const meta = (svc.metadata as any) || {};
+    const latest = meta.latest_report;
+    const periodStartRaw: string | undefined = latest?.period_start;
+
+    // Strict gate: must have a period_start that falls in previous calendar month
+    if (!isPeriodStartInPreviousMonth(now, periodStartRaw)) {
+      skipped++;
+      skipped_missing_current_report++;
+      console.log(`[adflow-report] Skipped #${svc.cs_id} (${svc.business_name}): missing or stale current-period metrics`);
+      continue;
+    }
+
+    const result = await compileAndSendAdFlowReport(svc.cs_id);
+    if (result.sent) {
+      sent++;
+    } else if (result.reason === "already_sent_this_period") {
+      skipped++;
+      skipped_already_sent++;
+    } else if (result.reason === "recipient_unsubscribed") {
+      skipped++;
+      skipped_unsubscribed++;
+    } else {
+      // smtp_not_configured, send_failed, no_client_email (defense-in-depth), etc.
+      skipped++;
+      skipped_other++;
+      errors.push(`${svc.business_name}: ${result.reason}`);
+    }
+  }
+
+  console.log(`[adflow-report] Batch complete: ${sent} sent, ${skipped} skipped (${skipped_missing_current_report} missing/stale, ${skipped_already_sent} already-sent, ${skipped_unsubscribed} unsubscribed, ${skipped_other} other), ${errors.length} errors`);
+
+  return {
+    sent,
+    skipped,
+    errors,
+    skipped_missing_current_report,
+    skipped_already_sent,
+    skipped_unsubscribed,
+    skipped_other,
+  };
 }
