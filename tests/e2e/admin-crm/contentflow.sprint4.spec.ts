@@ -23,6 +23,8 @@
 import { test as baseTest, expect, type APIRequestContext } from "@playwright/test";
 import { STORAGE_STATE_PATH } from "./global-setup";
 import { pool } from "../../../server/db";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
 const WP_MOCK_BASE = `${BASE_URL}/api/__dev/wp-mock`;
@@ -376,5 +378,75 @@ test.describe("ContentFlow Sprint 4 — WordPress publishing", () => {
     const after = await (await adminApi.get(`/api/admin/contentflow/drafts/${errDraftId}`)).json();
     expect(after.draft.status).toBe("approved");
     expect(after.draft.metadata?.wordpress?.error).toBeTruthy();
+  });
+
+  test("P4-7 — dev WP mock requires Authorization header (401 on anonymous)", async ({ playwright }) => {
+    /* The mock is mounted at /api/__dev/wp-mock — no admin gate (the
+     * publisher hits it with WP HTTP Basic Auth, not an admin session
+     * cookie). The mock must still reject anonymous callers, so a real
+     * WP-imitator can't be exercised by random visitors in dev. */
+    const anon = await playwright.request.newContext({ baseURL: BASE_URL });
+    const res = await anon.post("/api/__dev/wp-mock/wp-json/wp/v2/posts", {
+      data: { title: "anon", content: "x", status: "draft" },
+    });
+    expect(res.status(), "anonymous POST must return 401").toBe(401);
+    const body = await res.json();
+    expect(body.code).toBe("rest_not_logged_in");
+    await anon.dispose();
+  });
+
+  test("P4-8 — static guarantee: dev WP mock is registered ONLY inside the NODE_ENV !== 'production' block", async () => {
+    /* This is a structural assertion against the source file, not a
+     * runtime check. Spinning up a real production-mode server in CI is
+     * heavy; instead we lock in the lexical invariant that the mock route
+     * appears AFTER the single dev-gate `if` and BEFORE its closing brace.
+     * If a future edit moves the mock outside the gate, this test fails. */
+    const filePath = resolve(__dirname, "../../../server/routes/contentflowRoutes.ts");
+    const src = readFileSync(filePath, "utf8");
+    const lines = src.split("\n");
+
+    // Find the single dev gate.
+    const gateIndices: number[] = [];
+    lines.forEach((line, i) => {
+      if (line.includes('if (process.env.NODE_ENV !== "production") {')) gateIndices.push(i);
+    });
+    expect(gateIndices.length, "expected exactly ONE NODE_ENV !== 'production' dev gate in contentflowRoutes.ts").toBe(1);
+    const gateLine = gateIndices[0];
+
+    // Walk forward, tracking brace depth from the gate's `{` to its matching `}`.
+    let depth = 0;
+    let started = false;
+    let closeLine = -1;
+    for (let i = gateLine; i < lines.length; i++) {
+      for (const ch of lines[i]) {
+        if (ch === "{") {
+          depth++;
+          started = true;
+        } else if (ch === "}") {
+          depth--;
+          if (started && depth === 0) {
+            closeLine = i;
+            break;
+          }
+        }
+      }
+      if (closeLine !== -1) break;
+    }
+    expect(closeLine, "could not locate matching `}` for the dev gate").toBeGreaterThan(gateLine);
+
+    // Find the WP mock route registration line.
+    const mockLineIndex = lines.findIndex((line) =>
+      line.includes(`"/api/__dev/wp-mock/wp-json/wp/v2/posts"`),
+    );
+    expect(mockLineIndex, "WP mock route registration not found in source").toBeGreaterThan(-1);
+
+    // The mock MUST be lexically inside the dev gate block.
+    expect(mockLineIndex).toBeGreaterThan(gateLine);
+    expect(mockLineIndex).toBeLessThan(closeLine);
+
+    // Belt + braces: there should be exactly one occurrence of the mock
+    // route path in the source (no second registration outside the gate).
+    const occurrences = src.split(`"/api/__dev/wp-mock/wp-json/wp/v2/posts"`).length - 1;
+    expect(occurrences, "WP mock path must appear exactly once in contentflowRoutes.ts").toBe(1);
   });
 });
