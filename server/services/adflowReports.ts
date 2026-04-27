@@ -1,25 +1,10 @@
 /**
- * AdFlow monthly performance report — premium edition.
+ * AdFlow monthly performance report.
  *
- * Compiles a one-page summary of the client's AdFlow campaign for the
- * prior month and emails it to the customer. Optimized for visual impact,
- * trust, clear ROI, and perceived monthly activity.
- *
- * Data sources (read from client_service.metadata.latest_report):
- *   Required (current shape — backwards-compatible):
- *     impressions, clicks, conversions, cost_spent_cents, cpc_cents,
- *     ctr_pct, leads_generated, top_creative, notes,
- *     period_start, period_end
- *   Optional (premium fields — render only if present):
- *     daily_breakdown:    Array<{ date, leads, cost_cents }>  → drives chart
- *     prior_period:       { leads_generated, cost_spent_cents, ctr_pct,
- *                           cpc_cents }                       → MoM deltas
- *     creatives:          Array<{ name, spend_cents, leads, ctr_pct }>
- *     recommendations:    string[]                            → "what's next"
- *
- * If the optional fields are missing, the email gracefully falls back to
- * the existing simple metric layout — no breakage. Suppliers can populate
- * the richer fields over time without a flag flip.
+ * Wires AdFlow's data shape (impressions, clicks, leads, daily breakdown,
+ * creatives, recommendations) into the shared `reportShell` premium
+ * dashboard layout. Previous bespoke HTML moved to reportShell; this
+ * file is now data-shaping + composition only.
  *
  * Idempotent per period via client_service.metadata.last_report_period.
  */
@@ -28,15 +13,29 @@ import { db } from "../db";
 import { clients, clientServices, serviceCatalog } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
-import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "../lib/emailFooter";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 import { generateLineChart } from "./emailCharts";
 import { chat } from "./aiService";
+import {
+  REPORT_COLORS,
+  buildReportShell,
+  buildReportHero,
+  buildKpiGrid,
+  buildIntegratedChart,
+  buildChartFallback,
+  buildRecommendations,
+  buildSection,
+  buildCtaButton,
+  buildMetricGlossary,
+  deriveHeaderBadge,
+  type KpiTile,
+  type HeaderBadge,
+} from "../lib/reportShell";
 
 /* ─── Public types ─── */
 
 export interface AdFlowDailyPoint {
-  date: string;          // ISO date, e.g. "2026-04-15"
+  date: string;
   leads: number;
   cost_cents?: number;
   impressions?: number;
@@ -69,8 +68,6 @@ export interface AdFlowReportMetrics {
   notes?: string;
   period_start?: string;
   period_end?: string;
-
-  // Premium fields — all optional
   daily_breakdown?: AdFlowDailyPoint[];
   prior_period?: AdFlowPriorPeriod;
   creatives?: AdFlowCreative[];
@@ -104,13 +101,9 @@ function formatPct(n?: number): string {
 /* ─── Delta logic ─── */
 
 interface Delta {
-  /** Whether to render the badge at all (false for missing or near-flat data). */
   shown: boolean;
-  /** Bare percentage like "32%" — no sign, no arrow. */
   pctText: string;
-  /** True if the value went up (regardless of whether up is good). */
   rose: boolean;
-  /** True if the change is in the "good" direction for this metric. */
   good: boolean;
 }
 
@@ -120,7 +113,6 @@ function pctDelta(curr?: number, prev?: number, opts: { higherIsBetter?: boolean
   }
   const change = ((curr - prev) / prev) * 100;
   if (Math.abs(change) < 1) {
-    // Near-flat: don't render a noisy badge
     return { shown: false, pctText: "", rose: false, good: true };
   }
   const rose = change > 0;
@@ -131,33 +123,6 @@ function pctDelta(curr?: number, prev?: number, opts: { higherIsBetter?: boolean
     rose,
     good,
   };
-}
-
-const COLORS = {
-  bg: "#0B0F14",
-  card: "#151A21",
-  cardSubtle: "#0F141A",
-  border: "rgba(255,255,255,0.06)",
-  borderStrong: "rgba(255,255,255,0.10)",
-  bright: "#F0F0F0",
-  text: "#CDD1D6",
-  muted: "#8B919A",
-  faint: "#555B63",
-  accent: "#66E8FA",
-  positive: "#22C55E",
-  negative: "#EF4444",
-  warn: "#F59E0B",
-};
-
-function deltaBadge(delta: Delta): string {
-  if (!delta.shown) return "";
-  // Arrow tracks the literal direction of the number; color encodes good/bad.
-  // For cost-per-lead: dropping is good → green ↓, rising is bad → red ↑.
-  // For leads: rising is good → green ↑, dropping is bad → red ↓.
-  const arrow = delta.rose ? "↑" : "↓";
-  const word = delta.rose ? "higher" : "lower";
-  const color = delta.good ? COLORS.positive : COLORS.negative;
-  return `<span style="font-size:11px;font-weight:700;color:${color};white-space:nowrap;letter-spacing:0;">${arrow} ${delta.pctText} ${word}</span>`;
 }
 
 /* ─── AI plain-English summary ─── */
@@ -195,187 +160,131 @@ Reply with the paragraph only. No preamble.`;
   }
 }
 
-/* ─── HTML builder ─── */
+/* ─── Body composition ─── */
 
-interface BuildHtmlParams {
+interface AdFlowComposeOpts {
   contactName: string;
   serviceName: string;
   period: string;
-  summary: string;
   metrics: AdFlowReportMetrics;
   chartUrl: string | null;
   portalUrl: string;
   recipientEmail: string;
+  summary: string;
 }
 
-function buildHtml(p: BuildHtmlParams): string {
-  const m = p.metrics;
+async function composeAdFlowReport(o: AdFlowComposeOpts): Promise<{ subject: string; html: string; badge: HeaderBadge }> {
+  const m = o.metrics;
   const prior = m.prior_period;
 
+  // Deltas
   const leadsDelta = pctDelta(m.leads_generated, prior?.leads_generated, { higherIsBetter: true });
   const cplCurr = m.leads_generated && m.cost_spent_cents ? m.cost_spent_cents / m.leads_generated : undefined;
   const cplPrev = prior?.leads_generated && prior?.cost_spent_cents ? prior.cost_spent_cents / prior.leads_generated : undefined;
   const cplDelta = pctDelta(cplCurr, cplPrev, { higherIsBetter: false });
   const ctrDelta = pctDelta(m.ctr_pct, prior?.ctr_pct, { higherIsBetter: true });
 
-  const heroHeadline = (() => {
-    if (m.leads_generated == null) return `${p.serviceName} report`;
-    const leadsPct = leadsDelta.shown ? parseInt(leadsDelta.pctText, 10) : 0;
-    if (leadsDelta.shown && leadsDelta.rose && leadsPct >= 15) {
-      return `Strong month — leads up ${leadsDelta.pctText}`;
-    }
-    if (leadsDelta.shown && !leadsDelta.rose && leadsPct >= 15) {
-      return `Adjusting course this month`;
-    }
-    return `${m.leads_generated} new lead${m.leads_generated === 1 ? "" : "s"} this month`;
-  })();
+  // Header badge auto-derived from leads delta
+  const badge = deriveHeaderBadge({ primaryDelta: leadsDelta });
 
-  /* Stat tiles — mathematically consistent 2×2 grid.
-     Each tile is a 3-row table (label / value / delta), so every card
-     has identical width, padding, label position, value baseline, and
-     a reserved delta row even when no delta exists. Delta row renders
-     a non-breaking space when empty so the cell still occupies space
-     and all 4 tiles end at the same Y coordinate. */
-  const DELTA_ROW_HEIGHT = 18;
-  const statTile = (label: string, value: string, delta?: Delta, accent = false) => `
-    <td valign="top" width="50%" style="padding:0 4px 8px;width:50%;">
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${COLORS.cardSubtle};border:1px solid ${COLORS.border};border-radius:12px;border-collapse:separate;">
-        <tr>
-          <td style="padding:11px 13px 0;font-size:10.5px;color:${COLORS.muted};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;line-height:1;">${label}</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 13px 0;font-size:22px;font-weight:800;color:${accent ? COLORS.accent : COLORS.bright};letter-spacing:-0.02em;line-height:1.05;">${value}</td>
-        </tr>
-        <tr>
-          <td height="${DELTA_ROW_HEIGHT}" style="padding:4px 13px 11px;height:${DELTA_ROW_HEIGHT}px;line-height:${DELTA_ROW_HEIGHT}px;">${delta && delta.shown ? deltaBadge(delta) : "&nbsp;"}</td>
-        </tr>
-      </table>
-    </td>`;
+  // Hero headline + dynamic subject
+  let heroHeadline: string;
+  let subject: string;
+  if (m.leads_generated == null) {
+    heroHeadline = `${o.serviceName} report`;
+    subject = `Your ${o.period} ${o.serviceName} report`;
+  } else if (leadsDelta.shown && leadsDelta.rose && parseInt(leadsDelta.pctText, 10) >= 15) {
+    heroHeadline = `Strong month — leads up ${leadsDelta.pctText}`;
+    subject = `Leads up ${leadsDelta.pctText} — your ${o.period} AdFlow recap`;
+  } else if (leadsDelta.shown && !leadsDelta.rose && parseInt(leadsDelta.pctText, 10) >= 15) {
+    heroHeadline = `Adjusting course this month`;
+    subject = `${m.leads_generated} leads in ${o.period} — adjusting course`;
+  } else {
+    const word = m.leads_generated === 1 ? "lead" : "leads";
+    heroHeadline = `${m.leads_generated} new ${word} this month`;
+    subject = `${m.leads_generated} ${word} — your ${o.period} AdFlow recap`;
+  }
 
-  const statsGrid = `
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 14px;border-collapse:separate;border-spacing:0;table-layout:fixed;">
-      <tr>
-        ${statTile("Leads", formatInt(m.leads_generated), leadsDelta, true)}
-        ${statTile("Cost / Lead", cplCurr != null ? formatUsd(Math.round(cplCurr)) : "—", cplDelta)}
-      </tr>
-      <tr>
-        ${statTile("Click-through", formatPct(m.ctr_pct), ctrDelta)}
-        ${statTile("Total spend", formatUsd(m.cost_spent_cents))}
-      </tr>
-    </table>`;
+  // KPI tiles
+  const kpis: KpiTile[] = [
+    { label: "Leads", value: formatInt(m.leads_generated), delta: leadsDelta, accent: true },
+    { label: "Cost / Lead", value: cplCurr != null ? formatUsd(Math.round(cplCurr)) : "—", delta: cplDelta },
+    { label: "Click-through", value: formatPct(m.ctr_pct), delta: ctrDelta },
+    { label: "Total spend", value: formatUsd(m.cost_spent_cents) },
+  ];
 
-  /* Chart + numeric fallback (the fallback ALWAYS renders) */
+  // Chart fallback (peak day + daily average)
   const peakDay = m.daily_breakdown && m.daily_breakdown.length > 0
     ? m.daily_breakdown.reduce((best, d) => (d.leads > best.leads ? d : best), m.daily_breakdown[0])
     : null;
   const totalDays = m.daily_breakdown?.length ?? 0;
-  const avgPerDay = totalDays > 0 && m.leads_generated != null
-    ? (m.leads_generated / totalDays).toFixed(1)
-    : null;
+  const avgPerDay = totalDays > 0 && m.leads_generated != null ? (m.leads_generated / totalDays).toFixed(1) : null;
   const peakDate = peakDay
     ? new Date(peakDay.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
     : null;
 
-  // Full-bleed chart — extends to the card's interior edges via negative
-  // margins. The PNG itself is rendered wider than the visible area with
-  // generous internal padding, so the line trails into dim negative space
-  // at left/right rather than terminating at a hard endpoint. Background
-  // matches the card so the chart reads as a dashboard backdrop, not an
-  // inserted image.
-  const chartBlock = p.chartUrl ? `
-    <div style="margin:6px -24px 14px;">
-      <img src="${p.chartUrl}" alt="Daily leads trend, ${p.period}" width="600" height="280" style="display:block;width:100%;max-width:none;height:auto;border:0;outline:none;text-decoration:none;" />
-    </div>` : "";
+  const fallbackCells: Array<{ label: string; value: string; emphasis?: boolean }> = [];
+  if (peakDate && peakDay) {
+    fallbackCells.push({ label: "Peak day", value: `${peakDate} · ${peakDay.leads} leads`, emphasis: true });
+  }
+  if (avgPerDay) {
+    fallbackCells.push({ label: "Daily average", value: `${avgPerDay} leads / day` });
+  }
 
-  const numericFallback = (peakDay || avgPerDay) ? `
-    <div style="background:${COLORS.cardSubtle};border:1px solid ${COLORS.border};border-radius:12px;padding:14px 18px;margin:0 0 22px;">
-      <p style="font-size:10.5px;color:${COLORS.muted};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin:0 0 10px;">What the chart shows</p>
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-        <tr>
-          ${peakDate ? `
-          <td valign="top" style="padding-right:12px;">
-            <div style="font-size:11px;color:${COLORS.muted};margin:0 0 2px;">Peak day</div>
-            <div style="font-size:14px;font-weight:700;color:${COLORS.bright};">${peakDate} <span style="color:${COLORS.accent};">· ${peakDay!.leads} leads</span></div>
-          </td>` : ""}
-          ${avgPerDay ? `
-          <td valign="top" style="padding-left:${peakDate ? "12px" : "0"};border-left:${peakDate ? `1px solid ${COLORS.border}` : "none"};">
-            <div style="font-size:11px;color:${COLORS.muted};margin:0 0 2px;">Daily average</div>
-            <div style="font-size:14px;font-weight:700;color:${COLORS.bright};">${avgPerDay} leads / day</div>
-          </td>` : ""}
-        </tr>
-      </table>
-    </div>` : "";
-
-  /* Top creative block */
+  // Top performers
   const topCreatives = m.creatives && m.creatives.length > 0
     ? m.creatives.slice(0, 3)
     : (m.top_creative ? [{ name: m.top_creative }] : []);
 
-  const creativesBlock = topCreatives.length > 0 ? `
-    <div style="margin:0 0 22px;">
-      <p style="font-size:10.5px;color:${COLORS.muted};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin:0 0 10px;">Top performers</p>
-      ${topCreatives.map((c, i) => `
-        <div style="background:${COLORS.cardSubtle};border:1px solid ${COLORS.border};border-radius:10px;padding:12px 14px;margin:0 0 6px;">
-          <div style="font-size:13px;font-weight:600;color:${COLORS.bright};line-height:1.4;">${i === 0 ? `<span style="color:${COLORS.accent};margin-right:6px;">★</span>` : ""}${c.name}</div>
-          ${(c.leads != null || c.spend_cents != null || c.ctr_pct != null) ? `
-          <div style="font-size:11px;color:${COLORS.muted};margin-top:3px;line-height:1.5;">
-            ${[
-              c.leads != null ? `${c.leads} lead${c.leads === 1 ? "" : "s"}` : null,
-              c.spend_cents != null ? formatUsd(c.spend_cents) : null,
-              c.ctr_pct != null ? `${c.ctr_pct.toFixed(2)}% CTR` : null,
-            ].filter(Boolean).join(" · ")}
-          </div>` : ""}
-        </div>
-      `).join("")}
-    </div>` : "";
+  const creativesHtml = topCreatives.length > 0 ? topCreatives.map((c, i) => `
+    <div style="background:${REPORT_COLORS.cardSubtle};border:1px solid ${REPORT_COLORS.border};border-radius:10px;padding:12px 14px;margin:0 0 6px;">
+      <div style="font-size:13px;font-weight:600;color:${REPORT_COLORS.bright};line-height:1.4;">${i === 0 ? `<span style="color:${REPORT_COLORS.accent};margin-right:6px;">★</span>` : ""}${escapeHtml(c.name)}</div>
+      ${(c.leads != null || c.spend_cents != null || c.ctr_pct != null) ? `
+      <div style="font-size:11px;color:${REPORT_COLORS.muted};margin-top:3px;line-height:1.5;">
+        ${[
+          c.leads != null ? `${c.leads} lead${c.leads === 1 ? "" : "s"}` : null,
+          c.spend_cents != null ? formatUsd(c.spend_cents) : null,
+          c.ctr_pct != null ? `${c.ctr_pct.toFixed(2)}% CTR` : null,
+        ].filter(Boolean).join(" · ")}
+      </div>` : ""}
+    </div>
+  `).join("") : "";
 
-  /* Recommendations */
-  const recsBlock = (m.recommendations && m.recommendations.length > 0) ? `
-    <div style="background:rgba(102,232,250,0.04);border:1px solid rgba(102,232,250,0.18);border-radius:12px;padding:18px 20px;margin:0 0 24px;">
-      <p style="font-size:10.5px;color:${COLORS.accent};text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 10px;">What we're doing next month</p>
-      ${m.recommendations.slice(0, 3).map(r => `
-        <p style="font-size:13px;color:${COLORS.text};line-height:1.55;margin:0 0 6px;padding-left:14px;position:relative;">
-          <span style="color:${COLORS.accent};position:absolute;left:0;top:0;font-weight:700;">›</span>${r}
-        </p>
-      `).join("")}
-    </div>` : "";
+  // Notes from team (legacy field, optional)
+  const notesHtml = m.notes ? `
+    <p style="font-size:13px;color:${REPORT_COLORS.text};line-height:1.55;margin:0;">${escapeHtml(m.notes)}</p>
+  ` : "";
 
-  /* Notes from team (legacy) */
-  const notesBlock = m.notes ? `
-    <div style="background:${COLORS.cardSubtle};border:1px solid ${COLORS.border};border-radius:10px;padding:14px 16px;margin:0 0 22px;">
-      <p style="font-size:10.5px;color:${COLORS.muted};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin:0 0 6px;">Notes from the team</p>
-      <p style="font-size:13px;color:${COLORS.text};line-height:1.55;margin:0;">${m.notes}</p>
-    </div>` : "";
+  // Compose body
+  const body = [
+    buildReportHero({
+      eyebrow: "Monthly performance",
+      headline: heroHeadline,
+      period: o.period,
+      summary: o.summary,
+    }),
+    buildKpiGrid(kpis),
+    o.chartUrl ? buildIntegratedChart({ chartUrl: o.chartUrl, alt: `Daily leads trend, ${o.period}`, height: 280 }) : "",
+    fallbackCells.length ? buildChartFallback({ cells: fallbackCells }) : "",
+    creativesHtml ? buildSection({ title: "Top performers", content: creativesHtml }) : "",
+    buildRecommendations({ items: m.recommendations || [] }),
+    notesHtml ? buildSection({ title: "Notes from the team", content: notesHtml }) : "",
+    buildCtaButton({ href: o.portalUrl, label: "View full campaign dashboard" }),
+    buildMetricGlossary({ metrics: ["Leads", "Cost / Lead", "Click-through", "Total spend"] }),
+  ].filter(Boolean).join("");
 
-  return `
-    <div style="font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;background:${COLORS.bg};padding:40px 16px;">
-      <div style="max-width:600px;margin:0 auto;">
-        ${buildEmailHeader({ tagline: `${p.serviceName} · ${p.period}` })}
+  const html = buildReportShell({
+    product: `${o.serviceName} Report`,
+    badge,
+    body,
+    recipientEmail: o.recipientEmail,
+  });
 
-        <div style="background:${COLORS.card};border:1px solid ${COLORS.border};border-radius:16px;padding:32px 24px;">
+  return { subject, html, badge };
+}
 
-          <p style="font-size:11px;font-weight:700;color:${COLORS.accent};text-transform:uppercase;letter-spacing:0.1em;margin:0 0 6px;">Monthly performance</p>
-          <h1 style="font-size:26px;font-weight:800;color:${COLORS.bright};margin:0 0 10px;line-height:1.18;letter-spacing:-0.02em;">${heroHeadline}</h1>
-          <p style="font-size:14px;color:${COLORS.text};line-height:1.55;margin:0 0 18px;">${p.summary}</p>
-
-          ${statsGrid}
-
-          ${chartBlock}
-          ${numericFallback}
-
-          ${creativesBlock}
-          ${recsBlock}
-          ${notesBlock}
-
-          <div style="text-align:center;margin:8px 0 4px;">
-            <a href="${p.portalUrl}" style="display:inline-block;background:${COLORS.accent};color:${COLORS.bg};font-size:14px;font-weight:700;padding:13px 26px;border-radius:10px;text-decoration:none;letter-spacing:-0.01em;">View full campaign dashboard &rarr;</a>
-          </div>
-        </div>
-
-        ${buildChatBubble()}
-        ${buildLegalFooter({ recipientEmail: p.recipientEmail, marketing: true })}
-      </div>
-    </div>`;
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 /* ─── Period label ─── */
@@ -392,18 +301,12 @@ function formatPeriod(start?: string, end?: string): string {
 /* ─── Chart spec from daily_breakdown ─── */
 
 async function tryGenerateChart(
-  clientServiceId: number,
+  cacheKey: string,
   metrics: AdFlowReportMetrics,
-  periodStart?: string,
 ): Promise<string | null> {
   if (!metrics.daily_breakdown || metrics.daily_breakdown.length < 2) return null;
 
-  const periodKey = periodStart
-    ? new Date(periodStart).toISOString().slice(0, 7)
-    : new Date().toISOString().slice(0, 7);
-
   const points = metrics.daily_breakdown;
-  // Show only every Nth date label so the x-axis isn't crowded
   const stride = Math.max(1, Math.floor(points.length / 8));
   const labels = points.map((p, i) =>
     i % stride === 0
@@ -412,12 +315,12 @@ async function tryGenerateChart(
   );
 
   const result = await generateLineChart({
-    cacheKey: `adflow-cs${clientServiceId}-${periodKey}-fb`,
+    cacheKey,
     labels,
     values: points.map((p) => p.leads),
     width: 700,
     height: 280,
-    backgroundColor: COLORS.card, // match the hero card so the chart blends
+    backgroundColor: REPORT_COLORS.card,
     variant: "integrated",
   });
 
@@ -426,19 +329,14 @@ async function tryGenerateChart(
 
 /* ─── Public API ─── */
 
-/**
- * Compile and send an AdFlow monthly report for a specific client_service.
- * Idempotent per period — stores `last_report_period` in metadata.
- */
+const ADFLOW_FROM_NAME = "WeFixTrades AdFlow";
+
 export async function compileAndSendAdFlowReport(
   clientServiceId: number,
 ): Promise<CompileResult> {
   const [cs] = await db.select().from(clientServices).where(eq(clientServices.id, clientServiceId)).limit(1);
   if (!cs) return { sent: false, reason: "client_service_not_found" };
-
-  if (!cs.service_id.startsWith("adflow")) {
-    return { sent: false, reason: "not_an_adflow_service" };
-  }
+  if (!cs.service_id.startsWith("adflow")) return { sent: false, reason: "not_an_adflow_service" };
 
   const [client] = await db.select().from(clients).where(eq(clients.id, cs.client_id)).limit(1);
   if (!client?.contact_email) return { sent: false, reason: "no_client_email" };
@@ -461,30 +359,34 @@ export async function compileAndSendAdFlowReport(
     return { sent: false, reason: "already_sent_this_period", period };
   }
 
-  // Pre-generate chart (best-effort; null is fine — fallback block carries the story)
-  const chartUrl = await tryGenerateChart(cs.id, metrics, metrics.period_start);
+  const periodKey = metrics.period_start
+    ? new Date(metrics.period_start).toISOString().slice(0, 7)
+    : new Date().toISOString().slice(0, 7);
+  const chartUrl = await tryGenerateChart(`adflow-cs${cs.id}-${periodKey}-fb`, metrics);
 
   const summary = await writeSummary(serviceName, metrics, period);
   const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
   const supportEmail = process.env.ADMIN_EMAIL || process.env.INTERNAL_LEAD_EMAIL || getFromAddress();
   const contactName = client.contact_name || client.business_name || "there";
 
+  const { subject, html } = await composeAdFlowReport({
+    contactName,
+    serviceName,
+    period,
+    metrics,
+    chartUrl,
+    portalUrl: `${baseUrl}/portal/services`,
+    recipientEmail: client.contact_email,
+    summary,
+  });
+
   try {
     await transporter.sendMail({
-      from: `WeFixTrades <${getFromAddress()}>`,
+      from: `${ADFLOW_FROM_NAME} <${getFromAddress()}>`,
       to: client.contact_email,
       replyTo: supportEmail,
-      subject: `Your ${period} performance update — ${serviceName}`,
-      html: buildHtml({
-        contactName,
-        serviceName,
-        period,
-        summary,
-        metrics,
-        chartUrl,
-        portalUrl: `${baseUrl}/portal/services`,
-        recipientEmail: client.contact_email,
-      }),
+      subject,
+      html,
     });
 
     await db.update(clientServices)
@@ -504,12 +406,6 @@ export async function compileAndSendAdFlowReport(
 
 /**
  * Build the email HTML for preview/test purposes without sending.
- * Used by the preview script to render exactly what a real recipient sees.
- *
- * Returns the chart's local file path alongside the HTML so the caller
- * can attach the post-processed PNG as a CID inline attachment when
- * embedding via a public URL isn't viable (e.g. before the deployment
- * has the cached file).
  */
 export async function previewAdFlowReportHtml(opts: {
   contactName: string;
@@ -517,10 +413,8 @@ export async function previewAdFlowReportHtml(opts: {
   metrics: AdFlowReportMetrics;
   recipientEmail: string;
   cacheKey?: string;
-  /** When true, replace the chart <img> src with `cid:chart` so the
-      caller can attach the local PNG inline. Default: false. */
   embedChartAsCid?: boolean;
-}): Promise<{ subject: string; html: string; chartLocalPath: string | null }> {
+}): Promise<{ subject: string; html: string; chartLocalPath: string | null; senderName: string }> {
   const m = opts.metrics;
   const period = formatPeriod(m.period_start, m.period_end);
   const summary = await writeSummary(opts.serviceName, m, period).catch(() => "Campaign summary unavailable in preview.");
@@ -537,7 +431,7 @@ export async function previewAdFlowReportHtml(opts: {
         values: m.daily_breakdown.map((p) => p.leads),
         width: 700,
         height: 280,
-        backgroundColor: COLORS.card,
+        backgroundColor: REPORT_COLORS.card,
         variant: "integrated",
       })
     : null;
@@ -548,18 +442,16 @@ export async function previewAdFlowReportHtml(opts: {
 
   const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
 
-  return {
-    subject: `Your ${period} performance update — ${opts.serviceName}`,
-    html: buildHtml({
-      contactName: opts.contactName,
-      serviceName: opts.serviceName,
-      period,
-      summary,
-      metrics: m,
-      chartUrl,
-      portalUrl: `${baseUrl}/portal/services`,
-      recipientEmail: opts.recipientEmail,
-    }),
-    chartLocalPath: chartResult?.localPath || null,
-  };
+  const { subject, html } = await composeAdFlowReport({
+    contactName: opts.contactName,
+    serviceName: opts.serviceName,
+    period,
+    metrics: m,
+    chartUrl,
+    portalUrl: `${baseUrl}/portal/services`,
+    recipientEmail: opts.recipientEmail,
+    summary,
+  });
+
+  return { subject, html, chartLocalPath: chartResult?.localPath || null, senderName: ADFLOW_FROM_NAME };
 }
