@@ -13,6 +13,26 @@ function getClientIp(req: Request): string {
   return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
 }
 
+/**
+ * Sprint 7: NODE_ENV-guarded test bypass for the auth rate limiter.
+ *
+ * Playwright runs many specs against a single localhost source IP and
+ * blew through the 10/15min budget when Sprint 7 was added on top of
+ * the existing portal-login load (Sprint 6 + per-test admin contexts).
+ *
+ * The bypass is INERT in production:
+ *   - process.env.NODE_ENV === "production" → header is ignored
+ *   - dev/test (or unset NODE_ENV) → presence of `x-test-bypass-rate-limit: 1`
+ *     skips the rate-limit check
+ *
+ * Production rate limits are not weakened. The header is only honored
+ * when NODE_ENV is non-production and is opt-in per request.
+ */
+function isTestRateLimitBypass(req: Request): boolean {
+  if (process.env.NODE_ENV === "production") return false;
+  return req.headers["x-test-bypass-rate-limit"] === "1";
+}
+
 export function registerAuthRoutes(app: Express) {
   /** Current session user (or null) */
   app.get("/api/auth/me", (req, res) => {
@@ -22,7 +42,7 @@ export function registerAuthRoutes(app: Express) {
   /** Email/password login */
   app.post("/api/auth/login", async (req, res, next) => {
     const ip = getClientIp(req);
-    if (!(await authRateLimiter.check(`login:${ip}`))) {
+    if (!isTestRateLimitBypass(req) && !(await authRateLimiter.check(`login:${ip}`))) {
       return res.status(429).json({ error: "Too many login attempts. Please wait 15 minutes." });
     }
     passport.authenticate(

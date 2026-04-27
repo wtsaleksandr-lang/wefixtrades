@@ -33,7 +33,15 @@ type SuiteFixtures = { adminApi: APIRequestContext };
 const test = baseTest.extend<{}, SuiteFixtures>({
   adminApi: [
     async ({ playwright }, use) => {
-      const ctx = await playwright.request.newContext({ baseURL: BASE_URL, storageState: STORAGE_STATE_PATH });
+      /* Bypass header is inert in production (server gates on NODE_ENV).
+       * adminApi reuses storageState so it does no fresh login itself, but
+       * the header is still set so any incidental auth call (e.g. session
+       * refresh) doesn't burn the rate-limit budget either. */
+      const ctx = await playwright.request.newContext({
+        baseURL: BASE_URL,
+        storageState: STORAGE_STATE_PATH,
+        extraHTTPHeaders: { "x-test-bypass-rate-limit": "1" },
+      });
       await use(ctx);
       await ctx.dispose();
     },
@@ -107,9 +115,13 @@ async function provisionApprovedArticle(adminApi: APIRequestContext, clientId: n
 }
 
 async function loginAsPortalUser(playwright: any, email: string, password: string): Promise<APIRequestContext> {
-  const ctx = await playwright.request.newContext({ baseURL: BASE_URL });
+  /* Dev-only bypass header — server gates on NODE_ENV !== "production". */
+  const ctx = await playwright.request.newContext({
+    baseURL: BASE_URL,
+    extraHTTPHeaders: { "x-test-bypass-rate-limit": "1" },
+  });
   const res = await ctx.post("/api/auth/login", { data: { email, password } });
-  expect(res.ok()).toBeTruthy();
+  expect(res.ok(), `portal login failed: ${await res.text()}`).toBeTruthy();
   return ctx;
 }
 
@@ -147,7 +159,26 @@ test.describe("ContentFlow Sprint 7 — review notification emails", () => {
   test.afterAll(async () => {
     if (portalA) await portalA.dispose().catch(() => {});
     if (portalB) await portalB.dispose().catch(() => {});
-    for (const cid of [clientAId, clientBId].filter((n) => n > 0)) {
+
+    /* Primary cleanup: by captured ids. Fallback: any client whose
+     * business_name is the spec's literal prefix (covers tests that
+     * failed before clientIds were stored on the describe-scoped vars). */
+    const tracked = [clientAId, clientBId].filter((n) => n > 0);
+    let cidRows: { id: number; user_id: number | null }[] = [];
+    try {
+      const { rows } = await pool.query(
+        `SELECT id, user_id FROM clients
+           WHERE id = ANY($1::int[])
+              OR business_name LIKE 'Sprint 7 Email Test %'`,
+        [tracked],
+      );
+      cidRows = rows;
+    } catch (err: any) {
+      console.warn(`[sprint7 afterAll] discovery query failed:`, err.message);
+    }
+
+    for (const row of cidRows) {
+      const cid = row.id;
       try {
         await pool.query(`DELETE FROM content_approvals WHERE draft_id IN (SELECT id FROM content_drafts WHERE client_id = $1)`, [cid]);
         await pool.query(`DELETE FROM content_drafts WHERE client_id = $1`, [cid]);
@@ -166,12 +197,20 @@ test.describe("ContentFlow Sprint 7 — review notification emails", () => {
         await pool.query(`DELETE FROM internal_notes WHERE client_id = $1`, [cid]);
         await pool.query(`DELETE FROM orders WHERE client_id = $1`, [cid]);
         await pool.query(`DELETE FROM clients WHERE id = $1`, [cid]);
+        if (row.user_id) {
+          try { await pool.query(`DELETE FROM users WHERE id = $1`, [row.user_id]); }
+          catch (e: any) { console.warn(`[sprint7 afterAll] user ${row.user_id}:`, e.message); }
+        }
       } catch (err: any) { console.warn(`[sprint7 afterAll] client ${cid}:`, err.message); }
     }
-    for (const uid of [userAId, userBId].filter((n) => n > 0)) {
-      try { await pool.query(`DELETE FROM users WHERE id = $1`, [uid]); }
-      catch (err: any) { console.warn(`[sprint7 afterAll] user ${uid}:`, err.message); }
-    }
+
+    /* Belt-and-suspenders: orphan portal users keyed on the spec's email
+     * pattern (test-pw_<id>@example.com) — pattern unique to this spec. */
+    try {
+      await pool.query(
+        `DELETE FROM users WHERE role = 'client' AND email LIKE 'test-pw_%@example.com' AND id NOT IN (SELECT user_id FROM clients WHERE user_id IS NOT NULL)`,
+      );
+    } catch (err: any) { console.warn(`[sprint7 afterAll] orphan user sweep:`, err.message); }
   });
 
   test("P7-1 — client approve fires admin notification (metadata flag set)", async ({ adminApi, playwright }) => {

@@ -171,7 +171,13 @@ async function loginAsPortalUser(
   email: string,
   password: string,
 ): Promise<APIRequestContext> {
-  const ctx = await playwright.request.newContext({ baseURL: BASE_URL });
+  /* Sprint 7: dev-only bypass header so parallel-worker logins do not
+   * exhaust the 10/15min auth budget on shared 127.0.0.1. Server gates
+   * on NODE_ENV !== "production" — inert in prod. */
+  const ctx = await playwright.request.newContext({
+    baseURL: BASE_URL,
+    extraHTTPHeaders: { "x-test-bypass-rate-limit": "1" },
+  });
   const res = await ctx.post("/api/auth/login", { data: { email, password } });
   expect(res.ok(), `portal login failed: ${await res.text()}`).toBeTruthy();
   return ctx;

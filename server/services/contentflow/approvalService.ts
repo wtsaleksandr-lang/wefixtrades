@@ -222,13 +222,21 @@ async function loadAndAuthorize(draftId: number, clientId: number): Promise<Cont
  * race-protection pattern Sprint 4 introduced for articleService and
  * Sprint 5's queue. Without this, a concurrent publish or article
  * regeneration could clobber the client_review key.
+ *
+ * Sprint 7 fix: deep-merge into the existing client_review so we
+ * preserve email-tracking keys that the email module wrote
+ * (admin_emailed_for, admin_emailed_at, admin_emailed_recipient_count,
+ * client_revision_emailed_token, client_revision_emailed_at). Without
+ * this, a duplicate same-state client decision wiped admin_emailed_for
+ * and the email idempotency check mis-fired (P7-5).
  */
 async function mergeClientReviewMetadata(draftId: number, review: ClientReviewMeta): Promise<ContentDraft | undefined> {
   const fresh = await storage.getContentDraftById(draftId);
   if (!fresh) return undefined;
   const existingMeta = (fresh.metadata || {}) as Record<string, any>;
+  const existingReview = (existingMeta.client_review || {}) as Record<string, any>;
   return storage.updateContentDraft(draftId, {
-    metadata: { ...existingMeta, client_review: review },
+    metadata: { ...existingMeta, client_review: { ...existingReview, ...review } },
   } as any);
 }
 
