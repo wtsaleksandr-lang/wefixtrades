@@ -239,16 +239,19 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
   // stale `meta` snapshot from above would clobber concurrent writes.
   const fresh = await storage.getContentDraftById(draftId);
   const freshMeta = (fresh?.metadata || meta) as Record<string, any>;
-  // Also defer to a more-recent generation_status if one already wrote
-  // 'completed' — avoids a no-op overwrite race.
+  /* Sprint 8: a stale background generateArticleBody (fired-and-forgotten
+   * by generate-plan / rankflowWorker) finishing AFTER admin approval
+   * was clobbering title/excerpt/body. Status was protected; content
+   * wasn't. Now we also preserve content when the admin has already
+   * approved / published / rejected — late-arriving generation can't
+   * silently change what the admin already signed off on. */
+  const adminTouched =
+    !!fresh && (fresh.status === "approved" || fresh.status === "published" || fresh.status === "rejected");
   const updated = await storage.updateContentDraft(draftId, {
-    title: parsed.title,
-    excerpt: parsed.excerpt,
-    body: parsed.body_md,
-    // Don't downgrade a draft that the admin has already approved/published.
-    status: fresh && (fresh.status === "approved" || fresh.status === "published" || fresh.status === "rejected")
-      ? fresh.status
-      : "draft",
+    title: adminTouched ? fresh!.title : parsed.title,
+    excerpt: adminTouched ? fresh!.excerpt : parsed.excerpt,
+    body: adminTouched ? fresh!.body : parsed.body_md,
+    status: adminTouched ? fresh!.status : "draft",
     metadata: { ...freshMeta, generation_status: "completed" },
   });
 
