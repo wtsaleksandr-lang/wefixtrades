@@ -465,7 +465,7 @@ export function buildAssistantConfig(): Record<string, any> {
         voiceId: process.env.VAPI_WFT_VOICE_ID || "21m00Tcm4TlvDq8ikWAM",
       },
       firstMessage:
-        "Hi, thanks for calling WeFixTrades. I'm the AI assistant — I can walk you through our services, pricing, and how we'd help your business, or get a human on the line if you need one. What brings you in today?",
+        "WeFixTrades, this is Riley — how can I help?",
       endCallMessage:
         "Thanks for calling WeFixTrades. We'll follow up by email shortly — have a great rest of your day.",
       maxDurationSeconds: 900, // 15 min hard cap
