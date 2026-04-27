@@ -47,6 +47,17 @@ async function main() {
   await pool.query(`DELETE FROM orders WHERE client_id = ANY(${arr})`, ids);
   await pool.query(`DELETE FROM clients WHERE id = ANY(${arr})`, ids);
 
+  // Sprint 6: also remove orphan portal users created by Sprint 6 tests
+  // (role='client', email matches the same test-pw_*@example.com pattern).
+  // Safe across sessions — only deletes users that match the test-fixture
+  // email pattern, never touches real customers.
+  const userResult = await pool.query(
+    `DELETE FROM users WHERE email LIKE 'test-pw_%@example.com' AND role = 'client' RETURNING id`,
+  );
+  if (userResult.rowCount && userResult.rowCount > 0) {
+    console.log(`[cleanup] Removed ${userResult.rowCount} stale portal user(s).`);
+  }
+
   console.log(`[cleanup] Removed ${ids.length} stale test client(s).`);
   await pool.end();
 }
