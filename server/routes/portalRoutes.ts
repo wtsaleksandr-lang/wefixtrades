@@ -8,6 +8,11 @@ import { generateMonthlyPlan } from "../services/rankflow/planGenerator";
 import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
 import { generateKeywordTargets, clusterKeywords, deriveTargetServices } from "../services/rankflow/keywordHelper";
 import { createDraftFromRankflowTask, generateArticleBody } from "../services/contentflow/articleService";
+import {
+  clientApproveDraft,
+  clientRequestChanges,
+  clientRejectDraft,
+} from "../services/contentflow/approvalService";
 import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../services/threadService";
 import { authRateLimiter } from "../services/rateLimiter";
 
@@ -37,6 +42,7 @@ import {
   mapguardTasks,
   socialsyncPosts,
   socialsyncPublishQueue,
+  contentDrafts,
   getTradeLineReadiness,
   mapOnboardingToTradeLineConfig,
   advanceSetupStage,
@@ -2817,6 +2823,159 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
     } catch (err: any) {
       console.error("[rankflow-onboard] error:", err.message);
       res.status(500).json({ error: "Failed to complete onboarding" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════════════════════════════
+     Sprint 6 — ContentFlow article review (client portal)
+
+     Clients see RankFlow article drafts that the admin has approved
+     and can approve / request changes / reject. All decisions write
+     to metadata.client_review (no schema migration) AND to the
+     content_approvals audit trail (actor_type='client').
+
+     Security boundary: every endpoint resolves clientId from the
+     authenticated session and refuses any draft whose client_id
+     doesn't match. Cross-client leakage is impossible by design.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /**
+   * GET /api/portal/articles
+   *
+   * Returns the authenticated client's RankFlow article drafts that are
+   * ready for or past client review. Filter:
+   *   client_id = THIS client AND kind='article' AND surface='rankflow'
+   *   AND status IN ('approved','published','rejected')
+   * Drafts in 'draft' status (admin still working) are intentionally
+   * hidden so clients don't see half-baked work.
+   */
+  app.get("/api/portal/articles", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const drafts = await db.select({
+        id: contentDrafts.id,
+        title: contentDrafts.title,
+        excerpt: contentDrafts.excerpt,
+        status: contentDrafts.status,
+        target_url: contentDrafts.target_url,
+        metadata: contentDrafts.metadata,
+        client_approved_at: contentDrafts.client_approved_at,
+        created_at: contentDrafts.created_at,
+        updated_at: contentDrafts.updated_at,
+      })
+        .from(contentDrafts)
+        .where(and(
+          eq(contentDrafts.client_id, clientId),
+          eq(contentDrafts.kind, "article"),
+          eq(contentDrafts.surface, "rankflow"),
+          sql`${contentDrafts.status} IN ('approved', 'published', 'rejected')`,
+        ))
+        .orderBy(desc(contentDrafts.created_at))
+        .limit(50);
+
+      res.json({ articles: drafts, count: drafts.length });
+    } catch (err: any) {
+      console.error("[portal/articles] list error:", err.message);
+      res.status(500).json({ error: "Failed to load articles" });
+    }
+  });
+
+  /**
+   * GET /api/portal/articles/:id
+   *
+   * Detail for a single article. Returns 404 if the draft doesn't exist
+   * or doesn't belong to this client (deliberately conflated to avoid
+   * leaking existence of other clients' drafts).
+   */
+  app.get("/api/portal/articles/:id", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const draftId = parseInt(String(req.params.id), 10);
+      if (!Number.isFinite(draftId)) {
+        return res.status(400).json({ error: "id must be a number" });
+      }
+
+      const draft = await storage.getContentDraftById(draftId);
+      if (!draft || draft.client_id !== clientId || draft.kind !== "article" || draft.surface !== "rankflow") {
+        return res.status(404).json({ error: "Article not found" });
+      }
+      res.json({ article: draft });
+    } catch (err: any) {
+      console.error("[portal/articles] detail error:", err.message);
+      res.status(500).json({ error: "Failed to load article" });
+    }
+  });
+
+  /**
+   * POST /api/portal/articles/:id/approve
+   * Body: { note?: string }
+   */
+  app.post("/api/portal/articles/:id/approve", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const draftId = parseInt(String(req.params.id), 10);
+      if (!Number.isFinite(draftId)) return res.status(400).json({ error: "id must be a number" });
+      const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 1000) : undefined;
+
+      const updated = await clientApproveDraft({ draftId, clientId, note });
+      res.json({ ok: true, article: updated });
+    } catch (err: any) {
+      const status = err?.code === "not_found" || err?.code === "forbidden" ? 404
+        : err?.code === "wrong_kind" ? 409
+        : 500;
+      console.error("[portal/articles] approve error:", err.message);
+      res.status(status).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/portal/articles/:id/request-changes
+   * Body: { note?: string }
+   */
+  app.post("/api/portal/articles/:id/request-changes", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const draftId = parseInt(String(req.params.id), 10);
+      if (!Number.isFinite(draftId)) return res.status(400).json({ error: "id must be a number" });
+      const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 1000) : undefined;
+
+      const updated = await clientRequestChanges({ draftId, clientId, note });
+      res.json({ ok: true, article: updated });
+    } catch (err: any) {
+      const status = err?.code === "not_found" || err?.code === "forbidden" ? 404
+        : err?.code === "wrong_kind" ? 409
+        : 500;
+      console.error("[portal/articles] request-changes error:", err.message);
+      res.status(status).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/portal/articles/:id/reject
+   * Body: { note?: string }
+   */
+  app.post("/api/portal/articles/:id/reject", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const draftId = parseInt(String(req.params.id), 10);
+      if (!Number.isFinite(draftId)) return res.status(400).json({ error: "id must be a number" });
+      const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 1000) : undefined;
+
+      const updated = await clientRejectDraft({ draftId, clientId, note });
+      res.json({ ok: true, article: updated });
+    } catch (err: any) {
+      const status = err?.code === "not_found" || err?.code === "forbidden" ? 404
+        : err?.code === "wrong_kind" ? 409
+        : 500;
+      console.error("[portal/articles] reject error:", err.message);
+      res.status(status).json({ error: err.message });
     }
   });
 }
