@@ -24,7 +24,12 @@ import { test as baseTest, expect, type APIRequestContext } from "@playwright/te
 import { STORAGE_STATE_PATH } from "./global-setup";
 import { pool } from "../../../server/db";
 import { readFileSync } from "fs";
-import { resolve } from "path";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+
+// ESM-compatible __dirname (Playwright runs spec files as ES modules).
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
 const WP_MOCK_BASE = `${BASE_URL}/api/__dev/wp-mock`;
