@@ -63,6 +63,15 @@ export function registerRankFlowRoutes(app: Express): void {
         if (!cmsUrl || !/^https?:\/\//i.test(cmsUrl)) {
           return res.status(400).json({ error: "cms_url must be an http(s) URL" });
         }
+        /* Sprint 8: HTTPS allowlist. We will not store or use credentials
+         * destined for a non-https URL. The dev-only WP mock at
+         * http://localhost:5000 is exempted under NODE_ENV !== "production"
+         * so the existing test harness still works. */
+        const isLocalhostDev =
+          process.env.NODE_ENV !== "production" && /^http:\/\/localhost(:\d+)?\//.test(cmsUrl);
+        if (!cmsUrl.startsWith("https://") && !isLocalhostDev) {
+          return res.status(422).json({ error: "cms_url must use https:// — refusing to send credentials over plaintext" });
+        }
         if (!cmsUsername) return res.status(400).json({ error: "cms_username required" });
         if (!cmsAppPassword) return res.status(400).json({ error: "cms_app_password required" });
         if (!isEncryptionConfigured()) {

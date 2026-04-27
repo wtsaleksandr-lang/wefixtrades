@@ -54,7 +54,8 @@ export type WordpressPublishResult =
         | "encryption_unavailable"
         | "decrypt_failed"
         | "wp_error"
-        | "network_error";
+        | "network_error"
+        | "insecure_destination";
       message: string;
       http_status?: number;
     };
@@ -102,6 +103,38 @@ function loadCredsForClient(profile: RankflowProfileWithCreds): StoredWpCreds | 
 
 function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, "");
+}
+
+/**
+ * Sprint 8: HTTPS allowlist. Refuses to ship credentials to any
+ * non-https destination. The dev-only WP mock at
+ * `http://localhost:5000/api/__dev/wp-mock` is exempted explicitly so
+ * the existing test harness still works in NODE_ENV !== "production".
+ *
+ * Production behaviour: any cms_url that doesn't start with `https://`
+ * is rejected at publish time. Customers who saved an `http://` URL
+ * see a clear error in the admin UI and fix their config.
+ */
+export function isAllowedDestinationUrl(url: string): boolean {
+  if (typeof url !== "string" || url.length === 0) return false;
+  if (url.startsWith("https://")) return true;
+  // Dev-only escape hatch for the in-process WP mock used by tests.
+  if (process.env.NODE_ENV !== "production" && /^http:\/\/localhost(:\d+)?\//.test(url)) return true;
+  return false;
+}
+
+/**
+ * Sprint 8: redact any Authorization / Cookie / Set-Cookie headers that
+ * a misbehaving upstream might echo back in an error body. Only used on
+ * the response path — never on the request side. Belt-and-suspenders for
+ * weird reverse-proxy configurations.
+ */
+export function redactSensitiveEchoes(s: string): string {
+  return s
+    .replace(/(authorization\s*:\s*)[^\r\n]+/gi, "$1[REDACTED]")
+    .replace(/(set-cookie\s*:\s*)[^\r\n]+/gi, "$1[REDACTED]")
+    .replace(/(cookie\s*:\s*)[^\r\n]+/gi, "$1[REDACTED]")
+    .replace(/Basic\s+[A-Za-z0-9+/=]+/g, "Basic [REDACTED]");
 }
 
 /**
@@ -170,6 +203,17 @@ export async function publishDraftToWordpress(
   /* 5. Call WordPress REST API. */
   const wpStatus = opts.status === "publish" ? "publish" : "draft";
   const targetUrl = `${trimTrailingSlash(creds.cms_url)}${WP_POSTS_PATH}`;
+
+  /* Sprint 8: HTTPS allowlist. We will NOT send the Basic-auth header
+   * to any non-https destination (with the dev-mock localhost
+   * exemption gated on NODE_ENV !== "production"). */
+  if (!isAllowedDestinationUrl(targetUrl)) {
+    const msg = "Refusing to publish over insecure (non-https) URL";
+    console.error(`[contentflow] WP publish rejected for draft ${draftId}: ${msg} (cms_url=${trimTrailingSlash(creds.cms_url)})`);
+    await persistFailure(draftId, msg);
+    return { ok: false, reason: "insecure_destination", message: msg };
+  }
+
   const authHeader = "Basic " + Buffer.from(`${creds.cms_username}:${appPassword}`).toString("base64");
 
   let response: Response;
@@ -188,7 +232,7 @@ export async function publishDraftToWordpress(
       }),
     });
   } catch (err: any) {
-    const msg = err?.message || String(err);
+    const msg = redactSensitiveEchoes(err?.message || String(err));
     console.error(`[contentflow] WP publish network error for draft ${draftId} → ${trimTrailingSlash(creds.cms_url)}: ${msg}`);
     await persistFailure(draftId, msg);
     return { ok: false, reason: "network_error", message: msg };
@@ -197,7 +241,7 @@ export async function publishDraftToWordpress(
   if (!response.ok) {
     let bodyText = "";
     try { bodyText = await response.text(); } catch {/* ignore */}
-    const summary = bodyText.slice(0, 500);
+    const summary = redactSensitiveEchoes(bodyText.slice(0, 500));
     console.error(`[contentflow] WP publish HTTP ${response.status} for draft ${draftId}: ${summary}`);
     await persistFailure(draftId, `HTTP ${response.status}: ${summary}`);
     return { ok: false, reason: "wp_error", message: `WordPress responded with ${response.status}: ${summary}`, http_status: response.status };

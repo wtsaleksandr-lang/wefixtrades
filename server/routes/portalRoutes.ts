@@ -1,5 +1,5 @@
-import type { Express, Request, Response } from "express";
-import { requireClient, hashPassword, verifyPassword } from "../auth";
+import type { Express, Request, Response, NextFunction } from "express";
+import { requireClient, requireClientStrict, hashPassword, verifyPassword } from "../auth";
 import { storage } from "../storage";
 import { db } from "../db";
 import { eq, and, asc, desc, sql, gte } from "drizzle-orm";
@@ -14,7 +14,7 @@ import {
   clientRejectDraft,
 } from "../services/contentflow/approvalService";
 import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../services/threadService";
-import { authRateLimiter } from "../services/rateLimiter";
+import { authRateLimiter, portalReviewRateLimiter } from "../services/rateLimiter";
 
 import {
   clients,
@@ -2840,6 +2840,48 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
      ═══════════════════════════════════════════════════════════════════ */
 
   /**
+   * Sprint 8: project an article record for portal consumption — strips
+   * admin-only metadata keys (admin_emailed_*, raw WP errors, lock fields)
+   * before returning to the client. Keeps the client_review state/note
+   * decided_at and the wordpress.post_url that the client legitimately
+   * needs to see.
+   */
+  const projectArticleForPortal = (raw: any) => {
+    if (!raw) return raw;
+    const meta = (raw.metadata || {}) as Record<string, any>;
+    const cr = (meta.client_review || {}) as Record<string, any>;
+    const wp = (meta.wordpress || {}) as Record<string, any>;
+    const cleanCr = {
+      state: cr.state ?? null,
+      note: cr.note ?? null,
+      decided_at: cr.decided_at ?? null,
+    };
+    const cleanWp = wp.post_url
+      ? { post_url: wp.post_url, published_at: wp.published_at ?? null }
+      : undefined;
+    const safeMeta: Record<string, any> = {
+      ...(cr.state ? { client_review: cleanCr } : {}),
+      ...(cleanWp ? { wordpress: cleanWp } : {}),
+    };
+    return { ...raw, metadata: safeMeta };
+  };
+
+  /**
+   * Sprint 8 — rate-limit middleware for portal review action endpoints.
+   * Per-clientId, 30 actions / 60s. Falls back to user.id if the clients
+   * row hasn't been resolved yet (defensive — handler also guards).
+   */
+  async function portalReviewLimit(req: Request, res: Response, next: NextFunction) {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: "Authentication required" });
+    const ok = await portalReviewRateLimiter.check(`portal-review:${userId}`);
+    if (!ok) {
+      return res.status(429).json({ error: "Too many review actions. Please slow down and try again shortly." });
+    }
+    next();
+  }
+
+  /**
    * GET /api/portal/articles
    *
    * Returns the authenticated client's RankFlow article drafts that are
@@ -2875,7 +2917,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         .orderBy(desc(contentDrafts.created_at))
         .limit(50);
 
-      res.json({ articles: drafts, count: drafts.length });
+      res.json({ articles: drafts.map(projectArticleForPortal), count: drafts.length });
     } catch (err: any) {
       console.error("[portal/articles] list error:", err.message);
       res.status(500).json({ error: "Failed to load articles" });
@@ -2903,7 +2945,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       if (!draft || draft.client_id !== clientId || draft.kind !== "article" || draft.surface !== "rankflow") {
         return res.status(404).json({ error: "Article not found" });
       }
-      res.json({ article: draft });
+      res.json({ article: projectArticleForPortal(draft) });
     } catch (err: any) {
       console.error("[portal/articles] detail error:", err.message);
       res.status(500).json({ error: "Failed to load article" });
@@ -2911,10 +2953,29 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
   });
 
   /**
+   * Sprint 8: shared error mapper for review actions. Returns generic
+   * messages to the client (never raw err.message — that may include
+   * PG constraint names or internal state). Audit detail goes to logs.
+   */
+  function reviewActionErrorResponse(action: string, err: any, res: Response) {
+    const code: string | undefined = err?.code;
+    if (code === "not_found" || code === "forbidden") {
+      return res.status(404).json({ error: "Article not found" });
+    }
+    if (code === "wrong_kind") {
+      return res.status(409).json({ error: "Article does not support client review" });
+    }
+    console.error(`[portal/articles] ${action} error:`, err?.message || err);
+    return res.status(500).json({ error: "Action failed. Please try again." });
+  }
+
+  /**
    * POST /api/portal/articles/:id/approve
    * Body: { note?: string }
+   * Sprint 8: requireClientStrict (admin role rejected) + per-client rate
+   * limit + projected response + generic error messages.
    */
-  app.post("/api/portal/articles/:id/approve", requireClient, async (req: Request, res: Response) => {
+  app.post("/api/portal/articles/:id/approve", requireClientStrict, portalReviewLimit, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
@@ -2923,13 +2984,9 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 1000) : undefined;
 
       const updated = await clientApproveDraft({ draftId, clientId, note });
-      res.json({ ok: true, article: updated });
+      res.json({ ok: true, article: projectArticleForPortal(updated) });
     } catch (err: any) {
-      const status = err?.code === "not_found" || err?.code === "forbidden" ? 404
-        : err?.code === "wrong_kind" ? 409
-        : 500;
-      console.error("[portal/articles] approve error:", err.message);
-      res.status(status).json({ error: err.message });
+      return reviewActionErrorResponse("approve", err, res);
     }
   });
 
@@ -2937,7 +2994,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
    * POST /api/portal/articles/:id/request-changes
    * Body: { note?: string }
    */
-  app.post("/api/portal/articles/:id/request-changes", requireClient, async (req: Request, res: Response) => {
+  app.post("/api/portal/articles/:id/request-changes", requireClientStrict, portalReviewLimit, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
@@ -2946,13 +3003,9 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 1000) : undefined;
 
       const updated = await clientRequestChanges({ draftId, clientId, note });
-      res.json({ ok: true, article: updated });
+      res.json({ ok: true, article: projectArticleForPortal(updated) });
     } catch (err: any) {
-      const status = err?.code === "not_found" || err?.code === "forbidden" ? 404
-        : err?.code === "wrong_kind" ? 409
-        : 500;
-      console.error("[portal/articles] request-changes error:", err.message);
-      res.status(status).json({ error: err.message });
+      return reviewActionErrorResponse("request-changes", err, res);
     }
   });
 
@@ -2960,7 +3013,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
    * POST /api/portal/articles/:id/reject
    * Body: { note?: string }
    */
-  app.post("/api/portal/articles/:id/reject", requireClient, async (req: Request, res: Response) => {
+  app.post("/api/portal/articles/:id/reject", requireClientStrict, portalReviewLimit, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
@@ -2969,13 +3022,9 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 1000) : undefined;
 
       const updated = await clientRejectDraft({ draftId, clientId, note });
-      res.json({ ok: true, article: updated });
+      res.json({ ok: true, article: projectArticleForPortal(updated) });
     } catch (err: any) {
-      const status = err?.code === "not_found" || err?.code === "forbidden" ? 404
-        : err?.code === "wrong_kind" ? 409
-        : 500;
-      console.error("[portal/articles] reject error:", err.message);
-      res.status(status).json({ error: err.message });
+      return reviewActionErrorResponse("reject", err, res);
     }
   });
 }

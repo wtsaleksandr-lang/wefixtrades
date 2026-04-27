@@ -287,14 +287,23 @@ export function initScheduler() {
     }
   });
 
-  // Sprint 5: WordPress publish queue. Drains approved RankFlow article
-  // drafts whose metadata.wordpress.queue_status='queued' and scheduled_for
-  // is null or elapsed. Calls the existing Sprint 4 publisher.
+  // Sprint 5/8: ContentFlow publish queue. Atomic-claim worker dispatching
+  // through the adapter registry. The `isRunning` guard prevents two ticks
+  // of the same cron from overlapping if a tick takes longer than the
+  // 2-minute interval (slow upstream / large batch).
+  let publishQueueRunning = false;
   cron.schedule("*/2 * * * *", async () => {
+    if (publishQueueRunning) {
+      console.log("[Scheduler] contentflow_publish_queue skipped — previous tick still running");
+      return;
+    }
+    publishQueueRunning = true;
     try {
-      await runJob("contentflow_wp_publish_queue", processWordpressPublishQueue);
+      await runJob("contentflow_publish_queue", processWordpressPublishQueue);
     } catch (err: any) {
-      console.error("[Scheduler] contentflow_wp_publish_queue error:", err.message);
+      console.error("[Scheduler] contentflow_publish_queue error:", err.message);
+    } finally {
+      publishQueueRunning = false;
     }
   });
 

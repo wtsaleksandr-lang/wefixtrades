@@ -2924,6 +2924,97 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
+  /**
+   * Sprint 8: atomic claim. Picks the next eligible draft, marks it
+   * `publishing` + stamps `locked_at`/`locked_by`, all in a single
+   * row-locked statement. SKIP LOCKED so concurrent workers never
+   * pick the same row.
+   *
+   * Eligibility:
+   *   - status='approved', kind='article', surface='rankflow'
+   *   - metadata.wordpress.queue_status='queued'
+   *   - scheduled_for IS NULL or elapsed
+   *   - post_id IS NULL (defence-in-depth — never re-publish)
+   *   - locked_at IS NULL OR older than the stale threshold (10 min)
+   *     so a crashed worker's claim auto-recovers.
+   *
+   * Returns the claimed row (now in `publishing` state) or null if
+   * the queue is empty or every eligible row is locked by another
+   * worker.
+   */
+  async claimNextPublishJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    const now = opts.now ?? new Date();
+    const staleMs = opts.staleLockMs ?? 10 * 60_000;
+    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
+    const result: any = await db.execute(sql`
+      UPDATE content_drafts
+      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'wordpress',
+            COALESCE(metadata->'wordpress', '{}'::jsonb) || jsonb_build_object(
+              'queue_status', 'publishing',
+              'locked_at',    ${now.toISOString()}::text,
+              'locked_by',    ${workerId}::text,
+              'last_attempt_at', ${now.toISOString()}::text
+            )
+          ),
+          updated_at = NOW()
+      WHERE id = (
+        SELECT id FROM content_drafts
+        WHERE status = 'approved'
+          AND kind = 'article'
+          AND surface = 'rankflow'
+          AND metadata->'wordpress'->>'queue_status' = 'queued'
+          AND (metadata->'wordpress'->>'scheduled_for' IS NULL
+               OR (metadata->'wordpress'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
+          AND metadata->'wordpress'->>'post_id' IS NULL
+          AND (metadata->'wordpress'->>'locked_at' IS NULL
+               OR (metadata->'wordpress'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz)
+        ORDER BY (metadata->'wordpress'->>'scheduled_for')::timestamptz ASC NULLS FIRST, id ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      )
+      RETURNING *
+    `);
+    const rows: ContentDraft[] = (result?.rows ?? result) as ContentDraft[];
+    return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+  }
+
+  /**
+   * Sprint 8: recover claims abandoned by a crashed worker. Returns
+   * `publishing` rows whose `locked_at` is older than the stale
+   * threshold back to `queued` so the next tick can re-claim. Bumps
+   * attempts (so genuinely-broken jobs still hit the dead-letter
+   * ceiling). Idempotent — safe to call every tick.
+   */
+  async recoverStalePublishClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    const now = opts.now ?? new Date();
+    const staleMs = opts.staleLockMs ?? 10 * 60_000;
+    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
+    const result: any = await db.execute(sql`
+      UPDATE content_drafts
+      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'wordpress',
+            COALESCE(metadata->'wordpress', '{}'::jsonb) || jsonb_build_object(
+              'queue_status', 'queued',
+              'locked_at',  NULL::text,
+              'locked_by',  NULL::text,
+              'attempts',   COALESCE((metadata->'wordpress'->>'attempts')::int, 0) + 1,
+              'last_error', 'recovered from stale lock'
+            )
+          ),
+          updated_at = NOW()
+      WHERE status = 'approved'
+        AND kind = 'article'
+        AND surface = 'rankflow'
+        AND metadata->'wordpress'->>'queue_status' = 'publishing'
+        AND metadata->'wordpress'->>'locked_at' IS NOT NULL
+        AND (metadata->'wordpress'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz
+      RETURNING id
+    `);
+    const rows: any[] = (result?.rows ?? result) as any[];
+    return Array.isArray(rows) ? rows.length : 0;
+  }
+
   // ─── ContentFlow: Approvals ───
 
   async createContentApproval(data: InsertContentApproval): Promise<ContentApproval> {

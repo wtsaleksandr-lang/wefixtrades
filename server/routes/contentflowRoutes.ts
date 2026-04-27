@@ -472,11 +472,19 @@ export function registerContentFlowRoutes(app: Express): void {
   );
 
   /* ═══════════════════════════════════════════════════════════════════
-     DEV-ONLY endpoints for Sprint 1 verification.
-     Gated by NODE_ENV !== "production". Require admin auth.
-     Never ship these to a prod deployment — they mutate/delete data.
+     DEV-ONLY endpoints for Sprint 1+ verification.
+     Sprint 8 hardened: triple-gated.
+       1) NODE_ENV !== "production"        — env class
+       2) DEV_TOOLS_ENABLED === "1"        — explicit opt-in secret
+       3) requireAdmin (where attached)    — caller must be authenticated
+     If any gate is missing the entire `__dev` block is skipped at module
+     load — the routes are not registered, so even an attacker who lands
+     on a misconfigured prod box gets a 404. Replit / staging must set
+     DEV_TOOLS_ENABLED=1 for the regression specs to run.
      ═══════════════════════════════════════════════════════════════════ */
-  if (process.env.NODE_ENV !== "production") {
+  const DEV_ROUTES_ENABLED =
+    process.env.NODE_ENV !== "production" && process.env.DEV_TOOLS_ENABLED === "1";
+  if (DEV_ROUTES_ENABLED) {
     /**
      * POST /api/admin/contentflow/__dev/simulate-generation
      *

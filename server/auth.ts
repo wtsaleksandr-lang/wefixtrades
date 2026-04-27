@@ -88,3 +88,15 @@ export function requireClient(req: Request, res: Response, next: NextFunction) {
   // client_id resolution happens in the route handler via req.user.id
   next();
 }
+
+/**
+ * Sprint 8: strict client-only middleware. Refuses admin role outright.
+ * Used on portal endpoints that take a write action on behalf of a
+ * client (approve / request-changes / reject) where an admin has its
+ * own admin-side route and should never act through the portal path.
+ */
+export function requireClientStrict(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) return res.status(401).json({ error: "Authentication required" });
+  if (req.user.role !== "client") return res.status(403).json({ error: "Client account required" });
+  next();
+}

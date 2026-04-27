@@ -1,38 +1,55 @@
 /**
- * ContentFlow — WordPress publish queue (Sprint 5).
+ * ContentFlow — publish queue (Sprint 5; Sprint 8 hardened).
  *
  * Lightweight queue layered on top of `content_drafts.metadata.wordpress`.
  * No new tables; queue state coexists with Sprint 4 publish-result keys
  * (post_id, post_url, wp_status, published_at, error) on the same JSONB
- * column. Sprint 4's race-fix (re-read metadata before write) is what
- * makes coexistence safe — every write here merges with a fresh read.
+ * column.
+ *
+ * Sprint 8 changes:
+ *   - Atomic claim via storage.claimNextPublishJob (FOR UPDATE SKIP LOCKED).
+ *     Two concurrent workers can never publish the same draft.
+ *   - Stale-lock recovery: a `publishing` row whose locked_at is older than
+ *     STALE_LOCK_MS (10min) is reclaimed on the next tick (worker crashed
+ *     mid-publish).
+ *   - Dead-letter: when attempts >= MAX_ATTEMPTS the draft transitions to
+ *     queue_status='failed' AND metadata.wordpress.dead_letter_at is
+ *     stamped. Subsequent enqueues from publishing state DO NOT reset
+ *     attempts (so a crash-loop can't infinite-retry).
+ *   - Dispatch via the adapter registry — queue is destination-agnostic.
  *
  * Lifecycle:
- *   queued → publishing → published    (success)
- *   queued → publishing → queued       (retry, attempts < MAX_ATTEMPTS)
- *   queued → publishing → failed       (terminal, attempts >= MAX_ATTEMPTS)
- *   failed → queued                    (admin retry)
+ *   queued → publishing → published        (success)
+ *   queued → publishing → queued           (retry, attempts < MAX_ATTEMPTS)
+ *   queued → publishing → failed (DLQ)     (attempts >= MAX_ATTEMPTS)
+ *   publishing (stale) → queued (recovery)
+ *   failed → queued                        (admin retry — clears DLQ + resets attempts)
  *
  * Scheduling: `metadata.wordpress.scheduled_for` (ISO 8601 string or null).
  * Worker only picks drafts where scheduled_for is null OR <= now().
  *
  * Idempotency / duplicate-publish prevention:
+ *   - Atomic claim with row-level lock (B1 fix).
  *   - Already published drafts (queue_status='published' OR existing post_id)
  *     can NOT be re-queued. enqueueDraft refuses; the worker skips them.
  *   - Drafts not in 'approved' status can NOT be queued (rejected/draft/etc).
  */
 
+import crypto from "crypto";
 import { storage } from "../../storage";
-import { publishDraftToWordpress } from "./wordpressPublisher";
+import { getAdapter } from "./adapters/registry";
 import type { ContentDraft } from "@shared/schema";
 
 /* ─── Constants ─────────────────────────────────────────────────────── */
 
 export const MAX_ATTEMPTS = 3;
 export const BATCH_SIZE = 10;
+export const STALE_LOCK_MS = 10 * 60_000;
 
 export type QueueStatus = "queued" | "publishing" | "published" | "failed";
 export type WpPostStatus = "draft" | "publish";
+
+const WORKER_ID = `${process.pid}-${crypto.randomBytes(4).toString("hex")}`;
 
 /* ─── Public types ──────────────────────────────────────────────────── */
 
@@ -99,6 +116,10 @@ interface WpMeta {
   last_error?: string | null;
   last_attempt_at?: string;
   desired_wp_status?: WpPostStatus;
+  // Sprint 8 keys (locking + DLQ):
+  locked_at?: string | null;
+  locked_by?: string | null;
+  dead_letter_at?: string | null;
 }
 
 function getWpMeta(draft: ContentDraft): WpMeta {
@@ -182,13 +203,18 @@ export async function enqueueDraft(
   }
 
   const scheduledFor = (opts.scheduled_for as string | null | undefined) ?? null;
+  /* Sprint 8: never reset attempts when transitioning from `publishing`
+   * (would let a crash-looping draft escape the dead-letter ceiling).
+   * `failed` preserves attempts; admin retry path uses retryDraft. */
+  const preserveAttempts =
+    wp.queue_status === "failed" || wp.queue_status === "publishing";
   await mergeWpMetadata(draftId, {
     queue_status: "queued",
     scheduled_for: scheduledFor,
-    // Reset attempts only when transitioning from a non-failed state.
-    // (Retry-from-failed should preserve attempts; that path uses retryDraft.)
-    attempts: wp.queue_status === "failed" ? wp.attempts ?? 0 : 0,
+    attempts: preserveAttempts ? wp.attempts ?? 0 : 0,
     last_error: null,
+    locked_at: null,
+    locked_by: null,
     desired_wp_status: opts.wp_status === "publish" ? "publish" : "draft",
   });
 
@@ -219,12 +245,15 @@ export async function retryDraft(draftId: number): Promise<RetryResult> {
   if (wp.queue_status !== "failed") {
     return { ok: false, draftId, reason: "not_failed", message: `draft ${draftId} is not in 'failed' state (queue_status=${wp.queue_status ?? "null"})` };
   }
-  // Admin retry resets the attempt counter so the draft gets a clean shot
-  // at MAX_ATTEMPTS more tries — matches "retry failed publishes" UX.
+  // Admin retry resets the attempt counter and clears the dead-letter
+  // stamp — operator has explicitly chosen to give it another shot.
   await mergeWpMetadata(draftId, {
     queue_status: "queued",
     attempts: 0,
     last_error: null,
+    dead_letter_at: null,
+    locked_at: null,
+    locked_by: null,
   });
   return { ok: true, draftId, attempts: 0 };
 }
@@ -232,16 +261,15 @@ export async function retryDraft(draftId: number): Promise<RetryResult> {
 /* ─── Worker ────────────────────────────────────────────────────────── */
 
 /**
- * Drain up to BATCH_SIZE eligible queued drafts.
- *  - Eligible = status=approved, kind=article, surface=rankflow,
- *    queue_status='queued', scheduled_for IS NULL OR <= now.
- *  - Skips drafts already containing post_id (defence in depth against
- *    duplicate publishes even if queue_status got out of sync).
- *  - On AI/WP failure: increments attempts; transitions to 'queued'
- *    (retry) if attempts < MAX_ATTEMPTS, else 'failed'.
+ * Sprint 8: drain up to BATCH_SIZE eligible drafts using atomic claims.
  *
- * Designed to be called from the cron scheduler (`runJob` wrapper) or
- * synchronously from a dev-only test trigger.
+ *   1. Recover stale claims (publishing rows abandoned by crashed workers).
+ *   2. Loop up to BATCH_SIZE: claimNextPublishJob → dispatch → record outcome.
+ *   3. Stop when claim returns null (queue empty / all locked elsewhere).
+ *
+ * The claim is row-level locked + SKIP LOCKED, so two concurrent workers
+ * never publish the same draft. Each adapter runs in isolation; an
+ * adapter throw is caught and persisted as a failure.
  */
 export async function processQueue(): Promise<ProcessQueueSummary> {
   const summary: ProcessQueueSummary = {
@@ -253,68 +281,87 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
   };
 
   const now = new Date();
-  const candidates = await storage.findQueuedWordpressDrafts({ limit: BATCH_SIZE, now });
-  summary.scanned = candidates.length;
-  if (candidates.length === 0) return summary;
 
-  for (const draft of candidates) {
-    const wp = getWpMeta(draft);
+  /* 1. Stale-lock recovery — re-queues rows whose worker crashed. */
+  try {
+    const recovered = await storage.recoverStalePublishClaims({ now, staleLockMs: STALE_LOCK_MS });
+    if (recovered > 0) {
+      console.log(`[contentflow][publish-queue] recovered ${recovered} stale claim(s)`);
+    }
+  } catch (err: any) {
+    console.error(`[contentflow][publish-queue] stale-lock recovery failed:`, err?.message || err);
+  }
 
-    // Defence in depth: skip if already published (post_id present) regardless
-    // of queue_status. Also skip if eligibility recheck (since queue read)
-    // moved scheduled_for into the future.
+  /* 2. Drain — atomic claim, dispatch, record outcome, repeat. */
+  for (let i = 0; i < BATCH_SIZE; i++) {
+    let claimed: ContentDraft | null;
+    try {
+      claimed = await storage.claimNextPublishJob(WORKER_ID, { now: new Date(), staleLockMs: STALE_LOCK_MS });
+    } catch (err: any) {
+      summary.errors.push(`claim failed: ${err?.message || err}`);
+      break;
+    }
+    if (!claimed) break;
+    summary.scanned++;
+
+    const wp = getWpMeta(claimed);
+
+    /* Defence-in-depth: if a parallel write put post_id on the row between
+     * the eligibility check and the claim, treat it as published and clear
+     * the lock. */
     if (isAlreadyPublished(wp)) {
-      // Self-heal stale queue_status on already-published drafts.
-      if (wp.queue_status !== "published") {
-        await mergeWpMetadata(draft.id, { queue_status: "published" });
-      }
+      await mergeWpMetadata(claimed.id, {
+        queue_status: "published",
+        locked_at: null,
+        locked_by: null,
+      });
       continue;
     }
-    if (!isEligibleNow(wp, now)) continue;
-
-    // Transition queued → publishing.
-    await mergeWpMetadata(draft.id, {
-      queue_status: "publishing",
-      last_attempt_at: now.toISOString(),
-    });
 
     const desiredStatus: WpPostStatus = wp.desired_wp_status === "publish" ? "publish" : "draft";
     let result;
     try {
-      result = await publishDraftToWordpress(draft.id, { status: desiredStatus });
+      const adapter = getAdapter("wordpress");
+      result = await adapter.publish(claimed, { status: desiredStatus });
     } catch (err: any) {
-      // publishDraftToWordpress is documented to never throw, but defend anyway.
       result = { ok: false as const, reason: "network_error" as const, message: err?.message || String(err) };
     }
 
     if (result.ok) {
-      // Sprint 4 publisher already wrote post_id/post_url and flipped draft
-      // status to 'published'. Layer in queue_status + clear last_error.
-      await mergeWpMetadata(draft.id, {
+      /* Adapter already persisted post_id/post_url and flipped draft.status.
+       * Layer in queue_status + clear lock + clear last_error. */
+      await mergeWpMetadata(claimed.id, {
         queue_status: "published",
         last_error: null,
+        locked_at: null,
+        locked_by: null,
       });
       summary.published++;
       continue;
     }
 
-    // Failure path. Increment attempts and decide retry vs terminal.
+    /* Failure path — increment attempts, decide retry vs dead-letter. */
     const attemptsBefore = wp.attempts ?? 0;
     const attemptsAfter = attemptsBefore + 1;
     const errMsg = (result.message || "unknown error").slice(0, 500);
     if (attemptsAfter >= MAX_ATTEMPTS) {
-      await mergeWpMetadata(draft.id, {
+      await mergeWpMetadata(claimed.id, {
         queue_status: "failed",
         attempts: attemptsAfter,
         last_error: errMsg,
+        dead_letter_at: new Date().toISOString(),
+        locked_at: null,
+        locked_by: null,
       });
       summary.failed++;
-      summary.errors.push(`draft ${draft.id}: ${errMsg}`);
+      summary.errors.push(`draft ${claimed.id}: ${errMsg}`);
     } else {
-      await mergeWpMetadata(draft.id, {
+      await mergeWpMetadata(claimed.id, {
         queue_status: "queued",
         attempts: attemptsAfter,
         last_error: errMsg,
+        locked_at: null,
+        locked_by: null,
       });
       summary.retried++;
     }

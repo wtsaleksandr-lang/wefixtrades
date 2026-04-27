@@ -438,22 +438,32 @@ test.describe("ContentFlow Sprint 4 — WordPress publishing", () => {
     expect(after.draft.status, "regenerate must not downgrade an already-published draft").toBe("published");
   });
 
-  test("P4-8 — static guarantee: dev WP mock is registered ONLY inside the NODE_ENV !== 'production' block", async () => {
+  test("P4-8 — static guarantee: dev WP mock is registered ONLY inside the triple-gated dev block", async () => {
     /* This is a structural assertion against the source file, not a
      * runtime check. Spinning up a real production-mode server in CI is
      * heavy; instead we lock in the lexical invariant that the mock route
      * appears AFTER the single dev-gate `if` and BEFORE its closing brace.
-     * If a future edit moves the mock outside the gate, this test fails. */
+     * Sprint 8: the gate became `if (DEV_ROUTES_ENABLED) {` where the
+     * constant is defined to require BOTH NODE_ENV !== "production" AND
+     * DEV_TOOLS_ENABLED === "1". This test verifies both invariants. */
     const filePath = resolve(__dirname, "../../../server/routes/contentflowRoutes.ts");
     const src = readFileSync(filePath, "utf8");
     const lines = src.split("\n");
 
+    // Sprint 8 — DEV_ROUTES_ENABLED definition must AND both gates.
+    const defLine = lines.find((l) => l.includes("const DEV_ROUTES_ENABLED ="));
+    const defBody =
+      defLine && lines.slice(lines.indexOf(defLine), lines.indexOf(defLine) + 3).join(" ");
+    expect(defBody, "DEV_ROUTES_ENABLED definition not found").toBeTruthy();
+    expect(defBody!.includes('process.env.NODE_ENV !== "production"'), "DEV_ROUTES_ENABLED must check NODE_ENV").toBe(true);
+    expect(defBody!.includes('process.env.DEV_TOOLS_ENABLED === "1"'), "DEV_ROUTES_ENABLED must require DEV_TOOLS_ENABLED=1").toBe(true);
+
     // Find the single dev gate.
     const gateIndices: number[] = [];
     lines.forEach((line, i) => {
-      if (line.includes('if (process.env.NODE_ENV !== "production") {')) gateIndices.push(i);
+      if (line.includes("if (DEV_ROUTES_ENABLED) {")) gateIndices.push(i);
     });
-    expect(gateIndices.length, "expected exactly ONE NODE_ENV !== 'production' dev gate in contentflowRoutes.ts").toBe(1);
+    expect(gateIndices.length, "expected exactly ONE DEV_ROUTES_ENABLED dev gate in contentflowRoutes.ts").toBe(1);
     const gateLine = gateIndices[0];
 
     // Walk forward, tracking brace depth from the gate's `{` to its matching `}`.
