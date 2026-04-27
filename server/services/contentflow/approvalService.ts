@@ -6,9 +6,16 @@
  * the admin-driven `adminApprove` and `adminReject` flows used by the
  * /admin/contentflow queue UI.
  */
+import crypto from "crypto";
 import { storage } from "../../storage";
 import type { ContentDraft } from "@shared/schema";
 import type { ApprovalActorType } from "./types";
+import {
+  sendAdminClientApproveEmail,
+  sendAdminClientChangesEmail,
+  sendAdminClientRejectEmail,
+  sendClientRevisionReadyEmail,
+} from "../../lib/contentReviewEmail";
 
 export interface AutoApproveInput {
   draftId: number;
@@ -88,6 +95,14 @@ export async function adminApproveDraft(input: AdminApproveInput): Promise<Conte
     throw new Error(`Cannot approve draft in terminal status '${existing.status}'`);
   }
 
+  /* Sprint 7: detect revision-ready transition. If the prior client
+   * review state was 'changes_requested' AND admin is now re-approving,
+   * we'll fire a one-shot client notification AFTER persistence. Token
+   * is captured before mutation so concurrent writes don't lose it. */
+  const priorReview = (existing.metadata as any)?.client_review;
+  const wasChangesRequested = priorReview?.state === "changes_requested";
+  const revisionToken = wasChangesRequested ? crypto.randomBytes(12).toString("hex") : null;
+
   const now = new Date();
   const updated = await storage.updateContentDraft(draftId, {
     status: "approved",
@@ -106,6 +121,15 @@ export async function adminApproveDraft(input: AdminApproveInput): Promise<Conte
     notes: notes ?? null,
     metadata: null,
   } as any);
+
+  /* Sprint 7: client revision-ready notification. Only fires when prior
+   * client_review.state was 'changes_requested'. Email failure is
+   * isolated — never throws back to the API caller. */
+  if (revisionToken) {
+    sendClientRevisionReadyEmail(draftId, { revisionToken }).catch((err) => {
+      console.error(`[content-review-email][client-revision] draft=${draftId} unhandled:`, err?.message || err);
+    });
+  }
 
   return updated ?? existing;
 }
@@ -235,6 +259,13 @@ export async function clientApproveDraft(input: ClientReviewInput): Promise<Cont
     metadata: null,
   } as any);
 
+  /* Sprint 7: notify admin. Fire-and-forget; email failure must NOT
+   * surface as an API error. Idempotency is enforced inside the email
+   * function via metadata.client_review.admin_emailed_for. */
+  sendAdminClientApproveEmail(input.draftId).catch((err) => {
+    console.error(`[content-review-email][admin-approved] draft=${input.draftId} unhandled:`, err?.message || err);
+  });
+
   return updated ?? existing;
 }
 
@@ -262,6 +293,11 @@ export async function clientRequestChanges(input: ClientReviewInput): Promise<Co
     notes: input.note ?? null,
     metadata: null,
   } as any);
+
+  /* Sprint 7: notify admin (changes-requested includes the note). */
+  sendAdminClientChangesEmail(input.draftId).catch((err) => {
+    console.error(`[content-review-email][admin-changes] draft=${input.draftId} unhandled:`, err?.message || err);
+  });
 
   return updated ?? existing;
 }
@@ -294,6 +330,11 @@ export async function clientRejectDraft(input: ClientReviewInput): Promise<Conte
     notes: input.note ?? null,
     metadata: null,
   } as any);
+
+  /* Sprint 7: notify admin. */
+  sendAdminClientRejectEmail(input.draftId).catch((err) => {
+    console.error(`[content-review-email][admin-rejected] draft=${input.draftId} unhandled:`, err?.message || err);
+  });
 
   return updated ?? existing;
 }

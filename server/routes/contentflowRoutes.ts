@@ -677,5 +677,61 @@ export function registerContentFlowRoutes(app: Express): void {
         }
       },
     );
+
+    /**
+     * POST /api/admin/contentflow/__dev/email-review-test (Sprint 7)
+     *
+     * Dev-only endpoint used by Sprint 7 P7-9 to exercise the
+     * "SMTP unavailable" code path without restarting the server with
+     * SMTP env vars unset. Body:
+     *   { draftId: number,
+     *     kind: "admin-approved"|"admin-changes"|"admin-rejected"|"client-revision",
+     *     simulateSmtpDown?: boolean }
+     *
+     * Returns the SendResult so the spec can assert
+     * reason='smtp_unavailable' AND verify that no metadata flag was
+     * written. Strictly NODE_ENV !== "production" + requireAdmin.
+     */
+    app.post(
+      "/api/admin/contentflow/__dev/email-review-test",
+      requireAdmin,
+      async (req: Request, res: Response) => {
+        try {
+          const draftId = parseInt(String(req.body?.draftId), 10);
+          if (!Number.isFinite(draftId)) return res.status(400).json({ error: "draftId required" });
+          const kind = String(req.body?.kind || "");
+          const simulateDown = req.body?.simulateSmtpDown === true;
+          const opts = simulateDown ? { transporter: null as any } : {};
+
+          const {
+            sendAdminClientApproveEmail,
+            sendAdminClientChangesEmail,
+            sendAdminClientRejectEmail,
+            sendClientRevisionReadyEmail,
+          } = await import("../lib/contentReviewEmail");
+
+          let result;
+          switch (kind) {
+            case "admin-approved":
+              result = await sendAdminClientApproveEmail(draftId, opts);
+              break;
+            case "admin-changes":
+              result = await sendAdminClientChangesEmail(draftId, opts);
+              break;
+            case "admin-rejected":
+              result = await sendAdminClientRejectEmail(draftId, opts);
+              break;
+            case "client-revision":
+              result = await sendClientRevisionReadyEmail(draftId, opts);
+              break;
+            default:
+              return res.status(400).json({ error: "kind invalid" });
+          }
+          res.json(result);
+        } catch (err: any) {
+          res.status(500).json({ ok: false, error: err.message });
+        }
+      },
+    );
   }
 }
