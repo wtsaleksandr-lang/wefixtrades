@@ -163,13 +163,18 @@ export async function enqueueDraft(
   if (draft.surface !== "rankflow") {
     return { ok: false, draftId, reason: "wrong_surface", message: `draft ${draftId} is not a RankFlow draft` };
   }
-  if (draft.status !== "approved") {
-    return { ok: false, draftId, reason: "not_approved", message: `draft ${draftId} status is ${draft.status}, must be 'approved'` };
+
+  // Check already-published BEFORE checking 'approved'. A successfully
+  // published draft has status='published' (Sprint 4 publisher transitions
+  // it), so the status guard would otherwise return 'not_approved' — wrong
+  // signal. Already-published is the more specific reason for the caller.
+  const wp = getWpMeta(draft);
+  if (draft.status === "published" || isAlreadyPublished(wp)) {
+    return { ok: false, draftId, reason: "already_published", message: `draft ${draftId} is already published — refusing to duplicate` };
   }
 
-  const wp = getWpMeta(draft);
-  if (isAlreadyPublished(wp)) {
-    return { ok: false, draftId, reason: "already_published", message: `draft ${draftId} is already published — refusing to duplicate` };
+  if (draft.status !== "approved") {
+    return { ok: false, draftId, reason: "not_approved", message: `draft ${draftId} status is ${draft.status}, must be 'approved'` };
   }
 
   if (!isValidIsoDateOrNull(opts.scheduled_for ?? null)) {

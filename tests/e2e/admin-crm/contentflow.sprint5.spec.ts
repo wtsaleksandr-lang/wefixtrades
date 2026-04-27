@@ -120,6 +120,14 @@ async function provisionApprovedArticle(
   return draftId;
 }
 
+// Sprint 5 tests share state via the module-level `provisionedDraftIds`
+// Set — each test depends on artefacts created by earlier ones. Force
+// serial execution within this describe block so all tests run on a
+// single Playwright worker and share that state. Without this, parallel
+// workers each get an empty Set, and tests like P5-7 / P5-9 that read
+// from the Set break with NaN draft ids.
+test.describe.configure({ mode: "serial" });
+
 test.describe("ContentFlow Sprint 5 — WordPress publish queue", () => {
   let clientId = 0;
   const provisionedDraftIds = new Set<number>();
