@@ -13,6 +13,7 @@ import {
   LogOut,
   TrendingUp,
   Star,
+  FileText,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
@@ -35,6 +36,7 @@ const NAV_ITEMS = [
   { label: "Social Media", href: "/portal/socialsync", icon: Share2 },
   { label: "Reputation", href: "/portal/reputation", icon: ShieldCheck },
   { label: "SEO", href: "/portal/rankflow", icon: TrendingUp },
+  { label: "Articles", href: "/portal/articles", icon: FileText },
   { label: "Billing", href: "/portal/billing", icon: CreditCard },
   { label: "Help", href: "/portal/help", icon: HelpCircle },
   { label: "Settings", href: "/portal/settings", icon: Settings },

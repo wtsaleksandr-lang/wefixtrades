@@ -102,6 +102,7 @@ import PortalReputation from "@/pages/portal/PortalReputation";
 import SocialSyncSetup from "@/pages/portal/SocialSyncSetup";
 import PortalSocialSync from "@/pages/portal/PortalSocialSync";
 import PortalRankFlow from "@/pages/portal/PortalRankFlow";
+import PortalArticles from "@/pages/portal/PortalArticles";
 import ResetPasswordPage from "@/pages/ResetPassword";
 
 function Router() {
@@ -144,6 +145,7 @@ function Router() {
       <Route path="/portal/reviews/widget">{() => <RequireClient><PortalWidget /></RequireClient>}</Route>
       <Route path="/portal/reviews">{() => <RequireClient><PortalReviews /></RequireClient>}</Route>
       <Route path="/portal/rankflow">{() => <RequireClient><PortalRankFlow /></RequireClient>}</Route>
+      <Route path="/portal/articles">{() => <RequireClient><PortalArticles /></RequireClient>}</Route>
       <Route path="/portal/billing">{() => <RequireClient><PortalBilling /></RequireClient>}</Route>
       <Route path="/portal/help/tickets/:id">{() => <RequireClient><PortalTicketDetail /></RequireClient>}</Route>
       <Route path="/portal/socialsync-setup">{() => <RequireClient><SocialSyncSetup /></RequireClient>}</Route>
