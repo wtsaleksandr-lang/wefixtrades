@@ -1,8 +1,9 @@
 /**
- * MapGuard Monthly Report Engine
+ * MapGuard Monthly Report Engine.
  *
- * Compiles monthly metrics from snapshots and tasks into a client-safe
- * report, generates HTML email, and stores report data for web viewing.
+ * Compiles monthly visibility metrics from snapshots + tasks into a
+ * client-safe report and emails it through the shared `reportShell`
+ * premium dashboard layout.
  */
 
 import { db } from "../db";
@@ -11,6 +12,24 @@ import { mapguardTasks } from "@shared/schemas/mapguard";
 import { clients, clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
 import { eq, and, sql, desc, gte, lte } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
+import { generateLineChart } from "./emailCharts";
+import {
+  REPORT_COLORS,
+  buildReportShell,
+  buildReportHero,
+  buildKpiGrid,
+  buildIntegratedChart,
+  buildChartFallback,
+  buildSection,
+  buildActivityList,
+  buildChecklist,
+  buildCtaButton,
+  buildMetricGlossary,
+  deriveHeaderBadge,
+  type KpiTile,
+  type HeaderBadge,
+} from "../lib/reportShell";
 
 /* ═══════════════════════════════════════════
    TASK TYPE → CLIENT LANGUAGE
@@ -45,13 +64,13 @@ const TASK_TYPE_CLIENT_ACTIVE: Record<string, string> = {
 };
 
 /* ═══════════════════════════════════════════
-   REPORT DATA COMPILATION
+   REPORT DATA SHAPE
    ═══════════════════════════════════════════ */
 
 export interface MonthlyReportData {
   business_name: string;
   client_id: number;
-  month_label: string;           // "March 2026"
+  month_label: string;
   period_start: string;
   period_end: string;
   // Metrics
@@ -72,27 +91,34 @@ export interface MonthlyReportData {
   has_website: boolean;
   has_description: boolean;
   photo_count: number | null;
-  // Activity (client-safe)
-  completed_actions: string[];    // past tense
-  active_work: string[];          // present tense
+  // Activity
+  completed_actions: string[];
+  active_work: string[];
   total_completed: number;
   total_active: number;
-  // Summary
+  // Trend
   movement: "improving" | "stable" | "declining" | "new";
+  /** Visibility score over time across the period — drives the chart */
+  score_history: Array<{ date: string; score: number }>;
 }
 
-export async function compileMonthlyReport(clientId: number, year: number, month: number): Promise<MonthlyReportData | null> {
-  // Period bounds
+/* ═══════════════════════════════════════════
+   DATA COMPILATION
+   ═══════════════════════════════════════════ */
+
+export async function compileMonthlyReport(
+  clientId: number,
+  year: number,
+  month: number,
+): Promise<MonthlyReportData | null> {
   const periodStart = new Date(year, month - 1, 1);
   const periodEnd = new Date(year, month, 0, 23, 59, 59);
   const monthLabel = periodStart.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
-  // Get client info
   const [client] = await db.select({ business_name: clients.business_name })
     .from(clients).where(eq(clients.id, clientId)).limit(1);
   if (!client) return null;
 
-  // Get snapshots in this month (chronological)
   const snapshots = await db.select()
     .from(mapguardSnapshots)
     .where(and(
@@ -102,7 +128,6 @@ export async function compileMonthlyReport(clientId: number, year: number, month
     ))
     .orderBy(mapguardSnapshots.captured_at);
 
-  // Also get the last snapshot before this month for start-of-month baseline
   const [preMonthSnap] = await db.select()
     .from(mapguardSnapshots)
     .where(and(
@@ -115,7 +140,6 @@ export async function compileMonthlyReport(clientId: number, year: number, month
   const firstSnap = preMonthSnap || snapshots[0] || null;
   const lastSnap = snapshots[snapshots.length - 1] || firstSnap;
 
-  // Completed tasks this month
   const completedTasks = await db.selectDistinct({ task_type: mapguardTasks.task_type })
     .from(mapguardTasks)
     .where(and(
@@ -135,7 +159,6 @@ export async function compileMonthlyReport(clientId: number, year: number, month
       lte(mapguardTasks.completed_at, periodEnd),
     ));
 
-  // Active tasks
   const activeTasks = await db.selectDistinct({ task_type: mapguardTasks.task_type })
     .from(mapguardTasks)
     .where(and(
@@ -151,7 +174,6 @@ export async function compileMonthlyReport(clientId: number, year: number, month
       sql`${mapguardTasks.status} NOT IN ('completed', 'cancelled')`,
     ));
 
-  // Compute deltas
   const scoreStart = firstSnap?.score_total ?? null;
   const scoreEnd = lastSnap?.score_total ?? null;
   const scoreDelta = scoreStart != null && scoreEnd != null ? scoreEnd - scoreStart : null;
@@ -166,13 +188,20 @@ export async function compileMonthlyReport(clientId: number, year: number, month
   const reviewsEnd = lastSnap?.review_count ?? null;
   const reviewsGained = reviewsStart != null && reviewsEnd != null ? reviewsEnd - reviewsStart : null;
 
-  // Movement
   let movement: MonthlyReportData["movement"] = "new";
   if (scoreDelta !== null) {
     if (scoreDelta > 3) movement = "improving";
     else if (scoreDelta < -3) movement = "declining";
     else movement = "stable";
   }
+
+  // Score time-series for the chart (only when we have ≥2 snapshots)
+  const score_history: Array<{ date: string; score: number }> = snapshots
+    .filter((s) => s.score_total != null)
+    .map((s) => ({
+      date: s.captured_at.toISOString().slice(0, 10),
+      score: s.score_total as number,
+    }));
 
   return {
     business_name: client.business_name,
@@ -197,174 +226,277 @@ export async function compileMonthlyReport(clientId: number, year: number, month
     has_description: lastSnap?.has_description ?? false,
     photo_count: lastSnap?.photo_count ?? null,
     completed_actions: completedTasks
-      .map(t => TASK_TYPE_CLIENT_PAST[t.task_type])
+      .map((t) => TASK_TYPE_CLIENT_PAST[t.task_type])
       .filter(Boolean) as string[],
     active_work: activeTasks
-      .map(t => TASK_TYPE_CLIENT_ACTIVE[t.task_type])
+      .map((t) => TASK_TYPE_CLIENT_ACTIVE[t.task_type])
       .filter(Boolean) as string[],
     total_completed: completedCount?.count || 0,
     total_active: activeCount?.count || 0,
     movement,
+    score_history,
   };
 }
 
 /* ═══════════════════════════════════════════
-   EMAIL TEMPLATE
+   DELTA + KPI HELPERS
    ═══════════════════════════════════════════ */
 
-const GRADE_COLORS: Record<string, string> = {
-  A: "#22C55E", B: "#00D4C8", C: "#F59E0B", D: "#EF4444",
-};
-
-function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
-function deltaText(delta: number | null, suffix = ""): string {
-  if (delta === null || delta === 0) return "No change";
-  const sign = delta > 0 ? "+" : "";
-  const color = delta > 0 ? "#22C55E" : "#EF4444";
-  return `<span style="color:${color};font-weight:600;">${sign}${typeof delta === "number" && !Number.isInteger(delta) ? delta.toFixed(1) : delta}${suffix}</span>`;
-}
-
-export function buildMonthlyReportEmail(report: MonthlyReportData, portalUrl: string): { subject: string; html: string } {
-  const grade = report.grade_end || "—";
-  const gradeColor = GRADE_COLORS[grade] || "#6B7280";
-  const movementLabel = { improving: "Improving", stable: "Stable", declining: "Needs attention", new: "Getting started" }[report.movement];
-  const movementColor = { improving: "#22C55E", stable: "#3B82F6", declining: "#F59E0B", new: "#3B82F6" }[report.movement];
-
-  // Activity bullets
-  const activityHtml = report.completed_actions.length > 0
-    ? report.completed_actions.map(a => `<li style="margin-bottom:4px;color:#374151;font-size:13px;">${esc(a)}</li>`).join("")
-    : `<li style="color:#6b7280;font-size:13px;">We continued monitoring and improving your visibility</li>`;
-
-  const activeHtml = report.active_work.length > 0
-    ? `<p style="font-size:12px;color:#6b7280;margin:8px 0 0;">Currently working on: ${report.active_work.map(a => esc(a).toLowerCase()).join(", ")}</p>`
-    : "";
-
-  const subject = `MapGuard Report: ${report.month_label} — ${esc(report.business_name)}`;
-
-  const html = `<!DOCTYPE html>
-<html><body style="font-family:'Inter',Arial,sans-serif;margin:0;padding:0;background:#F3F4F6;">
-<table cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-
-  <!-- Header -->
-  <tr><td style="padding:24px 28px;background:#2D6A4F;">
-    <p style="color:#ffffff;font-size:11px;font-weight:700;letter-spacing:0.05em;margin:0;opacity:0.8;">MAPGUARD MONTHLY REPORT</p>
-    <p style="color:#ffffff;font-size:18px;font-weight:600;margin:6px 0 0;">${esc(report.month_label)}</p>
-    <p style="color:#d1fae5;font-size:13px;margin:4px 0 0;">${esc(report.business_name)}</p>
-  </td></tr>
-
-  <!-- Score + Status -->
-  <tr><td style="padding:24px 28px;">
-    <table cellpadding="0" cellspacing="0" width="100%"><tr>
-      <td style="vertical-align:top;">
-        <p style="font-size:12px;color:#6b7280;margin:0;text-transform:uppercase;letter-spacing:0.04em;">Visibility Score</p>
-        <p style="font-size:36px;font-weight:700;color:#111827;margin:4px 0 0;">${report.score_end ?? "—"}<span style="font-size:14px;color:#9ca3af;">/100</span></p>
-        <p style="font-size:12px;margin:4px 0 0;">${deltaText(report.score_delta, " pts")}</p>
-      </td>
-      <td style="vertical-align:top;text-align:right;">
-        <div style="display:inline-block;background:${gradeColor};color:#fff;font-size:24px;font-weight:800;padding:12px 18px;border-radius:10px;">${grade}</div>
-        <p style="font-size:11px;color:${movementColor};font-weight:600;margin:6px 0 0;text-align:right;">${movementLabel}</p>
-      </td>
-    </tr></table>
-  </td></tr>
-
-  <!-- Key Metrics -->
-  <tr><td style="padding:0 28px 24px;">
-    <table cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #e5e7eb;padding-top:16px;">
-      <tr>
-        <td style="padding:8px 0;width:50%;">
-          <p style="font-size:11px;color:#6b7280;margin:0;text-transform:uppercase;">Rating</p>
-          <p style="font-size:18px;font-weight:600;color:#111827;margin:2px 0 0;">${report.rating_end?.toFixed(1) ?? "—"} ${deltaText(report.rating_delta)}</p>
-        </td>
-        <td style="padding:8px 0;width:50%;">
-          <p style="font-size:11px;color:#6b7280;margin:0;text-transform:uppercase;">Reviews</p>
-          <p style="font-size:18px;font-weight:600;color:#111827;margin:2px 0 0;">${report.reviews_end ?? "—"} ${report.reviews_gained != null && report.reviews_gained > 0 ? `<span style="color:#22C55E;font-size:13px;">+${report.reviews_gained} this month</span>` : ""}</p>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:8px 0;width:50%;">
-          <p style="font-size:11px;color:#6b7280;margin:0;text-transform:uppercase;">Map Pack</p>
-          <p style="font-size:18px;font-weight:600;color:#111827;margin:2px 0 0;">${report.local_pack_end ?? "—"} <span style="font-size:12px;color:#6b7280;">keywords</span></p>
-        </td>
-        <td style="padding:8px 0;width:50%;">
-          <p style="font-size:11px;color:#6b7280;margin:0;text-transform:uppercase;">Scans</p>
-          <p style="font-size:18px;font-weight:600;color:#111827;margin:2px 0 0;">${report.scans_this_month} <span style="font-size:12px;color:#6b7280;">this month</span></p>
-        </td>
-      </tr>
-    </table>
-  </td></tr>
-
-  <!-- What We Did -->
-  <tr><td style="padding:0 28px 24px;">
-    <div style="background:#F9FAFB;border-radius:8px;padding:16px;">
-      <p style="font-size:13px;font-weight:600;color:#111827;margin:0 0 8px;">What we worked on</p>
-      <ul style="margin:0;padding-left:18px;line-height:1.7;">
-        ${activityHtml}
-      </ul>
-      ${activeHtml}
-      ${report.total_completed > 0 ? `<p style="font-size:11px;color:#6b7280;margin:10px 0 0;">${report.total_completed} improvement${report.total_completed !== 1 ? "s" : ""} completed this month</p>` : ""}
-    </div>
-  </td></tr>
-
-  <!-- Profile Status -->
-  <tr><td style="padding:0 28px 24px;">
-    <p style="font-size:13px;font-weight:600;color:#111827;margin:0 0 8px;">Profile status</p>
-    <table cellpadding="0" cellspacing="0" width="100%">
-      ${profileRow("Website linked", report.has_website)}
-      ${profileRow("Business description", report.has_description)}
-      ${profileRow("Photos uploaded", (report.photo_count ?? 0) > 0, report.photo_count != null ? `${report.photo_count} photos` : undefined)}
-    </table>
-  </td></tr>
-
-  <!-- CTA -->
-  <tr><td style="padding:0 28px 24px;text-align:center;">
-    <a href="${portalUrl}/portal/mapguard" style="display:inline-block;background:#2D6A4F;color:#ffffff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View Full Dashboard</a>
-  </td></tr>
-
-  <!-- Footer -->
-  <tr><td style="padding:16px 28px;background:#f9fafb;text-align:center;border-top:1px solid #e5e7eb;">
-    <p style="font-size:11px;color:#9ca3af;margin:0;">MapGuard Monthly Report &middot; WeFixTrades</p>
-  </td></tr>
-
-</table>
-</body></html>`;
-
-  return { subject, html };
-}
-
-function profileRow(label: string, ok: boolean, detail?: string): string {
-  const icon = ok
-    ? `<span style="color:#22C55E;font-weight:700;">&#10003;</span>`
-    : `<span style="color:#D1D5DB;">&#9675;</span>`;
-  return `<tr><td style="padding:3px 0;font-size:13px;color:${ok ? "#374151" : "#9ca3af"};">${icon} ${esc(label)}${detail ? ` <span style="color:#9ca3af;font-size:11px;">(${esc(detail)})</span>` : ""}</td></tr>`;
+function pctChange(curr: number | null, prev: number | null, opts: { higherIsBetter?: boolean } = {}) {
+  if (curr == null || prev == null || prev === 0) {
+    return { shown: false, pctText: "", rose: false, good: true };
+  }
+  const change = ((curr - prev) / prev) * 100;
+  if (Math.abs(change) < 1) {
+    return { shown: false, pctText: "", rose: false, good: true };
+  }
+  const rose = change > 0;
+  const good = (opts.higherIsBetter ?? true) ? rose : !rose;
+  return {
+    shown: true,
+    pctText: `${Math.round(Math.abs(change))}%`,
+    rose,
+    good,
+  };
 }
 
 /* ═══════════════════════════════════════════
-   SEND MONTHLY REPORT EMAIL
+   CHART
    ═══════════════════════════════════════════ */
 
+async function tryGenerateScoreChart(
+  clientId: number,
+  data: MonthlyReportData,
+): Promise<string | null> {
+  if (data.score_history.length < 2) return null;
+
+  const periodKey = data.period_start.slice(0, 7);
+  const stride = Math.max(1, Math.floor(data.score_history.length / 8));
+  const labels = data.score_history.map((p, i) =>
+    i % stride === 0
+      ? new Date(p.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      : "",
+  );
+
+  const result = await generateLineChart({
+    cacheKey: `mapguard-cs${clientId}-${periodKey}-fb`,
+    labels,
+    values: data.score_history.map((p) => p.score),
+    width: 700,
+    height: 280,
+    backgroundColor: REPORT_COLORS.card,
+    variant: "integrated",
+  });
+
+  return result?.url || null;
+}
+
+/* ═══════════════════════════════════════════
+   EMAIL COMPOSITION
+   ═══════════════════════════════════════════ */
+
+interface ComposeOpts {
+  data: MonthlyReportData;
+  chartUrl: string | null;
+  portalUrl: string;
+  recipientEmail: string;
+}
+
+function composeMapguardReport(o: ComposeOpts): { subject: string; html: string; badge: HeaderBadge } {
+  const d = o.data;
+
+  // Score delta as a percentage of 100 — used for the badge logic
+  const scoreDeltaPct = d.score_delta != null && d.score_start
+    ? pctChange(d.score_end, d.score_start, { higherIsBetter: true })
+    : { shown: false, pctText: "", rose: false, good: true };
+
+  const ratingDelta = pctChange(d.rating_end, d.rating_start, { higherIsBetter: true });
+
+  // Header badge
+  const critical = (d.movement === "declining") ||
+    (d.rating_end != null && d.rating_end < 4.0);
+  const badge: HeaderBadge = deriveHeaderBadge({ primaryDelta: scoreDeltaPct, critical });
+
+  // Hero headline + dynamic subject
+  let heroHeadline: string;
+  let subject: string;
+  if (d.score_delta != null && d.score_delta >= 5) {
+    heroHeadline = `Visibility up ${d.score_delta} pts this month`;
+    subject = `Visibility +${d.score_delta} pts — your ${d.month_label} MapGuard report`;
+  } else if (d.score_delta != null && d.score_delta <= -5) {
+    heroHeadline = `Visibility dipped ${Math.abs(d.score_delta)} pts — adjusting`;
+    subject = `Visibility -${Math.abs(d.score_delta)} pts — your ${d.month_label} MapGuard report`;
+  } else if (d.reviews_gained != null && d.reviews_gained >= 5) {
+    const rt = d.rating_end != null ? `${d.rating_end.toFixed(1)}★` : "";
+    heroHeadline = `${d.reviews_gained} new review${d.reviews_gained === 1 ? "" : "s"} this month`;
+    subject = `${d.reviews_gained} new reviews${rt ? ` · ${rt}` : ""} — your ${d.month_label} MapGuard report`;
+  } else if (d.movement === "improving") {
+    heroHeadline = "Steady improvement this month";
+    subject = `Your ${d.month_label} MapGuard report — improving`;
+  } else if (d.movement === "stable") {
+    heroHeadline = "Holding steady";
+    subject = `Your ${d.month_label} MapGuard report — holding steady`;
+  } else if (d.movement === "new") {
+    heroHeadline = "Baseline established";
+    subject = `Your ${d.month_label} MapGuard report — first baseline`;
+  } else {
+    heroHeadline = "MapGuard monthly report";
+    subject = `Your ${d.month_label} MapGuard report`;
+  }
+
+  // KPI tiles
+  const kpis: KpiTile[] = [
+    {
+      label: "Visibility Score",
+      value: d.score_end != null ? `${d.score_end}` : "—",
+      delta: scoreDeltaPct,
+      accent: true,
+    },
+    {
+      label: "Rating",
+      value: d.rating_end != null ? `${d.rating_end.toFixed(1)}★` : "—",
+      delta: ratingDelta,
+    },
+    {
+      label: "Reviews",
+      value: d.reviews_end != null
+        ? (d.reviews_gained != null && d.reviews_gained > 0
+          ? `${d.reviews_end}`
+          : `${d.reviews_end}`)
+        : "—",
+      delta: d.reviews_gained != null && d.reviews_gained !== 0
+        ? { shown: true, pctText: `+${d.reviews_gained}`, rose: d.reviews_gained > 0, good: d.reviews_gained > 0 }
+        : undefined,
+    },
+    {
+      label: "Map Pack keywords",
+      value: d.local_pack_end != null ? `${d.local_pack_end}` : "—",
+    },
+  ];
+
+  // Chart fallback (start vs end)
+  const fallbackCells: Array<{ label: string; value: string; emphasis?: boolean }> = [];
+  if (d.score_start != null) {
+    fallbackCells.push({ label: "Start of month", value: `${d.score_start}` });
+  }
+  if (d.score_end != null) {
+    fallbackCells.push({ label: "End of month", value: `${d.score_end}`, emphasis: true });
+  }
+  if (d.scans_this_month > 0) {
+    fallbackCells.push({ label: "Scans this month", value: `${d.scans_this_month}` });
+  }
+
+  // Profile checklist
+  const profileItems = [
+    { label: "Website linked", ok: d.has_website },
+    { label: "Business description", ok: d.has_description },
+    {
+      label: "Photos uploaded",
+      ok: (d.photo_count ?? 0) > 0,
+      detail: d.photo_count != null ? `${d.photo_count} photo${d.photo_count === 1 ? "" : "s"}` : undefined,
+    },
+  ];
+
+  // Movement-based summary
+  const summary = (() => {
+    if (d.movement === "improving") {
+      return `Your visibility is trending up. We logged ${d.scans_this_month} scan${d.scans_this_month === 1 ? "" : "s"} this month and shipped ${d.total_completed} improvement${d.total_completed === 1 ? "" : "s"}.`;
+    }
+    if (d.movement === "declining") {
+      return `Visibility dipped this period. We've prioritized recovery actions for next cycle — see what's currently underway below.`;
+    }
+    if (d.movement === "new") {
+      return `This is your first report. We've captured ${d.scans_this_month} baseline scan${d.scans_this_month === 1 ? "" : "s"}; trends will appear next month.`;
+    }
+    return `Your visibility held steady this month. We continued monitoring and shipped ${d.total_completed} small improvement${d.total_completed === 1 ? "" : "s"}.`;
+  })();
+
+  // Compose body
+  const body = [
+    buildReportHero({
+      eyebrow: "Visibility report",
+      headline: heroHeadline,
+      period: d.month_label,
+      businessName: d.business_name,
+      summary,
+    }),
+    buildKpiGrid(kpis),
+    o.chartUrl ? buildIntegratedChart({ chartUrl: o.chartUrl, alt: `Visibility score over ${d.month_label}`, height: 280 }) : "",
+    fallbackCells.length ? buildChartFallback({ cells: fallbackCells }) : "",
+    d.completed_actions.length > 0 ? buildSection({
+      title: "What we worked on",
+      content: buildActivityList(d.completed_actions) + (d.active_work.length > 0
+        ? `<p style="font-size:12px;color:${REPORT_COLORS.muted};margin:8px 0 0;line-height:1.5;">Currently working on: ${d.active_work.map((a) => a.toLowerCase()).join(", ")}.</p>`
+        : ""),
+    }) : "",
+    buildSection({ title: "Profile status", content: buildChecklist(profileItems) }),
+    buildCtaButton({ href: `${o.portalUrl}/portal/mapguard`, label: "View full visibility dashboard" }),
+    buildMetricGlossary({ metrics: ["Visibility Score", "Rating", "Reviews", "Map Pack keywords"] }),
+  ].filter(Boolean).join("");
+
+  const html = buildReportShell({
+    product: "MapGuard Report",
+    badge,
+    body,
+    recipientEmail: o.recipientEmail,
+  });
+
+  return { subject, html, badge };
+}
+
+/* ═══════════════════════════════════════════
+   PUBLIC API
+   ═══════════════════════════════════════════ */
+
+const MAPGUARD_FROM_NAME = "WeFixTrades MapGuard";
+
+/**
+ * Build the report email (subject + HTML + badge) without sending.
+ * Re-exported for tooling and the preview script.
+ */
+export function buildMonthlyReportEmail(
+  data: MonthlyReportData,
+  portalUrl: string,
+  recipientEmail?: string,
+): { subject: string; html: string } {
+  const { subject, html } = composeMapguardReport({
+    data,
+    chartUrl: null, // Caller can pre-generate and pass via composeMapguardReport directly if needed
+    portalUrl,
+    recipientEmail: recipientEmail || "",
+  });
+  return { subject, html };
+}
+
+/**
+ * Send a MapGuard monthly report for one client.
+ */
 export async function sendMonthlyReportEmail(
   clientId: number,
   recipientEmail: string,
   year: number,
   month: number,
 ): Promise<{ ok: boolean; error?: string }> {
-  const report = await compileMonthlyReport(clientId, year, month);
-  if (!report) return { ok: false, error: "Could not compile report data" };
+  if (await isEmailUnsubscribed(recipientEmail)) {
+    console.log(`[mapguard-report] Recipient ${recipientEmail} is unsubscribed — skipping`);
+    return { ok: false, error: "Recipient unsubscribed" };
+  }
+
+  const data = await compileMonthlyReport(clientId, year, month);
+  if (!data) return { ok: false, error: "Could not compile report data" };
 
   const transporter = getEmailTransporter();
   if (!transporter) return { ok: false, error: "SMTP not configured" };
 
-  const portalUrl = process.env.VAPI_SERVER_URL
-    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.co.uk");
+  const portalUrl = process.env.APP_URL
+    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
 
-  const { subject, html } = buildMonthlyReportEmail(report, portalUrl);
+  const chartUrl = await tryGenerateScoreChart(clientId, data);
+  const { subject, html } = composeMapguardReport({ data, chartUrl, portalUrl, recipientEmail });
 
   try {
     await transporter.sendMail({
-      from: `"MapGuard" <${getFromAddress()}>`,
+      from: `${MAPGUARD_FROM_NAME} <${getFromAddress()}>`,
       to: recipientEmail,
       subject,
       html,
@@ -377,7 +509,7 @@ export async function sendMonthlyReportEmail(
 }
 
 /* ═══════════════════════════════════════════
-   BATCH: SEND ALL MONTHLY REPORTS
+   BATCH SEND
    ═══════════════════════════════════════════ */
 
 export async function sendAllMonthlyReports(): Promise<{
@@ -385,26 +517,24 @@ export async function sendAllMonthlyReports(): Promise<{
   skipped: number;
   errors: string[];
 }> {
-  // Previous month
   const now = new Date();
   const year = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-  const month = now.getMonth() === 0 ? 12 : now.getMonth(); // 1-12
+  const month = now.getMonth() === 0 ? 12 : now.getMonth();
 
-  // Find active MapGuard clients with email
   const activeClients = await db.select({
     client_id: clients.id,
     contact_email: clients.contact_email,
     business_name: clients.business_name,
   })
-  .from(clientServices)
-  .innerJoin(clients, eq(clientServices.client_id, clients.id))
-  .innerJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
-  .where(and(
-    eq(clientServices.status, "active"),
-    eq(clientServices.enabled, true),
-    sql`${serviceCatalog.id} LIKE 'mapguard%'`,
-    sql`${clients.contact_email} IS NOT NULL AND ${clients.contact_email} != ''`,
-  ));
+    .from(clientServices)
+    .innerJoin(clients, eq(clientServices.client_id, clients.id))
+    .innerJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
+    .where(and(
+      eq(clientServices.status, "active"),
+      eq(clientServices.enabled, true),
+      sql`${serviceCatalog.id} LIKE 'mapguard%'`,
+      sql`${clients.contact_email} IS NOT NULL AND ${clients.contact_email} != ''`,
+    ));
 
   let sent = 0;
   let skipped = 0;
@@ -415,14 +545,12 @@ export async function sendAllMonthlyReports(): Promise<{
       skipped++;
       continue;
     }
-
     const result = await sendMonthlyReportEmail(
       client.client_id,
       client.contact_email,
       year,
       month,
     );
-
     if (result.ok) {
       sent++;
       console.log(`[mapguard-report] Sent monthly report to ${client.business_name} (${client.contact_email})`);
@@ -433,4 +561,47 @@ export async function sendAllMonthlyReports(): Promise<{
 
   console.log(`[mapguard-report] Batch complete: ${sent} sent, ${skipped} skipped, ${errors.length} errors`);
   return { sent, skipped, errors };
+}
+
+/* ═══════════════════════════════════════════
+   PREVIEW (used by tooling / QA)
+   ═══════════════════════════════════════════ */
+
+export async function previewMapguardReportHtml(opts: {
+  data: MonthlyReportData;
+  recipientEmail: string;
+  cacheKey?: string;
+  embedChartAsCid?: boolean;
+}): Promise<{ subject: string; html: string; chartLocalPath: string | null; senderName: string }> {
+  const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
+
+  const chartResult = opts.data.score_history.length >= 2
+    ? await generateLineChart({
+        cacheKey: opts.cacheKey || `mapguard-preview-${Date.now()}`,
+        labels: opts.data.score_history.map((p, i, arr) => {
+          const stride = Math.max(1, Math.floor(arr.length / 8));
+          return i % stride === 0
+            ? new Date(p.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            : "";
+        }),
+        values: opts.data.score_history.map((p) => p.score),
+        width: 700,
+        height: 280,
+        backgroundColor: REPORT_COLORS.card,
+        variant: "integrated",
+      })
+    : null;
+
+  const chartUrl = opts.embedChartAsCid && chartResult?.localPath
+    ? "cid:chart"
+    : (chartResult?.url || null);
+
+  const { subject, html } = composeMapguardReport({
+    data: opts.data,
+    chartUrl,
+    portalUrl: baseUrl,
+    recipientEmail: opts.recipientEmail,
+  });
+
+  return { subject, html, chartLocalPath: chartResult?.localPath || null, senderName: MAPGUARD_FROM_NAME };
 }

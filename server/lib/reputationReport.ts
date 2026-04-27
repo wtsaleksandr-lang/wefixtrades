@@ -7,6 +7,8 @@ import { db } from "../db";
 import { eq, and, gte, sql, desc } from "drizzle-orm";
 import { monitoredReviews, reviewRequests, clients } from "@shared/schema";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
+import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
+import { isEmailUnsubscribed } from "./unsubscribeStorage";
 
 /* ─── Data Aggregation ─── */
 
@@ -113,7 +115,7 @@ function esc(s: string): string {
 function starsHtml(rating: number): string {
   let s = "";
   for (let i = 1; i <= 5; i++) {
-    s += `<span style="color:${i <= rating ? "#FBBF24" : "#D1D5DB"};font-size:16px;">&#9733;</span>`;
+    s += `<span style="color:${i <= rating ? "#FBBF24" : "#3D434A"};font-size:16px;">&#9733;</span>`;
   }
   return s;
 }
@@ -123,93 +125,86 @@ export function buildReportEmailHtml(data: ReportData, portalUrl: string): { sub
 
   const metricRow = (label: string, value: string | number, color?: string) =>
     `<tr>
-      <td style="padding:8px 0;font-size:14px;color:#6B7280;border-bottom:1px solid #F3F4F6;">${label}</td>
-      <td style="padding:8px 0;font-size:14px;font-weight:600;color:${color || "#1a1a2e"};text-align:right;border-bottom:1px solid #F3F4F6;">${value}</td>
+      <td style="padding:9px 0;font-size:14px;color:#8B919A;border-bottom:1px solid rgba(255,255,255,0.06);">${label}</td>
+      <td style="padding:9px 0;font-size:14px;font-weight:700;color:${color || "#F0F0F0"};text-align:right;border-bottom:1px solid rgba(255,255,255,0.06);">${value}</td>
     </tr>`;
 
   const bestReviewSection = data.bestReview
-    ? `<tr><td style="padding:20px 28px;">
-        <div style="background:#F0FFF4;border:1px solid #BBF7D0;border-radius:8px;padding:14px 16px;">
+    ? `<tr><td style="padding:0 28px 18px;">
+        <div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.25);border-radius:10px;padding:14px 16px;">
           <div style="margin-bottom:6px;">${starsHtml(data.bestReview.rating)}</div>
-          <p style="font-size:13px;color:#166534;line-height:1.5;margin:0 0 6px;">&ldquo;${esc(data.bestReview.text)}&rdquo;</p>
-          <p style="font-size:12px;color:#6B7280;margin:0;">— ${esc(data.bestReview.reviewerName)}</p>
+          <p style="font-size:13px;color:#86EFAC;line-height:1.55;margin:0 0 6px;">&ldquo;${esc(data.bestReview.text)}&rdquo;</p>
+          <p style="font-size:12px;color:#8B919A;margin:0;">— ${esc(data.bestReview.reviewerName)}</p>
         </div>
       </td></tr>`
     : "";
 
   const attentionSection = data.lowRatingNoResponse > 0
-    ? `<tr><td style="padding:0 28px 16px;">
-        <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px 16px;font-size:13px;color:#991B1B;line-height:1.5;">
-          <strong>${data.lowRatingNoResponse}</strong> low-rating review${data.lowRatingNoResponse !== 1 ? "s" : ""} still need${data.lowRatingNoResponse === 1 ? "s" : ""} a response. Replying quickly shows customers you care.
+    ? `<tr><td style="padding:0 28px 18px;">
+        <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:12px 16px;font-size:13px;color:#FCA5A5;line-height:1.55;">
+          <strong style="color:#F0F0F0;">${data.lowRatingNoResponse}</strong> low-rating review${data.lowRatingNoResponse !== 1 ? "s" : ""} still need${data.lowRatingNoResponse === 1 ? "s" : ""} a response. Replying quickly shows customers you care.
         </div>
       </td></tr>`
     : "";
 
   const noDataNote = data.newReviewsCount === 0 && data.requestsSent === 0
-    ? `<tr><td style="padding:0 28px 16px;">
-        <p style="font-size:13px;color:#6B7280;line-height:1.5;">No new activity this period. Review requests will generate more reviews over time.</p>
+    ? `<tr><td style="padding:0 28px 18px;">
+        <p style="font-size:13px;color:#8B919A;line-height:1.55;margin:0;">No new activity this period. Review requests will generate more reviews over time.</p>
       </td></tr>`
     : "";
 
   const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
-<body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;padding:32px 16px;">
-<tr><td align="center">
-<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+<body style="margin:0;padding:0;font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
+<div style="background:#0B0F14;padding:40px 16px;">
+<div style="max-width:560px;margin:0 auto;">
+  ${buildEmailHeader({ tagline: "ReputationShield Report" })}
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;overflow:hidden;">
   <!-- Header -->
-  <tr><td style="padding:24px 28px;background:#1A1A2E;">
-    <div style="font-size:18px;font-weight:800;color:#FFFFFF;">ReputationShield</div>
-    <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:2px;">Review Report for ${esc(data.businessName)}</div>
+  <tr><td style="padding:24px 28px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div style="font-size:11px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.06em;">Review Report</div>
+    <div style="font-size:18px;font-weight:700;color:#F0F0F0;margin-top:4px;">${esc(data.businessName)}</div>
+    <div style="font-size:12px;color:#8B919A;margin-top:4px;letter-spacing:0.04em;">${esc(data.periodLabel)}</div>
   </td></tr>
 
-  <!-- Period -->
-  <tr><td style="padding:20px 28px 4px;">
-    <div style="font-size:12px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.04em;">${esc(data.periodLabel)}</div>
-  </td></tr>
-
-  <!-- Summary -->
-  <tr><td style="padding:12px 28px 4px;">
-    <div style="display:flex;gap:16px;text-align:center;">
-      <div style="flex:1;background:#F9FAFB;border-radius:8px;padding:14px 8px;">
-        <div style="font-size:24px;font-weight:700;color:#1a1a2e;">${data.averageRating}</div>
-        <div style="margin-top:2px;">${starsHtml(Math.round(data.averageRating))}</div>
-        <div style="font-size:11px;color:#6B7280;margin-top:4px;">Average Rating</div>
-      </div>
+  <!-- Average rating block -->
+  <tr><td style="padding:20px 28px 8px;">
+    <div style="background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:18px;text-align:center;">
+      <div style="font-size:32px;font-weight:800;color:#F0F0F0;letter-spacing:-0.5px;">${data.averageRating}</div>
+      <div style="margin-top:6px;">${starsHtml(Math.round(data.averageRating))}</div>
+      <div style="font-size:11px;color:#8B919A;margin-top:6px;text-transform:uppercase;letter-spacing:0.06em;">Average Rating</div>
     </div>
   </td></tr>
 
   <!-- Metrics table -->
-  <tr><td style="padding:16px 28px;">
+  <tr><td style="padding:16px 28px 4px;">
     <table width="100%" cellpadding="0" cellspacing="0">
-      ${metricRow("New reviews this period", data.newReviewsCount > 0 ? `+${data.newReviewsCount}` : "0", data.newReviewsCount > 0 ? "#16A34A" : undefined)}
+      ${metricRow("New reviews this period", data.newReviewsCount > 0 ? `+${data.newReviewsCount}` : "0", data.newReviewsCount > 0 ? "#22C55E" : undefined)}
       ${metricRow("Total tracked reviews", data.totalReviews)}
       ${metricRow("Review requests sent", data.requestsSent)}
-      ${data.feedbackCaptured > 0 ? metricRow("Issues captured privately", data.feedbackCaptured, "#7C3AED") : ""}
-      ${data.routedPositive > 0 ? metricRow("Happy customers sent to Google", data.routedPositive, "#16A34A") : ""}
+      ${data.feedbackCaptured > 0 ? metricRow("Issues captured privately", data.feedbackCaptured, "#A78BFA") : ""}
+      ${data.routedPositive > 0 ? metricRow("Happy customers sent to Google", data.routedPositive, "#22C55E") : ""}
       ${metricRow("Reviews awaiting reply", data.reviewsWithoutResponse, data.reviewsWithoutResponse > 0 ? "#F59E0B" : undefined)}
     </table>
   </td></tr>
+  <tr><td style="height:18px;"></td></tr>
 
   ${bestReviewSection}
   ${attentionSection}
   ${noDataNote}
 
   <!-- CTA -->
-  <tr><td style="padding:8px 28px 24px;text-align:center;">
-    <a href="${portalUrl}/portal/reviews" style="display:inline-block;background:#00D4C8;color:#1A1A2E;font-size:14px;font-weight:700;padding:12px 28px;border-radius:8px;text-decoration:none;">
+  <tr><td style="padding:0 28px 28px;text-align:center;">
+    <a href="${portalUrl}/portal/reviews" style="display:inline-block;background:#66E8FA;color:#0B0F14;font-size:14px;font-weight:700;padding:13px 28px;border-radius:10px;text-decoration:none;">
       View Full Dashboard
     </a>
+    <p style="font-size:11px;color:#555B63;margin:14px 0 0;">You can adjust report settings in your portal.</p>
   </td></tr>
-
-  <!-- Footer -->
-  <tr><td style="padding:16px 28px;background:#F9FAFB;text-align:center;">
-    <p style="font-size:11px;color:#9CA3AF;margin:0;">Sent by ReputationShield &bull; WeFixTrades</p>
-    <p style="font-size:10px;color:#D1D5DB;margin:4px 0 0;">You can adjust report settings in your portal.</p>
-  </td></tr>
-</table>
-</td></tr>
-</table>
+  </table>
+  ${buildChatBubble()}
+  ${buildLegalFooter({ recipientEmail: data.contactEmail, marketing: true })}
+</div>
+</div>
 </body></html>`;
 
   return { subject, html };
@@ -221,6 +216,11 @@ export async function sendReputationReport(data: ReportData, portalUrl: string):
   const transporter = getEmailTransporter();
   if (!transporter) return { ok: false, error: "SMTP not configured" };
   if (!data.contactEmail) return { ok: false, error: "No contact email" };
+
+  if (await isEmailUnsubscribed(data.contactEmail)) {
+    console.log(`[reputation-report] Recipient ${data.contactEmail} is unsubscribed — skipping`);
+    return { ok: false, error: "Recipient unsubscribed" };
+  }
 
   const { subject, html } = buildReportEmailHtml(data, portalUrl);
 

@@ -10,3 +10,7 @@ vite.config.ts.*
 tests/e2e/admin-crm/.auth/
 playwright-report/
 test-results/
+
+# Runtime-generated email chart images
+data/email-charts/*
+!data/email-charts/.gitkeep
