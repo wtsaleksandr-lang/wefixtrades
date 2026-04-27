@@ -287,10 +287,12 @@ test.describe("ContentFlow Sprint 8 — production hardening", () => {
   });
 
   test("P8-7 — atomic claim: two concurrent worker invocations publish each draft once", async ({ adminApi }) => {
-    /* Provision 3 fresh queueable drafts. */
+    /* Provision 3 fresh queueable drafts. Use even offsets so
+     * nextOddMonth returns 3 distinct odd months (offset 2 → +3 → odd
+     * directly, offset 4 → +5, offset 6 → +7 — no collision). */
     const ids: number[] = [];
     for (let i = 0; i < 3; i++) {
-      const id = await provisionApprovedArticle(adminApi, clientId, 2 + i, provisioned);
+      const id = await provisionApprovedArticle(adminApi, clientId, 2 * (i + 1), provisioned);
       provisioned.add(id);
       ids.push(id);
     }
