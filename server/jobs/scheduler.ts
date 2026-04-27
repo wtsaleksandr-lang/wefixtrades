@@ -16,6 +16,7 @@ import { processRankFlowTracking } from "./trackingWorker";
 import { processMapguardScans } from "./mapguardScanWorker";
 import { processMapguardReports } from "./mapguardReportWorker";
 import { processRankflowReports } from "./rankflowReportWorker";
+import { processSocialsyncReports } from "./socialsyncReportWorker";
 import { processMapguardWeeklyUpdates } from "./mapguardWeeklyUpdateWorker";
 import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
 import { processSocialSyncQueue } from "./socialSyncWorker";
@@ -252,6 +253,19 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  // SocialSync monthly reports — 12:00 UTC on the 2nd of each month
+  // (one hour after RankFlow to spread the rollup-batch load).
+  // Idempotent per period via client_service.metadata.last_socialsync_report_period,
+  // so safe even if the cron fires twice or the deploy restarts mid-run.
+  cron.schedule("0 12 2 * *", async () => {
+    console.log("[Scheduler] Running SocialSync monthly reports...");
+    try {
+      await runJob("socialsync_monthly_reports", processSocialsyncReports);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_monthly_reports cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
   cron.schedule("0 9 * * *", async () => {
     console.log("[Scheduler] Running trial lifecycle worker...");
     try {
@@ -323,6 +337,7 @@ export function initScheduler() {
   console.log("  - SocialSync queue worker: every 2 minutes");
   console.log("  - SocialSync weekly generation: 06:00 UTC every Sunday");
   console.log("  - SocialSync expiry check: 04:00 UTC every day");
+  console.log("  - SocialSync monthly reports: 12:00 UTC on the 2nd of each month");
 
   cron.schedule("0 5 * * *", async () => {
     console.log("[Scheduler] Running SocialSync media cleanup...");
