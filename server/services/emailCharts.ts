@@ -77,9 +77,24 @@ export interface LineChartSpec {
 }
 
 export interface GenerateChartResult {
-  /** Public URL the email can embed in <img src="..."/>. */
+  /**
+   * The URL to embed in <img src="..."/> for the customer email.
+   *
+   * This is the QuickChart CDN URL (always public, always reachable),
+   * NOT our locally cached copy. Embedding the upstream URL eliminates
+   * a class of bugs where the email goes out before our deployment
+   * has the cached file (or before the static route is registered),
+   * which would otherwise return the SPA fallback HTML and Gmail would
+   * render a broken image.
+   *
+   * QuickChart's CDN is highly available; if it's down when a recipient
+   * opens the email, the numeric fallback block below the chart still
+   * carries the story.
+   */
   url: string;
-  /** Whether the file was already cached or was just generated. */
+  /** Locally cached URL on our domain — informational, not embedded by default. */
+  cachedUrl: string | null;
+  /** Whether the local file was already cached or was just generated. */
   cached: boolean;
 }
 
@@ -87,6 +102,11 @@ export interface GenerateChartResult {
  * Generate (or return cached) a line chart for embedding in email.
  * Returns null if generation fails — caller should fall back to a
  * numeric-only summary block.
+ *
+ * The returned `url` is the QuickChart CDN URL — embed it directly. The
+ * local-disk cache (under `data/email-charts/`) is kept for debugging and
+ * potential future re-serving from our own domain, but is NOT what gets
+ * embedded in customer email by default.
  */
 export async function generateLineChart(spec: LineChartSpec): Promise<GenerateChartResult | null> {
   if (!spec.labels.length || !spec.values.length || spec.labels.length !== spec.values.length) {
@@ -96,14 +116,7 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
   const dir = getChartDir();
   const filename = sanitizeFilename(`${spec.cacheKey}.png`);
   const filepath = path.join(dir, filename);
-
-  // Idempotent — return cached if already on disk
-  if (fs.existsSync(filepath)) {
-    return {
-      url: `${getPublicBaseUrl()}${URL_PREFIX}/${filename}`,
-      cached: true,
-    };
-  }
+  const cachedUrl = `${getPublicBaseUrl()}${URL_PREFIX}/${filename}`;
 
   const config = {
     type: "line",
@@ -164,10 +177,16 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
   const apiKey = process.env.QUICKCHART_API_KEY;
   if (apiKey) params.set("key", apiKey);
 
-  const url = `https://quickchart.io/chart?${params.toString()}`;
+  const upstreamUrl = `https://quickchart.io/chart?${params.toString()}`;
+
+  // Idempotent — if the local cache already exists, return it as the
+  // archival URL but still return the upstream URL as the embed URL.
+  if (fs.existsSync(filepath)) {
+    return { url: upstreamUrl, cachedUrl, cached: true };
+  }
 
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    const res = await fetch(upstreamUrl, { signal: AbortSignal.timeout(15_000) });
     if (!res.ok) {
       console.warn(`[email-charts] QuickChart returned ${res.status} for ${spec.cacheKey}`);
       return null;
@@ -179,11 +198,14 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
       console.warn(`[email-charts] Suspiciously small response (${buffer.length} bytes) for ${spec.cacheKey}`);
       return null;
     }
-    fs.writeFileSync(filepath, buffer);
-    return {
-      url: `${getPublicBaseUrl()}${URL_PREFIX}/${filename}`,
-      cached: false,
-    };
+    // Best-effort local archive — used for debugging and potential future
+    // self-hosted serving. NOT what gets embedded in the customer email.
+    try {
+      fs.writeFileSync(filepath, buffer);
+    } catch (cacheErr: any) {
+      console.warn(`[email-charts] local cache write failed for ${spec.cacheKey}:`, cacheErr?.message || cacheErr);
+    }
+    return { url: upstreamUrl, cachedUrl, cached: false };
   } catch (err: any) {
     console.warn(`[email-charts] generation failed for ${spec.cacheKey}:`, err?.message || err);
     return null;

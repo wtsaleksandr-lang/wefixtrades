@@ -217,17 +217,18 @@ function buildHtml(p: BuildHtmlParams): string {
     return `${m.leads_generated} new lead${m.leads_generated === 1 ? "" : "s"} this month`;
   })();
 
-  /* Stat tiles — 2×2 grid that stacks naturally on mobile */
+  /* Stat tiles — 2×2 grid that stacks naturally on mobile.
+     Vertical padding tightened ~13% vs v1 for denser mobile rendering. */
   const statTile = (label: string, value: string, delta?: Delta, accent = false) => `
-    <td valign="top" style="padding:0 6px 12px;width:50%;">
-      <div style="background:${COLORS.cardSubtle};border:1px solid ${COLORS.border};border-radius:12px;padding:16px 14px;">
-        <div style="font-size:10.5px;color:${COLORS.muted};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin:0 0 6px;">${label}</div>
-        <div style="font-size:22px;font-weight:800;color:${accent ? COLORS.accent : COLORS.bright};letter-spacing:-0.02em;line-height:1.1;">${value}${delta ? deltaBadge(delta) : ""}</div>
+    <td valign="top" style="padding:0 5px 10px;width:50%;">
+      <div style="background:${COLORS.cardSubtle};border:1px solid ${COLORS.border};border-radius:12px;padding:13px 14px 12px;">
+        <div style="font-size:10.5px;color:${COLORS.muted};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin:0 0 4px;">${label}</div>
+        <div style="font-size:22px;font-weight:800;color:${accent ? COLORS.accent : COLORS.bright};letter-spacing:-0.02em;line-height:1.05;">${value}${delta ? deltaBadge(delta) : ""}</div>
       </div>
     </td>`;
 
   const statsGrid = `
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 18px;border-collapse:separate;border-spacing:0;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 16px;border-collapse:separate;border-spacing:0;">
       <tr>
         ${statTile("Leads", formatInt(m.leads_generated), leadsDelta, true)}
         ${statTile("Cost / Lead", cplCurr != null ? formatUsd(Math.round(cplCurr)) : "—", cplDelta)}
