@@ -74,6 +74,14 @@ export interface LineChartSpec {
   tickColor?: string;
   /** Optional grid line color. */
   gridColor?: string;
+  /**
+   * "integrated" hides axes, lines, and gridlines; expands inner padding
+   * so the line appears to float in the surrounding card. Use when the
+   * chart is meant to read as part of a hero panel rather than a separate
+   * boxed element. Numbers should be communicated via accompanying HTML
+   * stat tiles since the chart has no readable scale.
+   */
+  variant?: "default" | "integrated";
 }
 
 export interface GenerateChartResult {
@@ -118,51 +126,87 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
   const filepath = path.join(dir, filename);
   const cachedUrl = `${getPublicBaseUrl()}${URL_PREFIX}/${filename}`;
 
-  const config = {
-    type: "line",
-    data: {
-      labels: spec.labels,
-      datasets: [
-        {
-          data: spec.values,
-          borderColor: spec.lineColor || "#66E8FA",
-          backgroundColor: spec.fillColor || "rgba(102,232,250,0.18)",
-          fill: true,
-          tension: 0.4,
-          pointRadius: 0,
-          pointHoverRadius: 0,
-          borderWidth: 2.5,
+  const integrated = spec.variant === "integrated";
+
+  const config = integrated
+    ? {
+        // "Integrated" — chart reads as part of the surrounding hero card.
+        // No axes, no gridlines, no axis lines. Generous internal padding
+        // so the curve floats in dim negative space at the edges (the
+        // perceptual "fade to nothing" effect baked into the PNG).
+        type: "line",
+        data: {
+          labels: spec.labels,
+          datasets: [
+            {
+              data: spec.values,
+              borderColor: spec.lineColor || "#66E8FA",
+              backgroundColor: spec.fillColor || "rgba(102,232,250,0.16)",
+              fill: true,
+              tension: 0.42,
+              pointRadius: 0,
+              pointHoverRadius: 0,
+              borderWidth: 2.6,
+              borderCapStyle: "round",
+              borderJoinStyle: "round",
+            },
+          ],
         },
-      ],
-    },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: {
-        x: {
-          ticks: {
-            color: spec.tickColor || "#8B919A",
-            font: { size: 11 },
-            maxRotation: 0,
-            autoSkipPadding: 18,
+        options: {
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { display: false },
+            y: { display: false, beginAtZero: true },
           },
-          grid: { display: false, drawBorder: false },
+          layout: { padding: { top: 30, right: 36, bottom: 30, left: 36 } },
+          elements: { line: { capBezierPoints: true } },
         },
-        y: {
-          beginAtZero: true,
-          ticks: {
-            color: spec.tickColor || "#8B919A",
-            font: { size: 11 },
-            precision: 0,
-          },
-          grid: {
-            color: spec.gridColor || "rgba(255,255,255,0.06)",
-            drawBorder: false,
-          },
+      }
+    : {
+        type: "line",
+        data: {
+          labels: spec.labels,
+          datasets: [
+            {
+              data: spec.values,
+              borderColor: spec.lineColor || "#66E8FA",
+              backgroundColor: spec.fillColor || "rgba(102,232,250,0.18)",
+              fill: true,
+              tension: 0.4,
+              pointRadius: 0,
+              pointHoverRadius: 0,
+              borderWidth: 2.5,
+            },
+          ],
         },
-      },
-      layout: { padding: { top: 12, right: 16, bottom: 4, left: 4 } },
-    },
-  };
+        options: {
+          plugins: { legend: { display: false } },
+          scales: {
+            x: {
+              ticks: {
+                color: spec.tickColor || "#8B919A",
+                font: { size: 11 },
+                maxRotation: 0,
+                autoSkipPadding: 18,
+              },
+              grid: { display: false, drawBorder: false },
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                color: spec.tickColor || "#8B919A",
+                font: { size: 11 },
+                precision: 0,
+              },
+              grid: {
+                color: spec.gridColor || "rgba(255,255,255,0.06)",
+                drawBorder: false,
+              },
+            },
+          },
+          layout: { padding: { top: 12, right: 16, bottom: 4, left: 4 } },
+        },
+      };
 
   const params = new URLSearchParams({
     c: JSON.stringify(config),

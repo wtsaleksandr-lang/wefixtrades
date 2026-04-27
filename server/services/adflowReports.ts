@@ -104,22 +104,32 @@ function formatPct(n?: number): string {
 /* ─── Delta logic ─── */
 
 interface Delta {
-  text: string;       // e.g. "+32%"
-  direction: "up" | "down" | "flat" | "none";
+  /** Whether to render the badge at all (false for missing or near-flat data). */
+  shown: boolean;
+  /** Bare percentage like "32%" — no sign, no arrow. */
+  pctText: string;
+  /** True if the value went up (regardless of whether up is good). */
+  rose: boolean;
+  /** True if the change is in the "good" direction for this metric. */
+  good: boolean;
 }
 
 function pctDelta(curr?: number, prev?: number, opts: { higherIsBetter?: boolean } = {}): Delta {
-  if (curr == null || prev == null || prev === 0) return { text: "", direction: "none" };
+  if (curr == null || prev == null || prev === 0) {
+    return { shown: false, pctText: "", rose: false, good: true };
+  }
   const change = ((curr - prev) / prev) * 100;
-  if (Math.abs(change) < 1) return { text: "—", direction: "flat" };
-  const sign = change > 0 ? "+" : "";
-  // higherIsBetter: cost-per-lead, lower is better, so up = bad
-  const direction = (opts.higherIsBetter ?? true)
-    ? (change > 0 ? "up" : "down")
-    : (change > 0 ? "down" : "up");
+  if (Math.abs(change) < 1) {
+    // Near-flat: don't render a noisy badge
+    return { shown: false, pctText: "", rose: false, good: true };
+  }
+  const rose = change > 0;
+  const good = (opts.higherIsBetter ?? true) ? rose : !rose;
   return {
-    text: `${sign}${Math.round(change)}%`,
-    direction,
+    shown: true,
+    pctText: `${Math.round(Math.abs(change))}%`,
+    rose,
+    good,
   };
 }
 
@@ -140,12 +150,14 @@ const COLORS = {
 };
 
 function deltaBadge(delta: Delta): string {
-  if (delta.direction === "none") return "";
-  const color = delta.direction === "up" ? COLORS.positive
-              : delta.direction === "down" ? COLORS.negative
-              : COLORS.muted;
-  const arrow = delta.direction === "up" ? "↑" : delta.direction === "down" ? "↓" : "·";
-  return `<span style="display:inline-block;font-size:11px;font-weight:700;color:${color};margin-left:6px;">${arrow} ${delta.text}</span>`;
+  if (!delta.shown) return "";
+  // Arrow tracks the literal direction of the number; color encodes good/bad.
+  // For cost-per-lead: dropping is good → green ↓, rising is bad → red ↑.
+  // For leads: rising is good → green ↑, dropping is bad → red ↓.
+  const arrow = delta.rose ? "↑" : "↓";
+  const word = delta.rose ? "higher" : "lower";
+  const color = delta.good ? COLORS.positive : COLORS.negative;
+  return `<span style="display:inline-block;font-size:11px;font-weight:700;color:${color};margin-left:6px;white-space:nowrap;">${arrow} ${delta.pctText} ${word}</span>`;
 }
 
 /* ─── AI plain-English summary ─── */
@@ -208,27 +220,29 @@ function buildHtml(p: BuildHtmlParams): string {
 
   const heroHeadline = (() => {
     if (m.leads_generated == null) return `${p.serviceName} report`;
-    if (leadsDelta.direction === "up" && Math.abs(parseInt(leadsDelta.text, 10)) >= 15) {
-      return `Strong month — leads up ${leadsDelta.text.replace("+", "")}`;
+    const leadsPct = leadsDelta.shown ? parseInt(leadsDelta.pctText, 10) : 0;
+    if (leadsDelta.shown && leadsDelta.rose && leadsPct >= 15) {
+      return `Strong month — leads up ${leadsDelta.pctText}`;
     }
-    if (leadsDelta.direction === "down" && Math.abs(parseInt(leadsDelta.text, 10)) >= 15) {
+    if (leadsDelta.shown && !leadsDelta.rose && leadsPct >= 15) {
       return `Adjusting course this month`;
     }
     return `${m.leads_generated} new lead${m.leads_generated === 1 ? "" : "s"} this month`;
   })();
 
   /* Stat tiles — 2×2 grid that stacks naturally on mobile.
-     Vertical padding tightened ~13% vs v1 for denser mobile rendering. */
+     Padding tightened ~22% vs v1 for tighter mobile density without
+     sacrificing readable font sizes. */
   const statTile = (label: string, value: string, delta?: Delta, accent = false) => `
-    <td valign="top" style="padding:0 5px 10px;width:50%;">
-      <div style="background:${COLORS.cardSubtle};border:1px solid ${COLORS.border};border-radius:12px;padding:13px 14px 12px;">
-        <div style="font-size:10.5px;color:${COLORS.muted};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin:0 0 4px;">${label}</div>
+    <td valign="top" style="padding:0 4px 8px;width:50%;">
+      <div style="background:${COLORS.cardSubtle};border:1px solid ${COLORS.border};border-radius:12px;padding:11px 13px 10px;">
+        <div style="font-size:10.5px;color:${COLORS.muted};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin:0 0 3px;">${label}</div>
         <div style="font-size:22px;font-weight:800;color:${accent ? COLORS.accent : COLORS.bright};letter-spacing:-0.02em;line-height:1.05;">${value}${delta ? deltaBadge(delta) : ""}</div>
       </div>
     </td>`;
 
   const statsGrid = `
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 16px;border-collapse:separate;border-spacing:0;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 14px;border-collapse:separate;border-spacing:0;">
       <tr>
         ${statTile("Leads", formatInt(m.leads_generated), leadsDelta, true)}
         ${statTile("Cost / Lead", cplCurr != null ? formatUsd(Math.round(cplCurr)) : "—", cplDelta)}
@@ -251,9 +265,11 @@ function buildHtml(p: BuildHtmlParams): string {
     ? new Date(peakDay.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
     : null;
 
+  // Integrated chart — same background as the surrounding card, no border.
+  // Reads as part of the hero panel, not a boxed element.
   const chartBlock = p.chartUrl ? `
-    <div style="margin:0 0 14px;">
-      <img src="${p.chartUrl}" alt="Daily leads trend, ${p.period}" width="540" height="220" style="display:block;width:100%;max-width:540px;height:auto;border-radius:12px;border:1px solid ${COLORS.border};" />
+    <div style="margin:6px -8px 12px;">
+      <img src="${p.chartUrl}" alt="Daily leads trend, ${p.period}" width="540" height="300" style="display:block;width:100%;max-width:560px;height:auto;border:0;outline:none;text-decoration:none;" />
     </div>` : "";
 
   const numericFallback = (peakDay || avgPerDay) ? `
@@ -323,9 +339,9 @@ function buildHtml(p: BuildHtmlParams): string {
 
         <div style="background:${COLORS.card};border:1px solid ${COLORS.border};border-radius:16px;padding:32px 24px;">
 
-          <p style="font-size:11px;font-weight:700;color:${COLORS.accent};text-transform:uppercase;letter-spacing:0.1em;margin:0 0 8px;">Monthly performance</p>
-          <h1 style="font-size:26px;font-weight:800;color:${COLORS.bright};margin:0 0 14px;line-height:1.2;letter-spacing:-0.02em;">${heroHeadline}</h1>
-          <p style="font-size:14px;color:${COLORS.text};line-height:1.6;margin:0 0 26px;">${p.summary}</p>
+          <p style="font-size:11px;font-weight:700;color:${COLORS.accent};text-transform:uppercase;letter-spacing:0.1em;margin:0 0 6px;">Monthly performance</p>
+          <h1 style="font-size:26px;font-weight:800;color:${COLORS.bright};margin:0 0 10px;line-height:1.18;letter-spacing:-0.02em;">${heroHeadline}</h1>
+          <p style="font-size:14px;color:${COLORS.text};line-height:1.55;margin:0 0 18px;">${p.summary}</p>
 
           ${statsGrid}
 
@@ -381,11 +397,13 @@ async function tryGenerateChart(
   );
 
   const result = await generateLineChart({
-    cacheKey: `adflow-cs${clientServiceId}-${periodKey}`,
+    cacheKey: `adflow-cs${clientServiceId}-${periodKey}-int`,
     labels,
     values: points.map((p) => p.leads),
     width: 600,
-    height: 240,
+    height: 320,
+    backgroundColor: COLORS.card, // match the hero card so the chart blends
+    variant: "integrated",
   });
 
   return result?.url || null;
@@ -495,7 +513,9 @@ export async function previewAdFlowReportHtml(opts: {
         }),
         values: m.daily_breakdown.map((p) => p.leads),
         width: 600,
-        height: 240,
+        height: 320,
+        backgroundColor: COLORS.card,
+        variant: "integrated",
       }))?.url || null
     : null;
 

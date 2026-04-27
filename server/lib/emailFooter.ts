@@ -39,13 +39,13 @@ const COMPANY_LOCATION = "Toronto, Canada";
  */
 export function buildEmailHeader(opts: { tagline?: string } = {}): string {
   const taglineRow = opts.tagline
-    ? `<div style="font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:10.5px;color:${TEXT_MUTED};letter-spacing:0.08em;text-transform:uppercase;line-height:1;margin-top:2px;">${opts.tagline}</div>`
+    ? `<div style="font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:10.5px;color:${TEXT_MUTED};letter-spacing:0.09em;text-transform:uppercase;line-height:1;margin-top:4px;">${opts.tagline}</div>`
     : "";
 
   return `
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 28px;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 24px;">
       <tr>
-        <td style="vertical-align:middle;padding-right:10px;">
+        <td style="vertical-align:middle;padding-right:12px;">
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;">
             <tr>
               <td align="center" valign="middle" width="42" height="42" style="width:42px;height:42px;background:#1a1f1e;border:1px solid rgba(255,255,255,0.18);border-radius:11px;color:${ACCENT};font-size:20px;font-weight:700;font-family:Arial,sans-serif;line-height:42px;text-align:center;">&#10003;</td>
@@ -53,7 +53,7 @@ export function buildEmailHeader(opts: { tagline?: string } = {}): string {
           </table>
         </td>
         <td style="vertical-align:middle;text-align:left;">
-          <div style="font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-weight:700;font-size:20px;letter-spacing:-0.025em;color:${TEXT_BRIGHT};line-height:1;">We<span style="color:${ACCENT};">Fix</span>Trades</div>
+          <div style="font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-weight:700;font-size:20px;letter-spacing:-0.03em;color:${TEXT_BRIGHT};line-height:1;">We<span style="color:${ACCENT};">Fix</span>Trades</div>
           ${taglineRow}
         </td>
       </tr>
