@@ -18,6 +18,7 @@ import { processMapguardReports } from "./mapguardReportWorker";
 import { processRankflowReports } from "./rankflowReportWorker";
 import { processSocialsyncReports } from "./socialsyncReportWorker";
 import { processAdflowReports } from "./adflowReportWorker";
+import { processDunningQueue } from "./dunningWorker";
 import { processMapguardWeeklyUpdates } from "./mapguardWeeklyUpdateWorker";
 import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
 import { processSocialSyncQueue } from "./socialSyncWorker";
@@ -395,4 +396,19 @@ export function initScheduler() {
   });
 
   console.log("  - Review request delivery: every 15 minutes");
+
+  // Dunning queue worker — drains pending billing_dunning_events whose
+  // scheduled_for has elapsed. Runs every 5 minutes so reminders go out
+  // promptly when their day-2 / day-5 / day-7 window opens, while
+  // staying out of the per-minute critical-path workers' lane.
+  // Idempotent + 24h resend-guarded inside sendDunningRow().
+  cron.schedule("*/5 * * * *", async () => {
+    try {
+      await runJob("dunning_queue", processDunningQueue);
+    } catch (err: any) {
+      console.error("[Scheduler] dunning_queue error:", err.message);
+    }
+  });
+
+  console.log("  - Dunning queue worker: every 5 minutes");
 }
