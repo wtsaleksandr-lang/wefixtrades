@@ -17,6 +17,7 @@
  */
 
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
+import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
 import { db } from "../db";
 import { clients, clientServices, serviceCatalog } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -132,34 +133,39 @@ function buildHtml(params: {
   copy: ServiceCopy;
   artifacts: WelcomeArtifact[];
   supportEmail: string;
+  recipientEmail: string;
 }): string {
   const artifactRows = params.artifacts
     .map(a => {
       if (a.kind === "link") {
         return `<tr>
-          <td style="padding:10px 14px;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:8px;">
-            <div style="font-size:11px;font-weight:600;color:#8B919A;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${a.label}</div>
-            <a href="${a.value}" style="font-size:14px;color:#66E8FA;text-decoration:none;word-break:break-all;">${a.value}</a>
+          <td style="padding:0 0 10px;">
+            <a href="${a.value}" style="display:block;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:13px 16px;text-decoration:none;font-family:'Inter',system-ui,Arial,sans-serif;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="font-size:14px;font-weight:600;color:#F0F0F0;">${a.label}</td>
+                  <td align="right" style="font-size:14px;font-weight:700;color:#66E8FA;white-space:nowrap;">→</td>
+                </tr>
+              </table>
+            </a>
           </td>
-        </tr>
-        <tr><td style="height:8px;"></td></tr>`;
+        </tr>`;
       }
       return `<tr>
-        <td style="padding:10px 14px;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:8px;">
-          <div style="font-size:11px;font-weight:600;color:#8B919A;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${a.label}</div>
-          <code style="font-size:12px;color:#F0F0F0;font-family:'DM Mono',monospace;word-break:break-all;">${a.value}</code>
+        <td style="padding:0 0 10px;">
+          <div style="background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:13px 16px;">
+            <div style="font-size:11px;font-weight:600;color:#8B919A;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">${a.label}</div>
+            <code style="font-size:12px;color:#F0F0F0;font-family:'DM Mono',monospace;word-break:break-all;">${a.value}</code>
+          </div>
         </td>
-      </tr>
-      <tr><td style="height:8px;"></td></tr>`;
+      </tr>`;
     })
     .join("");
 
   return `
     <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
       <div style="max-width:520px;margin:0 auto;">
-        <div style="text-align:center;margin-bottom:32px;">
-          <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades</span>
-        </div>
+        ${buildEmailHeader()}
         <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
           <p style="font-size:12px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 8px;">You're live · ${params.serviceName}</p>
           <h1 style="font-size:26px;font-weight:700;color:#F0F0F0;margin:0 0 12px;line-height:1.25;">
@@ -191,9 +197,8 @@ function buildHtml(params: {
             We monitor every inbox and reply fast.
           </p>
         </div>
-        <p style="font-size:11px;color:#555B63;text-align:center;margin:24px 0 0;line-height:1.5;">
-          Thanks for choosing WeFixTrades.
-        </p>
+        ${buildChatBubble()}
+        ${buildLegalFooter({ recipientEmail: params.recipientEmail })}
       </div>
     </div>
   `;
@@ -241,7 +246,7 @@ export async function sendWelcomePackage(clientServiceId: number): Promise<boole
       to: client.contact_email,
       replyTo: supportEmail,
       subject: `${serviceName} is live — welcome aboard`,
-      html: buildHtml({ contactName, serviceName, copy, artifacts, supportEmail }),
+      html: buildHtml({ contactName, serviceName, copy, artifacts, supportEmail, recipientEmail: client.contact_email }),
     });
 
     // Mark as sent

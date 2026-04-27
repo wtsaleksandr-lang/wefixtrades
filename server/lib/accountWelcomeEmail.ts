@@ -17,6 +17,7 @@ import { db } from "../db";
 import { passwordResetTokens, users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
+import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
 import type { User, Client } from "@shared/schema";
 
 interface SendParams {
@@ -30,13 +31,12 @@ function buildHtml(params: {
   setPasswordUrl: string;
   portalUrl: string;
   supportEmail: string;
+  contactEmail: string;
 }): string {
   return `
     <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
       <div style="max-width:520px;margin:0 auto;">
-        <div style="text-align:center;margin-bottom:32px;">
-          <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades</span>
-        </div>
+        ${buildEmailHeader()}
         <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
           <p style="font-size:12px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;">Your portal is ready</p>
           <h1 style="font-size:24px;font-weight:700;color:#F0F0F0;margin:0 0 10px;line-height:1.25;">
@@ -95,9 +95,8 @@ function buildHtml(params: {
             <a href="${params.setPasswordUrl}" style="color:#66E8FA;">${params.setPasswordUrl}</a>
           </p>
         </div>
-        <p style="font-size:11px;color:#555B63;text-align:center;margin:20px 0 0;line-height:1.5;">
-          WeFixTrades · We're glad you're here.
-        </p>
+        ${buildChatBubble()}
+        ${buildLegalFooter({ recipientEmail: params.contactEmail })}
       </div>
     </div>
   `;
@@ -151,6 +150,7 @@ export async function sendAccountWelcome(params: SendParams): Promise<boolean> {
         setPasswordUrl,
         portalUrl: `${baseUrl}/portal`,
         supportEmail,
+        contactEmail: params.client.contact_email,
       }),
     });
     console.log(`[account-welcome] Sent to ${params.client.contact_email} for user #${params.user.id}`);

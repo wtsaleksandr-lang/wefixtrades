@@ -17,3 +17,4 @@ export * from "./serviceCosts";
 export * from "./salesLeads";
 export * from "./rankflow";
 export * from "./contentflow";
+export * from "./emailUnsubscribes";

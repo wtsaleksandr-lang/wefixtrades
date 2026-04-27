@@ -1,33 +1,60 @@
 /**
- * AdFlow monthly performance report
+ * AdFlow monthly performance report.
  *
- * Compiles a one-page summary of the client's AdFlow campaign for the
- * prior month and emails it to the customer. Since we don't have live
- * ad-platform integrations yet, the report is sourced from what the
- * white-label supplier reports back via fulfillment task metadata +
- * any structured data they attach.
+ * Wires AdFlow's data shape (impressions, clicks, leads, daily breakdown,
+ * creatives, recommendations) into the shared `reportShell` premium
+ * dashboard layout. Previous bespoke HTML moved to reportShell; this
+ * file is now data-shaping + composition only.
  *
- * Design contract:
- *  - Called by the "Monthly performance report" fulfillment task
- *    when it transitions to delivered → the task handler invokes
- *    compileAndSendAdFlowReport(client_service_id).
- *  - Safe-fail: if supplier hasn't populated metrics yet, the report
- *    shows "Data collection in progress" placeholders rather than
- *    breaking the email.
- *
- * Metric sources (read from client_service.metadata.latest_report):
- *  - { impressions, clicks, conversions, cost_spent_cents, cpc_cents,
- *      ctr_pct, leads_generated, top_creative, notes, period_start,
- *      period_end }
- *  - Supplier populates this via the admin CRM UI (future) or via
- *    direct metadata update on task completion.
+ * Idempotent per period via client_service.metadata.last_report_period.
  */
 
 import { db } from "../db";
 import { clients, clientServices, serviceCatalog } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
+import { generateLineChart } from "./emailCharts";
 import { chat } from "./aiService";
+import {
+  REPORT_COLORS,
+  buildReportShell,
+  buildReportHero,
+  buildKpiGrid,
+  buildIntegratedChart,
+  buildChartFallback,
+  buildRecommendations,
+  buildSection,
+  buildCtaButton,
+  buildMetricGlossary,
+  deriveHeaderBadge,
+  type KpiTile,
+  type HeaderBadge,
+} from "../lib/reportShell";
+
+/* ─── Public types ─── */
+
+export interface AdFlowDailyPoint {
+  date: string;
+  leads: number;
+  cost_cents?: number;
+  impressions?: number;
+  clicks?: number;
+}
+
+export interface AdFlowCreative {
+  name: string;
+  spend_cents?: number;
+  leads?: number;
+  ctr_pct?: number;
+}
+
+export interface AdFlowPriorPeriod {
+  leads_generated?: number;
+  cost_spent_cents?: number;
+  ctr_pct?: number;
+  cpc_cents?: number;
+}
 
 export interface AdFlowReportMetrics {
   impressions?: number;
@@ -41,6 +68,10 @@ export interface AdFlowReportMetrics {
   notes?: string;
   period_start?: string;
   period_end?: string;
+  daily_breakdown?: AdFlowDailyPoint[];
+  prior_period?: AdFlowPriorPeriod;
+  creatives?: AdFlowCreative[];
+  recommendations?: string[];
 }
 
 export interface CompileResult {
@@ -49,8 +80,11 @@ export interface CompileResult {
   period?: string;
 }
 
+/* ─── Formatters ─── */
+
 function formatUsd(cents?: number): string {
   if (cents == null) return "—";
+  if (cents >= 100_000) return `$${Math.round(cents / 100).toLocaleString("en-US")}`;
   return `$${(cents / 100).toFixed(2)}`;
 }
 
@@ -64,14 +98,40 @@ function formatPct(n?: number): string {
   return `${n.toFixed(2)}%`;
 }
 
+/* ─── Delta logic ─── */
+
+interface Delta {
+  shown: boolean;
+  pctText: string;
+  rose: boolean;
+  good: boolean;
+}
+
+function pctDelta(curr?: number, prev?: number, opts: { higherIsBetter?: boolean } = {}): Delta {
+  if (curr == null || prev == null || prev === 0) {
+    return { shown: false, pctText: "", rose: false, good: true };
+  }
+  const change = ((curr - prev) / prev) * 100;
+  if (Math.abs(change) < 1) {
+    return { shown: false, pctText: "", rose: false, good: true };
+  }
+  const rose = change > 0;
+  const good = (opts.higherIsBetter ?? true) ? rose : !rose;
+  return {
+    shown: true,
+    pctText: `${Math.round(Math.abs(change))}%`,
+    rose,
+    good,
+  };
+}
+
+/* ─── AI plain-English summary ─── */
+
 async function writeSummary(
   serviceName: string,
   metrics: AdFlowReportMetrics,
   period: string,
 ): Promise<string> {
-  // Generate a short "what this means" paragraph via Claude so the customer
-  // gets plain-English context, not just a grid of numbers. If Claude is
-  // unavailable, fall back to a rule-based summary.
   const hasData = metrics.impressions != null || metrics.leads_generated != null;
   if (!hasData) {
     return `Your ${serviceName} campaign is being monitored — our white-label partner is collecting performance data and will have your first full report in the next cycle.`;
@@ -91,7 +151,6 @@ Reply with the paragraph only. No preamble.`;
     });
     return text.trim() || "Campaign data collected — see metrics below.";
   } catch {
-    // Rule-based fallback
     const leads = metrics.leads_generated ?? 0;
     const spend = metrics.cost_spent_cents ? formatUsd(metrics.cost_spent_cents) : "—";
     if (leads > 0) {
@@ -101,77 +160,134 @@ Reply with the paragraph only. No preamble.`;
   }
 }
 
-function buildHtml(params: {
+/* ─── Body composition ─── */
+
+interface AdFlowComposeOpts {
   contactName: string;
   serviceName: string;
   period: string;
-  summary: string;
   metrics: AdFlowReportMetrics;
+  chartUrl: string | null;
   portalUrl: string;
-  supportEmail: string;
-}): string {
-  const metricRow = (label: string, value: string, accent = false) => `
-    <tr>
-      <td style="padding:10px 12px;background:#0F141A;border-radius:8px 0 0 8px;border:1px solid rgba(255,255,255,0.06);border-right:none;font-size:12px;color:#8B919A;font-weight:500;">${label}</td>
-      <td style="padding:10px 12px;background:#0F141A;border-radius:0 8px 8px 0;border:1px solid rgba(255,255,255,0.06);border-left:none;font-size:14px;color:${accent ? "#66E8FA" : "#F0F0F0"};font-weight:${accent ? 700 : 600};text-align:right;">${value}</td>
-    </tr>
-    <tr><td colspan="2" style="height:6px;"></td></tr>
-  `;
-
-  return `
-    <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
-      <div style="max-width:560px;margin:0 auto;">
-        <div style="text-align:center;margin-bottom:32px;">
-          <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades · AdFlow</span>
-        </div>
-        <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
-          <p style="font-size:11px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;">Monthly report · ${params.period}</p>
-          <h1 style="font-size:22px;font-weight:700;color:#F0F0F0;margin:0 0 16px;line-height:1.3;">${params.serviceName}</h1>
-          <p style="font-size:14px;color:#CDD1D6;line-height:1.6;margin:0 0 24px;">
-            Hi ${params.contactName}, ${params.summary}
-          </p>
-
-          <table style="width:100%;border-collapse:separate;border-spacing:0;">
-            ${metricRow("Leads generated", formatInt(params.metrics.leads_generated), true)}
-            ${metricRow("Conversions", formatInt(params.metrics.conversions))}
-            ${metricRow("Clicks", formatInt(params.metrics.clicks))}
-            ${metricRow("Impressions", formatInt(params.metrics.impressions))}
-            ${metricRow("Click-through rate", formatPct(params.metrics.ctr_pct))}
-            ${metricRow("Cost per click", formatUsd(params.metrics.cpc_cents))}
-            ${metricRow("Total spend", formatUsd(params.metrics.cost_spent_cents))}
-          </table>
-
-          ${params.metrics.top_creative ? `
-          <div style="margin-top:20px;padding:14px;background:rgba(102,232,250,0.06);border-left:2px solid #66E8FA;border-radius:4px;">
-            <p style="font-size:11px;font-weight:600;color:#66E8FA;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 4px;">Top creative</p>
-            <p style="font-size:13px;color:#CDD1D6;line-height:1.5;margin:0;">${params.metrics.top_creative}</p>
-          </div>
-          ` : ""}
-
-          ${params.metrics.notes ? `
-          <div style="margin-top:16px;padding:14px;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:8px;">
-            <p style="font-size:11px;font-weight:600;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 6px;">Notes from the team</p>
-            <p style="font-size:13px;color:#CDD1D6;line-height:1.5;margin:0;">${params.metrics.notes}</p>
-          </div>
-          ` : ""}
-
-          <div style="border-top:1px solid rgba(255,255,255,0.06);margin:28px 0 20px;"></div>
-
-          <a href="${params.portalUrl}" style="display:inline-block;background:#66E8FA;color:#0B0F14;font-size:13px;font-weight:700;padding:11px 20px;border-radius:8px;text-decoration:none;">
-            View full campaign dashboard
-          </a>
-
-          <p style="font-size:12px;color:#8B919A;line-height:1.5;margin:18px 0 0;">
-            Questions? Reply to this email and our team will get back to you.
-          </p>
-        </div>
-        <p style="font-size:11px;color:#555B63;text-align:center;margin:24px 0 0;line-height:1.5;">
-          Sent to <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a>
-        </p>
-      </div>
-    </div>
-  `;
+  recipientEmail: string;
+  summary: string;
 }
+
+async function composeAdFlowReport(o: AdFlowComposeOpts): Promise<{ subject: string; html: string; badge: HeaderBadge }> {
+  const m = o.metrics;
+  const prior = m.prior_period;
+
+  // Deltas
+  const leadsDelta = pctDelta(m.leads_generated, prior?.leads_generated, { higherIsBetter: true });
+  const cplCurr = m.leads_generated && m.cost_spent_cents ? m.cost_spent_cents / m.leads_generated : undefined;
+  const cplPrev = prior?.leads_generated && prior?.cost_spent_cents ? prior.cost_spent_cents / prior.leads_generated : undefined;
+  const cplDelta = pctDelta(cplCurr, cplPrev, { higherIsBetter: false });
+  const ctrDelta = pctDelta(m.ctr_pct, prior?.ctr_pct, { higherIsBetter: true });
+
+  // Header badge auto-derived from leads delta
+  const badge = deriveHeaderBadge({ primaryDelta: leadsDelta });
+
+  // Hero headline + dynamic subject
+  let heroHeadline: string;
+  let subject: string;
+  if (m.leads_generated == null) {
+    heroHeadline = `${o.serviceName} report`;
+    subject = `Your ${o.period} ${o.serviceName} report`;
+  } else if (leadsDelta.shown && leadsDelta.rose && parseInt(leadsDelta.pctText, 10) >= 15) {
+    heroHeadline = `Strong month — leads up ${leadsDelta.pctText}`;
+    subject = `Leads up ${leadsDelta.pctText} — your ${o.period} AdFlow recap`;
+  } else if (leadsDelta.shown && !leadsDelta.rose && parseInt(leadsDelta.pctText, 10) >= 15) {
+    heroHeadline = `Adjusting course this month`;
+    subject = `${m.leads_generated} leads in ${o.period} — adjusting course`;
+  } else {
+    const word = m.leads_generated === 1 ? "lead" : "leads";
+    heroHeadline = `${m.leads_generated} new ${word} this month`;
+    subject = `${m.leads_generated} ${word} — your ${o.period} AdFlow recap`;
+  }
+
+  // KPI tiles
+  const kpis: KpiTile[] = [
+    { label: "Leads", value: formatInt(m.leads_generated), delta: leadsDelta, accent: true },
+    { label: "Cost / Lead", value: cplCurr != null ? formatUsd(Math.round(cplCurr)) : "—", delta: cplDelta },
+    { label: "Click-through", value: formatPct(m.ctr_pct), delta: ctrDelta },
+    { label: "Total spend", value: formatUsd(m.cost_spent_cents) },
+  ];
+
+  // Chart fallback (peak day + daily average)
+  const peakDay = m.daily_breakdown && m.daily_breakdown.length > 0
+    ? m.daily_breakdown.reduce((best, d) => (d.leads > best.leads ? d : best), m.daily_breakdown[0])
+    : null;
+  const totalDays = m.daily_breakdown?.length ?? 0;
+  const avgPerDay = totalDays > 0 && m.leads_generated != null ? (m.leads_generated / totalDays).toFixed(1) : null;
+  const peakDate = peakDay
+    ? new Date(peakDay.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : null;
+
+  const fallbackCells: Array<{ label: string; value: string; emphasis?: boolean }> = [];
+  if (peakDate && peakDay) {
+    fallbackCells.push({ label: "Peak day", value: `${peakDate} · ${peakDay.leads} leads`, emphasis: true });
+  }
+  if (avgPerDay) {
+    fallbackCells.push({ label: "Daily average", value: `${avgPerDay} leads / day` });
+  }
+
+  // Top performers
+  const topCreatives = m.creatives && m.creatives.length > 0
+    ? m.creatives.slice(0, 3)
+    : (m.top_creative ? [{ name: m.top_creative }] : []);
+
+  const creativesHtml = topCreatives.length > 0 ? topCreatives.map((c, i) => `
+    <div style="background:${REPORT_COLORS.cardSubtle};border:1px solid ${REPORT_COLORS.border};border-radius:10px;padding:12px 14px;margin:0 0 6px;">
+      <div style="font-size:13px;font-weight:600;color:${REPORT_COLORS.bright};line-height:1.4;">${i === 0 ? `<span style="color:${REPORT_COLORS.accent};margin-right:6px;">★</span>` : ""}${escapeHtml(c.name)}</div>
+      ${(c.leads != null || c.spend_cents != null || c.ctr_pct != null) ? `
+      <div style="font-size:11px;color:${REPORT_COLORS.muted};margin-top:3px;line-height:1.5;">
+        ${[
+          c.leads != null ? `${c.leads} lead${c.leads === 1 ? "" : "s"}` : null,
+          c.spend_cents != null ? formatUsd(c.spend_cents) : null,
+          c.ctr_pct != null ? `${c.ctr_pct.toFixed(2)}% CTR` : null,
+        ].filter(Boolean).join(" · ")}
+      </div>` : ""}
+    </div>
+  `).join("") : "";
+
+  // Notes from team (legacy field, optional)
+  const notesHtml = m.notes ? `
+    <p style="font-size:13px;color:${REPORT_COLORS.text};line-height:1.55;margin:0;">${escapeHtml(m.notes)}</p>
+  ` : "";
+
+  // Compose body
+  const body = [
+    buildReportHero({
+      eyebrow: "Monthly performance",
+      headline: heroHeadline,
+      period: o.period,
+      summary: o.summary,
+    }),
+    buildKpiGrid(kpis),
+    o.chartUrl ? buildIntegratedChart({ chartUrl: o.chartUrl, alt: `Daily leads trend, ${o.period}`, height: 280 }) : "",
+    fallbackCells.length ? buildChartFallback({ cells: fallbackCells }) : "",
+    creativesHtml ? buildSection({ title: "Top performers", content: creativesHtml }) : "",
+    buildRecommendations({ items: m.recommendations || [] }),
+    notesHtml ? buildSection({ title: "Notes from the team", content: notesHtml }) : "",
+    buildCtaButton({ href: o.portalUrl, label: "View full campaign dashboard" }),
+    buildMetricGlossary({ metrics: ["Leads", "Cost / Lead", "Click-through", "Total spend"] }),
+  ].filter(Boolean).join("");
+
+  const html = buildReportShell({
+    product: `${o.serviceName} Report`,
+    badge,
+    body,
+    recipientEmail: o.recipientEmail,
+  });
+
+  return { subject, html, badge };
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/* ─── Period label ─── */
 
 function formatPeriod(start?: string, end?: string): string {
   if (!start) {
@@ -179,26 +295,55 @@ function formatPeriod(start?: string, end?: string): string {
     const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     return prev.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   }
-  const d = new Date(start);
-  return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  return new Date(start).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-/**
- * Compile and send an AdFlow monthly report for a specific client_service.
- * Idempotent per period — stores `last_report_sent_at` in metadata.
- */
+/* ─── Chart spec from daily_breakdown ─── */
+
+async function tryGenerateChart(
+  cacheKey: string,
+  metrics: AdFlowReportMetrics,
+): Promise<string | null> {
+  if (!metrics.daily_breakdown || metrics.daily_breakdown.length < 2) return null;
+
+  const points = metrics.daily_breakdown;
+  const stride = Math.max(1, Math.floor(points.length / 8));
+  const labels = points.map((p, i) =>
+    i % stride === 0
+      ? new Date(p.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      : "",
+  );
+
+  const result = await generateLineChart({
+    cacheKey,
+    labels,
+    values: points.map((p) => p.leads),
+    width: 700,
+    height: 280,
+    backgroundColor: REPORT_COLORS.card,
+    variant: "integrated",
+  });
+
+  return result?.url || null;
+}
+
+/* ─── Public API ─── */
+
+const ADFLOW_FROM_NAME = "WeFixTrades AdFlow";
+
 export async function compileAndSendAdFlowReport(
   clientServiceId: number,
 ): Promise<CompileResult> {
   const [cs] = await db.select().from(clientServices).where(eq(clientServices.id, clientServiceId)).limit(1);
   if (!cs) return { sent: false, reason: "client_service_not_found" };
-
-  if (!cs.service_id.startsWith("adflow")) {
-    return { sent: false, reason: "not_an_adflow_service" };
-  }
+  if (!cs.service_id.startsWith("adflow")) return { sent: false, reason: "not_an_adflow_service" };
 
   const [client] = await db.select().from(clients).where(eq(clients.id, cs.client_id)).limit(1);
   if (!client?.contact_email) return { sent: false, reason: "no_client_email" };
+
+  if (await isEmailUnsubscribed(client.contact_email)) {
+    return { sent: false, reason: "recipient_unsubscribed" };
+  }
 
   const transporter = getEmailTransporter();
   if (!transporter) return { sent: false, reason: "smtp_not_configured" };
@@ -210,34 +355,40 @@ export async function compileAndSendAdFlowReport(
   const metrics: AdFlowReportMetrics = csMeta.latest_report || {};
   const period = formatPeriod(metrics.period_start, metrics.period_end);
 
-  // Idempotency — don't resend same period
   if (csMeta.last_report_period === period) {
     return { sent: false, reason: "already_sent_this_period", period };
   }
+
+  const periodKey = metrics.period_start
+    ? new Date(metrics.period_start).toISOString().slice(0, 7)
+    : new Date().toISOString().slice(0, 7);
+  const chartUrl = await tryGenerateChart(`adflow-cs${cs.id}-${periodKey}-fb`, metrics);
 
   const summary = await writeSummary(serviceName, metrics, period);
   const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
   const supportEmail = process.env.ADMIN_EMAIL || process.env.INTERNAL_LEAD_EMAIL || getFromAddress();
   const contactName = client.contact_name || client.business_name || "there";
 
+  const { subject, html } = await composeAdFlowReport({
+    contactName,
+    serviceName,
+    period,
+    metrics,
+    chartUrl,
+    portalUrl: `${baseUrl}/portal/services`,
+    recipientEmail: client.contact_email,
+    summary,
+  });
+
   try {
     await transporter.sendMail({
-      from: `WeFixTrades <${getFromAddress()}>`,
+      from: `${ADFLOW_FROM_NAME} <${getFromAddress()}>`,
       to: client.contact_email,
       replyTo: supportEmail,
-      subject: `${serviceName} · ${period} performance report`,
-      html: buildHtml({
-        contactName,
-        serviceName,
-        period,
-        summary,
-        metrics,
-        portalUrl: `${baseUrl}/portal/services`,
-        supportEmail,
-      }),
+      subject,
+      html,
     });
 
-    // Record send
     await db.update(clientServices)
       .set({
         metadata: { ...csMeta, last_report_period: period, last_report_sent_at: new Date().toISOString() },
@@ -251,4 +402,56 @@ export async function compileAndSendAdFlowReport(
     console.error(`[adflow-report] Failed to send for service #${cs.id}:`, err.message);
     return { sent: false, reason: `send_failed: ${err.message}` };
   }
+}
+
+/**
+ * Build the email HTML for preview/test purposes without sending.
+ */
+export async function previewAdFlowReportHtml(opts: {
+  contactName: string;
+  serviceName: string;
+  metrics: AdFlowReportMetrics;
+  recipientEmail: string;
+  cacheKey?: string;
+  embedChartAsCid?: boolean;
+}): Promise<{ subject: string; html: string; chartLocalPath: string | null; senderName: string }> {
+  const m = opts.metrics;
+  const period = formatPeriod(m.period_start, m.period_end);
+  const summary = await writeSummary(opts.serviceName, m, period).catch(() => "Campaign summary unavailable in preview.");
+
+  const chartResult = m.daily_breakdown && m.daily_breakdown.length > 1
+    ? await generateLineChart({
+        cacheKey: opts.cacheKey || `adflow-preview-${Date.now()}`,
+        labels: m.daily_breakdown.map((p, i, arr) => {
+          const stride = Math.max(1, Math.floor(arr.length / 8));
+          return i % stride === 0
+            ? new Date(p.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            : "";
+        }),
+        values: m.daily_breakdown.map((p) => p.leads),
+        width: 700,
+        height: 280,
+        backgroundColor: REPORT_COLORS.card,
+        variant: "integrated",
+      })
+    : null;
+
+  const chartUrl = opts.embedChartAsCid && chartResult?.localPath
+    ? "cid:chart"
+    : (chartResult?.url || null);
+
+  const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
+
+  const { subject, html } = await composeAdFlowReport({
+    contactName: opts.contactName,
+    serviceName: opts.serviceName,
+    period,
+    metrics: m,
+    chartUrl,
+    portalUrl: `${baseUrl}/portal/services`,
+    recipientEmail: opts.recipientEmail,
+    summary,
+  });
+
+  return { subject, html, chartLocalPath: chartResult?.localPath || null, senderName: ADFLOW_FROM_NAME };
 }
