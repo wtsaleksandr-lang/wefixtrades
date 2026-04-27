@@ -2898,6 +2898,32 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  /**
+   * Sprint 5: find approved RankFlow article drafts whose
+   * metadata.wordpress.queue_status = 'queued' and whose scheduled_for
+   * is null OR has elapsed. Ordered by scheduled_for ASC NULLS FIRST so
+   * un-scheduled drafts (immediate publish) drain before timed ones.
+   *
+   * Drafts already containing a wordpress.post_id are excluded as a
+   * defence-in-depth against duplicate publishes — the worker also
+   * self-checks, but pre-filtering at the SQL layer is cheaper.
+   */
+  async findQueuedWordpressDrafts(opts: { limit?: number; now?: Date } = {}): Promise<ContentDraft[]> {
+    const { limit = 10, now = new Date() } = opts;
+    return db.select().from(contentDrafts)
+      .where(and(
+        eq(contentDrafts.status, "approved"),
+        eq(contentDrafts.kind, "article"),
+        eq(contentDrafts.surface, "rankflow"),
+        sql`${contentDrafts.metadata}->'wordpress'->>'queue_status' = 'queued'`,
+        sql`(${contentDrafts.metadata}->'wordpress'->>'scheduled_for' IS NULL
+             OR (${contentDrafts.metadata}->'wordpress'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)`,
+        sql`${contentDrafts.metadata}->'wordpress'->>'post_id' IS NULL`,
+      ))
+      .orderBy(sql`(${contentDrafts.metadata}->'wordpress'->>'scheduled_for')::timestamptz ASC NULLS FIRST`)
+      .limit(limit);
+  }
+
   // ─── ContentFlow: Approvals ───
 
   async createContentApproval(data: InsertContentApproval): Promise<ContentApproval> {
