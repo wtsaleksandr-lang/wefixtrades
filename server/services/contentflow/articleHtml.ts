@@ -37,7 +37,10 @@ export function stripDangerousHtml(html: string): string {
     // Remove self-closing variants of the same.
     .replace(/<\s*(script|iframe|object|embed|frame)\b[^>]*\/?>/gi, "")
     // Strip javascript: / data:text/html / vbscript: URLs from href/src.
-    .replace(/(href|src)\s*=\s*(['"])\s*(javascript|data:\s*text\/html|vbscript)\s*:[\s\S]*?\2/gi, '$1=""')
+    // Note: javascript: and vbscript: have the colon in the scheme; data:text/html
+    // already includes the colon as part of the MIME prefix, so we don't require
+    // a trailing colon — the [\s\S]*? consumes whatever payload follows.
+    .replace(/(href|src)\s*=\s*(['"])\s*(javascript:|data:\s*text\/html|vbscript:)[\s\S]*?\2/gi, '$1=""')
     // Strip inline event handlers (onclick, onload, onerror, etc.).
     .replace(/\son\w+\s*=\s*(['"])[\s\S]*?\1/gi, "");
 }
