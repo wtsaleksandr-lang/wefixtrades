@@ -15,6 +15,7 @@ import { processRankFlowPlans } from "./rankflowWorker";
 import { processRankFlowTracking } from "./trackingWorker";
 import { processMapguardScans } from "./mapguardScanWorker";
 import { processMapguardReports } from "./mapguardReportWorker";
+import { processRankflowReports } from "./rankflowReportWorker";
 import { processMapguardWeeklyUpdates } from "./mapguardWeeklyUpdateWorker";
 import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
 import { processSocialSyncQueue } from "./socialSyncWorker";
@@ -235,6 +236,19 @@ export function initScheduler() {
       await runJob("mapguard_monthly_reports", processMapguardReports);
     } catch (err: any) {
       console.error("[Scheduler] mapguard_monthly_reports cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  // RankFlow monthly reports — 11:00 UTC on the 2nd of each month
+  // (one hour after MapGuard to spread the rollup-batch load).
+  // Idempotent per period via client_service.metadata.last_rankflow_report_period,
+  // so safe even if the cron fires twice or the deploy restarts mid-run.
+  cron.schedule("0 11 2 * *", async () => {
+    console.log("[Scheduler] Running RankFlow monthly reports...");
+    try {
+      await runJob("rankflow_monthly_reports", processRankflowReports);
+    } catch (err: any) {
+      console.error("[Scheduler] rankflow_monthly_reports cron handler error:", err.message);
     }
   }, { timezone: "UTC" });
 
