@@ -210,9 +210,13 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
   } catch (err: any) {
     const msg = err?.message || String(err);
     console.error(`[contentflow] article generation AI call failed for draft ${draftId}: ${msg}`);
+    // Re-read the draft to merge with any concurrent metadata writes
+    // (e.g. wordpress publish) that happened during the AI call.
+    const fresh = await storage.getContentDraftById(draftId);
+    const freshMeta = (fresh?.metadata || meta) as Record<string, any>;
     await storage.updateContentDraft(draftId, {
       status: "failed",
-      metadata: { ...meta, generation_status: "failed", generation_error: msg.slice(0, 500) },
+      metadata: { ...freshMeta, generation_status: "failed", generation_error: msg.slice(0, 500) },
     });
     return { ok: false, error: msg };
   }
@@ -220,19 +224,32 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
   const parsed = parseArticleJson(raw);
   if (!parsed) {
     console.error(`[contentflow] article generation produced unparseable output for draft ${draftId}; raw len=${raw.length}`);
+    const fresh = await storage.getContentDraftById(draftId);
+    const freshMeta = (fresh?.metadata || meta) as Record<string, any>;
     await storage.updateContentDraft(draftId, {
       status: "failed",
-      metadata: { ...meta, generation_status: "failed", generation_error: "unparseable model output" },
+      metadata: { ...freshMeta, generation_status: "failed", generation_error: "unparseable model output" },
     });
     return { ok: false, error: "unparseable model output" };
   }
 
+  // Re-read metadata immediately before write to preserve any concurrent
+  // updates (e.g. the wordpress publisher writing metadata.wordpress while
+  // a background article generation was in flight). Without this, the
+  // stale `meta` snapshot from above would clobber concurrent writes.
+  const fresh = await storage.getContentDraftById(draftId);
+  const freshMeta = (fresh?.metadata || meta) as Record<string, any>;
+  // Also defer to a more-recent generation_status if one already wrote
+  // 'completed' — avoids a no-op overwrite race.
   const updated = await storage.updateContentDraft(draftId, {
     title: parsed.title,
     excerpt: parsed.excerpt,
     body: parsed.body_md,
-    status: "draft",
-    metadata: { ...meta, generation_status: "completed" },
+    // Don't downgrade a draft that the admin has already approved/published.
+    status: fresh && (fresh.status === "approved" || fresh.status === "published" || fresh.status === "rejected")
+      ? fresh.status
+      : "draft",
+    metadata: { ...freshMeta, generation_status: "completed" },
   });
 
   return { ok: true, draft: updated };
