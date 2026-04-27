@@ -21,12 +21,17 @@
 
 import { test as baseTest, expect, type APIRequestContext } from "@playwright/test";
 import { readFileSync } from "fs";
-import { resolve } from "path";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 import { STORAGE_STATE_PATH } from "./global-setup";
 import { pool } from "../../../server/db";
 import { hashPassword } from "../../../server/auth";
 import { stripDangerousHtml, renderArticleHtml } from "../../../server/services/contentflow/articleHtml";
 import { getAdapter, listRegisteredAdapterTypes } from "../../../server/services/contentflow/adapters/registry";
+
+// ESM-compatible __dirname (Playwright runs spec files as ES modules).
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
 const WP_MOCK_BASE = `${BASE_URL}/api/__dev/wp-mock`;
