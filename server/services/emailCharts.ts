@@ -131,9 +131,10 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
   const config = integrated
     ? {
         // "Integrated" — chart reads as part of the surrounding hero card.
-        // No axes, no gridlines, no axis lines. Generous internal padding
-        // so the curve floats in dim negative space at the edges (the
-        // perceptual "fade to nothing" effect baked into the PNG).
+        // No axes, no gridlines. Heavy horizontal padding so the curve
+        // floats centered with dim negative space at the edges (the
+        // perceptual fade-to-nothing effect baked into the PNG, no
+        // CSS filter:blur required).
         type: "line",
         data: {
           labels: spec.labels,
@@ -141,7 +142,7 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
             {
               data: spec.values,
               borderColor: spec.lineColor || "#66E8FA",
-              backgroundColor: spec.fillColor || "rgba(102,232,250,0.16)",
+              backgroundColor: spec.fillColor || "rgba(102,232,250,0.18)",
               fill: true,
               tension: 0.42,
               pointRadius: 0,
@@ -158,7 +159,9 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
             x: { display: false },
             y: { display: false, beginAtZero: true },
           },
-          layout: { padding: { top: 30, right: 36, bottom: 30, left: 36 } },
+          // Heavy L/R padding (≈14% of canvas each side) bakes the
+          // dim-edges effect into the PNG.
+          layout: { padding: { top: 18, right: 80, bottom: 18, left: 80 } },
           elements: { line: { capBezierPoints: true } },
         },
       }

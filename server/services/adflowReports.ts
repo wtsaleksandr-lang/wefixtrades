@@ -157,7 +157,7 @@ function deltaBadge(delta: Delta): string {
   const arrow = delta.rose ? "↑" : "↓";
   const word = delta.rose ? "higher" : "lower";
   const color = delta.good ? COLORS.positive : COLORS.negative;
-  return `<span style="display:inline-block;font-size:11px;font-weight:700;color:${color};margin-left:6px;white-space:nowrap;">${arrow} ${delta.pctText} ${word}</span>`;
+  return `<span style="font-size:11px;font-weight:700;color:${color};white-space:nowrap;letter-spacing:0;">${arrow} ${delta.pctText} ${word}</span>`;
 }
 
 /* ─── AI plain-English summary ─── */
@@ -230,19 +230,30 @@ function buildHtml(p: BuildHtmlParams): string {
     return `${m.leads_generated} new lead${m.leads_generated === 1 ? "" : "s"} this month`;
   })();
 
-  /* Stat tiles — 2×2 grid that stacks naturally on mobile.
-     Padding tightened ~22% vs v1 for tighter mobile density without
-     sacrificing readable font sizes. */
+  /* Stat tiles — mathematically consistent 2×2 grid.
+     Each tile is a 3-row table (label / value / delta), so every card
+     has identical width, padding, label position, value baseline, and
+     a reserved delta row even when no delta exists. Delta row renders
+     a non-breaking space when empty so the cell still occupies space
+     and all 4 tiles end at the same Y coordinate. */
+  const DELTA_ROW_HEIGHT = 18;
   const statTile = (label: string, value: string, delta?: Delta, accent = false) => `
-    <td valign="top" style="padding:0 4px 8px;width:50%;">
-      <div style="background:${COLORS.cardSubtle};border:1px solid ${COLORS.border};border-radius:12px;padding:11px 13px 10px;">
-        <div style="font-size:10.5px;color:${COLORS.muted};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin:0 0 3px;">${label}</div>
-        <div style="font-size:22px;font-weight:800;color:${accent ? COLORS.accent : COLORS.bright};letter-spacing:-0.02em;line-height:1.05;">${value}${delta ? deltaBadge(delta) : ""}</div>
-      </div>
+    <td valign="top" width="50%" style="padding:0 4px 8px;width:50%;">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${COLORS.cardSubtle};border:1px solid ${COLORS.border};border-radius:12px;border-collapse:separate;">
+        <tr>
+          <td style="padding:11px 13px 0;font-size:10.5px;color:${COLORS.muted};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;line-height:1;">${label}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 13px 0;font-size:22px;font-weight:800;color:${accent ? COLORS.accent : COLORS.bright};letter-spacing:-0.02em;line-height:1.05;">${value}</td>
+        </tr>
+        <tr>
+          <td height="${DELTA_ROW_HEIGHT}" style="padding:4px 13px 11px;height:${DELTA_ROW_HEIGHT}px;line-height:${DELTA_ROW_HEIGHT}px;">${delta && delta.shown ? deltaBadge(delta) : "&nbsp;"}</td>
+        </tr>
+      </table>
     </td>`;
 
   const statsGrid = `
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 14px;border-collapse:separate;border-spacing:0;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 14px;border-collapse:separate;border-spacing:0;table-layout:fixed;">
       <tr>
         ${statTile("Leads", formatInt(m.leads_generated), leadsDelta, true)}
         ${statTile("Cost / Lead", cplCurr != null ? formatUsd(Math.round(cplCurr)) : "—", cplDelta)}
@@ -265,11 +276,15 @@ function buildHtml(p: BuildHtmlParams): string {
     ? new Date(peakDay.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
     : null;
 
-  // Integrated chart — same background as the surrounding card, no border.
-  // Reads as part of the hero panel, not a boxed element.
+  // Full-bleed chart — extends to the card's interior edges via negative
+  // margins. The PNG itself is rendered wider than the visible area with
+  // generous internal padding, so the line trails into dim negative space
+  // at left/right rather than terminating at a hard endpoint. Background
+  // matches the card so the chart reads as a dashboard backdrop, not an
+  // inserted image.
   const chartBlock = p.chartUrl ? `
-    <div style="margin:6px -8px 12px;">
-      <img src="${p.chartUrl}" alt="Daily leads trend, ${p.period}" width="540" height="300" style="display:block;width:100%;max-width:560px;height:auto;border:0;outline:none;text-decoration:none;" />
+    <div style="margin:6px -24px 14px;">
+      <img src="${p.chartUrl}" alt="Daily leads trend, ${p.period}" width="600" height="280" style="display:block;width:100%;max-width:none;height:auto;border:0;outline:none;text-decoration:none;" />
     </div>` : "";
 
   const numericFallback = (peakDay || avgPerDay) ? `
@@ -397,11 +412,11 @@ async function tryGenerateChart(
   );
 
   const result = await generateLineChart({
-    cacheKey: `adflow-cs${clientServiceId}-${periodKey}-int`,
+    cacheKey: `adflow-cs${clientServiceId}-${periodKey}-fb`,
     labels,
     values: points.map((p) => p.leads),
-    width: 600,
-    height: 320,
+    width: 700,
+    height: 280,
     backgroundColor: COLORS.card, // match the hero card so the chart blends
     variant: "integrated",
   });
@@ -512,8 +527,8 @@ export async function previewAdFlowReportHtml(opts: {
             : "";
         }),
         values: m.daily_breakdown.map((p) => p.leads),
-        width: 600,
-        height: 320,
+        width: 700,
+        height: 280,
         backgroundColor: COLORS.card,
         variant: "integrated",
       }))?.url || null
