@@ -368,11 +368,23 @@ test.describe("ContentFlow Sprint 5 — WordPress publish queue", () => {
     expect(after.draft.metadata?.wordpress?.post_id).toBe(originalPostId);
   });
 
-  test("P5-8 — worker run with empty queue is a clean no-op", async ({ adminApi }) => {
-    /* Drain anything left over from prior tests first. */
-    await adminApi.post("/api/admin/contentflow/__dev/wp-queue/run", {});
+  test("P5-8 — worker drains to empty queue and is a clean no-op once drained", async ({ adminApi }) => {
+    /* Drain repeatedly until the queue is empty. Earlier tests leave
+     * retry-able failing drafts (P5-4 admin retry resets attempts but keeps
+     * the FAIL_WP_500 title trigger), so the worker may need MAX_ATTEMPTS
+     * passes to drive them to terminal 'failed'. The production guarantee
+     * we're verifying: the worker is idempotent and reaches a clean idle
+     * state given enough ticks. */
+    let lastScanned = -1;
+    for (let i = 0; i < 8; i++) {
+      const r = await (await adminApi.post("/api/admin/contentflow/__dev/wp-queue/run", {})).json();
+      expect(r.ok).toBe(true);
+      lastScanned = r.scanned;
+      if (r.scanned === 0) break;
+    }
+    expect(lastScanned, "queue must reach scanned=0 within a bounded number of drains").toBe(0);
 
-    /* Now an extra run should produce a 'scanned: 0' summary (nothing eligible). */
+    /* One more run for good measure — must still be clean. */
     const res = await adminApi.post("/api/admin/contentflow/__dev/wp-queue/run", {});
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
