@@ -268,19 +268,28 @@ export async function publishDraftToWordpress(
     return { ok: false, reason: "wp_error", message: msg, http_status: response.status };
   }
 
-  /* 6. Persist success on the draft + upsert rankflow_pages if linked. */
+  /* 6. Persist success on the draft + upsert rankflow_pages if linked.
+   * Sprint 8: re-read metadata immediately before write and merge into
+   * the existing `wordpress` object so the Sprint 5 queue lifecycle
+   * keys (queue_status, attempts, locked_at, etc.) survive the publish
+   * write. Pre-Sprint-8 this overwrote the whole sub-object — fine
+   * before the queue existed, but a silent corruption since Sprint 5. */
   const publishedAt = new Date().toISOString();
-  const existingMeta = (draft.metadata || {}) as Record<string, any>;
+  const fresh = await storage.getContentDraftById(draftId);
+  const existingMeta = ((fresh ?? draft).metadata || {}) as Record<string, any>;
+  const existingWp = (existingMeta.wordpress || {}) as Record<string, any>;
   await storage.updateContentDraft(draftId, {
     status: "published",
     target_url: postUrl,
     metadata: {
       ...existingMeta,
       wordpress: {
+        ...existingWp,
         post_id: postId,
         post_url: postUrl,
         wp_status: respStatus,
         published_at: publishedAt,
+        error: null,
       },
     },
   });
