@@ -93,6 +93,11 @@ function testId() {
   return `pw_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+/* Sprint 8: shared module-scope state (clientId, pageCreateTaskId,
+ * articleDraftId) requires same-worker pinning. Match Sprint 4/5/6/7/8
+ * pattern. */
+test.describe.configure({ mode: "serial" });
+
 test.describe("ContentFlow Sprint 3 — RankFlow article pipeline", () => {
   let clientId = 0;
   let pageCreateTaskId = 0;

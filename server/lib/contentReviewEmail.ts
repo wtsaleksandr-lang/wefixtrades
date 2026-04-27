@@ -19,7 +19,7 @@
  * the underlying approval action.
  */
 
-import type { Transporter } from "nodemailer";
+import type { Transporter, SendMailOptions, SentMessageInfo } from "nodemailer";
 import crypto from "crypto";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildLegalFooter, buildEmailHeader } from "./emailFooter";
@@ -28,6 +28,61 @@ import { db } from "../db";
 import { clients } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import type { ContentDraft } from "@shared/schema";
+
+/* ─── Sprint 8: NODE_ENV-gated test simulation stub ─────────────────────
+ *
+ * CI cannot rely on live SMTP credits. When EMAIL_TEST_SIMULATE_SUCCESS=1
+ * is set AND NODE_ENV !== "production", the resolveTransporter() helper
+ * below returns an in-process stub whose sendMail() always returns a
+ * synthetic success. The metadata flag (admin_emailed_for /
+ * client_revision_emailed_token) gets stamped exactly as it would for
+ * a real send — proving the idempotency path works under test load
+ * without touching SendGrid.
+ *
+ * Production safety:
+ *   - The simulation gate requires BOTH NODE_ENV !== "production" AND
+ *     the explicit EMAIL_TEST_SIMULATE_SUCCESS=1 env var. Production
+ *     behaviour is unchanged.
+ *   - Caller's `opts.transporter` (a real one OR explicit null for the
+ *     SMTP-down test) ALWAYS wins over the stub. P7-9 (transporter:null)
+ *     still exercises the smtp_unavailable path.
+ *   - Real SMTP failures (auth errors, network errors) still leave
+ *     metadata.client_review.admin_emailed_for unset — design
+ *     unchanged. The stub only fires when explicitly enabled.
+ */
+const TEST_STUB_TRANSPORTER: Transporter = {
+  sendMail(options: SendMailOptions): Promise<SentMessageInfo> {
+    return Promise.resolve({
+      messageId: `<test-stub-${Date.now()}-${crypto.randomBytes(4).toString("hex")}@simulated>`,
+      envelope: {
+        from: typeof options.from === "string" ? options.from : "stub@local",
+        to: Array.isArray(options.to) ? options.to.map((t) => String(t)) : [String(options.to ?? "")],
+      },
+      accepted: Array.isArray(options.to) ? options.to.map((t) => String(t)) : [String(options.to ?? "")],
+      rejected: [],
+      pending: [],
+      response: "250 Stub OK",
+    } as unknown as SentMessageInfo);
+  },
+} as unknown as Transporter;
+
+function shouldUseTestStub(): boolean {
+  return (
+    process.env.NODE_ENV !== "production" &&
+    process.env.EMAIL_TEST_SIMULATE_SUCCESS === "1"
+  );
+}
+
+/**
+ * Resolve a transporter for the send call. Honours caller override
+ * (real Transporter OR null for sim-down). When no override is given,
+ * returns the test stub if both gates are open, else the real one.
+ */
+function resolveTransporter(opts: SendEmailOptions): Transporter | null {
+  if (opts.transporter !== undefined) return opts.transporter;
+  if (shouldUseTestStub()) return TEST_STUB_TRANSPORTER;
+  return getEmailTransporter();
+}
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -267,7 +322,7 @@ async function sendAdminEmail(
       return { ok: true, recipientCount: 0 };
     }
 
-    const transporter = opts.transporter !== undefined ? opts.transporter : getEmailTransporter();
+    const transporter = resolveTransporter(opts);
     if (!transporter) {
       console.warn(`${logPrefix} draft=${draftId} skipped: SMTP not configured`);
       return { ok: false, reason: "smtp_unavailable", message: "SMTP not configured" };
@@ -357,7 +412,7 @@ export async function sendClientRevisionReadyEmail(
       return { ok: true, recipientCount: 0 };
     }
 
-    const transporter = opts.transporter !== undefined ? opts.transporter : getEmailTransporter();
+    const transporter = resolveTransporter(opts);
     if (!transporter) {
       console.warn(`${logPrefix} draft=${draftId} skipped: SMTP not configured`);
       return { ok: false, reason: "smtp_unavailable", message: "SMTP not configured" };

@@ -89,6 +89,14 @@ function testId() {
   return `pw_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+/* Sprint 8: tests share `clientId` / `articleDraftId` via module-scope
+ * `let`s set in P4-1 and consumed by P4-4..P4-9. Serial mode pins them
+ * all to the same worker so state survives across the suite. Without
+ * this, Playwright's worker distribution (more aggressive once total
+ * test count crossed ~60) split Sprint 4 across processes — each
+ * worker started with clientId=0 → cascade of P4-* failures. */
+test.describe.configure({ mode: "serial" });
+
 test.describe("ContentFlow Sprint 4 — WordPress publishing", () => {
   let clientId = 0;
   let articleDraftId = 0;
