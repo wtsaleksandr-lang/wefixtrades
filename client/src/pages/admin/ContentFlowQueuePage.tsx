@@ -9,19 +9,22 @@
  * Mobile: filters stack, table scrolls horizontally, drawer goes full-width.
  */
 import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { RefreshCw, Filter as FilterIcon, Inbox } from "lucide-react";
+import { RefreshCw, Filter as FilterIcon, Inbox, Loader2 } from "lucide-react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   CONTENT_DRAFT_STATUS_LABELS,
@@ -43,6 +46,23 @@ interface ContentDraftRow {
   created_at: string;
   title: string | null;
   excerpt: string | null;
+  metadata: any;
+}
+
+/** Sprint 5: derive a publish queue badge from the wordpress metadata. */
+function deriveQueueBadge(d: ContentDraftRow): { label: string; className: string } | null {
+  const wp = d.metadata?.wordpress;
+  if (!wp) return null;
+  if (wp.post_url && wp.post_id) return { label: "Published", className: "border-blue-300 text-blue-700" };
+  if (wp.queue_status === "publishing") return { label: "Publishing", className: "border-indigo-300 text-indigo-700" };
+  if (wp.queue_status === "queued") {
+    if (wp.scheduled_for && new Date(wp.scheduled_for).getTime() > Date.now()) {
+      return { label: "Scheduled", className: "border-violet-300 text-violet-700" };
+    }
+    return { label: "Queued", className: "border-emerald-300 text-emerald-700" };
+  }
+  if (wp.queue_status === "failed") return { label: "Failed", className: "border-red-300 text-red-700" };
+  return null;
 }
 
 interface QueueResponse {
@@ -90,6 +110,7 @@ function formatRelative(iso: string): string {
 export default function ContentFlowQueuePage() {
   usePageTitle("ContentFlow Queue");
   const qc = useQueryClient();
+  const { toast } = useToast();
 
   const [clientFilter, setClientFilter] = useState<string>(ANY);
   const [statusFilter, setStatusFilter] = useState<string>(ANY);
@@ -98,6 +119,39 @@ export default function ContentFlowQueuePage() {
 
   const [drawerDraftId, setDrawerDraftId] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Sprint 5: bulk-select state for Queue/Retry actions.
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  function toggleSelected(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const bulkQueueMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/contentflow/bulk-queue", {
+        draft_ids: Array.from(selectedIds),
+        status: "draft",
+      });
+      return res.json();
+    },
+    onSuccess: (body: any) => {
+      toast({
+        title: "Bulk queue submitted",
+        description: `${body?.succeeded ?? 0} queued, ${body?.failed ?? 0} skipped`,
+      });
+      setSelectedIds(new Set());
+      qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/queue"] });
+    },
+    onError: (e: any) => {
+      toast({ variant: "destructive", title: "Bulk queue failed", description: e?.message || "Unknown error" });
+    },
+  });
 
   // Build query string for the queue endpoint
   const queueQuery = useMemo(() => {
@@ -183,6 +237,19 @@ export default function ContentFlowQueuePage() {
             <RefreshCw className={`h-4 w-4 mr-1 ${isFetching ? "animate-spin" : ""}`} />
             Refresh
           </Button>
+          {selectedIds.size > 0 && (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => bulkQueueMutation.mutate()}
+              disabled={bulkQueueMutation.isPending}
+              className="bg-indigo-600 hover:bg-indigo-700"
+              data-testid="bulk-queue-publish-btn"
+            >
+              {bulkQueueMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Queue {selectedIds.size} for Publish
+            </Button>
+          )}
         </div>
 
         {/* Filters */}
@@ -243,11 +310,13 @@ export default function ContentFlowQueuePage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-8" />
                   <TableHead className="w-16">ID</TableHead>
                   <TableHead className="min-w-[160px]">Client</TableHead>
                   <TableHead>Surface</TableHead>
                   <TableHead>Kind</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="w-28">Publish</TableHead>
                   <TableHead className="w-24">Quality</TableHead>
                   <TableHead className="w-32">Created</TableHead>
                 </TableRow>
@@ -257,7 +326,7 @@ export default function ContentFlowQueuePage() {
                   <>
                     {[0, 1, 2, 3].map((i) => (
                       <TableRow key={`s-${i}`}>
-                        {Array.from({ length: 7 }).map((_, j) => (
+                        {Array.from({ length: 9 }).map((_, j) => (
                           <TableCell key={j}>
                             <Skeleton className="h-4 w-full" />
                           </TableCell>
@@ -269,7 +338,7 @@ export default function ContentFlowQueuePage() {
 
                 {isError && !isLoading && (
                   <TableRow>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={9}>
                       <div className="py-8 text-center text-sm text-red-700">
                         Failed to load queue: {(error as any)?.message || "unknown error"}
                       </div>
@@ -279,7 +348,7 @@ export default function ContentFlowQueuePage() {
 
                 {!isLoading && !isError && drafts.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={9}>
                       <div className="py-12 flex flex-col items-center gap-2 text-sm text-muted-foreground">
                         <Inbox className="h-8 w-8 opacity-50" />
                         <div>No drafts match the current filters.</div>
@@ -288,13 +357,30 @@ export default function ContentFlowQueuePage() {
                   </TableRow>
                 )}
 
-                {!isLoading && drafts.map((d) => (
+                {!isLoading && drafts.map((d) => {
+                  const queueBadge = deriveQueueBadge(d);
+                  const canSelect =
+                    d.status === "approved" &&
+                    d.kind === "article" &&
+                    d.surface === "rankflow" &&
+                    !(d.metadata?.wordpress?.post_url && d.metadata?.wordpress?.post_id);
+                  return (
                   <TableRow
                     key={d.id}
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => openDrawer(d.id)}
                     data-testid={`contentflow-row-${d.id}`}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {canSelect && (
+                        <Checkbox
+                          checked={selectedIds.has(d.id)}
+                          onCheckedChange={() => toggleSelected(d.id)}
+                          aria-label={`Select draft ${d.id}`}
+                          data-testid={`select-row-${d.id}`}
+                        />
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono text-xs">#{d.id}</TableCell>
                     <TableCell>
                       <div className="font-medium text-sm">
@@ -328,6 +414,15 @@ export default function ContentFlowQueuePage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
+                      {queueBadge ? (
+                        <Badge variant="outline" className={`text-xs ${queueBadge.className}`}>
+                          {queueBadge.label}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       {typeof d.quality_score === "number" ? (
                         <span className={`text-xs font-mono ${
                           d.quality_score >= 70 ? "text-emerald-700" :
@@ -343,7 +438,8 @@ export default function ContentFlowQueuePage() {
                       {formatRelative(d.created_at)}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
