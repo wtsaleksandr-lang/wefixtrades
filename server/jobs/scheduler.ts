@@ -18,6 +18,7 @@ import { processMapguardReports } from "./mapguardReportWorker";
 import { processMapguardWeeklyUpdates } from "./mapguardWeeklyUpdateWorker";
 import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
 import { processSocialSyncQueue } from "./socialSyncWorker";
+import { processQueue as processWordpressPublishQueue } from "../services/contentflow/wordpressQueue";
 import { generateAllDue } from "../services/socialSync/orchestrator";
 import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
 import { cleanupOldMedia } from "../services/socialSync/mediaService";
@@ -255,6 +256,17 @@ export function initScheduler() {
       await runJob("socialsync_queue_worker", processSocialSyncQueue);
     } catch (err: any) {
       console.error("[Scheduler] socialsync_queue_worker error:", err.message);
+    }
+  });
+
+  // Sprint 5: WordPress publish queue. Drains approved RankFlow article
+  // drafts whose metadata.wordpress.queue_status='queued' and scheduled_for
+  // is null or elapsed. Calls the existing Sprint 4 publisher.
+  cron.schedule("*/2 * * * *", async () => {
+    try {
+      await runJob("contentflow_wp_publish_queue", processWordpressPublishQueue);
+    } catch (err: any) {
+      console.error("[Scheduler] contentflow_wp_publish_queue error:", err.message);
     }
   });
 

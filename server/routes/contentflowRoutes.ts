@@ -26,6 +26,12 @@ import {
   publishDraftToWordpress,
   getPublishStatus,
 } from "../services/contentflow/wordpressPublisher";
+import {
+  enqueueDraft,
+  bulkEnqueue,
+  retryDraft,
+  processQueue as processWordpressPublishQueue,
+} from "../services/contentflow/wordpressQueue";
 
 export function registerContentFlowRoutes(app: Express): void {
   /**
@@ -358,6 +364,113 @@ export function registerContentFlowRoutes(app: Express): void {
     },
   );
 
+  /**
+   * POST /api/admin/contentflow/drafts/:id/queue-publish
+   *
+   * Sprint 5: enqueue an approved RankFlow article for the WordPress
+   * publish worker. Body:
+   *   { scheduled_for?: ISO 8601 string,  // null/omit = run on next cron tick
+   *     status?: "draft" | "publish" }   // defaults to "draft" (Sprint 4 default)
+   *
+   * Returns 200 on success, 400 on bad input, 404/409/422 with reason
+   * matching the EnqueueResult shape. Refuses already-published drafts
+   * (prevents duplicate WP posts).
+   */
+  app.post(
+    "/api/admin/contentflow/drafts/:id/queue-publish",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const draftId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(draftId)) {
+          return res.status(400).json({ error: "id must be a number" });
+        }
+        const scheduledFor = typeof req.body?.scheduled_for === "string" ? req.body.scheduled_for : null;
+        const wpStatus = req.body?.status === "publish" ? "publish" : "draft";
+
+        const result = await enqueueDraft(draftId, { scheduled_for: scheduledFor, wp_status: wpStatus });
+        if (result.ok) return res.json(result);
+
+        const httpStatus =
+          result.reason === "draft_not_found" ? 404
+          : result.reason === "wrong_kind" || result.reason === "wrong_surface" || result.reason === "not_approved" ? 409
+          : result.reason === "already_published" ? 409
+          : result.reason === "invalid_scheduled_for" ? 400
+          : 500;
+        return res.status(httpStatus).json(result);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  /**
+   * POST /api/admin/contentflow/bulk-queue
+   *
+   * Sprint 5: bulk-enqueue. Body:
+   *   { draft_ids: number[],
+   *     scheduled_for?: ISO 8601,
+   *     status?: "draft" | "publish" }
+   *
+   * Returns aggregate { total, succeeded, failed, results[] }. Each
+   * result entry mirrors the per-draft EnqueueResult shape. Always 200
+   * unless the request itself is malformed; partial failures are
+   * reported per-id in the body.
+   */
+  app.post(
+    "/api/admin/contentflow/bulk-queue",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const ids = Array.isArray(req.body?.draft_ids) ? req.body.draft_ids : null;
+        if (!ids || ids.length === 0) {
+          return res.status(400).json({ error: "draft_ids (non-empty number[]) required" });
+        }
+        const cleaned = ids
+          .map((x: unknown) => (typeof x === "number" ? x : parseInt(String(x), 10)))
+          .filter((n: number) => Number.isFinite(n));
+        if (cleaned.length === 0) {
+          return res.status(400).json({ error: "draft_ids contained no valid numbers" });
+        }
+        const scheduledFor = typeof req.body?.scheduled_for === "string" ? req.body.scheduled_for : null;
+        const wpStatus = req.body?.status === "publish" ? "publish" : "draft";
+        const result = await bulkEnqueue(cleaned, { scheduled_for: scheduledFor, wp_status: wpStatus });
+        res.json(result);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  /**
+   * POST /api/admin/contentflow/drafts/:id/retry-publish
+   *
+   * Sprint 5: admin-initiated retry. Only valid when queue_status='failed'.
+   * Resets attempts to 0 and flips back to 'queued' for the next cron
+   * tick to pick up.
+   */
+  app.post(
+    "/api/admin/contentflow/drafts/:id/retry-publish",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const draftId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(draftId)) {
+          return res.status(400).json({ error: "id must be a number" });
+        }
+        const result = await retryDraft(draftId);
+        if (result.ok) return res.json(result);
+        const httpStatus =
+          result.reason === "draft_not_found" ? 404
+          : result.reason === "not_failed" ? 409
+          : 500;
+        return res.status(httpStatus).json(result);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
   /* ═══════════════════════════════════════════════════════════════════
      DEV-ONLY endpoints for Sprint 1 verification.
      Gated by NODE_ENV !== "production". Require admin auth.
@@ -538,6 +651,30 @@ export function registerContentFlowRoutes(app: Express): void {
           status: reqStatus === "publish" ? "publish" : "draft",
           title: { rendered: title },
         });
+      },
+    );
+
+    /**
+     * POST /api/admin/contentflow/__dev/wp-queue/run
+     *
+     * Sprint 5 dev-only: synchronously runs one pass of the WordPress
+     * publish queue worker and returns the summary. The production cron
+     * fires every 2 minutes; tests use this endpoint to drain the queue
+     * deterministically without waiting.
+     *
+     * Gated by NODE_ENV !== "production" + requireAdmin (this lives
+     * under /api/admin/... so the admin gate applies).
+     */
+    app.post(
+      "/api/admin/contentflow/__dev/wp-queue/run",
+      requireAdmin,
+      async (_req: Request, res: Response) => {
+        try {
+          const summary = await processWordpressPublishQueue();
+          res.json({ ok: true, ...summary });
+        } catch (err: any) {
+          res.status(500).json({ ok: false, error: err.message });
+        }
       },
     );
   }
