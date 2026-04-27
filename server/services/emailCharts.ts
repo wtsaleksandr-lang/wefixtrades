@@ -23,6 +23,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import express, { type Express } from "express";
+import { PNG } from "pngjs";
 
 const DEFAULT_CHART_DIR = path.resolve(process.cwd(), "data", "email-charts");
 const URL_PREFIX = "/email-charts";
@@ -86,24 +87,21 @@ export interface LineChartSpec {
 
 export interface GenerateChartResult {
   /**
-   * The URL to embed in <img src="..."/> for the customer email.
-   *
-   * This is the QuickChart CDN URL (always public, always reachable),
-   * NOT our locally cached copy. Embedding the upstream URL eliminates
-   * a class of bugs where the email goes out before our deployment
-   * has the cached file (or before the static route is registered),
-   * which would otherwise return the SPA fallback HTML and Gmail would
-   * render a broken image.
-   *
-   * QuickChart's CDN is highly available; if it's down when a recipient
-   * opens the email, the numeric fallback block below the chart still
-   * carries the story.
+   * Public URL the email <img> tag can fall back to. QuickChart CDN URL
+   * (always public, always reachable). Used in production when the
+   * caller doesn't post-process. For PNGs that have been alpha-masked
+   * server-side, prefer `cachedUrl` (which serves the processed file)
+   * or use `localPath` to send as a CID inline attachment.
    */
   url: string;
-  /** Locally cached URL on our domain — informational, not embedded by default. */
+  /** Locally cached URL on our domain — serves the post-processed PNG when present. */
   cachedUrl: string | null;
+  /** Absolute filesystem path to the cached PNG. Use for CID inline attachments. */
+  localPath: string | null;
   /** Whether the local file was already cached or was just generated. */
   cached: boolean;
+  /** Whether the PNG was post-processed with the alpha-edge mask. */
+  alphaMasked: boolean;
 }
 
 /**
@@ -159,9 +157,10 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
             x: { display: false },
             y: { display: false, beginAtZero: true },
           },
-          // Heavy L/R padding (≈14% of canvas each side) bakes the
-          // dim-edges effect into the PNG.
-          layout: { padding: { top: 18, right: 80, bottom: 18, left: 80 } },
+          // Minimal layout padding so the line/fill extend close to the
+          // canvas edges; the alpha-mask post-processing handles the
+          // edge fade and that fade reaches into the actual line + fill.
+          layout: { padding: { top: 14, right: 6, bottom: 14, left: 6 } },
           elements: { line: { capBezierPoints: true } },
         },
       }
@@ -211,11 +210,19 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
         },
       };
 
+  // For the integrated variant we force a transparent canvas so the
+  // post-processing alpha mask can cleanly fade the line + fill into
+  // the email's surrounding card background. QuickChart returns RGBA
+  // PNG when backgroundColor=transparent.
+  const requestedBg = integrated
+    ? "transparent"
+    : (spec.backgroundColor || "#0F141A");
+
   const params = new URLSearchParams({
     c: JSON.stringify(config),
     width: String(spec.width || 600),
     height: String(spec.height || 240),
-    backgroundColor: spec.backgroundColor || "#0F141A",
+    backgroundColor: requestedBg,
     devicePixelRatio: "2",
     format: "png",
     version: "4",
@@ -226,10 +233,15 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
 
   const upstreamUrl = `https://quickchart.io/chart?${params.toString()}`;
 
-  // Idempotent — if the local cache already exists, return it as the
-  // archival URL but still return the upstream URL as the embed URL.
+  // Idempotent — if the local cache already exists, return it.
   if (fs.existsSync(filepath)) {
-    return { url: upstreamUrl, cachedUrl, cached: true };
+    return {
+      url: cachedUrl,
+      cachedUrl,
+      localPath: filepath,
+      cached: true,
+      alphaMasked: integrated, // assume previously masked if integrated variant
+    };
   }
 
   try {
@@ -238,25 +250,103 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
       console.warn(`[email-charts] QuickChart returned ${res.status} for ${spec.cacheKey}`);
       return null;
     }
-    const buffer = Buffer.from(await res.arrayBuffer());
+    let buffer = Buffer.from(await res.arrayBuffer());
     if (buffer.length < 200) {
-      // Sanity check — real chart PNGs are >200 bytes. Anything smaller is
-      // probably an error response that slipped through.
       console.warn(`[email-charts] Suspiciously small response (${buffer.length} bytes) for ${spec.cacheKey}`);
       return null;
     }
-    // Best-effort local archive — used for debugging and potential future
-    // self-hosted serving. NOT what gets embedded in the customer email.
+
+    // Apply the horizontal alpha-edge mask for the integrated variant.
+    // This is the actual fade — the line, fill, and background all become
+    // progressively transparent at the left and right edges, so when the
+    // PNG sits over the email's card background there's no visible
+    // rectangle and the line trails into nothing. Fade fraction 0.25
+    // means the leftmost and rightmost 25% of the canvas fade from 0
+    // alpha (transparent) up to the pixel's original alpha — long
+    // enough to extend into the plotted line/fill area for a real
+    // dissolve effect, not just a fade of empty padding.
+    let alphaMasked = false;
+    if (integrated) {
+      try {
+        buffer = applyHorizontalAlphaFade(buffer, { fadeFraction: 0.25 });
+        alphaMasked = true;
+      } catch (maskErr: any) {
+        console.warn(`[email-charts] alpha-fade post-processing failed for ${spec.cacheKey}:`, maskErr?.message || maskErr);
+        // Fall through with the unmasked buffer — better a hard-edged chart
+        // than no chart at all
+      }
+    }
+
     try {
       fs.writeFileSync(filepath, buffer);
     } catch (cacheErr: any) {
       console.warn(`[email-charts] local cache write failed for ${spec.cacheKey}:`, cacheErr?.message || cacheErr);
+      // If we couldn't write to disk, the only working URL is the upstream
+      return { url: upstreamUrl, cachedUrl: null, localPath: null, cached: false, alphaMasked: false };
     }
-    return { url: upstreamUrl, cachedUrl, cached: false };
+
+    return {
+      // Prefer the cached URL when we wrote to disk — that's where the
+      // post-processed (alpha-masked) PNG lives. Upstream QuickChart only
+      // has the un-masked version.
+      url: cachedUrl,
+      cachedUrl,
+      localPath: filepath,
+      cached: false,
+      alphaMasked,
+    };
   } catch (err: any) {
     console.warn(`[email-charts] generation failed for ${spec.cacheKey}:`, err?.message || err);
     return null;
   }
+}
+
+/* ─── Alpha-edge post-processing ─── */
+
+/**
+ * Apply a horizontal alpha gradient to a PNG so the left and right edges
+ * fade smoothly to fully transparent. Used to dissolve the visible image
+ * rectangle when the chart is meant to read as part of the surrounding
+ * card.
+ *
+ * Implementation: decode the PNG to raw RGBA, walk every row, multiply
+ * each pixel's alpha channel by a horizontal fade factor (smooth-step
+ * curve), then re-encode. Pure JS via pngjs — no native deps.
+ *
+ * `fadeFraction` is the share of the image width on each side that
+ * fades from 0 → 1 alpha. 0.14 = ~14% on each side fades in (so middle
+ * 72% is fully opaque).
+ */
+function applyHorizontalAlphaFade(input: Buffer, opts: { fadeFraction?: number } = {}): Buffer {
+  const fade = Math.max(0, Math.min(0.4, opts.fadeFraction ?? 0.14));
+  const png = PNG.sync.read(input);
+  const { width, height, data } = png;
+
+  // Pre-compute per-column alpha multipliers (0..1) using a smooth-step curve
+  const fadeWidth = Math.max(1, Math.floor(width * fade));
+  const alphaCol = new Float32Array(width);
+  for (let x = 0; x < width; x++) {
+    let t = 1;
+    if (x < fadeWidth) {
+      t = x / fadeWidth;
+    } else if (x > width - 1 - fadeWidth) {
+      t = (width - 1 - x) / fadeWidth;
+    }
+    // Smooth-step (3t² - 2t³) for a softer fade curve
+    t = Math.max(0, Math.min(1, t));
+    alphaCol[x] = t * t * (3 - 2 * t);
+  }
+
+  // Walk every pixel and multiply its alpha
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      const currentAlpha = data[idx + 3];
+      data[idx + 3] = Math.round(currentAlpha * alphaCol[x]);
+    }
+  }
+
+  return PNG.sync.write(png);
 }
 
 /* ─── Express route registration ─── */

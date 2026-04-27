@@ -505,6 +505,11 @@ export async function compileAndSendAdFlowReport(
 /**
  * Build the email HTML for preview/test purposes without sending.
  * Used by the preview script to render exactly what a real recipient sees.
+ *
+ * Returns the chart's local file path alongside the HTML so the caller
+ * can attach the post-processed PNG as a CID inline attachment when
+ * embedding via a public URL isn't viable (e.g. before the deployment
+ * has the cached file).
  */
 export async function previewAdFlowReportHtml(opts: {
   contactName: string;
@@ -512,13 +517,16 @@ export async function previewAdFlowReportHtml(opts: {
   metrics: AdFlowReportMetrics;
   recipientEmail: string;
   cacheKey?: string;
-}): Promise<{ subject: string; html: string }> {
+  /** When true, replace the chart <img> src with `cid:chart` so the
+      caller can attach the local PNG inline. Default: false. */
+  embedChartAsCid?: boolean;
+}): Promise<{ subject: string; html: string; chartLocalPath: string | null }> {
   const m = opts.metrics;
   const period = formatPeriod(m.period_start, m.period_end);
   const summary = await writeSummary(opts.serviceName, m, period).catch(() => "Campaign summary unavailable in preview.");
 
-  const chartUrl = m.daily_breakdown && m.daily_breakdown.length > 1
-    ? (await generateLineChart({
+  const chartResult = m.daily_breakdown && m.daily_breakdown.length > 1
+    ? await generateLineChart({
         cacheKey: opts.cacheKey || `adflow-preview-${Date.now()}`,
         labels: m.daily_breakdown.map((p, i, arr) => {
           const stride = Math.max(1, Math.floor(arr.length / 8));
@@ -531,8 +539,12 @@ export async function previewAdFlowReportHtml(opts: {
         height: 280,
         backgroundColor: COLORS.card,
         variant: "integrated",
-      }))?.url || null
+      })
     : null;
+
+  const chartUrl = opts.embedChartAsCid && chartResult?.localPath
+    ? "cid:chart"
+    : (chartResult?.url || null);
 
   const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
 
@@ -548,5 +560,6 @@ export async function previewAdFlowReportHtml(opts: {
       portalUrl: `${baseUrl}/portal/services`,
       recipientEmail: opts.recipientEmail,
     }),
+    chartLocalPath: chartResult?.localPath || null,
   };
 }
