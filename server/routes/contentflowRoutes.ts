@@ -330,7 +330,7 @@ export function registerContentFlowRoutes(app: Express): void {
         const httpStatus =
           result.reason === "draft_not_found" ? 404
           : result.reason === "wrong_kind" || result.reason === "wrong_surface" || result.reason === "not_approved" || result.reason === "missing_body" ? 409
-          : result.reason === "no_profile" || result.reason === "wrong_cms_type" || result.reason === "missing_credentials" || result.reason === "encryption_unavailable" || result.reason === "decrypt_failed" ? 422
+          : result.reason === "no_profile" || result.reason === "wrong_cms_type" || result.reason === "missing_credentials" || result.reason === "encryption_unavailable" || result.reason === "decrypt_failed" || result.reason === "insecure_destination" ? 422
           : result.reason === "wp_error" || result.reason === "network_error" ? 502
           : 500;
         return res.status(httpStatus).json({ ok: false, reason: result.reason, error: result.message });
