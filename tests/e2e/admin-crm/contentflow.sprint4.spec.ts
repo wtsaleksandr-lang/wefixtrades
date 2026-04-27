@@ -400,6 +400,44 @@ test.describe("ContentFlow Sprint 4 — WordPress publishing", () => {
     await anon.dispose();
   });
 
+  test("P4-9 — race: late-arriving generateArticleBody does NOT wipe metadata.wordpress written by publish", async ({ adminApi }) => {
+    /* Reproduces the Sprint 4 race condition surfaced during integration:
+     *   1. Plan generation fires background generateArticleBody (~10s).
+     *   2. Admin approves + publishes — metadata.wordpress is written.
+     *   3. The late-arriving generation finishes and writes back metadata
+     *      from a stale snapshot, wiping the wordpress key.
+     *
+     * This test simulates step 3 explicitly by calling regenerate-article
+     * AFTER the publish has populated metadata.wordpress. The fixed
+     * generateArticleBody must re-read fresh metadata immediately before
+     * its UPDATE, preserving the wordpress key (and any other concurrent
+     * write). It must also NOT downgrade an already-published draft back
+     * to status='draft'. */
+    expect(articleDraftId, "P4-1 should have established a published draft").toBeTruthy();
+
+    /* Confirm starting state: draft is published with metadata.wordpress set. */
+    const before = await (await adminApi.get(`/api/admin/contentflow/drafts/${articleDraftId}`)).json();
+    expect(before.draft.status).toBe("published");
+    expect(before.draft.metadata?.wordpress?.post_url).toBeTruthy();
+    const wpBefore = before.draft.metadata.wordpress;
+
+    /* Run another generateArticleBody pass — this stand-in for the late-
+     * arriving background gen reads metadata, calls Anthropic (~10s), and
+     * writes metadata back. The fix re-reads metadata at write time. */
+    const regen = await adminApi.post(
+      `/api/admin/contentflow/drafts/${articleDraftId}/regenerate-article`,
+    );
+    expect(regen.ok(), `regenerate after publish failed: ${await regen.text()}`).toBeTruthy();
+
+    /* metadata.wordpress MUST still be present. If the fix is missing,
+     * the regenerate would have clobbered the wordpress key. */
+    const after = await (await adminApi.get(`/api/admin/contentflow/drafts/${articleDraftId}`)).json();
+    expect(after.draft.metadata?.wordpress?.post_url, "wordpress.post_url must survive a concurrent generateArticleBody").toBe(wpBefore.post_url);
+    expect(after.draft.metadata?.wordpress?.post_id).toBe(wpBefore.post_id);
+    /* Status must NOT downgrade from 'published' back to 'draft'. */
+    expect(after.draft.status, "regenerate must not downgrade an already-published draft").toBe("published");
+  });
+
   test("P4-8 — static guarantee: dev WP mock is registered ONLY inside the NODE_ENV !== 'production' block", async () => {
     /* This is a structural assertion against the source file, not a
      * runtime check. Spinning up a real production-mode server in CI is
