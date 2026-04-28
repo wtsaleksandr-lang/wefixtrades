@@ -1,7 +1,14 @@
 import nodemailer from "nodemailer";
 import type { Booking, Calculator } from "@shared/schema";
+import { getEmailTransporter, getFromAddress } from "./lib/emailTransport";
+import { buildTransactionalEmail, buildPlainText } from "./lib/transactionalShell";
 
-function getTransporter() {
+/**
+ * Standalone transporter for the BUSINESS notification (out of scope for
+ * Sprint 2C cleanup — it's an admin-style internal notification to the
+ * calculator owner, scheduled for Sprint 2D admin-shell migration).
+ */
+function getLegacyBusinessTransporter() {
   const host = process.env.SMTP_HOST;
   const port = parseInt(process.env.SMTP_PORT || "587", 10);
   const user = process.env.SMTP_USER;
@@ -24,7 +31,7 @@ function formatTime(timeStr: string): string {
 }
 
 export async function sendBookingConfirmationToCustomer(booking: Booking, calculator: Calculator): Promise<boolean> {
-  const transporter = getTransporter();
+  const transporter = getEmailTransporter();
   if (!transporter || !booking.customer_email) return false;
 
   const businessName = calculator.business_name;
@@ -33,26 +40,46 @@ export async function sendBookingConfirmationToCustomer(booking: Booking, calcul
   const quoteDisplay = booking.quote_amount ? `$${booking.quote_amount}` : "";
   const depositDisplay = booking.deposit_amount ? `$${booking.deposit_amount}` : "";
 
-  const html = `
-    <div style="font-family: 'Inter', system-ui, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 20px;">
-      <h1 style="font-size: 22px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px;">Booking Confirmed</h1>
-      <p style="color: #666; font-size: 14px; margin-bottom: 24px;">Your appointment with <strong>${businessName}</strong> has been confirmed.</p>
-      <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-        <div style="margin-bottom: 12px;"><span style="color: #888; font-size: 12px; text-transform: uppercase;">Date</span><br/><strong style="font-size: 15px;">${dateDisplay}</strong></div>
-        <div style="margin-bottom: 12px;"><span style="color: #888; font-size: 12px; text-transform: uppercase;">Time</span><br/><strong style="font-size: 15px;">${timeDisplay}</strong></div>
-        ${quoteDisplay ? `<div style="margin-bottom: 12px;"><span style="color: #888; font-size: 12px; text-transform: uppercase;">Estimated Quote</span><br/><strong style="font-size: 15px;">${quoteDisplay}</strong></div>` : ""}
-        ${booking.deposit_paid && depositDisplay ? `<div><span style="color: #888; font-size: 12px; text-transform: uppercase;">Deposit Paid</span><br/><strong style="font-size: 15px; color: #16a34a;">${depositDisplay}</strong></div>` : ""}
-      </div>
-      <p style="color: #888; font-size: 13px;">If you need to reschedule or cancel, please contact ${businessName} directly.</p>
-    </div>
-  `;
+  const detailRow = (label: string, value: string, valueColor?: string) => `
+    <tr>
+      <td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:120px;">${label}</td>
+      <td style="padding:6px 0;font-size:14px;color:${valueColor || "#F0F0F0"};font-weight:600;text-align:right;">${value}</td>
+    </tr>`;
+
+  const html = buildTransactionalEmail({
+    recipientEmail: booking.customer_email,
+    subjectForTitle: `Booking Confirmed — ${dateDisplay} at ${timeDisplay}`,
+    eyebrow: "Booking confirmed",
+    headline: "Your appointment is set",
+    intro: `Your appointment with <strong style="color:#F0F0F0;">${businessName}</strong> has been confirmed.`,
+    bodyHtml: `
+      <table style="width:100%;border-collapse:collapse;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 14px;">
+        ${detailRow("Date", dateDisplay)}
+        ${detailRow("Time", timeDisplay)}
+        ${quoteDisplay ? detailRow("Estimated quote", quoteDisplay) : ""}
+        ${booking.deposit_paid && depositDisplay ? detailRow("Deposit paid", depositDisplay, "#66E8FA") : ""}
+      </table>`,
+    supportNote: `If you need to reschedule or cancel, please contact <strong style="color:#CDD1D6;font-weight:600;">${businessName}</strong> directly.`,
+    showDividerBeforeSupport: true,
+  });
 
   try {
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || "noreply@estimate.ai",
+      from: `${businessName} <${getFromAddress()}>`,
       to: booking.customer_email,
       subject: `Booking Confirmed — ${dateDisplay} at ${timeDisplay}`,
       html,
+      text: buildPlainText({
+        headline: "Your appointment is set",
+        intro: `Your appointment with ${businessName} has been confirmed.`,
+        bodyText: [
+          `Date: ${dateDisplay}`,
+          `Time: ${timeDisplay}`,
+          quoteDisplay ? `Estimated quote: ${quoteDisplay}` : "",
+          booking.deposit_paid && depositDisplay ? `Deposit paid: ${depositDisplay}` : "",
+        ].filter(Boolean).join("\n"),
+        supportNote: `If you need to reschedule or cancel, please contact ${businessName} directly.`,
+      }),
     });
     return true;
   } catch (err) {
@@ -62,7 +89,7 @@ export async function sendBookingConfirmationToCustomer(booking: Booking, calcul
 }
 
 export async function sendBookingNotificationToBusiness(booking: Booking, calculator: Calculator): Promise<boolean> {
-  const transporter = getTransporter();
+  const transporter = getLegacyBusinessTransporter();
   const calcSettings = (calculator.calculator_settings as any) || {};
   const businessEmail = calcSettings.lead_form?.delivery?.primary_email || calculator.owner_email;
   if (!transporter || !businessEmail) return false;
