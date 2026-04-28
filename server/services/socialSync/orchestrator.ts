@@ -263,21 +263,24 @@ export async function generateWeekForClient(
       const draft = await createDraftFromSocialPost({ post: genResult.post });
       draftIdForEnqueue = draft.id;
 
-      /* Sprint 11: image generation (FB / IG only). Fire SYNCHRONOUSLY
-       * before auto-approve so the queue worker sees the image_url
-       * when it dispatches. NEVER throws — generateForDraft is
-       * documented to swallow all failures and return a result
-       * marker. If image gen fails:
-       *   - FB: draft publishes text-only (no media required)
-       *   - IG: draft fails its own validation later, isolated to
-       *         the IG queue — does NOT block other drafts. */
-      const isFbOrIg = genResult.post.platform === "facebook" || genResult.post.platform === "instagram";
-      if (isFbOrIg) {
+      /* Sprint 11/12: image generation. Fire SYNCHRONOUSLY before
+       * auto-approve so the queue worker sees the image_url when it
+       * dispatches. NEVER throws — generateForDraft is documented
+       * to swallow all failures and return a result marker.
+       *
+       * Sprint 11 covered FB / IG. Sprint 12 adds google_business —
+       * GBP local posts now get an image too, attached via the
+       * publisher's media field. If image gen fails for any of the
+       * three platforms:
+       *   - FB / GBP: draft publishes text-only (media optional)
+       *   - IG: draft fails its own validation gate cleanly —
+       *         isolated to the IG queue, does NOT block other
+       *         channel drains. */
+      const platformsWithImage = new Set(["facebook", "instagram", "google_business"]);
+      if (platformsWithImage.has(genResult.post.platform)) {
         const imageRes = await generateImageForDraft(draft.id);
         if (!imageRes.ok && imageRes.reason !== "skipped_already_has_image") {
-          /* Log but do not surface as an orchestrator error — the
-           * draft is still publishable per the hard requirement. */
-          console.warn(`[contentflow][image-gen] draft=${draft.id} reason=${imageRes.reason} msg=${imageRes.message}`);
+          console.warn(`[contentflow][image-gen] draft=${draft.id} platform=${genResult.post.platform} reason=${imageRes.reason} msg=${imageRes.message}`);
         }
       }
 

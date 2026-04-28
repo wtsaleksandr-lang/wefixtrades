@@ -282,11 +282,17 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
     const draft = await storage.getContentDraftById(draftId);
     if (!draft) return { ok: false, reason: "skipped_kind", message: "draft not found" };
 
-    if (draft.kind !== "social_post" && draft.kind !== "carousel_post") {
+    /* Sprint 11 accepted kind ∈ {social_post, carousel_post}.
+     * Sprint 12 adds google_post (GBP local posts get an image too). */
+    if (draft.kind !== "social_post" && draft.kind !== "carousel_post" && draft.kind !== "google_post") {
       log("skipped_kind");
       return { ok: false, reason: "skipped_kind", message: `kind=${draft.kind}` };
     }
-    if (draft.target_platform !== "facebook" && draft.target_platform !== "instagram") {
+    /* Sprint 11 accepted facebook / instagram. Sprint 12 adds
+     * google_business so GBP local posts can carry a Sprint-11-
+     * generated image via the publisher's media field. */
+    const allowedPlatforms = new Set(["facebook", "instagram", "google_business"]);
+    if (!allowedPlatforms.has(draft.target_platform || "")) {
       log(`skipped_platform=${draft.target_platform}`);
       return { ok: false, reason: "skipped_platform", message: `platform=${draft.target_platform}` };
     }

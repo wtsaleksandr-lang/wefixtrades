@@ -83,12 +83,25 @@ export async function publishToGoogleBusiness(
     summary = summary.slice(0, GBP_MAX_SUMMARY_LENGTH - 3) + "...";
   }
 
-  // GBP posts don't use hashtags in the same way — just include the text
-  const payload = {
+  /* Sprint 12: attach image when available. The GBP localPosts API
+   * accepts a `media` array with `{ mediaFormat, sourceUrl }` items.
+   * We use Sprint 11's image_url stamped on post.media_plan by the
+   * orchestrator's image-gen step. Image is OPTIONAL — when absent,
+   * the post publishes text-only (preserves Sprint 11 hard req). */
+  const mediaPlan = post.media_plan as Record<string, any> | null;
+  const imageUrl =
+    mediaPlan?.image_url || mediaPlan?.public_image_url || null;
+
+  const payload: Record<string, any> = {
     summary,
     topicType: "STANDARD",
     languageCode: "en",
   };
+  if (typeof imageUrl === "string" && imageUrl.length > 0) {
+    payload.media = [
+      { mediaFormat: "PHOTO", sourceUrl: imageUrl },
+    ];
+  }
 
   // 4. Publish
   try {

@@ -999,8 +999,17 @@ export function registerContentFlowRoutes(app: Express): void {
      * Triggered when GBP_POST_API_BASE_OVERRIDE points here. Authorization:
      * Bearer required (mirrors real Google API). Summary prefix
      * `FAIL_GBP_POST_RATE` → 429; `FAIL_GBP_POST_PERM` → 401.
+     *
+     * Sprint 12: records the last 50 received POST bodies in memory
+     * so the spec can verify media payload (image attachment) without
+     * needing a side-channel through the adapter response. Inspect via
+     * GET /api/__dev/gbp-post-mock/__inspect/recent.
      */
+    const gbpPostRequestRecord: Array<{ at: string; locationKey: string; body: any }> = [];
     app.use("/api/__dev/gbp-post-mock", (req: Request, res: Response, next) => {
+      if (req.method === "GET" && req.path === "/__inspect/recent") {
+        return res.json({ recent: gbpPostRequestRecord.slice(-50) });
+      }
       if (req.method !== "POST") return next();
       const match = req.path.match(/^\/(.+)\/localPosts\/?$/);
       if (!match) return next();
@@ -1014,10 +1023,14 @@ export function registerContentFlowRoutes(app: Express): void {
       if (summary.startsWith("FAIL_GBP_POST_PERM")) {
         return res.status(401).json({ error: { code: 401, message: "Unauthorized (forced for test)" } });
       }
+      /* Record for spec inspection. Trim to last 50 to avoid unbounded growth. */
+      gbpPostRequestRecord.push({ at: new Date().toISOString(), locationKey: match[1], body: req.body });
+      if (gbpPostRequestRecord.length > 50) gbpPostRequestRecord.shift();
       const fakeId = `accounts/test/locations/x/localPosts/${Math.floor(Math.random() * 9_000_000) + 1_000_000}`;
       res.json({
         name: fakeId,
         summary,
+        media: req.body?.media ?? null,
         state: "LIVE",
         createTime: new Date().toISOString(),
       });
