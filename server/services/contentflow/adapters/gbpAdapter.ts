@@ -186,12 +186,20 @@ export const gbpAdapter: PublishAdapter = {
       return { ok: false, reason, message: errMsg, http_status: upstreamStatus, retryable };
     }
 
-    /* Success: persist on draft + reviews. */
+    /* Success: persist on draft + reviews.
+     *
+     * Source detection: trust draft.auto_approved at the moment of
+     * publish (true → autoApproveDraft fired, "auto_replied"; false →
+     * adminApproveDraft / clientApproveDraft fired, "manually_replied").
+     * metadata.gbp.source is only used as a fallback for shape compat. */
     const postedAt = new Date().toISOString();
     const replyResult = (result.result || {}) as Record<string, unknown>;
     await persistSuccess(draft.id, postedAt, replyResult);
     if (meta.review_id) {
-      await persistOnReview(meta.review_id, replyText, replyResult, meta.source ?? "admin");
+      const reviewSource: "auto" | "admin" | "client" = draft.auto_approved
+        ? "auto"
+        : (meta.source === "client" ? "client" : "admin");
+      await persistOnReview(meta.review_id, replyText, replyResult, reviewSource);
     }
 
     console.log(`${logPrefix} draft=${draft.id} client=${draft.client_id} review=${meta.external_review_id} posted ok`);
