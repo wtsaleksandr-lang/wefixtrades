@@ -1,5 +1,7 @@
 import { storage } from "../storage";
 import type { InsertAuditFollowupEmail } from "@shared/schema";
+import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
+import { buildAdminAlertEmail, buildAdminAlertPlainText } from "./adminAlertShell";
 
 /**
  * Demo Quote Tool follow-up email sequence.
@@ -39,6 +41,7 @@ function demoLink(): string {
 export function buildDemoQuoteEmail(ctx: DemoQuoteFollowupContext): {
   subject: string;
   html: string;
+  text: string;
 } {
   const quoteDisplay = ctx.quoteAmount
     ? formatDollars(ctx.quoteAmount)
@@ -46,37 +49,46 @@ export function buildDemoQuoteEmail(ctx: DemoQuoteFollowupContext): {
 
   const subject = `Your ${ctx.trade} quote from ${ctx.demoBusinessName} — ${quoteDisplay}`;
 
-  const html = `<!DOCTYPE html>
-<html><body style="font-family:'Inter',Arial,sans-serif;margin:0;padding:0;background:#f5f5f5;">
-<table cellpadding="0" cellspacing="0" width="100%" style="max-width:520px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-  <tr><td style="padding:24px 28px;background:#0d1514;">
-    <h1 style="color:#fff;font-size:18px;margin:0;">Your ${ctx.trade} Quote</h1>
-    <p style="color:rgba(255,255,255,0.6);font-size:13px;margin:6px 0 0;">from ${ctx.demoBusinessName} (demo)</p>
-  </td></tr>
-  <tr><td style="padding:28px;">
-    ${ctx.quoteAmount ? `
-    <div style="text-align:center;padding:16px;background:#f0fdf4;border-radius:8px;margin-bottom:20px;">
-      <p style="margin:0 0 4px;font-size:12px;color:#166534;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Your Estimate</p>
-      <p style="margin:0;font-size:32px;font-weight:800;color:#166534;">${quoteDisplay}</p>
-    </div>` : ""}
-    <p style="font-size:14px;color:#333;line-height:1.7;margin:0 0 20px;">
-      This quote was generated using the QuoteQuick demo for ${ctx.trade} services. In a real scenario, a ${ctx.trade} business would receive your details and follow up directly.
-    </p>
-    <div style="border-top:1px solid #E5E7EB;padding-top:20px;">
-      <p style="font-size:15px;font-weight:700;color:#111;margin:0 0 8px;">Want this on YOUR website?</p>
-      <p style="font-size:13px;color:#6B7280;line-height:1.6;margin:0 0 16px;">
-        QuoteQuick lets your customers get instant quotes 24/7 and sends every lead straight to you. No code needed — live in under 10 minutes.
-      </p>
-      <a href="${quotequickLink()}" style="display:inline-block;background:#00D4C8;color:#0d1514;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Get QuoteQuick — From $49/mo</a>
-    </div>
-  </td></tr>
-  <tr><td style="padding:12px 28px;background:#f9fafb;text-align:center;">
-    <p style="font-size:11px;color:#9ca3af;margin:0;">Sent by WeFixTrades</p>
-  </td></tr>
-</table>
-</body></html>`;
+  const quoteCallout = ctx.quoteAmount
+    ? `<table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 16px;">
+        <tr>
+          <td style="padding:16px 18px;background:rgba(102,232,250,0.08);border:1px solid rgba(102,232,250,0.20);border-radius:10px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:11px;color:#66E8FA;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Your estimate</p>
+            <p style="margin:0;font-size:32px;font-weight:800;color:#F0F0F0;">${quoteDisplay}</p>
+          </td>
+        </tr>
+      </table>`
+    : "";
 
-  return { subject, html };
+  const html = buildTransactionalEmail({
+    recipientEmail: ctx.email,
+    subjectForTitle: subject,
+    headerTagline: `from ${ctx.demoBusinessName} (demo)`,
+    eyebrow: `Your ${ctx.trade} quote`,
+    headline: ctx.quoteAmount ? "Here's your estimate" : "Your quote request received",
+    intro: `This quote was generated using the QuoteQuick demo for ${ctx.trade} services. In a real scenario, a ${ctx.trade} business would receive your details and follow up directly.`,
+    bodyHtml: `
+      ${quoteCallout}
+      <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:18px;margin-top:4px;">
+        <p style="font-size:14px;font-weight:700;color:#F0F0F0;margin:0 0 6px;">Want this on YOUR website?</p>
+        <p style="font-size:13px;color:#CDD1D6;line-height:1.6;margin:0;">
+          QuoteQuick lets your customers get instant quotes 24/7 and sends every lead straight to you. No code needed — live in under 10 minutes.
+        </p>
+      </div>`,
+    cta: { label: "Get QuoteQuick — from $49/mo", url: quotequickLink() },
+  });
+
+  const text = buildPlainText({
+    headline: ctx.quoteAmount ? "Here's your estimate" : "Your quote request received",
+    intro: `This quote was generated using the QuoteQuick demo for ${ctx.trade} services.`,
+    bodyText: ctx.quoteAmount
+      ? `Your estimate: ${quoteDisplay}\n\nWant this on YOUR website? QuoteQuick lets your customers get instant quotes 24/7 and sends every lead straight to you. No code needed — live in under 10 minutes.`
+      : `Want QuoteQuick on YOUR website? Customers get instant quotes 24/7 and every lead lands in your inbox. No code, live in under 10 minutes.`,
+    ctaLabel: "Get QuoteQuick — from $49/mo",
+    ctaUrl: quotequickLink(),
+  });
+
+  return { subject, html, text };
 }
 
 /**
@@ -85,6 +97,7 @@ export function buildDemoQuoteEmail(ctx: DemoQuoteFollowupContext): {
 export function buildInternalNotificationEmail(ctx: DemoQuoteFollowupContext): {
   subject: string;
   html: string;
+  text: string;
 } {
   const quoteDisplay = ctx.quoteAmount
     ? formatDollars(ctx.quoteAmount)
@@ -92,24 +105,30 @@ export function buildInternalNotificationEmail(ctx: DemoQuoteFollowupContext): {
 
   const subject = `[Demo Lead] ${ctx.email} — ${ctx.trade} — ${quoteDisplay}`;
 
-  const html = `<!DOCTYPE html>
-<html><body style="font-family:Arial,sans-serif;margin:0;padding:0;background:#f5f5f5;">
-<table cellpadding="0" cellspacing="0" width="100%" style="max-width:480px;margin:24px auto;background:#fff;border-radius:8px;overflow:hidden;">
-  <tr><td style="padding:16px 20px;background:#1e293b;">
-    <h2 style="color:#fff;font-size:15px;margin:0;">New Quote Demo Lead</h2>
-  </td></tr>
-  <tr><td style="padding:20px;">
-    <table cellpadding="0" cellspacing="0" width="100%">
-      <tr><td style="padding:4px 0;font-size:13px;color:#666;">Email</td><td style="padding:4px 0;font-size:13px;font-weight:600;">${ctx.email}</td></tr>
-      <tr><td style="padding:4px 0;font-size:13px;color:#666;">Trade</td><td style="padding:4px 0;font-size:13px;font-weight:600;">${ctx.trade}</td></tr>
-      <tr><td style="padding:4px 0;font-size:13px;color:#666;">Demo Business</td><td style="padding:4px 0;font-size:13px;">${ctx.demoBusinessName}</td></tr>
-      <tr><td style="padding:4px 0;font-size:13px;color:#666;">Quote Amount</td><td style="padding:4px 0;font-size:13px;font-weight:600;color:#166534;">${quoteDisplay}</td></tr>
-    </table>
-  </td></tr>
-</table>
-</body></html>`;
+  const detailRows = [
+    { label: "Email", value: ctx.email },
+    { label: "Trade", value: ctx.trade },
+    { label: "Demo business", value: ctx.demoBusinessName },
+    { label: "Quote amount", value: quoteDisplay, valueColor: "#15803D" },
+  ];
 
-  return { subject, html };
+  const html = buildAdminAlertEmail({
+    subjectForTitle: subject,
+    alertType: "New demo quote lead",
+    alertTone: "info",
+    headline: `${ctx.email} just generated a demo quote`,
+    detailRows,
+    footerNote: "QuoteQuick demo · WeFixTrades",
+  });
+
+  const text = buildAdminAlertPlainText({
+    alertType: "New demo quote lead",
+    headline: `${ctx.email} just generated a demo quote`,
+    detailRows: detailRows.map(({ label, value }) => ({ label, value })),
+    footerNote: "QuoteQuick demo · WeFixTrades",
+  });
+
+  return { subject, html, text };
 }
 
 const SEQUENCE: Array<{

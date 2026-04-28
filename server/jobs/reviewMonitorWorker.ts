@@ -87,7 +87,13 @@ async function processReviews(
             const svc = await storage.getClientReputationService(client.id);
             const settings = mergeSettings(svc?.metadata?.reputation_settings);
             if (settings.low_rating_alerts) {
-              const baseUrl = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "";
+              // Use the standard fallback chain — REPLIT_DEV_DOMAIN-only
+              // produced an empty string in production, which made the
+              // alert email's "View & respond" CTA a relative link
+              // (broken in every email client).
+              const baseUrl = process.env.APP_URL
+                || process.env.APP_PUBLIC_URL
+                || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
               await sendLowRatingAlert({
                 contactEmail: client.contact_email,
                 businessName: client.business_name,

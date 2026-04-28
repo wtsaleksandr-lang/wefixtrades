@@ -181,12 +181,146 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
     html: contactHtml,
   });
 
+  /* ─── 6a. bookingEmails.ts (customer confirmation, dark theme) ─── */
+  const bookingHtml = buildTransactionalEmail({
+    recipientEmail: "customer@example.test",
+    subjectForTitle: "Booking confirmed — Friday, May 9, 2026 at 3:00 PM",
+    eyebrow: "Booking confirmed",
+    headline: "Your appointment is set",
+    intro: `Your appointment with <strong style="color:#F0F0F0;">Acme Plumbing</strong> has been confirmed.`,
+    bodyHtml: `
+      <table style="width:100%;border-collapse:collapse;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 14px;">
+        <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:120px;">Date</td><td style="padding:6px 0;font-size:14px;color:#F0F0F0;font-weight:600;text-align:right;">Friday, May 9, 2026</td></tr>
+        <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:120px;">Time</td><td style="padding:6px 0;font-size:14px;color:#F0F0F0;font-weight:600;text-align:right;">3:00 PM</td></tr>
+        <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:120px;">Estimated quote</td><td style="padding:6px 0;font-size:14px;color:#F0F0F0;font-weight:600;text-align:right;">$420</td></tr>
+        <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:120px;">Deposit paid</td><td style="padding:6px 0;font-size:14px;color:#66E8FA;font-weight:600;text-align:right;">$80</td></tr>
+      </table>`,
+    supportNote: `If you need to reschedule or cancel, please contact <strong style="color:#CDD1D6;font-weight:600;">Acme Plumbing</strong> directly.`,
+    showDividerBeforeSupport: true,
+  });
+  previews.push({
+    slug: "07-booking-confirmation",
+    source: "server/bookingEmails.ts",
+    subject: "Booking confirmed — Friday, May 9, 2026 at 3:00 PM",
+    html: bookingHtml,
+  });
+
+  /* ─── 6b. missedCallFollowup.ts buildImmediateResultsEmail ─── */
+  const missedCallHtml = buildTransactionalEmail({
+    recipientEmail: "lead@example.test",
+    subjectForTitle: "Your Missed Call Report: $48,000/yr in lost plumbing revenue",
+    headerTagline: "plumbing business estimate",
+    eyebrow: "Missed-call revenue report",
+    eyebrowColor: "#EF4444",
+    headline: "Your missed-call revenue estimate",
+    intro: `Based on 12 missed calls/week at a 25% close rate with an average job value of <strong style="color:#F0F0F0;">$1,200</strong>.`,
+    bodyHtml: `
+      <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 16px;">
+        <tr>
+          <td style="padding:16px 18px;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.20);border-radius:10px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:11px;color:#FCA5A5;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Estimated annual loss</p>
+            <p style="margin:0;font-size:30px;font-weight:800;color:#F87171;">$48,000</p>
+          </td>
+        </tr>
+      </table>
+      <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 18px;">
+        <tr>
+          <td style="padding:12px 14px;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:8px;width:48%;text-align:center;">
+            <p style="margin:0;font-size:11px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;">Per month</p>
+            <p style="margin:4px 0 0;font-size:17px;font-weight:700;color:#F0F0F0;">$4,000</p>
+          </td>
+          <td style="width:10px;"></td>
+          <td style="padding:12px 14px;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:8px;width:48%;text-align:center;">
+            <p style="margin:0;font-size:11px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;">Per day</p>
+            <p style="margin:4px 0 0;font-size:17px;font-weight:700;color:#F0F0F0;">$132</p>
+          </td>
+        </tr>
+      </table>
+      <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:18px;margin-top:4px;">
+        <p style="font-size:14px;font-weight:700;color:#F0F0F0;margin:0 0 6px;">How to recover this revenue</p>
+        <p style="font-size:13px;color:#CDD1D6;line-height:1.6;margin:0;">
+          TradeLine answers your calls 24/7 with AI, sends instant SMS replies to missed calls, captures every lead, and follows up automatically. Most businesses see results within 2 weeks.
+        </p>
+      </div>`,
+    cta: { label: "See TradeLine plans — from $97/mo", url: "https://wefixtrades.com/products/tradeline" },
+  });
+  previews.push({
+    slug: "08-missed-call-results",
+    source: "server/lib/missedCallFollowup.ts",
+    subject: "Your Missed Call Report: $48,000/yr in lost plumbing revenue",
+    html: missedCallHtml,
+  });
+
+  /* ─── 6c. demoQuoteFollowup.ts buildDemoQuoteEmail ─── */
+  const demoQuoteHtml = buildTransactionalEmail({
+    recipientEmail: "lead@example.test",
+    subjectForTitle: "Your roofing quote from Maple Ridge Roofing — $8,200",
+    headerTagline: "from Maple Ridge Roofing (demo)",
+    eyebrow: "Your roofing quote",
+    headline: "Here's your estimate",
+    intro: `This quote was generated using the QuoteQuick demo for roofing services. In a real scenario, a roofing business would receive your details and follow up directly.`,
+    bodyHtml: `
+      <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 16px;">
+        <tr>
+          <td style="padding:16px 18px;background:rgba(102,232,250,0.08);border:1px solid rgba(102,232,250,0.20);border-radius:10px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:11px;color:#66E8FA;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Your estimate</p>
+            <p style="margin:0;font-size:32px;font-weight:800;color:#F0F0F0;">$8,200</p>
+          </td>
+        </tr>
+      </table>
+      <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:18px;margin-top:4px;">
+        <p style="font-size:14px;font-weight:700;color:#F0F0F0;margin:0 0 6px;">Want this on YOUR website?</p>
+        <p style="font-size:13px;color:#CDD1D6;line-height:1.6;margin:0;">
+          QuoteQuick lets your customers get instant quotes 24/7 and sends every lead straight to you. No code needed — live in under 10 minutes.
+        </p>
+      </div>`,
+    cta: { label: "Get QuoteQuick — from $49/mo", url: "https://wefixtrades.com/signup?product=quotequick" },
+  });
+  previews.push({
+    slug: "09-demo-quote",
+    source: "server/lib/demoQuoteFollowup.ts",
+    subject: "Your roofing quote from Maple Ridge Roofing — $8,200",
+    html: demoQuoteHtml,
+  });
+
+  /* ─── 6d. notificationWorker.ts buildBusinessNotificationEmail ─── */
+  const notificationHtml = buildTransactionalEmail({
+    recipientEmail: "owner@acmeplumbing.test",
+    headerTagline: "Acme Plumbing · plumbing",
+    eyebrow: "New quote request",
+    headline: "Sam Rodriguez just requested a quote",
+    intro: `Quote: <strong style="color:#66E8FA;">$1,850</strong>. Full details below — reply within an hour for the best conversion.`,
+    bodyHtml: `
+      <table style="width:100%;border-collapse:collapse;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 14px;">
+        <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:80px;">Name</td><td style="padding:6px 0;font-size:14px;color:#F0F0F0;font-weight:600;text-align:right;">Sam Rodriguez</td></tr>
+        <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:80px;">Phone</td><td style="padding:6px 0;font-size:14px;color:#F0F0F0;font-weight:600;text-align:right;">+1 555 0142</td></tr>
+        <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:80px;">Email</td><td style="padding:6px 0;font-size:14px;color:#F0F0F0;font-weight:600;text-align:right;">sam@example.test</td></tr>
+        <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:80px;">Quote</td><td style="padding:6px 0;font-size:14px;color:#66E8FA;font-weight:600;text-align:right;">$1,850</td></tr>
+      </table>
+      <div style="margin:16px 0 0;padding:12px 14px;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:8px;">
+        <p style="font-size:11px;color:#8B919A;margin:0 0 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">Key inputs</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#CDD1D6;">
+          <tr><td style="padding:3px 0;color:#8B919A;">job_type</td><td style="padding:3px 0;color:#F0F0F0;text-align:right;">water-heater-replacement</td></tr>
+          <tr><td style="padding:3px 0;color:#8B919A;">unit_size</td><td style="padding:3px 0;color:#F0F0F0;text-align:right;">50-gallon</td></tr>
+          <tr><td style="padding:3px 0;color:#8B919A;">urgency</td><td style="padding:3px 0;color:#F0F0F0;text-align:right;">within-week</td></tr>
+        </table>
+      </div>`,
+    cta: { label: "View in dashboard", url: "https://wefixtrades.com/portal/quotequick" },
+    ctaFinePrint: `Or open the calculator directly: <a href="https://wefixtrades.com/calc/acme-plumbing" style="color:#66E8FA;text-decoration:none;">https://wefixtrades.com/calc/acme-plumbing</a>`,
+  });
+  previews.push({
+    slug: "10-quote-request-notification",
+    source: "server/jobs/notificationWorker.ts",
+    subject: "New Quote Request — Sam Rodriguez (plumbing)",
+    html: notificationHtml,
+  });
+
   /* ─── 6. contentReviewEmail.ts (customer revision-ready, light theme) ─── */
   const revisionHtml = buildTransactionalEmail({
     recipientEmail: "owner@acmeplumbing.test",
     theme: "light",
     maxWidth: 600,
-    subjectForTitle: "Your Revised Article Is Ready",
+    subjectForTitle: "Your revised article is ready for review",
     headerTagline: "Article ready for your review",
     headline: "Hi Sam,",
     intro: "Your team has revised the article you asked us to update. It's ready for your review.",
@@ -198,8 +332,213 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
   previews.push({
     slug: "06-content-revision-ready",
     source: "server/lib/contentReviewEmail.ts",
-    subject: "Your Revised Article Is Ready",
+    subject: "Your revised article is ready for review",
     html: revisionHtml,
+  });
+
+  /* ═══════════════════════════════════════════════════════════════════
+     SPRINT 2D — Admin alert previews
+     ═══════════════════════════════════════════════════════════════════ */
+  const { buildAdminAlertEmail } = await import("../server/lib/adminAlertShell");
+
+  /* 11. lowRatingAlert.ts */
+  const stars = (rating: number) => {
+    let s = "";
+    for (let i = 1; i <= 5; i++) {
+      s += `<span style="color:${i <= rating ? "#FBBF24" : "#D1D5DB"};font-size:18px;">&#9733;</span>`;
+    }
+    return s;
+  };
+  previews.push({
+    slug: "11-low-rating-alert",
+    source: "server/lib/lowRatingAlert.ts",
+    subject: "New 1-star Google review for Acme Plumbing",
+    html: buildAdminAlertEmail({
+      recipientEmail: "ops@acmeplumbing.test",
+      subjectForTitle: "New 1-star Google review for Acme Plumbing",
+      alertType: "Low-rating review alert",
+      alertTone: "critical",
+      headline: "New 1-star review on Google",
+      summary: "Responding quickly can help with recovery. The reviewer's text is below.",
+      detailRows: [
+        { label: "Business", value: "Acme Plumbing" },
+        { label: "Platform", value: "Google" },
+        { label: "Reviewer", value: "Jordan T." },
+      ],
+      bodyHtml: `
+        <div style="background:rgba(185,28,28,0.06);border:1px solid rgba(185,28,28,0.18);border-radius:8px;padding:14px 16px;">
+          <div style="margin-bottom:8px;">${stars(1)}</div>
+          <p style="font-size:13px;color:#374151;line-height:1.5;margin:0;">Showed up two hours late, charged double the quote, and left a mess. Won't be using them again.</p>
+        </div>`,
+      cta: { label: "View &amp; respond", url: "https://wefixtrades.com/portal/reviews" },
+      footerNote: "ReputationShield alert · adjust alert settings in your portal.",
+    }),
+  });
+
+  /* 12. mapguardAlerts.ts */
+  previews.push({
+    slug: "12-mapguard-alert",
+    source: "server/services/mapguardAlerts.ts",
+    subject: "MapGuard Critical: Visibility score dropped 18 points",
+    html: buildAdminAlertEmail({
+      subjectForTitle: "MapGuard Critical: Visibility score dropped 18 points",
+      alertType: "MapGuard Critical",
+      alertTone: "critical",
+      headline: "Visibility score dropped 18 points",
+      summary: "Acme Plumbing's Google Business Profile visibility dropped sharply this week. Investigate ASAP.",
+      detailRows: [
+        { label: "Client", value: "Acme Plumbing" },
+        { label: "Score change", value: "-18 pts", valueColor: "#B91C1C" },
+        { label: "Current score", value: "62/100" },
+        { label: "Keywords affected", value: "12" },
+      ],
+      cta: { label: "View client", url: "https://wefixtrades.com/admin/crm/clients/5001" },
+      footerNote: "MapGuard monitoring · WeFixTrades",
+    }),
+  });
+
+  /* 13. socialSync alertService */
+  previews.push({
+    slug: "13-socialsync-alert",
+    source: "server/services/socialSync/alertService.ts",
+    subject: "SocialSync Token Expired: Acme Plumbing",
+    html: buildAdminAlertEmail({
+      subjectForTitle: "SocialSync Token Expired: Acme Plumbing",
+      alertType: "SocialSync · Token Expired",
+      alertTone: "critical",
+      headline: "Facebook token has expired for Acme Plumbing. Reconnection required.",
+      detailRows: [
+        { label: "Client", value: "Acme Plumbing" },
+        { label: "Platform", value: "facebook" },
+      ],
+      cta: { label: "View in admin", url: "https://wefixtrades.com/admin/crm/clients/5001?tab=socialsync" },
+      footerNote: "SocialSync internal alert",
+    }),
+  });
+
+  /* 14. contactEmails admin */
+  previews.push({
+    slug: "14-contact-admin",
+    source: "server/lib/contactEmails.ts (admin notif)",
+    subject: "New contact form submission · Pricing question — Jamie Walker",
+    html: buildAdminAlertEmail({
+      subjectForTitle: "New contact form submission · Pricing question — Jamie Walker",
+      alertType: "New contact form submission",
+      alertTone: "info",
+      headline: "Jamie Walker sent a message",
+      summary: "Reply directly — the customer's address is the reply-to on this email.",
+      detailRows: [
+        { label: "From", value: "Jamie Walker &lt;jamie@example.test&gt;" },
+        { label: "Subject", value: "Pricing question" },
+        { label: "Lead ID", value: "#1042" },
+      ],
+      bodyHtml: `
+        <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:14px 16px;">
+          <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.06em;">Message</p>
+          <pre style="margin:0;font-family:inherit;font-size:14px;color:#111827;white-space:pre-wrap;line-height:1.5;">Hi — interested in MapGuard for our roofing business in Ottawa. What's the typical setup timeline?</pre>
+        </div>`,
+      footerNote: "Sent by WeFixTrades contact form",
+    }),
+  });
+
+  /* 15. wftSalesLine */
+  previews.push({
+    slug: "15-sales-call-summary",
+    source: "server/services/wftSalesLine.ts",
+    subject: "[Sales call] Sam Owner — Acme Plumbing",
+    html: buildAdminAlertEmail({
+      subjectForTitle: "[Sales call] Sam Owner — Acme Plumbing",
+      alertType: "Sales lead",
+      alertTone: "success",
+      headline: "Caller asked for pricing on TradeLine and QuoteQuick.",
+      detailRows: [
+        { label: "Name", value: "Sam Owner" },
+        { label: "Business", value: "Acme Plumbing" },
+        { label: "Email", value: "sam@acmeplumbing.test" },
+        { label: "Phone", value: "+1 555 0142" },
+        { label: "Trade", value: "plumbing" },
+        { label: "Intent", value: "pricing_question" },
+        { label: "Call ID", value: "vapi_abc123" },
+        { label: "Duration", value: "4m 12s" },
+      ],
+      bodyHtml: `
+        <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:14px 16px;">
+          <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.06em;">Full transcript</p>
+          <pre style="margin:0;font-family:'Menlo','Monaco',monospace;font-size:12px;color:#374151;white-space:pre-wrap;line-height:1.55;">Riley: WeFixTrades, this is Riley — how can I help?
+Sam: Hey, I run Acme Plumbing, looking at your TradeLine product...
+Riley: Sure, TradeLine starts at $97/month and includes...
+[transcript truncated]</pre>
+        </div>`,
+      footerNote: "WeFixTrades sales line",
+    }),
+  });
+
+  /* 16. supplierDispatch */
+  previews.push({
+    slug: "16-supplier-dispatch",
+    source: "server/services/supplierDispatch.ts",
+    subject: "[HIGH] Generate Q2 ad creatives — Acme Plumbing",
+    html: buildAdminAlertEmail({
+      subjectForTitle: "[HIGH] Generate Q2 ad creatives — Acme Plumbing",
+      alertType: "New task · high",
+      alertTone: "warning",
+      headline: "Generate Q2 ad creatives",
+      summary: "Need 6 ad creatives for the Q2 campaign — 4 image-only + 2 video. Match the brand colors and tone outlined in the previous quarter's brief.",
+      detailRows: [
+        { label: "Client", value: "Acme Plumbing" },
+        { label: "Service", value: "AdFlow Growth" },
+        { label: "Priority", value: "HIGH" },
+        { label: "Due", value: "Mon May 12 2026" },
+      ],
+      bodyHtml: `
+        <div style="font-size:13px;color:#6B7280;line-height:1.55;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:12px 14px;">
+          Reply to this email to update the task or ask questions. WeFixTrades will track the reply against this client's file.
+        </div>`,
+      footerNote: "Sent by WeFixTrades ops · ops@wefixtrades.com",
+    }),
+  });
+
+  /* 17. bookingEmails business notif */
+  previews.push({
+    slug: "17-booking-business-notif",
+    source: "server/bookingEmails.ts (business notif)",
+    subject: "New booking: Sam Rodriguez — Friday, May 9, 2026 at 3:00 PM",
+    html: buildAdminAlertEmail({
+      subjectForTitle: "New booking: Sam Rodriguez — Friday, May 9, 2026 at 3:00 PM",
+      alertType: "New booking",
+      alertTone: "success",
+      headline: "Sam Rodriguez just booked",
+      summary: "A customer has booked an appointment via your calculator.",
+      detailRows: [
+        { label: "Customer", value: "Sam Rodriguez" },
+        { label: "Email", value: "sam@example.test" },
+        { label: "Phone", value: "+1 555 0142" },
+        { label: "Date & time", value: "Friday, May 9, 2026 at 3:00 PM" },
+        { label: "Quote", value: "$420" },
+        { label: "Deposit", value: "$80 (paid)" },
+      ],
+      footerNote: "Sent by your QuoteQuick calculator",
+    }),
+  });
+
+  /* 18. demoLead internal */
+  previews.push({
+    slug: "18-demo-lead-internal",
+    source: "server/lib/demoQuoteFollowup.ts (internal)",
+    subject: "[Demo Lead] lead@example.test — roofing — $8,200",
+    html: buildAdminAlertEmail({
+      subjectForTitle: "[Demo Lead] lead@example.test — roofing — $8,200",
+      alertType: "New demo quote lead",
+      alertTone: "info",
+      headline: "lead@example.test just generated a demo quote",
+      detailRows: [
+        { label: "Email", value: "lead@example.test" },
+        { label: "Trade", value: "roofing" },
+        { label: "Demo business", value: "Maple Ridge Roofing" },
+        { label: "Quote amount", value: "$8,200", valueColor: "#15803D" },
+      ],
+      footerNote: "QuoteQuick demo · WeFixTrades",
+    }),
   });
 
   /* ─── Write previews + summary ─── */
@@ -260,8 +599,9 @@ function analyzeHtml(html: string): {
     bytes: Buffer.byteLength(html, "utf-8"),
     hasDoctype: /^<!DOCTYPE/i.test(html.trim()),
     hasViewport: /name="viewport"/i.test(html),
-    hasHeader: /WeFixTrades<\/.+font-weight:\s*7|We<span[^>]*>Fix<\/span>Trades/i.test(html),
-    hasFooter: /Helping trade businesses win more jobs/i.test(html),
+    hasHeader: /We<span[^>]*>Fix<\/span>Trades/i.test(html),
+    // Marketing footer (transactionalShell) OR compact admin footer (adminAlertShell)
+    hasFooter: /Helping trade businesses win more jobs|WeFixTrades Alerts/i.test(html),
     hasChatBubble: /Have a question\?/i.test(html),
     theme: /background:\s*#0B0F14/i.test(html) ? "dark" : /background:\s*#F3F4F6/i.test(html) ? "light" : "unknown",
     ctaCount: ctaUrls.length,

@@ -1,20 +1,11 @@
 import type { Express, Request, Response } from "express";
-import nodemailer from "nodemailer";
 import { storage } from "../storage";
 import { captureIntakeEvent } from "../services/intakeService";
 import {
   enqueueMissedCallFollowups,
   buildImmediateResultsEmail,
 } from "../lib/missedCallFollowup";
-
-function getTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || "587", 10);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) return null;
-  return nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } });
-}
+import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 
 const rateMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_WINDOW = 10 * 60 * 1000;
@@ -78,11 +69,16 @@ export function registerMissedCallLeadRoutes(app: Express): void {
       };
 
       // 2. Send immediate results email (non-blocking)
-      const mail = getTransporter();
+      const mail = getEmailTransporter();
       if (mail) {
-        const { subject, html } = buildImmediateResultsEmail(ctx);
-        const from = process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@wefixtrades.com";
-        mail.sendMail({ from, to: email.trim(), subject, html }).catch((err) => {
+        const { subject, html, text } = buildImmediateResultsEmail(ctx);
+        mail.sendMail({
+          from: `WeFixTrades <${getFromAddress()}>`,
+          to: email.trim(),
+          subject,
+          html,
+          text,
+        }).catch((err) => {
           console.error("[missed-call-lead] Email send error:", err?.message);
         });
       }

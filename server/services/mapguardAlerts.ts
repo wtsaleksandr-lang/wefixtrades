@@ -11,6 +11,7 @@ import { mapguardAlerts, type InsertMapguardAlert, type MapguardAlert } from "@s
 import { mapguardTasks } from "@shared/schemas/mapguard";
 import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { buildAdminAlertEmail, buildAdminAlertPlainText, ADMIN_ALERT_FROM_NAME, type AlertTone } from "../lib/adminAlertShell";
 import type { SnapshotChanges } from "./mapguardMonitor";
 import type { InsertMapguardSnapshot } from "@shared/schemas/mapguardMonitoring";
 
@@ -150,62 +151,65 @@ async function isDuplicate(clientId: number, alertType: string): Promise<boolean
    EMAIL TEMPLATE
    ═══════════════════════════════════════════ */
 
-const SEVERITY_COLORS: Record<string, { bg: string; text: string; label: string }> = {
-  critical: { bg: "#EF4444", text: "#ffffff", label: "CRITICAL" },
-  warning:  { bg: "#F59E0B", text: "#ffffff", label: "WARNING" },
-  info:     { bg: "#3B82F6", text: "#ffffff", label: "INFO" },
-};
-
-function buildAlertEmail(alert: InsertMapguardAlert & { business_name: string }, clientId: number): { subject: string; html: string } {
-  const sev = SEVERITY_COLORS[alert.severity ?? "warning"] || SEVERITY_COLORS.warning;
+function buildAlertEmail(alert: InsertMapguardAlert & { business_name: string }, clientId: number): { subject: string; html: string; text: string } {
+  const severity = (alert.severity ?? "warning") as AlertTone;
+  const sevLabel = severity.charAt(0).toUpperCase() + severity.slice(1);
   const dashboardLink = `${APP_URL}/admin/crm/clients/${clientId}`;
-  const metricData = alert.metric_data as Record<string, any> || {};
+  const metricData = (alert.metric_data as Record<string, any>) || {};
 
-  // Build metric rows
-  const metricRows: string[] = [];
-  if (metricData.score_delta != null) metricRows.push(`<tr><td style="padding:4px 0;color:#6b7280;font-size:13px;">Score Change</td><td style="padding:4px 0;font-size:13px;font-weight:600;color:${metricData.score_delta < 0 ? '#EF4444' : '#22C55E'};">${metricData.score_delta > 0 ? '+' : ''}${metricData.score_delta} pts</td></tr>`);
-  if (metricData.rating_delta != null) metricRows.push(`<tr><td style="padding:4px 0;color:#6b7280;font-size:13px;">Rating Change</td><td style="padding:4px 0;font-size:13px;font-weight:600;color:${metricData.rating_delta < 0 ? '#EF4444' : '#22C55E'};">${metricData.rating_delta > 0 ? '+' : ''}${metricData.rating_delta}</td></tr>`);
-  if (metricData.current_score != null) metricRows.push(`<tr><td style="padding:4px 0;color:#6b7280;font-size:13px;">Current Score</td><td style="padding:4px 0;font-size:13px;font-weight:600;">${metricData.current_score}/100</td></tr>`);
-  if (metricData.current_rating != null) metricRows.push(`<tr><td style="padding:4px 0;color:#6b7280;font-size:13px;">Current Rating</td><td style="padding:4px 0;font-size:13px;font-weight:600;">${Number(metricData.current_rating).toFixed(1)}</td></tr>`);
-  if (metricData.count != null) metricRows.push(`<tr><td style="padding:4px 0;color:#6b7280;font-size:13px;">Keywords Affected</td><td style="padding:4px 0;font-size:13px;font-weight:600;">${metricData.count}</td></tr>`);
+  const detailRows: Array<{ label: string; value: string; valueColor?: string }> = [
+    { label: "Client", value: alert.business_name },
+  ];
+  if (metricData.score_delta != null) {
+    const positive = metricData.score_delta >= 0;
+    detailRows.push({
+      label: "Score change",
+      value: `${positive ? "+" : ""}${metricData.score_delta} pts`,
+      valueColor: positive ? "#15803D" : "#B91C1C",
+    });
+  }
+  if (metricData.rating_delta != null) {
+    const positive = metricData.rating_delta >= 0;
+    detailRows.push({
+      label: "Rating change",
+      value: `${positive ? "+" : ""}${metricData.rating_delta}`,
+      valueColor: positive ? "#15803D" : "#B91C1C",
+    });
+  }
+  if (metricData.current_score != null) detailRows.push({ label: "Current score", value: `${metricData.current_score}/100` });
+  if (metricData.current_rating != null) detailRows.push({ label: "Current rating", value: Number(metricData.current_rating).toFixed(1) });
+  if (metricData.count != null) detailRows.push({ label: "Keywords affected", value: String(metricData.count) });
 
-  const subject = `MapGuard ${sev.label}: ${alert.title}`;
+  const subject = `MapGuard ${sevLabel}: ${alert.title}`;
 
-  const html = `<!DOCTYPE html>
-<html><body style="font-family:'Inter',Arial,sans-serif;margin:0;padding:0;background:#f5f5f5;">
-<table cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-  <tr><td style="padding:20px 28px;background:${sev.bg};">
-    <table width="100%"><tr>
-      <td><p style="color:${sev.text};font-size:11px;font-weight:700;letter-spacing:0.05em;margin:0;opacity:0.9;">MAPGUARD ${sev.label}</p>
-      <p style="color:${sev.text};font-size:16px;font-weight:600;margin:6px 0 0;">${escHtml(alert.title)}</p></td>
-    </tr></table>
-  </td></tr>
-  <tr><td style="padding:24px 28px;">
-    <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 16px;">${escHtml(alert.summary)}</p>
-    ${metricRows.length > 0 ? `<table cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #e5e7eb;margin-bottom:16px;padding-top:12px;">${metricRows.join("")}</table>` : ""}
-    <p style="font-size:12px;color:#9ca3af;margin:0 0 16px;">Client: <strong style="color:#374151;">${escHtml(alert.business_name)}</strong></p>
-  </td></tr>
-  <tr><td style="padding:0 28px 24px;text-align:center;">
-    <a href="${dashboardLink}" style="display:inline-block;background:#2D6A4F;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View Client</a>
-  </td></tr>
-  <tr><td style="padding:12px 28px;background:#f9fafb;text-align:center;">
-    <p style="font-size:11px;color:#9ca3af;margin:0;">Sent by MapGuard Monitoring &middot; WeFixTrades</p>
-  </td></tr>
-</table>
-</body></html>`;
+  const html = buildAdminAlertEmail({
+    subjectForTitle: subject,
+    alertType: `MapGuard ${sevLabel}`,
+    alertTone: severity,
+    headline: alert.title,
+    summary: alert.summary,
+    detailRows,
+    cta: { label: "View client", url: dashboardLink },
+    footerNote: "MapGuard monitoring · WeFixTrades",
+  });
 
-  return { subject, html };
-}
+  const text = buildAdminAlertPlainText({
+    alertType: `MapGuard ${sevLabel}`,
+    headline: alert.title,
+    summary: alert.summary,
+    detailRows: detailRows.map(({ label, value }) => ({ label, value })),
+    cta: { label: "View client", url: dashboardLink },
+    footerNote: "MapGuard monitoring · WeFixTrades",
+  });
 
-function escHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return { subject, html, text };
 }
 
 /* ═══════════════════════════════════════════
    SEND ALERT
    ═══════════════════════════════════════════ */
 
-async function sendAlertEmail(subject: string, html: string): Promise<boolean> {
+async function sendAlertEmail(subject: string, html: string, text: string): Promise<boolean> {
   if (!ALERT_RECIPIENT) {
     console.log("[mapguard-alert] No ALERT_RECIPIENT configured, skipping email");
     return false;
@@ -219,10 +223,11 @@ async function sendAlertEmail(subject: string, html: string): Promise<boolean> {
 
   try {
     await transporter.sendMail({
-      from: getFromAddress(),
+      from: `${ADMIN_ALERT_FROM_NAME} <${getFromAddress()}>`,
       to: ALERT_RECIPIENT,
       subject,
       html,
+      text,
     });
     return true;
   } catch (err: any) {
@@ -273,11 +278,11 @@ export async function processMapguardAlerts(
     const [alert] = await db.insert(mapguardAlerts).values(alertData).returning();
 
     // Send email
-    const { subject, html } = buildAlertEmail(
+    const { subject, html, text } = buildAlertEmail(
       { ...alertData, business_name: businessName },
       clientId,
     );
-    const emailSent = await sendAlertEmail(subject, html);
+    const emailSent = await sendAlertEmail(subject, html, text);
 
     if (emailSent) {
       await db.update(mapguardAlerts)
@@ -332,8 +337,8 @@ export async function checkCostAlert(clientId: number, businessName: string): Pr
 
   const [alert] = await db.insert(mapguardAlerts).values(alertData).returning();
 
-  const { subject, html } = buildAlertEmail({ ...alertData, business_name: businessName }, clientId);
-  const emailSent = await sendAlertEmail(subject, html);
+  const { subject, html, text } = buildAlertEmail({ ...alertData, business_name: businessName }, clientId);
+  const emailSent = await sendAlertEmail(subject, html, text);
   if (emailSent) {
     await db.update(mapguardAlerts).set({ email_sent: true }).where(eq(mapguardAlerts.id, alert.id));
   }
