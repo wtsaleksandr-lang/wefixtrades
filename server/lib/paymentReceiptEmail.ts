@@ -13,7 +13,7 @@ import { db } from "../db";
 import { clients, clientServices, serviceCatalog, clientPayments } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
-import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
+import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import type Stripe from "stripe";
 
 interface LineItem {
@@ -57,60 +57,30 @@ function buildHtml(params: {
 
   const shortRef = params.sessionId.slice(-12).toUpperCase();
 
-  return `
-    <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
-      <div style="max-width:520px;margin:0 auto;">
-        ${buildEmailHeader()}
-        <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
-          <p style="font-size:12px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;">Payment received</p>
-          <h1 style="font-size:24px;font-weight:700;color:#F0F0F0;margin:0 0 6px;line-height:1.25;">
-            Thanks, ${params.contactName.split(" ")[0] || "there"}
-          </h1>
-          <p style="font-size:14px;color:#CDD1D6;line-height:1.6;margin:0 0 28px;">
-            Your payment to WeFixTrades has been received. Full details below — keep this for your records.
-          </p>
+  const firstName = params.contactName.split(" ")[0] || "there";
 
-          <table style="width:100%;border-collapse:collapse;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;margin:0 0 20px;">
-            ${rows}
-            <tr>
-              <td style="padding:14px;font-size:12px;font-weight:700;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;">
-                Total paid
-              </td>
-              <td style="padding:14px;font-size:18px;font-weight:800;color:#66E8FA;text-align:right;">
-                ${formatUsd(params.total_cents)}
-              </td>
-            </tr>
-          </table>
-
-          <table style="width:100%;font-size:12px;color:#8B919A;margin:0 0 24px;">
-            <tr>
-              <td style="padding:4px 0;">Business</td>
-              <td style="padding:4px 0;text-align:right;color:#CDD1D6;">${params.businessName}</td>
-            </tr>
-            <tr>
-              <td style="padding:4px 0;">Date</td>
-              <td style="padding:4px 0;text-align:right;color:#CDD1D6;">${paidDate}</td>
-            </tr>
-            <tr>
-              <td style="padding:4px 0;">Reference</td>
-              <td style="padding:4px 0;text-align:right;color:#CDD1D6;font-family:'DM Mono',monospace;">${shortRef}</td>
-            </tr>
-          </table>
-
-          <a href="${params.portalUrl}" style="display:inline-block;background:#66E8FA;color:#0B0F14;font-size:13px;font-weight:700;padding:12px 22px;border-radius:10px;text-decoration:none;">
-            View in your portal
-          </a>
-
-          <div style="border-top:1px solid rgba(255,255,255,0.06);margin:24px 0 14px;"></div>
-          <p style="font-size:12px;color:#8B919A;line-height:1.6;margin:0;">
-            Questions about this charge? Reply to this email or reach us at <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a>.
-          </p>
-        </div>
-        ${buildChatBubble()}
-        ${buildLegalFooter({ recipientEmail: params.recipientEmail })}
-      </div>
-    </div>
-  `;
+  return buildTransactionalEmail({
+    recipientEmail: params.recipientEmail,
+    subjectForTitle: `Receipt · ${formatUsd(params.total_cents)} paid to WeFixTrades`,
+    eyebrow: "Payment received",
+    headline: `Thanks, ${firstName}`,
+    intro: `Your payment to WeFixTrades has been received. Full details below — keep this for your records.`,
+    bodyHtml: `
+      <table style="width:100%;border-collapse:collapse;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;margin:0 0 20px;">
+        ${rows}
+        <tr>
+          <td style="padding:14px;font-size:12px;font-weight:700;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;">Total paid</td>
+          <td style="padding:14px;font-size:18px;font-weight:800;color:#66E8FA;text-align:right;">${formatUsd(params.total_cents)}</td>
+        </tr>
+      </table>
+      <table style="width:100%;font-size:12px;color:#8B919A;margin:0 0 8px;">
+        <tr><td style="padding:4px 0;">Business</td><td style="padding:4px 0;text-align:right;color:#CDD1D6;">${params.businessName}</td></tr>
+        <tr><td style="padding:4px 0;">Date</td><td style="padding:4px 0;text-align:right;color:#CDD1D6;">${paidDate}</td></tr>
+        <tr><td style="padding:4px 0;">Reference</td><td style="padding:4px 0;text-align:right;color:#CDD1D6;font-family:'DM Mono',monospace;">${shortRef}</td></tr>
+      </table>`,
+    cta: { label: "View in your portal", url: params.portalUrl },
+    supportNote: `Questions about this charge? Reply to this email or reach us at <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a>.`,
+  });
 }
 
 /**
@@ -180,13 +150,15 @@ export async function sendPaymentReceipt(
   const supportEmail = process.env.ADMIN_EMAIL || process.env.INTERNAL_LEAD_EMAIL || getFromAddress();
 
   try {
+    const contactName = client.contact_name || client.business_name || "there";
+    const firstName = contactName.split(" ")[0] || "there";
     await transporter.sendMail({
       from: `WeFixTrades <${getFromAddress()}>`,
       to: client.contact_email,
       replyTo: supportEmail,
       subject: `Receipt · ${formatUsd(totalCents)} paid to WeFixTrades`,
       html: buildHtml({
-        contactName: client.contact_name || client.business_name || "there",
+        contactName,
         businessName: client.business_name,
         items,
         total_cents: totalCents,
@@ -196,6 +168,14 @@ export async function sendPaymentReceipt(
         recipientEmail: client.contact_email,
         portalUrl: `${baseUrl}/portal/billing`,
         supportEmail,
+      }),
+      text: buildPlainText({
+        headline: `Thanks, ${firstName}`,
+        intro: "Your payment to WeFixTrades has been received. Keep this email for your records.",
+        bodyText: `Total paid: ${formatUsd(totalCents)}\nBusiness: ${client.business_name}\nDate: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}\nReference: ${session.id.slice(-12).toUpperCase()}`,
+        ctaLabel: "View in your portal",
+        ctaUrl: `${baseUrl}/portal/billing`,
+        supportNote: `Questions about this charge? Reach us at ${supportEmail}.`,
       }),
     });
 

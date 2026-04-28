@@ -17,7 +17,7 @@ import { db } from "../db";
 import { passwordResetTokens, users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
-import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
+import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import type { User, Client } from "@shared/schema";
 
 interface SendParams {
@@ -33,73 +33,37 @@ function buildHtml(params: {
   supportEmail: string;
   contactEmail: string;
 }): string {
-  return `
-    <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
-      <div style="max-width:520px;margin:0 auto;">
-        ${buildEmailHeader()}
-        <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
-          <p style="font-size:12px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;">Your portal is ready</p>
-          <h1 style="font-size:24px;font-weight:700;color:#F0F0F0;margin:0 0 10px;line-height:1.25;">
-            Welcome aboard, ${params.contactName.split(" ")[0] || "there"}
-          </h1>
-          <p style="font-size:14px;color:#CDD1D6;line-height:1.6;margin:0 0 22px;">
-            We've set up your account for <strong style="color:#F0F0F0;">${params.businessName}</strong>. Set a password below, then you'll have one dashboard for every service, invoice, and piece of support.
-          </p>
+  const firstName = params.contactName.split(" ")[0] || "there";
+  return buildTransactionalEmail({
+    recipientEmail: params.contactEmail,
+    subjectForTitle: "Welcome to WeFixTrades — set your portal password",
+    eyebrow: "Your portal is ready",
+    headline: `Welcome aboard, ${firstName}`,
+    intro: `We've set up your account for <strong style="color:#F0F0F0;">${params.businessName}</strong>. Set a password below, then you'll have one dashboard for every service, invoice, and piece of support.`,
+    cta: { label: "Set your password", url: params.setPasswordUrl },
+    ctaFinePrint: `The link works for one hour. If it expires, just use "Forgot password" on the login page.`,
+    bodyHtml: `
+      <div style="border-top:1px solid rgba(255,255,255,0.06);margin:28px 0 22px;line-height:1px;font-size:0;">&nbsp;</div>
+      <p style="font-size:12px;font-weight:600;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 14px;">
+        What's waiting for you
+      </p>
+      <table style="width:100%;border-collapse:collapse;">
+        ${stepRow(1, "Setup forms for every service you've purchased")}
+        ${stepRow(2, "Live task progress so you can see exactly what we're doing")}
+        ${stepRow(3, "Invoices, reports, and support — all in one place")}
+      </table>`,
+    pasteLinkFallback: { url: params.setPasswordUrl },
+    supportNote: `Need anything? Just reply to this email or reach us at <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a>.`,
+  });
+}
 
-          <a href="${params.setPasswordUrl}" style="display:inline-block;background:#66E8FA;color:#0B0F14;font-size:14px;font-weight:700;padding:13px 26px;border-radius:10px;text-decoration:none;">
-            Set your password
-          </a>
-
-          <p style="font-size:12px;color:#8B919A;line-height:1.5;margin:12px 0 0;">
-            The link works for one hour. If it expires, just use "Forgot password" on the login page.
-          </p>
-
-          <div style="border-top:1px solid rgba(255,255,255,0.06);margin:28px 0;"></div>
-
-          <p style="font-size:12px;font-weight:600;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 14px;">
-            What's waiting for you
-          </p>
-          <table style="width:100%;border-collapse:collapse;">
-            <tr>
-              <td style="padding:6px 12px 6px 0;vertical-align:top;width:22px;">
-                <span style="display:inline-block;width:20px;height:20px;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:11px;font-weight:700;border-radius:5px;text-align:center;line-height:20px;">1</span>
-              </td>
-              <td style="padding:6px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">
-                Setup forms for every service you've purchased
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:6px 12px 6px 0;vertical-align:top;">
-                <span style="display:inline-block;width:20px;height:20px;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:11px;font-weight:700;border-radius:5px;text-align:center;line-height:20px;">2</span>
-              </td>
-              <td style="padding:6px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">
-                Live task progress so you can see exactly what we're doing
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:6px 12px 6px 0;vertical-align:top;">
-                <span style="display:inline-block;width:20px;height:20px;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:11px;font-weight:700;border-radius:5px;text-align:center;line-height:20px;">3</span>
-              </td>
-              <td style="padding:6px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">
-                Invoices, reports, and support — all in one place
-              </td>
-            </tr>
-          </table>
-
-          <div style="border-top:1px solid rgba(255,255,255,0.06);margin:24px 0 14px;"></div>
-          <p style="font-size:12px;color:#8B919A;line-height:1.6;margin:0;">
-            Need anything? Just reply to this email or reach us at <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a>.
-          </p>
-          <p style="font-size:11px;color:#555B63;line-height:1.5;margin:14px 0 0;word-break:break-all;">
-            Button not working? Paste this link:<br/>
-            <a href="${params.setPasswordUrl}" style="color:#66E8FA;">${params.setPasswordUrl}</a>
-          </p>
-        </div>
-        ${buildChatBubble()}
-        ${buildLegalFooter({ recipientEmail: params.contactEmail })}
-      </div>
-    </div>
-  `;
+function stepRow(n: number, text: string): string {
+  return `<tr>
+    <td style="padding:6px 12px 6px 0;vertical-align:top;width:22px;">
+      <span style="display:inline-block;width:20px;height:20px;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:11px;font-weight:700;border-radius:5px;text-align:center;line-height:20px;">${n}</span>
+    </td>
+    <td style="padding:6px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">${text}</td>
+  </tr>`;
 }
 
 /**
@@ -139,6 +103,7 @@ export async function sendAccountWelcome(params: SendParams): Promise<boolean> {
   const contactName = params.client.contact_name || params.client.business_name || "there";
 
   try {
+    const firstName = contactName.split(" ")[0] || "there";
     await transporter.sendMail({
       from: `WeFixTrades <${getFromAddress()}>`,
       to: params.client.contact_email,
@@ -151,6 +116,13 @@ export async function sendAccountWelcome(params: SendParams): Promise<boolean> {
         portalUrl: `${baseUrl}/portal`,
         supportEmail,
         contactEmail: params.client.contact_email,
+      }),
+      text: buildPlainText({
+        headline: `Welcome aboard, ${firstName}`,
+        intro: `We've set up your account for ${params.client.business_name}. Set a password and you'll have one dashboard for every service, invoice, and piece of support.`,
+        ctaLabel: "Set your password",
+        ctaUrl: setPasswordUrl,
+        supportNote: `Need anything? Reach us at ${supportEmail}.`,
       }),
     });
     console.log(`[account-welcome] Sent to ${params.client.contact_email} for user #${params.user.id}`);

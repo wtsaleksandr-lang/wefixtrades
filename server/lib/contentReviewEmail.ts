@@ -23,6 +23,7 @@ import type { Transporter, SendMailOptions, SentMessageInfo } from "nodemailer";
 import crypto from "crypto";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildLegalFooter, buildEmailHeader } from "./emailFooter";
+import { buildTransactionalEmail } from "./transactionalShell";
 import { storage } from "../storage";
 import { db } from "../db";
 import { clients } from "@shared/schema";
@@ -267,29 +268,19 @@ function buildClientRevisionHtml(args: {
   recipientEmail: string;
 }): string {
   const greeting = args.contactName ? `Hi ${escapeHtml(args.contactName.split(" ")[0])},` : "Hi there,";
-  return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Your Revised Article Is Ready</title></head>
-<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-${buildEmailHeader({ tagline: "Article ready for your review" })}
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">
-  <tr><td align="center">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;">
-      <tr><td style="padding:32px 24px;">
-        <p style="margin:0 0 16px;font-size:15px;color:#111827;">${greeting}</p>
-        <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.6;">
-          Your team has revised the article you asked us to update. It's ready for your review.
-        </p>
-        <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-top:24px;margin-bottom:4px;">Article</div>
-        <div style="font-size:16px;color:#111827;font-weight:500;line-height:1.4;">${escapeHtml(args.articleTitle)}</div>
-      </td></tr>
-      <tr><td align="center" style="padding:0 24px 32px;">
-        <a href="${escapeHtml(clientArticlesLink())}" style="display:inline-block;padding:12px 24px;background:#0f172a;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:500;">Review revised article</a>
-      </td></tr>
-    </table>
-  </td></tr>
-</table>
-${buildLegalFooter({ recipientEmail: args.recipientEmail })}
-</body></html>`;
+  return buildTransactionalEmail({
+    recipientEmail: args.recipientEmail,
+    theme: "light",
+    maxWidth: 600,
+    subjectForTitle: "Your Revised Article Is Ready",
+    headerTagline: "Article ready for your review",
+    headline: greeting,
+    intro: "Your team has revised the article you asked us to update. It's ready for your review.",
+    bodyHtml: `
+      <div style="font-size:12px;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;margin:24px 0 4px;">Article</div>
+      <div style="font-size:16px;color:#111827;font-weight:500;line-height:1.4;">${escapeHtml(args.articleTitle)}</div>`,
+    cta: { label: "Review revised article", url: clientArticlesLink() },
+  });
 }
 
 /* ─── Send functions (admin notifications) ──────────────────────────── */
