@@ -54,7 +54,10 @@ export async function sendAlert(alert: AlertPayload): Promise<{ sent: boolean; c
   const mailer = getEmailTransporter();
   if (alertEmail && mailer) {
     try {
-      const subject = `[SocialSync] ${alert.type.replace(/_/g, " ")} — ${alert.business_name || `Client #${alert.client_id}`}`;
+      const prettyType = alert.type
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      const subject = `SocialSync ${prettyType}: ${alert.business_name || `Client #${alert.client_id}`}`;
       const html = buildEmailHtml(alert);
       const text = buildEmailPlainText(alert);
       await mailer.sendMail({
