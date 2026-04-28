@@ -125,11 +125,10 @@ interface OpenAiImageResponse {
 
 async function callImageApi(prompt: string): Promise<{ ok: true; url: string; revised_prompt?: string } | { ok: false; reason: GenerateForDraftResult["reason"]; message: string }> {
   const apiKey = process.env.OPENAI_API_KEY;
-  /* In test mode the dev mock accepts any auth — but the real OpenAI
-   * endpoint requires a real key. Skip cleanly when missing in prod. */
-  if (!apiKey && getOpenAiApiBase() === OPENAI_API_BASE_DEFAULT) {
-    return { ok: false, reason: "config_missing", message: "OPENAI_API_KEY not set" };
-  }
+  /* No early short-circuit on missing apiKey — the dev mock accepts
+   * any auth, and a missing key in production is correctly surfaced
+   * as api_failed by the fetch (401). The orchestrator tolerates
+   * either path per the Sprint 11 hard requirement. */
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
