@@ -264,8 +264,11 @@ test.describe("ContentFlow Sprint 11 — image generation pipeline", () => {
     const { draftId } = await createSocialDraft(clientId, "facebook", "P11-8 retention test");
     await pool.query(
       `UPDATE content_drafts
-         SET metadata = jsonb_set(metadata, '{media_plan,image_url}', '"http://example.invalid/old.png"'::jsonb),
-             metadata = jsonb_set(metadata, '{media_plan,public_image_url}', '"http://example.invalid/old.png"'::jsonb),
+         SET metadata = jsonb_set(
+                          jsonb_set(metadata, '{media_plan,image_url}', '"http://example.invalid/old.png"'::jsonb),
+                          '{media_plan,public_image_url}',
+                          '"http://example.invalid/old.png"'::jsonb
+                        ),
              created_at = NOW() - interval '200 days',
              status = 'draft'
        WHERE id = $1`,
