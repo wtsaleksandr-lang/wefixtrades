@@ -120,7 +120,9 @@ test.describe("ContentFlow Sprint 15 — SocialSync queue unification", () => {
         await pool.query(`DELETE FROM content_approvals WHERE draft_id IN (SELECT id FROM content_drafts WHERE client_id = $1)`, [cid]);
         await pool.query(`DELETE FROM content_drafts WHERE client_id = $1`, [cid]);
         await pool.query(`DELETE FROM socialsync_publish_queue WHERE client_id = $1`, [cid]).catch(() => {});
+        await pool.query(`DELETE FROM socialsync_activity_logs WHERE client_id = $1`, [cid]).catch(() => {});
         await pool.query(`DELETE FROM socialsync_posts WHERE client_id = $1`, [cid]).catch(() => {});
+        await pool.query(`DELETE FROM socialsync_profiles WHERE client_id = $1`, [cid]).catch(() => {});
         await pool.query(`DELETE FROM socialsync_platform_connections WHERE client_id = $1`, [cid]).catch(() => {});
         await pool.query(`DELETE FROM clients WHERE id = $1`, [cid]);
       }
