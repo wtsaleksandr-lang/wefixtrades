@@ -843,25 +843,30 @@ export function registerContentFlowRoutes(app: Express): void {
      * Triple-gated alongside the rest of the __dev block — never
      * registered in production.
      */
-    app.put(
-      "/api/__dev/gbp-mock/*/reviews/:reviewId/reply",
-      async (req: Request, res: Response) => {
-        if (!req.headers.authorization || !/^bearer\s/i.test(req.headers.authorization)) {
-          return res.status(401).json({ error: { code: 401, message: "Authorization required" } });
-        }
-        const comment = typeof req.body?.comment === "string" ? req.body.comment : "";
-        if (comment.startsWith("FAIL_GBP_503")) {
-          return res.status(503).json({ error: { code: 503, message: "Service Unavailable (forced for test)" } });
-        }
-        if (comment.startsWith("FAIL_GBP_404")) {
-          return res.status(404).json({ error: { code: 404, message: "Review not found (forced for test)" } });
-        }
-        res.json({
-          comment,
-          updateTime: new Date().toISOString(),
-        });
-      },
-    );
+    /* Path-to-regexp v8 (Express 5) requires named wildcards. The
+     * locationName arriving from postGBPReply includes slashes
+     * (accounts/.../locations/...), so we mount a middleware at the
+     * base path and parse the trailing `/reviews/:reviewId/reply`
+     * ourselves. */
+    app.use("/api/__dev/gbp-mock", (req: Request, res: Response, next) => {
+      if (req.method !== "PUT") return next();
+      const match = req.path.match(/^\/(.+)\/reviews\/([^/]+)\/reply$/);
+      if (!match) return next();
+      if (!req.headers.authorization || !/^bearer\s/i.test(req.headers.authorization)) {
+        return res.status(401).json({ error: { code: 401, message: "Authorization required" } });
+      }
+      const comment = typeof req.body?.comment === "string" ? req.body.comment : "";
+      if (comment.startsWith("FAIL_GBP_503")) {
+        return res.status(503).json({ error: { code: 503, message: "Service Unavailable (forced for test)" } });
+      }
+      if (comment.startsWith("FAIL_GBP_404")) {
+        return res.status(404).json({ error: { code: 404, message: "Review not found (forced for test)" } });
+      }
+      res.json({
+        comment,
+        updateTime: new Date().toISOString(),
+      });
+    });
   }
 
   /**
