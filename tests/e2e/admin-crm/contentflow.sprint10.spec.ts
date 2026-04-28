@@ -343,8 +343,10 @@ test.describe("ContentFlow Sprint 10 — SocialSync queue convergence", () => {
      * storage.enqueueSocialSyncJob. */
     const filePath = resolve(__dirname, "../../../server/services/socialSync/orchestrator.ts");
     const src = readFileSync(filePath, "utf8");
-    expect(src.includes("storage.enqueueSocialSyncJob"), "orchestrator must NOT call storage.enqueueSocialSyncJob anymore").toBe(false);
-    expect(src.includes("enqueueSocialSyncDraft"), "orchestrator must call enqueueSocialSyncDraft").toBe(true);
+    /* Look for an actual call (with `(`) — the deprecation comment
+     * references the symbol by name without invoking it. */
+    expect(src.includes("storage.enqueueSocialSyncJob("), "orchestrator must NOT call storage.enqueueSocialSyncJob anymore").toBe(false);
+    expect(src.includes("enqueueSocialSyncDraft("), "orchestrator must call enqueueSocialSyncDraft").toBe(true);
   });
 
   test("P10-9 — scheduler no longer registers processSocialSyncQueue cron", async () => {
