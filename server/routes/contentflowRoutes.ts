@@ -34,6 +34,11 @@ import {
 } from "../services/contentflow/wordpressQueue";
 import { getReviewReplyMetrics } from "../services/contentflow/reviewReplyMetrics";
 import { getQueueMetrics } from "../services/contentflow/queueMetrics";
+import {
+  projectDraftForCalendar,
+  mergeCalendarMetadata,
+  type CalendarChannel,
+} from "../services/contentflow/calendarMetadata";
 
 export function registerContentFlowRoutes(app: Express): void {
   /**
@@ -71,8 +76,14 @@ export function registerContentFlowRoutes(app: Express): void {
         offset,
       });
 
+      /* Sprint 14: clean calendar projection alongside raw drafts. Older
+       * clients keep reading `drafts`; the new admin calendar UI reads
+       * `calendar`. */
+      const calendar = drafts.map(projectDraftForCalendar);
+
       res.json({
         drafts,
+        calendar,
         count: drafts.length,
         limit,
         offset,
@@ -1150,6 +1161,168 @@ export function registerContentFlowRoutes(app: Express): void {
       } catch (err: any) {
         console.error("[reputation/reply-metrics] error:", err?.message || err);
         res.status(500).json({ error: "Failed to compute metrics" });
+      }
+    },
+  );
+
+  /* ─── Sprint 14: Calendar + control endpoints ──────────────────────── */
+
+  /**
+   * GET /api/admin/contentflow/calendar
+   *
+   * Returns drafts grouped by yyyy-mm-dd (UTC) of metadata.calendar.scheduled_for
+   * (or created_at for unscheduled). Filters: channel, status, clientId.
+   * Returns clean projection (no raw metadata).
+   */
+  app.get("/api/admin/contentflow/calendar", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const channelParam = typeof req.query.channel === "string" ? req.query.channel : undefined;
+      const statusParam = typeof req.query.status === "string" ? req.query.status : undefined;
+      const clientIdParam = req.query.clientId !== undefined
+        ? parseInt(String(req.query.clientId), 10)
+        : undefined;
+      const limit = Math.min(500, Math.max(1, parseInt(String(req.query.limit ?? "200"), 10) || 200));
+
+      const drafts = await storage.listContentDrafts({
+        client_id: Number.isFinite(clientIdParam as number) ? (clientIdParam as number) : undefined,
+        status: statusParam,
+        limit,
+        offset: 0,
+      });
+
+      const projections = drafts
+        .map(projectDraftForCalendar)
+        .filter((p) => (channelParam ? p.channel === channelParam : true));
+
+      const days: Record<string, ReturnType<typeof projectDraftForCalendar>[]> = {};
+      for (const p of projections) {
+        const dt = p.scheduled_for ?? (p.created_at ? new Date(p.created_at).toISOString() : null);
+        const key = dt ? dt.slice(0, 10) : "unscheduled";
+        (days[key] ||= []).push(p);
+      }
+
+      res.json({
+        days,
+        count: projections.length,
+        filters: { channel: channelParam ?? null, status: statusParam ?? null, clientId: clientIdParam ?? null },
+      });
+    } catch (err: any) {
+      console.error("[contentflow/calendar] error:", err?.message || err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * PATCH /api/admin/contentflow/drafts/:id/schedule
+   * Body: { scheduled_for: ISO 8601 string | null }
+   *
+   * Updates metadata.calendar.scheduled_for AND propagates to the
+   * legacy per-channel scheduled_for so existing claim filters honour
+   * it. Future-only — refuses scheduling in the past (use null to
+   * publish immediately).
+   */
+  app.patch(
+    "/api/admin/contentflow/drafts/:id/schedule",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const draftId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(draftId)) return res.status(400).json({ error: "id must be a number" });
+        const draft = await storage.getContentDraftById(draftId);
+        if (!draft) return res.status(404).json({ error: "draft not found" });
+
+        const body = req.body || {};
+        const scheduledFor = body.scheduled_for;
+        if (scheduledFor !== null && typeof scheduledFor !== "string") {
+          return res.status(400).json({ error: "scheduled_for must be an ISO string or null" });
+        }
+        if (typeof scheduledFor === "string") {
+          const parsed = Date.parse(scheduledFor);
+          if (!Number.isFinite(parsed)) {
+            return res.status(400).json({ error: "scheduled_for must parse as a valid date" });
+          }
+          if (parsed <= Date.now()) {
+            return res.status(400).json({ error: "scheduled_for must be in the future" });
+          }
+        }
+
+        await mergeCalendarMetadata(draftId, { scheduled_for: scheduledFor });
+
+        /* Propagate to per-channel scheduled_for too so legacy claim
+         * filters (Sprint 5/9/10) gate on the same value. */
+        const meta = (draft.metadata || {}) as Record<string, any>;
+        const ch = (meta.calendar?.channel as string) || draft.target_platform || null;
+        const channelKey =
+          ch === "google_business" ? "gbp_post"
+          : ch === "website" ? "wordpress"
+          : ch;
+        if (channelKey && typeof channelKey === "string") {
+          const fresh = await storage.getContentDraftById(draftId);
+          if (fresh) {
+            const m = (fresh.metadata || {}) as Record<string, any>;
+            const existing = (m[channelKey] || {}) as Record<string, any>;
+            await storage.updateContentDraft(draftId, {
+              metadata: { ...m, [channelKey]: { ...existing, scheduled_for: scheduledFor } },
+            } as any);
+          }
+        }
+
+        const updated = await storage.getContentDraftById(draftId);
+        res.json({ ok: true, draft: updated ? projectDraftForCalendar(updated) : null });
+      } catch (err: any) {
+        console.error("[contentflow/schedule] error:", err?.message || err);
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  /**
+   * POST /api/admin/contentflow/drafts/:id/pause
+   *
+   * Sets metadata.calendar.paused = true. Queue claim filters skip
+   * paused rows. Idempotent.
+   */
+  app.post(
+    "/api/admin/contentflow/drafts/:id/pause",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const draftId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(draftId)) return res.status(400).json({ error: "id must be a number" });
+        const draft = await storage.getContentDraftById(draftId);
+        if (!draft) return res.status(404).json({ error: "draft not found" });
+
+        await mergeCalendarMetadata(draftId, { paused: true });
+        const updated = await storage.getContentDraftById(draftId);
+        res.json({ ok: true, draft: updated ? projectDraftForCalendar(updated) : null });
+      } catch (err: any) {
+        console.error("[contentflow/pause] error:", err?.message || err);
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  /**
+   * POST /api/admin/contentflow/drafts/:id/resume
+   *
+   * Clears metadata.calendar.paused. Idempotent.
+   */
+  app.post(
+    "/api/admin/contentflow/drafts/:id/resume",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const draftId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(draftId)) return res.status(400).json({ error: "id must be a number" });
+        const draft = await storage.getContentDraftById(draftId);
+        if (!draft) return res.status(404).json({ error: "draft not found" });
+
+        await mergeCalendarMetadata(draftId, { paused: false });
+        const updated = await storage.getContentDraftById(draftId);
+        res.json({ ok: true, draft: updated ? projectDraftForCalendar(updated) : null });
+      } catch (err: any) {
+        console.error("[contentflow/resume] error:", err?.message || err);
+        res.status(500).json({ error: err.message });
       }
     },
   );

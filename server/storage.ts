@@ -2969,6 +2969,10 @@ export class DatabaseStorage implements IStorage {
           AND metadata->'wordpress'->>'post_id' IS NULL
           AND (metadata->'wordpress'->>'locked_at' IS NULL
                OR (metadata->'wordpress'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz)
+          /* Sprint 14: calendar gating */
+          AND (metadata->'calendar'->>'paused' IS NULL OR metadata->'calendar'->>'paused' != 'true')
+          AND (metadata->'calendar'->>'scheduled_for' IS NULL
+               OR (metadata->'calendar'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
         ORDER BY (metadata->'wordpress'->>'scheduled_for')::timestamptz ASC NULLS FIRST, id ASC
         LIMIT 1
         FOR UPDATE SKIP LOCKED
@@ -3073,6 +3077,10 @@ export class DatabaseStorage implements IStorage {
           AND metadata->'gbp'->>'posted_at' IS NULL
           AND (metadata->'gbp'->>'locked_at' IS NULL
                OR (metadata->'gbp'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz)
+          /* Sprint 14: calendar gating */
+          AND (metadata->'calendar'->>'paused' IS NULL OR metadata->'calendar'->>'paused' != 'true')
+          AND (metadata->'calendar'->>'scheduled_for' IS NULL
+               OR (metadata->'calendar'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
         ORDER BY (metadata->'gbp'->>'scheduled_for')::timestamptz ASC NULLS FIRST, id ASC
         LIMIT 1
         FOR UPDATE SKIP LOCKED
@@ -3133,6 +3141,10 @@ export class DatabaseStorage implements IStorage {
           AND metadata->${metadataKey}::text->>${successField} IS NULL
           AND (metadata->${metadataKey}::text->>'locked_at' IS NULL
                OR (metadata->${metadataKey}::text->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz)
+          /* Sprint 14: calendar gating */
+          AND (metadata->'calendar'->>'paused' IS NULL OR metadata->'calendar'->>'paused' != 'true')
+          AND (metadata->'calendar'->>'scheduled_for' IS NULL
+               OR (metadata->'calendar'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
         ORDER BY (metadata->${metadataKey}::text->>'scheduled_for')::timestamptz ASC NULLS FIRST, id ASC
         LIMIT 1
         FOR UPDATE SKIP LOCKED

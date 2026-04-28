@@ -38,6 +38,11 @@
 import crypto from "crypto";
 import { storage } from "../../storage";
 import { getAdapter } from "./adapters/registry";
+import {
+  channelForDraft,
+  countPublishedInLast24h,
+  MAX_PER_CHANNEL_PER_DAY,
+} from "./calendarMetadata";
 import type { ContentDraft } from "@shared/schema";
 
 /* ─── Constants ─────────────────────────────────────────────────────── */
@@ -48,6 +53,9 @@ export const STALE_LOCK_MS = 10 * 60_000;
 /* Sprint 10: when a draft is in cooling_down, push its scheduled_for
  * forward by this much so it stops monopolising claim ordering. */
 export const COOLDOWN_DEFER_MS = 5 * 60_000;
+/* Sprint 14: when a draft hits the daily cap, push it forward 1 hour
+ * so it drops out of eligibility until the cap window rolls. */
+export const CAP_DEFER_MS = 60 * 60_000;
 
 export type QueueStatus = "queued" | "publishing" | "published" | "failed";
 export type WpPostStatus = "draft" | "publish";
@@ -383,6 +391,25 @@ async function drainWordpressQueue(summary: ProcessQueueSummary): Promise<void> 
       continue;
     }
 
+    /* Sprint 14: daily cap (wordpress channel). */
+    {
+      const cap = MAX_PER_CHANNEL_PER_DAY.wordpress;
+      const recent = await countPublishedInLast24h(claimed.client_id, "wordpress").catch(() => 0);
+      if (recent >= cap) {
+        const deferUntil = new Date(Date.now() + CAP_DEFER_MS).toISOString();
+        await mergeWpMetadata(claimed.id, {
+          queue_status: "queued",
+          scheduled_for: deferUntil,
+          locked_at: null,
+          locked_by: null,
+          last_error: `daily cap (${cap}/day) reached for wordpress, deferred`,
+        });
+        m.cooldown_skipped++;
+        m.total_duration_ms += Date.now() - t0;
+        continue;
+      }
+    }
+
     const desiredStatus: WpPostStatus = wp.desired_wp_status === "publish" ? "publish" : "draft";
     let result;
     try {
@@ -563,6 +590,28 @@ async function drainSocialChannel(summary: ProcessQueueSummary, channel: SocialC
         locked_by: null,
       });
       continue;
+    }
+
+    /* Sprint 14: per-(client, channel) daily cap. Skip-and-defer rather
+     * than fail so the draft re-enters eligibility once the rolling 24h
+     * window has space. NOT counted as an attempt. */
+    const calChannel = channelForDraft(claimed);
+    if (calChannel) {
+      const cap = MAX_PER_CHANNEL_PER_DAY[calChannel];
+      const recent = await countPublishedInLast24h(claimed.client_id, calChannel).catch(() => 0);
+      if (recent >= cap) {
+        const deferUntil = new Date(Date.now() + CAP_DEFER_MS).toISOString();
+        await mergeChannelMetadata(claimed.id, channel, {
+          queue_status: "queued",
+          scheduled_for: deferUntil,
+          locked_at: null,
+          locked_by: null,
+          last_error: `daily cap (${cap}/day) reached for ${calChannel}, deferred`,
+        });
+        m.cooldown_skipped++;
+        m.total_duration_ms += Date.now() - t0;
+        continue;
+      }
     }
 
     let result;

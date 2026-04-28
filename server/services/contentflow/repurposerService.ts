@@ -40,6 +40,7 @@ import { chat as aiChat } from "../aiService";
 import { autoApproveDraft } from "./approvalService";
 import { enqueueSocialSyncDraft, enqueueEmailDraft } from "./wordpressQueue";
 import { generateForDraft as generateImageForDraft } from "./imageGenerationService";
+import { buildCalendarMetadata } from "./calendarMetadata";
 import type { ContentDraft } from "@shared/schema";
 
 /* ─── Public API ─────────────────────────────────────────────────────── */
@@ -259,6 +260,17 @@ async function createChildDraft(input: CreateChildInput): Promise<ContentDraft> 
       recipient: input.emailRecipient ?? null,
     };
   }
+  /* Sprint 14: standardized calendar metadata. Repurposer children are
+   * always auto-generated + repurposed. scheduled_for is null at creation
+   * — the queue picks them up immediately unless an admin schedules
+   * them. */
+  meta.calendar = buildCalendarMetadata({
+    channel: input.target_platform as any,
+    scheduled_for: null,
+    parent_draft_id: input.parentDraftId,
+    auto_generated: true,
+    repurposed: true,
+  });
 
   /* For non-email children, provision a socialsync_posts shell so the
    * Sprint 10/12 adapters can resolve the platform connection. */
