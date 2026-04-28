@@ -1,6 +1,7 @@
 import { storage } from "../storage";
 import type { InsertAuditFollowupEmail } from "@shared/schema";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
+import { buildAdminAlertEmail, buildAdminAlertPlainText } from "./adminAlertShell";
 
 /**
  * Demo Quote Tool follow-up email sequence.
@@ -96,6 +97,7 @@ export function buildDemoQuoteEmail(ctx: DemoQuoteFollowupContext): {
 export function buildInternalNotificationEmail(ctx: DemoQuoteFollowupContext): {
   subject: string;
   html: string;
+  text: string;
 } {
   const quoteDisplay = ctx.quoteAmount
     ? formatDollars(ctx.quoteAmount)
@@ -103,24 +105,30 @@ export function buildInternalNotificationEmail(ctx: DemoQuoteFollowupContext): {
 
   const subject = `[Demo Lead] ${ctx.email} — ${ctx.trade} — ${quoteDisplay}`;
 
-  const html = `<!DOCTYPE html>
-<html><body style="font-family:Arial,sans-serif;margin:0;padding:0;background:#f5f5f5;">
-<table cellpadding="0" cellspacing="0" width="100%" style="max-width:480px;margin:24px auto;background:#fff;border-radius:8px;overflow:hidden;">
-  <tr><td style="padding:16px 20px;background:#1e293b;">
-    <h2 style="color:#fff;font-size:15px;margin:0;">New Quote Demo Lead</h2>
-  </td></tr>
-  <tr><td style="padding:20px;">
-    <table cellpadding="0" cellspacing="0" width="100%">
-      <tr><td style="padding:4px 0;font-size:13px;color:#666;">Email</td><td style="padding:4px 0;font-size:13px;font-weight:600;">${ctx.email}</td></tr>
-      <tr><td style="padding:4px 0;font-size:13px;color:#666;">Trade</td><td style="padding:4px 0;font-size:13px;font-weight:600;">${ctx.trade}</td></tr>
-      <tr><td style="padding:4px 0;font-size:13px;color:#666;">Demo Business</td><td style="padding:4px 0;font-size:13px;">${ctx.demoBusinessName}</td></tr>
-      <tr><td style="padding:4px 0;font-size:13px;color:#666;">Quote Amount</td><td style="padding:4px 0;font-size:13px;font-weight:600;color:#166534;">${quoteDisplay}</td></tr>
-    </table>
-  </td></tr>
-</table>
-</body></html>`;
+  const detailRows = [
+    { label: "Email", value: ctx.email },
+    { label: "Trade", value: ctx.trade },
+    { label: "Demo business", value: ctx.demoBusinessName },
+    { label: "Quote amount", value: quoteDisplay, valueColor: "#15803D" },
+  ];
 
-  return { subject, html };
+  const html = buildAdminAlertEmail({
+    subjectForTitle: subject,
+    alertType: "New demo quote lead",
+    alertTone: "info",
+    headline: `${ctx.email} just generated a demo quote`,
+    detailRows,
+    footerNote: "QuoteQuick demo · WeFixTrades",
+  });
+
+  const text = buildAdminAlertPlainText({
+    alertType: "New demo quote lead",
+    headline: `${ctx.email} just generated a demo quote`,
+    detailRows: detailRows.map(({ label, value }) => ({ label, value })),
+    footerNote: "QuoteQuick demo · WeFixTrades",
+  });
+
+  return { subject, html, text };
 }
 
 const SEQUENCE: Array<{

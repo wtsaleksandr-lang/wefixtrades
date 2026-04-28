@@ -15,6 +15,7 @@ import { db } from "../db";
 import { suppliers, clients, clientServices, serviceCatalog, fulfillmentTasks } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { buildAdminAlertEmail, buildAdminAlertPlainText, ADMIN_ALERT_FROM_NAME, type AlertTone } from "../lib/adminAlertShell";
 import { storage } from "../storage";
 import type { FulfillmentTask, Supplier } from "@shared/schema";
 
@@ -68,6 +69,13 @@ async function loadContext(task: FulfillmentTask): Promise<{
   };
 }
 
+function priorityTone(priority: string): AlertTone {
+  if (priority === "urgent") return "critical";
+  if (priority === "high") return "warning";
+  if (priority === "low") return "info";
+  return "info";
+}
+
 function buildEmailHtml(params: {
   supplierName: string;
   taskTitle: string;
@@ -78,39 +86,53 @@ function buildEmailHtml(params: {
   serviceName: string;
   adminContact: string;
 }): string {
-  const priorityColor = params.priority === "urgent" ? "#EF4444"
-    : params.priority === "high" ? "#F59E0B"
-    : "#66E8FA";
-  const dueLine = params.dueAt
-    ? `<tr><td style="padding:6px 0;color:#8B919A;font-size:13px;">Due</td><td style="padding:6px 0;color:#F0F0F0;font-size:13px;text-align:right;">${params.dueAt.toDateString()}</td></tr>`
-    : "";
+  const detailRows: Array<{ label: string; value: string }> = [
+    { label: "Client", value: params.clientName },
+    { label: "Service", value: params.serviceName },
+    { label: "Priority", value: params.priority.toUpperCase() },
+  ];
+  if (params.dueAt) detailRows.push({ label: "Due", value: params.dueAt.toDateString() });
 
-  return `
-    <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
-      <div style="max-width:540px;margin:0 auto;">
-        <div style="text-align:center;margin-bottom:32px;">
-          <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades</span>
-        </div>
-        <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
-          <p style="font-size:12px;font-weight:700;color:${priorityColor};text-transform:uppercase;letter-spacing:0.08em;margin:0 0 8px;">New task assigned · ${params.priority}</p>
-          <h1 style="font-size:22px;font-weight:700;color:#F0F0F0;margin:0 0 20px;line-height:1.3;">${params.taskTitle}</h1>
-          ${params.taskDescription ? `<p style="font-size:14px;color:#CDD1D6;line-height:1.6;margin:0 0 20px;">${params.taskDescription}</p>` : ""}
-          <table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
-            <tr><td style="padding:6px 0;color:#8B919A;font-size:13px;">Client</td><td style="padding:6px 0;color:#F0F0F0;font-size:13px;text-align:right;">${params.clientName}</td></tr>
-            <tr><td style="padding:6px 0;color:#8B919A;font-size:13px;">Service</td><td style="padding:6px 0;color:#F0F0F0;font-size:13px;text-align:right;">${params.serviceName}</td></tr>
-            ${dueLine}
-          </table>
-          <div style="border-top:1px solid rgba(255,255,255,0.06);margin:24px 0;"></div>
-          <p style="font-size:13px;color:#8B919A;margin:0;line-height:1.5;">
-            Reply to this email to update the task or ask questions. WeFixTrades will track the reply against this client's file.
-          </p>
-        </div>
-        <p style="font-size:11px;color:#555B63;text-align:center;margin:24px 0 0;line-height:1.5;">
-          Sent by WeFixTrades ops · <a href="mailto:${params.adminContact}" style="color:#66E8FA;">${params.adminContact}</a>
-        </p>
-      </div>
-    </div>
-  `;
+  return buildAdminAlertEmail({
+    subjectForTitle: `[${params.priority.toUpperCase()}] ${params.taskTitle}`,
+    alertType: `New task · ${params.priority}`,
+    alertTone: priorityTone(params.priority),
+    headline: params.taskTitle,
+    summary: params.taskDescription || undefined,
+    detailRows,
+    bodyHtml: `
+      <div style="font-size:13px;color:#6B7280;line-height:1.55;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:12px 14px;">
+        Reply to this email to update the task or ask questions. WeFixTrades will track the reply against this client's file.
+      </div>`,
+    footerNote: `Sent by WeFixTrades ops · ${params.adminContact}`,
+  });
+}
+
+function buildEmailPlainText(params: {
+  supplierName: string;
+  taskTitle: string;
+  taskDescription: string | null;
+  priority: string;
+  dueAt: Date | null;
+  clientName: string;
+  serviceName: string;
+  adminContact: string;
+}): string {
+  const detailRows: Array<{ label: string; value: string }> = [
+    { label: "Client", value: params.clientName },
+    { label: "Service", value: params.serviceName },
+    { label: "Priority", value: params.priority.toUpperCase() },
+  ];
+  if (params.dueAt) detailRows.push({ label: "Due", value: params.dueAt.toDateString() });
+
+  return buildAdminAlertPlainText({
+    alertType: `New task · ${params.priority}`,
+    headline: params.taskTitle,
+    summary: params.taskDescription || undefined,
+    detailRows,
+    bodyText: "Reply to this email to update the task or ask questions. WeFixTrades will track the reply against this client's file.",
+    footerNote: `Sent by WeFixTrades ops · ${params.adminContact}`,
+  });
 }
 
 /**
@@ -144,21 +166,23 @@ export async function dispatchTaskToSupplier(taskId: number): Promise<DispatchRe
   const adminContact = process.env.ADMIN_EMAIL || process.env.INTERNAL_LEAD_EMAIL || getFromAddress();
 
   try {
+    const emailParams = {
+      supplierName: supplier.name,
+      taskTitle: task.title,
+      taskDescription: task.description,
+      priority: task.priority,
+      dueAt: task.due_at,
+      clientName,
+      serviceName,
+      adminContact,
+    };
     await transporter.sendMail({
-      from: `WeFixTrades <${getFromAddress()}>`,
+      from: `${ADMIN_ALERT_FROM_NAME} <${getFromAddress()}>`,
       to: supplier.contact_email,
       replyTo: adminContact,
       subject: `[${task.priority.toUpperCase()}] ${task.title} — ${clientName}`,
-      html: buildEmailHtml({
-        supplierName: supplier.name,
-        taskTitle: task.title,
-        taskDescription: task.description,
-        priority: task.priority,
-        dueAt: task.due_at,
-        clientName,
-        serviceName,
-        adminContact,
-      }),
+      html: buildEmailHtml(emailParams),
+      text: buildEmailPlainText(emailParams),
     });
 
     // Record dispatch in task metadata (idempotency key)

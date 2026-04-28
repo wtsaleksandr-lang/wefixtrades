@@ -1,21 +1,7 @@
-import nodemailer from "nodemailer";
 import type { Booking, Calculator } from "@shared/schema";
 import { getEmailTransporter, getFromAddress } from "./lib/emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./lib/transactionalShell";
-
-/**
- * Standalone transporter for the BUSINESS notification (out of scope for
- * Sprint 2C cleanup — it's an admin-style internal notification to the
- * calculator owner, scheduled for Sprint 2D admin-shell migration).
- */
-function getLegacyBusinessTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || "587", 10);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) return null;
-  return nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } });
-}
+import { buildAdminAlertEmail, buildAdminAlertPlainText, ADMIN_ALERT_FROM_NAME } from "./lib/adminAlertShell";
 
 function formatDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-");
@@ -89,7 +75,7 @@ export async function sendBookingConfirmationToCustomer(booking: Booking, calcul
 }
 
 export async function sendBookingNotificationToBusiness(booking: Booking, calculator: Calculator): Promise<boolean> {
-  const transporter = getLegacyBusinessTransporter();
+  const transporter = getEmailTransporter();
   const calcSettings = (calculator.calculator_settings as any) || {};
   const businessEmail = calcSettings.lead_form?.delivery?.primary_email || calculator.owner_email;
   if (!transporter || !businessEmail) return false;
@@ -99,27 +85,42 @@ export async function sendBookingNotificationToBusiness(booking: Booking, calcul
   const quoteDisplay = booking.quote_amount ? `$${booking.quote_amount}` : "N/A";
   const depositDisplay = booking.deposit_amount ? `$${booking.deposit_amount}` : "$0";
 
-  const html = `
-    <div style="font-family: 'Inter', system-ui, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 20px;">
-      <h1 style="font-size: 22px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px;">New Booking Received</h1>
-      <p style="color: #666; font-size: 14px; margin-bottom: 24px;">A customer has booked an appointment.</p>
-      <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-        <div style="margin-bottom: 12px;"><span style="color: #888; font-size: 12px; text-transform: uppercase;">Customer</span><br/><strong style="font-size: 15px;">${booking.customer_name}</strong></div>
-        ${booking.customer_email ? `<div style="margin-bottom: 12px;"><span style="color: #888; font-size: 12px; text-transform: uppercase;">Email</span><br/><strong style="font-size: 15px;">${booking.customer_email}</strong></div>` : ""}
-        ${booking.customer_phone ? `<div style="margin-bottom: 12px;"><span style="color: #888; font-size: 12px; text-transform: uppercase;">Phone</span><br/><strong style="font-size: 15px;">${booking.customer_phone}</strong></div>` : ""}
-        <div style="margin-bottom: 12px;"><span style="color: #888; font-size: 12px; text-transform: uppercase;">Date & Time</span><br/><strong style="font-size: 15px;">${dateDisplay} at ${timeDisplay}</strong></div>
-        <div style="margin-bottom: 12px;"><span style="color: #888; font-size: 12px; text-transform: uppercase;">Quote</span><br/><strong style="font-size: 15px;">${quoteDisplay}</strong></div>
-        <div><span style="color: #888; font-size: 12px; text-transform: uppercase;">Deposit</span><br/><strong style="font-size: 15px;">${booking.deposit_paid ? `${depositDisplay} (paid)` : "Not required"}</strong></div>
-      </div>
-    </div>
-  `;
+  const detailRows: Array<{ label: string; value: string }> = [
+    { label: "Customer", value: booking.customer_name },
+  ];
+  if (booking.customer_email) detailRows.push({ label: "Email", value: booking.customer_email });
+  if (booking.customer_phone) detailRows.push({ label: "Phone", value: booking.customer_phone });
+  detailRows.push({ label: "Date & time", value: `${dateDisplay} at ${timeDisplay}` });
+  detailRows.push({ label: "Quote", value: quoteDisplay });
+  detailRows.push({ label: "Deposit", value: booking.deposit_paid ? `${depositDisplay} (paid)` : "Not required" });
+
+  const subject = `New Booking: ${booking.customer_name} — ${dateDisplay} at ${timeDisplay}`;
+
+  const html = buildAdminAlertEmail({
+    subjectForTitle: subject,
+    alertType: "New booking",
+    alertTone: "success",
+    headline: `${booking.customer_name} just booked`,
+    summary: "A customer has booked an appointment via your calculator.",
+    detailRows,
+    footerNote: "Sent by your QuoteQuick calculator",
+  });
+
+  const text = buildAdminAlertPlainText({
+    alertType: "New booking",
+    headline: `${booking.customer_name} just booked`,
+    summary: "A customer has booked an appointment via your calculator.",
+    detailRows,
+    footerNote: "Sent by your QuoteQuick calculator",
+  });
 
   try {
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || "noreply@estimate.ai",
+      from: `${ADMIN_ALERT_FROM_NAME} <${getFromAddress()}>`,
       to: businessEmail,
-      subject: `New Booking: ${booking.customer_name} — ${dateDisplay} at ${timeDisplay}`,
+      subject,
       html,
+      text,
     });
     return true;
   } catch (err) {

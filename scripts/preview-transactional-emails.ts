@@ -336,6 +336,211 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
     html: revisionHtml,
   });
 
+  /* ═══════════════════════════════════════════════════════════════════
+     SPRINT 2D — Admin alert previews
+     ═══════════════════════════════════════════════════════════════════ */
+  const { buildAdminAlertEmail } = await import("../server/lib/adminAlertShell");
+
+  /* 11. lowRatingAlert.ts */
+  const stars = (rating: number) => {
+    let s = "";
+    for (let i = 1; i <= 5; i++) {
+      s += `<span style="color:${i <= rating ? "#FBBF24" : "#D1D5DB"};font-size:18px;">&#9733;</span>`;
+    }
+    return s;
+  };
+  previews.push({
+    slug: "11-low-rating-alert",
+    source: "server/lib/lowRatingAlert.ts",
+    subject: "New 1-star Google review for Acme Plumbing",
+    html: buildAdminAlertEmail({
+      recipientEmail: "ops@acmeplumbing.test",
+      subjectForTitle: "New 1-star Google review for Acme Plumbing",
+      alertType: "Low-rating review alert",
+      alertTone: "critical",
+      headline: "New 1-star review on Google",
+      summary: "Responding quickly can help with recovery. The reviewer's text is below.",
+      detailRows: [
+        { label: "Business", value: "Acme Plumbing" },
+        { label: "Platform", value: "Google" },
+        { label: "Reviewer", value: "Jordan T." },
+      ],
+      bodyHtml: `
+        <div style="background:rgba(185,28,28,0.06);border:1px solid rgba(185,28,28,0.18);border-radius:8px;padding:14px 16px;">
+          <div style="margin-bottom:8px;">${stars(1)}</div>
+          <p style="font-size:13px;color:#374151;line-height:1.5;margin:0;">Showed up two hours late, charged double the quote, and left a mess. Won't be using them again.</p>
+        </div>`,
+      cta: { label: "View &amp; respond", url: "https://wefixtrades.com/portal/reviews" },
+      footerNote: "ReputationShield alert · adjust alert settings in your portal.",
+    }),
+  });
+
+  /* 12. mapguardAlerts.ts */
+  previews.push({
+    slug: "12-mapguard-alert",
+    source: "server/services/mapguardAlerts.ts",
+    subject: "MapGuard Critical: Visibility score dropped 18 points",
+    html: buildAdminAlertEmail({
+      subjectForTitle: "MapGuard Critical: Visibility score dropped 18 points",
+      alertType: "MapGuard Critical",
+      alertTone: "critical",
+      headline: "Visibility score dropped 18 points",
+      summary: "Acme Plumbing's Google Business Profile visibility dropped sharply this week. Investigate ASAP.",
+      detailRows: [
+        { label: "Client", value: "Acme Plumbing" },
+        { label: "Score change", value: "-18 pts", valueColor: "#B91C1C" },
+        { label: "Current score", value: "62/100" },
+        { label: "Keywords affected", value: "12" },
+      ],
+      cta: { label: "View client", url: "https://wefixtrades.com/admin/crm/clients/5001" },
+      footerNote: "MapGuard monitoring · WeFixTrades",
+    }),
+  });
+
+  /* 13. socialSync alertService */
+  previews.push({
+    slug: "13-socialsync-alert",
+    source: "server/services/socialSync/alertService.ts",
+    subject: "[SocialSync] Token Expired — Acme Plumbing",
+    html: buildAdminAlertEmail({
+      subjectForTitle: "[SocialSync] Token Expired — Acme Plumbing",
+      alertType: "SocialSync · Token Expired",
+      alertTone: "critical",
+      headline: "Facebook token has expired for Acme Plumbing. Reconnection required.",
+      detailRows: [
+        { label: "Client", value: "Acme Plumbing" },
+        { label: "Platform", value: "facebook" },
+      ],
+      cta: { label: "View in admin", url: "https://wefixtrades.com/admin/crm/clients/5001?tab=socialsync" },
+      footerNote: "SocialSync internal alert",
+    }),
+  });
+
+  /* 14. contactEmails admin */
+  previews.push({
+    slug: "14-contact-admin",
+    source: "server/lib/contactEmails.ts (admin notif)",
+    subject: "New contact form submission · Pricing question — Jamie Walker",
+    html: buildAdminAlertEmail({
+      subjectForTitle: "New contact form submission · Pricing question — Jamie Walker",
+      alertType: "New contact form submission",
+      alertTone: "info",
+      headline: "Jamie Walker sent a message",
+      summary: "Reply directly — the customer's address is the reply-to on this email.",
+      detailRows: [
+        { label: "From", value: "Jamie Walker &lt;jamie@example.test&gt;" },
+        { label: "Subject", value: "Pricing question" },
+        { label: "Lead ID", value: "#1042" },
+      ],
+      bodyHtml: `
+        <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:14px 16px;">
+          <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.06em;">Message</p>
+          <pre style="margin:0;font-family:inherit;font-size:14px;color:#111827;white-space:pre-wrap;line-height:1.5;">Hi — interested in MapGuard for our roofing business in Ottawa. What's the typical setup timeline?</pre>
+        </div>`,
+      footerNote: "Sent by WeFixTrades contact form",
+    }),
+  });
+
+  /* 15. wftSalesLine */
+  previews.push({
+    slug: "15-sales-call-summary",
+    source: "server/services/wftSalesLine.ts",
+    subject: "[Sales call] Sam Owner — Acme Plumbing",
+    html: buildAdminAlertEmail({
+      subjectForTitle: "[Sales call] Sam Owner — Acme Plumbing",
+      alertType: "Sales lead",
+      alertTone: "success",
+      headline: "Caller asked for pricing on TradeLine and QuoteQuick.",
+      detailRows: [
+        { label: "Name", value: "Sam Owner" },
+        { label: "Business", value: "Acme Plumbing" },
+        { label: "Email", value: "sam@acmeplumbing.test" },
+        { label: "Phone", value: "+1 555 0142" },
+        { label: "Trade", value: "plumbing" },
+        { label: "Intent", value: "pricing_question" },
+        { label: "Call ID", value: "vapi_abc123" },
+        { label: "Duration", value: "4m 12s" },
+      ],
+      bodyHtml: `
+        <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:14px 16px;">
+          <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.06em;">Full transcript</p>
+          <pre style="margin:0;font-family:'Menlo','Monaco',monospace;font-size:12px;color:#374151;white-space:pre-wrap;line-height:1.55;">Riley: WeFixTrades, this is Riley — how can I help?
+Sam: Hey, I run Acme Plumbing, looking at your TradeLine product...
+Riley: Sure, TradeLine starts at $97/month and includes...
+[transcript truncated]</pre>
+        </div>`,
+      footerNote: "WeFixTrades sales line",
+    }),
+  });
+
+  /* 16. supplierDispatch */
+  previews.push({
+    slug: "16-supplier-dispatch",
+    source: "server/services/supplierDispatch.ts",
+    subject: "[HIGH] Generate Q2 ad creatives — Acme Plumbing",
+    html: buildAdminAlertEmail({
+      subjectForTitle: "[HIGH] Generate Q2 ad creatives — Acme Plumbing",
+      alertType: "New task · high",
+      alertTone: "warning",
+      headline: "Generate Q2 ad creatives",
+      summary: "Need 6 ad creatives for the Q2 campaign — 4 image-only + 2 video. Match the brand colors and tone outlined in the previous quarter's brief.",
+      detailRows: [
+        { label: "Client", value: "Acme Plumbing" },
+        { label: "Service", value: "AdFlow Growth" },
+        { label: "Priority", value: "HIGH" },
+        { label: "Due", value: "Mon May 12 2026" },
+      ],
+      bodyHtml: `
+        <div style="font-size:13px;color:#6B7280;line-height:1.55;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:12px 14px;">
+          Reply to this email to update the task or ask questions. WeFixTrades will track the reply against this client's file.
+        </div>`,
+      footerNote: "Sent by WeFixTrades ops · ops@wefixtrades.com",
+    }),
+  });
+
+  /* 17. bookingEmails business notif */
+  previews.push({
+    slug: "17-booking-business-notif",
+    source: "server/bookingEmails.ts (business notif)",
+    subject: "New Booking: Sam Rodriguez — Friday, May 9, 2026 at 3:00 PM",
+    html: buildAdminAlertEmail({
+      subjectForTitle: "New Booking: Sam Rodriguez — Friday, May 9, 2026 at 3:00 PM",
+      alertType: "New booking",
+      alertTone: "success",
+      headline: "Sam Rodriguez just booked",
+      summary: "A customer has booked an appointment via your calculator.",
+      detailRows: [
+        { label: "Customer", value: "Sam Rodriguez" },
+        { label: "Email", value: "sam@example.test" },
+        { label: "Phone", value: "+1 555 0142" },
+        { label: "Date & time", value: "Friday, May 9, 2026 at 3:00 PM" },
+        { label: "Quote", value: "$420" },
+        { label: "Deposit", value: "$80 (paid)" },
+      ],
+      footerNote: "Sent by your QuoteQuick calculator",
+    }),
+  });
+
+  /* 18. demoLead internal */
+  previews.push({
+    slug: "18-demo-lead-internal",
+    source: "server/lib/demoQuoteFollowup.ts (internal)",
+    subject: "[Demo Lead] lead@example.test — roofing — $8,200",
+    html: buildAdminAlertEmail({
+      subjectForTitle: "[Demo Lead] lead@example.test — roofing — $8,200",
+      alertType: "New demo quote lead",
+      alertTone: "info",
+      headline: "lead@example.test just generated a demo quote",
+      detailRows: [
+        { label: "Email", value: "lead@example.test" },
+        { label: "Trade", value: "roofing" },
+        { label: "Demo business", value: "Maple Ridge Roofing" },
+        { label: "Quote amount", value: "$8,200", valueColor: "#15803D" },
+      ],
+      footerNote: "QuoteQuick demo · WeFixTrades",
+    }),
+  });
+
   /* ─── Write previews + summary ─── */
   console.log("\n══════════════════════════════════════════════════════════════════");
   console.log("  TRANSACTIONAL EMAIL PREVIEWS — Sprint 2A + 2B");
@@ -394,8 +599,9 @@ function analyzeHtml(html: string): {
     bytes: Buffer.byteLength(html, "utf-8"),
     hasDoctype: /^<!DOCTYPE/i.test(html.trim()),
     hasViewport: /name="viewport"/i.test(html),
-    hasHeader: /WeFixTrades<\/.+font-weight:\s*7|We<span[^>]*>Fix<\/span>Trades/i.test(html),
-    hasFooter: /Helping trade businesses win more jobs/i.test(html),
+    hasHeader: /We<span[^>]*>Fix<\/span>Trades/i.test(html),
+    // Marketing footer (transactionalShell) OR compact admin footer (adminAlertShell)
+    hasFooter: /Helping trade businesses win more jobs|WeFixTrades Alerts/i.test(html),
     hasChatBubble: /Have a question\?/i.test(html),
     theme: /background:\s*#0B0F14/i.test(html) ? "dark" : /background:\s*#F3F4F6/i.test(html) ? "light" : "unknown",
     ctaCount: ctaUrls.length,

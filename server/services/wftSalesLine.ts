@@ -20,6 +20,7 @@ import { salesLeads } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { chat } from "./aiService";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { buildAdminAlertEmail, buildAdminAlertPlainText, ADMIN_ALERT_FROM_NAME } from "../lib/adminAlertShell";
 import type { VapiCallReport } from "./vapiService";
 
 interface ExtractedCaller {
@@ -95,43 +96,67 @@ function buildInternalEmailHtml(params: {
     ? `${Math.floor(params.durationSec / 60)}m ${params.durationSec % 60}s`
     : "unknown";
 
-  const infoRow = (label: string, value: string | undefined) => value
-    ? `<tr><td style="padding:6px 0;color:#6B7280;font-size:13px;width:120px;">${label}</td><td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;">${value}</td></tr>`
-    : "";
+  const detailRows: Array<{ label: string; value: string }> = [];
+  if (e.name) detailRows.push({ label: "Name", value: e.name });
+  if (e.business_name) detailRows.push({ label: "Business", value: e.business_name });
+  if (e.email) detailRows.push({ label: "Email", value: e.email });
+  const phone = e.phone || params.callerNumber;
+  if (phone) detailRows.push({ label: "Phone", value: phone });
+  if (e.trade_type) detailRows.push({ label: "Trade", value: e.trade_type });
+  if (e.intent) detailRows.push({ label: "Intent", value: e.intent });
+  detailRows.push({ label: "Call ID", value: params.callId });
+  detailRows.push({ label: "Duration", value: dur });
 
   const transcriptEsc = params.transcript
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-  return `
-    <div style="font-family:system-ui,-apple-system,sans-serif;padding:24px;max-width:680px;">
-      <div style="margin-bottom:16px;">
-        <span style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;background:${e.is_real_lead ? "#ECFDF5" : "#F3F4F6"};color:${e.is_real_lead ? "#047857" : "#6B7280"};text-transform:uppercase;letter-spacing:0.05em;">
-          ${e.is_real_lead ? "Sales lead" : "Call completed"}
-        </span>
-      </div>
-      <h2 style="margin:0 0 4px;font-size:18px;color:#111827;">${e.summary}</h2>
-      <p style="margin:0 0 24px;color:#6B7280;font-size:13px;">Call ${params.callId} · duration ${dur}</p>
-
-      <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:18px 20px;margin-bottom:20px;">
-        <p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.06em;">Extracted caller info</p>
-        <table style="border-collapse:collapse;width:100%;">
-          ${infoRow("Name", e.name)}
-          ${infoRow("Business", e.business_name)}
-          ${infoRow("Email", e.email)}
-          ${infoRow("Phone", e.phone || params.callerNumber)}
-          ${infoRow("Trade", e.trade_type)}
-          ${infoRow("Intent", e.intent)}
-        </table>
-      </div>
-
-      <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:18px 20px;">
-        <p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.06em;">Full transcript</p>
+  return buildAdminAlertEmail({
+    subjectForTitle: e.is_real_lead ? `[Sales call] ${e.name || "Caller"}` : `[Call ended] ${e.intent || "unclassified"}`,
+    alertType: e.is_real_lead ? "Sales lead" : "Call completed",
+    alertTone: e.is_real_lead ? "success" : "info",
+    headline: e.summary || "Sales line call ended",
+    detailRows,
+    bodyHtml: `
+      <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:14px 16px;">
+        <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.06em;">Full transcript</p>
         <pre style="margin:0;font-family:'Menlo','Monaco',monospace;font-size:12px;color:#374151;white-space:pre-wrap;line-height:1.55;">${transcriptEsc}</pre>
-      </div>
-    </div>
-  `;
+      </div>`,
+    footerNote: "WeFixTrades sales line",
+  });
+}
+
+function buildInternalEmailPlainText(params: {
+  extracted: ExtractedCaller;
+  transcript: string;
+  callId: string;
+  durationSec?: number;
+  callerNumber?: string;
+}): string {
+  const e = params.extracted;
+  const dur = params.durationSec
+    ? `${Math.floor(params.durationSec / 60)}m ${params.durationSec % 60}s`
+    : "unknown";
+
+  const detailRows: Array<{ label: string; value: string }> = [];
+  if (e.name) detailRows.push({ label: "Name", value: e.name });
+  if (e.business_name) detailRows.push({ label: "Business", value: e.business_name });
+  if (e.email) detailRows.push({ label: "Email", value: e.email });
+  const phone = e.phone || params.callerNumber;
+  if (phone) detailRows.push({ label: "Phone", value: phone });
+  if (e.trade_type) detailRows.push({ label: "Trade", value: e.trade_type });
+  if (e.intent) detailRows.push({ label: "Intent", value: e.intent });
+  detailRows.push({ label: "Call ID", value: params.callId });
+  detailRows.push({ label: "Duration", value: dur });
+
+  return buildAdminAlertPlainText({
+    alertType: e.is_real_lead ? "Sales lead" : "Call completed",
+    headline: e.summary || "Sales line call ended",
+    detailRows,
+    bodyText: `Full transcript:\n${params.transcript}`,
+    footerNote: "WeFixTrades sales line",
+  });
 }
 
 /**
@@ -190,8 +215,9 @@ export async function handleSalesCallEnded(report: VapiCallReport): Promise<void
     const transporter = getEmailTransporter();
     if (adminEmail && transporter) {
       try {
+        const transcriptForBody = report.transcript || "(no transcript captured)";
         await transporter.sendMail({
-          from: `WeFixTrades Inbox <${getFromAddress()}>`,
+          from: `${ADMIN_ALERT_FROM_NAME} <${getFromAddress()}>`,
           to: adminEmail,
           replyTo: extracted.email || undefined,
           subject: extracted.is_real_lead
@@ -199,7 +225,14 @@ export async function handleSalesCallEnded(report: VapiCallReport): Promise<void
             : `[Call ended] ${extracted.intent || "unclassified"} — ${report.callId.slice(-8)}`,
           html: buildInternalEmailHtml({
             extracted,
-            transcript: report.transcript || "(no transcript captured)",
+            transcript: transcriptForBody,
+            callId: report.callId,
+            durationSec: report.duration,
+            callerNumber: report.customerNumber,
+          }),
+          text: buildInternalEmailPlainText({
+            extracted,
+            transcript: transcriptForBody,
             callId: report.callId,
             durationSec: report.duration,
             callerNumber: report.customerNumber,

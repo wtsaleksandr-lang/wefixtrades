@@ -1,5 +1,4 @@
 import type { Express, Request, Response } from "express";
-import nodemailer from "nodemailer";
 import { storage } from "../storage";
 import { captureIntakeEvent } from "../services/intakeService";
 import {
@@ -8,24 +7,7 @@ import {
   enqueueDemoQuoteFollowups,
 } from "../lib/demoQuoteFollowup";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
-
-/**
- * Standalone transporter for the INTERNAL notification (out of scope for
- * Sprint 2C cleanup — admin-style email scheduled for Sprint 2D).
- */
-function getLegacyInternalTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || "587", 10);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) return null;
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
-}
+import { ADMIN_ALERT_FROM_NAME } from "../lib/adminAlertShell";
 
 const rateMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_WINDOW = 10 * 60 * 1000;
@@ -116,19 +98,20 @@ export function registerDemoLeadRoutes(app: Express): void {
       }
 
       // 3. Send internal notification to WeFixTrades team (non-blocking)
-      // Uses legacy transporter — admin notification is out of Sprint 2C scope.
-      const internalMail = getLegacyInternalTransporter();
-      const internalFrom =
-        process.env.SMTP_FROM ||
-        process.env.SMTP_USER ||
-        "noreply@wefixtrades.com";
+      const internalMail = getEmailTransporter();
       if (internalMail && trimmedEmail) {
         const internalTo =
           process.env.INTERNAL_LEAD_EMAIL || process.env.SMTP_USER || null;
         if (internalTo) {
-          const { subject, html } = buildInternalNotificationEmail(ctx);
+          const { subject, html, text } = buildInternalNotificationEmail(ctx);
           internalMail
-            .sendMail({ from: internalFrom, to: internalTo, subject, html })
+            .sendMail({
+              from: `${ADMIN_ALERT_FROM_NAME} <${getFromAddress()}>`,
+              to: internalTo,
+              subject,
+              html,
+              text,
+            })
             .catch((err) => {
               console.error(
                 "[demo-lead] Internal notification error:",
