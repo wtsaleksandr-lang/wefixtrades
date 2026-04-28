@@ -10,6 +10,7 @@
 
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
+import { buildAdminAlertEmail, buildAdminAlertPlainText, ADMIN_ALERT_FROM_NAME } from "./adminAlertShell";
 
 interface ContactPayload {
   name: string;
@@ -45,20 +46,39 @@ function buildAckHtml(p: ContactPayload): string {
 }
 
 function buildInternalHtml(p: ContactPayload, id: number): string {
-  return `
-    <div style="font-family:system-ui,-apple-system,sans-serif;padding:20px;max-width:640px;">
-      <h2 style="margin:0 0 8px;font-size:16px;">New contact form submission · sales_lead #${id}</h2>
-      <p style="margin:0 0 20px;color:#555;font-size:13px;">Reply directly — the customer's address is the reply-to on this email.</p>
-      <table style="border-collapse:collapse;width:100%;font-size:14px;">
-        <tr><td style="padding:6px 0;color:#888;width:100px;">From</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(p.name)} &lt;${escapeHtml(p.email)}&gt;</td></tr>
-        <tr><td style="padding:6px 0;color:#888;">Subject</td><td style="padding:6px 0;">${escapeHtml(p.subject || "General")}</td></tr>
-      </table>
-      <div style="margin-top:20px;padding:16px;background:#F6F7F9;border-radius:8px;border:1px solid #E5E7EB;">
-        <p style="margin:0 0 6px;font-size:11px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;">Message</p>
+  return buildAdminAlertEmail({
+    subjectForTitle: `New contact form submission · #${id}`,
+    alertType: "New contact form submission",
+    alertTone: "info",
+    headline: `${escapeHtml(p.name)} sent a message`,
+    summary: "Reply directly — the customer's address is the reply-to on this email.",
+    detailRows: [
+      { label: "From", value: `${escapeHtml(p.name)} &lt;${escapeHtml(p.email)}&gt;` },
+      { label: "Subject", value: escapeHtml(p.subject || "General") },
+      { label: "Lead ID", value: `#${id}` },
+    ],
+    bodyHtml: `
+      <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:14px 16px;">
+        <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.06em;">Message</p>
         <pre style="margin:0;font-family:inherit;font-size:14px;color:#111827;white-space:pre-wrap;line-height:1.5;">${escapeHtml(p.message)}</pre>
-      </div>
-    </div>
-  `;
+      </div>`,
+    footerNote: "Sent by WeFixTrades contact form",
+  });
+}
+
+function buildInternalPlainText(p: ContactPayload, id: number): string {
+  return buildAdminAlertPlainText({
+    alertType: "New contact form submission",
+    headline: `${p.name} sent a message`,
+    summary: "Reply directly — the customer's address is the reply-to on this email.",
+    detailRows: [
+      { label: "From", value: `${p.name} <${p.email}>` },
+      { label: "Subject", value: p.subject || "General" },
+      { label: "Lead ID", value: `#${id}` },
+    ],
+    bodyText: `Message:\n${p.message}`,
+    footerNote: "Sent by WeFixTrades contact form",
+  });
 }
 
 export async function sendContactAck(p: ContactPayload): Promise<boolean> {
@@ -99,11 +119,12 @@ export async function sendContactInternalNotification(p: ContactPayload, leadId:
   if (!transporter) return false;
   try {
     await transporter.sendMail({
-      from: `WeFixTrades Inbox <${getFromAddress()}>`,
+      from: `${ADMIN_ALERT_FROM_NAME} <${getFromAddress()}>`,
       to: adminEmail,
       replyTo: p.email,  // hitting reply goes straight to the customer
-      subject: `[Contact · ${p.subject || "General"}] ${p.name}`,
+      subject: `New contact form submission · ${p.subject || "General"} — ${p.name}`,
       html: buildInternalHtml(p, leadId),
+      text: buildInternalPlainText(p, leadId),
     });
     return true;
   } catch (err: any) {
