@@ -36,10 +36,20 @@ const COMPANY_LOCATION = "Toronto, Canada";
  * Centered as a unit. Icon (with subtle white border) on the left, then a
  * stacked column with the wordmark and (optional) tagline directly under it.
  * Tagline left-aligns with the "W" of WeFixTrades.
+ *
+ * `theme` defaults to "dark". Pass `theme: "light"` when the header is
+ * rendered against a light background (e.g. ContentFlow review emails) —
+ * this swaps the wordmark + tagline text colors to dark variants so they
+ * stay readable. The icon's own dark background and the cyan "Fix" accent
+ * stay constant across both themes.
  */
-export function buildEmailHeader(opts: { tagline?: string } = {}): string {
+export function buildEmailHeader(opts: { tagline?: string; theme?: "dark" | "light" } = {}): string {
+  const isLight = opts.theme === "light";
+  const wordmarkColor = isLight ? "#111827" : TEXT_BRIGHT;
+  const taglineColor = isLight ? "#6B7280" : TEXT_MUTED;
+
   const taglineRow = opts.tagline
-    ? `<div style="font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:10.5px;color:${TEXT_MUTED};letter-spacing:0.09em;text-transform:uppercase;line-height:1;margin-top:4px;">${opts.tagline}</div>`
+    ? `<div style="font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:10.5px;color:${taglineColor};letter-spacing:0.09em;text-transform:uppercase;line-height:1;margin-top:4px;">${opts.tagline}</div>`
     : "";
 
   return `
@@ -53,7 +63,7 @@ export function buildEmailHeader(opts: { tagline?: string } = {}): string {
           </table>
         </td>
         <td style="vertical-align:middle;text-align:left;">
-          <div style="font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-weight:700;font-size:20px;letter-spacing:-0.03em;color:${TEXT_BRIGHT};line-height:1;">We<span style="color:${ACCENT};">Fix</span>Trades</div>
+          <div style="font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-weight:700;font-size:20px;letter-spacing:-0.03em;color:${wordmarkColor};line-height:1;">We<span style="color:${ACCENT};">Fix</span>Trades</div>
           ${taglineRow}
         </td>
       </tr>
