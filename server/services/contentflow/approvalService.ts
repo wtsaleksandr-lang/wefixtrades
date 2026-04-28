@@ -148,8 +148,18 @@ export async function adminApproveDraft(input: AdminApproveInput): Promise<Conte
    * Fire-and-forget — repurposeArticle is documented to never throw,
    * so any failure here is logged but cannot block the article's own
    * publish flow. Idempotent — re-call on an already-repurposed
-   * article returns the existing children. */
-  if (existing.kind === "article" && existing.surface === "rankflow") {
+   * article returns the existing children.
+   *
+   * Gated by REPURPOSER_AUTO_FIRE=1 — production turns this on, tests
+   * leave it off to avoid 8-child fan-out polluting the queue for every
+   * Sprint 3/5/6/7 article approval (those clients don't have FB/IG/GBP
+   * connections so children would fail at publish anyway). Sprint 13
+   * tests call __dev/repurpose-test directly, bypassing this hook. */
+  if (
+    process.env.REPURPOSER_AUTO_FIRE === "1" &&
+    existing.kind === "article" &&
+    existing.surface === "rankflow"
+  ) {
     repurposeArticle(draftId).catch((err) => {
       console.error(`[contentflow][repurposer] draft=${draftId} from admin approve failed:`, err?.message || err);
     });
