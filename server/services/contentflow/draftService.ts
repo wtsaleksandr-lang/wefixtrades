@@ -14,6 +14,7 @@ import { socialsyncPosts } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import type { SocialSyncPost, ContentDraft } from "@shared/schema";
 import { extractFromSocialPost } from "./qualityAdapter";
+import { buildCalendarMetadata, type CalendarChannel } from "./calendarMetadata";
 import type { ContentDraftStatus } from "./types";
 
 export interface CreateSocialDraftInput {
@@ -42,6 +43,14 @@ export async function createDraftFromSocialPost(
   const hashtags = (post.hashtags as string[] | null) ?? [];
   const mediaPlan = (post.media_plan as unknown) ?? null;
 
+  /* Sprint 15: populate Sprint-14 calendar metadata so SocialSync drafts
+   * land in the unified calendar view. Channel maps from post.platform. */
+  const cfChannel: CalendarChannel | null =
+    post.platform === "facebook" ? "facebook"
+    : post.platform === "instagram" ? "instagram"
+    : post.platform === "google_business" ? "google_business"
+    : null;
+
   const draft = await storage.createContentDraft({
     client_id: post.client_id,
     client_service_id: null,                // Sprint 1 — not resolved yet
@@ -58,6 +67,16 @@ export async function createDraftFromSocialPost(
       duplicate_hash: post.duplicate_hash ?? null,
       topic_id: post.topic_id ?? null,
       scheduled_for: post.scheduled_for ?? null,
+      ...(cfChannel
+        ? {
+            calendar: buildCalendarMetadata({
+              channel: cfChannel,
+              scheduled_for: post.scheduled_for ? post.scheduled_for.toISOString() : null,
+              auto_generated: true,
+              repurposed: false,
+            }),
+          }
+        : {}),
     },
     quality_score: quality.score,
     quality_notes: { verdict: quality.verdict ?? null },

@@ -21,12 +21,10 @@ import { processAdflowReports } from "./adflowReportWorker";
 import { processDunningQueue } from "./dunningWorker";
 import { processMapguardWeeklyUpdates } from "./mapguardWeeklyUpdateWorker";
 import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
-/* Sprint 10: import retained for backward-compat (legacy worker still
- * callable manually for one-off drains during cutover). Cron entry
- * that invoked it has been removed. */
-import { processSocialSyncQueue } from "./socialSyncWorker";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _legacyWorkerExportRetained = processSocialSyncQueue;
+/* Sprint 15: deprecated processSocialSyncQueue + socialSyncWorker.ts
+ * deleted. SocialSync admin endpoints now route through ContentFlow's
+ * unified queue (processQueue below). No rollback path needed —
+ * Sprint 10 cron retirement was already in production. */
 import { processImageRetention } from "./imageRetentionWorker";
 import { processQueue as processWordpressPublishQueue } from "../services/contentflow/wordpressQueue";
 import { generateAllDue } from "../services/socialSync/orchestrator";
@@ -310,19 +308,15 @@ export function initScheduler() {
     }
   });
 
-  /* Sprint 10: SocialSync legacy queue worker — RETIRED.
+  /* Sprint 10/15: SocialSync legacy queue worker — REMOVED.
    *
-   * The cron entry that previously called processSocialSyncQueue every
-   * 2 min is removed. SocialSync now publishes through ContentFlow's
-   * unified publishQueue (see below) via the facebook / instagram /
-   * gbp_post adapters. The legacy worker file remains in
-   * server/jobs/socialSyncWorker.ts (marked @deprecated) for one
-   * release cycle as a rollback path. The socialsync_publish_queue
-   * table also remains — Sprint 11 or 12 will drop both.
-   *
-   * In-flight legacy queue rows at deploy time: drained one final
-   * time by manual invocation via the existing dev test endpoint
-   * before this code path was removed. */
+   * Sprint 10 retired the cron entry; Sprint 15 deleted the worker
+   * file (server/jobs/socialSyncWorker.ts) and the legacy admin
+   * endpoints that still called it. SocialSync now publishes through
+   * ContentFlow's unified publishQueue (see below) via the facebook /
+   * instagram / gbp_post adapters. The socialsync_publish_queue
+   * table remains in the schema (no migration this sprint) but is
+   * orphaned — no code path writes to it. */
 
   // Sprint 5/8/9/10: ContentFlow unified publish queue. Drains all 5
   // channels (wordpress / gbp / facebook / instagram / gbp_post) per
