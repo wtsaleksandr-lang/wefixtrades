@@ -217,6 +217,30 @@ interface CreateChildInput {
   emailRecipient?: string | null;
 }
 
+/* SocialSync adapters (Sprint 10/12) require draft.linked_social_post_id
+ * to resolve the platform connection + media_plan. Email skips this —
+ * email adapter reads metadata.email.* directly. */
+async function createSocialSyncShell(
+  clientId: number,
+  platform: "facebook" | "instagram" | "google_business",
+  postText: string,
+  imagePrompt: string | null,
+): Promise<number> {
+  const mediaPlan = imagePrompt ? { type: "image", prompt: imagePrompt } : null;
+  const result: any = await db.execute(sql`
+    INSERT INTO socialsync_posts
+      (client_id, platform, post_text, status, media_plan, hashtags, quality_score, created_by_system, created_at, updated_at)
+    VALUES (${clientId}, ${platform}, ${postText}, 'ready', ${mediaPlan ? JSON.stringify(mediaPlan) : null}::jsonb, '[]'::jsonb, 90, true, NOW(), NOW())
+    RETURNING id
+  `);
+  const rows = (result?.rows ?? result) as Array<{ id: number }>;
+  return rows[0].id;
+}
+
+async function backfillSocialSyncShell(postId: number, draftId: number): Promise<void> {
+  await db.execute(sql`UPDATE socialsync_posts SET content_draft_id = ${draftId}, updated_at = NOW() WHERE id = ${postId}`);
+}
+
 async function createChildDraft(input: CreateChildInput): Promise<ContentDraft> {
   const meta: Record<string, any> = {
     parent_draft_id: input.parentDraftId,
@@ -235,6 +259,19 @@ async function createChildDraft(input: CreateChildInput): Promise<ContentDraft> 
       recipient: input.emailRecipient ?? null,
     };
   }
+
+  /* For non-email children, provision a socialsync_posts shell so the
+   * Sprint 10/12 adapters can resolve the platform connection. */
+  let linkedSocialPostId: number | null = null;
+  if (input.kind !== "email_post") {
+    linkedSocialPostId = await createSocialSyncShell(
+      input.clientId,
+      input.target_platform as "facebook" | "instagram" | "google_business",
+      input.body,
+      input.imagePrompt,
+    );
+  }
+
   const draft = await storage.createContentDraft({
     client_id: input.clientId,
     client_service_id: null,
@@ -257,11 +294,16 @@ async function createChildDraft(input: CreateChildInput): Promise<ContentDraft> 
     client_approved_at: null,
     rejected_at: null,
     rejection_reason: null,
-    linked_social_post_id: null,
+    linked_social_post_id: linkedSocialPostId,
     linked_task_id: null,
     generation_cost_micro_usd: null,
     created_by: "system",
   } as any);
+
+  if (linkedSocialPostId !== null) {
+    await backfillSocialSyncShell(linkedSocialPostId, draft.id);
+  }
+
   return draft;
 }
 
