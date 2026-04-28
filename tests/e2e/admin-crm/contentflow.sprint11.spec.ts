@@ -187,19 +187,23 @@ test.describe("ContentFlow Sprint 11 — image generation pipeline", () => {
     expect(meta?.image_generation_error).toBeTruthy();
   });
 
-  test("P11-4 — GBP-post draft is skipped (FB/IG only)", async ({ adminApi }) => {
+  test("P11-4 — GBP-post draft now generates an image (Sprint 12 extended scope)", async ({ adminApi }) => {
+    /* Sprint 11 originally asserted GBP drafts were skipped
+     * (FB/IG-only scope). Sprint 12 explicitly extended the
+     * allowlist to google_post + google_business so GBP local
+     * posts can carry an AI-generated image via the publisher's
+     * media field. The Sprint 11 invariant inverts to: GBP draft
+     * SUCCEEDS at image generation. */
     const clientId = await provisionClient(adminApi);
-    const { draftId } = await createSocialDraft(clientId, "google_business", "P11-4 GBP skip test");
+    const { draftId } = await createSocialDraft(clientId, "google_business", "P11-4 GBP image gen — Sprint 12 happy path");
 
     const result = await generateForDraft(draftId);
-    expect(result.ok).toBe(false);
-    /* google_business creates kind='google_post' — kind check fires
-     * first (skipped_kind). Either reason is acceptable; the
-     * invariant is "no image_url written for GBP". */
-    expect(["skipped_kind", "skipped_platform"]).toContain(result.reason);
+    expect(result.ok, `generateForDraft failed: ${JSON.stringify(result)}`).toBe(true);
+    expect(result.image_url).toBeTruthy();
 
     const meta = await readDraftMeta(draftId);
-    expect(meta?.media_plan?.image_url).toBeFalsy();
+    expect(meta?.media_plan?.image_url).toBeTruthy();
+    expect(meta?.image_generation_status).toBe("succeeded");
   });
 
   test("P11-5 — article draft is skipped (kind != social_post/carousel_post)", async ({ adminApi }) => {
