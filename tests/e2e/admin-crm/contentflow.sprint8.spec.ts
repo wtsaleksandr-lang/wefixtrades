@@ -412,7 +412,9 @@ test.describe("ContentFlow Sprint 8 — production hardening", () => {
     const wp = getAdapter("wordpress");
     expect(wp.type).toBe("wordpress");
     expect(typeof wp.publish).toBe("function");
-    expect(() => getAdapter("facebook" as any)).toThrow(/No publish adapter/);
+    /* Sprint 10: facebook is now a registered adapter. Use a
+     * still-unregistered type to assert the throw path. */
+    expect(() => getAdapter("shopify" as any)).toThrow(/No publish adapter/);
     expect(listRegisteredAdapterTypes()).toContain("wordpress");
   });
 });

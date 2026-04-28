@@ -45,6 +45,9 @@ import type { ContentDraft } from "@shared/schema";
 export const MAX_ATTEMPTS = 3;
 export const BATCH_SIZE = 10;
 export const STALE_LOCK_MS = 10 * 60_000;
+/* Sprint 10: when a draft is in cooling_down, push its scheduled_for
+ * forward by this much so it stops monopolising claim ordering. */
+export const COOLDOWN_DEFER_MS = 5 * 60_000;
 
 export type QueueStatus = "queued" | "publishing" | "published" | "failed";
 export type WpPostStatus = "draft" | "publish";
@@ -565,11 +568,19 @@ async function drainSocialChannel(summary: ProcessQueueSummary, channel: SocialC
     }
 
     /* Sprint 10: cooling_down branch. Adapter detected platform
-     * cooldown — leave queued, do NOT increment attempts, retry next
-     * tick. Counts as a cooldown_skip for metrics. */
+     * cooldown — leave queued, do NOT increment attempts. To prevent
+     * a single cooling client from starving the rest of the queue
+     * (the eligibility filter orders by scheduled_for ASC, so a
+     * head-of-queue cooling draft would be re-claimed every BATCH
+     * iteration), push scheduled_for forward by COOLDOWN_DEFER_MS so
+     * the row drops out of eligibility until the next tick window.
+     * The actual cooldown_until lives on the profile and is
+     * re-checked on every claim — this is just queue-fairness. */
     if (!result.ok && result.reason === "cooling_down") {
+      const deferUntil = new Date(Date.now() + COOLDOWN_DEFER_MS).toISOString();
       await mergeChannelMetadata(claimed.id, channel, {
         queue_status: "queued",
+        scheduled_for: deferUntil,
         locked_at: null,
         locked_by: null,
         last_error: result.message,
