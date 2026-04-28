@@ -1,5 +1,6 @@
 import { storage } from "../storage";
 import type { InsertAuditFollowupEmail } from "@shared/schema";
+import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 
 /**
  * Missed Call Calculator follow-up email sequence.
@@ -145,58 +146,68 @@ export async function enqueueMissedCallFollowups(ctx: MissedCallFollowupContext)
 /**
  * Build the immediate results email sent right after gate submission.
  */
-export function buildImmediateResultsEmail(ctx: MissedCallFollowupContext): { subject: string; html: string } {
+export function buildImmediateResultsEmail(ctx: MissedCallFollowupContext): { subject: string; html: string; text: string } {
   const monthly = Math.round(ctx.estimatedAnnualLoss / 12);
   const daily = Math.round(ctx.estimatedAnnualLoss / 365);
-  const tradelineLink = `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : ""}/products/tradeline`;
+  const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL
+    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
+  const tradelineLink = `${baseUrl.replace(/\/$/, "")}/products/tradeline`;
 
   const subject = `Your Missed Call Report: ${formatDollars(ctx.estimatedAnnualLoss)}/yr in lost ${ctx.trade} revenue`;
 
-  const html = `<!DOCTYPE html>
-<html><body style="font-family:'Inter',Arial,sans-serif;margin:0;padding:0;background:#f5f5f5;">
-<table cellpadding="0" cellspacing="0" width="100%" style="max-width:520px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-  <tr><td style="padding:24px 28px;background:#0d1514;">
-    <h1 style="color:#fff;font-size:18px;margin:0;">Your Missed Call Revenue Report</h1>
-    <p style="color:rgba(255,255,255,0.6);font-size:13px;margin:6px 0 0;">${ctx.trade} business estimate</p>
-  </td></tr>
-  <tr><td style="padding:28px;">
-    <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:20px;">
-      <tr>
-        <td style="padding:12px 16px;background:#FEF2F2;border-radius:8px;text-align:center;">
-          <p style="margin:0 0 4px;font-size:12px;color:#991B1B;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Estimated Annual Loss</p>
-          <p style="margin:0;font-size:28px;font-weight:800;color:#DC2626;">${formatDollars(ctx.estimatedAnnualLoss)}</p>
-        </td>
-      </tr>
-    </table>
-    <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:20px;">
-      <tr>
-        <td style="padding:10px 14px;background:#f9fafb;border-radius:6px;width:50%;text-align:center;">
-          <p style="margin:0;font-size:11px;color:#6B7280;">Per Month</p>
-          <p style="margin:4px 0 0;font-size:16px;font-weight:700;color:#111;">${formatDollars(monthly)}</p>
-        </td>
-        <td style="width:8px;"></td>
-        <td style="padding:10px 14px;background:#f9fafb;border-radius:6px;width:50%;text-align:center;">
-          <p style="margin:0;font-size:11px;color:#6B7280;">Per Day</p>
-          <p style="margin:4px 0 0;font-size:16px;font-weight:700;color:#111;">${formatDollars(daily)}</p>
-        </td>
-      </tr>
-    </table>
-    <p style="font-size:13px;color:#6B7280;line-height:1.6;margin:0 0 20px;">
-      Based on ${ctx.missedCallsPerWeek} missed calls/week at a ${ctx.closeRatePercent}% close rate with an average job value of ${formatDollars(ctx.avgJobValue)}.
-    </p>
-    <div style="border-top:1px solid #E5E7EB;padding-top:20px;">
-      <p style="font-size:14px;font-weight:700;color:#111;margin:0 0 8px;">How to recover this revenue</p>
-      <p style="font-size:13px;color:#6B7280;line-height:1.6;margin:0 0 16px;">
-        TradeLine answers your calls 24/7 with AI, sends instant SMS replies to missed calls, captures every lead, and follows up automatically. Most businesses see results within 2 weeks.
-      </p>
-      <a href="${tradelineLink}" style="display:inline-block;background:#00D4C8;color:#0d1514;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">See TradeLine Plans — from $97/mo</a>
-    </div>
-  </td></tr>
-  <tr><td style="padding:12px 28px;background:#f9fafb;text-align:center;">
-    <p style="font-size:11px;color:#9ca3af;margin:0;">Sent by WeFixTrades</p>
-  </td></tr>
-</table>
-</body></html>`;
+  const html = buildTransactionalEmail({
+    recipientEmail: ctx.email,
+    subjectForTitle: subject,
+    headerTagline: `${ctx.trade} business estimate`,
+    eyebrow: "Missed-call revenue report",
+    eyebrowColor: "#EF4444",
+    headline: "Your missed-call revenue estimate",
+    intro: `Based on ${ctx.missedCallsPerWeek} missed calls/week at a ${ctx.closeRatePercent}% close rate with an average job value of <strong style="color:#F0F0F0;">${formatDollars(ctx.avgJobValue)}</strong>.`,
+    bodyHtml: `
+      <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 16px;">
+        <tr>
+          <td style="padding:16px 18px;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.20);border-radius:10px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:11px;color:#FCA5A5;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Estimated annual loss</p>
+            <p style="margin:0;font-size:30px;font-weight:800;color:#F87171;">${formatDollars(ctx.estimatedAnnualLoss)}</p>
+          </td>
+        </tr>
+      </table>
+      <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 18px;">
+        <tr>
+          <td style="padding:12px 14px;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:8px;width:48%;text-align:center;">
+            <p style="margin:0;font-size:11px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;">Per month</p>
+            <p style="margin:4px 0 0;font-size:17px;font-weight:700;color:#F0F0F0;">${formatDollars(monthly)}</p>
+          </td>
+          <td style="width:10px;"></td>
+          <td style="padding:12px 14px;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:8px;width:48%;text-align:center;">
+            <p style="margin:0;font-size:11px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;">Per day</p>
+            <p style="margin:4px 0 0;font-size:17px;font-weight:700;color:#F0F0F0;">${formatDollars(daily)}</p>
+          </td>
+        </tr>
+      </table>
+      <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:18px;margin-top:4px;">
+        <p style="font-size:14px;font-weight:700;color:#F0F0F0;margin:0 0 6px;">How to recover this revenue</p>
+        <p style="font-size:13px;color:#CDD1D6;line-height:1.6;margin:0;">
+          TradeLine answers your calls 24/7 with AI, sends instant SMS replies to missed calls, captures every lead, and follows up automatically. Most businesses see results within 2 weeks.
+        </p>
+      </div>`,
+    cta: { label: "See TradeLine plans — from $97/mo", url: tradelineLink },
+  });
 
-  return { subject, html };
+  const text = buildPlainText({
+    headline: "Your missed-call revenue estimate",
+    intro: `Based on ${ctx.missedCallsPerWeek} missed calls/week at a ${ctx.closeRatePercent}% close rate with an average job value of ${formatDollars(ctx.avgJobValue)}.`,
+    bodyText: [
+      `Estimated annual loss: ${formatDollars(ctx.estimatedAnnualLoss)}`,
+      `Per month: ${formatDollars(monthly)}`,
+      `Per day: ${formatDollars(daily)}`,
+      "",
+      "How to recover this revenue:",
+      "TradeLine answers your calls 24/7 with AI, sends instant SMS replies to missed calls, captures every lead, and follows up automatically. Most businesses see results within 2 weeks.",
+    ].join("\n"),
+    ctaLabel: "See TradeLine plans — from $97/mo",
+    ctaUrl: tradelineLink,
+  });
+
+  return { subject, html, text };
 }
