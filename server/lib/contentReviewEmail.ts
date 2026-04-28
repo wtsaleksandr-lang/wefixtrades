@@ -238,7 +238,7 @@ function buildAdminHtml(args: {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(c.subject)}</title></head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-${buildEmailHeader({ tagline: "ContentFlow review update" })}
+${buildEmailHeader({ tagline: "ContentFlow review update", theme: "light" })}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">
   <tr><td align="center">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;">

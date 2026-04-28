@@ -163,7 +163,7 @@ ${titleTag}
 </head><body style="margin:0;padding:0;background:${theme.bg};">
 <div style="font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:${theme.bg};padding:32px 12px;">
   <div style="max-width:${maxWidth}px;margin:0 auto;">
-    ${buildEmailHeader({ tagline: p.headerTagline })}
+    ${buildEmailHeader({ tagline: p.headerTagline, theme: isLight ? "light" : "dark" })}
     <div style="background:${theme.card};border:1px solid ${theme.border};border-radius:16px;padding:32px 24px;">
       ${eyebrowHtml}
       <h1 style="font-size:22px;font-weight:700;color:${theme.textBright};margin:0 0 ${p.intro ? "12px" : "20px"};line-height:1.3;">${p.headline}</h1>
