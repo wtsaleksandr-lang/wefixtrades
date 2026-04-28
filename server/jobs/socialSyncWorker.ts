@@ -13,15 +13,17 @@ type AnyPublishResult = PublishResult | InstagramPublishResult | GooglePublishRe
 const STALE_LOCK_THRESHOLD_MS = 10 * 60 * 1000;
 
 /**
- * SocialSync publish queue worker.
+ * @deprecated Sprint 10 — SocialSync now publishes through ContentFlow's
+ *   unified publishQueue (server/services/contentflow/wordpressQueue.ts
+ *   `processQueue`) via the facebook / instagram / gbp_post adapters.
+ *   This worker is no longer registered with the cron scheduler. The
+ *   function and the socialsync_publish_queue table are retained for one
+ *   release cycle as a rollback path; both are slated for deletion in
+ *   Sprint 11/12.
  *
- * Flow:
- *   1. Recover any stale locks from crashed previous runs
- *   2. Fetch due jobs (pending, run_at <= now, not locked)
- *   3. For each job: validate → lock → publish → update
- *
- * Currently supports: Facebook (real publish)
- * Other platforms: fail with "not yet implemented"
+ *   Do NOT add new callers. To enqueue a SocialSync post, use
+ *   `enqueueSocialSyncDraft(draftId, opts)` from the ContentFlow queue
+ *   module instead.
  */
 export async function processSocialSyncQueue(): Promise<{ processed: number; published: number; recovered: number; skipped_cooldown: number; errors: string[] }> {
   const errors: string[] = [];

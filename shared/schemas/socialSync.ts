@@ -77,7 +77,13 @@ export const insertSocialSyncPostSchema = createInsertSchema(socialsyncPosts).om
 export type InsertSocialSyncPost = z.infer<typeof insertSocialSyncPostSchema>;
 export type SocialSyncPost = typeof socialsyncPosts.$inferSelect;
 
-/* ─── SocialSync Publish Queue (job queue) ─── */
+/* ─── SocialSync Publish Queue (job queue) ───
+ *
+ * @deprecated Sprint 10 — SocialSync publish jobs are now tracked in
+ *   content_drafts.metadata.{facebook|instagram|gbp_post}.queue_status
+ *   under ContentFlow's unified publishQueue. The cron worker that
+ *   drained this table is retired. Table retained one release cycle
+ *   for rollback safety; slated for DROP in Sprint 11/12. */
 export const socialsyncPublishQueue = pgTable("socialsync_publish_queue", {
   id: serial("id").primaryKey(),
   client_id: integer("client_id").notNull().references(() => clients.id),

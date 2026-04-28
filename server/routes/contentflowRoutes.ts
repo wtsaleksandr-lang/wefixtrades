@@ -33,6 +33,7 @@ import {
   processQueue as processWordpressPublishQueue,
 } from "../services/contentflow/wordpressQueue";
 import { getReviewReplyMetrics } from "../services/contentflow/reviewReplyMetrics";
+import { getQueueMetrics } from "../services/contentflow/queueMetrics";
 
 export function registerContentFlowRoutes(app: Express): void {
   /**
@@ -867,7 +868,145 @@ export function registerContentFlowRoutes(app: Express): void {
         updateTime: new Date().toISOString(),
       });
     });
+
+    /**
+     * Sprint 10 dev-only — Facebook Graph API mock for page-feed posts.
+     * POST /api/__dev/fb-mock/:pageId/feed?access_token=...
+     *
+     * Triggered when FB_GRAPH_API_BASE_OVERRIDE points here. Recognises
+     * message-prefix triggers for forced failures used by sprint10 spec:
+     *   FAIL_FB_PERM   → 400 with error.code=190 (invalid token, permanent)
+     *   FAIL_FB_RATE   → 400 with error.code=4   (rate limit, retryable)
+     *   FAIL_FB_500    → 500 (transient, retryable)
+     */
+    app.post(
+      "/api/__dev/fb-mock/:pageId/feed",
+      async (req: Request, res: Response) => {
+        if (!req.query.access_token) {
+          return res.status(400).json({ error: { code: 190, message: "access_token required" } });
+        }
+        const message = typeof req.body?.message === "string" ? req.body.message : "";
+        if (message.startsWith("FAIL_FB_PERM")) {
+          return res.status(400).json({ error: { code: 190, message: "Invalid OAuth access token (forced for test)" } });
+        }
+        if (message.startsWith("FAIL_FB_RATE")) {
+          return res.status(400).json({ error: { code: 4, message: "Application request limit reached (forced for test)" } });
+        }
+        if (message.startsWith("FAIL_FB_500")) {
+          return res.status(500).json({ error: { code: 1, message: "Service temporarily unavailable (forced for test)" } });
+        }
+        const fakeId = `${req.params.pageId}_${Math.floor(Math.random() * 9_000_000) + 1_000_000}`;
+        res.json({ id: fakeId });
+      },
+    );
+
+    /**
+     * Sprint 10 dev-only — Instagram Graph mock.
+     *   POST /api/__dev/ig-mock/:igId/media          → returns { id: containerId }
+     *   POST /api/__dev/ig-mock/:igId/media_publish  → returns { id: remoteId }
+     *
+     * Caption prefix `FAIL_IG_PERM` → 400 code 100; `FAIL_IG_RATE` → 400 code 4.
+     */
+    app.post(
+      "/api/__dev/ig-mock/:igId/media",
+      async (req: Request, res: Response) => {
+        if (!req.query.access_token) {
+          return res.status(400).json({ error: { code: 100, message: "access_token required" } });
+        }
+        const caption = typeof req.body?.caption === "string" ? req.body.caption : "";
+        if (caption.startsWith("FAIL_IG_PERM")) {
+          return res.status(400).json({ error: { code: 100, message: "Invalid parameter (forced for test)" } });
+        }
+        if (caption.startsWith("FAIL_IG_RATE")) {
+          return res.status(400).json({ error: { code: 4, message: "Rate limit (forced for test)" } });
+        }
+        const containerId = `${req.params.igId}_container_${Math.floor(Math.random() * 9_000_000) + 1_000_000}`;
+        res.json({ id: containerId });
+      },
+    );
+    app.post(
+      "/api/__dev/ig-mock/:igId/media_publish",
+      async (req: Request, res: Response) => {
+        if (!req.query.access_token) {
+          return res.status(400).json({ error: { code: 100, message: "access_token required" } });
+        }
+        const containerId = req.body?.creation_id;
+        if (!containerId) {
+          return res.status(400).json({ error: { code: 100, message: "creation_id required" } });
+        }
+        const remoteId = `${req.params.igId}_post_${Math.floor(Math.random() * 9_000_000) + 1_000_000}`;
+        res.json({ id: remoteId });
+      },
+    );
+
+    /**
+     * Sprint 10 dev-only — GBP Posts (localPosts) mock.
+     * POST /api/__dev/gbp-post-mock/<locationName>/localPosts
+     *
+     * Triggered when GBP_POST_API_BASE_OVERRIDE points here. Authorization:
+     * Bearer required (mirrors real Google API). Summary prefix
+     * `FAIL_GBP_POST_RATE` → 429; `FAIL_GBP_POST_PERM` → 401.
+     */
+    app.use("/api/__dev/gbp-post-mock", (req: Request, res: Response, next) => {
+      if (req.method !== "POST") return next();
+      const match = req.path.match(/^\/(.+)\/localPosts\/?$/);
+      if (!match) return next();
+      if (!req.headers.authorization || !/^bearer\s/i.test(req.headers.authorization)) {
+        return res.status(401).json({ error: { code: 401, message: "Authorization required" } });
+      }
+      const summary = typeof req.body?.summary === "string" ? req.body.summary : "";
+      if (summary.startsWith("FAIL_GBP_POST_RATE")) {
+        return res.status(429).json({ error: { code: 429, message: "Rate limit exceeded (forced for test)" } });
+      }
+      if (summary.startsWith("FAIL_GBP_POST_PERM")) {
+        return res.status(401).json({ error: { code: 401, message: "Unauthorized (forced for test)" } });
+      }
+      const fakeId = `accounts/test/locations/x/localPosts/${Math.floor(Math.random() * 9_000_000) + 1_000_000}`;
+      res.json({
+        name: fakeId,
+        summary,
+        state: "LIVE",
+        createTime: new Date().toISOString(),
+      });
+    });
   }
+
+  /**
+   * Sprint 10: lightweight queue metrics endpoint. Aggregates per-channel
+   * counters from job_logs.metadata (written by `runJob` wrapping
+   * `processQueue`). No new metrics table.
+   *
+   *   GET /api/admin/contentflow/queue-metrics?days=N (default N=1)
+   *
+   * Response:
+   *   {
+   *     window_days, runs_observed,
+   *     channels: {
+   *       wordpress: { success, failed, retried, cooldown_skipped, avg_publish_ms },
+   *       gbp:       { ... },
+   *       facebook:  { ... },
+   *       instagram: { ... },
+   *       gbp_post:  { ... }
+   *     }
+   *   }
+   */
+  app.get(
+    "/api/admin/contentflow/queue-metrics",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const days = req.query.days ? parseInt(String(req.query.days), 10) : 1;
+        if (!Number.isFinite(days) || days < 1 || days > 90) {
+          return res.status(400).json({ error: "days must be 1..90" });
+        }
+        const result = await getQueueMetrics(days);
+        res.json(result);
+      } catch (err: any) {
+        console.error("[contentflow/queue-metrics] error:", err?.message || err);
+        res.status(500).json({ error: "Failed to compute metrics" });
+      }
+    },
+  );
 
   /**
    * Sprint 9: read-only reporting endpoint for the admin reputation

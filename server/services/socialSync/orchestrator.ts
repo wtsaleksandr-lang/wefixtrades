@@ -4,6 +4,7 @@ import { generatePostFromTopic, type ContentGenerationResult } from "./contentGe
 import { checkContentMix } from "./qualityGate";
 import { createDraftFromSocialPost } from "../contentflow/draftService";
 import { autoApproveDraft } from "../contentflow/approvalService";
+import { enqueueSocialSyncDraft } from "../contentflow/wordpressQueue";
 import type { SocialSyncProfile, SocialSyncTopic } from "@shared/schema";
 
 /* ─── Frequency mapping ─── */
@@ -243,12 +244,23 @@ export async function generateWeekForClient(
 
     result.posts_generated++;
 
-    // ContentFlow (Sprint 1): mirror the freshly-generated post into the
-    // unified draft table and record an auto-approval. Isolated in its own
-    // try/catch — any failure here must NOT affect the existing SocialSync
-    // publish flow (silence-as-consent remains untouched).
+    // Sprint 10: route through ContentFlow's unified publish queue.
+    // Replaces the legacy socialsync_publish_queue insert.
+    //
+    // Flow:
+    //   1. Create the unified draft (kind='social_post').
+    //   2. Auto-approve (silence-as-consent remains the SocialSync default).
+    //   3. enqueueSocialSyncDraft sets metadata.<platform>.queue_status='queued'
+    //      with scheduled_for honoured by the queue worker.
+    //
+    // The legacy storage.enqueueSocialSyncJob call is GONE — no new
+    // socialsync_publish_queue rows are written. Existing rows in
+    // flight at deploy time drain via one final tick of the legacy
+    // worker before its cron is removed in scheduler.ts.
+    let draftIdForEnqueue: number | null = null;
     try {
       const draft = await createDraftFromSocialPost({ post: genResult.post });
+      draftIdForEnqueue = draft.id;
       await autoApproveDraft({
         draftId: draft.id,
         notes: `SocialSync auto-approved — quality score ${genResult.post.quality_score ?? 0}`,
@@ -257,25 +269,16 @@ export async function generateWeekForClient(
       result.errors.push(`ContentFlow draft failed for post ${genResult.post.id}: ${cfErr.message}`);
     }
 
-    // 7. Enqueue for publishing. Post status = "pending_approval" so the
-    //    customer gets a review window before it publishes. The queue worker
-    //    auto-approves at scheduled_for if the customer doesn't act (matches
-    //    the "done-for-you" product promise — silence = implicit consent).
-    try {
-      await storage.enqueueSocialSyncJob({
-        client_id: clientId,
-        post_id: genResult.post.id,
-        platform,
-        status: "pending",
-        run_at: scheduledFor,
-        attempts: 0,
-        max_attempts: 3,
-      } as any);
-
-      await storage.updateSocialSyncPost(genResult.post.id, { status: "pending_approval" } as any);
-      result.posts_queued++;
-    } catch (err: any) {
-      result.errors.push(`Enqueue failed for post ${genResult.post.id}: ${err.message}`);
+    if (draftIdForEnqueue !== null) {
+      try {
+        await enqueueSocialSyncDraft(draftIdForEnqueue, {
+          scheduled_for: scheduledFor.toISOString(),
+        });
+        await storage.updateSocialSyncPost(genResult.post.id, { status: "pending_approval" } as any);
+        result.posts_queued++;
+      } catch (err: any) {
+        result.errors.push(`Enqueue failed for post ${genResult.post.id}: ${err.message}`);
+      }
     }
   }
 

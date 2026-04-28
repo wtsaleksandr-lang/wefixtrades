@@ -20,7 +20,12 @@ import { processSocialsyncReports } from "./socialsyncReportWorker";
 import { processAdflowReports } from "./adflowReportWorker";
 import { processMapguardWeeklyUpdates } from "./mapguardWeeklyUpdateWorker";
 import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
+/* Sprint 10: import retained for backward-compat (legacy worker still
+ * callable manually for one-off drains during cutover). Cron entry
+ * that invoked it has been removed. */
 import { processSocialSyncQueue } from "./socialSyncWorker";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _legacyWorkerExportRetained = processSocialSyncQueue;
 import { processQueue as processWordpressPublishQueue } from "../services/contentflow/wordpressQueue";
 import { generateAllDue } from "../services/socialSync/orchestrator";
 import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
@@ -303,18 +308,25 @@ export function initScheduler() {
     }
   });
 
-  cron.schedule("*/2 * * * *", async () => {
-    try {
-      await runJob("socialsync_queue_worker", processSocialSyncQueue);
-    } catch (err: any) {
-      console.error("[Scheduler] socialsync_queue_worker error:", err.message);
-    }
-  });
+  /* Sprint 10: SocialSync legacy queue worker — RETIRED.
+   *
+   * The cron entry that previously called processSocialSyncQueue every
+   * 2 min is removed. SocialSync now publishes through ContentFlow's
+   * unified publishQueue (see below) via the facebook / instagram /
+   * gbp_post adapters. The legacy worker file remains in
+   * server/jobs/socialSyncWorker.ts (marked @deprecated) for one
+   * release cycle as a rollback path. The socialsync_publish_queue
+   * table also remains — Sprint 11 or 12 will drop both.
+   *
+   * In-flight legacy queue rows at deploy time: drained one final
+   * time by manual invocation via the existing dev test endpoint
+   * before this code path was removed. */
 
-  // Sprint 5/8: ContentFlow publish queue. Atomic-claim worker dispatching
-  // through the adapter registry. The `isRunning` guard prevents two ticks
-  // of the same cron from overlapping if a tick takes longer than the
-  // 2-minute interval (slow upstream / large batch).
+  // Sprint 5/8/9/10: ContentFlow unified publish queue. Drains all 5
+  // channels (wordpress / gbp / facebook / instagram / gbp_post) per
+  // tick via atomic FOR UPDATE SKIP LOCKED claims. The `isRunning`
+  // guard prevents two ticks of the same cron from overlapping if a
+  // tick takes longer than the 2-minute interval.
   let publishQueueRunning = false;
   cron.schedule("*/2 * * * *", async () => {
     if (publishQueueRunning) {

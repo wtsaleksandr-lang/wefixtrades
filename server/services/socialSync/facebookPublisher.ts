@@ -13,7 +13,16 @@
 import { getFacebookPageToken } from "./facebookService";
 import type { SocialSyncPost } from "@shared/schema";
 
-const GRAPH_API_BASE = "https://graph.facebook.com/v21.0";
+/* Sprint 10: dev-test override. When FB_GRAPH_API_BASE_OVERRIDE is set
+ * (and NODE_ENV !== "production"), all requests route to that URL
+ * instead of the real Graph API. Production has neither var set. */
+const GRAPH_API_BASE_DEFAULT = "https://graph.facebook.com/v21.0";
+function getGraphApiBase(): string {
+  if (process.env.NODE_ENV !== "production" && process.env.FB_GRAPH_API_BASE_OVERRIDE) {
+    return process.env.FB_GRAPH_API_BASE_OVERRIDE;
+  }
+  return GRAPH_API_BASE_DEFAULT;
+}
 
 /* ─── Content constraints ─── */
 
@@ -139,7 +148,7 @@ export async function publishToFacebook(
 
   // 4. Publish via Graph API
   try {
-    const url = new URL(`${GRAPH_API_BASE}/${pageId}/feed`);
+    const url = new URL(`${getGraphApiBase()}/${pageId}/feed`);
     url.searchParams.set("access_token", token);
 
     const publishRes = await fetch(url.toString(), {

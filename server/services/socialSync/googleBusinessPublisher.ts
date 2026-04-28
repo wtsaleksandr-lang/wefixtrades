@@ -14,7 +14,14 @@ import { getGoogleAccessToken } from "./googleBusinessService";
 import type { SocialSyncPost } from "@shared/schema";
 
 // v4 API for local posts (v1 Business Information API doesn't support posting)
-const GBP_POST_API = "https://mybusiness.googleapis.com/v4";
+const GBP_POST_API_DEFAULT = "https://mybusiness.googleapis.com/v4";
+/* Sprint 10: dev-test override. */
+function getGbpPostApi(): string {
+  if (process.env.NODE_ENV !== "production" && process.env.GBP_POST_API_BASE_OVERRIDE) {
+    return process.env.GBP_POST_API_BASE_OVERRIDE;
+  }
+  return GBP_POST_API_DEFAULT;
+}
 
 /* ─── Content Constraints ─── */
 
@@ -85,7 +92,7 @@ export async function publishToGoogleBusiness(
 
   // 4. Publish
   try {
-    const url = `${GBP_POST_API}/${locationName}/localPosts`;
+    const url = `${getGbpPostApi()}/${locationName}/localPosts`;
     const res = await fetch(url, {
       method: "POST",
       headers: {

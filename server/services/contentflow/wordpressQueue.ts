@@ -91,12 +91,36 @@ export type RetryResult =
       message: string;
     };
 
+/* Sprint 10: per-channel observability counters captured into
+ * jobLogs.metadata so /api/admin/contentflow/queue-metrics can
+ * aggregate over time. */
+export interface ChannelMetrics {
+  scanned: number;
+  published: number;
+  failed: number;
+  retried: number;
+  cooldown_skipped: number;
+  total_duration_ms: number;
+}
+
+function emptyChannelMetrics(): ChannelMetrics {
+  return { scanned: 0, published: 0, failed: 0, retried: 0, cooldown_skipped: 0, total_duration_ms: 0 };
+}
+
 export interface ProcessQueueSummary {
   scanned: number;
   published: number;
   failed: number;
   retried: number;
   errors: string[];
+  /* Sprint 10: per-channel breakdown. */
+  channels?: {
+    wordpress: ChannelMetrics;
+    gbp: ChannelMetrics;
+    facebook: ChannelMetrics;
+    instagram: ChannelMetrics;
+    gbp_post: ChannelMetrics;
+  };
 }
 
 /* ─── Helpers ───────────────────────────────────────────────────────── */
@@ -261,21 +285,21 @@ export async function retryDraft(draftId: number): Promise<RetryResult> {
 /* ─── Worker ────────────────────────────────────────────────────────── */
 
 /**
- * Sprint 8/9: drain up to BATCH_SIZE eligible drafts per channel using
- * atomic claims.
+ * Sprint 8/9/10: drain up to BATCH_SIZE eligible drafts per channel
+ * using atomic claims. Five channels supported:
+ *   wordpress (RankFlow articles)
+ *   gbp        (ReputationShield review-replies — Sprint 9)
+ *   facebook   (SocialSync posts — Sprint 10)
+ *   instagram  (SocialSync posts — Sprint 10)
+ *   gbp_post   (SocialSync GBP posts — Sprint 10, distinct from review-replies)
  *
- *   1. Recover stale claims for both wordpress + gbp queues
- *      (publishing rows abandoned by crashed workers).
- *   2. Drain wordpress queue up to BATCH_SIZE.
- *   3. Drain gbp queue up to BATCH_SIZE.
- *   4. Stop a queue when claim returns null (empty / all locked elsewhere).
+ * Per-channel metrics are recorded into summary.channels so the
+ * runJob wrapper persists them into job_logs.metadata for the
+ * /api/admin/contentflow/queue-metrics endpoint.
  *
- * The claim is row-level locked + SKIP LOCKED per row, so two concurrent
- * workers never publish the same draft AND the wordpress + gbp queues
- * drain independently — neither blocks the other.
- *
- * Each adapter runs in isolation; an adapter throw is caught and
- * persisted as a failure.
+ * Stale-lock recovery runs for all 5 channels at the top of every
+ * tick. Drain order is fixed but each is independent — SKIP LOCKED
+ * is per-row so a slow facebook publish doesn't block instagram drain.
  */
 export async function processQueue(): Promise<ProcessQueueSummary> {
   const summary: ProcessQueueSummary = {
@@ -284,40 +308,49 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
     failed: 0,
     retried: 0,
     errors: [],
+    channels: {
+      wordpress: emptyChannelMetrics(),
+      gbp: emptyChannelMetrics(),
+      facebook: emptyChannelMetrics(),
+      instagram: emptyChannelMetrics(),
+      gbp_post: emptyChannelMetrics(),
+    },
   };
 
   const now = new Date();
 
-  /* 1. Stale-lock recovery for both queues. */
-  try {
-    const recoveredWp = await storage.recoverStaleWordpressClaims({ now, staleLockMs: STALE_LOCK_MS });
-    if (recoveredWp > 0) {
-      console.log(`[contentflow][publish-queue][wp] recovered ${recoveredWp} stale claim(s)`);
+  /* 1. Stale-lock recovery for all 5 channels. */
+  const recoveryFns: Array<[string, () => Promise<number>]> = [
+    ["wp", () => storage.recoverStaleWordpressClaims({ now, staleLockMs: STALE_LOCK_MS })],
+    ["gbp", () => storage.recoverStaleGbpClaims({ now, staleLockMs: STALE_LOCK_MS })],
+    ["facebook", () => storage.recoverStaleFacebookClaims({ now, staleLockMs: STALE_LOCK_MS })],
+    ["instagram", () => storage.recoverStaleInstagramClaims({ now, staleLockMs: STALE_LOCK_MS })],
+    ["gbp_post", () => storage.recoverStaleGbpPostClaims({ now, staleLockMs: STALE_LOCK_MS })],
+  ];
+  for (const [tag, fn] of recoveryFns) {
+    try {
+      const n = await fn();
+      if (n > 0) console.log(`[contentflow][publish-queue][${tag}] recovered ${n} stale claim(s)`);
+    } catch (err: any) {
+      console.error(`[contentflow][publish-queue][${tag}] stale-lock recovery failed:`, err?.message || err);
     }
-  } catch (err: any) {
-    console.error(`[contentflow][publish-queue][wp] stale-lock recovery failed:`, err?.message || err);
-  }
-  try {
-    const recoveredGbp = await storage.recoverStaleGbpClaims({ now, staleLockMs: STALE_LOCK_MS });
-    if (recoveredGbp > 0) {
-      console.log(`[contentflow][publish-queue][gbp] recovered ${recoveredGbp} stale claim(s)`);
-    }
-  } catch (err: any) {
-    console.error(`[contentflow][publish-queue][gbp] stale-lock recovery failed:`, err?.message || err);
   }
 
-  /* 2. Drain WordPress queue. */
+  /* 2-6. Drain each channel up to BATCH_SIZE. */
   await drainWordpressQueue(summary);
-
-  /* 3. Drain GBP queue. */
   await drainGbpQueue(summary);
+  await drainSocialChannel(summary, "facebook");
+  await drainSocialChannel(summary, "instagram");
+  await drainSocialChannel(summary, "gbp_post");
 
   return summary;
 }
 
 async function drainWordpressQueue(summary: ProcessQueueSummary): Promise<void> {
+  const m = summary.channels?.wordpress ?? emptyChannelMetrics();
   for (let i = 0; i < BATCH_SIZE; i++) {
     let claimed: ContentDraft | null;
+    const t0 = Date.now();
     try {
       claimed = await storage.claimNextWordpressJob(WORKER_ID, { now: new Date(), staleLockMs: STALE_LOCK_MS });
     } catch (err: any) {
@@ -326,6 +359,7 @@ async function drainWordpressQueue(summary: ProcessQueueSummary): Promise<void> 
     }
     if (!claimed) break;
     summary.scanned++;
+    m.scanned++;
 
     const wp = getWpMeta(claimed);
 
@@ -358,6 +392,8 @@ async function drainWordpressQueue(summary: ProcessQueueSummary): Promise<void> 
         locked_by: null,
       });
       summary.published++;
+      m.published++;
+      m.total_duration_ms += Date.now() - t0;
       continue;
     }
 
@@ -374,6 +410,7 @@ async function drainWordpressQueue(summary: ProcessQueueSummary): Promise<void> 
         locked_by: null,
       });
       summary.failed++;
+      m.failed++;
       summary.errors.push(`draft ${claimed.id}: ${errMsg}`);
     } else {
       await mergeWpMetadata(claimed.id, {
@@ -384,7 +421,9 @@ async function drainWordpressQueue(summary: ProcessQueueSummary): Promise<void> 
         locked_by: null,
       });
       summary.retried++;
+      m.retried++;
     }
+    m.total_duration_ms += Date.now() - t0;
   }
 }
 
@@ -395,8 +434,10 @@ async function drainWordpressQueue(summary: ProcessQueueSummary): Promise<void> 
  * — keeping the surgical scope the user specified.
  */
 async function drainGbpQueue(summary: ProcessQueueSummary): Promise<void> {
+  const m = summary.channels?.gbp ?? emptyChannelMetrics();
   for (let i = 0; i < BATCH_SIZE; i++) {
     let claimed: ContentDraft | null;
+    const t0 = Date.now();
     try {
       claimed = await storage.claimNextGbpJob(WORKER_ID, { now: new Date(), staleLockMs: STALE_LOCK_MS });
     } catch (err: any) {
@@ -405,6 +446,7 @@ async function drainGbpQueue(summary: ProcessQueueSummary): Promise<void> {
     }
     if (!claimed) break;
     summary.scanned++;
+    m.scanned++;
 
     const gbp = ((claimed.metadata as any)?.gbp || {}) as Record<string, any>;
 
@@ -434,6 +476,8 @@ async function drainGbpQueue(summary: ProcessQueueSummary): Promise<void> {
         locked_by: null,
       });
       summary.published++;
+      m.published++;
+      m.total_duration_ms += Date.now() - t0;
       continue;
     }
 
@@ -455,6 +499,7 @@ async function drainGbpQueue(summary: ProcessQueueSummary): Promise<void> {
         locked_by: null,
       });
       summary.failed++;
+      m.failed++;
       summary.errors.push(`draft ${claimed.id}: ${errMsg}`);
     } else {
       await mergeGbpMetadata(claimed.id, {
@@ -465,8 +510,133 @@ async function drainGbpQueue(summary: ProcessQueueSummary): Promise<void> {
         locked_by: null,
       });
       summary.retried++;
+      m.retried++;
     }
+    m.total_duration_ms += Date.now() - t0;
   }
+}
+
+/**
+ * Sprint 10: generic drain for the three social channels (facebook,
+ * instagram, gbp_post). All use the same metadata-path-keyed claim,
+ * adapter dispatch, cooling_down handling, and retry/dead-letter
+ * logic — only the channel name varies.
+ */
+type SocialChannel = "facebook" | "instagram" | "gbp_post";
+
+async function drainSocialChannel(summary: ProcessQueueSummary, channel: SocialChannel): Promise<void> {
+  const m = summary.channels?.[channel] ?? emptyChannelMetrics();
+  const claimFn =
+    channel === "facebook" ? storage.claimNextFacebookJob.bind(storage)
+    : channel === "instagram" ? storage.claimNextInstagramJob.bind(storage)
+    : storage.claimNextGbpPostJob.bind(storage);
+
+  for (let i = 0; i < BATCH_SIZE; i++) {
+    let claimed: ContentDraft | null;
+    const t0 = Date.now();
+    try {
+      claimed = await claimFn(WORKER_ID, { now: new Date(), staleLockMs: STALE_LOCK_MS });
+    } catch (err: any) {
+      summary.errors.push(`${channel} claim failed: ${err?.message || err}`);
+      break;
+    }
+    if (!claimed) break;
+    summary.scanned++;
+    m.scanned++;
+
+    const channelMeta = ((claimed.metadata as any)?.[channel] || {}) as Record<string, any>;
+
+    /* Defence-in-depth: never re-post if posted_at is already set. */
+    if (channelMeta.posted_at || channelMeta.remote_post_id) {
+      await mergeChannelMetadata(claimed.id, channel, {
+        queue_status: "published",
+        locked_at: null,
+        locked_by: null,
+      });
+      continue;
+    }
+
+    let result;
+    try {
+      const adapter = getAdapter(channel);
+      result = await adapter.publish(claimed);
+    } catch (err: any) {
+      result = { ok: false as const, reason: "transient" as const, message: err?.message || String(err), retryable: true };
+    }
+
+    /* Sprint 10: cooling_down branch. Adapter detected platform
+     * cooldown — leave queued, do NOT increment attempts, retry next
+     * tick. Counts as a cooldown_skip for metrics. */
+    if (!result.ok && result.reason === "cooling_down") {
+      await mergeChannelMetadata(claimed.id, channel, {
+        queue_status: "queued",
+        locked_at: null,
+        locked_by: null,
+        last_error: result.message,
+      });
+      m.cooldown_skipped++;
+      m.total_duration_ms += Date.now() - t0;
+      continue;
+    }
+
+    if (result.ok) {
+      await mergeChannelMetadata(claimed.id, channel, {
+        queue_status: "published",
+        last_error: null,
+        locked_at: null,
+        locked_by: null,
+      });
+      summary.published++;
+      m.published++;
+      m.total_duration_ms += Date.now() - t0;
+      continue;
+    }
+
+    const attemptsBefore = (channelMeta.attempts as number | undefined) ?? 0;
+    const attemptsAfter = attemptsBefore + 1;
+    const errMsg = (result.message || `unknown ${channel} error`).slice(0, 500);
+    const isRetryable = result.retryable === undefined ? true : result.retryable === true;
+    const shouldDeadLetter = !isRetryable || attemptsAfter >= MAX_ATTEMPTS;
+    if (shouldDeadLetter) {
+      await mergeChannelMetadata(claimed.id, channel, {
+        queue_status: "failed",
+        attempts: attemptsAfter,
+        last_error: errMsg,
+        dead_letter_at: new Date().toISOString(),
+        locked_at: null,
+        locked_by: null,
+      });
+      summary.failed++;
+      m.failed++;
+      summary.errors.push(`draft ${claimed.id} (${channel}): ${errMsg}`);
+    } else {
+      await mergeChannelMetadata(claimed.id, channel, {
+        queue_status: "queued",
+        attempts: attemptsAfter,
+        last_error: errMsg,
+        locked_at: null,
+        locked_by: null,
+      });
+      summary.retried++;
+      m.retried++;
+    }
+    m.total_duration_ms += Date.now() - t0;
+  }
+}
+
+/* Sprint 10: race-protected merge into metadata[channel]. */
+async function mergeChannelMetadata(
+  draftId: number,
+  channel: SocialChannel,
+  patch: Record<string, any>,
+): Promise<void> {
+  const fresh = await storage.getContentDraftById(draftId);
+  if (!fresh) return;
+  const meta = (fresh.metadata || {}) as Record<string, any>;
+  const existing = (meta[channel] || {}) as Record<string, any>;
+  await storage.updateContentDraft(draftId, {
+    metadata: { ...meta, [channel]: { ...existing, ...patch } },
+  } as any);
 }
 
 /* Sprint 9: race-protected merge for metadata.gbp — same pattern as
@@ -520,5 +690,53 @@ export async function enqueueGbpReviewReplyDraft(
     locked_at: null,
     locked_by: null,
     dead_letter_at: gbp.queue_status === "failed" ? gbp.dead_letter_at : null,
+  });
+}
+
+/**
+ * Sprint 10: mark a SocialSync content_draft (kind='social_post' /
+ * 'carousel_post' / 'google_post') eligible for the appropriate
+ * platform queue. Replaces the pre-Sprint-10 path of inserting into
+ * socialsync_publish_queue.
+ *
+ * Maps target_platform → metadata sub-object key:
+ *   facebook         → metadata.facebook.queue_status='queued'
+ *   instagram        → metadata.instagram.queue_status='queued'
+ *   google_business  → metadata.gbp_post.queue_status='queued'
+ *
+ * Idempotent — re-calling on a draft already queued or in-flight is
+ * a no-op (queue eligibility filter only accepts 'queued' + null lock).
+ */
+export async function enqueueSocialSyncDraft(
+  draftId: number,
+  opts: { scheduled_for?: string | null } = {},
+): Promise<void> {
+  const draft = await storage.getContentDraftById(draftId);
+  if (!draft) return;
+  const validKinds = new Set(["social_post", "carousel_post", "google_post"]);
+  if (!validKinds.has(draft.kind)) return;
+
+  const platformKey: SocialChannel | null =
+    draft.target_platform === "facebook" ? "facebook"
+    : draft.target_platform === "instagram" ? "instagram"
+    : draft.target_platform === "google_business" ? "gbp_post"
+    : null;
+  if (!platformKey) {
+    console.warn(`[contentflow][enqueue] draft=${draftId} target_platform='${draft.target_platform}' has no SocialSync adapter; skipping`);
+    return;
+  }
+
+  const meta = (draft.metadata || {}) as Record<string, any>;
+  const existing = (meta[platformKey] || {}) as Record<string, any>;
+  if (existing.posted_at || existing.queue_status === "publishing" || existing.queue_status === "published") return;
+
+  await mergeChannelMetadata(draftId, platformKey, {
+    queue_status: "queued",
+    scheduled_for: opts.scheduled_for ?? null,
+    attempts: existing.queue_status === "failed" ? existing.attempts ?? 0 : 0,
+    last_error: null,
+    locked_at: null,
+    locked_by: null,
+    dead_letter_at: existing.queue_status === "failed" ? existing.dead_letter_at : null,
   });
 }

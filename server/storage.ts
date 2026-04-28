@@ -3084,6 +3084,116 @@ export class DatabaseStorage implements IStorage {
   }
 
   /**
+   * Sprint 10: shared internal helper that builds the per-channel
+   * atomic claim. All 3 social adapters (facebook, instagram,
+   * gbp_post) plus future channels share this implementation —
+   * mirrors the Sprint 9 surgical-method approach but consolidates
+   * the SQL into one shape so we don't proliferate near-identical
+   * methods. Each public method below is a thin wrapper.
+   */
+  private async _claimNextSocialJob(
+    metadataKey: "facebook" | "instagram" | "gbp_post",
+    targetPlatform: string,
+    workerId: string,
+    opts: { now?: Date; staleLockMs?: number; kindFilter?: string[] } = {},
+  ): Promise<ContentDraft | null> {
+    const now = opts.now ?? new Date();
+    const staleMs = opts.staleLockMs ?? 10 * 60_000;
+    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
+    /* Default: social_post + carousel_post for fb/ig, google_post for gbp_post.
+     * Caller passes explicit kindFilter for clarity. */
+    const kinds = opts.kindFilter ?? ["social_post"];
+    const kindList = sql.raw(kinds.map((k) => `'${k.replace(/'/g, "''")}'`).join(","));
+    const result: any = await db.execute(sql`
+      UPDATE content_drafts
+      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            ${metadataKey}::text,
+            COALESCE(metadata->${metadataKey}::text, '{}'::jsonb) || jsonb_build_object(
+              'queue_status', 'publishing',
+              'locked_at',    ${now.toISOString()}::text,
+              'locked_by',    ${workerId}::text,
+              'last_attempt_at', ${now.toISOString()}::text
+            )
+          ),
+          updated_at = NOW()
+      WHERE id = (
+        SELECT id FROM content_drafts
+        WHERE status = 'approved'
+          AND kind IN (${kindList})
+          AND target_platform = ${targetPlatform}
+          AND metadata->${metadataKey}::text->>'queue_status' = 'queued'
+          AND (metadata->${metadataKey}::text->>'scheduled_for' IS NULL
+               OR (metadata->${metadataKey}::text->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
+          AND metadata->${metadataKey}::text->>'remote_post_id' IS NULL
+          AND (metadata->${metadataKey}::text->>'locked_at' IS NULL
+               OR (metadata->${metadataKey}::text->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz)
+        ORDER BY (metadata->${metadataKey}::text->>'scheduled_for')::timestamptz ASC NULLS FIRST, id ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      )
+      RETURNING *
+    `);
+    const rows: ContentDraft[] = (result?.rows ?? result) as ContentDraft[];
+    return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+  }
+
+  private async _recoverStaleSocialClaims(
+    metadataKey: "facebook" | "instagram" | "gbp_post",
+    targetPlatform: string,
+    opts: { now?: Date; staleLockMs?: number; kindFilter?: string[] } = {},
+  ): Promise<number> {
+    const now = opts.now ?? new Date();
+    const staleMs = opts.staleLockMs ?? 10 * 60_000;
+    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
+    const kinds = opts.kindFilter ?? ["social_post"];
+    const kindList = sql.raw(kinds.map((k) => `'${k.replace(/'/g, "''")}'`).join(","));
+    const result: any = await db.execute(sql`
+      UPDATE content_drafts
+      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            ${metadataKey}::text,
+            COALESCE(metadata->${metadataKey}::text, '{}'::jsonb) || jsonb_build_object(
+              'queue_status', 'queued',
+              'locked_at',  NULL::text,
+              'locked_by',  NULL::text,
+              'attempts',   COALESCE((metadata->${metadataKey}::text->>'attempts')::int, 0) + 1,
+              'last_error', 'recovered from stale lock'
+            )
+          ),
+          updated_at = NOW()
+      WHERE status = 'approved'
+        AND kind IN (${kindList})
+        AND target_platform = ${targetPlatform}
+        AND metadata->${metadataKey}::text->>'queue_status' = 'publishing'
+        AND metadata->${metadataKey}::text->>'locked_at' IS NOT NULL
+        AND (metadata->${metadataKey}::text->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz
+      RETURNING id
+    `);
+    const rows: any[] = (result?.rows ?? result) as any[];
+    return Array.isArray(rows) ? rows.length : 0;
+  }
+
+  async claimNextFacebookJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    return this._claimNextSocialJob("facebook", "facebook", workerId, { ...opts, kindFilter: ["social_post", "carousel_post"] });
+  }
+  async recoverStaleFacebookClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    return this._recoverStaleSocialClaims("facebook", "facebook", { ...opts, kindFilter: ["social_post", "carousel_post"] });
+  }
+
+  async claimNextInstagramJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    return this._claimNextSocialJob("instagram", "instagram", workerId, { ...opts, kindFilter: ["social_post", "carousel_post"] });
+  }
+  async recoverStaleInstagramClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    return this._recoverStaleSocialClaims("instagram", "instagram", { ...opts, kindFilter: ["social_post", "carousel_post"] });
+  }
+
+  async claimNextGbpPostJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    return this._claimNextSocialJob("gbp_post", "google_business", workerId, { ...opts, kindFilter: ["google_post", "social_post"] });
+  }
+  async recoverStaleGbpPostClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    return this._recoverStaleSocialClaims("gbp_post", "google_business", { ...opts, kindFilter: ["google_post", "social_post"] });
+  }
+
+  /**
    * Sprint 9: recover GBP claims abandoned by a crashed worker. Same
    * shape as recoverStaleWordpressClaims, different jsonb path + kind
    * filter.

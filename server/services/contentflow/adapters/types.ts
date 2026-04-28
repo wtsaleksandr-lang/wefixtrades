@@ -18,7 +18,8 @@ export type AdapterType =
   | "wordpress"
   | "facebook"
   | "instagram"
-  | "gbp"
+  | "gbp"           // GBP review-reply (Sprint 9)
+  | "gbp_post"      // GBP standalone post (Sprint 10)
   | "generic_export";
 
 export interface PublishAdapterOptions {
@@ -46,7 +47,12 @@ export type AdapterFailureReason =
   | "wrong_cms_type"
   | "wp_error"
   | "network_error"
-  | "insecure_destination";
+  | "insecure_destination"
+  /* Sprint 10: cooldown short-circuit. Adapter returns this when the
+   * platform's cooldown manager says we're rate-limited from a prior
+   * request. The queue worker treats it specially: leave queued, do
+   * NOT increment attempts, retry next tick. */
+  | "cooling_down";
 
 export type PublishResult =
   | { ok: true; externalId?: string | number; externalUrl?: string; raw?: Record<string, unknown> }

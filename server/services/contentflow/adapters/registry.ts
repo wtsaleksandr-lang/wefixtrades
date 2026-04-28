@@ -12,10 +12,16 @@
 import type { PublishAdapter, AdapterType } from "./types";
 import { wordpressAdapter } from "./wordpressAdapter";
 import { gbpAdapter } from "./gbpAdapter";
+import { facebookAdapter } from "./facebookAdapter";
+import { instagramAdapter } from "./instagramAdapter";
+import { gbpPostAdapter } from "./gbpPostAdapter";
 
 const REGISTRY: Partial<Record<AdapterType, PublishAdapter>> = {
   wordpress: wordpressAdapter,
   gbp: gbpAdapter,
+  facebook: facebookAdapter,
+  instagram: instagramAdapter,
+  gbp_post: gbpPostAdapter,
 };
 
 export function getAdapter(type: AdapterType): PublishAdapter {
