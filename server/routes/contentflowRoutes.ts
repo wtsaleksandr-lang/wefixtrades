@@ -940,6 +940,47 @@ export function registerContentFlowRoutes(app: Express): void {
     );
 
     /**
+     * Sprint 13 dev-only — synchronous repurposer test entry.
+     *
+     *   POST /api/admin/contentflow/__dev/repurpose-test
+     *     { articleDraftId: number }
+     *
+     * Calls repurposeArticle synchronously and returns the result so
+     * the spec can assert on children created in-process. Behavior is
+     * identical to the adminApproveDraft hook except the test caller
+     * gets the result instead of fire-and-forget.
+     */
+    app.post(
+      "/api/admin/contentflow/__dev/repurpose-test",
+      requireAdmin,
+      async (req: Request, res: Response) => {
+        try {
+          const { articleDraftId } = req.body || {};
+          if (!Number.isFinite(articleDraftId)) {
+            return res.status(400).json({ error: "articleDraftId required" });
+          }
+          const { repurposeArticle } = await import("../services/contentflow/repurposerService");
+          const result = await repurposeArticle(articleDraftId);
+          res.json(result);
+        } catch (err: any) {
+          console.error("[repurpose-test] error:", err?.message || err);
+          res.status(500).json({ error: err?.message || "repurpose failed" });
+        }
+      },
+    );
+
+    /**
+     * Sprint 13 dev-only — email send recorder. Captures the last 50
+     * emails the email adapter would send (when EMAIL_TEST_SIMULATE_SUCCESS=1
+     * the stub already returns 250 OK without recording recipients).
+     *
+     * The email adapter writes message_id + recipient + sent_at onto
+     * draft.metadata.email after success, so the spec primarily reads
+     * those fields. This endpoint is reserved for future
+     * recipient-list inspection if needed.
+     */
+
+    /**
      * Sprint 11 dev-only — image generation mock.
      * POST /api/__dev/image-mock/images/generations
      *

@@ -17,6 +17,7 @@ import {
   sendClientRevisionReadyEmail,
 } from "../../lib/contentReviewEmail";
 import { enqueueGbpReviewReplyDraft } from "./wordpressQueue";
+import { repurposeArticle } from "./repurposerService";
 
 export interface AutoApproveInput {
   draftId: number;
@@ -139,6 +140,18 @@ export async function adminApproveDraft(input: AdminApproveInput): Promise<Conte
   if (existing.kind === "review_reply") {
     enqueueGbpReviewReplyDraft(draftId).catch((err) => {
       console.error(`[contentflow][gbp-enqueue] draft=${draftId} from admin approve failed:`, err?.message || err);
+    });
+  }
+
+  /* Sprint 13: when a RankFlow article is admin-approved, fan it out
+   * via the repurposer (3 FB + 3 IG + 1 GBP + 1 email children).
+   * Fire-and-forget — repurposeArticle is documented to never throw,
+   * so any failure here is logged but cannot block the article's own
+   * publish flow. Idempotent — re-call on an already-repurposed
+   * article returns the existing children. */
+  if (existing.kind === "article" && existing.surface === "rankflow") {
+    repurposeArticle(draftId).catch((err) => {
+      console.error(`[contentflow][repurposer] draft=${draftId} from admin approve failed:`, err?.message || err);
     });
   }
 

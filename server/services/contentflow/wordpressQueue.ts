@@ -96,7 +96,8 @@ export type RetryResult =
 
 /* Sprint 10: per-channel observability counters captured into
  * jobLogs.metadata so /api/admin/contentflow/queue-metrics can
- * aggregate over time. */
+ * aggregate over time. Sprint 13 adds an `email` channel for
+ * newsletter-style email_post drafts. */
 export interface ChannelMetrics {
   scanned: number;
   published: number;
@@ -116,13 +117,14 @@ export interface ProcessQueueSummary {
   failed: number;
   retried: number;
   errors: string[];
-  /* Sprint 10: per-channel breakdown. */
+  /* Sprint 10/13: per-channel breakdown. */
   channels?: {
     wordpress: ChannelMetrics;
     gbp: ChannelMetrics;
     facebook: ChannelMetrics;
     instagram: ChannelMetrics;
     gbp_post: ChannelMetrics;
+    email: ChannelMetrics;
   };
 }
 
@@ -317,18 +319,20 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
       facebook: emptyChannelMetrics(),
       instagram: emptyChannelMetrics(),
       gbp_post: emptyChannelMetrics(),
+      email: emptyChannelMetrics(),
     },
   };
 
   const now = new Date();
 
-  /* 1. Stale-lock recovery for all 5 channels. */
+  /* 1. Stale-lock recovery for all 6 channels. */
   const recoveryFns: Array<[string, () => Promise<number>]> = [
     ["wp", () => storage.recoverStaleWordpressClaims({ now, staleLockMs: STALE_LOCK_MS })],
     ["gbp", () => storage.recoverStaleGbpClaims({ now, staleLockMs: STALE_LOCK_MS })],
     ["facebook", () => storage.recoverStaleFacebookClaims({ now, staleLockMs: STALE_LOCK_MS })],
     ["instagram", () => storage.recoverStaleInstagramClaims({ now, staleLockMs: STALE_LOCK_MS })],
     ["gbp_post", () => storage.recoverStaleGbpPostClaims({ now, staleLockMs: STALE_LOCK_MS })],
+    ["email", () => storage.recoverStaleEmailClaims({ now, staleLockMs: STALE_LOCK_MS })],
   ];
   for (const [tag, fn] of recoveryFns) {
     try {
@@ -339,12 +343,13 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
     }
   }
 
-  /* 2-6. Drain each channel up to BATCH_SIZE. */
+  /* 2-7. Drain each channel up to BATCH_SIZE. */
   await drainWordpressQueue(summary);
   await drainGbpQueue(summary);
   await drainSocialChannel(summary, "facebook");
   await drainSocialChannel(summary, "instagram");
   await drainSocialChannel(summary, "gbp_post");
+  await drainSocialChannel(summary, "email");
 
   return summary;
 }
@@ -525,14 +530,15 @@ async function drainGbpQueue(summary: ProcessQueueSummary): Promise<void> {
  * adapter dispatch, cooling_down handling, and retry/dead-letter
  * logic — only the channel name varies.
  */
-type SocialChannel = "facebook" | "instagram" | "gbp_post";
+type SocialChannel = "facebook" | "instagram" | "gbp_post" | "email";
 
 async function drainSocialChannel(summary: ProcessQueueSummary, channel: SocialChannel): Promise<void> {
   const m = summary.channels?.[channel] ?? emptyChannelMetrics();
   const claimFn =
     channel === "facebook" ? storage.claimNextFacebookJob.bind(storage)
     : channel === "instagram" ? storage.claimNextInstagramJob.bind(storage)
-    : storage.claimNextGbpPostJob.bind(storage);
+    : channel === "gbp_post" ? storage.claimNextGbpPostJob.bind(storage)
+    : storage.claimNextEmailJob.bind(storage);
 
   for (let i = 0; i < BATCH_SIZE; i++) {
     let claimed: ContentDraft | null;
@@ -742,6 +748,37 @@ export async function enqueueSocialSyncDraft(
   if (existing.posted_at || existing.queue_status === "publishing" || existing.queue_status === "published") return;
 
   await mergeChannelMetadata(draftId, platformKey, {
+    queue_status: "queued",
+    scheduled_for: opts.scheduled_for ?? null,
+    attempts: existing.queue_status === "failed" ? existing.attempts ?? 0 : 0,
+    last_error: null,
+    locked_at: null,
+    locked_by: null,
+    dead_letter_at: existing.queue_status === "failed" ? existing.dead_letter_at : null,
+  });
+}
+
+/**
+ * Sprint 13: mark a kind='email_post' draft eligible for the email
+ * publish queue. Mirrors enqueueSocialSyncDraft but writes to
+ * metadata.email.* instead of platform-keyed buckets.
+ *
+ * Idempotent — re-call on a draft already queued, in-flight, or sent
+ * is a no-op.
+ */
+export async function enqueueEmailDraft(
+  draftId: number,
+  opts: { scheduled_for?: string | null } = {},
+): Promise<void> {
+  const draft = await storage.getContentDraftById(draftId);
+  if (!draft) return;
+  if (draft.kind !== "email_post") return;
+
+  const meta = (draft.metadata || {}) as Record<string, any>;
+  const existing = (meta.email || {}) as Record<string, any>;
+  if (existing.message_id || existing.sent_at || existing.queue_status === "publishing" || existing.queue_status === "published") return;
+
+  await mergeChannelMetadata(draftId, "email", {
     queue_status: "queued",
     scheduled_for: opts.scheduled_for ?? null,
     attempts: existing.queue_status === "failed" ? existing.attempts ?? 0 : 0,

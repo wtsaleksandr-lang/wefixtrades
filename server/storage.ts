@@ -3092,18 +3092,24 @@ export class DatabaseStorage implements IStorage {
    * methods. Each public method below is a thin wrapper.
    */
   private async _claimNextSocialJob(
-    metadataKey: "facebook" | "instagram" | "gbp_post",
+    metadataKey: "facebook" | "instagram" | "gbp_post" | "email",
     targetPlatform: string,
     workerId: string,
-    opts: { now?: Date; staleLockMs?: number; kindFilter?: string[] } = {},
+    opts: { now?: Date; staleLockMs?: number; kindFilter?: string[]; successField?: string } = {},
   ): Promise<ContentDraft | null> {
     const now = opts.now ?? new Date();
     const staleMs = opts.staleLockMs ?? 10 * 60_000;
     const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
     /* Default: social_post + carousel_post for fb/ig, google_post for gbp_post.
-     * Caller passes explicit kindFilter for clarity. */
+     * Caller passes explicit kindFilter for clarity. Sprint 13: email
+     * uses 'email_post' kind + 'message_id' as the don't-republish marker. */
     const kinds = opts.kindFilter ?? ["social_post"];
     const kindList = sql.raw(kinds.map((k) => `'${k.replace(/'/g, "''")}'`).join(","));
+    /* successField is the metadata key that signals a successful publish
+     * (set by the adapter on success). Eligibility excludes any row
+     * already carrying it. Defaults to remote_post_id for social
+     * platforms; email overrides to message_id. */
+    const successField = opts.successField || "remote_post_id";
     const result: any = await db.execute(sql`
       UPDATE content_drafts
       SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
@@ -3124,7 +3130,7 @@ export class DatabaseStorage implements IStorage {
           AND metadata->${metadataKey}::text->>'queue_status' = 'queued'
           AND (metadata->${metadataKey}::text->>'scheduled_for' IS NULL
                OR (metadata->${metadataKey}::text->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
-          AND metadata->${metadataKey}::text->>'remote_post_id' IS NULL
+          AND metadata->${metadataKey}::text->>${successField} IS NULL
           AND (metadata->${metadataKey}::text->>'locked_at' IS NULL
                OR (metadata->${metadataKey}::text->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz)
         ORDER BY (metadata->${metadataKey}::text->>'scheduled_for')::timestamptz ASC NULLS FIRST, id ASC
@@ -3138,7 +3144,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   private async _recoverStaleSocialClaims(
-    metadataKey: "facebook" | "instagram" | "gbp_post",
+    metadataKey: "facebook" | "instagram" | "gbp_post" | "email",
     targetPlatform: string,
     opts: { now?: Date; staleLockMs?: number; kindFilter?: string[] } = {},
   ): Promise<number> {
@@ -3191,6 +3197,20 @@ export class DatabaseStorage implements IStorage {
   }
   async recoverStaleGbpPostClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
     return this._recoverStaleSocialClaims("gbp_post", "google_business", { ...opts, kindFilter: ["google_post", "social_post"] });
+  }
+
+  /* Sprint 13: email queue. metadata.email.* lifecycle, kind='email_post',
+   * target_platform='email'. Eligibility excludes rows with message_id
+   * already set. */
+  async claimNextEmailJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    return this._claimNextSocialJob("email", "email", workerId, {
+      ...opts,
+      kindFilter: ["email_post"],
+      successField: "message_id",
+    });
+  }
+  async recoverStaleEmailClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    return this._recoverStaleSocialClaims("email", "email", { ...opts, kindFilter: ["email_post"] });
   }
 
   /**
