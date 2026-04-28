@@ -17,7 +17,7 @@
  */
 
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
-import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
+import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import { db } from "../db";
 import { clients, clientServices, serviceCatalog } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -162,46 +162,28 @@ function buildHtml(params: {
     })
     .join("");
 
-  return `
-    <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
-      <div style="max-width:520px;margin:0 auto;">
-        ${buildEmailHeader()}
-        <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
-          <p style="font-size:12px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 8px;">You're live · ${params.serviceName}</p>
-          <h1 style="font-size:26px;font-weight:700;color:#F0F0F0;margin:0 0 12px;line-height:1.25;">
-            ${params.copy.hero}
-          </h1>
-          <p style="font-size:14px;color:#CDD1D6;line-height:1.6;margin:0 0 14px;">
-            Hi ${params.contactName}, ${params.copy.intro}
-          </p>
-          ${params.copy.firstAction ? `
-          <div style="background:rgba(102,232,250,0.06);border-left:2px solid #66E8FA;border-radius:4px;padding:12px 14px;margin:0 0 24px;">
-            <p style="font-size:13px;color:#CDD1D6;line-height:1.55;margin:0;">
-              <strong style="color:#66E8FA;font-weight:600;">Next:</strong> ${params.copy.firstAction}
-            </p>
-          </div>
-          ` : `<div style="height:10px;"></div>`}
+  const firstActionBlock = params.copy.firstAction
+    ? `<div style="background:rgba(102,232,250,0.06);border-left:2px solid #66E8FA;border-radius:4px;padding:12px 14px;margin:0 0 22px;">
+        <p style="font-size:13px;color:#CDD1D6;line-height:1.55;margin:0;">
+          <strong style="color:#66E8FA;font-weight:600;">Next:</strong> ${params.copy.firstAction}
+        </p>
+      </div>`
+    : "";
 
-          <table style="width:100%;border-collapse:separate;border-spacing:0;">
-            ${artifactRows}
-          </table>
-
-          <div style="border-top:1px solid rgba(255,255,255,0.06);margin:28px 0;"></div>
-
-          <p style="font-size:12px;font-weight:600;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 10px;">
-            Need anything?
-          </p>
-          <p style="font-size:13px;color:#CDD1D6;line-height:1.6;margin:0;">
-            Reply to this email or reach us at
-            <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a>.
-            We monitor every inbox and reply fast.
-          </p>
-        </div>
-        ${buildChatBubble()}
-        ${buildLegalFooter({ recipientEmail: params.recipientEmail })}
-      </div>
-    </div>
-  `;
+  return buildTransactionalEmail({
+    recipientEmail: params.recipientEmail,
+    subjectForTitle: `${params.serviceName} is live — welcome aboard`,
+    eyebrow: `You're live · ${params.serviceName}`,
+    headline: params.copy.hero,
+    intro: `Hi ${params.contactName}, ${params.copy.intro}`,
+    bodyHtml: `
+      ${firstActionBlock}
+      <table style="width:100%;border-collapse:separate;border-spacing:0;">
+        ${artifactRows}
+      </table>`,
+    showDividerBeforeSupport: true,
+    supportNote: `<strong style="color:#CDD1D6;font-weight:600;">Need anything?</strong> Reply to this email or reach us at <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a>. We monitor every inbox and reply fast.`,
+  });
 }
 
 export async function sendWelcomePackage(clientServiceId: number): Promise<boolean> {
@@ -247,6 +229,14 @@ export async function sendWelcomePackage(clientServiceId: number): Promise<boole
       replyTo: supportEmail,
       subject: `${serviceName} is live — welcome aboard`,
       html: buildHtml({ contactName, serviceName, copy, artifacts, supportEmail, recipientEmail: client.contact_email }),
+      text: buildPlainText({
+        headline: copy.hero,
+        intro: `Hi ${contactName}, ${copy.intro}`,
+        bodyText: copy.firstAction ? `Next: ${copy.firstAction}` : undefined,
+        ctaLabel: artifacts[0]?.label,
+        ctaUrl: artifacts[0]?.kind === "link" ? artifacts[0].value : undefined,
+        supportNote: `Need anything? Reach us at ${supportEmail}.`,
+      }),
     });
 
     // Mark as sent

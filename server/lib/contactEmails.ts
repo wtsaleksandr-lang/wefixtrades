@@ -9,7 +9,7 @@
  */
 
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
-import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
+import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 
 interface ContactPayload {
   name: string;
@@ -28,32 +28,20 @@ function escapeHtml(s: string): string {
 }
 
 function buildAckHtml(p: ContactPayload): string {
-  return `
-    <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
-      <div style="max-width:480px;margin:0 auto;">
-        ${buildEmailHeader()}
-        <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
-          <h1 style="font-size:22px;font-weight:700;color:#F0F0F0;margin:0 0 8px;line-height:1.3;">
-            Got it, ${escapeHtml(p.name.split(" ")[0] || "thanks")} — we'll be in touch
-          </h1>
-          <p style="font-size:14px;color:#CDD1D6;line-height:1.6;margin:0 0 20px;">
-            Your message is with our team. We reply within one business day, usually much sooner.
-          </p>
-
-          <div style="background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px;margin:0 0 24px;">
-            <p style="font-size:11px;font-weight:600;color:#8B919A;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;">Your message${p.subject ? ` · ${escapeHtml(p.subject)}` : ""}</p>
-            <p style="font-size:13px;color:#CDD1D6;line-height:1.6;margin:0;white-space:pre-wrap;">${escapeHtml(p.message)}</p>
-          </div>
-
-          <p style="font-size:13px;color:#8B919A;line-height:1.6;margin:0;">
-            If you need us sooner, just reply to this email — it lands in the same inbox our team is watching.
-          </p>
-        </div>
-        ${buildChatBubble()}
-        ${buildLegalFooter({ recipientEmail: p.email })}
-      </div>
-    </div>
-  `;
+  const firstName = escapeHtml(p.name.split(" ")[0] || "thanks");
+  return buildTransactionalEmail({
+    recipientEmail: p.email,
+    subjectForTitle: "We got your message — WeFixTrades",
+    headline: `Got it, ${firstName} — we'll be in touch`,
+    intro: "Your message is with our team. We reply within one business day, usually much sooner.",
+    bodyHtml: `
+      <div style="background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px;">
+        <p style="font-size:11px;font-weight:600;color:#8B919A;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;">Your message${p.subject ? ` · ${escapeHtml(p.subject)}` : ""}</p>
+        <p style="font-size:13px;color:#CDD1D6;line-height:1.6;margin:0;white-space:pre-wrap;">${escapeHtml(p.message)}</p>
+      </div>`,
+    supportNote: "If you need us sooner, just reply to this email — it lands in the same inbox our team is watching.",
+    showDividerBeforeSupport: false,
+  });
 }
 
 function buildInternalHtml(p: ContactPayload, id: number): string {
@@ -80,12 +68,19 @@ export async function sendContactAck(p: ContactPayload): Promise<boolean> {
     return false;
   }
   try {
+    const firstName = p.name.split(" ")[0] || "thanks";
     await transporter.sendMail({
       from: `WeFixTrades <${getFromAddress()}>`,
       to: p.email,
       replyTo: process.env.ADMIN_EMAIL || process.env.INTERNAL_LEAD_EMAIL || getFromAddress(),
       subject: "We got your message — WeFixTrades",
       html: buildAckHtml(p),
+      text: buildPlainText({
+        headline: `Got it, ${firstName} — we'll be in touch`,
+        intro: "Your message is with our team. We reply within one business day, usually much sooner.",
+        bodyText: `Your message${p.subject ? ` (${p.subject})` : ""}:\n${p.message}`,
+        supportNote: "If you need us sooner, just reply to this email.",
+      }),
     });
     return true;
   } catch (err: any) {
