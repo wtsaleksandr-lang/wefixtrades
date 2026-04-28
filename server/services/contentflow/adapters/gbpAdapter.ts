@@ -17,7 +17,7 @@
  * metadata.wordpress.* for the WordPress side.
  */
 
-import { storage } from "../../storage";
+import { storage } from "../../../storage";
 import { postGBPReply } from "../../reputation/gbpReviewIngestion";
 import { getGoogleAccessToken } from "../../socialSync/googleBusinessService";
 import type {
