@@ -5,6 +5,7 @@ import { checkContentMix } from "./qualityGate";
 import { createDraftFromSocialPost } from "../contentflow/draftService";
 import { autoApproveDraft } from "../contentflow/approvalService";
 import { enqueueSocialSyncDraft } from "../contentflow/wordpressQueue";
+import { generateForDraft as generateImageForDraft } from "../contentflow/imageGenerationService";
 import type { SocialSyncProfile, SocialSyncTopic } from "@shared/schema";
 
 /* ─── Frequency mapping ─── */
@@ -261,6 +262,25 @@ export async function generateWeekForClient(
     try {
       const draft = await createDraftFromSocialPost({ post: genResult.post });
       draftIdForEnqueue = draft.id;
+
+      /* Sprint 11: image generation (FB / IG only). Fire SYNCHRONOUSLY
+       * before auto-approve so the queue worker sees the image_url
+       * when it dispatches. NEVER throws — generateForDraft is
+       * documented to swallow all failures and return a result
+       * marker. If image gen fails:
+       *   - FB: draft publishes text-only (no media required)
+       *   - IG: draft fails its own validation later, isolated to
+       *         the IG queue — does NOT block other drafts. */
+      const isFbOrIg = genResult.post.platform === "facebook" || genResult.post.platform === "instagram";
+      if (isFbOrIg) {
+        const imageRes = await generateImageForDraft(draft.id);
+        if (!imageRes.ok && imageRes.reason !== "skipped_already_has_image") {
+          /* Log but do not surface as an orchestrator error — the
+           * draft is still publishable per the hard requirement. */
+          console.warn(`[contentflow][image-gen] draft=${draft.id} reason=${imageRes.reason} msg=${imageRes.message}`);
+        }
+      }
+
       await autoApproveDraft({
         draftId: draft.id,
         notes: `SocialSync auto-approved — quality score ${genResult.post.quality_score ?? 0}`,

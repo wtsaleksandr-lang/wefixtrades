@@ -940,6 +940,59 @@ export function registerContentFlowRoutes(app: Express): void {
     );
 
     /**
+     * Sprint 11 dev-only — image generation mock.
+     * POST /api/__dev/image-mock/images/generations
+     *
+     * Stand-in for OpenAI's images endpoint. Triggered when
+     * IMAGE_API_BASE_OVERRIDE points at /api/__dev/image-mock.
+     * Returns a deterministic placeholder URL on the same host so
+     * tests never reach the live API or rely on R2 being configured.
+     *
+     * Prompt content triggers for forced failures (sprint11 spec):
+     *   FAIL_IMG_POLICY → 400 code='content_policy_violation'
+     *   FAIL_IMG_500    → 500 transient error
+     *
+     * Response includes revised_prompt echoing back the prompt so
+     * spec assertions can verify brand-layer concatenation.
+     */
+    app.post(
+      "/api/__dev/image-mock/images/generations",
+      async (req: Request, res: Response) => {
+        const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
+        if (prompt.includes("FAIL_IMG_POLICY")) {
+          return res.status(400).json({
+            error: { code: "content_policy_violation", type: "image_generation_user_error", message: "Content policy violation (forced for test)" },
+          });
+        }
+        if (prompt.includes("FAIL_IMG_500")) {
+          return res.status(500).json({
+            error: { code: "server_error", message: "Internal error (forced for test)" },
+          });
+        }
+        const fakeId = Math.floor(Math.random() * 9_000_000) + 1_000_000;
+        res.json({
+          created: Math.floor(Date.now() / 1000),
+          data: [{
+            url: `http://localhost:5000/api/__dev/image-mock/blob/${fakeId}.png`,
+            revised_prompt: prompt.slice(0, 500),
+          }],
+        });
+      },
+    );
+    app.get(
+      "/api/__dev/image-mock/blob/:id",
+      (_req: Request, res: Response) => {
+        const PNG_1X1 = Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+          "base64",
+        );
+        res.setHeader("Content-Type", "image/png");
+        res.setHeader("Content-Length", String(PNG_1X1.length));
+        res.send(PNG_1X1);
+      },
+    );
+
+    /**
      * Sprint 10 dev-only — GBP Posts (localPosts) mock.
      * POST /api/__dev/gbp-post-mock/<locationName>/localPosts
      *

@@ -27,6 +27,7 @@ import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorke
 import { processSocialSyncQueue } from "./socialSyncWorker";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _legacyWorkerExportRetained = processSocialSyncQueue;
+import { processImageRetention } from "./imageRetentionWorker";
 import { processQueue as processWordpressPublishQueue } from "../services/contentflow/wordpressQueue";
 import { generateAllDue } from "../services/socialSync/orchestrator";
 import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
@@ -432,4 +433,18 @@ export function initScheduler() {
   });
 
   console.log("  - Dunning queue worker: every 5 minutes");
+
+  /* Sprint 11: ContentFlow image retention sweep. Daily at 04:30 UTC
+   * (off-peak). Identifies generated images past retention thresholds
+   * (180 days for unpublished, 2 years for published), best-effort
+   * deletes from R2, and clears the URL pointers on the draft. */
+  cron.schedule("30 4 * * *", async () => {
+    try {
+      await runJob("contentflow_image_retention", processImageRetention);
+    } catch (err: any) {
+      console.error("[Scheduler] contentflow_image_retention error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  console.log("  - ContentFlow image retention: daily at 04:30 UTC");
 }
