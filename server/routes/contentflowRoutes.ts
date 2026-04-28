@@ -32,6 +32,7 @@ import {
   retryDraft,
   processQueue as processWordpressPublishQueue,
 } from "../services/contentflow/wordpressQueue";
+import { getReviewReplyMetrics } from "../services/contentflow/reviewReplyMetrics";
 
 export function registerContentFlowRoutes(app: Express): void {
   /**
@@ -741,5 +742,164 @@ export function registerContentFlowRoutes(app: Express): void {
         }
       },
     );
+
+    /**
+     * Sprint 9 dev-only — simulate one ingested GBP review.
+     *
+     * Skips the live GBP fetch + AI generation (Anthropic) so spec
+     * runs are deterministic and free of external deps. Body:
+     *
+     *   { clientId, externalReviewId, starRating, reviewText, replyText,
+     *     reviewTime?: ISO, policyOverride?: "auto_high_star"|"manual_all"|"auto_all" }
+     *
+     * Inserts the reviews row + creates the content_drafts row + applies
+     * policy (auto-approve + enqueue when policy says so). Returns
+     * { reviewId, draftId, decision }.
+     */
+    app.post(
+      "/api/admin/contentflow/__dev/sprint9-simulate-review",
+      requireAdmin,
+      async (req: Request, res: Response) => {
+        try {
+          const {
+            clientId,
+            externalReviewId,
+            starRating,
+            reviewText,
+            replyText,
+            reviewTime,
+            policyOverride,
+          } = req.body || {};
+          if (!Number.isFinite(clientId)) return res.status(400).json({ error: "clientId required" });
+          if (!externalReviewId) return res.status(400).json({ error: "externalReviewId required" });
+          if (typeof replyText !== "string" || replyText.length < 5) {
+            return res.status(400).json({ error: "replyText (>=5 chars) required" });
+          }
+
+          const { createReviewReplyDraft } = await import("../services/contentflow/draftService");
+          const { autoApproveDraft } = await import("../services/contentflow/approvalService");
+          const { decideAutoApprove, readClientPolicy } = await import("../services/contentflow/reviewReplyPolicy");
+          const { enqueueGbpReviewReplyDraft } = await import("../services/contentflow/wordpressQueue");
+
+          const review = await storage.upsertReview({
+            client_id: clientId,
+            platform: "google_business",
+            external_review_id: externalReviewId,
+            reviewer_name: "Sprint 9 Test User",
+            star_rating: starRating,
+            review_text: reviewText || null,
+            review_time: reviewTime ? new Date(reviewTime) : new Date(),
+            sentiment: starRating >= 4 ? "positive" : starRating === 3 ? "neutral" : "negative",
+            needs_reply: true,
+            eligible_for_auto_reply: starRating >= 4,
+            requires_human_attention: starRating <= 2,
+            has_existing_owner_reply: false,
+            escalation_flag: false,
+            reply_status: "draft_ready",
+            reply_text: replyText,
+            reply_posted_at: null,
+            reply_result: null,
+            metadata: { sprint9_test: true },
+          } as any);
+
+          const draft = await createReviewReplyDraft({
+            clientId,
+            reviewId: review.id,
+            externalReviewId,
+            starRating,
+            replyText,
+            source: "auto",
+          });
+
+          const client = await storage.getClientById(clientId);
+          const policy = policyOverride || readClientPolicy(client);
+          const decision = decideAutoApprove(policy, review);
+
+          if (decision.autoApprove) {
+            await autoApproveDraft({ draftId: draft.id, notes: `auto-approved (${decision.reason})` });
+            await enqueueGbpReviewReplyDraft(draft.id);
+          }
+
+          res.json({ reviewId: review.id, draftId: draft.id, decision, policy });
+        } catch (err: any) {
+          console.error("[sprint9-simulate-review] error:", err?.message || err);
+          res.status(500).json({ error: err?.message || "simulate failed" });
+        }
+      },
+    );
+
+    /**
+     * Sprint 9 dev-only — Google Business Profile reply mock.
+     * PUT /api/__dev/gbp-mock/:locationName/reviews/:reviewId/reply
+     *
+     * Stand-in for the Google My Business v4 reply endpoint
+     *   PUT https://mybusiness.googleapis.com/v4/{location}/reviews/{id}/reply
+     *
+     * The gbpAdapter routes here when GBP_API_BASE_OVERRIDE points at this
+     * URL (the verify script sets it for tests). Reply text starting with
+     * "FAIL_GBP_503" returns 503 so spec P9-6 can exercise the retry path.
+     * Reply text starting with "FAIL_GBP_404" returns 404 (permanent).
+     *
+     * Triple-gated alongside the rest of the __dev block — never
+     * registered in production.
+     */
+    app.put(
+      "/api/__dev/gbp-mock/*/reviews/:reviewId/reply",
+      async (req: Request, res: Response) => {
+        if (!req.headers.authorization || !/^bearer\s/i.test(req.headers.authorization)) {
+          return res.status(401).json({ error: { code: 401, message: "Authorization required" } });
+        }
+        const comment = typeof req.body?.comment === "string" ? req.body.comment : "";
+        if (comment.startsWith("FAIL_GBP_503")) {
+          return res.status(503).json({ error: { code: 503, message: "Service Unavailable (forced for test)" } });
+        }
+        if (comment.startsWith("FAIL_GBP_404")) {
+          return res.status(404).json({ error: { code: 404, message: "Review not found (forced for test)" } });
+        }
+        res.json({
+          comment,
+          updateTime: new Date().toISOString(),
+        });
+      },
+    );
   }
+
+  /**
+   * Sprint 9: read-only reporting endpoint for the admin reputation
+   * dashboard. Returns per-client (or all-clients) review-reply
+   * pipeline metrics derived from content_drafts (kind='review_reply')
+   * + content_approvals + reviews.
+   *
+   *   GET /api/admin/reputation/reply-metrics?clientId=<id>
+   *
+   * Response:
+   *   {
+   *     drafted:        number,   // total review_reply drafts created
+   *     approved:       number,   // status='approved' or transitioned past it
+   *     published:      number,   // metadata.gbp.posted_at IS NOT NULL
+   *     pending:        number,   // status='draft' awaiting human approval
+   *     failed:         number,   // metadata.gbp.queue_status='failed' (DLQ)
+   *     avg_response_time_hours:  number | null
+   *   }
+   *
+   * `avg_response_time_hours` = mean(posted_at - review.review_time)
+   * across published replies. Null when no published replies yet.
+   */
+  app.get(
+    "/api/admin/reputation/reply-metrics",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const clientIdParam = req.query.clientId ? parseInt(String(req.query.clientId), 10) : null;
+        if (clientIdParam !== null && !Number.isFinite(clientIdParam)) {
+          return res.status(400).json({ error: "clientId must be a number" });
+        }
+        const result = await getReviewReplyMetrics(clientIdParam);
+        res.json(result);
+      } catch (err: any) {
+        console.error("[reputation/reply-metrics] error:", err?.message || err);
+        res.status(500).json({ error: "Failed to compute metrics" });
+      }
+    },
+  );
 }

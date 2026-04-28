@@ -2942,7 +2942,7 @@ export class DatabaseStorage implements IStorage {
    * the queue is empty or every eligible row is locked by another
    * worker.
    */
-  async claimNextPublishJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+  async claimNextWordpressJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
     const now = opts.now ?? new Date();
     const staleMs = opts.staleLockMs ?? 10 * 60_000;
     const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
@@ -2986,7 +2986,7 @@ export class DatabaseStorage implements IStorage {
    * attempts (so genuinely-broken jobs still hit the dead-letter
    * ceiling). Idempotent — safe to call every tick.
    */
-  async recoverStalePublishClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+  async recoverStaleWordpressClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
     const now = opts.now ?? new Date();
     const staleMs = opts.staleLockMs ?? 10 * 60_000;
     const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
@@ -3009,6 +3009,108 @@ export class DatabaseStorage implements IStorage {
         AND metadata->'wordpress'->>'queue_status' = 'publishing'
         AND metadata->'wordpress'->>'locked_at' IS NOT NULL
         AND (metadata->'wordpress'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz
+      RETURNING id
+    `);
+    const rows: any[] = (result?.rows ?? result) as any[];
+    return Array.isArray(rows) ? rows.length : 0;
+  }
+
+  /**
+   * Sprint 9: idempotency lookup for review-reply drafts. One draft
+   * per (clientId, externalReviewId). The external id lives in
+   * metadata.gbp.external_review_id (no new column).
+   */
+  async getReviewReplyDraft(clientId: number, externalReviewId: string): Promise<ContentDraft | undefined> {
+    const [row] = await db.select().from(contentDrafts)
+      .where(and(
+        eq(contentDrafts.client_id, clientId),
+        eq(contentDrafts.kind, "review_reply"),
+        eq(contentDrafts.surface, "reputationshield"),
+        sql`${contentDrafts.metadata}->'gbp'->>'external_review_id' = ${externalReviewId}`,
+      ))
+      .limit(1);
+    return row;
+  }
+
+  /**
+   * Sprint 9: atomic claim for GBP review-reply jobs. Mirrors
+   * claimNextWordpressJob but filters on kind='review_reply' /
+   * surface='reputationshield' and uses the metadata.gbp.* path.
+   * SKIP LOCKED is per-row, so the GBP and WP queues drain
+   * independently and never block each other.
+   *
+   * Eligibility:
+   *   - status='approved', kind='review_reply', surface='reputationshield'
+   *   - metadata.gbp.queue_status='queued'
+   *   - scheduled_for IS NULL or elapsed
+   *   - posted_at IS NULL (defence-in-depth — never re-post)
+   *   - locked_at IS NULL OR older than the stale threshold (10 min)
+   */
+  async claimNextGbpJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    const now = opts.now ?? new Date();
+    const staleMs = opts.staleLockMs ?? 10 * 60_000;
+    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
+    const result: any = await db.execute(sql`
+      UPDATE content_drafts
+      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'gbp',
+            COALESCE(metadata->'gbp', '{}'::jsonb) || jsonb_build_object(
+              'queue_status', 'publishing',
+              'locked_at',    ${now.toISOString()}::text,
+              'locked_by',    ${workerId}::text,
+              'last_attempt_at', ${now.toISOString()}::text
+            )
+          ),
+          updated_at = NOW()
+      WHERE id = (
+        SELECT id FROM content_drafts
+        WHERE status = 'approved'
+          AND kind = 'review_reply'
+          AND surface = 'reputationshield'
+          AND metadata->'gbp'->>'queue_status' = 'queued'
+          AND (metadata->'gbp'->>'scheduled_for' IS NULL
+               OR (metadata->'gbp'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
+          AND metadata->'gbp'->>'posted_at' IS NULL
+          AND (metadata->'gbp'->>'locked_at' IS NULL
+               OR (metadata->'gbp'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz)
+        ORDER BY (metadata->'gbp'->>'scheduled_for')::timestamptz ASC NULLS FIRST, id ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      )
+      RETURNING *
+    `);
+    const rows: ContentDraft[] = (result?.rows ?? result) as ContentDraft[];
+    return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+  }
+
+  /**
+   * Sprint 9: recover GBP claims abandoned by a crashed worker. Same
+   * shape as recoverStaleWordpressClaims, different jsonb path + kind
+   * filter.
+   */
+  async recoverStaleGbpClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    const now = opts.now ?? new Date();
+    const staleMs = opts.staleLockMs ?? 10 * 60_000;
+    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
+    const result: any = await db.execute(sql`
+      UPDATE content_drafts
+      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'gbp',
+            COALESCE(metadata->'gbp', '{}'::jsonb) || jsonb_build_object(
+              'queue_status', 'queued',
+              'locked_at',  NULL::text,
+              'locked_by',  NULL::text,
+              'attempts',   COALESCE((metadata->'gbp'->>'attempts')::int, 0) + 1,
+              'last_error', 'recovered from stale lock'
+            )
+          ),
+          updated_at = NOW()
+      WHERE status = 'approved'
+        AND kind = 'review_reply'
+        AND surface = 'reputationshield'
+        AND metadata->'gbp'->>'queue_status' = 'publishing'
+        AND metadata->'gbp'->>'locked_at' IS NOT NULL
+        AND (metadata->'gbp'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz
       RETURNING id
     `);
     const rows: any[] = (result?.rows ?? result) as any[];

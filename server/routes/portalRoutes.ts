@@ -3027,4 +3027,148 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       return reviewActionErrorResponse("reject", err, res);
     }
   });
+
+  /* ═══════════════════════════════════════════════════════════════════
+     Sprint 9 — REVIEW-REPLY PORTAL
+     Authenticated client views + acts on AI-drafted replies to their
+     Google Business reviews. Uses the same approvalService helpers as
+     article review so the audit trail stays uniform.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /** Sprint 9: project a review-reply for portal — strip admin email
+   *  flags and any raw GBP error strings; expose only what a client
+   *  needs to see. */
+  const projectReviewReplyForPortal = (raw: any) => {
+    if (!raw) return raw;
+    const meta = (raw.metadata || {}) as Record<string, any>;
+    const cr = (meta.client_review || {}) as Record<string, any>;
+    const gbp = (meta.gbp || {}) as Record<string, any>;
+    const cleanCr = cr.state
+      ? { state: cr.state ?? null, note: cr.note ?? null, decided_at: cr.decided_at ?? null }
+      : undefined;
+    const cleanGbp = {
+      external_review_id: gbp.external_review_id ?? null,
+      star_rating: gbp.star_rating ?? null,
+      posted_at: gbp.posted_at ?? null,
+      queue_status: gbp.queue_status ?? null,
+    };
+    return {
+      id: raw.id,
+      title: raw.title,
+      body: raw.body,
+      status: raw.status,
+      created_at: raw.created_at,
+      updated_at: raw.updated_at,
+      metadata: {
+        gbp: cleanGbp,
+        ...(cleanCr ? { client_review: cleanCr } : {}),
+      },
+    };
+  };
+
+  /**
+   * GET /api/portal/review-replies
+   *
+   * Returns the authenticated client's pending and recent review
+   * replies. Filter:
+   *   client_id = THIS client AND kind='review_reply' AND surface='reputationshield'
+   *   AND status IN ('draft','approved','published','rejected')
+   */
+  app.get("/api/portal/review-replies", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const drafts = await db.select({
+        id: contentDrafts.id,
+        title: contentDrafts.title,
+        body: contentDrafts.body,
+        status: contentDrafts.status,
+        metadata: contentDrafts.metadata,
+        created_at: contentDrafts.created_at,
+        updated_at: contentDrafts.updated_at,
+      })
+        .from(contentDrafts)
+        .where(and(
+          eq(contentDrafts.client_id, clientId),
+          eq(contentDrafts.kind, "review_reply"),
+          eq(contentDrafts.surface, "reputationshield"),
+          sql`${contentDrafts.status} IN ('draft', 'approved', 'published', 'rejected')`,
+        ))
+        .orderBy(desc(contentDrafts.created_at))
+        .limit(50);
+
+      res.json({ replies: drafts.map(projectReviewReplyForPortal), count: drafts.length });
+    } catch (err: any) {
+      console.error("[portal/review-replies] list error:", err.message);
+      res.status(500).json({ error: "Failed to load review replies" });
+    }
+  });
+
+  /**
+   * GET /api/portal/review-replies/:id
+   * Detail for a single review reply. 404 if missing or cross-client.
+   */
+  app.get("/api/portal/review-replies/:id", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const draftId = parseInt(String(req.params.id), 10);
+      if (!Number.isFinite(draftId)) return res.status(400).json({ error: "id must be a number" });
+      const draft = await storage.getContentDraftById(draftId);
+      if (!draft || draft.client_id !== clientId || draft.kind !== "review_reply" || draft.surface !== "reputationshield") {
+        return res.status(404).json({ error: "Review reply not found" });
+      }
+      res.json({ reply: projectReviewReplyForPortal(draft) });
+    } catch (err: any) {
+      console.error("[portal/review-replies] detail error:", err.message);
+      res.status(500).json({ error: "Failed to load review reply" });
+    }
+  });
+
+  /**
+   * POST /api/portal/review-replies/:id/approve
+   * Reuses clientApproveDraft (kind-aware after Sprint 9 extension).
+   */
+  app.post("/api/portal/review-replies/:id/approve", requireClientStrict, portalReviewLimit, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const draftId = parseInt(String(req.params.id), 10);
+      if (!Number.isFinite(draftId)) return res.status(400).json({ error: "id must be a number" });
+      const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 1000) : undefined;
+      const updated = await clientApproveDraft({ draftId, clientId, note });
+      res.json({ ok: true, reply: projectReviewReplyForPortal(updated) });
+    } catch (err: any) {
+      return reviewActionErrorResponse("approve", err, res);
+    }
+  });
+
+  app.post("/api/portal/review-replies/:id/request-changes", requireClientStrict, portalReviewLimit, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const draftId = parseInt(String(req.params.id), 10);
+      if (!Number.isFinite(draftId)) return res.status(400).json({ error: "id must be a number" });
+      const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 1000) : undefined;
+      const updated = await clientRequestChanges({ draftId, clientId, note });
+      res.json({ ok: true, reply: projectReviewReplyForPortal(updated) });
+    } catch (err: any) {
+      return reviewActionErrorResponse("request-changes", err, res);
+    }
+  });
+
+  app.post("/api/portal/review-replies/:id/reject", requireClientStrict, portalReviewLimit, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const draftId = parseInt(String(req.params.id), 10);
+      if (!Number.isFinite(draftId)) return res.status(400).json({ error: "id must be a number" });
+      const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 1000) : undefined;
+      const updated = await clientRejectDraft({ draftId, clientId, note });
+      res.json({ ok: true, reply: projectReviewReplyForPortal(updated) });
+    } catch (err: any) {
+      return reviewActionErrorResponse("reject", err, res);
+    }
+  });
 }

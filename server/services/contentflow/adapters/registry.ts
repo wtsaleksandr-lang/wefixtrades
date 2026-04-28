@@ -11,9 +11,11 @@
 
 import type { PublishAdapter, AdapterType } from "./types";
 import { wordpressAdapter } from "./wordpressAdapter";
+import { gbpAdapter } from "./gbpAdapter";
 
 const REGISTRY: Partial<Record<AdapterType, PublishAdapter>> = {
   wordpress: wordpressAdapter,
+  gbp: gbpAdapter,
 };
 
 export function getAdapter(type: AdapterType): PublishAdapter {

@@ -261,15 +261,21 @@ export async function retryDraft(draftId: number): Promise<RetryResult> {
 /* ─── Worker ────────────────────────────────────────────────────────── */
 
 /**
- * Sprint 8: drain up to BATCH_SIZE eligible drafts using atomic claims.
+ * Sprint 8/9: drain up to BATCH_SIZE eligible drafts per channel using
+ * atomic claims.
  *
- *   1. Recover stale claims (publishing rows abandoned by crashed workers).
- *   2. Loop up to BATCH_SIZE: claimNextPublishJob → dispatch → record outcome.
- *   3. Stop when claim returns null (queue empty / all locked elsewhere).
+ *   1. Recover stale claims for both wordpress + gbp queues
+ *      (publishing rows abandoned by crashed workers).
+ *   2. Drain wordpress queue up to BATCH_SIZE.
+ *   3. Drain gbp queue up to BATCH_SIZE.
+ *   4. Stop a queue when claim returns null (empty / all locked elsewhere).
  *
- * The claim is row-level locked + SKIP LOCKED, so two concurrent workers
- * never publish the same draft. Each adapter runs in isolation; an
- * adapter throw is caught and persisted as a failure.
+ * The claim is row-level locked + SKIP LOCKED per row, so two concurrent
+ * workers never publish the same draft AND the wordpress + gbp queues
+ * drain independently — neither blocks the other.
+ *
+ * Each adapter runs in isolation; an adapter throw is caught and
+ * persisted as a failure.
  */
 export async function processQueue(): Promise<ProcessQueueSummary> {
   const summary: ProcessQueueSummary = {
@@ -282,23 +288,40 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
 
   const now = new Date();
 
-  /* 1. Stale-lock recovery — re-queues rows whose worker crashed. */
+  /* 1. Stale-lock recovery for both queues. */
   try {
-    const recovered = await storage.recoverStalePublishClaims({ now, staleLockMs: STALE_LOCK_MS });
-    if (recovered > 0) {
-      console.log(`[contentflow][publish-queue] recovered ${recovered} stale claim(s)`);
+    const recoveredWp = await storage.recoverStaleWordpressClaims({ now, staleLockMs: STALE_LOCK_MS });
+    if (recoveredWp > 0) {
+      console.log(`[contentflow][publish-queue][wp] recovered ${recoveredWp} stale claim(s)`);
     }
   } catch (err: any) {
-    console.error(`[contentflow][publish-queue] stale-lock recovery failed:`, err?.message || err);
+    console.error(`[contentflow][publish-queue][wp] stale-lock recovery failed:`, err?.message || err);
+  }
+  try {
+    const recoveredGbp = await storage.recoverStaleGbpClaims({ now, staleLockMs: STALE_LOCK_MS });
+    if (recoveredGbp > 0) {
+      console.log(`[contentflow][publish-queue][gbp] recovered ${recoveredGbp} stale claim(s)`);
+    }
+  } catch (err: any) {
+    console.error(`[contentflow][publish-queue][gbp] stale-lock recovery failed:`, err?.message || err);
   }
 
-  /* 2. Drain — atomic claim, dispatch, record outcome, repeat. */
+  /* 2. Drain WordPress queue. */
+  await drainWordpressQueue(summary);
+
+  /* 3. Drain GBP queue. */
+  await drainGbpQueue(summary);
+
+  return summary;
+}
+
+async function drainWordpressQueue(summary: ProcessQueueSummary): Promise<void> {
   for (let i = 0; i < BATCH_SIZE; i++) {
     let claimed: ContentDraft | null;
     try {
-      claimed = await storage.claimNextPublishJob(WORKER_ID, { now: new Date(), staleLockMs: STALE_LOCK_MS });
+      claimed = await storage.claimNextWordpressJob(WORKER_ID, { now: new Date(), staleLockMs: STALE_LOCK_MS });
     } catch (err: any) {
-      summary.errors.push(`claim failed: ${err?.message || err}`);
+      summary.errors.push(`wp claim failed: ${err?.message || err}`);
       break;
     }
     if (!claimed) break;
@@ -328,8 +351,6 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
     }
 
     if (result.ok) {
-      /* Adapter already persisted post_id/post_url and flipped draft.status.
-       * Layer in queue_status + clear lock + clear last_error. */
       await mergeWpMetadata(claimed.id, {
         queue_status: "published",
         last_error: null,
@@ -340,7 +361,6 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
       continue;
     }
 
-    /* Failure path — increment attempts, decide retry vs dead-letter. */
     const attemptsBefore = wp.attempts ?? 0;
     const attemptsAfter = attemptsBefore + 1;
     const errMsg = (result.message || "unknown error").slice(0, 500);
@@ -366,6 +386,139 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
       summary.retried++;
     }
   }
+}
 
-  return summary;
+/**
+ * Sprint 9: GBP review-reply queue drain. Same shape as the WP drain
+ * but uses claimNextGbpJob, the gbp adapter, and metadata.gbp.* keys.
+ * Implemented inline (not generalised) so the WP path stays unchanged
+ * — keeping the surgical scope the user specified.
+ */
+async function drainGbpQueue(summary: ProcessQueueSummary): Promise<void> {
+  for (let i = 0; i < BATCH_SIZE; i++) {
+    let claimed: ContentDraft | null;
+    try {
+      claimed = await storage.claimNextGbpJob(WORKER_ID, { now: new Date(), staleLockMs: STALE_LOCK_MS });
+    } catch (err: any) {
+      summary.errors.push(`gbp claim failed: ${err?.message || err}`);
+      break;
+    }
+    if (!claimed) break;
+    summary.scanned++;
+
+    const gbp = ((claimed.metadata as any)?.gbp || {}) as Record<string, any>;
+
+    /* Defence-in-depth: never re-post if posted_at is already set. */
+    if (gbp.posted_at) {
+      await mergeGbpMetadata(claimed.id, {
+        queue_status: "published",
+        locked_at: null,
+        locked_by: null,
+      });
+      continue;
+    }
+
+    let result;
+    try {
+      const adapter = getAdapter("gbp");
+      result = await adapter.publish(claimed);
+    } catch (err: any) {
+      result = { ok: false as const, reason: "transient" as const, message: err?.message || String(err), retryable: true };
+    }
+
+    if (result.ok) {
+      await mergeGbpMetadata(claimed.id, {
+        queue_status: "published",
+        last_error: null,
+        locked_at: null,
+        locked_by: null,
+      });
+      summary.published++;
+      continue;
+    }
+
+    const attemptsBefore = (gbp.attempts as number | undefined) ?? 0;
+    const attemptsAfter = attemptsBefore + 1;
+    const errMsg = (result.message || "unknown gbp error").slice(0, 500);
+    /* Permanent failures (auth, validation, wrong_kind) skip retry — go
+     * straight to failed. Otherwise honour MAX_ATTEMPTS. */
+    const isRetryable =
+      result.retryable === undefined ? true : result.retryable === true;
+    const shouldDeadLetter = !isRetryable || attemptsAfter >= MAX_ATTEMPTS;
+    if (shouldDeadLetter) {
+      await mergeGbpMetadata(claimed.id, {
+        queue_status: "failed",
+        attempts: attemptsAfter,
+        last_error: errMsg,
+        dead_letter_at: new Date().toISOString(),
+        locked_at: null,
+        locked_by: null,
+      });
+      summary.failed++;
+      summary.errors.push(`draft ${claimed.id}: ${errMsg}`);
+    } else {
+      await mergeGbpMetadata(claimed.id, {
+        queue_status: "queued",
+        attempts: attemptsAfter,
+        last_error: errMsg,
+        locked_at: null,
+        locked_by: null,
+      });
+      summary.retried++;
+    }
+  }
+}
+
+/* Sprint 9: race-protected merge for metadata.gbp — same pattern as
+ * mergeWpMetadata. Re-reads fresh draft, merges into existing gbp
+ * sub-object, writes back. */
+async function mergeGbpMetadata(
+  draftId: number,
+  patch: Record<string, any>,
+): Promise<ContentDraft | undefined> {
+  const fresh = await storage.getContentDraftById(draftId);
+  if (!fresh) return undefined;
+  const existingMeta = (fresh.metadata || {}) as Record<string, any>;
+  const existingGbp = (existingMeta.gbp || {}) as Record<string, any>;
+  return storage.updateContentDraft(draftId, {
+    metadata: {
+      ...existingMeta,
+      gbp: { ...existingGbp, ...patch },
+    },
+  } as any);
+}
+
+/**
+ * Sprint 9: mark a review_reply draft eligible for the GBP publish queue.
+ * Called from:
+ *   - ingestion auto-approve path (after autoApproveDraft)
+ *   - approvalService.adminApproveDraft / clientApproveDraft when
+ *     kind='review_reply' (the moment status flips to 'approved')
+ *
+ * Idempotent — re-calling on a draft already queued or published is a
+ * no-op (the queue eligibility filter accepts only queued+null lock).
+ */
+export async function enqueueGbpReviewReplyDraft(
+  draftId: number,
+  opts: { scheduled_for?: string | null } = {},
+): Promise<void> {
+  const draft = await storage.getContentDraftById(draftId);
+  if (!draft) return;
+  if (draft.kind !== "review_reply" || draft.surface !== "reputationshield") return;
+  const meta = (draft.metadata || {}) as Record<string, any>;
+  const gbp = (meta.gbp || {}) as Record<string, any>;
+  /* Already published or already in-flight — leave alone. */
+  if (gbp.posted_at || gbp.queue_status === "publishing" || gbp.queue_status === "published") return;
+  await mergeGbpMetadata(draftId, {
+    queue_status: "queued",
+    scheduled_for: opts.scheduled_for ?? null,
+    /* Reset attempts only when (re)entering queued from a non-queued
+     * state. Fresh draft → 0. Failed retry path uses retryReviewReplyDraft
+     * (admin-driven) and resets explicitly. */
+    attempts: gbp.queue_status === "failed" ? gbp.attempts ?? 0 : 0,
+    last_error: null,
+    locked_at: null,
+    locked_by: null,
+    dead_letter_at: gbp.queue_status === "failed" ? gbp.dead_letter_at : null,
+  });
 }

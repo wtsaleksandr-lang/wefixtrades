@@ -86,3 +86,73 @@ export async function createDraftFromSocialPost(
 
   return draft;
 }
+
+/* ─── Sprint 9: review-reply drafts ─────────────────────────────────── */
+
+export interface CreateReviewReplyDraftInput {
+  /** WeFixTrades client (clients.id). */
+  clientId: number;
+  /** DB id of the linked reviews row. */
+  reviewId: number;
+  /** Google API review id (last segment of the resource name). */
+  externalReviewId: string;
+  /** Star rating snapshot — drives quality + audit trail context. */
+  starRating: number | null;
+  /** AI-generated reply text. Stored verbatim in draft.body. */
+  replyText: string;
+  /** "auto" → draft is being created on the auto-approve path; "admin"/"client" reserved. */
+  source?: "auto" | "admin" | "client";
+}
+
+/**
+ * Sprint 9: create a content_drafts row of kind='review_reply' for a
+ * review whose AI reply has just been generated. Caller decides whether
+ * to autoApprove() + enqueue immediately based on the per-client policy.
+ *
+ * Idempotency: one draft per (clientId, externalReviewId). If one
+ * exists, the existing row is returned without overwriting body.
+ */
+export async function createReviewReplyDraft(
+  input: CreateReviewReplyDraftInput,
+): Promise<ContentDraft> {
+  const existing = await storage.getReviewReplyDraft(input.clientId, input.externalReviewId);
+  if (existing) return existing;
+
+  const draft = await storage.createContentDraft({
+    client_id: input.clientId,
+    client_service_id: null,
+    kind: "review_reply",
+    surface: "reputationshield",
+    title: `Reply to ${input.starRating ?? "?"}-star review`,
+    body: input.replyText,
+    excerpt: null,
+    target_platform: "google_business",
+    target_url: null,
+    metadata: {
+      gbp: {
+        review_id: input.reviewId,
+        external_review_id: input.externalReviewId,
+        source: input.source ?? "auto",
+        star_rating: input.starRating,
+        queue_status: null,
+      },
+    },
+    quality_score: null,
+    quality_notes: null,
+    status: "draft",
+    auto_approved: false,
+    requires_admin_review: false,
+    requires_client_review: false,
+    admin_approved_at: null,
+    admin_approved_by: null,
+    client_approved_at: null,
+    rejected_at: null,
+    rejection_reason: null,
+    linked_social_post_id: null,
+    linked_task_id: null,
+    generation_cost_micro_usd: null,
+    created_by: "system",
+  } as any);
+
+  return draft;
+}

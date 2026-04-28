@@ -16,6 +16,7 @@ import {
   sendAdminClientRejectEmail,
   sendClientRevisionReadyEmail,
 } from "../../lib/contentReviewEmail";
+import { enqueueGbpReviewReplyDraft } from "./wordpressQueue";
 
 export interface AutoApproveInput {
   draftId: number;
@@ -131,6 +132,16 @@ export async function adminApproveDraft(input: AdminApproveInput): Promise<Conte
     });
   }
 
+  /* Sprint 9: review-reply drafts that just transitioned to 'approved'
+   * should land in the GBP publish queue. enqueueGbpReviewReplyDraft is
+   * a no-op for any other kind, so it's safe to call unconditionally
+   * for kind === 'review_reply'. */
+  if (existing.kind === "review_reply") {
+    enqueueGbpReviewReplyDraft(draftId).catch((err) => {
+      console.error(`[contentflow][gbp-enqueue] draft=${draftId} from admin approve failed:`, err?.message || err);
+    });
+  }
+
   return updated ?? existing;
 }
 
@@ -209,8 +220,13 @@ async function loadAndAuthorize(draftId: number, clientId: number): Promise<Cont
     err.code = "forbidden";
     throw err;
   }
-  if (existing.kind !== "article" || existing.surface !== "rankflow") {
-    const err: any = new Error("Only RankFlow articles support client review");
+  /* Sprint 9: also accept kind='review_reply' / surface='reputationshield'
+   * for the GBP review-reply portal flow. RankFlow articles keep the
+   * Sprint 6 contract. */
+  const isArticle = existing.kind === "article" && existing.surface === "rankflow";
+  const isReviewReply = existing.kind === "review_reply" && existing.surface === "reputationshield";
+  if (!isArticle && !isReviewReply) {
+    const err: any = new Error("This draft does not support client review");
     err.code = "wrong_kind";
     throw err;
   }
@@ -244,14 +260,27 @@ async function mergeClientReviewMetadata(draftId: number, review: ClientReviewMe
  * Sprint 6: client approves a draft. Sets metadata.client_review.state +
  * client_approved_at + appends content_approvals row. Idempotent — re-
  * approving is a no-op past the first decision.
+ *
+ * Sprint 9: when kind='review_reply' (RankFlow articles use Sprint 6's
+ * existing path; GBP review replies are the new draft type), client
+ * approval also flips draft.status to 'approved' AND enqueues for the
+ * GBP publish queue. Article reviews keep their pre-Sprint-9 semantics
+ * (admin still controls publish gating; client_review is orthogonal).
  */
 export async function clientApproveDraft(input: ClientReviewInput): Promise<ContentDraft> {
   const existing = await loadAndAuthorize(input.draftId, input.clientId);
 
   const now = new Date();
-  await storage.updateContentDraft(input.draftId, {
+  const updateFields: Record<string, any> = {
     client_approved_at: existing.client_approved_at ?? now,
-  } as any);
+  };
+  /* Sprint 9: review-reply drafts use client approval as the publish
+   * gate. Flip status to 'approved' on first client OK so the queue
+   * worker picks it up. Articles keep their existing two-key gate. */
+  if (existing.kind === "review_reply" && existing.status !== "approved" && existing.status !== "published") {
+    updateFields.status = "approved";
+  }
+  await storage.updateContentDraft(input.draftId, updateFields as any);
   const updated = await mergeClientReviewMetadata(input.draftId, {
     state: "approved",
     note: input.note ?? null,
@@ -273,6 +302,14 @@ export async function clientApproveDraft(input: ClientReviewInput): Promise<Cont
   sendAdminClientApproveEmail(input.draftId).catch((err) => {
     console.error(`[content-review-email][admin-approved] draft=${input.draftId} unhandled:`, err?.message || err);
   });
+
+  /* Sprint 9: enqueue review_reply drafts for GBP publish on client
+   * approval. enqueueGbpReviewReplyDraft is a no-op for any other kind. */
+  if (existing.kind === "review_reply") {
+    enqueueGbpReviewReplyDraft(input.draftId).catch((err) => {
+      console.error(`[contentflow][gbp-enqueue] draft=${input.draftId} from client approve failed:`, err?.message || err);
+    });
+  }
 
   return updated ?? existing;
 }
