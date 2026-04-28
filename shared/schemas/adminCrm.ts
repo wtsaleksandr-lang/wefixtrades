@@ -699,3 +699,70 @@ export const tradelineModeLog = pgTable("tradeline_mode_log", {
 export const insertTradelineModeLogSchema = createInsertSchema(tradelineModeLog).omit({ id: true, created_at: true });
 export type InsertTradelineModeLog = z.infer<typeof insertTradelineModeLogSchema>;
 export type TradelineModeLog = typeof tradelineModeLog.$inferSelect;
+
+/* ─── Billing Dunning Events ───────────────────────────────────────────
+ *
+ * Premium failed-payment recovery sequence. One row per scheduled email
+ * in the dunning lifecycle:
+ *
+ *   payment_failed (Day 0 covered by existing paymentFailedEmail.ts)
+ *      → schedules day_2_reminder  (T+2 days)
+ *      → schedules day_5_final     (T+5 days)
+ *      → schedules day_7_warning   (T+7 days)  [warning only — Stripe drives suspension]
+ *
+ *   card_expiring   → standalone email, no sequence
+ *   subscription_canceled → standalone confirmation, cancels pending rows
+ *   payment_succeeded     → cancels pending rows (no email)
+ *
+ * Idempotency:
+ *   - UNIQUE (stripe_subscription_id, trigger_event_id, kind) prevents
+ *     scheduling the same email twice for the same Stripe event.
+ *   - Worker also enforces a 24h resend guard per (subscription_id, kind)
+ *     to prevent two of the same email kind landing within 24 hours even
+ *     across different trigger events.
+ *
+ * ─────────────────────────────────────────────────────────────────── */
+export const billingDunningEvents = pgTable("billing_dunning_events", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").references(() => clients.id),
+  // Nullable — webhook may arrive before client is matched (e.g. Stripe
+  // customer with no client row yet). Worker re-attempts match at send time.
+
+  stripe_customer_id: text("stripe_customer_id").notNull(),
+  stripe_subscription_id: text("stripe_subscription_id"),
+  stripe_invoice_id: text("stripe_invoice_id"),
+  // Subscription/invoice IDs may be null for card_expiring (which is
+  // customer-level, not subscription-level).
+
+  trigger_event: varchar("trigger_event", { length: 32 }).notNull(),
+  // payment_failed | card_expiring | subscription_canceled
+  trigger_event_id: text("trigger_event_id").notNull(),
+  // Stripe Event.id — UNIQUE with kind below for duplicate-event safety
+
+  kind: varchar("kind", { length: 24 }).notNull(),
+  // day_2_reminder | day_5_final | day_7_warning
+  // | card_expiring | subscription_canceled
+
+  scheduled_for: timestamp("scheduled_for").notNull(),
+  sent_at: timestamp("sent_at"),
+
+  status: varchar("status", { length: 16 }).notNull().default("pending"),
+  // pending | sent | cancelled | failed | skipped
+
+  cancel_reason: varchar("cancel_reason", { length: 32 }),
+  // payment_succeeded | subscription_canceled | manual | resend_guard
+
+  amount_cents: integer("amount_cents"),
+  currency: varchar("currency", { length: 8 }),
+
+  metadata: jsonb("metadata"),
+  // { last_error?, attempt_count?, recipient_email_at_send?, message_id? }
+
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+export const insertBillingDunningEventSchema = createInsertSchema(billingDunningEvents).omit({
+  id: true, created_at: true, updated_at: true,
+});
+export type InsertBillingDunningEvent = z.infer<typeof insertBillingDunningEventSchema>;
+export type BillingDunningEvent = typeof billingDunningEvents.$inferSelect;
