@@ -34,7 +34,7 @@ export async function sendBookingConfirmationToCustomer(booking: Booking, calcul
 
   const html = buildTransactionalEmail({
     recipientEmail: booking.customer_email,
-    subjectForTitle: `Booking Confirmed — ${dateDisplay} at ${timeDisplay}`,
+    subjectForTitle: `Booking confirmed — ${dateDisplay} at ${timeDisplay}`,
     eyebrow: "Booking confirmed",
     headline: "Your appointment is set",
     intro: `Your appointment with <strong style="color:#F0F0F0;">${businessName}</strong> has been confirmed.`,
@@ -53,7 +53,7 @@ export async function sendBookingConfirmationToCustomer(booking: Booking, calcul
     await transporter.sendMail({
       from: `${businessName} <${getFromAddress()}>`,
       to: booking.customer_email,
-      subject: `Booking Confirmed — ${dateDisplay} at ${timeDisplay}`,
+      subject: `Booking confirmed — ${dateDisplay} at ${timeDisplay}`,
       html,
       text: buildPlainText({
         headline: "Your appointment is set",
@@ -94,7 +94,7 @@ export async function sendBookingNotificationToBusiness(booking: Booking, calcul
   detailRows.push({ label: "Quote", value: quoteDisplay });
   detailRows.push({ label: "Deposit", value: booking.deposit_paid ? `${depositDisplay} (paid)` : "Not required" });
 
-  const subject = `New Booking: ${booking.customer_name} — ${dateDisplay} at ${timeDisplay}`;
+  const subject = `New booking: ${booking.customer_name} — ${dateDisplay} at ${timeDisplay}`;
 
   const html = buildAdminAlertEmail({
     subjectForTitle: subject,

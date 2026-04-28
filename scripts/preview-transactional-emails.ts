@@ -184,7 +184,7 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
   /* ─── 6a. bookingEmails.ts (customer confirmation, dark theme) ─── */
   const bookingHtml = buildTransactionalEmail({
     recipientEmail: "customer@example.test",
-    subjectForTitle: "Booking Confirmed — Friday, May 9, 2026 at 3:00 PM",
+    subjectForTitle: "Booking confirmed — Friday, May 9, 2026 at 3:00 PM",
     eyebrow: "Booking confirmed",
     headline: "Your appointment is set",
     intro: `Your appointment with <strong style="color:#F0F0F0;">Acme Plumbing</strong> has been confirmed.`,
@@ -201,7 +201,7 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
   previews.push({
     slug: "07-booking-confirmation",
     source: "server/bookingEmails.ts",
-    subject: "Booking Confirmed — Friday, May 9, 2026 at 3:00 PM",
+    subject: "Booking confirmed — Friday, May 9, 2026 at 3:00 PM",
     html: bookingHtml,
   });
 
@@ -320,7 +320,7 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
     recipientEmail: "owner@acmeplumbing.test",
     theme: "light",
     maxWidth: 600,
-    subjectForTitle: "Your Revised Article Is Ready",
+    subjectForTitle: "Your revised article is ready for review",
     headerTagline: "Article ready for your review",
     headline: "Hi Sam,",
     intro: "Your team has revised the article you asked us to update. It's ready for your review.",
@@ -332,7 +332,7 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
   previews.push({
     slug: "06-content-revision-ready",
     source: "server/lib/contentReviewEmail.ts",
-    subject: "Your Revised Article Is Ready",
+    subject: "Your revised article is ready for review",
     html: revisionHtml,
   });
 
@@ -401,9 +401,9 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
   previews.push({
     slug: "13-socialsync-alert",
     source: "server/services/socialSync/alertService.ts",
-    subject: "[SocialSync] Token Expired — Acme Plumbing",
+    subject: "SocialSync Token Expired: Acme Plumbing",
     html: buildAdminAlertEmail({
-      subjectForTitle: "[SocialSync] Token Expired — Acme Plumbing",
+      subjectForTitle: "SocialSync Token Expired: Acme Plumbing",
       alertType: "SocialSync · Token Expired",
       alertTone: "critical",
       headline: "Facebook token has expired for Acme Plumbing. Reconnection required.",
@@ -502,9 +502,9 @@ Riley: Sure, TradeLine starts at $97/month and includes...
   previews.push({
     slug: "17-booking-business-notif",
     source: "server/bookingEmails.ts (business notif)",
-    subject: "New Booking: Sam Rodriguez — Friday, May 9, 2026 at 3:00 PM",
+    subject: "New booking: Sam Rodriguez — Friday, May 9, 2026 at 3:00 PM",
     html: buildAdminAlertEmail({
-      subjectForTitle: "New Booking: Sam Rodriguez — Friday, May 9, 2026 at 3:00 PM",
+      subjectForTitle: "New booking: Sam Rodriguez — Friday, May 9, 2026 at 3:00 PM",
       alertType: "New booking",
       alertTone: "success",
       headline: "Sam Rodriguez just booked",

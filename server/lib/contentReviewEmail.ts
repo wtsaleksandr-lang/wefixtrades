@@ -191,21 +191,21 @@ function adminContent(kind: AdminReviewKind, businessName: string): AdminEmailCo
   switch (kind) {
     case "admin-approved":
       return {
-        subject: `Client Approved Article — ${businessName}`,
+        subject: `Client approved article — ${businessName}`,
         heading: "Client approved their article",
         decisionLabel: "Approved",
         decisionTone: "good",
       };
     case "admin-changes":
       return {
-        subject: `Client Requested Changes — ${businessName}`,
+        subject: `Client requested changes — ${businessName}`,
         heading: "Client requested changes",
         decisionLabel: "Changes requested",
         decisionTone: "warn",
       };
     case "admin-rejected":
       return {
-        subject: `Client Rejected Article — ${businessName}`,
+        subject: `Client rejected article — ${businessName}`,
         heading: "Client rejected the article",
         decisionLabel: "Rejected",
         decisionTone: "bad",
@@ -272,7 +272,7 @@ function buildClientRevisionHtml(args: {
     recipientEmail: args.recipientEmail,
     theme: "light",
     maxWidth: 600,
-    subjectForTitle: "Your Revised Article Is Ready",
+    subjectForTitle: "Your revised article is ready for review",
     headerTagline: "Article ready for your review",
     headline: greeting,
     intro: "Your team has revised the article you asked us to update. It's ready for your review.",
@@ -420,7 +420,7 @@ export async function sendClientRevisionReadyEmail(
     const result = await transporter.sendMail({
       from: `WeFixTrades <${getFromAddress()}>`,
       to: ctx.contactEmail,
-      subject: "Your Revised Article Is Ready",
+      subject: "Your revised article is ready for review",
       html,
       text: buildPlainText({
         headline: greeting,
