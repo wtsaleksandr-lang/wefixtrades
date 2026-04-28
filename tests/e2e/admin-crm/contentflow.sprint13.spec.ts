@@ -255,18 +255,28 @@ test.describe("ContentFlow Sprint 13 — multi-channel repurposer", () => {
     await adminApi.post(`/api/admin/contentflow/__dev/repurpose-test`, { data: { articleDraftId: articleId } });
 
     /* Children land in 'approved' (autoApproveDraft) with queue_status='queued'.
-     * Drive the worker to drain. */
-    const runRes = await adminApi.post(`/api/admin/contentflow/__dev/wp-queue/run`);
-    expect(runRes.ok()).toBeTruthy();
+     * Drive the worker repeatedly until no further progress — earlier
+     * P13-X tests in this serial describe also queued 8 children each
+     * but didn't drain, so a single wp-queue/run with BATCH_SIZE=10 may
+     * not reach this test's children before exhausting its budget. */
+    let lastPublished = -1;
+    for (let i = 0; i < 6; i++) {
+      const runRes = await adminApi.post(`/api/admin/contentflow/__dev/wp-queue/run`);
+      expect(runRes.ok()).toBeTruthy();
+      const summary = await runRes.json();
+      const totalPublished = (summary.published ?? 0) + (summary.scanned ?? 0);
+      if (totalPublished === 0 || totalPublished === lastPublished) break;
+      lastPublished = totalPublished;
+    }
 
     const children = await listChildren(articleId);
     let publishedCount = 0;
     for (const c of children) {
       if (c.status === "published") publishedCount++;
     }
-    /* Most children should publish. The IG path may fail validation if
-     * an adapter-side guard doesn't accept the image_url shape — but
-     * FB + GBP + email should reliably publish. Assert ≥ 5/8. */
+    /* FB + GBP + email should reliably publish. IG may fail in dev when
+     * APP_PUBLIC_URL isn't set (publisher requires a public image URL).
+     * Assert ≥ 5/8 to allow IG to no-op. */
     expect(publishedCount, `expected ≥5 published children, got ${publishedCount}/8`).toBeGreaterThanOrEqual(5);
   });
 
@@ -311,8 +321,16 @@ test.describe("ContentFlow Sprint 13 — multi-channel repurposer", () => {
     expect(body.ok).toBe(true);
     expect(body.children.length, "all 8 children must still be CREATED even when one channel will fail at publish").toBe(8);
 
-    /* Drive worker. Some FB drafts will fail/dead-letter; IG/GBP/email succeed. */
-    await adminApi.post(`/api/admin/contentflow/__dev/wp-queue/run`);
+    /* Drive worker repeatedly to drain past earlier tests' queued children.
+     * Some FB drafts will fail/dead-letter; IG/GBP/email succeed. */
+    let lastTotal = -1;
+    for (let i = 0; i < 6; i++) {
+      const runRes = await adminApi.post(`/api/admin/contentflow/__dev/wp-queue/run`);
+      const summary = await runRes.json();
+      const total = (summary.published ?? 0) + (summary.scanned ?? 0);
+      if (total === 0 || total === lastTotal) break;
+      lastTotal = total;
+    }
 
     const children = await listChildren(articleId);
     const nonFb = children.filter((c) => c.target_platform !== "facebook");
