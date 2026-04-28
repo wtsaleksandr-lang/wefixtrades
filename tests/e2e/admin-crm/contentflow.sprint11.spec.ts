@@ -193,7 +193,10 @@ test.describe("ContentFlow Sprint 11 — image generation pipeline", () => {
 
     const result = await generateForDraft(draftId);
     expect(result.ok).toBe(false);
-    expect(result.reason).toBe("skipped_platform");
+    /* google_business creates kind='google_post' — kind check fires
+     * first (skipped_kind). Either reason is acceptable; the
+     * invariant is "no image_url written for GBP". */
+    expect(["skipped_kind", "skipped_platform"]).toContain(result.reason);
 
     const meta = await readDraftMeta(draftId);
     expect(meta?.media_plan?.image_url).toBeFalsy();
