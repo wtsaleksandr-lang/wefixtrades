@@ -23,7 +23,7 @@ import type { Transporter, SendMailOptions, SentMessageInfo } from "nodemailer";
 import crypto from "crypto";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildLegalFooter, buildEmailHeader } from "./emailFooter";
-import { buildTransactionalEmail } from "./transactionalShell";
+import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import { storage } from "../storage";
 import { db } from "../db";
 import { clients } from "@shared/schema";
@@ -409,9 +409,11 @@ export async function sendClientRevisionReadyEmail(
       return { ok: false, reason: "smtp_unavailable", message: "SMTP not configured" };
     }
 
+    const articleTitle = ctx.draft.title || "Untitled article";
+    const greeting = ctx.contactName ? `Hi ${ctx.contactName.split(" ")[0]},` : "Hi there,";
     const html = buildClientRevisionHtml({
       contactName: ctx.contactName,
-      articleTitle: ctx.draft.title || "Untitled article",
+      articleTitle,
       recipientEmail: ctx.contactEmail,
     });
 
@@ -420,6 +422,13 @@ export async function sendClientRevisionReadyEmail(
       to: ctx.contactEmail,
       subject: "Your Revised Article Is Ready",
       html,
+      text: buildPlainText({
+        headline: greeting,
+        intro: "Your team has revised the article you asked us to update. It's ready for your review.",
+        bodyText: `Article: ${articleTitle}`,
+        ctaLabel: "Review revised article",
+        ctaUrl: clientArticlesLink(),
+      }),
     });
 
     await mergeClientReviewMetadata(draftId, {
