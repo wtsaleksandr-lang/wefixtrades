@@ -18,6 +18,8 @@ interface EnvSpec {
   format?: RegExp;            /* if set, masked-fail when present but not matching */
   /** A dev-only override that MUST be unset in prod. */
   forbidden_in_prod?: boolean;
+  /** Has a code-level default — missing value is a warning, not a blocker. */
+  optional?: boolean;
 }
 
 const SPECS: EnvSpec[] = [
@@ -33,8 +35,8 @@ const SPECS: EnvSpec[] = [
   { name: "OPENAI_API_KEY", scope: "ai", required_for: "content generation fallback (and image gen on the gpt-image-1 path)" },
 
   /* ─── Image gen + R2 ───────────────────────────────────────────── */
-  { name: "IMAGE_MODEL", scope: "image", required_for: "image generation (defaults to gpt-image-1)" },
-  { name: "IMAGE_SIZE", scope: "image", required_for: "image generation (defaults to 1024x1024)" },
+  { name: "IMAGE_MODEL", scope: "image", required_for: "image generation (code defaults to gpt-image-1)", optional: true },
+  { name: "IMAGE_SIZE", scope: "image", required_for: "image generation (code defaults to 1024x1024)", optional: true },
   { name: "R2_ACCESS_KEY_ID", scope: "r2", required_for: "image storage (Cloudflare R2 upload)" },
   { name: "R2_SECRET_ACCESS_KEY", scope: "r2", required_for: "image storage" },
   { name: "R2_BUCKET_NAME", scope: "r2", required_for: "image storage" },
@@ -107,14 +109,14 @@ function auditOne(spec: EnvSpec): AuditRow {
     };
   }
 
-  /* Missing = blocking. Format wrong = blocking. */
+  /* Missing = blocking, unless the spec has a code-level default. */
   if (!present) {
     return {
       name: spec.name,
       scope: spec.scope,
       present: false,
       format_ok: "n/a",
-      blocking: `missing — required for ${spec.required_for}`,
+      blocking: spec.optional ? null : `missing — required for ${spec.required_for}`,
       required_for: spec.required_for,
     };
   }
