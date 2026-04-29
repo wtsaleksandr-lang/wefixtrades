@@ -17,3 +17,6 @@ data/email-charts/*
 
 # preview-transactional-emails.ts output (regenerable via npx tsx)
 data/email-previews/
+
+# ContentFlow Sprint 19 smoke test report (operator-generated, never commit)
+data/contentflow-smoke-report.json
