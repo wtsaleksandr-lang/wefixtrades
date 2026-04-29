@@ -50,9 +50,12 @@ export function registerVapiRoutes(app: Express): void {
    */
   app.post("/api/vapi/webhook", async (req: Request, res: Response) => {
     try {
-      // Verify webhook signature
+      // Verify webhook signature against the RAW request body captured by
+      // the express.json() verify hook in server/index.ts. Re-serializing
+      // req.body would produce different bytes (key ordering, whitespace)
+      // and fail verification even when the request is genuine.
       const signature = req.headers["x-vapi-signature"] as string | undefined;
-      const rawBody = JSON.stringify(req.body);
+      const rawBody = (req as any).rawBody as Buffer | undefined;
 
       if (!verifyWebhookSignature(rawBody, signature)) {
         console.warn("[vapi] Webhook signature verification failed");

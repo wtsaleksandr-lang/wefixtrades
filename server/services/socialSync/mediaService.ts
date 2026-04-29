@@ -147,8 +147,9 @@ export async function resolveMediaForPost(post: SocialSyncPost): Promise<MediaRe
     return { resolved: true, public_url: existingUrl, source: "existing" };
   }
 
-  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    return { resolved: false, public_url: null, source: "none", error: "No image URL provided and image generation not configured (AI_INTEGRATIONS_OPENAI_API_KEY missing)" };
+  // Canonical: OPENAI_API_KEY. Legacy fallback: AI_INTEGRATIONS_OPENAI_API_KEY.
+  if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    return { resolved: false, public_url: null, source: "none", error: "No image URL provided and image generation not configured (OPENAI_API_KEY missing)" };
   }
   if (!process.env.APP_PUBLIC_URL) {
     return { resolved: false, public_url: null, source: "none", error: "No image URL provided and APP_PUBLIC_URL not configured for media storage" };

@@ -26,6 +26,7 @@ import crypto from "crypto";
 import { storage } from "../../storage";
 import type { ContentDraft } from "@shared/schema";
 import { readBrandProfile } from "./brandProfile";
+import { resolveOpenAiKey } from "../../openaiClient";
 
 /* ─── Config ───────────────────────────────────────────────────────── */
 
@@ -136,7 +137,9 @@ interface OpenAiImageResponse {
 }
 
 async function callImageApi(prompt: string): Promise<{ ok: true; url: string; revised_prompt?: string } | { ok: false; reason: GenerateForDraftResult["reason"]; message: string }> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  // Canonical: OPENAI_API_KEY. Falls back to AI_INTEGRATIONS_OPENAI_API_KEY
+  // with a one-shot deprecation warning (resolveOpenAiKey).
+  const apiKey = resolveOpenAiKey();
   /* No early short-circuit on missing apiKey — the dev mock accepts
    * any auth, and a missing key in production is correctly surfaced
    * as api_failed by the fetch (401). The orchestrator tolerates
