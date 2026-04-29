@@ -25,6 +25,7 @@
 import crypto from "crypto";
 import { storage } from "../../storage";
 import type { ContentDraft } from "@shared/schema";
+import { readBrandProfile } from "./brandProfile";
 
 /* ─── Config ───────────────────────────────────────────────────────── */
 
@@ -49,6 +50,9 @@ export interface ImageBrand {
   style_keywords?: string[];    // e.g. ["clean", "modern"]
   location_cue?: string;        // e.g. "suburban Phoenix"
   avoid?: string[];             // e.g. ["bathroom emergencies"]
+  /* Sprint 16: extra fields from content_brand. */
+  service_focus?: string[];
+  visual_style?: string;
 }
 
 export interface GenerateForDraftResult {
@@ -79,6 +83,9 @@ function buildBrandLayer(trade: string | null, brand: ImageBrand): string {
   const parts: string[] = [];
   if (trade) parts.push(`Trade: ${trade}.`);
   if (brand.location_cue) parts.push(`Setting cue: ${brand.location_cue}.`);
+  /* Sprint 16: service_focus + visual_style come from content_brand. */
+  if (brand.service_focus?.length) parts.push(`Service focus: ${brand.service_focus.join(", ")}.`);
+  if (brand.visual_style) parts.push(`Visual style: ${brand.visual_style}.`);
   if (brand.style_keywords?.length) parts.push(`Style: ${brand.style_keywords.join(", ")}.`);
   if (brand.primary_color) {
     const accents: string[] = [brand.primary_color];
@@ -105,14 +112,19 @@ function buildFinalPrompt(args: {
   ].filter(Boolean).join("\n");
 }
 
-function readClientBrand(metadata: any): ImageBrand {
-  const raw = (metadata?.image_brand || {}) as Record<string, any>;
+function readClientBrand(client: { metadata?: unknown } | null | undefined): ImageBrand {
+  /* Sprint 16: prefer clients.metadata.content_brand (richer schema)
+   * over legacy clients.metadata.image_brand. readBrandProfile()
+   * already handles the fallback chain + sanitization. */
+  const profile = readBrandProfile(client);
   return {
-    primary_color: typeof raw.primary_color === "string" ? raw.primary_color : undefined,
-    secondary_color: typeof raw.secondary_color === "string" ? raw.secondary_color : undefined,
-    style_keywords: Array.isArray(raw.style_keywords) ? raw.style_keywords.filter((s: any) => typeof s === "string") : undefined,
-    location_cue: typeof raw.location_cue === "string" ? raw.location_cue : undefined,
-    avoid: Array.isArray(raw.avoid) ? raw.avoid.filter((s: any) => typeof s === "string") : undefined,
+    primary_color: profile.primary_color,
+    secondary_color: profile.secondary_color,
+    style_keywords: profile.style_keywords,
+    location_cue: profile.location_cue,
+    avoid: profile.avoid,
+    service_focus: profile.service_focus,
+    visual_style: profile.visual_style,
   };
 }
 
@@ -313,8 +325,7 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
 
     /* Load client brand layer. */
     const client = await storage.getClientById(draft.client_id);
-    const clientMeta = (client?.metadata || {}) as Record<string, any>;
-    const brand = readClientBrand(clientMeta);
+    const brand = readClientBrand(client);
     const tradeType = (client?.trade_type as string | null) ?? null;
 
     const finalPrompt = buildFinalPrompt({ postPrompt, brand, tradeType });

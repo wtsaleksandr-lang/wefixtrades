@@ -39,6 +39,11 @@ import {
   mergeCalendarMetadata,
   type CalendarChannel,
 } from "../services/contentflow/calendarMetadata";
+import {
+  readBrandProfile,
+  mergeBrandProfile,
+  sanitizeBrandProfilePatch,
+} from "../services/contentflow/brandProfile";
 
 export function registerContentFlowRoutes(app: Express): void {
   /**
@@ -981,6 +986,34 @@ export function registerContentFlowRoutes(app: Express): void {
     );
 
     /**
+     * Sprint 16 dev-only — sync image-gen trigger.
+     *   POST /api/admin/contentflow/__dev/image-gen-test
+     *   Body: { draftId: number }
+     *
+     * Calls generateForDraft synchronously so the Sprint 16 spec can
+     * assert on metadata.media_plan.image_revised_prompt (echoed by
+     * the image-mock to verify brand-layer concatenation). Triple-gated.
+     */
+    app.post(
+      "/api/admin/contentflow/__dev/image-gen-test",
+      requireAdmin,
+      async (req: Request, res: Response) => {
+        try {
+          const { draftId } = req.body || {};
+          if (!Number.isFinite(draftId)) {
+            return res.status(400).json({ error: "draftId required" });
+          }
+          const { generateForDraft } = await import("../services/contentflow/imageGenerationService");
+          const result = await generateForDraft(draftId);
+          res.json(result);
+        } catch (err: any) {
+          console.error("[image-gen-test] error:", err?.message || err);
+          res.status(500).json({ error: err?.message || "image-gen failed" });
+        }
+      },
+    );
+
+    /**
      * Sprint 13 dev-only — email send recorder. Captures the last 50
      * emails the email adapter would send (when EMAIL_TEST_SIMULATE_SUCCESS=1
      * the stub already returns 250 OK without recording recipients).
@@ -1322,6 +1355,62 @@ export function registerContentFlowRoutes(app: Express): void {
         res.json({ ok: true, draft: updated ? projectDraftForCalendar(updated) : null });
       } catch (err: any) {
         console.error("[contentflow/resume] error:", err?.message || err);
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  /* ─── Sprint 16: Brand profile (admin) ────────────────────────────── */
+
+  /**
+   * GET /api/admin/contentflow/clients/:clientId/brand-profile
+   *
+   * Returns the read-time merged brand profile for the client. Falls
+   * back to legacy clients.metadata.image_brand if content_brand isn't
+   * set yet. Strict admin gate.
+   */
+  app.get(
+    "/api/admin/contentflow/clients/:clientId/brand-profile",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const clientId = parseInt(String(req.params.clientId), 10);
+        if (!Number.isFinite(clientId)) {
+          return res.status(400).json({ error: "clientId must be a number" });
+        }
+        const client = await storage.getClientById(clientId);
+        if (!client) return res.status(404).json({ error: "client not found" });
+        res.json({ clientId, brand_profile: readBrandProfile(client) });
+      } catch (err: any) {
+        console.error("[contentflow/brand-profile][admin][get]", err?.message || err);
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  /**
+   * PATCH /api/admin/contentflow/clients/:clientId/brand-profile
+   * Body: any subset of BrandProfile fields. Unknown keys are silently
+   * dropped. HTML/script content is stripped. Colors must be hex.
+   * URLs must be http(s) with a valid host.
+   */
+  app.patch(
+    "/api/admin/contentflow/clients/:clientId/brand-profile",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const clientId = parseInt(String(req.params.clientId), 10);
+        if (!Number.isFinite(clientId)) {
+          return res.status(400).json({ error: "clientId must be a number" });
+        }
+        const client = await storage.getClientById(clientId);
+        if (!client) return res.status(404).json({ error: "client not found" });
+
+        const patch = sanitizeBrandProfilePatch(req.body, "admin");
+        const updated = await mergeBrandProfile(clientId, patch);
+        res.json({ ok: true, clientId, brand_profile: updated });
+      } catch (err: any) {
+        console.error("[contentflow/brand-profile][admin][patch]", err?.message || err);
         res.status(500).json({ error: err.message });
       }
     },

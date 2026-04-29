@@ -41,6 +41,7 @@ import { autoApproveDraft } from "./approvalService";
 import { enqueueSocialSyncDraft, enqueueEmailDraft } from "./wordpressQueue";
 import { generateForDraft as generateImageForDraft } from "./imageGenerationService";
 import { buildCalendarMetadata } from "./calendarMetadata";
+import { readBrandProfile, buildBrandLayerText } from "./brandProfile";
 import type { ContentDraft } from "@shared/schema";
 
 /* ─── Public API ─────────────────────────────────────────────────────── */
@@ -87,7 +88,7 @@ Rules:
 - Never invent specific facts, prices, or guarantees not present in the source.
 - Never copy the source article verbatim.`;
 
-function buildUserPrompt(article: ContentDraft, tradeType: string | null): string {
+function buildUserPrompt(article: ContentDraft, tradeType: string | null, brandLayer?: string): string {
   const meta = (article.metadata || {}) as Record<string, any>;
   return `Source article:
 Title: ${article.title || "Untitled"}
@@ -95,6 +96,7 @@ Excerpt: ${article.excerpt || "(none)"}
 ${tradeType ? `Trade: ${tradeType}` : ""}
 ${meta.location ? `Location: ${meta.location}` : ""}
 ${meta.primary_keyword ? `Primary keyword: ${meta.primary_keyword}` : ""}
+${brandLayer ? `\nBrand profile (use to shape tone/style; do NOT invent claims not in the article): ${brandLayer}` : ""}
 
 Body:
 ${(article.body || "").slice(0, 6000)}
@@ -175,8 +177,12 @@ function stubDerivations(article: ContentDraft): Derivations {
   };
 }
 
-async function aiDerivations(article: ContentDraft, tradeType: string | null): Promise<Derivations | null> {
-  const userPrompt = buildUserPrompt(article, tradeType);
+async function aiDerivations(
+  article: ContentDraft,
+  tradeType: string | null,
+  brandLayer?: string,
+): Promise<Derivations | null> {
+  const userPrompt = buildUserPrompt(article, tradeType, brandLayer);
   let raw: string;
   try {
     raw = await aiChat({
@@ -359,9 +365,15 @@ export async function repurposeArticle(parentDraftId: number): Promise<Repurpose
     /* Derive content (AI or stub). */
     const client = await storage.getClientById(parent.client_id);
     const tradeType = (client?.trade_type as string | null) ?? null;
+    /* Sprint 16: pass content_brand layer into the AI prompt so
+     * captions/email/GBP summary pick up tone, location cue, service
+     * focus, and avoid-list. The system prompt already forbids inventing
+     * facts not in the article — the brand layer is style only. */
+    const brand = readBrandProfile(client);
+    const brandLayer = buildBrandLayerText(brand, tradeType);
     const derivations = shouldUseAiStub()
       ? stubDerivations(parent)
-      : await aiDerivations(parent, tradeType);
+      : await aiDerivations(parent, tradeType, brandLayer || undefined);
     if (!derivations) {
       return { ok: false, parentDraftId, children: [], reason: "ai_failed", message: "derivation generation failed" };
     }

@@ -9,6 +9,11 @@ import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
 import { generateKeywordTargets, clusterKeywords, deriveTargetServices } from "../services/rankflow/keywordHelper";
 import { createDraftFromRankflowTask, generateArticleBody } from "../services/contentflow/articleService";
 import {
+  readBrandProfile,
+  mergeBrandProfile,
+  sanitizeBrandProfilePatch,
+} from "../services/contentflow/brandProfile";
+import {
   clientApproveDraft,
   clientRequestChanges,
   clientRejectDraft,
@@ -3169,6 +3174,46 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       res.json({ ok: true, reply: projectReviewReplyForPortal(updated) });
     } catch (err: any) {
       return reviewActionErrorResponse("reject", err, res);
+    }
+  });
+
+  /* ─── Sprint 16: Brand profile (portal) ──────────────────────────── */
+
+  /**
+   * GET /api/portal/contentflow/brand-profile
+   * Returns the calling client's brand profile. Strict tenant
+   * isolation — the clientId comes from the session, never the URL.
+   */
+  app.get("/api/portal/contentflow/brand-profile", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const client = await storage.getClientById(clientId);
+      if (!client) return res.status(404).json({ error: "client not found" });
+      res.json({ brand_profile: readBrandProfile(client) });
+    } catch (err: any) {
+      console.error("[portal/brand-profile][get]", err?.message || err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * PATCH /api/portal/contentflow/brand-profile
+   * Body: subset of editable BrandProfile fields. Protected fields
+   * (primary_color/secondary_color/logo_url/forbidden_claims) and
+   * unknown keys are SILENTLY dropped — not echoed as errors. The
+   * resulting profile is returned so the client UI can re-render.
+   */
+  app.patch("/api/portal/contentflow/brand-profile", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const patch = sanitizeBrandProfilePatch(req.body, "client");
+      const updated = await mergeBrandProfile(clientId, patch);
+      res.json({ ok: true, brand_profile: updated });
+    } catch (err: any) {
+      console.error("[portal/brand-profile][patch]", err?.message || err);
+      res.status(500).json({ error: err.message });
     }
   });
 }

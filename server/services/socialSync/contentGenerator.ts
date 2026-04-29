@@ -3,6 +3,7 @@ import { chat } from "../aiService";
 import { storage } from "../../storage";
 import { evaluateQuality, type QualityResult } from "./qualityGate";
 import { logAiContentCost } from "./costTracker";
+import { readBrandProfile, type BrandProfile } from "../contentflow/brandProfile";
 import type { SocialSyncProfile, SocialSyncTopic, SocialSyncPost } from "@shared/schema";
 
 /* ─── Platform-specific constraints ─── */
@@ -30,20 +31,33 @@ const PLATFORM_CONFIG: Record<string, { maxLength: number; maxHashtags: number; 
   },
 };
 
-function buildContentSystemPrompt(profile: SocialSyncProfile, platform: string): string {
+function buildContentSystemPrompt(
+  profile: SocialSyncProfile,
+  platform: string,
+  brand: BrandProfile = {},
+): string {
   const config = PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.facebook;
   const services = (profile.services as string[] | null) || [];
-  const location = profile.location || "the local area";
+  const location = brand.location_cue || profile.location || "the local area";
   const niche = profile.niche || "home services";
-  const tone = profile.tone || "professional";
+  const tone = brand.tone || profile.tone || "professional";
+  /* Sprint 16: layer in content_brand fields where present. Falls
+   * back to SocialSync profile fields so existing tests are unaffected. */
+  const styleKw = brand.style_keywords?.length ? brand.style_keywords.join(", ") : "";
+  const avoidKw = brand.avoid?.length ? brand.avoid.join(", ") : "";
+  const focusKw = brand.service_focus?.length ? brand.service_focus.join(", ") : services.join(", ");
+  const forbiddenClaims = brand.forbidden_claims?.length ? brand.forbidden_claims.join(", ") : "";
 
   return `You are writing a social media post for a real local ${niche} business.
 
 Business details:
 - Trade: ${niche}
 - Location: ${location}
-- Services: ${services.join(", ") || niche}
+- Services: ${focusKw || niche}
 - Brand tone: ${tone}
+${styleKw ? `- Style keywords: ${styleKw}` : ""}
+${avoidKw ? `- Avoid: ${avoidKw}` : ""}
+${forbiddenClaims ? `- Never claim (unless explicitly provided in topic): ${forbiddenClaims}` : ""}
 
 Platform: ${platform}
 Platform style: ${config.style}
@@ -112,7 +126,10 @@ export async function generatePostFromTopic(
   // Get recent posts for dedup
   const recentPosts = await storage.listRecentSocialSyncPosts(profile.client_id, 30);
   const recentTexts = recentPosts.map(p => p.post_text);
-  const systemPrompt = buildContentSystemPrompt(profile, platform);
+  /* Sprint 16: layer in content_brand from clients.metadata. */
+  const client = await storage.getClientById(profile.client_id);
+  const brand = readBrandProfile(client);
+  const systemPrompt = buildContentSystemPrompt(profile, platform, brand);
   const userPrompt = buildContentUserPrompt(topic, platform, recentTexts);
 
   let raw: string;
