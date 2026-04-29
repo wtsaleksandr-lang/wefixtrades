@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./db";
@@ -699,6 +699,36 @@ export const tradelineModeLog = pgTable("tradeline_mode_log", {
 export const insertTradelineModeLogSchema = createInsertSchema(tradelineModeLog).omit({ id: true, created_at: true });
 export type InsertTradelineModeLog = z.infer<typeof insertTradelineModeLogSchema>;
 export type TradelineModeLog = typeof tradelineModeLog.$inferSelect;
+
+/* ─── TradeLine Extracted Leads (Phase 2.1) ───
+ *
+ * One row per call where the AI successfully extracted structured lead
+ * data from the transcript. Inserted from logTradeLineCall() after the
+ * call_log row is committed and usage is incremented. Independent of
+ * notifications: a row may exist with no SMS/email send (e.g. recipients
+ * empty or transport failed). Notifications are best-effort logging.
+ */
+export const tradelineExtractedLeads = pgTable("tradeline_extracted_leads", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").notNull().references(() => clients.id),
+  client_service_id: integer("client_service_id").notNull().references(() => clientServices.id),
+  call_log_id: integer("call_log_id").notNull().references(() => tradelineCallLog.id),
+  caller_phone: text("caller_phone"),
+  caller_name: text("caller_name"),
+  job_type: text("job_type"),
+  summary: text("summary"),
+  urgency: varchar("urgency", { length: 16 }),
+  // low | medium | high | emergency
+  address: text("address"),
+  raw_extraction: jsonb("raw_extraction"),
+  created_at: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("tradeline_extracted_leads_client_service_idx").on(table.client_service_id),
+  index("tradeline_extracted_leads_created_at_idx").on(table.created_at),
+]);
+export const insertTradelineExtractedLeadSchema = createInsertSchema(tradelineExtractedLeads).omit({ id: true, created_at: true });
+export type InsertTradelineExtractedLead = z.infer<typeof insertTradelineExtractedLeadSchema>;
+export type TradelineExtractedLead = typeof tradelineExtractedLeads.$inferSelect;
 
 /* ─── Billing Dunning Events ───────────────────────────────────────────
  *
