@@ -18,6 +18,7 @@ import { registerAdminCrmRoutes } from "./adminCrmRoutes";
 import { registerAdminToolRoutes } from "./adminToolRoutes";
 import { registerStripeBillingRoutes } from "./stripeBillingRoutes";
 import { registerBillingPortalRoute } from "./billingPortalRoute";
+import { registerEmailTrackingRoutes } from "./emailTrackingRoutes";
 import { registerOnboardingPublicRoutes } from "./onboardingPublicRoutes";
 import { registerVapiRoutes } from "./vapiRoutes";
 import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
@@ -62,6 +63,7 @@ export async function registerRoutes(
   registerAdminToolRoutes(app);
   registerStripeBillingRoutes(app);
   registerBillingPortalRoute(app);
+  registerEmailTrackingRoutes(app);
   registerOnboardingPublicRoutes(app);
   registerVapiRoutes(app);
   registerPublicCheckoutRoutes(app);

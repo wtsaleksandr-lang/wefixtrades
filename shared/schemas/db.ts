@@ -604,3 +604,37 @@ export const insertAssistantMessageSchema = createInsertSchema(assistantMessages
 });
 export type InsertAssistantMessage = z.infer<typeof insertAssistantMessageSchema>;
 export type AssistantMessage = typeof assistantMessages.$inferSelect;
+
+/* ─── Email Tracking Events ───────────────────────────────────────────
+ *
+ * Lightweight open + click tracking for outbound transactional /
+ * admin-alert emails. One row per pixel hit or link click.
+ *
+ * `email_id` is an opaque short ID generated per send (~22 base64url
+ * chars from 16 random bytes). The same email_id can appear many
+ * times — typically one `open` row plus N `click` rows as the
+ * recipient interacts.
+ *
+ * `metadata` shape:
+ *   - opens : { user_agent? }
+ *   - clicks: { user_agent?, target_url }
+ *
+ * No PII beyond UA — IP intentionally omitted to limit GDPR exposure.
+ *
+ * ─────────────────────────────────────────────────────────────────── */
+export const emailEvents = pgTable("email_events", {
+  id: serial("id").primaryKey(),
+  email_id: varchar("email_id", { length: 64 }).notNull(),
+  type: varchar("type", { length: 16 }).notNull(),
+  // open | click
+  created_at: timestamp("created_at").defaultNow(),
+  metadata: jsonb("metadata"),
+}, (t) => ({
+  byEmailId: index("email_events_email_id_idx").on(t.email_id),
+}));
+export const insertEmailEventSchema = createInsertSchema(emailEvents).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertEmailEvent = z.infer<typeof insertEmailEventSchema>;
+export type EmailEvent = typeof emailEvents.$inferSelect;
