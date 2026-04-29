@@ -1059,7 +1059,12 @@ export function registerContentFlowRoutes(app: Express): void {
           created: Math.floor(Date.now() / 1000),
           data: [{
             url: `http://localhost:5000/api/__dev/image-mock/blob/${fakeId}.png`,
-            revised_prompt: prompt.slice(0, 500),
+            /* Sprint 16: echo more of the prompt so brand-layer
+             * assertions (location_cue, visual_style, style_keywords,
+             * etc.) can be verified. The brand layer sits AFTER the
+             * ~330-char SYSTEM_PROMPT, so anything under 500 chars was
+             * cutting style_keywords mid-string. 2KB is plenty. */
+            revised_prompt: prompt.slice(0, 2000),
           }],
         });
       },
