@@ -157,9 +157,11 @@ export function registerPublicCheckoutRoutes(app: Express): void {
           });
         }
 
-        // Create fulfillment tasks
+        // Create fulfillment tasks (with SLA-driven due_at)
         const tasks = await storage.getTaskTemplates(svc.id);
+        const provisionTime = Date.now();
         for (const t of tasks) {
+          const slaDays = (t as any).sla_days ?? 3;
           await storage.createFulfillmentTask({
             client_service_id: cs.id,
             client_id: client.id,
@@ -171,6 +173,7 @@ export function registerPublicCheckoutRoutes(app: Express): void {
             waiting_on: t.default_waiting_on,
             human_review_required: t.human_review_required,
             status: "not_started",
+            due_at: new Date(provisionTime + slaDays * 24 * 60 * 60 * 1000),
             actor_type: "system",
           });
         }

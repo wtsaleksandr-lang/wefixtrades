@@ -5,6 +5,7 @@ import { advanceSetupStage, getTradeLineReadiness } from "@shared/schema";
 import { dispatchTaskToSupplier } from "../services/supplierDispatch";
 import { sendWelcomePackage } from "../lib/welcomeEmail";
 import { compileAndSendAdFlowReport } from "../services/adflowReports";
+import { saveFile } from "../services/fileStorage";
 import crypto from "crypto";
 
 export function registerAdminCrmRoutes(app: Express): void {
@@ -353,7 +354,12 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.post("/api/admin/crm/fulfillment", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const task = await storage.createFulfillmentTask(req.body);
+      // Default due_at to now + 3 days if the caller didn't provide one (Phase A SLA).
+      const body = { ...req.body };
+      if (!body.due_at) {
+        body.due_at = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      }
+      const task = await storage.createFulfillmentTask(body);
       await storage.logAdminActivity({
         actor_type: "human",
         actor_id: (req.user as any)?.id,
@@ -424,6 +430,105 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.json({ ...task, cascade, supplier_dispatch });
     } catch (err: any) {
       res.status(500).json({ error: "Failed to update fulfillment task" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/fulfillment/:id/deliverables
+   *
+   * Append a deliverable (link OR uploaded file) to a fulfillment task.
+   * Body shape — exactly ONE of `url` or `content_base64` must be present:
+   *   {
+   *     label: string,                  // required, human-readable name
+   *     url?: string,                   // external link (Drive, Figma, Loom...)
+   *     content_base64?: string,        // base64-encoded file body
+   *     filename?: string,              // required when content_base64 is set
+   *     mime_type?: string,             // optional, helps the portal render preview
+   *     kind?: "link"|"file"|"image"|"pdf"  // optional override for portal display
+   *   }
+   *
+   * Returns the updated task with the new deliverable appended.
+   */
+  app.post("/api/admin/crm/fulfillment/:id/deliverables", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid task id" });
+
+      const task = await storage.getFulfillmentTaskById(id);
+      if (!task) return res.status(404).json({ error: "Fulfillment task not found" });
+
+      const { label, url, content_base64, filename, mime_type, kind } = req.body || {};
+      if (!label || typeof label !== "string" || !label.trim()) {
+        return res.status(400).json({ error: "label is required" });
+      }
+      if (!url && !content_base64) {
+        return res.status(400).json({ error: "Either url or content_base64 must be provided" });
+      }
+      if (url && content_base64) {
+        return res.status(400).json({ error: "Provide either url or content_base64, not both" });
+      }
+
+      const userId = (req.user as any)?.id ?? null;
+      const nowIso = new Date().toISOString();
+
+      let deliverable: Record<string, any>;
+      if (url) {
+        if (typeof url !== "string" || !/^https?:\/\//.test(url)) {
+          return res.status(400).json({ error: "url must be an http(s) URL" });
+        }
+        deliverable = {
+          kind: kind || "link",
+          url,
+          label: label.trim(),
+          uploaded_by: userId,
+          uploaded_at: nowIso,
+        };
+      } else {
+        if (!filename || typeof filename !== "string") {
+          return res.status(400).json({ error: "filename is required when uploading file content" });
+        }
+        let buffer: Buffer;
+        try {
+          buffer = Buffer.from(content_base64, "base64");
+        } catch {
+          return res.status(400).json({ error: "content_base64 is not valid base64" });
+        }
+        const saved = await saveFile({ filename, content: buffer, mimeType: mime_type });
+        deliverable = {
+          kind: kind || (mime_type?.startsWith("image/") ? "image" : mime_type === "application/pdf" ? "pdf" : "file"),
+          url: saved.url,
+          storage_key: saved.storage_key,
+          label: label.trim(),
+          mime_type: mime_type || null,
+          size_bytes: saved.size_bytes,
+          uploaded_by: userId,
+          uploaded_at: nowIso,
+        };
+      }
+
+      const existing = Array.isArray(task.deliverables) ? task.deliverables : [];
+      const updated = await storage.updateFulfillmentTask(id, {
+        deliverables: [...existing, deliverable],
+      } as any);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: userId,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "fulfillment.deliverable_added",
+        entity_type: "fulfillment_task",
+        entity_id: id,
+        summary: `Added deliverable "${label.trim()}" to task "${task.title}"`,
+        metadata: { kind: deliverable.kind, url: deliverable.url },
+      });
+
+      res.status(201).json({ task: updated, deliverable });
+    } catch (err: any) {
+      console.error("[admin-crm] deliverable error:", err.message);
+      const status = err.message?.includes("File too large") ? 413
+                   : err.message?.includes("S3 backend") ? 503
+                   : 500;
+      res.status(status).json({ error: err.message || "Failed to add deliverable" });
     }
   });
 
@@ -682,10 +787,12 @@ export function registerAdminCrmRoutes(app: Express): void {
         });
       }
 
-      // 4. Create tasks from template
+      // 4. Create tasks from template (with SLA-driven due_at)
       const taskTemplates = await storage.getTaskTemplates(service_id);
       const tasks = [];
+      const provisionTime = Date.now();
       for (const t of taskTemplates) {
+        const slaDays = (t as any).sla_days ?? 3;
         const task = await storage.createFulfillmentTask({
           client_service_id: clientService.id,
           client_id: clientId,
@@ -697,6 +804,7 @@ export function registerAdminCrmRoutes(app: Express): void {
           waiting_on: t.default_waiting_on,
           human_review_required: t.human_review_required,
           status: "not_started",
+          due_at: new Date(provisionTime + slaDays * 24 * 60 * 60 * 1000),
           actor_type: "human",
         });
         tasks.push(task);
@@ -749,7 +857,9 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       const label = month || new Date().toISOString().slice(0, 7);
       const tasks = [];
+      const generationTime = Date.now();
       for (const t of taskTemplates) {
+        const slaDays = (t as any).sla_days ?? 3;
         const task = await storage.createFulfillmentTask({
           client_service_id: clientServiceId,
           client_id: cs.client_id,
@@ -761,6 +871,7 @@ export function registerAdminCrmRoutes(app: Express): void {
           waiting_on: t.default_waiting_on,
           human_review_required: t.human_review_required,
           status: "not_started",
+          due_at: new Date(generationTime + slaDays * 24 * 60 * 60 * 1000),
           actor_type: "human",
         });
         tasks.push(task);

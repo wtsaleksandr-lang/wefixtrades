@@ -78,13 +78,18 @@ function getServiceCopy(serviceId: string): ServiceCopy {
   };
   if (serviceId.startsWith("sitelaunch")) return {
     hero: "Your custom website is live",
-    intro: "Design finalized, 5 pages built, on-page SEO set, and DNS cut over. You own everything — we're just the team that shipped it.",
-    firstAction: "Send the first link to a customer and keep an eye on your analytics — the first data should arrive within 24 hours.",
+    intro: "Design finalized, all pages built, on-page SEO set, and DNS cut over. You own everything — we're just the team that shipped it.",
+    firstAction: "Send the first link to a customer and keep an eye on your inbox for form submissions.",
   };
   if (serviceId === "webfix") return {
     hero: "All fixes deployed",
     intro: "Every issue from your brief has been addressed, tested, and pushed live. No action needed from your side.",
-    firstAction: "Review the before/after summary in your portal — keep it for your records or share with your team.",
+    firstAction: "Open your portal to see the full list of fixes we shipped on this job.",
+  };
+  if (serviceId.startsWith("webcare")) return {
+    hero: "Your website is now under WebCare",
+    intro: "Updates, security checks, backups, and your monthly content changes are now handled for you on a regular cycle. You'll see each cycle's work in your portal.",
+    firstAction: "Got a content change you'd like done this month? Reply to this email or message us from the portal — that's how we kick off your first request.",
   };
   // Fallback
   return {
@@ -121,7 +126,10 @@ function buildArtifacts(serviceId: string, _cs: ClientService, baseUrl: string):
     artifacts.push({ label: "Campaign dashboard", value: `${baseUrl}/portal/services`, kind: "link" });
   }
   if (serviceId.startsWith("sitelaunch") || serviceId === "webfix") {
-    artifacts.push({ label: "Site & handoff details", value: `${baseUrl}/portal/services`, kind: "link" });
+    artifacts.push({ label: "Your service in the portal", value: `${baseUrl}/portal/services`, kind: "link" });
+  }
+  if (serviceId.startsWith("webcare")) {
+    artifacts.push({ label: "Your WebCare service", value: `${baseUrl}/portal/services`, kind: "link" });
   }
 
   return artifacts;

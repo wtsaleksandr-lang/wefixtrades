@@ -167,6 +167,7 @@ async function main() {
     default_priority?: string; default_handled_by?: string;
     default_waiting_on?: string; human_review_required?: boolean;
     is_recurring?: boolean; // false = setup-only, true (default) = included in monthly gen
+    sla_days?: number;      // default 3 if not specified
   }>> = {
     "mapguard-setup": [
       { title: "Collect onboarding info from client", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client" },
@@ -339,6 +340,34 @@ async function main() {
       { title: "Launch & DNS cutover", sort_order: 9, default_handled_by: "internal", human_review_required: true, is_recurring: false },
       { title: "Post-launch QA & handoff", sort_order: 10, default_handled_by: "internal", human_review_required: true, is_recurring: false },
     ],
+    "webcare-basic": [
+      // Setup (run once on initial provision)
+      { title: "Collect website + hosting access", description: "Receive WP/CMS admin login, hosting credentials (or hosting-side plugin install), and confirm primary contact for change requests. Done = credentials stored in client metadata.", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false, sla_days: 5 },
+      { title: "Initial backup & baseline snapshot", description: "Take a fresh backup of files + database before any work. Store off-host. Capture baseline PageSpeed + uptime numbers for the monthly report.", sort_order: 2, default_handled_by: "internal", is_recurring: false, sla_days: 2 },
+      { title: "Install monitoring", description: "Add uptime monitor (host-agnostic) + security scanner. Verify alerts route to internal channel.", sort_order: 3, default_handled_by: "internal", is_recurring: false, sla_days: 2 },
+      // Recurring (regenerated each month by future recurring worker — see Phase C)
+      { title: "Monthly plugin & core updates", description: "Apply WP core, plugin, and theme updates on staging if available, then production. Visual smoke check of homepage + key pages after.", sort_order: 4, default_handled_by: "internal", is_recurring: true, sla_days: 7 },
+      { title: "Monthly security check", description: "Scan for malware, file integrity, and known vulnerabilities. Patch or escalate.", sort_order: 5, default_handled_by: "internal", is_recurring: true, sla_days: 5 },
+      { title: "Backup verification", description: "Confirm latest off-host backup exists and is restorable (spot-check a single file).", sort_order: 6, default_handled_by: "internal", is_recurring: true, sla_days: 5 },
+      { title: "Content change (1 of 1 this month)", description: "Apply the client's monthly content change request: text edit, image swap, page tweak, or new blog post insert. If client has no request this cycle, mark delivered with note.", sort_order: 7, default_handled_by: "internal", default_waiting_on: "client", is_recurring: true, sla_days: 14 },
+      { title: "Monthly report", description: "Send the client a short report: updates applied, security status, uptime %, content changes used. Includes link to portal.", sort_order: 8, default_handled_by: "internal", human_review_required: true, is_recurring: true, sla_days: 5 },
+    ],
+    "webcare-pro": [
+      // Setup (run once on initial provision)
+      { title: "Collect website + hosting access", description: "Receive WP/CMS admin login, hosting credentials (or hosting-side plugin install), and confirm primary contact for change requests. Done = credentials stored in client metadata.", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false, sla_days: 5 },
+      { title: "Initial backup & baseline snapshot", description: "Take a fresh backup of files + database before any work. Store off-host. Capture baseline PageSpeed + uptime numbers for the monthly report.", sort_order: 2, default_handled_by: "internal", is_recurring: false, sla_days: 2 },
+      { title: "Install monitoring", description: "Add uptime monitor (host-agnostic) + security scanner. Verify alerts route to internal channel.", sort_order: 3, default_handled_by: "internal", is_recurring: false, sla_days: 2 },
+      // Recurring
+      { title: "Monthly plugin & core updates", description: "Apply WP core, plugin, and theme updates on staging if available, then production. Visual smoke check of homepage + key pages after.", sort_order: 4, default_handled_by: "internal", is_recurring: true, sla_days: 7 },
+      { title: "Monthly security check", description: "Scan for malware, file integrity, and known vulnerabilities. Patch or escalate.", sort_order: 5, default_handled_by: "internal", is_recurring: true, sla_days: 5 },
+      { title: "Backup verification", description: "Confirm latest off-host backup exists and is restorable (spot-check a single file).", sort_order: 6, default_handled_by: "internal", is_recurring: true, sla_days: 5 },
+      { title: "Monthly performance check", description: "Re-run PageSpeed, identify regressions vs. baseline, fix obvious offenders (image sizes, render-blocking).", sort_order: 7, default_handled_by: "internal", is_recurring: true, sla_days: 7 },
+      { title: "Content change (1 of 4 this month)", description: "Apply content change request #1 for the cycle. If unused, mark delivered with note.", sort_order: 8, default_handled_by: "internal", default_waiting_on: "client", is_recurring: true, sla_days: 14 },
+      { title: "Content change (2 of 4 this month)", description: "Apply content change request #2 for the cycle. If unused, mark delivered with note.", sort_order: 9, default_handled_by: "internal", default_waiting_on: "client", is_recurring: true, sla_days: 14 },
+      { title: "Content change (3 of 4 this month)", description: "Apply content change request #3 for the cycle. If unused, mark delivered with note.", sort_order: 10, default_handled_by: "internal", default_waiting_on: "client", is_recurring: true, sla_days: 14 },
+      { title: "Content change (4 of 4 this month)", description: "Apply content change request #4 for the cycle. If unused, mark delivered with note.", sort_order: 11, default_handled_by: "internal", default_waiting_on: "client", is_recurring: true, sla_days: 14 },
+      { title: "Monthly report", description: "Send the client a short report: updates applied, security status, uptime %, performance score change, content changes used. Includes link to portal.", sort_order: 12, default_handled_by: "internal", human_review_required: true, is_recurring: true, sla_days: 5 },
+    ],
   };
 
   for (const [serviceId, tasks] of Object.entries(TASK_TEMPLATES)) {
@@ -361,6 +390,7 @@ async function main() {
         default_waiting_on: t.default_waiting_on || null,
         human_review_required: t.human_review_required || false,
         is_recurring: t.is_recurring !== false, // default true unless explicitly false
+        sla_days: t.sla_days ?? 3,
       });
     }
     console.log(`  ✓ ${serviceId} (${tasks.length} tasks)`);
@@ -636,6 +666,27 @@ async function main() {
         { key: "photos", label: "Business / work photos available", type: "checkbox", required: false },
         { key: "domain_preference", label: "Do you have a domain, or want us to suggest one?", type: "select", required: true },
         { key: "extra_pages", label: "Extra pages needed beyond home/services/contact?", type: "text", required: false },
+      ],
+    },
+    "webcare-basic": {
+      name: "WebCare Basic Onboarding",
+      steps: [
+        { key: "website_url", label: "Website URL", type: "text", required: true },
+        { key: "hosting_access", label: "Hosting / CMS access (admin login URL, plus how we should receive credentials — email / 1Password / other)", type: "text", required: true },
+        { key: "cms_type", label: "CMS / platform (WordPress, Wix, Webflow, custom, not sure)", type: "select", required: true },
+        { key: "contact_email", label: "Primary contact for change requests", type: "text", required: true },
+        { key: "content_change_needs", label: "Typical content changes you'll want each month (e.g. new project page, swap photos, update pricing)", type: "text", required: false },
+      ],
+    },
+    "webcare-pro": {
+      name: "WebCare Pro Onboarding",
+      steps: [
+        { key: "website_url", label: "Website URL", type: "text", required: true },
+        { key: "hosting_access", label: "Hosting / CMS access (admin login URL, plus how we should receive credentials — email / 1Password / other)", type: "text", required: true },
+        { key: "cms_type", label: "CMS / platform (WordPress, Wix, Webflow, custom, not sure)", type: "select", required: true },
+        { key: "contact_email", label: "Primary contact for change requests", type: "text", required: true },
+        { key: "content_change_needs", label: "Typical content changes you'll want each month (you get up to 4)", type: "text", required: false },
+        { key: "performance_priorities", label: "Anything specific to watch on performance (slow page, big images, etc.)", type: "text", required: false },
       ],
     },
   };

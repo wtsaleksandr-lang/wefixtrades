@@ -12,6 +12,7 @@ import { requireAdmin } from "../auth";
 import { storage } from "../storage";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
 import { sendPaymentReceipt } from "../lib/paymentReceiptEmail";
+import { sendOrderConfirmation } from "../lib/orderConfirmationEmail";
 import { sendAccountWelcome } from "../lib/accountWelcomeEmail";
 import { sendPaymentFailedEmail } from "../lib/paymentFailedEmail";
 import { sendCancellationEmail } from "../lib/cancellationEmail";
@@ -212,6 +213,18 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     await provisionOrConfirmService(session, clientId, serviceId, baseUrl);
   }
 
+  // Order confirmation — fired once per session, immediately after provisioning.
+  // Bridges the silence between Stripe charge and the per-service onboarding form.
+  // Idempotent on (clientId, session.id) via clients.metadata.order_confirmations.
+  sendOrderConfirmation({
+    clientId,
+    serviceIds,
+    sessionId: session.id,
+    baseUrl,
+  }).catch(err =>
+    console.warn(`[order-confirmation] send failed for session ${session.id}:`, err.message),
+  );
+
   // Branded payment receipt — sent once per session, after all services provisioned.
   // Stripe sends its own receipt; this one is on-brand and links back to the portal.
   sendPaymentReceipt(session, clientId).catch(err =>
@@ -367,9 +380,11 @@ async function provisionOrConfirmService(
     }
   }
 
-  // Create tasks from template
+  // Create tasks from template (with SLA-driven due_at)
   const taskTemplates = await storage.getTaskTemplates(serviceId);
+  const provisionTime = Date.now();
   for (const t of taskTemplates) {
+    const slaDays = (t as any).sla_days ?? 3;
     await storage.createFulfillmentTask({
       client_service_id: clientService.id,
       client_id: clientId,
@@ -381,6 +396,7 @@ async function provisionOrConfirmService(
       waiting_on: t.default_waiting_on,
       human_review_required: t.human_review_required,
       status: "not_started",
+      due_at: new Date(provisionTime + slaDays * 24 * 60 * 60 * 1000),
       actor_type: "system",
     });
   }

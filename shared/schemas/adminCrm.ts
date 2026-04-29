@@ -1,4 +1,5 @@
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid, index } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./db";
@@ -130,6 +131,10 @@ export const suppliers = pgTable("suppliers", {
   supported_services: jsonb("supported_services"),         // string[] of service_ids
   notes: text("notes"),
   is_active: boolean("is_active").notNull().default(true),
+  current_capacity: integer("current_capacity").notNull().default(0),
+  // open assignments (incremented on assign, decremented on delivered/cancelled)
+  max_capacity: integer("max_capacity").notNull().default(5),
+  // soft cap used by future auto-assignment logic
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -146,7 +151,8 @@ export const fulfillmentTasks = pgTable("fulfillment_tasks", {
   title: text("title").notNull(),
   description: text("description"),
   status: varchar("status", { length: 30 }).notNull().default("not_started"),
-  // not_started | submitted | in_progress | waiting | blocked | delivered | cancelled
+  // not_started | assigned | in_progress | submitted | qa_review | revision_required
+  // | waiting | blocked | delivered | cancelled
   priority: varchar("priority", { length: 20 }).notNull().default("normal"),
   // low | normal | high | urgent
   sort_order: integer("sort_order").notNull().default(0),
@@ -165,6 +171,14 @@ export const fulfillmentTasks = pgTable("fulfillment_tasks", {
   escalation_flag: boolean("escalation_flag").notNull().default(false),
   human_review_required: boolean("human_review_required").notNull().default(false),
   actor_type: varchar("actor_type", { length: 20 }).notNull().default("human"),
+  // Phase A — fulfillment workflow extensions
+  deliverables: jsonb("deliverables").notNull().default(sql`'[]'::jsonb`),
+  // Array<{ kind:"link"|"file"|"image"|"pdf", url, label, mime_type?, size_bytes?, storage_key?, uploaded_by, uploaded_at }>
+  revision_count: integer("revision_count").notNull().default(0),
+  revision_notes: jsonb("revision_notes").notNull().default(sql`'[]'::jsonb`),
+  // Array<{ event:"requested"|"approved"|"resubmitted", note?, by_user_id?, actor_type, at }>
+  approval_required_from: varchar("approval_required_from", { length: 20 }),
+  // null | client | qa  (gate that must pass before task can move to delivered)
   metadata: jsonb("metadata"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
@@ -186,6 +200,8 @@ export const serviceTaskTemplates = pgTable("service_task_templates", {
   human_review_required: boolean("human_review_required").notNull().default(false),
   is_recurring: boolean("is_recurring").notNull().default(true),
   // true = included in monthly generation; false = setup-only (first provision only)
+  sla_days: integer("sla_days").notNull().default(3),
+  // Days from task creation to default due_at
   created_at: timestamp("created_at").defaultNow(),
 });
 export const insertServiceTaskTemplateSchema = createInsertSchema(serviceTaskTemplates).omit({ id: true, created_at: true });
@@ -699,6 +715,36 @@ export const tradelineModeLog = pgTable("tradeline_mode_log", {
 export const insertTradelineModeLogSchema = createInsertSchema(tradelineModeLog).omit({ id: true, created_at: true });
 export type InsertTradelineModeLog = z.infer<typeof insertTradelineModeLogSchema>;
 export type TradelineModeLog = typeof tradelineModeLog.$inferSelect;
+
+/* ─── TradeLine Extracted Leads (Phase 2.1) ───
+ *
+ * One row per call where the AI successfully extracted structured lead
+ * data from the transcript. Inserted from logTradeLineCall() after the
+ * call_log row is committed and usage is incremented. Independent of
+ * notifications: a row may exist with no SMS/email send (e.g. recipients
+ * empty or transport failed). Notifications are best-effort logging.
+ */
+export const tradelineExtractedLeads = pgTable("tradeline_extracted_leads", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").notNull().references(() => clients.id),
+  client_service_id: integer("client_service_id").notNull().references(() => clientServices.id),
+  call_log_id: integer("call_log_id").notNull().references(() => tradelineCallLog.id),
+  caller_phone: text("caller_phone"),
+  caller_name: text("caller_name"),
+  job_type: text("job_type"),
+  summary: text("summary"),
+  urgency: varchar("urgency", { length: 16 }),
+  // low | medium | high | emergency
+  address: text("address"),
+  raw_extraction: jsonb("raw_extraction"),
+  created_at: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("tradeline_extracted_leads_client_service_idx").on(table.client_service_id),
+  index("tradeline_extracted_leads_created_at_idx").on(table.created_at),
+]);
+export const insertTradelineExtractedLeadSchema = createInsertSchema(tradelineExtractedLeads).omit({ id: true, created_at: true });
+export type InsertTradelineExtractedLead = z.infer<typeof insertTradelineExtractedLeadSchema>;
+export type TradelineExtractedLead = typeof tradelineExtractedLeads.$inferSelect;
 
 /* ─── Billing Dunning Events ───────────────────────────────────────────
  *

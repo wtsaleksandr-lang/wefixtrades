@@ -435,6 +435,77 @@ export async function logTradeLineCall(
         calls: 1,
       });
     }
+
+    /* ─── Phase 2.1: Lead extraction + client notifications ───
+     *
+     * Non-critical post-processing. Skipped for failed calls or short
+     * transcripts. Wrapped at every layer so a notification or extraction
+     * error can never break call logging or the webhook response.
+     */
+    if (report.endedReason !== "error") {
+      try {
+        const transcriptText =
+          report.transcript && report.transcript.trim().length >= 50
+            ? report.transcript
+            : null;
+
+        if (transcriptText) {
+          const { extractLeadFromTranscript } = await import("./tradelineLeadExtraction");
+          const extracted = await extractLeadFromTranscript(transcriptText);
+
+          if (extracted) {
+            const cs = await storage.getClientServiceById(clientServiceId);
+            const config = await storage.getTradeLineConfig(clientServiceId);
+
+            if (cs && config) {
+              const leadRow = await storage.createTradeLineLead({
+                client_id: cs.client_id,
+                client_service_id: clientServiceId,
+                call_log_id: inserted.id,
+                caller_phone: report.customerNumber ?? null,
+                caller_name: extracted.caller_name,
+                job_type: extracted.job_type,
+                summary: extracted.summary,
+                urgency: extracted.urgency,
+                address: extracted.address,
+                raw_extraction: extracted,
+              });
+
+              const { sendTradeLineSmsNotification, sendTradeLineEmailNotification } =
+                await import("./tradelineNotifications");
+
+              try {
+                await sendTradeLineSmsNotification(leadRow, config);
+              } catch (err: any) {
+                console.warn(
+                  `[vapi] SMS notification failed for lead ${leadRow.id}:`,
+                  err?.message,
+                );
+              }
+
+              try {
+                await sendTradeLineEmailNotification(
+                  leadRow,
+                  config,
+                  transcriptText,
+                  recordingUrl ?? null,
+                );
+              } catch (err: any) {
+                console.warn(
+                  `[vapi] Email notification failed for lead ${leadRow.id}:`,
+                  err?.message,
+                );
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn(
+          "[vapi] Lead extraction/notification pipeline failed (call logging unaffected):",
+          err?.message,
+        );
+      }
+    }
   } catch (err) {
     console.error("[vapi] Failed to log TradeLine call:", err);
   }
