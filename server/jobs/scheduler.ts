@@ -26,6 +26,7 @@ import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorke
  * unified queue (processQueue below). No rollback path needed —
  * Sprint 10 cron retirement was already in production. */
 import { processImageRetention } from "./imageRetentionWorker";
+import { processPerformanceQueue } from "./performanceWorker";
 import { processQueue as processWordpressPublishQueue } from "../services/contentflow/wordpressQueue";
 import { generateAllDue } from "../services/socialSync/orchestrator";
 import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
@@ -336,6 +337,29 @@ export function initScheduler() {
       console.error("[Scheduler] contentflow_publish_queue error:", err.message);
     } finally {
       publishQueueRunning = false;
+    }
+  });
+
+  /* Sprint 17: ContentFlow performance worker. Pulls per-channel
+   * engagement signals into draft.metadata.performance, computes a
+   * 0-100 score, and stamps high/low_performer flags. Generators
+   * read these flags to inject "successful pattern" hints into
+   * future prompts. Cadence is 30 minutes — long enough to avoid
+   * external API abuse, short enough that the feedback loop stays
+   * meaningful for clients posting daily. Overlap-guarded. */
+  let performanceWorkerRunning = false;
+  cron.schedule("*/30 * * * *", async () => {
+    if (performanceWorkerRunning) {
+      console.log("[Scheduler] contentflow_performance skipped — previous tick still running");
+      return;
+    }
+    performanceWorkerRunning = true;
+    try {
+      await runJob("contentflow_performance", processPerformanceQueue);
+    } catch (err: any) {
+      console.error("[Scheduler] contentflow_performance error:", err.message);
+    } finally {
+      performanceWorkerRunning = false;
     }
   });
 

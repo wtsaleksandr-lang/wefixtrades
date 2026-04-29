@@ -42,6 +42,7 @@ import { enqueueSocialSyncDraft, enqueueEmailDraft } from "./wordpressQueue";
 import { generateForDraft as generateImageForDraft } from "./imageGenerationService";
 import { buildCalendarMetadata } from "./calendarMetadata";
 import { readBrandProfile, buildBrandLayerText } from "./brandProfile";
+import { buildPerformanceFeedback } from "./performanceTracker";
 import type { ContentDraft } from "@shared/schema";
 
 /* ─── Public API ─────────────────────────────────────────────────────── */
@@ -88,7 +89,12 @@ Rules:
 - Never invent specific facts, prices, or guarantees not present in the source.
 - Never copy the source article verbatim.`;
 
-function buildUserPrompt(article: ContentDraft, tradeType: string | null, brandLayer?: string): string {
+function buildUserPrompt(
+  article: ContentDraft,
+  tradeType: string | null,
+  brandLayer?: string,
+  performanceFeedback?: string,
+): string {
   const meta = (article.metadata || {}) as Record<string, any>;
   return `Source article:
 Title: ${article.title || "Untitled"}
@@ -97,6 +103,7 @@ ${tradeType ? `Trade: ${tradeType}` : ""}
 ${meta.location ? `Location: ${meta.location}` : ""}
 ${meta.primary_keyword ? `Primary keyword: ${meta.primary_keyword}` : ""}
 ${brandLayer ? `\nBrand profile (use to shape tone/style; do NOT invent claims not in the article): ${brandLayer}` : ""}
+${performanceFeedback ? `\nUse patterns similar to these recent successful posts (style only, do NOT copy wording): ${performanceFeedback}` : ""}
 
 Body:
 ${(article.body || "").slice(0, 6000)}
@@ -181,8 +188,9 @@ async function aiDerivations(
   article: ContentDraft,
   tradeType: string | null,
   brandLayer?: string,
+  performanceFeedback?: string,
 ): Promise<Derivations | null> {
-  const userPrompt = buildUserPrompt(article, tradeType, brandLayer);
+  const userPrompt = buildUserPrompt(article, tradeType, brandLayer, performanceFeedback);
   let raw: string;
   try {
     raw = await aiChat({
@@ -371,9 +379,12 @@ export async function repurposeArticle(parentDraftId: number): Promise<Repurpose
      * facts not in the article — the brand layer is style only. */
     const brand = readBrandProfile(client);
     const brandLayer = buildBrandLayerText(brand, tradeType);
+    /* Sprint 17: feedback loop. Pull recent high-performer patterns
+     * across the client's social channels (channel=null → any). */
+    const performanceFeedback = await buildPerformanceFeedback(parent.client_id, null);
     const derivations = shouldUseAiStub()
       ? stubDerivations(parent)
-      : await aiDerivations(parent, tradeType, brandLayer || undefined);
+      : await aiDerivations(parent, tradeType, brandLayer || undefined, performanceFeedback || undefined);
     if (!derivations) {
       return { ok: false, parentDraftId, children: [], reason: "ai_failed", message: "derivation generation failed" };
     }

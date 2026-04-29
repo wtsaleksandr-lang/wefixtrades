@@ -986,6 +986,57 @@ export function registerContentFlowRoutes(app: Express): void {
     );
 
     /**
+     * Sprint 17 dev-only — sync performance worker trigger.
+     *   POST /api/admin/contentflow/__dev/performance-worker/run
+     *
+     * Runs processPerformanceQueue() once and returns the summary so
+     * Sprint 17 specs can drive the worker deterministically. Triple-gated.
+     */
+    app.post(
+      "/api/admin/contentflow/__dev/performance-worker/run",
+      requireAdmin,
+      async (_req: Request, res: Response) => {
+        try {
+          const { processPerformanceQueue } = await import("../jobs/performanceWorker");
+          const summary = await processPerformanceQueue();
+          res.json({ ok: true, ...summary });
+        } catch (err: any) {
+          console.error("[performance-worker/run] error:", err?.message || err);
+          res.status(500).json({ error: err?.message || "performance worker failed" });
+        }
+      },
+    );
+
+    /**
+     * Sprint 17 dev-only — performance feedback peek.
+     *   GET /api/admin/contentflow/__dev/performance-feedback?clientId=N&channel=X
+     *
+     * Returns the same string the generators inject into prompts so
+     * tests can assert pattern extraction without invoking the LLM.
+     */
+    app.get(
+      "/api/admin/contentflow/__dev/performance-feedback",
+      requireAdmin,
+      async (req: Request, res: Response) => {
+        try {
+          const clientId = parseInt(String(req.query.clientId), 10);
+          if (!Number.isFinite(clientId)) return res.status(400).json({ error: "clientId required" });
+          const channelParam = typeof req.query.channel === "string" ? req.query.channel : null;
+          const channel: any =
+            channelParam === "facebook" || channelParam === "instagram" ||
+            channelParam === "google_business" || channelParam === "wordpress" ||
+            channelParam === "email" ? channelParam : null;
+          const { buildPerformanceFeedback } = await import("../services/contentflow/performanceTracker");
+          const feedback = await buildPerformanceFeedback(clientId, channel);
+          res.json({ clientId, channel, feedback });
+        } catch (err: any) {
+          console.error("[performance-feedback] error:", err?.message || err);
+          res.status(500).json({ error: err?.message || "performance feedback failed" });
+        }
+      },
+    );
+
+    /**
      * Sprint 16 dev-only — sync image-gen trigger.
      *   POST /api/admin/contentflow/__dev/image-gen-test
      *   Body: { draftId: number }
