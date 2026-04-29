@@ -32,6 +32,7 @@ type User, type InsertUser,
   suppliers, fulfillmentTasks, onboardingSubmissions, onboardingTemplates,
   clientPayments, internalNotes, adminActivityLog,
   serviceTaskTemplates,
+  processedStripeEvents,
   // TradeLine
   tradelineUsage, tradelineCallLog, tradelineModeLog,
   tradelineConfigSchema,
@@ -48,6 +49,7 @@ type User, type InsertUser,
   type AdminActivityLog, type InsertAdminActivityLog,
   type ServiceTaskTemplate,
   type OnboardingTemplate,
+  type ProcessedStripeEvent, type InsertProcessedStripeEvent,
   // RankFlow
   rankflowProfiles, rankflowMonthlyPlans, rankflowTasks, rankflowQaChecks, rankflowProgress,
   rankflowVendorBatches, rankflowKeywords, rankflowRankings, rankflowPages, rankflowSignals,
@@ -355,6 +357,10 @@ export interface IStorage {
   listSalesLeads(status?: string): Promise<SalesLead[]>;
   updateSalesLead(id: number, updates: Partial<InsertSalesLead>): Promise<SalesLead | undefined>;
   getSalesLeadById(id: number): Promise<SalesLead | undefined>;
+
+  // ─── Stripe webhook idempotency ───
+  findProcessedStripeEvent(stripeEventId: string): Promise<ProcessedStripeEvent | undefined>;
+  markStripeEventProcessed(data: InsertProcessedStripeEvent): Promise<ProcessedStripeEvent>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1577,8 +1583,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async findPaymentByStripeSession(sessionId: string): Promise<ClientPayment | undefined> {
+    // Phase-1 safety: post-fix, the checkout-session id lives in
+    // `metadata.stripe_checkout_session_id` (because `stripe_payment_intent_id`
+    // now stores the real PaymentIntent id from Stripe). Legacy rows still
+    // have the session id stored in `stripe_payment_intent_id`. Match either.
     const [row] = await db.select().from(clientPayments)
-      .where(eq(clientPayments.stripe_payment_intent_id, sessionId))
+      .where(or(
+        eq(clientPayments.stripe_payment_intent_id, sessionId),
+        sql`${clientPayments.metadata}->>'stripe_checkout_session_id' = ${sessionId}`,
+      ))
       .limit(1);
     return row;
   }
@@ -3328,6 +3341,31 @@ export class DatabaseStorage implements IStorage {
       deleted_approvals: approvalsBefore.length,
       deleted_post,
     };
+  }
+
+  // ─── Stripe webhook idempotency ───
+  async findProcessedStripeEvent(stripeEventId: string): Promise<ProcessedStripeEvent | undefined> {
+    const [row] = await db.select()
+      .from(processedStripeEvents)
+      .where(eq(processedStripeEvents.stripe_event_id, stripeEventId))
+      .limit(1);
+    return row;
+  }
+
+  async markStripeEventProcessed(data: InsertProcessedStripeEvent): Promise<ProcessedStripeEvent> {
+    // ON CONFLICT DO NOTHING in case two workers process the same event in
+    // a tight race — return the existing row in that case.
+    const [row] = await db.insert(processedStripeEvents)
+      .values(data)
+      .onConflictDoNothing({ target: processedStripeEvents.stripe_event_id })
+      .returning();
+    if (row) return row;
+
+    const existing = await this.findProcessedStripeEvent(data.stripe_event_id);
+    if (!existing) {
+      throw new Error(`markStripeEventProcessed: insert returned no row and lookup failed for ${data.stripe_event_id}`);
+    }
+    return existing;
   }
 }
 
