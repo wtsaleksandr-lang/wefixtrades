@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
+import { generateEmailId, injectTracking } from "./emailTracking";
 
 let cached: Transporter | null = null;
 
@@ -50,7 +51,7 @@ export function getEmailTransporter(): Transporter | null {
   if (!host || !user || !pass) return null;
 
   const port = parseInt(process.env.SMTP_PORT || "587", 10);
-  cached = nodemailer.createTransport(
+  const transporter = nodemailer.createTransport(
     {
       host,
       port,
@@ -65,6 +66,43 @@ export function getEmailTransporter(): Transporter | null {
     },
   );
 
+  /* ── Tracking auto-injection wrapper ──
+     Every outbound HTML email gets a unique opaque email_id, a 1x1
+     tracking pixel, and rewritten <a href> links pointing through the
+     /api/email/click/:id redirect. Plain-text portion is unchanged.
+     If injection throws, we fall back to sending the original HTML
+     so a tracking bug can never block a real send. */
+  const origSendMail = transporter.sendMail.bind(transporter);
+  transporter.sendMail = (async (mailOpts: any) => {
+    try {
+      const emailId = generateEmailId();
+      const baseUrl = process.env.APP_URL
+        || process.env.APP_PUBLIC_URL
+        || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
+
+      const trackedHtml = mailOpts.html
+        ? injectTracking(mailOpts.html, { emailId, baseUrl })
+        : mailOpts.html;
+
+      const enrichedOpts = {
+        ...mailOpts,
+        html: trackedHtml,
+        headers: {
+          ...(mailOpts.headers || {}),
+          "X-WeFixTrades-Email-Id": emailId,
+        },
+      };
+
+      console.log(`[email-tracking] sent email_id=${emailId} to=${mailOpts.to}`);
+      return await origSendMail(enrichedOpts);
+    } catch (injectionErr: any) {
+      // Tracking failure must never break sending. Fall back to original.
+      console.warn(`[email-tracking] injection failed, sending raw: ${injectionErr.message}`);
+      return await origSendMail(mailOpts);
+    }
+  }) as typeof transporter.sendMail;
+
+  cached = transporter;
   return cached;
 }
 
