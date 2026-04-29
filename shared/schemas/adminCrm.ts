@@ -766,3 +766,28 @@ export const insertBillingDunningEventSchema = createInsertSchema(billingDunning
 });
 export type InsertBillingDunningEvent = z.infer<typeof insertBillingDunningEventSchema>;
 export type BillingDunningEvent = typeof billingDunningEvents.$inferSelect;
+
+/* ─── Processed Stripe Events ─────────────────────────────────────────
+ *
+ * Top-of-handler idempotency for the Stripe billing webhook. Stripe
+ * occasionally redelivers events; recording every successfully-processed
+ * event id here lets the handler short-circuit duplicates and return
+ * 200 without re-running side effects.
+ *
+ * Insertion happens AFTER the per-event handler completes successfully —
+ * if the handler throws, no row is written and Stripe's retry will be
+ * processed normally on the next delivery.
+ *
+ * ─────────────────────────────────────────────────────────────────── */
+export const processedStripeEvents = pgTable("processed_stripe_events", {
+  id: serial("id").primaryKey(),
+  stripe_event_id: text("stripe_event_id").notNull().unique(),
+  event_type: varchar("event_type", { length: 64 }),
+  processed_at: timestamp("processed_at").defaultNow().notNull(),
+  metadata: jsonb("metadata"),
+});
+export const insertProcessedStripeEventSchema = createInsertSchema(processedStripeEvents).omit({
+  id: true, processed_at: true,
+});
+export type InsertProcessedStripeEvent = z.infer<typeof insertProcessedStripeEventSchema>;
+export type ProcessedStripeEvent = typeof processedStripeEvents.$inferSelect;
