@@ -21,6 +21,10 @@ declare module "http" {
 
 app.use(
   express.json({
+    // 20mb covers base64-encoded fulfillment deliverables (mockups, PDFs, screenshots).
+    // The fileStorage service enforces a 10MB binary cap on its own, leaving
+    // headroom for the ~33% base64 inflation plus surrounding JSON envelope.
+    limit: "20mb",
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },

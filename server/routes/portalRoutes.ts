@@ -57,6 +57,7 @@ import { compileMonthlyReport } from "../services/mapguardReports";
 import { getExecutionUsage } from "../services/mapguardTaskEngine";
 import { generateClientActivityFeed } from "../services/mapguardRetention";
 import { getClientPerformanceSummary } from "../services/mapguardMonitor";
+import { sendWelcomePackage } from "../lib/welcomeEmail";
 
 /* ─── Helpers ─── */
 
@@ -322,6 +323,157 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       console.error("Portal service detail error:", err);
       res.status(500).json({ error: "Failed to load service detail" });
+    }
+  });
+
+  /**
+   * POST /api/portal/tasks/:id/approve
+   *
+   * Client approves a fulfillment task that was waiting on them
+   * (typically a SiteLaunch design mockup or a WebFix completion review).
+   * Marks the task delivered, runs the standard service-completion cascade,
+   * and fires the welcome email when the cascade transitions the service to
+   * active/completed.
+   *
+   * Phase A: simple session-auth flow. Token-based magic-link approvals
+   * (so non-logged-in clients can act from email) land in Phase B.
+   */
+  app.post("/api/portal/tasks/:id/approve", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const taskId = parseInt(req.params.id as string);
+      if (!Number.isFinite(taskId)) return res.status(400).json({ error: "Invalid task id" });
+
+      const task = await storage.getFulfillmentTaskById(taskId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (task.client_id !== clientId) {
+        return res.status(403).json({ error: "Task does not belong to this client" });
+      }
+
+      // Idempotency — already delivered? return current state without erroring.
+      if (task.status === "delivered") {
+        return res.json({ ok: true, task, already_delivered: true });
+      }
+      if (task.status === "cancelled") {
+        return res.status(409).json({ error: "Task is cancelled and cannot be approved" });
+      }
+
+      const nowIso = new Date().toISOString();
+      const existingNotes = Array.isArray(task.revision_notes) ? task.revision_notes : [];
+      const newNote = {
+        event: "approved",
+        by_user_id: req.user!.id,
+        actor_type: "human",
+        at: nowIso,
+      };
+
+      const updated = await storage.updateFulfillmentTask(taskId, {
+        status: "delivered",
+        completed_at: new Date(),
+        waiting_on: null,
+        revision_notes: [...existingNotes, newNote],
+      } as any);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: req.user!.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "fulfillment.client_approved",
+        entity_type: "fulfillment_task",
+        entity_id: taskId,
+        summary: `Client approved task "${task.title}"`,
+      });
+
+      // Run the same completion cascade the admin PATCH uses, so service +
+      // client status transitions and the welcome email both fire.
+      let cascade;
+      if (task.client_service_id) {
+        cascade = await storage.checkAndCompleteService(task.client_service_id);
+        if (cascade?.serviceCompleted || cascade?.serviceActivated) {
+          sendWelcomePackage(task.client_service_id).catch(err =>
+            console.warn(`[welcome-email] send failed for client_service #${task.client_service_id}:`, err.message),
+          );
+        }
+      }
+
+      res.json({ ok: true, task: updated, cascade });
+    } catch (err: any) {
+      console.error("[portal/tasks/approve]", err.message);
+      res.status(500).json({ error: "Failed to approve task" });
+    }
+  });
+
+  /**
+   * POST /api/portal/tasks/:id/request-revision
+   *
+   * Client rejects the current submission and asks for changes.
+   * Body: { note: string }   // required, non-empty — captured into revision_notes
+   *
+   * Sets status to revision_required, increments revision_count, and routes
+   * waiting_on back to whoever produced the work (supplier if assigned, else
+   * internal). Does NOT trigger the completion cascade.
+   */
+  app.post("/api/portal/tasks/:id/request-revision", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const taskId = parseInt(req.params.id as string);
+      if (!Number.isFinite(taskId)) return res.status(400).json({ error: "Invalid task id" });
+
+      const note = typeof req.body?.note === "string" ? req.body.note.trim() : "";
+      if (!note) return res.status(400).json({ error: "note is required and must be non-empty" });
+      if (note.length > 2000) return res.status(400).json({ error: "note is too long (max 2000 chars)" });
+
+      const task = await storage.getFulfillmentTaskById(taskId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (task.client_id !== clientId) {
+        return res.status(403).json({ error: "Task does not belong to this client" });
+      }
+      if (task.status === "delivered") {
+        return res.status(409).json({ error: "Task is already delivered — open a new task instead" });
+      }
+      if (task.status === "cancelled") {
+        return res.status(409).json({ error: "Task is cancelled" });
+      }
+
+      const nowIso = new Date().toISOString();
+      const existingNotes = Array.isArray(task.revision_notes) ? task.revision_notes : [];
+      const newNote = {
+        event: "requested",
+        note,
+        by_user_id: req.user!.id,
+        actor_type: "human",
+        at: nowIso,
+      };
+
+      // Route the task back to whoever produced it
+      const waitingOn = task.handled_by === "supplier" ? "supplier" : "internal";
+
+      const updated = await storage.updateFulfillmentTask(taskId, {
+        status: "revision_required",
+        waiting_on: waitingOn,
+        revision_count: (task.revision_count ?? 0) + 1,
+        revision_notes: [...existingNotes, newNote],
+      } as any);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: req.user!.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "fulfillment.client_revision_requested",
+        entity_type: "fulfillment_task",
+        entity_id: taskId,
+        summary: `Client requested revision on task "${task.title}"`,
+        metadata: { revision_count: (task.revision_count ?? 0) + 1, note_preview: note.slice(0, 120) },
+      });
+
+      res.json({ ok: true, task: updated });
+    } catch (err: any) {
+      console.error("[portal/tasks/request-revision]", err.message);
+      res.status(500).json({ error: "Failed to request revision" });
     }
   });
 

@@ -39,12 +39,16 @@ import { registerRankFlowRoutes } from "./rankflowRoutes";
 import { registerContentFlowRoutes } from "./contentflowRoutes";
 import { registerUnsubscribeRoutes } from "./unsubscribeRoutes";
 import { registerEmailChartsRoute } from "../services/emailCharts";
+import { registerStaticServing as registerFileStorageStatic } from "../services/fileStorage";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   app.use("/api/audit", auditRouter);
+
+  // Mount /uploads for fulfillment deliverables (local backend only).
+  registerFileStorageStatic(app);
 
   registerAuthRoutes(app);
   registerMarketingRoutes(app);

@@ -33,7 +33,7 @@ type User, type InsertUser,
   clientPayments, internalNotes, adminActivityLog,
   serviceTaskTemplates,
   // TradeLine
-  tradelineUsage, tradelineCallLog, tradelineModeLog,
+  tradelineUsage, tradelineCallLog, tradelineModeLog, tradelineExtractedLeads,
   tradelineConfigSchema,
   type Client, type InsertClient,
   type ClientService, type InsertClientService,
@@ -69,6 +69,7 @@ type User, type InsertUser,
   type TradelineUsage, type InsertTradelineUsage,
   type TradelineCallLog, type InsertTradelineCallLog,
   type TradelineModeLog, type InsertTradelineModeLog,
+  type TradelineExtractedLead, type InsertTradelineExtractedLead,
   socialsyncProfiles, socialsyncTopics, socialsyncPosts,
   socialsyncPublishQueue, socialsyncActivityLogs, socialsyncPlatformConnections,
   type SocialSyncProfile, type InsertSocialSyncProfile,
@@ -222,6 +223,7 @@ export interface IStorage {
   listFulfillmentTasks(opts?: { clientId?: number; status?: string; limit?: number; offset?: number }): Promise<(FulfillmentTask & { client_name?: string; supplier_name?: string; service_name?: string })[]>;
   createFulfillmentTask(data: InsertFulfillmentTask): Promise<FulfillmentTask>;
   updateFulfillmentTask(id: number, updates: Partial<InsertFulfillmentTask>): Promise<FulfillmentTask | undefined>;
+  getFulfillmentTaskById(id: number): Promise<FulfillmentTask | undefined>;
   getOpenFulfillmentCount(): Promise<number>;
 
   // Onboarding
@@ -307,6 +309,8 @@ export interface IStorage {
   getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined>;
   listTradeLineModeChanges(clientServiceId: number, limit?: number): Promise<TradelineModeLog[]>;
   incrementTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date, increments: { voiceMinutes?: number; calls?: number; sms?: number }): Promise<TradelineUsage>;
+  createTradeLineLead(data: InsertTradelineExtractedLead): Promise<TradelineExtractedLead>;
+  getLeadsByClientService(clientServiceId: number, limit?: number): Promise<TradelineExtractedLead[]>;
 
   // ─── SocialSync ───
   upsertSocialSyncProfile(data: InsertSocialSyncProfile): Promise<SocialSyncProfile>;
@@ -1384,6 +1388,11 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  async getFulfillmentTaskById(id: number): Promise<FulfillmentTask | undefined> {
+    const [row] = await db.select().from(fulfillmentTasks).where(eq(fulfillmentTasks.id, id)).limit(1);
+    return row;
+  }
+
   async getOpenFulfillmentCount(): Promise<number> {
     const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(fulfillmentTasks)
       .where(and(
@@ -1951,6 +1960,19 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(tradelineCallLog)
       .where(eq(tradelineCallLog.client_service_id, clientServiceId))
       .orderBy(desc(tradelineCallLog.created_at))
+      .limit(limit);
+  }
+
+  // ─── TradeLine Extracted Leads (Phase 2.1) ───
+  async createTradeLineLead(data: InsertTradelineExtractedLead): Promise<TradelineExtractedLead> {
+    const [row] = await db.insert(tradelineExtractedLeads).values(data).returning();
+    return row;
+  }
+
+  async getLeadsByClientService(clientServiceId: number, limit = 50): Promise<TradelineExtractedLead[]> {
+    return db.select().from(tradelineExtractedLeads)
+      .where(eq(tradelineExtractedLeads.client_service_id, clientServiceId))
+      .orderBy(desc(tradelineExtractedLeads.created_at))
       .limit(limit);
   }
 
