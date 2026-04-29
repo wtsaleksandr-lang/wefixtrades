@@ -148,14 +148,20 @@ test.describe("ContentFlow Sprint 15 — SocialSync queue unification", () => {
     const after = await pool.query(`SELECT count(*)::int AS n FROM socialsync_publish_queue WHERE client_id = $1`, [clientId]);
     expect(after.rows[0].n, "no rows added to legacy socialsync_publish_queue").toBe(before.rows[0].n);
 
-    /* ContentFlow draft exists with calendar metadata */
+    /* ContentFlow draft exists with calendar metadata. The Sprint 15
+     * contract here is "draft was created via the unified queue, not
+     * the legacy table" — exact queue_status doesn't matter. The
+     * 2-min publish-queue cron may have already advanced this draft
+     * past 'queued' (to 'publishing' or 'published') by the time we
+     * read it, so accept any unified-queue state. */
     const draftRes = await adminApi.get(`/api/admin/contentflow/drafts/${body.content_draft_id}`);
     expect(draftRes.ok()).toBeTruthy();
     const draft = (await draftRes.json()).draft;
     expect(draft.kind).toBe("social_post");
     expect(draft.target_platform).toBe("facebook");
     expect((draft.metadata as any)?.calendar?.channel).toBe("facebook");
-    expect((draft.metadata as any)?.facebook?.queue_status).toBe("queued");
+    const qs = (draft.metadata as any)?.facebook?.queue_status;
+    expect(["queued", "publishing", "published"], `queue_status was ${qs}`).toContain(qs);
   });
 
   test("P15-2 — draft published via ContentFlow's unified queue", async ({ adminApi }) => {
