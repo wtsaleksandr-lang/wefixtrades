@@ -44,6 +44,11 @@ import {
   mergeBrandProfile,
   sanitizeBrandProfilePatch,
 } from "../services/contentflow/brandProfile";
+import {
+  getSystemHealth,
+  getChannelStatus,
+  getClientHealth,
+} from "../services/contentflow/healthService";
 
 export function registerContentFlowRoutes(app: Express): void {
   /**
@@ -1471,4 +1476,71 @@ export function registerContentFlowRoutes(app: Express): void {
       }
     },
   );
+
+  /* ─── Sprint 18: observability + operator dashboard ──────────────── */
+
+  /**
+   * GET /api/admin/contentflow/health
+   *
+   * Top-level system health: queue depth, 24h success rate, worker
+   * status, image-gen stats, alerts list. Status is one of
+   * 'ok' | 'degraded' | 'critical'.
+   *
+   * Query: ?windowHours=N (default 24).
+   */
+  app.get("/api/admin/contentflow/health", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const windowHours = req.query.windowHours
+        ? Math.max(1, Math.min(168, parseInt(String(req.query.windowHours), 10) || 24))
+        : 24;
+      const data = await getSystemHealth({ windowHours });
+      res.json(data);
+    } catch (err: any) {
+      console.error("[contentflow/health]", err?.message || err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * GET /api/admin/contentflow/channel-status
+   *
+   * Per-channel deep-dive: queued/publishing/published_24h/failed_24h,
+   * dead-letter count, success rate, recent error list, plus
+   * connection rollup by platform.
+   */
+  app.get("/api/admin/contentflow/channel-status", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const windowHours = req.query.windowHours
+        ? Math.max(1, Math.min(168, parseInt(String(req.query.windowHours), 10) || 24))
+        : 24;
+      const data = await getChannelStatus({ windowHours });
+      res.json(data);
+    } catch (err: any) {
+      console.error("[contentflow/channel-status]", err?.message || err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * GET /api/admin/contentflow/client-health?clientId=N
+   *
+   * Per-client health: 24h drafts (created/published/failed), per-
+   * channel metrics scoped to this client, connections (no tokens),
+   * recent failures, performance summary.
+   */
+  app.get("/api/admin/contentflow/client-health", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(String(req.query.clientId), 10);
+      if (!Number.isFinite(clientId)) return res.status(400).json({ error: "clientId required" });
+      const windowHours = req.query.windowHours
+        ? Math.max(1, Math.min(168, parseInt(String(req.query.windowHours), 10) || 24))
+        : 24;
+      const data = await getClientHealth(clientId, { windowHours });
+      if (!data) return res.status(404).json({ error: "client not found" });
+      res.json(data);
+    } catch (err: any) {
+      console.error("[contentflow/client-health]", err?.message || err);
+      res.status(500).json({ error: err.message });
+    }
+  });
 }
