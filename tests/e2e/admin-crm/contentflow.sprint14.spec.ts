@@ -84,9 +84,13 @@ async function createSocialPostDraft(
   clientId: number,
   platform: "facebook" | "instagram" | "google_business",
   body: string,
-  opts: { metadataExtra?: Record<string, any>; status?: string } = {},
+  opts: { metadataExtra?: Record<string, any>; status?: string; initialPaused?: boolean } = {},
 ): Promise<number> {
-  /* Mirror Sprint 10/13 helper: socialsync_posts shell + linked draft. */
+  /* Mirror Sprint 10/13 helper: socialsync_posts shell + linked draft.
+   * Sprint 17: initialPaused option lets pause-then-drain tests insert
+   * with calendar.paused=true atomically, eliminating the race window
+   * between INSERT and the pause API call (during which the 2-min
+   * publish-queue cron could pick up the draft). */
   const channelKey = platform === "google_business" ? "gbp_post" : platform;
   const baseMeta: Record<string, any> = {
     [channelKey]: { queue_status: "queued", attempts: 0, scheduled_for: null },
@@ -95,7 +99,7 @@ async function createSocialPostDraft(
       scheduled_for: null,
       auto_generated: false,
       repurposed: false,
-      paused: false,
+      paused: opts.initialPaused === true,
     },
     ...(opts.metadataExtra ?? {}),
   };
@@ -190,8 +194,11 @@ test.describe("ContentFlow Sprint 14 — calendar + control", () => {
 
   test("P14-3 — pause prevents publish", async ({ adminApi }) => {
     const { clientId } = await provisionClient(adminApi);
-    const draftId = await createSocialPostDraft(clientId, "facebook", "Sprint 14 P14-3 body");
+    /* Sprint 17: insert WITH paused=true so the 2-min cron can't
+     * publish the draft in the gap between INSERT and PATCH /pause. */
+    const draftId = await createSocialPostDraft(clientId, "facebook", "Sprint 14 P14-3 body", { initialPaused: true });
 
+    /* Verify pause endpoint is idempotent + reflects state. */
     const pauseRes = await adminApi.post(`/api/admin/contentflow/drafts/${draftId}/pause`, { data: {} });
     expect(pauseRes.ok()).toBeTruthy();
     const paused = await pauseRes.json();
@@ -206,7 +213,9 @@ test.describe("ContentFlow Sprint 14 — calendar + control", () => {
 
   test("P14-4 — resume restores publish", async ({ adminApi }) => {
     const { clientId } = await provisionClient(adminApi);
-    const draftId = await createSocialPostDraft(clientId, "facebook", "Sprint 14 P14-4 body");
+    /* Sprint 17: insert paused so the cron-vs-test race can't publish
+     * before the pause-then-resume contract is exercised. */
+    const draftId = await createSocialPostDraft(clientId, "facebook", "Sprint 14 P14-4 body", { initialPaused: true });
 
     await adminApi.post(`/api/admin/contentflow/drafts/${draftId}/pause`, { data: {} });
     /* Confirm paused blocks publish */
