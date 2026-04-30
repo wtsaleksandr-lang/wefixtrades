@@ -1596,6 +1596,17 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  async findPaymentByStripePaymentIntent(paymentIntentId: string): Promise<ClientPayment | undefined> {
+    // Phase-2: lookup by the real PaymentIntent id stored on the payment row.
+    // Does NOT also match `metadata.stripe_checkout_session_id` (which is a
+    // separate identifier). Used by the charge.refunded webhook handler to
+    // find the originating payment row from `charge.payment_intent`.
+    const [row] = await db.select().from(clientPayments)
+      .where(eq(clientPayments.stripe_payment_intent_id, paymentIntentId))
+      .limit(1);
+    return row;
+  }
+
   async getOnboardingByToken(token: string): Promise<{
     submission: OnboardingSubmission;
     template: OnboardingTemplate | null;

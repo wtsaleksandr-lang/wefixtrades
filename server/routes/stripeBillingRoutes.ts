@@ -15,6 +15,7 @@ import { sendPaymentReceipt } from "../lib/paymentReceiptEmail";
 import { sendAccountWelcome } from "../lib/accountWelcomeEmail";
 import { sendPaymentFailedEmail } from "../lib/paymentFailedEmail";
 import { sendCancellationEmail } from "../lib/cancellationEmail";
+import { sendRefundConfirmationEmail } from "../lib/refundConfirmationEmail";
 import {
   scheduleFailedPaymentSequence,
   scheduleCardExpiringEmail,
@@ -225,6 +226,14 @@ export function registerStripeBillingRoutes(app: Express): void {
 
         case "customer.subscription.deleted":
           await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, event.id);
+          break;
+
+        case "charge.refunded":
+          // Phase 2: Stripe issued a refund (manual dashboard or API).
+          // Records a negative-amount client_payments row and sends a
+          // branded refund-confirmation email. On full refund of an
+          // active monthly service, also flips the service to cancelled.
+          await handleChargeRefunded(event.data.object as Stripe.Charge);
           break;
 
         default:
@@ -780,3 +789,123 @@ async function handleQuoteQuickCheckout(session: Stripe.Checkout.Session) {
   console.log(`[billing-webhook] QuoteQuick calculator ${calculatorId} upgraded to ${planTier}${wasPaused ? ' (reactivated)' : ''}`);
 }
 
+
+
+/* ─── charge.refunded (Phase 2) ─── */
+
+async function handleChargeRefunded(charge: Stripe.Charge) {
+  const piId = typeof charge.payment_intent === "string"
+    ? charge.payment_intent
+    : charge.payment_intent?.id ?? null;
+
+  // We need a payment_intent to correlate to a client_payments row.
+  // Without one we have no idempotency anchor and don't know which client
+  // to email. Log and bail.
+  if (!piId) {
+    console.warn(`[billing-webhook] charge.refunded ${charge.id} has no payment_intent — skipping`);
+    return;
+  }
+
+  // Skip non-refund firings: Stripe fires charge.refunded for the refund
+  // event itself (amount_refunded > 0). Belt-and-braces guard.
+  const refundAmount = charge.amount_refunded ?? 0;
+  if (refundAmount <= 0) {
+    console.warn(`[billing-webhook] charge.refunded ${charge.id} has amount_refunded <= 0 — skipping`);
+    return;
+  }
+
+  const isFullRefund = charge.amount_refunded === charge.amount;
+
+  // Locate the originating payment row (created on checkout.session.completed
+  // by the Phase 1 fix that stores the real PI id in stripe_payment_intent_id).
+  const originating = await storage.findPaymentByStripePaymentIntent(piId);
+
+  // Resolve client — prefer the originating row's client, fall back to
+  // Stripe customer match for legacy rows / disconnected refunds.
+  let clientId: number | null = originating?.client_id ?? null;
+  let clientServiceId: number | null = originating?.client_service_id ?? null;
+  if (!clientId) {
+    const customerId = typeof charge.customer === "string" ? charge.customer : charge.customer?.id;
+    if (customerId) {
+      const client = await storage.findClientByStripeCustomerId(customerId);
+      if (client) clientId = client.id;
+    }
+  }
+  if (!clientId) {
+    console.warn(`[billing-webhook] charge.refunded ${charge.id}: cannot resolve client (pi=${piId}) — skipping`);
+    return;
+  }
+
+  // Latest refund object on the charge (Stripe orders refunds.data with
+  // most recent first when expanded; if not expanded, fall back to the
+  // charge id for traceability).
+  const latestRefund = charge.refunds?.data?.[0];
+  const refundId = latestRefund?.id ?? null;
+
+  // Insert the negative-amount refund row. Idempotency at the row level:
+  // (stripe_payment_intent_id = piId, type = 'refund', metadata.refund_id = refundId)
+  // — but the Phase-1 event-id idempotency at the top of the webhook
+  // handler is the primary guard. Belt-and-braces check below.
+  const description = originating?.description
+    ? `Refund — ${originating.description}`
+    : `Refund (Stripe charge ${charge.id})`;
+
+  const refundRow = await storage.createClientPayment({
+    client_id: clientId,
+    client_service_id: clientServiceId ?? undefined,
+    type: "refund",
+    amount_cents: -refundAmount,
+    status: "refunded",
+    paid_at: new Date(),
+    description,
+    stripe_payment_intent_id: piId,
+    metadata: {
+      stripe_charge_id: charge.id,
+      refund_id: refundId,
+      is_full_refund: isFullRefund,
+    },
+    actor_type: "system",
+  });
+
+  // Mark the originating payment as fully refunded if this was a full refund.
+  if (originating && isFullRefund && originating.status !== "refunded") {
+    await storage.updateClientPayment(originating.id, { status: "refunded" });
+  }
+
+  // Cancel the linked service if (a) full refund and (b) it's an active
+  // monthly subscription. Partial refunds and one-time purchases never
+  // touch service status here.
+  let serviceCancelled = false;
+  if (isFullRefund && clientServiceId) {
+    const cs = await storage.getClientServiceById(clientServiceId);
+    if (cs && cs.status === "active" && cs.billing_period === "monthly") {
+      await storage.updateClientService(cs.id, {
+        status: "cancelled",
+        cancelled_at: new Date(),
+      });
+      serviceCancelled = true;
+    }
+  }
+
+  // Branded refund email (idempotent on the refund row's metadata).
+  sendRefundConfirmationEmail({
+    refundPaymentId: refundRow.id,
+    clientId,
+    refundAmountCents: refundAmount,
+    currency: charge.currency,
+    originalDescription: originating?.description ?? null,
+    serviceCancelled,
+  }).catch((err: any) => console.warn(`[refund-email] send failed for refund row #${refundRow.id}:`, err.message));
+
+  await storage.logAdminActivity({
+    actor_type: "system",
+    actor_name: "Stripe Webhook",
+    action: isFullRefund ? "payment.refunded_full" : "payment.refunded_partial",
+    entity_type: "client",
+    entity_id: clientId,
+    summary: `Refund ${isFullRefund ? "(full)" : "(partial)"}: ${refundAmount} cents (charge ${charge.id})${serviceCancelled ? " — service cancelled" : ""}`,
+    metadata: { stripe_charge_id: charge.id, refund_id: refundId, is_full_refund: isFullRefund, service_cancelled: serviceCancelled },
+  });
+
+  console.log(`[billing-webhook] charge.refunded ${charge.id} → refund row #${refundRow.id} (${refundAmount} cents, full=${isFullRefund}, service_cancelled=${serviceCancelled})`);
+}
