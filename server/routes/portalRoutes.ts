@@ -640,16 +640,23 @@ export function registerPortalRoutes(app: Express) {
         .from(leads)
         .where(eq(leads.calculator_id, calc.id));
 
+      const tokenExpired = new Date() > new Date(calc.token_expires_at);
+
       res.json({
         calculator: {
           id: calc.id,
           business_name: calc.business_name,
+          trade_type: calc.trade_type,
           slug: calc.slug,
-          edit_token: calc.edit_token,
           plan_tier: calc.plan_tier ?? "free",
           total_views: calc.total_views ?? 0,
           total_leads: leadCount?.count ?? 0,
           status: deploy?.status ?? "draft",
+          calculator_url: `/calculator?slug=${calc.slug}`,
+          edit_url: tokenExpired ? null : `/EditCalculator?token=${calc.edit_token}`,
+          preview_url: tokenExpired ? null : `/calculator?slug=${calc.slug}&preview=${calc.edit_token}`,
+          edit_token_expired: tokenExpired,
+          created_at: calc.created_at,
         },
       });
     } catch (err) {

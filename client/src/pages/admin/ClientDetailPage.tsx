@@ -18,12 +18,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard, Copy, ExternalLink, ClipboardCheck, UserPlus, ShieldCheck,
+  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard, Copy, ExternalLink, ClipboardCheck, UserPlus, ShieldCheck, Calculator, Eye,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TaskCard, ClientTasksEmptyState, isOverdue, type TaskItem } from "@/components/admin/TaskCard";
-import MapguardOpsTab from "@/components/admin/MapguardOpsTab";
 
 /* ─── Types ─── */
 interface Client {
@@ -210,6 +209,21 @@ export default function ClientDetailPage() {
 
   const { data: catalog } = useQuery<ServiceCatalogItem[]>({
     queryKey: ["/api/admin/crm/services"],
+  });
+
+  // QuoteQuick calculator data for this client
+  const { data: qqData } = useQuery<{ calculators: Array<{
+    id: number; business_name: string; trade_type: string; slug: string;
+    plan_tier: string; total_views: number; total_leads: number;
+    status: string; created_at: string;
+    calculator_url: string; edit_url: string;
+    price_cents: number; cost_cents: number;
+  }>; profitability?: {
+    total_revenue_cents: number; total_cost_cents: number;
+    profit_cents: number; margin_pct: number;
+  } }>({
+    queryKey: [`/api/admin/crm/clients/${clientId}/quotequick`],
+    enabled: !!clientId,
   });
 
   // Mutations
@@ -519,10 +533,9 @@ export default function ClientDetailPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="services">
-          <TabsList className="w-full grid grid-cols-5">
+          <TabsList className="w-full grid grid-cols-4">
             <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="mapguard">MapGuard</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
           </TabsList>
@@ -653,27 +666,66 @@ export default function ClientDetailPage() {
               </div>
             </Card>
 
-            {/* Upsell intelligence */}
-            {services && services.length > 0 && (() => {
-              const activeIds = services.filter(s => s.status === "active" || s.status === "pending").map(s => s.service_id);
-              const hasMapguard = activeIds.some(id => id.startsWith("mapguard-") && id !== "mapguard-setup");
-              const hasReputation = activeIds.some(id => id.startsWith("reputationshield"));
-              const hasSocial = activeIds.some(id => id.startsWith("socialsync"));
-              const gaps: string[] = [];
-              if (!hasMapguard) gaps.push("No visibility management active \u2014 consider MapGuard");
-              if (!hasReputation) gaps.push("No review management active \u2014 consider ReputationShield");
-              if (hasMapguard && !hasReputation) gaps.push("Reviews strengthen Google Maps ranking \u2014 add ReputationShield");
-              if (hasMapguard && !hasSocial) gaps.push("Social activity reinforces visibility \u2014 add SocialSync");
-              if (gaps.length === 0) return null;
-              return (
-                <div className="mt-3 px-3 py-2.5 rounded-lg bg-amber-50/50 border border-amber-200/50">
-                  <p className="text-xs font-medium text-amber-800 mb-1">Missing pieces</p>
-                  {gaps.map(g => (
-                    <p key={g} className="text-[11px] text-amber-700 mt-0.5">{g}</p>
+            {/* QuoteQuick Calculator Section */}
+            {qqData && qqData.calculators && qqData.calculators.length > 0 && (
+              <Card className="mt-4">
+                <div className="p-4 border-b border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calculator className="w-4 h-4 text-indigo-500" />
+                      <h3 className="text-sm font-semibold text-gray-900">QuoteQuick Calculators</h3>
+                    </div>
+                    {qqData.profitability && (
+                      <div className="flex items-center gap-4 text-xs">
+                        <span className="text-gray-500">Rev: <span className="font-semibold text-gray-900">${(qqData.profitability.total_revenue_cents / 100).toFixed(0)}/mo</span></span>
+                        <span className="text-gray-500">Cost: <span className="font-semibold text-gray-900">${(qqData.profitability.total_cost_cents / 100).toFixed(0)}/mo</span></span>
+                        <span className="text-gray-500">Profit: <span className="font-semibold text-emerald-700">${(qqData.profitability.profit_cents / 100).toFixed(0)}/mo</span></span>
+                        <span className="text-gray-400">{qqData.profitability.margin_pct}% margin</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {qqData.calculators.map((calc) => (
+                    <div key={calc.id} className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900">{calc.business_name}</p>
+                          <div className="flex items-center flex-wrap gap-2 mt-1">
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                              calc.status === "live" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
+                            }`}>
+                              {calc.status === "live" ? "Live" : "Draft"}
+                            </span>
+                            <span className="text-[11px] text-gray-400 capitalize">{calc.trade_type}</span>
+                            <span className="text-[11px] text-gray-400 capitalize">{calc.plan_tier} plan</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-500 shrink-0">
+                          <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{calc.total_views}</span>
+                          <span className="flex items-center gap-1"><UserPlus className="w-3 h-3" />{calc.total_leads}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 mt-2.5">
+                        <a href={calc.calculator_url} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 transition-colors">
+                          <Globe className="w-3 h-3" /> View Live
+                        </a>
+                        <a href={calc.edit_url} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-[#2D6A4F] hover:underline">
+                          <Pencil className="w-3 h-3" /> Edit
+                        </a>
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${calc.calculator_url}`); }}
+                          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                          <Copy className="w-3 h-3" /> Copy Link
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
-              );
-            })()}
+              </Card>
+            )}
           </TabsContent>
 
           {/* ─── Tasks Tab ─── */}
@@ -767,11 +819,6 @@ export default function ClientDetailPage() {
                 />
               ))
             )}
-          </TabsContent>
-
-          {/* ─── MapGuard Tab ─── */}
-          <TabsContent value="mapguard" className="mt-4">
-            <MapguardOpsTab clientId={clientId} />
           </TabsContent>
 
           {/* ─── Billing Tab ─── */}
