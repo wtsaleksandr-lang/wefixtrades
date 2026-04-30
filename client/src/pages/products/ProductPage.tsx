@@ -3207,460 +3207,10 @@ function SLRiskReversal() {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   WEBBOOST SECTIONS
-   ═══════════════════════════════════════════════════════════ */
-
-/* ---------- WebBoost: Built For Trades ---------- */
-function WBBuiltForSection({ trades }: { trades: string[] }) {
-  return (
-    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="wb-built-for">
-      <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
-        <SectionLabel>Built for trades</SectionLabel>
-        <h2
-          style={{
-            fontSize: "clamp(24px, 3vw, 36px)",
-            fontWeight: 700,
-            color: mkt.text,
-            letterSpacing: "-0.025em",
-            marginBottom: 20,
-          }}
-        >
-          Built for websites that are supposed to bring in work
-        </h2>
-        <p style={{ fontSize: 17, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 24 }}>
-          {trades.join(". ")}.
-        </p>
-        <p style={{ fontSize: 15, color: mkt.textFaint, lineHeight: 1.6, margin: 0 }}>
-          Not restaurants. Not SaaS. Not generic SEO. Built for businesses that rely on calls, quotes, and local trust.
-        </p>
-      </div>
-    </section>
-  );
-}
-
-/* ---------- WebBoost: Problem Section ---------- */
-function WBProblemSection() {
-  const painPoints = [
-    { title: "Slow pages make people leave", icon: Zap },
-    { title: "Weak SEO means customers don\u2019t find you", icon: Eye },
-    { title: "Poor structure means fewer calls and form fills", icon: Phone },
-  ];
-
-  return (
-    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="wb-problem">
-      <div style={{ maxWidth: 800, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
-        <SectionLabel>The problem</SectionLabel>
-        <h2
-          style={{
-            fontSize: "clamp(24px, 3vw, 36px)",
-            fontWeight: 700,
-            color: mkt.text,
-            letterSpacing: "-0.025em",
-            marginBottom: 16,
-          }}
-        >
-          Most websites lose leads before the customer even contacts you.
-        </h2>
-        <p
-          style={{
-            fontSize: 16,
-            color: mkt.textMuted,
-            lineHeight: 1.7,
-            maxWidth: 560,
-            margin: "0 auto 32px",
-          }}
-        >
-          Your site may look &ldquo;fine&rdquo; &mdash; but that doesn&rsquo;t mean it&rsquo;s performing.
-          If it loads slowly, ranks poorly, or makes people work too hard to contact you, you lose business.
-        </p>
-
-        <style>{`
-          .wb-pain-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
-          @media (max-width: 640px) { .wb-pain-grid { grid-template-columns: 1fr !important; } }
-        `}</style>
-
-        <div className="wb-pain-grid" data-reveal="fade-up">
-          {painPoints.map(({ title, icon: Icon }) => (
-            <div
-              key={title}
-              style={{
-                background: mkt.bg,
-                border: `1px solid ${mkt.border}`,
-                borderRadius: 14,
-                padding: "24px 18px",
-              }}
-            >
-              <Icon size={24} color={mkt.accent} strokeWidth={2} style={{ marginBottom: 10 }} />
-              <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text, margin: 0, lineHeight: 1.4 }}>{title}</p>
-            </div>
-          ))}
-        </div>
-
-        <p style={{ fontSize: 16, fontWeight: 600, color: mkt.accent, margin: 0 }}>
-          A website that feels slow or hard to use quietly sends work to competitors.
-        </p>
-      </div>
-    </section>
-  );
-}
-
-/* ---------- WebBoost: Decision Alternatives ---------- */
-function WBAlternativesSection() {
-  const alternatives = [
-    { title: "Plugins", desc: "They can improve speed, but they don\u2019t fix your SEO, structure, or visibility." },
-    { title: "Cheap freelancers", desc: "They often optimize for scores, not real performance \u2014 and the results don\u2019t last." },
-    { title: "Maintenance plans", desc: "They keep a site running, but they don\u2019t usually improve rankings or conversions." },
-    { title: "SEO agencies", desc: "They sell massive retainers when you may only need focused fixes." },
-  ];
-
-  return (
-    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="wb-alternatives">
-      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
-        <SectionLabel>The alternatives</SectionLabel>
-        <h2
-          style={{
-            fontSize: "clamp(24px, 3vw, 36px)",
-            fontWeight: 700,
-            color: mkt.text,
-            letterSpacing: "-0.025em",
-            marginBottom: 36,
-          }}
-        >
-          Why most &ldquo;solutions&rdquo; don&rsquo;t actually solve it
-        </h2>
-
-        <style>{`
-          .wb-alt-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; text-align: left; margin-bottom: 28px; }
-          @media (max-width: 800px) { .wb-alt-grid { grid-template-columns: 1fr 1fr !important; } }
-          @media (max-width: 500px) { .wb-alt-grid { grid-template-columns: 1fr !important; } }
-        `}</style>
-
-        <div className="wb-alt-grid" data-reveal="fade-up">
-          {alternatives.map((alt) => (
-            <div
-              key={alt.title}
-              style={{
-                background: mkt.surface,
-                border: `1px solid ${mkt.border}`,
-                borderRadius: 14,
-                padding: "22px 18px",
-              }}
-            >
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.text, marginBottom: 10 }}>{alt.title}</h3>
-              <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6, margin: 0 }}>{alt.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        <p style={{ fontSize: 16, fontWeight: 600, color: mkt.accent, margin: 0 }}>
-          WebBoost sits in the gap &mdash; faster and more practical than an agency, more complete than a plugin.
-        </p>
-      </div>
-    </section>
-  );
-}
-
-/* ---------- WebBoost: What It Does ---------- */
-function WBWhatWeDoSection() {
-  const cards = [
-    { title: "Speed improvements", desc: "Make pages load faster and feel smoother" },
-    { title: "Technical SEO fixes", desc: "Clean up issues that stop pages from being indexed and understood properly" },
-    { title: "On-page improvements", desc: "Strengthen page structure, titles, headings, and content signals" },
-    { title: "Conversion cleanup", desc: "Make it easier for visitors to call, message, or request a quote" },
-    { title: "Plain-language reporting", desc: "Show what changed and why it matters \u2014 without technical nonsense" },
-  ];
-
-  return (
-    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="wb-whatwedo">
-      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
-        <SectionLabel>What we do</SectionLabel>
-        <h2
-          style={{
-            fontSize: "clamp(24px, 3vw, 36px)",
-            fontWeight: 700,
-            color: mkt.text,
-            letterSpacing: "-0.025em",
-            marginBottom: 36,
-          }}
-        >
-          We fix what&rsquo;s slowing your website down &mdash; and what&rsquo;s holding it back in Google
-        </h2>
-
-        <style>{`
-          .wb-whatwedo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; text-align: left; margin-bottom: 24px; }
-          @media (max-width: 500px) { .wb-whatwedo-grid { grid-template-columns: 1fr !important; } }
-        `}</style>
-
-        <div className="wb-whatwedo-grid" data-reveal="fade-up">
-          {cards.map((c, i) => (
-            <div
-              key={c.title}
-              data-delay={String(i * 60)}
-              style={{
-                background: mkt.bg,
-                border: `1px solid ${mkt.border}`,
-                borderRadius: 14,
-                padding: "22px 18px",
-              }}
-            >
-              <div style={{
-                width: 32, height: 32, borderRadius: 8, background: mkt.accentTint,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                marginBottom: 12, fontSize: 15, fontWeight: 700, color: mkt.accent,
-              }}>
-                {i + 1}
-              </div>
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.text, marginBottom: 8, lineHeight: 1.3 }}>{c.title}</h3>
-              <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6, margin: 0 }}>{c.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        <p style={{ fontSize: 15, color: mkt.textFaint, margin: 0 }}>
-          You don&rsquo;t need to understand any of the technical details. We handle it.
-        </p>
-      </div>
-    </section>
-  );
-}
-
-/* ---------- WebBoost: Benefits ---------- */
-function WBBenefitsSection() {
-  const benefits = [
-    "Reduce slow-page drop-offs",
-    "Help more customers find you in search",
-    "Make your site easier to use on phones",
-    "Improve trust and first impression",
-    "Turn more visitors into real enquiries",
-    "Fix issues without hiring a big agency",
-  ];
-
-  return (
-    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="wb-benefits">
-      <div style={{ maxWidth: 680, margin: "0 auto" }} data-reveal="fade-up">
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <SectionLabel>Benefits</SectionLabel>
-          <h2
-            style={{
-              fontSize: "clamp(24px, 3vw, 36px)",
-              fontWeight: 700,
-              color: mkt.text,
-              letterSpacing: "-0.025em",
-            }}
-          >
-            What this actually helps your business do
-          </h2>
-        </div>
-        <div style={{ display: "grid", gap: 10 }}>
-          {benefits.map((b) => (
-            <div
-              key={b}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 14,
-                padding: "14px 20px",
-                background: mkt.surface,
-                borderRadius: 12,
-                border: `1px solid ${mkt.border}`,
-              }}
-            >
-              <Check size={18} color={mkt.accent} strokeWidth={2.5} style={{ flexShrink: 0 }} />
-              <span style={{ fontSize: 16, color: mkt.text, fontWeight: 500 }}>{b}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ---------- WebBoost: Comparison Table ---------- */
-function WBComparisonSection() {
-  const rows = [
-    { feature: "Improves site speed", wb: true, plugin: true, freelancer: true, agency: true },
-    { feature: "Fixes technical SEO", wb: true, plugin: false, freelancer: false, agency: true },
-    { feature: "Improves on-page structure", wb: true, plugin: false, freelancer: false, agency: true },
-    { feature: "Built for lead generation", wb: true, plugin: false, freelancer: false, agency: false },
-    { feature: "Trades-focused", wb: true, plugin: false, freelancer: false, agency: false },
-    { feature: "Transparent pricing", wb: true, plugin: true, freelancer: false, agency: false },
-    { feature: "No large retainer required", wb: true, plugin: true, freelancer: true, agency: false },
-  ];
-
-  const renderCell = (val: boolean, isWb: boolean) =>
-    val ? (
-      <Check size={16} color={isWb ? mkt.accent : mkt.textMuted} strokeWidth={2.5} />
-    ) : (
-      <span style={{ color: mkt.textFaint, fontSize: 16 }}>&mdash;</span>
-    );
-
-  return (
-    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="wb-comparison">
-      <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
-        <SectionLabel>The difference</SectionLabel>
-        <h2
-          style={{
-            fontSize: "clamp(22px, 2.8vw, 32px)",
-            fontWeight: 700,
-            color: mkt.text,
-            letterSpacing: "-0.025em",
-            marginBottom: 32,
-          }}
-        >
-          WebBoost vs the alternatives
-        </h2>
-
-        <div style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 14, overflow: "auto" }}>
-          <style>{`
-            .wb-compare-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 520px; }
-            .wb-compare-table th, .wb-compare-table td { padding: 12px 14px; }
-          `}</style>
-          <table className="wb-compare-table">
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${mkt.border}` }}>
-                <th style={{ textAlign: "left", fontWeight: 600, color: mkt.textMuted }}></th>
-                <th style={{ textAlign: "center", fontWeight: 700, color: mkt.accent }}>WebBoost</th>
-                <th style={{ textAlign: "center", fontWeight: 600, color: mkt.textMuted, fontSize: 13 }}>Plugin / tool</th>
-                <th style={{ textAlign: "center", fontWeight: 600, color: mkt.textMuted, fontSize: 13 }}>Cheap freelancer</th>
-                <th style={{ textAlign: "center", fontWeight: 600, color: mkt.textMuted, fontSize: 13 }}>SEO agency</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.feature} style={{ borderBottom: `1px solid ${mkt.border}` }}>
-                  <td style={{ color: mkt.text, fontWeight: 500, textAlign: "left" }}>{row.feature}</td>
-                  <td style={{ textAlign: "center" }}>{renderCell(row.wb, true)}</td>
-                  <td style={{ textAlign: "center" }}>{renderCell(row.plugin, false)}</td>
-                  <td style={{ textAlign: "center" }}>{renderCell(row.freelancer, false)}</td>
-                  <td style={{ textAlign: "center" }}>{renderCell(row.agency, false)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ---------- WebBoost: Results ---------- */
-function WBResultsSection({ outcomes }: { outcomes: { title: string; desc: string }[] }) {
-  const results = [
-    { title: "Faster first impression", desc: "Visitors stay instead of bouncing to a competitor" },
-    { title: "Better search visibility", desc: "More people find you when they search for your services" },
-    { title: "More trust from visitors", desc: "A fast, well-structured site signals professionalism" },
-    { title: "Better chance of getting the call", desc: "Fewer barriers between the visitor and contacting you" },
-  ];
-
-  return (
-    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="wb-results">
-      <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
-        <SectionLabel>Results</SectionLabel>
-        <h2
-          style={{
-            fontSize: "clamp(24px, 3vw, 36px)",
-            fontWeight: 700,
-            color: mkt.text,
-            letterSpacing: "-0.025em",
-            marginBottom: 36,
-          }}
-        >
-          What happens when your site performs better
-        </h2>
-
-        <style>{`
-          .wb-results-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; text-align: left; margin-bottom: 28px; }
-          @media (max-width: 800px) { .wb-results-grid { grid-template-columns: 1fr 1fr !important; } }
-          @media (max-width: 500px) { .wb-results-grid { grid-template-columns: 1fr !important; } }
-        `}</style>
-
-        <div className="wb-results-grid">
-          {results.map((r, i) => (
-            <div
-              key={r.title}
-              data-reveal="fade-up"
-              data-delay={String(i * 60)}
-              style={{
-                background: mkt.surface,
-                border: `1px solid ${mkt.border}`,
-                borderRadius: 14,
-                padding: "22px 18px",
-              }}
-            >
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.accent, marginBottom: 6 }}>{r.title}</h3>
-              <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.55, margin: 0 }}>{r.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        <p style={{ fontSize: 16, fontWeight: 600, color: mkt.accent, margin: 0 }}>
-          One extra job can easily cover the cost of fixing a weak website.
-        </p>
-      </div>
-    </section>
-  );
-}
-
-/* ---------- WebBoost: Pricing Intro ---------- */
-function WBPricingIntro() {
-  return (
-    <>
-      <SectionLabel>Pricing</SectionLabel>
-      <h2
-        style={{
-          fontSize: "clamp(24px, 3vw, 36px)",
-          fontWeight: 700,
-          color: mkt.onDark,
-          letterSpacing: "-0.025em",
-          marginBottom: 8,
-        }}
-      >
-        Simple pricing. Focused improvements.
-      </h2>
-      <p
-        style={{
-          fontSize: 15,
-          color: mkt.onDarkFaint,
-          maxWidth: 480,
-          margin: "0 auto",
-          lineHeight: 1.6,
-        }}
-      >
-        Get the fixes you need without signing up for a giant SEO retainer.
-      </p>
-    </>
-  );
-}
-
-/* ---------- WebBoost: Risk Reversal ---------- */
-function WBRiskReversal() {
-  return (
-    <div
-      style={{
-        background: mkt.dark,
-        padding: "0 28px 40px",
-        textAlign: "center",
-      }}
-      data-reveal="fade-up"
-    >
-      <p
-        style={{
-          fontSize: 14,
-          fontWeight: 500,
-          color: mkt.onDarkFaint,
-          maxWidth: 640,
-          margin: "0 auto",
-          letterSpacing: "0.01em",
-        }}
-      >
-        No contracts &middot; No confusing agency jargon &middot; Clear before/after improvements &middot; Built for real business outcomes, not vanity scores
-      </p>
-    </div>
-  );
-}
+/* ---------- (WebBoost sections removed — product discontinued) ---------- */
 
 /* ---------- Main Product Page ---------- */
+// @ts-ignore — start of dead code removal marker
 export default function ProductPage() {
   const params = useParams<{ slug: string }>();
   const product = getProductBySlug(params.slug || "");
@@ -3704,7 +3254,7 @@ export default function ProductPage() {
   const isSiteLaunch = product.slug === "sitelaunch";
   const isWebCare = product.slug === "webcare";
 
-  const hasCustomHero = isTradeLine || isQuoteQuick || isReputationShield || isSocialSync || isSiteLaunch || isWebCare || false /* WebBoost removed */;
+  const hasCustomHero = isTradeLine || isQuoteQuick || isReputationShield || isSocialSync || isSiteLaunch || isWebCare;
 
   return (
     <MarketingLayout>
@@ -3773,8 +3323,6 @@ export default function ProductPage() {
                 ) : isWebCare ? (
                   <>We Take Care of Your Website —{" "}<span style={{ color: mkt.accent }}>So You Can Focus on the Job</span></>
 
-                ) : false /* WebBoost removed */ ? (
-                  <>Make Your Website Faster, Easier to Find, and{" "}<span style={{ color: mkt.accent }}>Better at Turning Visitors Into Calls</span></>
                 ) : (
                   <>Stay Active Online —{" "}<span style={{ color: mkt.accent }}>Without Doing It Yourself</span></>
                 )}
@@ -3807,8 +3355,6 @@ export default function ProductPage() {
                   "We build your website from scratch \u2014 custom designed, mobile-first, SEO-ready, with lead capture built in. One-time fee. No contracts. You own the site."
                 ) : isWebCare ? (
                   "Your website stays updated, secure, and working. No tech headaches. No contracts. Just reliable maintenance \u2014 built for trades businesses."
-                ) : false /* WebBoost removed */ ? (
-                  "WebBoost fixes the speed, structure, and SEO issues that quietly cost trades businesses leads every day \u2014 without locking you into a big agency retainer."
                 ) : (
                   "SocialSync creates and posts content for your business across Facebook, Instagram, and Google \u2014 so you stay visible, trusted, and top of mind without lifting a finger."
                 )}
@@ -3912,20 +3458,6 @@ export default function ProductPage() {
             </p>
           )}
 
-          {false /* WebBoost removed */ && (
-            <p
-              className="hero-enter"
-              style={{
-                fontSize: 13,
-                color: mkt.textMuted,
-                marginTop: 16,
-                opacity: 0.7,
-              }}
-            >
-              Built for trades businesses &bull; No contracts &bull; Not just a plugin
-            </p>
-          )}
-
           {hasCustomHero && (
             <div
               className="hero-enter"
@@ -3940,13 +3472,7 @@ export default function ProductPage() {
                 color: mkt.textMuted,
               }}
             >
-              {(false /* WebBoost removed */ ? [
-                "Built for trades businesses",
-                "Speed + SEO improvements together",
-                "No contracts",
-                "Done for you",
-                "Works on more than WordPress only",
-              ] : isSocialSync ? [
+              {(isSocialSync ? [
                 "Built for trades businesses",
                 "Done-for-you posting",
                 "No contracts",
@@ -4035,17 +3561,6 @@ export default function ProductPage() {
           </>
         )}
 
-        {/* ── WebBoost: Built For + Problem + Alternatives + What We Do + Benefits ── */}
-        {false /* WebBoost removed */ && (
-          <>
-            <WBBuiltForSection trades={product?.bestFor ?? []} />
-            <WBProblemSection />
-            <WBAlternativesSection />
-            <WBWhatWeDoSection />
-            <WBBenefitsSection />
-          </>
-        )}
-
         {/* ── §2 CAPABILITIES / BENEFITS ── */}
         <CapabilitiesGrid
           items={product.highlights}
@@ -4056,13 +3571,12 @@ export default function ProductPage() {
             isSocialSync ? "What this actually does for your business" :
             isSiteLaunch ? "What\u2019s included in every SiteLaunch build" :
             isWebCare ? "What's included in your plan" :
-            false /* WebBoost removed */ ? "What you get with WebBoost" :
             undefined
           }
         />
 
         {/* ── §3 HOW IT WORKS ── */}
-        <StepTimeline steps={product.howItWorks} heading={isQuoteQuick ? "Set it up once. Let it work every day." : isSiteLaunch ? "Three steps. Five days. Done." : isWebCare ? "Simple setup. Ongoing care." : false /* WebBoost removed */ ? "Simple process. Real improvements." : undefined} />
+        <StepTimeline steps={product.howItWorks} heading={isQuoteQuick ? "Set it up once. Let it work every day." : isSiteLaunch ? "Three steps. Five days. Done." : isWebCare ? "Simple setup. Ongoing care.": undefined} />
 
         {isTradeLine && (
           <div style={{ background: mkt.surface, textAlign: "center", padding: "0 28px 48px" }} data-reveal="fade-up">
@@ -4091,14 +3605,6 @@ export default function ProductPage() {
           </div>
         )}
 
-        {false /* WebBoost removed */ && (
-          <div style={{ background: mkt.surface, textAlign: "center", padding: "0 28px 48px" }} data-reveal="fade-up">
-            <p style={{ fontSize: 15, fontWeight: 600, color: mkt.text, maxWidth: 560, margin: "0 auto", lineHeight: 1.5 }}>
-              No drawn-out agency process. No endless calls. Just focused improvements that matter.
-            </p>
-          </div>
-        )}
-
         {/* ── QuoteQuick: Demo + Comparison (after how-it-works) ── */}
         {isQuoteQuick && (
           <>
@@ -4119,8 +3625,6 @@ export default function ProductPage() {
         {/* ── WebCare: Comparison (after how-it-works) ── */}
         {isWebCare && <WCComparisonSection />}
 
-        {/* ── WebBoost: Comparison (after how-it-works) ── */}
-        {false /* WebBoost removed */ && <WBComparisonSection />}
 
         {/* ── §4 SOCIAL PROOF ── */}
         <SurfaceSection overlap className="py-4">
@@ -4145,8 +3649,6 @@ export default function ProductPage() {
         {/* ── WebCare: Results (after reviews, before pricing) ── */}
         {isWebCare && <WCResultsSection outcomes={product.outcomes} />}
 
-        {/* ── WebBoost: Results (after reviews, before pricing) ── */}
-        {false /* WebBoost removed */ && <WBResultsSection outcomes={product?.outcomes ?? []} />}
 
         {/* ── §5 PRICING (MANDATORY) ── */}
         <PricingSection
@@ -4158,7 +3660,6 @@ export default function ProductPage() {
             isSocialSync ? <SSPricingIntro /> :
             isSiteLaunch ? <SLPricingIntro /> :
             isWebCare ? <WCPricingIntro /> :
-            false /* WebBoost removed */ ? <WBPricingIntro /> :
             undefined
           }
         />
@@ -4180,8 +3681,6 @@ export default function ProductPage() {
         {/* ── WebCare: Risk Reversal (below pricing) ── */}
         {isWebCare && <WCRiskReversal />}
 
-        {/* ── WebBoost: Risk Reversal (below pricing) ── */}
-        {false /* WebBoost removed */ && <WBRiskReversal />}
 
         {/* ── §6 FAQ ── */}
         {product.faq.length > 0 && (
@@ -4275,13 +3774,6 @@ export default function ProductPage() {
             heading="Stop worrying about your website."
             subtext="Let us handle the upkeep — so you can stay focused on the work that matters. No contracts. No tech headaches. Just reliable maintenance built for trades."
             ctaLabel="Get Started with WebCare"
-            ctaHref="/Wizard"
-          />
-        ) : false /* WebBoost removed */ ? (
-          <CTASection
-            heading="Stop losing leads to a weak website."
-            subtext="Fix the speed, SEO, and structure issues that hold your site back — without paying for a full agency retainer."
-            ctaLabel="Boost My Website"
             ctaHref="/Wizard"
           />
         ) : (

@@ -1107,7 +1107,7 @@ export function registerPortalRoutes(app: Express) {
         // General help context — with natural escalation behavior
         systemPrompt = `You are a helpful support assistant for WeFixTrades, a company that provides digital marketing services for trade businesses (plumbers, electricians, builders, etc.).
 
-Services include: MapGuard (Google Business Profile), TradeLine (AI phone/chat), QuoteQuick (quote calculators), WebBoost (website speed & SEO), ReputationShield (review management), SocialSync (social media), SiteLaunch (website builds), and Fix & Optimize (website fixes).
+Services include: MapGuard (Google Business Profile), MapSetup (one-time GBP optimization), TradeLine (AI phone/chat), QuoteQuick (quote calculators), RankFlow (ongoing SEO), AdFlow (done-for-you ads), ReputationShield (review management), SocialSync (social media), SiteLaunch (website builds), WebCare (website maintenance), and WebFix (one-time website fixes).
 
 Your job:
 - Answer questions about how services work
