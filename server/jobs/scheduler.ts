@@ -119,9 +119,12 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  // Phase 3: minute-tick workers wrapped in runJob so failures land
+  // in job_logs and the admin system-health endpoint can surface them.
+  // No overlap guard — each worker is short and idempotent per row.
   cron.schedule("* * * * *", async () => {
     try {
-      await processNotificationQueue();
+      await runJob("notification_worker", processNotificationQueue);
     } catch (err: any) {
       console.error("[Scheduler] notification_worker error:", err.message);
     }
@@ -129,7 +132,7 @@ export function initScheduler() {
 
   cron.schedule("* * * * *", async () => {
     try {
-      await processFollowupJobs();
+      await runJob("followup_worker", processFollowupJobs);
     } catch (err: any) {
       console.error("[Scheduler] followup_worker error:", err.message);
     }
@@ -137,7 +140,7 @@ export function initScheduler() {
 
   cron.schedule("* * * * *", async () => {
     try {
-      await processAuditFollowups();
+      await runJob("audit_followup_worker", processAuditFollowups);
     } catch (err: any) {
       console.error("[Scheduler] audit_followup_worker error:", err.message);
     }
@@ -155,7 +158,7 @@ export function initScheduler() {
 
   cron.schedule("* * * * *", async () => {
     try {
-      await processReviewFollowups();
+      await runJob("review_followup_worker", processReviewFollowups);
     } catch (err: any) {
       console.error("[Scheduler] review_followup_worker error:", err.message);
     }
