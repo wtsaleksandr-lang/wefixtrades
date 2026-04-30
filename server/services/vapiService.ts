@@ -158,19 +158,37 @@ export interface VapiTranscriptMessage {
 
 /**
  * Verify a Vapi webhook signature.
- * Vapi sends an x-vapi-signature header containing an HMAC-SHA256
- * of the raw body using the webhook secret.
  *
- * Returns true if valid or if verification is skipped (no secret configured).
+ * Vapi sends an x-vapi-signature header containing an HMAC-SHA256 of the
+ * raw request body using the webhook secret. The HMAC must be computed
+ * over the bytes Vapi originally signed — re-serializing a parsed body
+ * (e.g. JSON.stringify(req.body)) produces a different byte sequence
+ * (key ordering, whitespace) and will fail verification, so callers MUST
+ * pass the raw request buffer captured at parse time.
+ *
+ * Behaviour when VAPI_WEBHOOK_SECRET is unset:
+ *   - production: fail closed (return false) — never accept unsigned events
+ *   - development/test: log a warning and accept (so local replay tooling works)
+ *
+ * Behaviour when rawBody is missing (route never captured it): fail closed.
  */
 export function verifyWebhookSignature(
-  rawBody: string | Buffer,
+  rawBody: Buffer | string | undefined,
   signature: string | undefined,
 ): boolean {
   const config = getVapiConfig();
+  const isProd = process.env.NODE_ENV === "production";
+
   if (!config.webhookSecret) {
-    // No secret configured — skip verification but log a warning
-    console.warn("[vapi] No VAPI_WEBHOOK_SECRET configured — skipping signature verification");
+    if (isProd) {
+      console.error(
+        "[vapi] PROD misconfiguration: VAPI_WEBHOOK_SECRET is not set — rejecting webhook",
+      );
+      return false;
+    }
+    console.warn(
+      "[vapi] DEV mode: VAPI_WEBHOOK_SECRET not set — accepting unsigned webhook. NEVER allow this in production.",
+    );
     return true;
   }
 
@@ -178,17 +196,30 @@ export function verifyWebhookSignature(
     return false;
   }
 
+  if (rawBody === undefined || rawBody === null) {
+    console.error(
+      "[vapi] Cannot verify signature: raw request body was not captured by the route.",
+    );
+    return false;
+  }
+
   try {
     const crypto = require("crypto");
+    const bodyBuf =
+      typeof rawBody === "string"
+        ? Buffer.from(rawBody, "utf-8")
+        : Buffer.isBuffer(rawBody)
+          ? rawBody
+          : Buffer.from(String(rawBody), "utf-8");
     const expected = crypto
       .createHmac("sha256", config.webhookSecret)
-      .update(typeof rawBody === "string" ? rawBody : rawBody.toString("utf-8"))
+      .update(bodyBuf)
       .digest("hex");
 
-    return crypto.timingSafeEqual(
-      Buffer.from(signature, "hex"),
-      Buffer.from(expected, "hex"),
-    );
+    const sigBuf = Buffer.from(signature, "hex");
+    const expBuf = Buffer.from(expected, "hex");
+    if (sigBuf.length !== expBuf.length) return false;
+    return crypto.timingSafeEqual(sigBuf, expBuf);
   } catch {
     return false;
   }
@@ -434,6 +465,77 @@ export async function logTradeLineCall(
         voiceMinutes: durationMinutes,
         calls: 1,
       });
+    }
+
+    /* ─── Phase 2.1: Lead extraction + client notifications ───
+     *
+     * Non-critical post-processing. Skipped for failed calls or short
+     * transcripts. Wrapped at every layer so a notification or extraction
+     * error can never break call logging or the webhook response.
+     */
+    if (report.endedReason !== "error") {
+      try {
+        const transcriptText =
+          report.transcript && report.transcript.trim().length >= 50
+            ? report.transcript
+            : null;
+
+        if (transcriptText) {
+          const { extractLeadFromTranscript } = await import("./tradelineLeadExtraction");
+          const extracted = await extractLeadFromTranscript(transcriptText);
+
+          if (extracted) {
+            const cs = await storage.getClientServiceById(clientServiceId);
+            const config = await storage.getTradeLineConfig(clientServiceId);
+
+            if (cs && config) {
+              const leadRow = await storage.createTradeLineLead({
+                client_id: cs.client_id,
+                client_service_id: clientServiceId,
+                call_log_id: inserted.id,
+                caller_phone: report.customerNumber ?? null,
+                caller_name: extracted.caller_name,
+                job_type: extracted.job_type,
+                summary: extracted.summary,
+                urgency: extracted.urgency,
+                address: extracted.address,
+                raw_extraction: extracted,
+              });
+
+              const { sendTradeLineSmsNotification, sendTradeLineEmailNotification } =
+                await import("./tradelineNotifications");
+
+              try {
+                await sendTradeLineSmsNotification(leadRow, config);
+              } catch (err: any) {
+                console.warn(
+                  `[vapi] SMS notification failed for lead ${leadRow.id}:`,
+                  err?.message,
+                );
+              }
+
+              try {
+                await sendTradeLineEmailNotification(
+                  leadRow,
+                  config,
+                  transcriptText,
+                  recordingUrl ?? null,
+                );
+              } catch (err: any) {
+                console.warn(
+                  `[vapi] Email notification failed for lead ${leadRow.id}:`,
+                  err?.message,
+                );
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn(
+          "[vapi] Lead extraction/notification pipeline failed (call logging unaffected):",
+          err?.message,
+        );
+      }
     }
   } catch (err) {
     console.error("[vapi] Failed to log TradeLine call:", err);

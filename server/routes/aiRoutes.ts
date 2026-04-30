@@ -7,12 +7,15 @@ import { PRICING_TYPES, validatePricingConfig, FAMILY_LABELS, FAMILY_DESCRIPTION
 import { pricingIntakeSchema, sampleQuoteSchema, type PricingDraftJob } from "@shared/schema";
 import { generatePricingConfigDraft } from "../aiPricingAgent";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
+import { resolveOpenAiKey } from "../openaiClient";
 
 let _openai: OpenAI | null = null;
 function getOpenAI(): OpenAI {
   if (!_openai) {
     _openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
+      // Canonical: OPENAI_API_KEY. Falls back to AI_INTEGRATIONS_OPENAI_API_KEY
+      // with a one-shot deprecation warning (resolveOpenAiKey).
+      apiKey: resolveOpenAiKey(),
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
     });
   }

@@ -28,6 +28,30 @@ function getStripe(): Stripe | null {
   return new Stripe(key, { apiVersion: "2025-01-27.acacia" as any });
 }
 
+/**
+ * Resolve the real Stripe identifiers off a Checkout Session.
+ *
+ *   `session.payment_intent` — populated for `mode: "payment"` sessions
+ *      (one-time purchases). May be a string or an expanded object.
+ *      Null for subscription-mode sessions.
+ *   `session.subscription`   — populated for `mode: "subscription"`
+ *      sessions. The first invoice carries the actual payment_intent.
+ *
+ * Storing the real ids (instead of the Checkout Session id) makes future
+ * refund / invoice correlation work correctly.
+ */
+function extractStripeIds(session: Stripe.Checkout.Session): {
+  paymentIntentId: string | null;
+  subscriptionId: string | null;
+} {
+  const pi = session.payment_intent;
+  const sub = session.subscription;
+  return {
+    paymentIntentId: typeof pi === "string" ? pi : pi?.id ?? null,
+    subscriptionId: typeof sub === "string" ? sub : sub?.id ?? null,
+  };
+}
+
 export function registerStripeBillingRoutes(app: Express): void {
 
   /* ═══════════════════════════════════════════
@@ -112,11 +136,22 @@ export function registerStripeBillingRoutes(app: Express): void {
 
     const sig = req.headers["stripe-signature"];
     const webhookSecret = process.env.STRIPE_BILLING_WEBHOOK_SECRET;
+    const isProd = process.env.NODE_ENV === "production";
+
+    // Phase 1 safety — production must be fully signed.
+    if (isProd && !webhookSecret) {
+      console.error("[billing-webhook] PROD misconfiguration: STRIPE_BILLING_WEBHOOK_SECRET is not set");
+      return res.status(500).send("Webhook secret not configured");
+    }
+    if (isProd && !sig) {
+      console.warn("[billing-webhook] PROD request rejected: missing stripe-signature header");
+      return res.status(400).send("Missing signature");
+    }
 
     let event: Stripe.Event;
 
     if (webhookSecret && sig) {
-      // Verify signature in production
+      // Verify signature
       try {
         event = stripe.webhooks.constructEvent(
           (req as any).rawBody,
@@ -128,9 +163,28 @@ export function registerStripeBillingRoutes(app: Express): void {
         return res.status(400).send("Invalid signature");
       }
     } else {
-      // No webhook secret configured — accept event without verification (dev mode)
+      // Dev-only fallback (already blocked above when isProd=true).
+      // Accepts unsigned events so local smoke / replay tooling works.
       event = req.body as Stripe.Event;
-      console.warn("[billing-webhook] No STRIPE_BILLING_WEBHOOK_SECRET — skipping signature verification");
+      console.warn(
+        `[billing-webhook] DEV mode: accepting unsigned event (secret=${webhookSecret ? "set" : "missing"}, sig=${sig ? "present" : "missing"}). NEVER allow this in production.`,
+      );
+    }
+
+    // ─── Idempotency: short-circuit duplicate Stripe deliveries ───
+    // Stripe occasionally redelivers events; we record every event id
+    // we've successfully processed and refuse to re-run side effects.
+    if (event.id) {
+      try {
+        const already = await storage.findProcessedStripeEvent(event.id);
+        if (already) {
+          console.log(`[billing-webhook] Duplicate event ${event.id} (${event.type}) — already processed at ${already.processed_at?.toISOString?.() ?? "unknown"}`);
+          return res.json({ received: true, duplicate: true });
+        }
+      } catch (err: any) {
+        // Don't block the webhook on a lookup failure — just log and proceed.
+        console.warn(`[billing-webhook] idempotency lookup failed for ${event.id}: ${err.message}`);
+      }
     }
 
     try {
@@ -176,6 +230,23 @@ export function registerStripeBillingRoutes(app: Express): void {
         default:
           // Ignore unhandled events
           break;
+      }
+
+      // Mark processed AFTER the handler completes successfully. If a
+      // handler throws, no row is written and Stripe's retry will be
+      // processed normally on the next delivery.
+      if (event.id) {
+        try {
+          await storage.markStripeEventProcessed({
+            stripe_event_id: event.id,
+            event_type: event.type,
+            metadata: null,
+          });
+        } catch (err: any) {
+          // Race with another worker: a UNIQUE conflict here is benign —
+          // the event was processed once. Log and continue.
+          console.warn(`[billing-webhook] markStripeEventProcessed failed for ${event.id}: ${err.message}`);
+        }
       }
 
       res.json({ received: true });
@@ -253,6 +324,8 @@ async function provisionOrConfirmService(
   serviceId: string,
   baseUrl: string,
 ) {
+  const { paymentIntentId, subscriptionId } = extractStripeIds(session);
+
   // Idempotency: check if already provisioned (public checkout pre-provisions; admin provision-first flow)
   const existing = await storage.findClientServiceByServiceId(clientId, serviceId);
   if (existing) {
@@ -261,10 +334,12 @@ async function provisionOrConfirmService(
     // Find the pending invoice created during provisioning and mark it paid
     const pendingInvoice = await storage.findPendingPaymentForClientService(existing.id);
     if (pendingInvoice) {
+      const prevMeta = (pendingInvoice.metadata as Record<string, any> | null) ?? {};
       await storage.updateClientPayment(pendingInvoice.id, {
         status: "paid",
         paid_at: new Date(),
-        stripe_payment_intent_id: session.id,
+        stripe_payment_intent_id: paymentIntentId,
+        metadata: { ...prevMeta, stripe_checkout_session_id: session.id },
       });
       console.log(`[billing-webhook] Updated invoice #${pendingInvoice.id} → paid`);
     } else {
@@ -279,11 +354,34 @@ async function provisionOrConfirmService(
           status: "paid",
           paid_at: new Date(),
           description: service ? service.name : "Service payment",
-          stripe_payment_intent_id: session.id,
+          stripe_payment_intent_id: paymentIntentId,
+          metadata: { stripe_checkout_session_id: session.id },
           actor_type: "system",
         });
         console.log(`[billing-webhook] No pending invoice found — created paid payment record`);
       }
+    }
+
+    // Persist Stripe subscription id into client_services.metadata
+    // (preserves all other metadata fields).
+    if (subscriptionId) {
+      const prevServiceMeta = (existing.metadata as Record<string, any> | null) ?? {};
+      if (prevServiceMeta.stripe_subscription_id !== subscriptionId) {
+        await storage.updateClientService(existing.id, {
+          metadata: { ...prevServiceMeta, stripe_subscription_id: subscriptionId },
+        });
+      }
+    }
+
+    // Flip pending → active now that payment is confirmed.
+    // Only touch services that are still 'pending' so we never regress
+    // an already-active or cancelled service.
+    if (existing.status === "pending") {
+      await storage.updateClientService(existing.id, {
+        status: "active",
+        started_at: existing.started_at ?? new Date(),
+      });
+      console.log(`[billing-webhook] Flipped client_service #${existing.id} pending → active after payment`);
     }
 
     // Send onboarding email now that payment is confirmed
@@ -299,17 +397,22 @@ async function provisionOrConfirmService(
   }
 
   const tradelineDefaults = getTradeLineDefaultConfig(serviceId);
-  const metadata = tradelineDefaults ? { tradeline: tradelineDefaults } : undefined;
+  const initialMetadata: Record<string, any> = {};
+  if (tradelineDefaults) initialMetadata.tradeline = tradelineDefaults;
+  if (subscriptionId) initialMetadata.stripe_subscription_id = subscriptionId;
 
   const clientService = await storage.createClientService({
     client_id: clientId,
     service_id: serviceId,
-    status: "pending",
+    // Admin-provision-on-webhook path: payment is already confirmed by
+    // the time we get here, so create as 'active' rather than 'pending'.
+    status: "active",
+    started_at: new Date(),
     enabled: true,
     fulfillment_mode: "internal",
     price_cents: service.default_price,
     billing_period: service.billing_period,
-    metadata,
+    metadata: Object.keys(initialMetadata).length ? initialMetadata : undefined,
   });
 
   // Auto-populate TradeLine notifications from client contact info
@@ -334,7 +437,8 @@ async function provisionOrConfirmService(
     status: "paid",
     paid_at: new Date(),
     description: `${service.name} — ${service.billing_period === "monthly" ? "monthly" : "one-time"}`,
-    stripe_payment_intent_id: session.id,
+    stripe_payment_intent_id: paymentIntentId,
+    metadata: { stripe_checkout_session_id: session.id },
     actor_type: "system",
   });
 

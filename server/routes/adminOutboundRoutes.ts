@@ -930,9 +930,27 @@ export function registerAdminOutboundRoutes(app: Express): void {
   app.post("/api/admin/outbound/webhook/:platform", async (req: Request, res: Response) => {
     const platform = req.params.platform as "instantly" | "smartlead";
 
-    // Validate secret header (set OUTREACH_WEBHOOK_SECRET env var)
+    // Validate secret header (set OUTREACH_WEBHOOK_SECRET env var).
+    //
+    // Phase-1 safety: production must always require the shared secret —
+    // if it is missing, refuse the request with 503 rather than fail open.
+    // Development/test deploys may run without it so local smoke tooling
+    // still works, but the bypass is loud-logged so it can never be
+    // mistaken for a configured deploy.
     const secret = process.env.OUTREACH_WEBHOOK_SECRET;
-    if (secret) {
+    const isProd = process.env.NODE_ENV === "production";
+
+    if (!secret) {
+      if (isProd) {
+        console.error(
+          "[outbound/webhook] PROD misconfiguration: OUTREACH_WEBHOOK_SECRET is not set — rejecting webhook",
+        );
+        return res.status(503).json({ error: "Webhook secret not configured" });
+      }
+      console.warn(
+        "[outbound/webhook] DEV mode: OUTREACH_WEBHOOK_SECRET not set — accepting unauthenticated webhook. NEVER allow this in production.",
+      );
+    } else {
       const provided = req.headers["x-webhook-secret"] || req.headers["x-api-key"];
       if (provided !== secret) {
         return res.status(401).json({ error: "Unauthorized" });
