@@ -114,7 +114,7 @@ RULES:
 const CONVERSION_GUIDANCE = `Use naturally, never force:
 - Rankings/visibility concerns → mention how MapGuard™ can help
 - Missed calls or after-hours → mention AI ChatLine™ or CallLine™
-- Website speed or SEO → mention WebBoost™
+- Website speed or SEO → mention RankFlow™ (ongoing SEO) or WebFix™ (one-time fixes)
 - Reviews or reputation → mention ReputationShield™
 - Needs a website → mention SiteLaunch™
 - Wants quotes on their site → mention QuoteQuick Pro™
