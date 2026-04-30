@@ -21,6 +21,7 @@ import {
   cancelPendingForSubscription,
 } from "../services/dunningService";
 import { getTradeLineDefaultConfig } from "@shared/schema";
+import { kickoffMapguardService } from "../services/mapguardTaskEngine";
 
 function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -288,6 +289,19 @@ async function provisionOrConfirmService(
 
     // Send onboarding email now that payment is confirmed
     await sendOnboardingForClientService(clientId, existing.id, serviceId, baseUrl);
+
+    // Phase-2: trigger MapGuard kickoff (idempotent) so paying customers
+    // get tasks + a first scan immediately instead of waiting for the weekly cron.
+    if (serviceId.startsWith("mapguard")) {
+      try {
+        const result = await kickoffMapguardService(clientId, existing.id, serviceId);
+        if (result.kickedOff) {
+          console.log(`[billing-webhook] MapGuard kickoff: ${result.tasksCreated} tasks for client ${clientId} (${serviceId})`);
+        }
+      } catch (err: any) {
+        console.warn(`[billing-webhook] MapGuard kickoff failed for client ${clientId}: ${err.message}`);
+      }
+    }
     return;
   }
 
@@ -403,6 +417,19 @@ async function provisionOrConfirmService(
   });
 
   console.log(`[billing-webhook] Provisioned ${serviceId} for client ${clientId} (${taskTemplates.length} tasks)`);
+
+  // Phase-2: trigger MapGuard kickoff for admin-initiated checkouts that
+  // provision the service inside the webhook (no pre-provision step).
+  if (serviceId.startsWith("mapguard")) {
+    try {
+      const result = await kickoffMapguardService(clientId, clientService.id, serviceId);
+      if (result.kickedOff) {
+        console.log(`[billing-webhook] MapGuard kickoff: ${result.tasksCreated} tasks for client ${clientId} (${serviceId})`);
+      }
+    } catch (err: any) {
+      console.warn(`[billing-webhook] MapGuard kickoff failed for client ${clientId}: ${err.message}`);
+    }
+  }
 }
 
 /** Find and send onboarding emails for a client_service that was already provisioned */

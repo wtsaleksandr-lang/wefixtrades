@@ -178,6 +178,24 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
     },
   });
 
+  const runScan = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/mapguard/clients/${clientId}/scan`, {});
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/mapguard/clients/${clientId}/tasks`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/mapguard/clients/${clientId}/task-summary`] });
+      toast({
+        title: "Scan complete",
+        description: `Score ${data?.score ?? "—"}${data?.tasks_created ? ` · ${data.tasks_created} task(s) auto-created` : ""}`,
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Scan failed", description: err.message || "Try again", variant: "destructive" });
+    },
+  });
+
   // ─── Filtering & Grouping ───
   const filteredTasks = (tasks ?? []).filter((t) => {
     if (statusFilter === "open") return !["completed", "cancelled"].includes(t.status);
@@ -331,6 +349,15 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
           </span>
         </div>
         <div className="flex items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() => runScan.mutate()}
+            disabled={runScan.isPending}
+          >
+            <Eye className="w-3 h-3 mr-1" /> {runScan.isPending ? "Scanning…" : "Run Scan"}
+          </Button>
           <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setShowAuditGen(true)}>
             <Wand2 className="w-3 h-3 mr-1" /> From Audit
           </Button>
