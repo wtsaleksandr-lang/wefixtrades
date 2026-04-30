@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { requireClient, hashPassword, verifyPassword } from "../auth";
 import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { chat as aiChat } from "../services/aiService";
+import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../services/threadService";
 import { authRateLimiter } from "../services/rateLimiter";
 import {
   clients,
@@ -932,95 +932,26 @@ export function registerPortalRoutes(app: Express) {
   });
 
   /**
-   * POST /api/portal/ai-chat
-   * Context-aware AI assistant for onboarding or general help.
+   * GET /api/portal/thread/messages
+   * Returns the active thread's message history for the authenticated portal user.
+   * Used by PortalChatWidget to hydrate on mount (source of truth for persistence).
    */
-  app.post("/api/portal/ai-chat", requireClient, async (req: Request, res: Response) => {
+  app.get("/api/portal/thread/messages", requireClient, async (req: Request, res: Response) => {
     try {
-      const { messages, context } = req.body;
+      const userId = req.user!.id;
+      const page = typeof req.query.page === "string" ? req.query.page : undefined;
+      const pageCtx = derivePageContext(page);
+      const { id: threadId, isNew } = await getOrCreateThread(userId, "portal", pageCtx);
 
-      if (!messages || !Array.isArray(messages) || messages.length === 0) {
-        return res.status(400).json({ error: "messages array is required" });
+      if (isNew) {
+        return res.json({ threadId, messages: [], pageContext: pageCtx });
       }
 
-      // Validate and sanitize message roles — only allow user/assistant
-      const allowedRoles = new Set(["user", "assistant"]);
-      const sanitizedMessages = messages
-        .filter((m: any) => m && typeof m.content === "string" && allowedRoles.has(m.role))
-        .slice(-10);
-
-      let systemPrompt: string;
-
-      if (context?.surface === "help") {
-        // General help context
-        systemPrompt = `You are a helpful support assistant for WeFixTrades, a company that provides digital marketing services for trade businesses (plumbers, electricians, builders, etc.).
-
-Services include: MapGuard (Google Business Profile), MapSetup (one-time GBP optimization), TradeLine (AI phone/chat), QuoteQuick (quote calculators), RankFlow (ongoing SEO), AdFlow (done-for-you ads), ReputationShield (review management), SocialSync (social media), SiteLaunch (website builds), WebCare (website maintenance), and WebFix (one-time website fixes).
-
-Your job:
-- Answer questions about how services work
-- Explain billing, onboarding, and service delivery
-- Help clients understand their portal and dashboard
-- Keep answers short and practical (2-4 sentences)
-- Use Australian English
-- If you don't know something specific to their account, suggest they submit a ticket
-
-Do NOT:
-- Make up account-specific details (balances, dates, statuses)
-- Provide legal or financial advice
-- Discuss internal pricing or margins`;
-      } else {
-        // Onboarding context
-        const fieldList = (context?.fields ?? [])
-          .map((f: { key: string; label: string; required: boolean }) =>
-            `- ${f.label}${f.required ? " (required)" : " (optional)"}`)
-          .join("\n");
-
-        const currentValues = context?.current_responses
-          ? Object.entries(context.current_responses)
-              .filter(([, v]) => v !== "" && v !== false)
-              .map(([k, v]) => `- ${k}: ${v}`)
-              .join("\n")
-          : "None filled yet.";
-
-        systemPrompt = `You are a helpful onboarding assistant for WeFixTrades, a company that provides digital marketing and trade business services.
-
-The client is filling out an onboarding form for: ${context?.service_name ?? "a service"} (${context?.service_id ?? ""}).
-
-The form fields are:
-${fieldList}
-
-What the client has filled in so far:
-${currentValues}
-
-Your job:
-- Help explain what each field means in simple terms
-- Suggest answers based on the client's business
-- Ask clarifying questions to help them think
-- Keep answers short and practical (1-3 sentences)
-- Use Australian English
-- Never auto-submit or override their input
-- If they seem stuck, ask "What services bring you most jobs?" or similar to get them started
-
-Do NOT:
-- Make up specific business details
-- Provide legal or financial advice
-- Discuss pricing of WeFixTrades services`;
-      }
-
-      const reply = await aiChat({
-        system: systemPrompt,
-        messages: sanitizedMessages.map((m: { role: string; content: string }) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
-        maxTokens: 300,
-      });
-
-      res.json({ reply });
+      const messages = await loadThreadMessages(threadId);
+      res.json({ threadId, messages, pageContext: pageCtx });
     } catch (err) {
-      console.error("Portal AI chat error:", err);
-      res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
+      console.error("Portal thread messages error:", err);
+      res.status(500).json({ error: "Failed to load conversation" });
     }
   });
 }

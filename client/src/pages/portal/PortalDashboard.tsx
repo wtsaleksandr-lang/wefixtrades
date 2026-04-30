@@ -153,6 +153,7 @@ export default function PortalDashboard() {
             <StatCard
               label="Setup Required"
               value={data.pending_onboarding}
+              subtitle="Forms to complete"
               icon={ClipboardList}
               color="text-amber-600"
               bgColor="bg-amber-50"
@@ -161,6 +162,7 @@ export default function PortalDashboard() {
             <StatCard
               label="Action Needed"
               value={data.action_needed}
+              subtitle="Waiting on you"
               icon={AlertCircle}
               color={data.action_needed > 0 ? "text-red-600" : "text-gray-400"}
               bgColor={data.action_needed > 0 ? "bg-red-50" : "bg-gray-50"}
@@ -349,6 +351,7 @@ export default function PortalDashboard() {
 function StatCard({
   label,
   value,
+  subtitle,
   icon: Icon,
   color,
   bgColor,
@@ -356,6 +359,7 @@ function StatCard({
 }: {
   label: string;
   value: string | number;
+  subtitle?: string;
   icon: React.ElementType;
   color: string;
   bgColor: string;
@@ -370,6 +374,7 @@ function StatCard({
         <div>
           <p className="text-xs text-gray-500">{label}</p>
           <p className="text-lg font-semibold text-gray-900">{value}</p>
+          {subtitle && <p className="text-[10px] text-gray-400 -mt-0.5">{subtitle}</p>}
         </div>
       </div>
     </div>

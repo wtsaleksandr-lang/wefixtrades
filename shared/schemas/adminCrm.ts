@@ -44,6 +44,7 @@ export const clients = pgTable("clients", {
   automation_enabled: boolean("automation_enabled").notNull().default(true),
   human_override: boolean("human_override").notNull().default(false),
   metadata: jsonb("metadata"),                             // flexible extra data
+  journey_summary: text("journey_summary"),                 // pre-signup website chat summary
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
