@@ -196,7 +196,7 @@ export default function PortalTicketDetail() {
                       value={reply}
                       onChange={(e) => setReply(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey && reply.trim()) {
+                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && reply.trim()) {
                           e.preventDefault();
                           sendReply.mutate();
                         }
@@ -208,9 +208,9 @@ export default function PortalTicketDetail() {
                     <button
                       onClick={() => sendReply.mutate()}
                       disabled={!reply.trim() || sendReply.isPending}
-                      className="px-3 py-2.5 rounded-lg bg-[#2D6A4F] text-white hover:bg-[#1B4332] disabled:opacity-40 transition-colors self-end"
+                      className="px-4 py-2.5 rounded-lg bg-[#2D6A4F] text-white hover:bg-[#1B4332] disabled:opacity-40 transition-colors self-end text-xs font-medium"
                     >
-                      {sendReply.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      {sendReply.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send"}
                     </button>
                   </div>
                   {sendReply.error && (
