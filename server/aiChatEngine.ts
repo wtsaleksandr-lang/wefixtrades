@@ -301,7 +301,10 @@ export async function executeTool(
     const description = args.description || "No description provided";
     const ticket = await storage.createSupportTicket({
       calculator_id: calc?.id ?? null,
+      client_id: 0,
+      subject: description.slice(0, 100),
       description,
+      source: "ai_escalation",
       status: "open",
     });
 

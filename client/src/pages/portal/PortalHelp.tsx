@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import {
-  Loader2, ChevronDown, CheckCircle2,
-  HelpCircle, CreditCard, Wrench, ClipboardList, Calculator,
+  Loader2, ChevronDown, Send, MessageCircle, Plus, CheckCircle2,
+  HelpCircle, CreditCard, Wrench, ClipboardList, Calculator, ChevronRight,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 
@@ -72,11 +73,127 @@ function FaqSection() {
   );
 }
 
+/* ─── AI Help Section ─── */
+function AiHelpSection() {
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+
+  const SUGGESTIONS = [
+    "How do I complete my setup form?",
+    "When will my service go live?",
+    "How do I check my billing status?",
+    "What does my service include?",
+  ];
+
+  async function send(text?: string) {
+    const msg = (text || input).trim();
+    if (!msg || loading) return;
+    const updated = [...messages, { role: "user" as const, content: msg }];
+    setMessages(updated);
+    setInput("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/portal/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          messages: updated.map((m) => ({ role: m.role, content: m.content })),
+          context: { surface: "help" },
+        }),
+      });
+      const data = await res.json();
+      setMessages((prev) => [...prev, { role: "assistant", content: data.reply || "Sorry, something went wrong." }]);
+    } catch {
+      setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong. Please try again." }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+        <MessageCircle className="w-4 h-4 text-[#2D6A4F]" />
+        <h2 className="text-sm font-semibold text-gray-900">Ask AI</h2>
+      </div>
+      <div className="p-4">
+        {/* Messages */}
+        <div className="min-h-[120px] max-h-[300px] overflow-y-auto space-y-3 mb-3">
+          {messages.length === 0 && (
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-400 mb-3">Ask anything about your services, billing, or account.</p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {SUGGESTIONS.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => send(s)}
+                    className="px-3 py-1.5 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-full hover:bg-gray-100 transition-colors"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                m.role === "user" ? "bg-[#2D6A4F] text-white" : "bg-gray-100 text-gray-700"
+              }`}>
+                {m.content}
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="bg-gray-100 rounded-lg px-3 py-2"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div>
+            </div>
+          )}
+          <div ref={endRef} />
+        </div>
+        {/* Input */}
+        <div className="flex gap-2">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
+            placeholder="Type your question..."
+            className="flex-1 text-sm px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
+          />
+          <button
+            onClick={() => send()}
+            disabled={loading || !input.trim()}
+            className="px-3 py-2.5 rounded-lg bg-[#2D6A4F] text-white hover:bg-[#1B4332] disabled:opacity-40 transition-colors"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Categories ─── */
+const CATEGORIES = [
+  { value: "general", label: "General" },
+  { value: "billing", label: "Billing" },
+  { value: "service", label: "Service" },
+  { value: "onboarding", label: "Onboarding" },
+  { value: "access", label: "Access" },
+  { value: "other", label: "Other" },
+];
+
 /* ─── Ticket Form + History ─── */
 function TicketSection() {
   const queryClient = useQueryClient();
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [category, setCategory] = useState("general");
   const [success, setSuccess] = useState(false);
 
   const { data: ticketData } = useQuery<{ tickets: TicketRow[] }>({
@@ -94,14 +211,18 @@ function TicketSection() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ subject: subject.trim(), message: message.trim() }),
+        body: JSON.stringify({ subject: subject.trim(), message: message.trim(), category }),
       });
-      if (!res.ok) throw new Error("Failed to create ticket");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to create ticket");
+      }
       return res.json();
     },
     onSuccess: () => {
       setSubject("");
       setMessage("");
+      setCategory("general");
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
       queryClient.invalidateQueries({ queryKey: ["/api/portal/tickets"] });
@@ -110,7 +231,7 @@ function TicketSection() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!message.trim()) return;
+    if (!subject.trim() || !message.trim()) return;
     createTicket.mutate();
   }
 
@@ -126,13 +247,27 @@ function TicketSection() {
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Subject</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">
+              Subject <span className="text-red-400">*</span>
+            </label>
             <input
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="e.g. Question about my MapGuard service"
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
             />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">Category</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] bg-white"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">
@@ -149,7 +284,7 @@ function TicketSection() {
           <div className="flex items-center gap-3">
             <button
               type="submit"
-              disabled={!message.trim() || createTicket.isPending}
+              disabled={!subject.trim() || !message.trim() || createTicket.isPending}
               className="px-4 py-2 text-sm font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] disabled:opacity-60 transition-colors"
             >
               {createTicket.isPending ? "Submitting..." : "Submit Ticket"}
@@ -160,7 +295,9 @@ function TicketSection() {
               </span>
             )}
             {createTicket.error && (
-              <span className="text-xs text-red-600">Failed to submit ticket. Please try again.</span>
+              <span className="text-xs text-red-600">
+                {(createTicket.error as Error).message || "Failed to submit ticket. Please try again."}
+              </span>
             )}
           </div>
         </form>
@@ -174,20 +311,32 @@ function TicketSection() {
           </div>
           <div className="divide-y divide-gray-50">
             {tickets.map((t) => (
-              <div key={t.id} className="px-5 py-3 flex items-center justify-between">
-                <div className="min-w-0">
+              <Link
+                key={t.id}
+                href={`/portal/help/tickets/${t.id}`}
+                className="px-5 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors cursor-pointer"
+              >
+                <div className="min-w-0 flex-1">
                   <p className="text-sm text-gray-800 truncate">{t.subject || t.description.slice(0, 60)}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     #{t.id} &middot; {formatDate(t.created_at)}
-                    {t.updated_at && t.updated_at !== t.created_at && (
-                      <> &middot; Updated {formatDate(t.updated_at)}</>
+                    {t.last_message_at && (
+                      <> &middot; Last reply {formatDate(t.last_message_at)}</>
                     )}
                   </p>
+                  {t.last_message_preview && (
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">
+                      {t.last_message_author === "admin" ? "Support: " : ""}{t.last_message_preview}
+                    </p>
+                  )}
                 </div>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ml-3 ${TICKET_STATUS[t.status] || "bg-gray-100 text-gray-600"}`}>
-                  {TICKET_STATUS_LABELS[t.status] || t.status.replace(/_/g, " ")}
-                </span>
-              </div>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${TICKET_STATUS[t.status] || "bg-gray-100 text-gray-600"}`}>
+                    {TICKET_STATUS_LABELS[t.status] || t.status.replace(/_/g, " ")}
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -201,15 +350,22 @@ interface TicketRow {
   id: number;
   subject: string | null;
   status: string;
+  priority: string;
+  category: string;
   description: string;
   created_at: string | null;
   updated_at: string | null;
   resolved_at: string | null;
+  closed_at: string | null;
+  last_message_preview: string | null;
+  last_message_at: string | null;
+  last_message_author: string | null;
 }
 
 const TICKET_STATUS: Record<string, string> = {
   open: "bg-amber-50 text-amber-700",
   in_progress: "bg-indigo-50 text-indigo-700",
+  waiting_on_customer: "bg-blue-50 text-blue-700",
   resolved: "bg-emerald-50 text-emerald-700",
   closed: "bg-gray-100 text-gray-500",
 };
@@ -217,6 +373,7 @@ const TICKET_STATUS: Record<string, string> = {
 const TICKET_STATUS_LABELS: Record<string, string> = {
   open: "Open",
   in_progress: "In progress",
+  waiting_on_customer: "Waiting on you",
   resolved: "Resolved",
   closed: "Closed",
 };
@@ -234,11 +391,14 @@ export default function PortalHelp() {
         {/* Header */}
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Help</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Find answers or contact us.</p>
+          <p className="text-sm text-gray-500 mt-0.5">Find answers, ask AI, or contact us.</p>
         </div>
 
         {/* FAQ */}
         <FaqSection />
+
+        {/* AI Help */}
+        <AiHelpSection />
 
         {/* Contact / Tickets */}
         <TicketSection />
