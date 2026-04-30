@@ -20,13 +20,9 @@ import { registerOnboardingPublicRoutes } from "./onboardingPublicRoutes";
 import { registerVapiRoutes } from "./vapiRoutes";
 import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
 import { registerPortalRoutes } from "./portalRoutes";
-import { registerAdminSupportRoutes } from "./adminSupportRoutes";
 import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
 import { registerDemoLeadRoutes } from "./demoLeadRoutes";
-import { registerSocialSyncRoutes } from "./socialSyncRoutes";
-import { registerReputationRoutes } from "./reputationRoutes";
-import { registerSalesRoutes } from "./salesRoutes";
-import { registerMediaRoute } from "../services/socialSync/mediaService";
+import { registerAdminOutboundRoutes } from "./adminOutboundRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -52,13 +48,9 @@ export async function registerRoutes(
   registerVapiRoutes(app);
   registerPublicCheckoutRoutes(app);
   registerPortalRoutes(app);
-  registerAdminSupportRoutes(app);
   registerMissedCallLeadRoutes(app);
   registerDemoLeadRoutes(app);
-  registerSocialSyncRoutes(app);
-  registerReputationRoutes(app);
-  registerSalesRoutes(app);
-  registerMediaRoute(app);
+  registerAdminOutboundRoutes(app);
 
   return httpServer;
 }

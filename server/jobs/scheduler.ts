@@ -6,12 +6,7 @@ import { processNotificationQueue } from "./notificationWorker";
 import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
-import { processSocialSyncQueue } from "./socialSyncWorker";
-import { generateAllDue } from "../services/socialSync/orchestrator";
-import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
-import { cleanupOldMedia } from "../services/socialSync/mediaService";
-import { processAllClientReviews } from "../services/reputation/reviewOrchestrator";
-import { processReviewRequests } from "../services/reputation/reviewRequestService";
+import { processOutboundSync } from "./outboundSyncWorker";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -135,35 +130,14 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
-  // SocialSync publish queue — runs every 2 minutes
-  cron.schedule("*/2 * * * *", async () => {
+  // Outbound sync — push pending prospects to Instantly/Smartlead every 15 minutes
+  cron.schedule("*/15 * * * *", async () => {
     try {
-      await runJob("socialsync_queue_worker", processSocialSyncQueue);
+      await runJob("outbound_sync", processOutboundSync);
     } catch (err: any) {
-      console.error("[Scheduler] socialsync_queue_worker error:", err.message);
+      console.error("[Scheduler] outbound_sync cron handler error:", err.message);
     }
   });
-
-  // SocialSync content generation — runs weekly on Sunday at 6 AM UTC
-  // Generates the upcoming week's content for all autopilot clients
-  cron.schedule("0 6 * * 0", async () => {
-    console.log("[Scheduler] Running SocialSync weekly content generation...");
-    try {
-      await runJob("socialsync_weekly_generation", generateAllDue);
-    } catch (err: any) {
-      console.error("[Scheduler] socialsync_weekly_generation error:", err.message);
-    }
-  }, { timezone: "UTC" });
-
-  // SocialSync connection expiry check — runs daily at 4 AM UTC
-  cron.schedule("0 4 * * *", async () => {
-    console.log("[Scheduler] Running SocialSync connection expiry check...");
-    try {
-      await runJob("socialsync_expiry_check", checkConnectionExpiry);
-    } catch (err: any) {
-      console.error("[Scheduler] socialsync_expiry_check error:", err.message);
-    }
-  }, { timezone: "UTC" });
 
   console.log("[Scheduler] Jobs scheduled:");
   console.log("  - Daily aggregation: 02:00 UTC every day");
@@ -172,42 +146,5 @@ export function initScheduler() {
   console.log("  - Notification queue worker: every minute");
   console.log("  - Follow-up jobs worker: every minute");
   console.log("  - Audit follow-up worker: every minute");
-  console.log("  - SocialSync queue worker: every 2 minutes");
-  console.log("  - SocialSync weekly generation: 06:00 UTC every Sunday");
-  console.log("  - SocialSync expiry check: 04:00 UTC every day");
-
-  // SocialSync media cleanup — runs daily at 5 AM UTC
-  cron.schedule("0 5 * * *", async () => {
-    console.log("[Scheduler] Running SocialSync media cleanup...");
-    try {
-      await runJob("socialsync_media_cleanup", cleanupOldMedia);
-    } catch (err: any) {
-      console.error("[Scheduler] socialsync_media_cleanup error:", err.message);
-    }
-  }, { timezone: "UTC" });
-
-  console.log("  - SocialSync media cleanup: 05:00 UTC every day");
-
-  // SocialSync review automation — runs every 6 hours
-  cron.schedule("0 */6 * * *", async () => {
-    console.log("[Scheduler] Running SocialSync review automation...");
-    try {
-      await runJob("socialsync_review_automation", processAllClientReviews);
-    } catch (err: any) {
-      console.error("[Scheduler] socialsync_review_automation error:", err.message);
-    }
-  }, { timezone: "UTC" });
-
-  console.log("  - SocialSync review automation: every 6 hours");
-
-  // Review request delivery — runs every 15 minutes
-  cron.schedule("*/15 * * * *", async () => {
-    try {
-      await runJob("review_request_delivery", processReviewRequests);
-    } catch (err: any) {
-      console.error("[Scheduler] review_request_delivery error:", err.message);
-    }
-  });
-
-  console.log("  - Review request delivery: every 15 minutes");
+  console.log("  - Outbound sync worker: every 15 minutes");
 }
