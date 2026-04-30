@@ -203,8 +203,11 @@ export async function sendWeeklyUpdate(clientId: number, email: string, business
   // Always end with reassurance
   bullets.push("No action needed from you — we handle everything");
 
-  const portalUrl = process.env.VAPI_SERVER_URL
-    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.co.uk");
+  // Phase-2: align with monthly-report fallback chain so weekly emails
+  // and monthly reports point at the same domain.
+  const portalUrl = process.env.APP_URL
+    || process.env.APP_PUBLIC_URL
+    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
 
   const subject = `Your weekly visibility update — ${businessName}`;
 
