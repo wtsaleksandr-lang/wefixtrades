@@ -228,6 +228,14 @@ export function registerStripeBillingRoutes(app: Express): void {
           await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, event.id);
           break;
 
+        case "payment_intent.payment_failed":
+          // Phase 2: one-time payment failed (e.g. setup fees, one-time SKUs).
+          // Subscription invoice failures already flow through
+          // invoice.payment_failed; we skip PIs that have an invoice attached
+          // to avoid double-handling.
+          await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent, event.id);
+          break;
+
         case "charge.refunded":
           // Phase 2: Stripe issued a refund (manual dashboard or API).
           // Records a negative-amount client_payments row and sends a
@@ -908,4 +916,71 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
   });
 
   console.log(`[billing-webhook] charge.refunded ${charge.id} → refund row #${refundRow.id} (${refundAmount} cents, full=${isFullRefund}, service_cancelled=${serviceCancelled})`);
+}
+
+
+/* ─── payment_intent.payment_failed (Phase 2) ─── */
+
+async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent, _eventId: string) {
+  // Subscription failures are owned by invoice.payment_failed (which also
+  // schedules the dunning sequence). When pi.invoice is set, the parent
+  // event for this failure is invoice.payment_failed — skip here.
+  if (pi.invoice) {
+    console.log(`[billing-webhook] payment_intent.payment_failed ${pi.id} has invoice — skipping (subscription path)`);
+    return;
+  }
+
+  // Look up the originating payment row by the real PaymentIntent id.
+  const existing = await storage.findPaymentByStripePaymentIntent(pi.id);
+  if (!existing) {
+    console.warn(`[billing-webhook] payment_intent.payment_failed ${pi.id}: no matching client_payments row — skipping`);
+    return;
+  }
+
+  // Idempotency: don't re-flip an already-failed row. The Phase 1 event-id
+  // short-circuit at the top of the webhook is the primary guard, but
+  // belt-and-braces in case the row was flipped by a prior delivery.
+  if (existing.status === "failed") {
+    console.log(`[billing-webhook] payment_intent.payment_failed ${pi.id}: row already failed — skipping`);
+    return;
+  }
+
+  const lastError = pi.last_payment_error;
+  const prevMeta = (existing.metadata as Record<string, any> | null) ?? {};
+
+  await storage.updateClientPayment(existing.id, {
+    status: "failed",
+    metadata: {
+      ...prevMeta,
+      last_failure_code: lastError?.code ?? null,
+      last_failure_decline_code: lastError?.decline_code ?? null,
+      last_failure_message: lastError?.message ?? null,
+      last_failure_type: lastError?.type ?? null,
+      last_failure_at: new Date().toISOString(),
+    },
+  });
+
+  // NOTE: A dedicated one-time-payment-failed customer email is deferred
+  // to a later phase. The existing paymentFailedEmail.ts module is
+  // subscription-shaped (talks about Stripe auto-retries) and would mislead
+  // a one-time customer. For now we record + log; the customer's card
+  // issuer already sent them a decline notification.
+
+  await storage.logAdminActivity({
+    actor_type: "system",
+    actor_name: "Stripe Webhook",
+    action: "payment.one_time_failed",
+    entity_type: "client",
+    entity_id: existing.client_id,
+    summary: `One-time payment failed: PI ${pi.id} (${lastError?.code ?? "unknown"})`,
+    metadata: {
+      stripe_payment_intent_id: pi.id,
+      client_payment_id: existing.id,
+      failure_code: lastError?.code ?? null,
+      failure_decline_code: lastError?.decline_code ?? null,
+      failure_message: lastError?.message ?? null,
+    },
+  });
+
+  console.log(`[billing-webhook] payment_intent.payment_failed ${pi.id} → client_payments #${existing.id} flipped to failed (${lastError?.code ?? "unknown"})`);
 }

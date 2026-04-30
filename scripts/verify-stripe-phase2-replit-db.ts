@@ -1,10 +1,10 @@
 /**
- * Phase 2 — REAL DB verification (charge.refunded only for now).
+ * Phase 2 — REAL DB verification (charge.refunded + payment_intent.payment_failed).
  *
  * Mirrors scripts/verify-stripe-phase1-replit-db.ts. Inserts isolated
- * test fixtures into the real Postgres, posts a synthetic signed
- * charge.refunded webhook to the running app server, reads back rows
- * to assert behavior, then cleans up.
+ * test fixtures into the real Postgres, posts synthetic signed webhooks
+ * to the running app server, reads back rows to assert behavior, then
+ * cleans up.
  *
  * SAFETY GUARANTEES:
  *   1. Refuses to run if NODE_ENV=production
@@ -17,8 +17,6 @@
  *   DATABASE_URL                    — same Postgres the running server uses
  *   STRIPE_BILLING_WEBHOOK_SECRET   — same secret the running server has
  *   SERVER_URL (optional)           — default http://127.0.0.1:5001
- *
- * Phase 2-Commit-B will extend this with payment_intent.payment_failed.
  */
 
 /* eslint-disable no-console */
@@ -50,14 +48,18 @@ const {
 const { eq, and } = await import("drizzle-orm");
 
 const RUN_ID = crypto.randomBytes(6).toString("hex");
-const TAG = `phase2refund_${RUN_ID}`;
+const TAG = `phase2_${RUN_ID}`;
 const TEST_SERVICE_ID = `__phase2_test_${RUN_ID}`;
 const TEST_EMAIL      = `phase2-test-${RUN_ID}@phase2-test.invalid`;
 const STRIPE_CUSTOMER = `cus_test_${TAG}`;
-const STRIPE_PI       = `pi_test_${TAG}`;
+// charge.refunded fixtures
+const STRIPE_PI       = `pi_test_${TAG}_refund`;
 const STRIPE_CHARGE   = `ch_test_${TAG}`;
 const STRIPE_REFUND   = `re_test_${TAG}`;
-const STRIPE_EVENT    = `evt_test_${TAG}`;
+const STRIPE_EVENT    = `evt_test_${TAG}_refund`;
+// payment_intent.payment_failed fixtures
+const STRIPE_PI_FAIL  = `pi_test_${TAG}_pifail`;
+const STRIPE_EVENT_PIFAIL = `evt_test_${TAG}_pifail`;
 
 console.log("══════════════════════════════════════════════════════════════════");
 console.log(`  PHASE 2 — REAL DB VERIFICATION (charge.refunded, run ${RUN_ID})`);
@@ -81,6 +83,7 @@ const created: {
   clientServiceId?: number;
   originatingPaymentId?: number;
   refundPaymentId?: number;
+  pifailPaymentId?: number;
 } = {};
 
 async function cleanup() {
@@ -105,6 +108,9 @@ async function cleanup() {
     if (created.originatingPaymentId) {
       await db.delete(clientPayments).where(eq(clientPayments.id, created.originatingPaymentId));
     }
+    if (created.pifailPaymentId) {
+      await db.delete(clientPayments).where(eq(clientPayments.id, created.pifailPaymentId));
+    }
     if (created.clientServiceId) {
       await db.delete(clientServices).where(eq(clientServices.id, created.clientServiceId));
     }
@@ -115,6 +121,7 @@ async function cleanup() {
       await db.delete(serviceCatalog).where(eq(serviceCatalog.id, created.serviceId));
     }
     await db.delete(processedStripeEvents).where(eq(processedStripeEvents.stripe_event_id, STRIPE_EVENT));
+    await db.delete(processedStripeEvents).where(eq(processedStripeEvents.stripe_event_id, STRIPE_EVENT_PIFAIL));
     console.log("[cleanup] Done.");
   } catch (err: any) {
     console.error(`[cleanup] FAILED: ${err.message}`);
@@ -307,6 +314,116 @@ try {
     eq(clientPayments.type, "refund"),
   ));
   record("no second refund row inserted on replay", refundsAfter.length === 1, `refund rows=${refundsAfter.length}`);
+
+  /* ─── Phase 2-B: payment_intent.payment_failed ─── */
+  console.log("\n[5] Inserting one-time payment fixture for PI-failed test");
+  const [pifailPay] = await db.insert(clientPayments).values({
+    client_id: insertedClient.id,
+    type: "payment",
+    amount_cents: 19900,
+    status: "pending",
+    description: `__Phase2 PI-failed Verify Payment (${RUN_ID})`,
+    stripe_payment_intent_id: STRIPE_PI_FAIL,
+    actor_type: "system",
+    metadata: { phase2_test_run: RUN_ID } as any,
+  }).returning({ id: clientPayments.id });
+  created.pifailPaymentId = pifailPay.id;
+  console.log(`  fixture: client_payments.id=${pifailPay.id} pi=${STRIPE_PI_FAIL}`);
+
+  const pifailEventBody = JSON.stringify({
+    id: STRIPE_EVENT_PIFAIL,
+    object: "event",
+    api_version: "2025-01-27.acacia",
+    created: Math.floor(Date.now() / 1000),
+    type: "payment_intent.payment_failed",
+    data: { object: {
+      id: STRIPE_PI_FAIL,
+      object: "payment_intent",
+      customer: STRIPE_CUSTOMER,
+      invoice: null,
+      amount: 19900,
+      currency: "usd",
+      status: "requires_payment_method",
+      last_payment_error: {
+        type: "card_error",
+        code: "card_declined",
+        decline_code: "generic_decline",
+        message: "Your card was declined.",
+      },
+    } },
+    livemode: false,
+    pending_webhooks: 0,
+    request: { id: null, idempotency_key: null },
+  });
+  const pifailSig = Stripe.webhooks.generateTestHeaderString({ payload: pifailEventBody, secret: WEBHOOK_SECRET });
+
+  console.log("\n[6] PI-failed first webhook delivery");
+  const r3 = await fetch(`${SERVER_URL}/api/billing/webhook`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "stripe-signature": pifailSig },
+    body: pifailEventBody,
+  });
+  const j3 = await r3.json().catch(() => ({}));
+  record(
+    "PI-failed first delivery → 200, not duplicate",
+    r3.status === 200 && (j3 as any).duplicate !== true,
+    `HTTP ${r3.status} body=${JSON.stringify(j3)}`,
+  );
+  await new Promise((r) => setTimeout(r, 1500));
+
+  console.log("\n[7] DB assertions after PI-failed");
+  const [pifailAfter] = await db.select().from(clientPayments).where(eq(clientPayments.id, pifailPay.id));
+  record(
+    "client_payments.status pending → failed",
+    pifailAfter?.status === "failed",
+    `status=${pifailAfter?.status}`,
+  );
+  const pifailMeta = (pifailAfter?.metadata as Record<string, any>) ?? {};
+  record(
+    "metadata.last_failure_code populated",
+    pifailMeta.last_failure_code === "card_declined",
+    `last_failure_code=${pifailMeta.last_failure_code}`,
+  );
+  record(
+    "metadata.last_failure_decline_code populated",
+    pifailMeta.last_failure_decline_code === "generic_decline",
+    `decline_code=${pifailMeta.last_failure_decline_code}`,
+  );
+  record(
+    "metadata.last_failure_message populated",
+    pifailMeta.last_failure_message === "Your card was declined.",
+    `last_failure_message=${pifailMeta.last_failure_message}`,
+  );
+  record(
+    "metadata.last_failure_at is ISO timestamp",
+    typeof pifailMeta.last_failure_at === "string" && pifailMeta.last_failure_at.includes("T"),
+    `last_failure_at=${pifailMeta.last_failure_at}`,
+  );
+  record(
+    "prior metadata fields preserved (phase2_test_run)",
+    pifailMeta.phase2_test_run === RUN_ID,
+    `phase2_test_run=${pifailMeta.phase2_test_run}`,
+  );
+
+  // 7a: processed_stripe_events recorded for PI-failed event
+  const psePifail = await db.select().from(processedStripeEvents).where(eq(processedStripeEvents.stripe_event_id, STRIPE_EVENT_PIFAIL));
+  record("processed_stripe_events row inserted for PI-failed event", psePifail.length === 1, `rows=${psePifail.length}`);
+
+  console.log("\n[8] PI-failed replay protection");
+  const r4 = await fetch(`${SERVER_URL}/api/billing/webhook`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "stripe-signature": pifailSig },
+    body: pifailEventBody,
+  });
+  const j4 = await r4.json().catch(() => ({}));
+  record(
+    "replay → 200 { duplicate: true }",
+    r4.status === 200 && (j4 as any).duplicate === true,
+    `HTTP ${r4.status} body=${JSON.stringify(j4)}`,
+  );
+  await new Promise((r) => setTimeout(r, 500));
+  const psePifailAfter = await db.select().from(processedStripeEvents).where(eq(processedStripeEvents.stripe_event_id, STRIPE_EVENT_PIFAIL));
+  record("no duplicate processed_stripe_events row for PI-failed", psePifailAfter.length === 1, `rows=${psePifailAfter.length}`);
 } catch (err: any) {
   console.error(`\n✗ ABORTED: ${err.message}`);
   exitCode = 1;

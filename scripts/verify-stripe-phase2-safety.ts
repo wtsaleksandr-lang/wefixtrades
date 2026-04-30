@@ -1,18 +1,22 @@
 /**
- * Phase 2 safety verification — charge.refunded path.
+ * Phase 2 safety verification — charge.refunded + payment_intent.payment_failed.
  *
  * Self-contained, no real DB, no real Stripe API. Spins up a minimal
  * express app with stripeBillingRoutes mounted, stubs the storage
- * methods the new handler touches, and asserts:
+ * methods the new handlers touch, and asserts:
  *
- *   1. Signed charge.refunded → 200, not duplicate
- *   2. Refund row created with type='refund' and negative amount
- *   3. Full refund of active monthly service flips status → cancelled
- *   4. Partial refund leaves service status untouched
- *   5. Replay → 200 { duplicate: true }, no second refund row
+ *   charge.refunded:
+ *     1. Signed charge.refunded → 200, not duplicate
+ *     2. Refund row created with type='refund' and negative amount
+ *     3. Full refund of active monthly service flips status → cancelled
+ *     4. Partial refund leaves service status untouched
+ *     5. Replay → 200 { duplicate: true }, no second refund row
  *
- * Phase 2-Commit-B will extend this script with payment_intent.payment_failed
- * coverage. For now it covers the charge.refunded path only.
+ *   payment_intent.payment_failed:
+ *     6. PI failure (no invoice) → row flipped to 'failed' with metadata
+ *     7. PI failure WITH invoice → no-op (subscription path skip)
+ *     8. PI failure with no matching row → no-op (warning only)
+ *     9. Replay → 200 { duplicate: true }, no double-mutation
  *
  * Usage:
  *   npx tsx scripts/verify-stripe-phase2-safety.ts
@@ -131,6 +135,45 @@ function makeChargeRefundedEvent(opts: {
       currency: "usd",
       refunded: opts.amountRefunded === opts.amount,
       refunds: { object: "list", data: [{ id: opts.refundId, object: "refund", amount: opts.amountRefunded }] },
+    } },
+    livemode: false,
+    pending_webhooks: 0,
+    request: { id: null, idempotency_key: null },
+  };
+  const body = JSON.stringify(event);
+  const sig = Stripe.webhooks.generateTestHeaderString({ payload: body, secret: FRESH_WEBHOOK_SECRET });
+  return { body, sig };
+}
+
+function makePaymentIntentFailedEvent(opts: {
+  eventId: string;
+  paymentIntentId: string;
+  invoiceId: string | null;
+  customerId: string;
+  amount: number;
+  failureCode: string;
+  failureMessage: string;
+}): { body: string; sig: string } {
+  const event = {
+    id: opts.eventId,
+    object: "event",
+    api_version: "2025-01-27.acacia",
+    created: Math.floor(Date.now() / 1000),
+    type: "payment_intent.payment_failed",
+    data: { object: {
+      id: opts.paymentIntentId,
+      object: "payment_intent",
+      customer: opts.customerId,
+      invoice: opts.invoiceId,
+      amount: opts.amount,
+      currency: "usd",
+      status: "requires_payment_method",
+      last_payment_error: {
+        type: "card_error",
+        code: opts.failureCode,
+        decline_code: null,
+        message: opts.failureMessage,
+      },
     } },
     livemode: false,
     pending_webhooks: 0,
@@ -291,7 +334,7 @@ try {
   );
 
   /* ─── Test C: replay → duplicate ─── */
-  console.log("\n[C] Replay protection");
+  console.log("\n[C] Replay protection (charge.refunded)");
   const beforeCount = memPayments.length;
   const rC = await fetch(`${baseUrl}/api/billing/webhook`, {
     method: "POST",
@@ -302,11 +345,149 @@ try {
   record("replay → 200 { duplicate: true }", rC.status === 200 && (jC as any).duplicate === true, `HTTP ${rC.status} body=${JSON.stringify(jC)}`);
   await new Promise((r) => setTimeout(r, 200));
   record("no second refund row inserted on replay", memPayments.length === beforeCount, `count before=${beforeCount} after=${memPayments.length}`);
+
+  /* ─── Test D: payment_intent.payment_failed (one-time, no invoice) ─── */
+  console.log("\n[D] payment_intent.payment_failed — one-time (no invoice)");
+  memClients.clear();
+  memServices.clear();
+  memPayments.length = 0;
+  processed.clear();
+  paymentIdSeq = 1000;
+
+  memClients.set(7003, {
+    id: 7003,
+    business_name: "PHASE2 PI Failure Co",
+    contact_email: null,
+    stripe_customer_id: "cus_phase2_pifail",
+  });
+  memPayments.push({
+    id: 9003,
+    client_id: 7003,
+    type: "payment",
+    amount_cents: 19900,
+    status: "pending",
+    stripe_payment_intent_id: "pi_phase2_pifail_onetime",
+    description: "One-time setup fee",
+    metadata: {},
+  });
+
+  const evtPiOneTime = makePaymentIntentFailedEvent({
+    eventId: "evt_phase2_pifail_onetime",
+    paymentIntentId: "pi_phase2_pifail_onetime",
+    invoiceId: null,
+    customerId: "cus_phase2_pifail",
+    amount: 19900,
+    failureCode: "card_declined",
+    failureMessage: "Your card was declined.",
+  });
+  const rD = await fetch(`${baseUrl}/api/billing/webhook`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "stripe-signature": evtPiOneTime.sig },
+    body: evtPiOneTime.body,
+  });
+  await new Promise((r) => setTimeout(r, 200));
+  const rD_json = await rD.json();
+  record("first delivery → 200, not duplicate", rD.status === 200 && (rD_json as any).duplicate !== true, `HTTP ${rD.status} body=${JSON.stringify(rD_json)}`);
+
+  const piRow = memPayments.find((p) => p.id === 9003);
+  record(
+    "one-time PI failure flips client_payments.status → 'failed'",
+    piRow?.status === "failed",
+    `status=${piRow?.status}`,
+  );
+  record(
+    "metadata.last_failure_code populated",
+    piRow?.metadata?.last_failure_code === "card_declined",
+    `last_failure_code=${piRow?.metadata?.last_failure_code}`,
+  );
+  record(
+    "metadata.last_failure_message populated",
+    piRow?.metadata?.last_failure_message === "Your card was declined.",
+    `last_failure_message=${piRow?.metadata?.last_failure_message}`,
+  );
+  record(
+    "metadata.last_failure_at timestamp populated (ISO string)",
+    typeof piRow?.metadata?.last_failure_at === "string" && piRow.metadata.last_failure_at.includes("T"),
+    `last_failure_at=${piRow?.metadata?.last_failure_at}`,
+  );
+
+  /* ─── Test E: payment_intent.payment_failed WITH invoice (subscription path) ─── */
+  console.log("\n[E] payment_intent.payment_failed — WITH invoice (must skip)");
+  // Don't reset processed — we need a fresh event id
+  paymentIdSeq = 2000;
+  memPayments.length = 0;
+  memPayments.push({
+    id: 9004,
+    client_id: 7003,
+    type: "invoice",
+    amount_cents: 9700,
+    status: "paid", // pre-existing; subscription handler will manage it
+    stripe_payment_intent_id: "pi_phase2_pifail_subscription",
+    description: "Sub renewal",
+    metadata: {},
+  });
+
+  const evtPiSub = makePaymentIntentFailedEvent({
+    eventId: "evt_phase2_pifail_subscription",
+    paymentIntentId: "pi_phase2_pifail_subscription",
+    invoiceId: "in_phase2_attached",
+    customerId: "cus_phase2_pifail",
+    amount: 9700,
+    failureCode: "card_declined",
+    failureMessage: "Test subscription decline.",
+  });
+  const rE = await fetch(`${baseUrl}/api/billing/webhook`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "stripe-signature": evtPiSub.sig },
+    body: evtPiSub.body,
+  });
+  await new Promise((r) => setTimeout(r, 200));
+  record("PI with invoice → 200 (handled, then no-op)", rE.status === 200, `HTTP ${rE.status}`);
+  const piSubRow = memPayments.find((p) => p.id === 9004);
+  record(
+    "PI WITH invoice does NOT flip status (subscription path owns it)",
+    piSubRow?.status === "paid",
+    `status=${piSubRow?.status} (must remain 'paid')`,
+  );
+
+  /* ─── Test F: payment_intent.payment_failed with no matching row ─── */
+  console.log("\n[F] payment_intent.payment_failed — no matching client_payments row");
+  paymentIdSeq = 3000;
+  memPayments.length = 0;
+  // Intentionally do NOT seed any row matching the event PI id
+
+  const evtPiOrphan = makePaymentIntentFailedEvent({
+    eventId: "evt_phase2_pifail_orphan",
+    paymentIntentId: "pi_phase2_pifail_orphan",
+    invoiceId: null,
+    customerId: "cus_phase2_pifail",
+    amount: 5000,
+    failureCode: "expired_card",
+    failureMessage: "Card expired.",
+  });
+  const rF = await fetch(`${baseUrl}/api/billing/webhook`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "stripe-signature": evtPiOrphan.sig },
+    body: evtPiOrphan.body,
+  });
+  await new Promise((r) => setTimeout(r, 200));
+  record("orphan PI → 200 (handled, no-op)", rF.status === 200, `HTTP ${rF.status}`);
+  record("no rows mutated for orphan PI", memPayments.length === 0, `payments=${memPayments.length}`);
+
+  /* ─── Test G: replay of PI failure ─── */
+  console.log("\n[G] Replay protection (payment_intent.payment_failed)");
+  const rG = await fetch(`${baseUrl}/api/billing/webhook`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "stripe-signature": evtPiOneTime.sig },
+    body: evtPiOneTime.body,
+  });
+  const jG = await rG.json();
+  record("replay → 200 { duplicate: true }", rG.status === 200 && (jG as any).duplicate === true, `HTTP ${rG.status} body=${JSON.stringify(jG)}`);
 } finally {
   server.close();
 }
 
 console.log("\n══════════════════════════════════════════════════════════════════");
-console.log(`  PHASE 2 — CHARGE.REFUNDED RESULTS — ${pass} passed, ${fail} failed`);
+console.log(`  PHASE 2 (charge.refunded + payment_intent.payment_failed) — ${pass} passed, ${fail} failed`);
 console.log("══════════════════════════════════════════════════════════════════\n");
 process.exit(fail === 0 ? 0 : 1);
