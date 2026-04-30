@@ -638,3 +638,69 @@ export const insertEmailEventSchema = createInsertSchema(emailEvents).omit({
 });
 export type InsertEmailEvent = z.infer<typeof insertEmailEventSchema>;
 export type EmailEvent = typeof emailEvents.$inferSelect;
+
+/* ─── Email Send Queue ────────────────────────────────────────────────
+ *
+ * Send-reliability queue. Every outbound email writes a row here BEFORE
+ * the SMTP attempt (via the wrapped getEmailTransporter sendMail).
+ *
+ * Solves the three gaps flagged by other agents:
+ *   1. Silent failures — every send is durably recorded; failures
+ *      land in `last_error` and are surfaced via admin endpoint.
+ *   2. No retries — the email-send-queue worker drains 'retrying'
+ *      rows with exponential backoff (30s → 5m → 30m, then dead-letter).
+ *   3. Possible duplicates — `dedupe_hash` over (recipient + subject +
+ *      content_hash) collapses repeated content within a 60-second
+ *      window. Caller sees a fake-success response so behavior is
+ *      transparent.
+ *
+ * Status lifecycle:
+ *
+ *   pending → (initial) — wrapper just inserted, SMTP attempt about to fire
+ *           ↓
+ *           ├──→ sent          — SMTP accepted on first try
+ *           ├──→ retrying      — first attempt failed, worker will retry
+ *           │      ↓
+ *           │      ├──→ sent        — retry succeeded
+ *           │      └──→ dead_letter — exceeded MAX_ATTEMPTS
+ *           └──→ skipped       — duplicate within window OR transporter null
+ *
+ * `payload` stores the full nodemailer mailOpts (sans tracking
+ * injection — that re-runs each retry against fresh email_id) so the
+ * retry worker can re-attempt without needing the original caller's
+ * context.
+ *
+ * ─────────────────────────────────────────────────────────────────── */
+export const emailSendQueue = pgTable("email_send_queue", {
+  id: serial("id").primaryKey(),
+  email_id: varchar("email_id", { length: 64 }).notNull(),
+  // dedupe_hash = sha256(recipient + subject + content_hash) — null means dedupe disabled
+  dedupe_hash: varchar("dedupe_hash", { length: 64 }),
+  recipient: varchar("recipient", { length: 320 }).notNull(),
+  subject: varchar("subject", { length: 500 }),
+  status: varchar("status", { length: 16 }).notNull().default("pending"),
+  // pending | sent | retrying | dead_letter | skipped
+  attempts: integer("attempts").notNull().default(0),
+  next_attempt_at: timestamp("next_attempt_at"),
+  last_error: text("last_error"),
+  smtp_message_id: text("smtp_message_id"),
+  // Full mailOpts payload (from / to / subject / html / text / replyTo / headers)
+  // — enough for the worker to re-fire without upstream context.
+  payload: jsonb("payload"),
+  // Optional skip / cancel reason: 'duplicate' | 'smtp_unavailable' | 'manual'
+  skip_reason: varchar("skip_reason", { length: 32 }),
+  created_at: timestamp("created_at").defaultNow(),
+  sent_at: timestamp("sent_at"),
+  updated_at: timestamp("updated_at").defaultNow(),
+}, (t) => ({
+  byStatusNextAttempt: index("email_send_queue_status_next_idx").on(t.status, t.next_attempt_at),
+  byDedupe: index("email_send_queue_dedupe_idx").on(t.dedupe_hash, t.created_at),
+  byEmailId: index("email_send_queue_email_id_idx").on(t.email_id),
+}));
+export const insertEmailSendQueueSchema = createInsertSchema(emailSendQueue).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+export type InsertEmailSendQueue = z.infer<typeof insertEmailSendQueueSchema>;
+export type EmailSendQueue = typeof emailSendQueue.$inferSelect;

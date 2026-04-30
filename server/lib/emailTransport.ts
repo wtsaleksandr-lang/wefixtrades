@@ -1,6 +1,14 @@
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 import { generateEmailId, injectTracking } from "./emailTracking";
+import {
+  computeDedupeHash,
+  enqueueSend,
+  isDuplicate,
+  markRetrying,
+  markSent,
+  recordSkip,
+} from "./emailSendQueue";
 
 let cached: Transporter | null = null;
 
@@ -38,9 +46,16 @@ const SENDGRID_TRACKING_DISABLED_HEADER = JSON.stringify({
  * Returns a shared nodemailer SMTP transporter.
  * Returns null if SMTP env vars are not configured.
  *
- * Every message sent through the transporter automatically receives the
- * X-SMTPAPI header that disables SendGrid click + open tracking. See
- * SENDGRID_TRACKING_DISABLED_HEADER above for rationale.
+ * Every outbound email goes through three layered enhancements at the
+ * wrapper level (so individual callers don't need to know):
+ *
+ *   1. Tracking — fresh email_id, 1x1 pixel, click-redirect link rewrites
+ *   2. Dedupe — content-level 60s collapse window via email_send_queue
+ *   3. Reliability — durable queue row + retry semantics for transient
+ *                    SMTP failures (drained by emailSendQueueWorker)
+ *
+ * Failures in any of those layers fall back to a raw send — the layered
+ * enhancements MUST NEVER block real email delivery.
  */
 export function getEmailTransporter(): Transporter | null {
   if (cached) return cached;
@@ -66,25 +81,63 @@ export function getEmailTransporter(): Transporter | null {
     },
   );
 
-  /* ── Tracking auto-injection wrapper ──
-     Every outbound HTML email gets a unique opaque email_id, a 1x1
-     tracking pixel, and rewritten <a href> links pointing through the
-     /api/email/click/:id redirect. Plain-text portion is unchanged.
-     If injection throws, we fall back to sending the original HTML
-     so a tracking bug can never block a real send. */
+  /* ── Send wrapper: tracking + queue + retry ──
+   *
+   * Every outbound HTML email goes through:
+   *   1. Generate fresh email_id
+   *   2. Compute dedupe_hash, check 60s window — if duplicate, return
+   *      a fake success object and record skip in queue (caller is
+   *      transparently de-duped)
+   *   3. Inject tracking pixel + click-redirect links
+   *   4. INSERT queue row → status='pending'
+   *   5. Synchronous SMTP attempt
+   *      success → UPDATE row → status='sent', return nodemailer info
+   *      failure → UPDATE row → status='retrying', re-throw error so
+   *                              caller sees same behavior as today;
+   *                              the retry worker will drain it later
+   *
+   * Queue/tracking failures NEVER block the send: any error in the
+   * queue layer falls back to the original raw sendMail.
+   */
   const origSendMail = transporter.sendMail.bind(transporter);
   transporter.sendMail = (async (mailOpts: any) => {
+    let emailId: string | null = null;
+    let queueRowId: number | null = null;
+    let trackedOpts: any = mailOpts;
+
     try {
-      const emailId = generateEmailId();
+      emailId = generateEmailId();
       const baseUrl = process.env.APP_URL
         || process.env.APP_PUBLIC_URL
         || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
+
+      const recipient = String(mailOpts.to || "");
+      const subject = mailOpts.subject || "";
+      const dedupeHash = computeDedupeHash({
+        recipient,
+        subject,
+        html: mailOpts.html,
+        text: mailOpts.text,
+      });
+
+      // Dedupe: if same content sent within 60s, return fake success.
+      if (await isDuplicate(dedupeHash)) {
+        await recordSkip(emailId, recipient, dedupeHash, "duplicate");
+        console.log(`[email-queue] skipped duplicate · email_id=${emailId} to=${recipient}`);
+        return {
+          envelope: { from: mailOpts.from, to: [recipient] },
+          messageId: `<deduped-${emailId}@wefixtrades.local>`,
+          accepted: [recipient],
+          rejected: [],
+          response: "250 deduped",
+        } as any;
+      }
 
       const trackedHtml = mailOpts.html
         ? injectTracking(mailOpts.html, { emailId, baseUrl })
         : mailOpts.html;
 
-      const enrichedOpts = {
+      trackedOpts = {
         ...mailOpts,
         html: trackedHtml,
         headers: {
@@ -93,12 +146,49 @@ export function getEmailTransporter(): Transporter | null {
         },
       };
 
+      // Insert queue row BEFORE sending — durability anchor.
+      const queueRow = await enqueueSend({
+        emailId,
+        recipient,
+        subject,
+        // Persist the tracked payload so the retry worker can re-fire as-is.
+        payload: {
+          from: trackedOpts.from,
+          to: trackedOpts.to,
+          replyTo: trackedOpts.replyTo,
+          subject: trackedOpts.subject,
+          html: trackedOpts.html,
+          text: trackedOpts.text,
+          headers: trackedOpts.headers,
+        },
+        dedupeHash,
+      });
+      queueRowId = queueRow.id;
+    } catch (preflightErr: any) {
+      // Anything in the pre-send pipeline (tracking inject, queue insert,
+      // dedupe check) must NEVER block sending. Fall back to raw send.
+      console.warn(`[email-queue] preflight failed, sending raw: ${preflightErr.message}`);
+      return origSendMail(mailOpts);
+    }
+
+    // Synchronous SMTP attempt
+    try {
+      const info = await origSendMail(trackedOpts);
+      if (queueRowId !== null) {
+        await markSent(queueRowId, (info as any)?.messageId ?? null).catch((markErr: any) => {
+          console.warn(`[email-queue] markSent failed: ${markErr.message}`);
+        });
+      }
       console.log(`[email-tracking] sent email_id=${emailId} to=${mailOpts.to}`);
-      return await origSendMail(enrichedOpts);
-    } catch (injectionErr: any) {
-      // Tracking failure must never break sending. Fall back to original.
-      console.warn(`[email-tracking] injection failed, sending raw: ${injectionErr.message}`);
-      return await origSendMail(mailOpts);
+      return info;
+    } catch (sendErr: any) {
+      if (queueRowId !== null) {
+        await markRetrying(queueRowId, sendErr.message || String(sendErr)).catch((markErr: any) => {
+          console.warn(`[email-queue] markRetrying failed: ${markErr.message}`);
+        });
+      }
+      console.warn(`[email-queue] send failed (queued for retry) email_id=${emailId} err=${sendErr.message}`);
+      throw sendErr;
     }
   }) as typeof transporter.sendMail;
 

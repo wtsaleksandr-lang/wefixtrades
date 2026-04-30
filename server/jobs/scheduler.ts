@@ -19,6 +19,7 @@ import { processRankflowReports } from "./rankflowReportWorker";
 import { processSocialsyncReports } from "./socialsyncReportWorker";
 import { processAdflowReports } from "./adflowReportWorker";
 import { processDunningQueue } from "./dunningWorker";
+import { processEmailSendQueue } from "./emailSendQueueWorker";
 import { processMapguardWeeklyUpdates } from "./mapguardWeeklyUpdateWorker";
 import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
 /* Sprint 15: deprecated processSocialSyncQueue + socialSyncWorker.ts
@@ -451,6 +452,21 @@ export function initScheduler() {
   });
 
   console.log("  - Dunning queue worker: every 5 minutes");
+
+  // Email send-queue worker — drains email_send_queue rows that landed
+  // in 'retrying' state after the synchronous SMTP attempt failed.
+  // Backoff schedule (in emailSendQueue.ts): 30s → 5min → 30min → dead.
+  // Running every 1 minute makes the 30s first retry land in <90s
+  // worst-case from the original failure.
+  cron.schedule("* * * * *", async () => {
+    try {
+      await runJob("email_send_queue", processEmailSendQueue);
+    } catch (err: any) {
+      console.error("[Scheduler] email_send_queue error:", err.message);
+    }
+  });
+
+  console.log("  - Email send-queue retry worker: every minute");
 
   /* Sprint 11: ContentFlow image retention sweep. Daily at 04:30 UTC
    * (off-peak). Identifies generated images past retention thresholds

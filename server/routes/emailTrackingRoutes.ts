@@ -21,9 +21,10 @@
 
 import type { Express, Request, Response } from "express";
 import { db } from "../db";
-import { emailEvents } from "@shared/schema";
+import { emailEvents, emailSendQueue } from "@shared/schema";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { requireAdmin } from "../auth";
+import { getQueueStats } from "../lib/emailSendQueue";
 
 // 1x1 transparent GIF — base64 decoded to a buffer once, served as a
 // pre-built Buffer for every pixel hit (no per-request decoding cost).
@@ -130,11 +131,32 @@ export function registerEmailTrackingRoutes(app: Express): void {
         .orderBy(desc(emailEvents.id))
         .limit(20);
 
+      // Also surface the corresponding queue row (delivery state) so admins
+      // can see at-a-glance whether the send was sent / retrying / dead-letter.
+      const [queueRow] = await db.select({
+        id: emailSendQueue.id,
+        recipient: emailSendQueue.recipient,
+        subject: emailSendQueue.subject,
+        status: emailSendQueue.status,
+        attempts: emailSendQueue.attempts,
+        skip_reason: emailSendQueue.skip_reason,
+        last_error: emailSendQueue.last_error,
+        smtp_message_id: emailSendQueue.smtp_message_id,
+        next_attempt_at: emailSendQueue.next_attempt_at,
+        sent_at: emailSendQueue.sent_at,
+        created_at: emailSendQueue.created_at,
+      })
+        .from(emailSendQueue)
+        .where(eq(emailSendQueue.email_id, emailId))
+        .orderBy(desc(emailSendQueue.id))
+        .limit(1);
+
       res.json({
         email_id: emailId,
         opens,
         clicks,
         total: opens + clicks,
+        send: queueRow ?? null,
         recent: recent.map((r) => ({
           id: r.id,
           type: r.type,
@@ -145,6 +167,21 @@ export function registerEmailTrackingRoutes(app: Express): void {
     } catch (err: any) {
       console.error("[email-events] query failed:", err?.message);
       res.status(500).json({ error: "Failed to load email events" });
+    }
+  });
+
+  /* ─── Admin queue stats — aggregate health snapshot ─── */
+  app.get("/api/admin/email-queue", requireAdmin, async (req: Request, res: Response) => {
+    const windowHours = Math.min(168, Math.max(1, parseInt(String(req.query.window_hours || "24"), 10) || 24));
+    try {
+      const stats = await getQueueStats(windowHours);
+      res.json({
+        window_hours: windowHours,
+        ...stats,
+      });
+    } catch (err: any) {
+      console.error("[email-queue] stats query failed:", err?.message);
+      res.status(500).json({ error: "Failed to load email queue stats" });
     }
   });
 }
