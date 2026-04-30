@@ -103,6 +103,17 @@ export default function InboxPage() {
       topTasks: (tasks ?? []).slice(0, 10).map(t => ({ id: t.id, title: t.title, status: t.status, priority: t.priority, client_name: t.client_name, waiting_on: t.waiting_on, handled_by: t.handled_by, automation_status: t.automation_status, next_action: t.next_action })),
     }}>
       <div className="max-w-3xl mx-auto space-y-4">
+        {/* Phase A: this page renders fulfillment tasks but the unified
+            "system inbox" (failed jobs + open tickets + waiting tasks)
+            it was meant to become has not been built yet. */}
+        <div className="flex items-start gap-2 px-3 py-2 rounded-md border border-amber-200 bg-amber-50 text-amber-800 text-xs">
+          <span className="font-semibold uppercase tracking-wide text-[10px]">Not implemented</span>
+          <span className="text-[11px]">
+            Unified inbox is not yet wired up. This page currently shows fulfillment tasks only.
+            For background-job health, see <a href="/admin/system" className="underline font-medium">System</a>.
+          </span>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">

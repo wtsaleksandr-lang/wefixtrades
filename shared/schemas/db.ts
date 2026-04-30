@@ -187,7 +187,10 @@ export const jobLogs = pgTable("job_logs", {
   finished_at: timestamp("finished_at"),
   error_message: text("error_message"),
   metadata: jsonb("metadata"),
-});
+}, (table) => [
+  index("job_logs_job_name_started_at_idx").on(table.job_name, table.started_at),
+  index("job_logs_status_idx").on(table.status),
+]);
 
 export const insertAnalyticsSummarySchema = createInsertSchema(calculatorAnalyticsSummary).omit({
   id: true,

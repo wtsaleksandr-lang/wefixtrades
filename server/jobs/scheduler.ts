@@ -27,6 +27,7 @@ import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorke
  * Sprint 10 cron retirement was already in production. */
 import { processImageRetention } from "./imageRetentionWorker";
 import { processPerformanceQueue } from "./performanceWorker";
+import { processJobLogsCleanup } from "./jobLogsCleanup";
 import { processQueue as processWordpressPublishQueue } from "../services/contentflow/wordpressQueue";
 import { generateAllDue } from "../services/socialSync/orchestrator";
 import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
@@ -119,27 +120,45 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  // Overlap-guarded — per-minute workers cannot safely overlap. If a tick
+  // stalls on a slow SMTP/API call, the next cron firing skips instead of
+  // spawning a duplicate that could double-send.
+  let notificationWorkerRunning = false;
   cron.schedule("* * * * *", async () => {
+    if (notificationWorkerRunning) return;
+    notificationWorkerRunning = true;
     try {
       await processNotificationQueue();
     } catch (err: any) {
       console.error("[Scheduler] notification_worker error:", err.message);
+    } finally {
+      notificationWorkerRunning = false;
     }
   });
 
+  let followupWorkerRunning = false;
   cron.schedule("* * * * *", async () => {
+    if (followupWorkerRunning) return;
+    followupWorkerRunning = true;
     try {
       await processFollowupJobs();
     } catch (err: any) {
       console.error("[Scheduler] followup_worker error:", err.message);
+    } finally {
+      followupWorkerRunning = false;
     }
   });
 
+  let auditFollowupWorkerRunning = false;
   cron.schedule("* * * * *", async () => {
+    if (auditFollowupWorkerRunning) return;
+    auditFollowupWorkerRunning = true;
     try {
       await processAuditFollowups();
     } catch (err: any) {
       console.error("[Scheduler] audit_followup_worker error:", err.message);
+    } finally {
+      auditFollowupWorkerRunning = false;
     }
   });
 
@@ -153,11 +172,16 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  let reviewFollowupWorkerRunning = false;
   cron.schedule("* * * * *", async () => {
+    if (reviewFollowupWorkerRunning) return;
+    reviewFollowupWorkerRunning = true;
     try {
       await processReviewFollowups();
     } catch (err: any) {
       console.error("[Scheduler] review_followup_worker error:", err.message);
+    } finally {
+      reviewFollowupWorkerRunning = false;
     }
   });
 
@@ -465,4 +489,16 @@ export function initScheduler() {
   }, { timezone: "UTC" });
 
   console.log("  - ContentFlow image retention: daily at 04:30 UTC");
+
+  // job_logs TTL — daily at 03:30 UTC. Keeps the table from growing
+  // unbounded (per-minute workers each emit ~1.4k rows/day).
+  cron.schedule("30 3 * * *", async () => {
+    try {
+      await runJob("job_logs_cleanup", processJobLogsCleanup);
+    } catch (err: any) {
+      console.error("[Scheduler] job_logs_cleanup error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  console.log("  - job_logs cleanup: daily at 03:30 UTC (14d retention)");
 }

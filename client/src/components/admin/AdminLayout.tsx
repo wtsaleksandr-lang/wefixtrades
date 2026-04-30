@@ -28,6 +28,7 @@ import {
   Shield,
   ChevronDown,
   Layers,
+  Activity,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -67,7 +68,11 @@ const PRODUCTS_ITEMS = [
   { label: "RankFlow", href: "/admin/crm/rankflow", icon: TrendingUp },
   { label: "Reviews", href: "/admin/crm/reviews", icon: Star },
   { label: "SocialSync", href: "/admin/crm/socialsync", icon: Share2 },
-  { label: "ContentFlow", href: "/admin/contentflow", icon: Layers },
+  { label: "ContentFlow", href: "/admin/crm/contentflow", icon: Layers },
+];
+
+const SYSTEM_ITEMS = [
+  { label: "System", href: "/admin/system", icon: Activity },
 ];
 
 const FINANCE_ITEMS = [
@@ -209,6 +214,7 @@ function SidebarNav({
       <NavGroup label="Products" items={PRODUCTS_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
       <NavGroup label="Finance" items={FINANCE_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
       <NavGroup label="Outbound" items={OUTBOUND_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
+      <NavGroup label="System" items={SYSTEM_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
 
       {/* Other */}
       <div className="mt-4 pt-2 border-t border-gray-100">
