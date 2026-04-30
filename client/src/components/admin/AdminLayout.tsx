@@ -20,6 +20,7 @@ import {
   KeyRound,
   LogOut,
   ExternalLink,
+  Star,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -52,6 +53,7 @@ const NAV_ITEMS = [
   { label: "Suppliers", href: "/admin/crm/suppliers", icon: Factory },
   { label: "RankFlow", href: "/admin/crm/rankflow", icon: TrendingUp },
   { label: "Services", href: "/admin/crm/services", icon: Wrench },
+  { label: "Reviews", href: "/admin/crm/reviews", icon: Star },
 ];
 
 const SECONDARY_ITEMS = [

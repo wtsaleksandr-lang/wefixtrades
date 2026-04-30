@@ -41,19 +41,10 @@ import {
   type AdminActivityLog, type InsertAdminActivityLog,
   type ServiceTaskTemplate,
   type OnboardingTemplate,
-  // RankFlow
-  rankflowProfiles, rankflowMonthlyPlans, rankflowTasks, rankflowQaChecks, rankflowProgress,
-  rankflowVendorBatches, rankflowKeywords, rankflowRankings, rankflowPages, rankflowSignals,
-  type RankflowProfile, type InsertRankflowProfile,
-  type RankflowMonthlyPlan, type InsertRankflowMonthlyPlan,
-  type RankflowTask, type InsertRankflowTask,
-  type RankflowQaCheck, type InsertRankflowQaCheck,
-  type RankflowProgress, type InsertRankflowProgress,
-  type RankflowVendorBatch, type InsertRankflowVendorBatch,
-  type RankflowKeyword, type InsertRankflowKeyword,
-  type RankflowRanking, type InsertRankflowRanking,
-  type RankflowPage, type InsertRankflowPage,
-  type RankflowSignal, type InsertRankflowSignal,
+  reviewRequests,
+  type ReviewRequest, type InsertReviewRequest,
+  monitoredReviews,
+  type MonitoredReview, type InsertMonitoredReview,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -198,6 +189,37 @@ export interface IStorage {
   // Activity log
   logAdminActivity(data: InsertAdminActivityLog): Promise<AdminActivityLog>;
   listAdminActivity(opts?: { entityType?: string; entityId?: number; limit?: number }): Promise<AdminActivityLog[]>;
+
+  // ─── Review Requests ───
+  createReviewRequest(data: InsertReviewRequest): Promise<ReviewRequest>;
+  findReviewRequestByIdempotencyKey(key: string): Promise<ReviewRequest | undefined>;
+  getReviewRequestByToken(token: string): Promise<ReviewRequest | undefined>;
+  getReviewRequestById(id: number): Promise<ReviewRequest | undefined>;
+  fetchDueReviewRequests(limit?: number): Promise<ReviewRequest[]>;
+  fetchDueReviewFollowups(limit?: number): Promise<ReviewRequest[]>;
+  updateReviewRequest(id: number, updates: Record<string, any>): Promise<ReviewRequest | undefined>;
+  listReviewRequests(opts?: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean; limit?: number; offset?: number }): Promise<ReviewRequest[]>;
+  countReviewRequests(opts?: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean }): Promise<number>;
+  getReviewRequestStats(): Promise<{ total: number; pending: number; sent: number; clicked: number; routed_positive: number; routed_negative: number; feedback_captured: number; completed: number; failed: number; stopped: number; due_for_followup: number }>;
+  stopReviewRequestsForBooking(bookingId: number): Promise<void>;
+  findClientByUserId(userId: number): Promise<Client | undefined>;
+
+  // ─── Monitored Reviews ───
+  upsertMonitoredReview(data: InsertMonitoredReview): Promise<{ review: MonitoredReview; isNew: boolean }>;
+  getMonitoredReviewById(id: number): Promise<MonitoredReview | undefined>;
+  updateMonitoredReview(id: number, updates: Record<string, any>): Promise<MonitoredReview | undefined>;
+  findMonitoredReviewByDedupKey(dedupKey: string): Promise<MonitoredReview | undefined>;
+  listMonitoredReviews(opts?: { clientId?: number; platform?: string; isNew?: boolean; minRating?: number; maxRating?: number; limit?: number; offset?: number }): Promise<MonitoredReview[]>;
+  countMonitoredReviews(opts?: { clientId?: number; isNew?: boolean }): Promise<number>;
+  getMonitoredReviewStats(clientId?: number): Promise<{ total: number; averageRating: number; newCount: number; withResponse: number; byRating: Record<number, number> }>;
+  markMonitoredReviewsAcknowledged(ids: number[]): Promise<void>;
+  listClientsForReviewSync(limit?: number): Promise<Client[]>;
+  getClientReputationService(clientId: number): Promise<{ serviceId: string; status: string; metadata: any } | null>;
+  updateClientServiceMetadata(clientId: number, serviceId: string, metadata: Record<string, any>): Promise<void>;
+  getClientByWidgetToken(token: string): Promise<Client | undefined>;
+  ensureWidgetToken(clientId: number): Promise<string>;
+  getWidgetReviews(clientId: number, minRating: number, limit: number): Promise<{ reviewer_name: string; rating: number; review_text: string | null; published_at: Date | null; platform: string }[]>;
+  countReviewsMissingGoogleName(clientId?: number): Promise<number>;
 
   // CRM Overview
   getCrmOverview(): Promise<{
@@ -1274,354 +1296,333 @@ export class DatabaseStorage implements IStorage {
     return { serviceCompleted, serviceActivated, clientActivated };
   }
 
-  /* ═══════════════════════════════════════════
-     RankFlow
-     ═══════════════════════════════════════════ */
+  // ═══════════════════════════════════════════════
+  // Review Requests
+  // ═══════════════════════════════════════════════
 
-  async getRankFlowProfile(clientId: number): Promise<RankflowProfile | undefined> {
-    const [row] = await db.select().from(rankflowProfiles).where(eq(rankflowProfiles.client_id, clientId)).limit(1);
+  async createReviewRequest(data: InsertReviewRequest): Promise<ReviewRequest> {
+    const [row] = await db.insert(reviewRequests).values(data).returning();
     return row;
   }
 
-  async upsertRankFlowProfile(clientId: number, data: Partial<InsertRankflowProfile>): Promise<RankflowProfile> {
-    const existing = await this.getRankFlowProfile(clientId);
-    if (existing) {
-      const [updated] = await db.update(rankflowProfiles)
-        .set({ ...data, updated_at: new Date() })
-        .where(eq(rankflowProfiles.client_id, clientId))
-        .returning();
-      return updated;
-    }
-    const [created] = await db.insert(rankflowProfiles)
-      .values({ ...data, client_id: clientId } as InsertRankflowProfile)
+  async findReviewRequestByIdempotencyKey(key: string): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.idempotency_key, key))
+      .limit(1);
+    return row;
+  }
+
+  async getReviewRequestByToken(token: string): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.access_token, token))
+      .limit(1);
+    return row;
+  }
+
+  async getReviewRequestById(id: number): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.id, id))
+      .limit(1);
+    return row;
+  }
+
+  async fetchDueReviewRequests(limit = 20): Promise<ReviewRequest[]> {
+    const now = new Date();
+    return db.select().from(reviewRequests)
+      .where(and(
+        eq(reviewRequests.status, "pending"),
+        lte(reviewRequests.run_at, now),
+        sql`${reviewRequests.attempts} < ${reviewRequests.max_attempts}`,
+      ))
+      .orderBy(reviewRequests.run_at)
+      .limit(limit);
+  }
+
+  async fetchDueReviewFollowups(limit = 20): Promise<ReviewRequest[]> {
+    const now = new Date();
+    return db.select().from(reviewRequests)
+      .where(and(
+        eq(reviewRequests.status, "sent"),
+        sql`${reviewRequests.next_followup_at} IS NOT NULL`,
+        lte(reviewRequests.next_followup_at, now),
+        sql`${reviewRequests.sequence_step} < 2`,
+      ))
+      .orderBy(reviewRequests.next_followup_at)
+      .limit(limit);
+  }
+
+  async updateReviewRequest(id: number, updates: Record<string, any>): Promise<ReviewRequest | undefined> {
+    const [row] = await db.update(reviewRequests)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(reviewRequests.id, id))
       .returning();
-    return created;
-  }
-
-  async listEnabledRankFlowProfiles(): Promise<RankflowProfile[]> {
-    return db.select().from(rankflowProfiles).where(eq(rankflowProfiles.enabled, true));
-  }
-
-  async createMonthlyPlan(data: InsertRankflowMonthlyPlan): Promise<RankflowMonthlyPlan> {
-    const [row] = await db.insert(rankflowMonthlyPlans).values(data).returning();
     return row;
   }
 
-  async getMonthlyPlan(clientId: number, month: string): Promise<RankflowMonthlyPlan | undefined> {
-    const [row] = await db.select().from(rankflowMonthlyPlans)
-      .where(and(eq(rankflowMonthlyPlans.client_id, clientId), eq(rankflowMonthlyPlans.month, month)))
-      .limit(1);
-    return row;
-  }
-
-  async updateMonthlyPlanStatus(planId: number, status: string): Promise<void> {
-    await db.update(rankflowMonthlyPlans).set({ status }).where(eq(rankflowMonthlyPlans.id, planId));
-  }
-
-  async createRankFlowTask(data: InsertRankflowTask): Promise<RankflowTask> {
-    const [row] = await db.insert(rankflowTasks).values(data).returning();
-    return row;
-  }
-
-  async listTasksByClient(clientId: number): Promise<RankflowTask[]> {
-    return db.select().from(rankflowTasks)
-      .where(eq(rankflowTasks.client_id, clientId))
-      .orderBy(desc(rankflowTasks.created_at));
-  }
-
-  async listTasksByPlan(planId: number): Promise<RankflowTask[]> {
-    return db.select().from(rankflowTasks)
-      .where(eq(rankflowTasks.plan_id, planId))
-      .orderBy(rankflowTasks.priority);
-  }
-
-  async updateRankFlowTaskStatus(taskId: number, status: string): Promise<RankflowTask | undefined> {
-    const updates: Record<string, any> = { status };
-    if (status === "done") updates.completed_at = new Date();
-    const [row] = await db.update(rankflowTasks).set(updates).where(eq(rankflowTasks.id, taskId)).returning();
-    return row;
-  }
-
-  async createQACheck(data: InsertRankflowQaCheck): Promise<RankflowQaCheck> {
-    const [row] = await db.insert(rankflowQaChecks).values(data).returning();
-    return row;
-  }
-
-  async listQAChecks(taskId: number): Promise<RankflowQaCheck[]> {
-    return db.select().from(rankflowQaChecks).where(eq(rankflowQaChecks.task_id, taskId));
-  }
-
-  async getRankFlowTaskById(taskId: number): Promise<RankflowTask | undefined> {
-    const [row] = await db.select().from(rankflowTasks).where(eq(rankflowTasks.id, taskId)).limit(1);
-    return row;
-  }
-
-  async assignRankflowTask(taskId: number, assignedTo: string): Promise<RankflowTask | undefined> {
-    const [row] = await db.update(rankflowTasks).set({
-      status: "assigned",
-      assigned_to: assignedTo,
-      assigned_at: new Date(),
-    }).where(eq(rankflowTasks.id, taskId)).returning();
-    return row;
-  }
-
-  async startRankflowTask(taskId: number): Promise<RankflowTask | undefined> {
-    const [row] = await db.update(rankflowTasks).set({
-      status: "in_progress",
-    }).where(eq(rankflowTasks.id, taskId)).returning();
-    return row;
-  }
-
-  async submitRankflowTask(taskId: number, proofData: any): Promise<RankflowTask | undefined> {
-    const [row] = await db.update(rankflowTasks).set({
-      status: "submitted",
-      submitted_at: new Date(),
-      proof_data: proofData,
-    }).where(eq(rankflowTasks.id, taskId)).returning();
-    return row;
-  }
-
-  async updateRankflowTaskQA(taskId: number, qaStatus: string, qaNotes: string | null): Promise<RankflowTask | undefined> {
-    const [row] = await db.update(rankflowTasks).set({
-      status: "qa_review",
-      qa_status: qaStatus,
-      qa_notes: qaNotes,
-    }).where(eq(rankflowTasks.id, taskId)).returning();
-    return row;
-  }
-
-  async approveRankflowTask(taskId: number, actualCost?: string): Promise<RankflowTask | undefined> {
-    const updates: Record<string, any> = {
-      status: "done",
-      qa_status: "passed",
-      completed_at: new Date(),
-    };
-    if (actualCost !== undefined) updates.actual_cost = actualCost;
-    const [row] = await db.update(rankflowTasks).set(updates).where(eq(rankflowTasks.id, taskId)).returning();
-    return row;
-  }
-
-  async rejectRankflowTask(taskId: number, rejectionReason: string): Promise<RankflowTask | undefined> {
-    const [row] = await db.update(rankflowTasks).set({
-      status: "assigned",
-      qa_status: "failed",
-      rejection_reason: rejectionReason,
-      submitted_at: null,
-      proof_data: null,
-    }).where(eq(rankflowTasks.id, taskId)).returning();
-    return row;
-  }
-
-  async listPendingAITasks(planId: number): Promise<RankflowTask[]> {
-    return db.select().from(rankflowTasks).where(
-      and(
-        eq(rankflowTasks.plan_id, planId),
-        eq(rankflowTasks.execution_mode, "ai"),
-        eq(rankflowTasks.status, "pending"),
-      )
-    );
-  }
-
-  async upsertMonthlyProgress(clientId: number, month: string, data: Partial<InsertRankflowProgress>): Promise<RankflowProgress> {
-    const [existing] = await db.select().from(rankflowProgress)
-      .where(and(eq(rankflowProgress.client_id, clientId), eq(rankflowProgress.month, month)))
-      .limit(1);
-    if (existing) {
-      const [updated] = await db.update(rankflowProgress)
-        .set(data)
-        .where(eq(rankflowProgress.id, existing.id))
-        .returning();
-      return updated;
-    }
-    const [created] = await db.insert(rankflowProgress)
-      .values({ client_id: clientId, month, ...data } as InsertRankflowProgress)
-      .returning();
-    return created;
-  }
-
-  async getMonthlyProgress(clientId: number, month: string): Promise<RankflowProgress | undefined> {
-    const [row] = await db.select().from(rankflowProgress)
-      .where(and(eq(rankflowProgress.client_id, clientId), eq(rankflowProgress.month, month)))
-      .limit(1);
-    return row;
-  }
-
-  /* ═══════════════════════════════════════════
-     RankFlow Vendor Batches
-     ═══════════════════════════════════════════ */
-
-  async createRankflowVendorBatch(data: InsertRankflowVendorBatch): Promise<RankflowVendorBatch> {
-    const [row] = await db.insert(rankflowVendorBatches).values(data).returning();
-    return row;
-  }
-
-  async getRankflowVendorBatch(batchId: number): Promise<RankflowVendorBatch | undefined> {
-    const [row] = await db.select().from(rankflowVendorBatches).where(eq(rankflowVendorBatches.id, batchId)).limit(1);
-    return row;
-  }
-
-  async listRankflowVendorBatches(filters?: { status?: string; vendor_type?: string }): Promise<RankflowVendorBatch[]> {
+  private buildReviewRequestConditions(opts: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean }) {
     const conditions = [];
-    if (filters?.status) conditions.push(eq(rankflowVendorBatches.status, filters.status));
-    if (filters?.vendor_type) conditions.push(eq(rankflowVendorBatches.vendor_type, filters.vendor_type));
-    if (conditions.length > 0) {
-      return db.select().from(rankflowVendorBatches)
-        .where(and(...conditions))
-        .orderBy(desc(rankflowVendorBatches.created_at));
+    if (opts.clientId) conditions.push(eq(reviewRequests.client_id, opts.clientId));
+    if (opts.status) conditions.push(eq(reviewRequests.status, opts.status));
+    if (opts.triggerSource) conditions.push(eq(reviewRequests.trigger_source, opts.triggerSource));
+    if (opts.hasFeedback === true) conditions.push(sql`${reviewRequests.internal_feedback} IS NOT NULL`);
+    if (opts.hasFeedback === false) conditions.push(sql`${reviewRequests.internal_feedback} IS NULL`);
+    if (opts.dueForFollowup) {
+      conditions.push(eq(reviewRequests.status, "sent"));
+      conditions.push(sql`${reviewRequests.next_followup_at} IS NOT NULL`);
+      conditions.push(lte(reviewRequests.next_followup_at, new Date()));
+      conditions.push(sql`${reviewRequests.sequence_step} < 2`);
     }
-    return db.select().from(rankflowVendorBatches).orderBy(desc(rankflowVendorBatches.created_at));
+    return conditions.length ? and(...conditions) : undefined;
   }
 
-  async updateRankflowVendorBatchStatus(batchId: number, status: string, extra?: Record<string, any>): Promise<RankflowVendorBatch | undefined> {
-    const updates: Record<string, any> = { status, updated_at: new Date(), ...extra };
-    const [row] = await db.update(rankflowVendorBatches).set(updates).where(eq(rankflowVendorBatches.id, batchId)).returning();
+  async listReviewRequests(opts: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean; limit?: number; offset?: number } = {}): Promise<ReviewRequest[]> {
+    const { limit = 50, offset = 0 } = opts;
+    const where = this.buildReviewRequestConditions(opts);
+    return db.select().from(reviewRequests)
+      .where(where)
+      .orderBy(desc(reviewRequests.created_at))
+      .limit(limit).offset(offset);
+  }
+
+  async countReviewRequests(opts: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean } = {}): Promise<number> {
+    const where = this.buildReviewRequestConditions(opts);
+    const [row] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(reviewRequests)
+      .where(where);
+    return row?.count ?? 0;
+  }
+
+  async getReviewRequestStats(): Promise<{ total: number; pending: number; sent: number; clicked: number; routed_positive: number; routed_negative: number; feedback_captured: number; completed: number; failed: number; stopped: number; due_for_followup: number }> {
+    const now = new Date();
+    const [row] = await db.select({
+      total: sql<number>`count(*)::int`,
+      pending: sql<number>`count(*) filter (where ${reviewRequests.status} = 'pending')::int`,
+      sent: sql<number>`count(*) filter (where ${reviewRequests.status} = 'sent')::int`,
+      clicked: sql<number>`count(*) filter (where ${reviewRequests.status} = 'clicked')::int`,
+      routed_positive: sql<number>`count(*) filter (where ${reviewRequests.status} = 'routed_positive')::int`,
+      routed_negative: sql<number>`count(*) filter (where ${reviewRequests.status} = 'routed_negative')::int`,
+      feedback_captured: sql<number>`count(*) filter (where ${reviewRequests.status} = 'feedback_captured')::int`,
+      completed: sql<number>`count(*) filter (where ${reviewRequests.status} = 'completed')::int`,
+      failed: sql<number>`count(*) filter (where ${reviewRequests.status} = 'failed')::int`,
+      stopped: sql<number>`count(*) filter (where ${reviewRequests.status} = 'stopped')::int`,
+      due_for_followup: sql<number>`count(*) filter (where ${reviewRequests.status} = 'sent' and ${reviewRequests.next_followup_at} is not null and ${reviewRequests.next_followup_at} <= ${now} and ${reviewRequests.sequence_step} < 2)::int`,
+    }).from(reviewRequests);
+    return row || { total: 0, pending: 0, sent: 0, clicked: 0, routed_positive: 0, routed_negative: 0, feedback_captured: 0, completed: 0, failed: 0, stopped: 0, due_for_followup: 0 };
+  }
+
+  async stopReviewRequestsForBooking(bookingId: number): Promise<void> {
+    await db.update(reviewRequests)
+      .set({ status: "stopped", updated_at: new Date() })
+      .where(and(
+        eq(reviewRequests.booking_id, bookingId),
+        sql`${reviewRequests.status} IN ('pending', 'sent')`,
+      ));
+  }
+
+  async findClientByUserId(userId: number): Promise<Client | undefined> {
+    const [row] = await db.select().from(clients)
+      .where(eq(clients.user_id, userId))
+      .limit(1);
     return row;
   }
 
-  async submitRankflowVendorBatch(batchId: number, proofData: any): Promise<RankflowVendorBatch | undefined> {
-    const [row] = await db.update(rankflowVendorBatches).set({
-      status: "submitted",
-      proof_data: proofData,
-      submitted_at: new Date(),
-      updated_at: new Date(),
-    }).where(eq(rankflowVendorBatches.id, batchId)).returning();
+  // ═══════════════════════════════════════════════
+  // Monitored Reviews
+  // ═══════════════════════════════════════════════
+
+  async upsertMonitoredReview(data: InsertMonitoredReview): Promise<{ review: MonitoredReview; isNew: boolean }> {
+    // Check if already exists
+    const existing = await this.findMonitoredReviewByDedupKey(data.dedup_key);
+    if (existing) {
+      // Update if response was added or review text changed
+      const updates: Record<string, any> = { last_synced_at: new Date(), updated_at: new Date() };
+      let changed = false;
+
+      if (data.response_text && !existing.response_text) {
+        updates.response_text = data.response_text;
+        updates.response_date = data.response_date;
+        updates.response_added = true;
+        changed = true;
+      }
+      if (data.review_text && data.review_text !== existing.review_text) {
+        updates.review_text = data.review_text;
+        changed = true;
+      }
+      if (data.raw_payload) {
+        updates.raw_payload = data.raw_payload;
+      }
+      // Backfill google_review_name if we now have it but didn't before
+      if (data.google_review_name && !existing.google_review_name) {
+        updates.google_review_name = data.google_review_name;
+      }
+
+      const [updated] = await db.update(monitoredReviews)
+        .set(updates)
+        .where(eq(monitoredReviews.id, existing.id))
+        .returning();
+      return { review: updated, isNew: false };
+    }
+
+    // Insert new
+    const [row] = await db.insert(monitoredReviews).values(data).returning();
+    return { review: row, isNew: true };
+  }
+
+  async getMonitoredReviewById(id: number): Promise<MonitoredReview | undefined> {
+    const [row] = await db.select().from(monitoredReviews)
+      .where(eq(monitoredReviews.id, id))
+      .limit(1);
     return row;
   }
 
-  async linkTaskToBatch(taskId: number, batchId: number): Promise<void> {
-    await db.update(rankflowTasks).set({ batch_id: batchId }).where(eq(rankflowTasks.id, taskId));
+  async updateMonitoredReview(id: number, updates: Record<string, any>): Promise<MonitoredReview | undefined> {
+    const [row] = await db.update(monitoredReviews)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(monitoredReviews.id, id))
+      .returning();
+    return row;
   }
 
-  async listTasksByBatch(batchId: number): Promise<RankflowTask[]> {
-    return db.select().from(rankflowTasks)
-      .where(eq(rankflowTasks.batch_id, batchId))
-      .orderBy(rankflowTasks.id);
+  async findMonitoredReviewByDedupKey(dedupKey: string): Promise<MonitoredReview | undefined> {
+    const [row] = await db.select().from(monitoredReviews)
+      .where(eq(monitoredReviews.dedup_key, dedupKey))
+      .limit(1);
+    return row;
   }
 
-  async completeRankflowVendorBatch(batchId: number, actualCost?: string): Promise<RankflowVendorBatch | undefined> {
-    const updates: Record<string, any> = {
-      status: "completed",
-      qa_status: "passed",
-      completed_at: new Date(),
-      updated_at: new Date(),
+  async listMonitoredReviews(opts: { clientId?: number; platform?: string; isNew?: boolean; minRating?: number; maxRating?: number; limit?: number; offset?: number } = {}): Promise<MonitoredReview[]> {
+    const { clientId, platform, isNew, minRating, maxRating, limit = 50, offset = 0 } = opts;
+    const conditions = [];
+    if (clientId) conditions.push(eq(monitoredReviews.client_id, clientId));
+    if (platform) conditions.push(eq(monitoredReviews.platform, platform));
+    if (isNew !== undefined) conditions.push(eq(monitoredReviews.is_new, isNew));
+    if (minRating) conditions.push(sql`${monitoredReviews.rating} >= ${minRating}`);
+    if (maxRating) conditions.push(sql`${monitoredReviews.rating} <= ${maxRating}`);
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(monitoredReviews)
+      .where(where)
+      .orderBy(desc(monitoredReviews.published_at))
+      .limit(limit).offset(offset);
+  }
+
+  async countMonitoredReviews(opts: { clientId?: number; isNew?: boolean } = {}): Promise<number> {
+    const conditions = [];
+    if (opts.clientId) conditions.push(eq(monitoredReviews.client_id, opts.clientId));
+    if (opts.isNew !== undefined) conditions.push(eq(monitoredReviews.is_new, opts.isNew));
+    const where = conditions.length ? and(...conditions) : undefined;
+    const [row] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(monitoredReviews).where(where);
+    return row?.count ?? 0;
+  }
+
+  async getMonitoredReviewStats(clientId?: number): Promise<{ total: number; averageRating: number; newCount: number; withResponse: number; byRating: Record<number, number> }> {
+    const cond = clientId ? eq(monitoredReviews.client_id, clientId) : undefined;
+    const [row] = await db.select({
+      total: sql<number>`count(*)::int`,
+      averageRating: sql<number>`coalesce(round(avg(${monitoredReviews.rating})::numeric, 2), 0)::float`,
+      newCount: sql<number>`count(*) filter (where ${monitoredReviews.is_new} = true)::int`,
+      withResponse: sql<number>`count(*) filter (where ${monitoredReviews.response_text} is not null)::int`,
+      r1: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 1)::int`,
+      r2: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 2)::int`,
+      r3: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 3)::int`,
+      r4: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 4)::int`,
+      r5: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 5)::int`,
+    }).from(monitoredReviews).where(cond);
+    return {
+      total: row?.total ?? 0,
+      averageRating: row?.averageRating ?? 0,
+      newCount: row?.newCount ?? 0,
+      withResponse: row?.withResponse ?? 0,
+      byRating: { 1: row?.r1 ?? 0, 2: row?.r2 ?? 0, 3: row?.r3 ?? 0, 4: row?.r4 ?? 0, 5: row?.r5 ?? 0 },
     };
-    if (actualCost !== undefined) updates.actual_cost = actualCost;
-    const [row] = await db.update(rankflowVendorBatches).set(updates).where(eq(rankflowVendorBatches.id, batchId)).returning();
-    return row;
   }
 
-  async listUnbatchedOutsourcedTasks(): Promise<RankflowTask[]> {
-    return db.select().from(rankflowTasks).where(
-      and(
-        eq(rankflowTasks.execution_mode, "outsourced"),
-        eq(rankflowTasks.status, "pending"),
-        sql`${rankflowTasks.batch_id} IS NULL`,
-      )
-    );
+  async markMonitoredReviewsAcknowledged(ids: number[]): Promise<void> {
+    if (ids.length === 0) return;
+    await db.update(monitoredReviews)
+      .set({ is_new: false, updated_at: new Date() })
+      .where(sql`${monitoredReviews.id} = ANY(ARRAY[${sql.raw(ids.join(","))}]::int[])`);
   }
 
-  async getVendorStats(vendorType?: string): Promise<{
-    vendor_type: string;
-    total_batches: number;
-    completed: number;
-    failed: number;
-    avg_cost: number | null;
-  }[]> {
-    const rows = await db.select({
-      vendor_type: rankflowVendorBatches.vendor_type,
-      total_batches: sql<number>`count(*)::int`,
-      completed: sql<number>`count(*) filter (where ${rankflowVendorBatches.status} = 'completed')::int`,
-      failed: sql<number>`count(*) filter (where ${rankflowVendorBatches.status} = 'failed')::int`,
-      avg_cost: sql<number>`avg(${rankflowVendorBatches.actual_cost}::numeric)`,
-    }).from(rankflowVendorBatches)
-      .groupBy(rankflowVendorBatches.vendor_type);
-    return rows.map(r => ({
-      vendor_type: r.vendor_type,
-      total_batches: r.total_batches,
-      completed: r.completed,
-      failed: r.failed,
-      avg_cost: r.avg_cost ? Number(r.avg_cost) : null,
-    }));
+  async listClientsForReviewSync(limit = 20): Promise<Client[]> {
+    return db.select().from(clients)
+      .where(and(
+        sql`(${clients.google_place_id} IS NOT NULL OR ${clients.facebook_page_url} IS NOT NULL)`,
+        sql`${clients.status} IN ('active', 'onboarding')`,
+      ))
+      .orderBy(sql`${clients.last_review_sync_at} ASC NULLS FIRST`)
+      .limit(limit);
   }
 
-  /* ═══════════════════════════════════════════
-     RankFlow Tracking
-     ═══════════════════════════════════════════ */
-
-  async createKeywords(data: InsertRankflowKeyword[]): Promise<RankflowKeyword[]> {
-    if (data.length === 0) return [];
-    const rows = await db.insert(rankflowKeywords).values(data).returning();
-    return rows;
+  async getClientReputationService(clientId: number): Promise<{ serviceId: string; status: string; metadata: any } | null> {
+    const [row] = await db.select({
+      serviceId: clientServices.service_id,
+      status: clientServices.status,
+      metadata: clientServices.metadata,
+    }).from(clientServices)
+      .where(and(
+        eq(clientServices.client_id, clientId),
+        sql`${clientServices.service_id} LIKE 'reputationshield-%'`,
+        sql`${clientServices.status} IN ('active', 'onboarding', 'pending')`,
+      ))
+      .limit(1);
+    return row ?? null;
   }
 
-  async listKeywordsByClient(clientId: number): Promise<RankflowKeyword[]> {
-    return db.select().from(rankflowKeywords)
-      .where(eq(rankflowKeywords.client_id, clientId))
-      .orderBy(desc(rankflowKeywords.priority));
+  async updateClientServiceMetadata(clientId: number, serviceId: string, metadata: Record<string, any>): Promise<void> {
+    await db.update(clientServices)
+      .set({ metadata, updated_at: new Date() })
+      .where(and(
+        eq(clientServices.client_id, clientId),
+        eq(clientServices.service_id, serviceId),
+      ));
   }
 
-  async insertRankingRecord(data: InsertRankflowRanking): Promise<RankflowRanking> {
-    const [row] = await db.insert(rankflowRankings).values(data).returning();
-    return row;
-  }
-
-  async getLastRankingForKeyword(keywordId: number): Promise<RankflowRanking | undefined> {
-    const [row] = await db.select().from(rankflowRankings)
-      .where(eq(rankflowRankings.keyword_id, keywordId))
-      .orderBy(desc(rankflowRankings.checked_at))
+  async getClientByWidgetToken(token: string): Promise<Client | undefined> {
+    const [row] = await db.select().from(clients)
+      .where(eq(clients.widget_token, token))
       .limit(1);
     return row;
   }
 
-  async upsertPage(clientId: number, url: string, data: Partial<InsertRankflowPage>): Promise<RankflowPage> {
-    const [existing] = await db.select().from(rankflowPages)
-      .where(and(eq(rankflowPages.client_id, clientId), eq(rankflowPages.url, url)))
-      .limit(1);
-    if (existing) {
-      const [updated] = await db.update(rankflowPages)
-        .set(data)
-        .where(eq(rankflowPages.id, existing.id))
-        .returning();
-      return updated;
-    }
-    const [created] = await db.insert(rankflowPages)
-      .values({ client_id: clientId, url, ...data } as InsertRankflowPage)
-      .returning();
-    return created;
+  async ensureWidgetToken(clientId: number): Promise<string> {
+    const [existing] = await db.select({ widget_token: clients.widget_token })
+      .from(clients).where(eq(clients.id, clientId)).limit(1);
+    if (existing?.widget_token) return existing.widget_token;
+    const token = crypto.randomUUID().replace(/-/g, "");
+    await db.update(clients).set({ widget_token: token, updated_at: new Date() })
+      .where(eq(clients.id, clientId));
+    return token;
   }
 
-  async listPagesByClient(clientId: number): Promise<RankflowPage[]> {
-    return db.select().from(rankflowPages)
-      .where(eq(rankflowPages.client_id, clientId))
-      .orderBy(desc(rankflowPages.created_at));
+  async getWidgetReviews(clientId: number, minRating: number, limit: number): Promise<{ reviewer_name: string; rating: number; review_text: string | null; published_at: Date | null; platform: string }[]> {
+    return db.select({
+      reviewer_name: monitoredReviews.reviewer_name,
+      rating: monitoredReviews.rating,
+      review_text: monitoredReviews.review_text,
+      published_at: monitoredReviews.published_at,
+      platform: monitoredReviews.platform,
+    }).from(monitoredReviews)
+      .where(and(
+        eq(monitoredReviews.client_id, clientId),
+        sql`${monitoredReviews.rating} >= ${minRating}`,
+        sql`${monitoredReviews.review_text} IS NOT NULL`,
+        sql`length(${monitoredReviews.review_text}) > 10`,
+      ))
+      .orderBy(desc(monitoredReviews.published_at))
+      .limit(limit);
   }
 
-  async updatePageIndexStatus(pageId: number, indexed: boolean): Promise<void> {
-    await db.update(rankflowPages).set({ indexed, last_checked_at: new Date() }).where(eq(rankflowPages.id, pageId));
-  }
-
-  async upsertSignalSummary(clientId: number, data: Partial<InsertRankflowSignal>): Promise<RankflowSignal> {
-    const [existing] = await db.select().from(rankflowSignals)
-      .where(eq(rankflowSignals.client_id, clientId))
-      .limit(1);
-    if (existing) {
-      const [updated] = await db.update(rankflowSignals)
-        .set({ ...data, last_updated: new Date() })
-        .where(eq(rankflowSignals.id, existing.id))
-        .returning();
-      return updated;
-    }
-    const [created] = await db.insert(rankflowSignals)
-      .values({ client_id: clientId, ...data } as InsertRankflowSignal)
-      .returning();
-    return created;
-  }
-
-  async getSignalSummary(clientId: number): Promise<RankflowSignal | undefined> {
-    const [row] = await db.select().from(rankflowSignals)
-      .where(eq(rankflowSignals.client_id, clientId))
-      .limit(1);
-    return row;
+  async countReviewsMissingGoogleName(clientId?: number): Promise<number> {
+    const conditions = [
+      eq(monitoredReviews.platform, "google"),
+      sql`${monitoredReviews.google_review_name} IS NULL`,
+      sql`${monitoredReviews.response_text} IS NULL`,
+    ];
+    if (clientId) conditions.push(eq(monitoredReviews.client_id, clientId));
+    const [row] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(monitoredReviews).where(and(...conditions));
+    return row?.count ?? 0;
   }
 }
 

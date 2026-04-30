@@ -41,6 +41,7 @@ import MissedCallCalculatorTrade from "@/pages/marketing/missed-call-calculator-
 import QuoteCalculatorDemo from "@/pages/marketing/quote-calculator-demo";
 import ToolsHub from "@/pages/marketing/tools-hub";
 import SharedAuditReport from "@/pages/marketing/SharedAuditReport";
+import CompareNiceJob from "@/pages/marketing/CompareNiceJob";
 import NewProductPage from "@/pages/products/ProductPage";
 import MapGuardPage from "@/pages/products/mapguard";
 import SolutionPage from "@/pages/solutions/SolutionPage";
@@ -66,20 +67,23 @@ import SuppliersPage from "@/pages/admin/SuppliersPage";
 import InboxPage from "@/pages/admin/InboxPage";
 import BillingPage from "@/pages/admin/BillingPage";
 import ServicesPage from "@/pages/admin/ServicesPage";
-import RankFlowOpsPage from "@/pages/admin/RankFlowOpsPage";
+import ReviewsPage from "@/pages/admin/ReviewsPage";
 import ProfilePage from "@/pages/admin/ProfilePage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import ChangePasswordPage from "@/pages/admin/ChangePasswordPage";
 import OnboardingForm from "@/pages/OnboardingForm";
+import ReviewFunnel from "@/pages/ReviewFunnel";
+import ReviewQrLanding from "@/pages/ReviewQrLanding";
 import RequireClient from "@/components/auth/RequireClient";
 import PortalDashboard from "@/pages/portal/PortalDashboard";
 import PortalServices from "@/pages/portal/PortalServices";
+import PortalReviews from "@/pages/portal/PortalReviews";
+import PortalWidget from "@/pages/portal/PortalWidget";
 import PortalServiceDetail from "@/pages/portal/PortalServiceDetail";
 import PortalBilling from "@/pages/portal/PortalBilling";
 import PortalSettings from "@/pages/portal/PortalSettings";
 import PortalOnboarding from "@/pages/portal/PortalOnboarding";
 import PortalHelp from "@/pages/portal/PortalHelp";
-import PortalRankFlow from "@/pages/portal/PortalRankFlow";
 import ResetPasswordPage from "@/pages/ResetPassword";
 
 function Router() {
@@ -93,8 +97,8 @@ function Router() {
       <Route path="/admin/crm/inbox">{() => <RequirePortal><InboxPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/billing">{() => <RequirePortal><BillingPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/suppliers">{() => <RequirePortal><SuppliersPage /></RequirePortal>}</Route>
-      <Route path="/admin/crm/rankflow">{() => <RequirePortal><RankFlowOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/services">{() => <RequirePortal><ServicesPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/reviews">{() => <RequirePortal><ReviewsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/profile">{() => <RequirePortal><ProfilePage /></RequirePortal>}</Route>
       <Route path="/admin/crm/settings">{() => <RequirePortal><SettingsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/change-password">{() => <RequirePortal><ChangePasswordPage /></RequirePortal>}</Route>
@@ -104,12 +108,14 @@ function Router() {
       <Route path="/portal/onboarding/:id">{() => <RequireClient><PortalOnboarding /></RequireClient>}</Route>
       <Route path="/portal/services/:id">{() => <RequireClient><PortalServiceDetail /></RequireClient>}</Route>
       <Route path="/portal/services">{() => <RequireClient><PortalServices /></RequireClient>}</Route>
-      <Route path="/portal/rankflow">{() => <RequireClient><PortalRankFlow /></RequireClient>}</Route>
+      <Route path="/portal/reviews/widget">{() => <RequireClient><PortalWidget /></RequireClient>}</Route>
+      <Route path="/portal/reviews">{() => <RequireClient><PortalReviews /></RequireClient>}</Route>
       <Route path="/portal/billing">{() => <RequireClient><PortalBilling /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/settings">{() => <RequireClient><PortalSettings /></RequireClient>}</Route>
       <Route path="/portal">{() => <RequireClient><PortalDashboard /></RequireClient>}</Route>
 
+      <Route path="/compare/reputationshield-vs-nicejob" component={CompareNiceJob} />
       <Route path="/products/mapguard" component={MapGuardPage} />
       {/* TradeLine consolidation — old routes redirect to unified product */}
       <Route path="/products/assistants">{() => <Redirect to="/products/tradeline" />}</Route>
@@ -178,6 +184,8 @@ function Router() {
       <Route path="/quote-demo">{() => <Redirect to="/tools/quote-demo" />}</Route>
       <Route path="/free-audit">{() => <Redirect to="/tools/free-audit" />}</Route>
       <Route path="/onboarding/:token" component={OnboardingForm} />
+      <Route path="/review/qr/:widgetToken" component={ReviewQrLanding} />
+      <Route path="/review/:token" component={ReviewFunnel} />
       <Route path="/audit/report/:id" component={SharedAuditReport} />
       <Route path="/wizard" component={Wizard} />
       <Route path="/calculator" component={Calculator} />

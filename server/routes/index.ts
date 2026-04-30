@@ -22,7 +22,8 @@ import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
 import { registerPortalRoutes } from "./portalRoutes";
 import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
 import { registerDemoLeadRoutes } from "./demoLeadRoutes";
-import { registerRankFlowRoutes } from "./rankflowRoutes";
+import { registerReviewPublicRoutes } from "./reviewPublicRoutes";
+import { registerWidgetRoutes } from "./widgetRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -50,7 +51,8 @@ export async function registerRoutes(
   registerPortalRoutes(app);
   registerMissedCallLeadRoutes(app);
   registerDemoLeadRoutes(app);
-  registerRankFlowRoutes(app);
+  registerReviewPublicRoutes(app);
+  registerWidgetRoutes(app);
 
   return httpServer;
 }

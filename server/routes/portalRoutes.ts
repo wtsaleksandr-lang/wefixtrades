@@ -1,12 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { requireClient, hashPassword, verifyPassword } from "../auth";
 import { db } from "../db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { chat as aiChat } from "../services/aiService";
-import { storage } from "../storage";
-import { generateMonthlyPlan } from "../services/rankflow/planGenerator";
-import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
-import { generateKeywordTargets, clusterKeywords, deriveTargetServices } from "../services/rankflow/keywordHelper";
 import { authRateLimiter } from "../services/rateLimiter";
 import {
   clients,
@@ -22,10 +18,8 @@ import {
   deploymentStatus,
   supportTickets,
   passwordResetTokens,
-  rankflowProfiles,
-  rankflowTasks,
-  rankflowProgress,
-  rankflowMonthlyPlans,
+  reviewRequests,
+  monitoredReviews,
 } from "@shared/schema";
 
 /* ─── Helpers ─── */
@@ -821,232 +815,508 @@ Do NOT:
     }
   });
 
-  /* ═══════════════════════════════════════════
-     RankFlow Client Dashboard
-     ═══════════════════════════════════════════ */
+  // ═══════════════════════════════════════════════
+  // ReputationShield — Client Portal
+  // ═══════════════════════════════════════════════
 
-  const TASK_TYPE_LABELS: Record<string, string> = {
-    page_create: "Page created",
-    meta_fix: "Page optimization",
-    citation_build: "Directory listing",
-    internal_linking: "Internal linking",
-    content_support: "SEO content support",
-    schema_basic: "Search visibility improvement",
-  };
-
-  app.get("/api/portal/rankflow", requireClient, async (req: Request, res: Response) => {
+  /**
+   * GET /api/portal/reputation/overview
+   * Summary metrics for the client's reputation status.
+   */
+  app.get("/api/portal/reputation/overview", requireClient, async (req, res) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const month = new Date().toISOString().slice(0, 7);
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-      // Profile
-      const [profile] = await db.select().from(rankflowProfiles)
-        .where(eq(rankflowProfiles.client_id, clientId)).limit(1);
+      // Reviews stats
+      const [reviewStats] = await db.select({
+        total: sql<number>`count(*)::int`,
+        averageRating: sql<number>`coalesce(round(avg(${monitoredReviews.rating})::numeric, 2), 0)::float`,
+        withResponse: sql<number>`count(*) filter (where ${monitoredReviews.response_text} is not null)::int`,
+        last30Days: sql<number>`count(*) filter (where ${monitoredReviews.first_seen_at} >= ${thirtyDaysAgo})::int`,
+        last7Days: sql<number>`count(*) filter (where ${monitoredReviews.first_seen_at} >= ${sevenDaysAgo})::int`,
+        lowRatingNoResponse: sql<number>`count(*) filter (where ${monitoredReviews.rating} <= 2 and ${monitoredReviews.response_text} is null)::int`,
+        withDraft: sql<number>`count(*) filter (where ${monitoredReviews.draft_response} is not null)::int`,
+      }).from(monitoredReviews)
+        .where(eq(monitoredReviews.client_id, clientId));
 
-      if (!profile) return res.json({ active: false });
+      // Review requests stats
+      const [requestStats] = await db.select({
+        totalSent: sql<number>`count(*) filter (where ${reviewRequests.status} != 'pending')::int`,
+        pendingFollowups: sql<number>`count(*) filter (where ${reviewRequests.status} = 'sent' and ${reviewRequests.next_followup_at} is not null)::int`,
+        routedPositive: sql<number>`count(*) filter (where ${reviewRequests.status} = 'routed_positive')::int`,
+        feedbackCaptured: sql<number>`count(*) filter (where ${reviewRequests.status} = 'feedback_captured')::int`,
+      }).from(reviewRequests)
+        .where(eq(reviewRequests.client_id, clientId));
 
-      // Current month plan
-      const [plan] = await db.select().from(rankflowMonthlyPlans)
-        .where(and(eq(rankflowMonthlyPlans.client_id, clientId), eq(rankflowMonthlyPlans.month, month)))
-        .limit(1);
+      // Private feedback count
+      const [feedbackCount] = await db.select({
+        total: sql<number>`count(*) filter (where ${reviewRequests.internal_feedback} is not null)::int`,
+      }).from(reviewRequests)
+        .where(eq(reviewRequests.client_id, clientId));
 
-      // Tasks for this month (only done or in-progress — hide internal clutter)
-      const allTasks = plan
-        ? await db.select().from(rankflowTasks).where(eq(rankflowTasks.plan_id, plan.id))
-        : [];
-
-      const completed = allTasks.filter(t => t.status === "done");
-      const inProgress = allTasks.filter(t => ["assigned", "in_progress", "submitted", "qa_review", "pending"].includes(t.status));
-
-      // Transform to client-safe language
-      const completedItems = completed.map(t => ({
-        label: TASK_TYPE_LABELS[t.type] || t.type.replace(/_/g, " "),
-        detail: t.title.replace(/^(Create SEO page|Optimize title tag|Build citation|Add internal links|Add schema markup|Content recommendation).*?—?\s*/i, "").trim() || t.title,
-        completedAt: t.completed_at,
-      }));
-
-      const inProgressItems = inProgress.map(t => ({
-        label: TASK_TYPE_LABELS[t.type] || t.type.replace(/_/g, " "),
-        detail: t.title,
-      }));
-
-      // Progress stats
-      const totalTasks = allTasks.length;
-      const doneTasks = completed.length;
-      const pagesCreated = completed.filter(t => t.type === "page_create").length;
-      const citationsBuilt = completed.filter(t => t.type === "citation_build").length;
-      const progressPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
-
-      // Status line
-      let statusLine = "Work is underway this month";
-      if (!profile.enabled) statusLine = "RankFlow is currently paused";
-      else if (!plan) statusLine = "This month's plan is being prepared";
-      else if (doneTasks === totalTasks && totalTasks > 0) statusLine = "This month's SEO work is complete";
-      else if (doneTasks === 0) statusLine = "Work is starting this month";
-
-      // What's next (simple narrative)
-      const nextUp: string[] = [];
-      const pendingTypes = new Set(inProgress.map(t => t.type));
-      if (pendingTypes.has("page_create")) nextUp.push("Creating optimized service pages");
-      if (pendingTypes.has("meta_fix")) nextUp.push("Optimizing page titles and descriptions");
-      if (pendingTypes.has("citation_build")) nextUp.push("Expanding local directory coverage");
-      if (pendingTypes.has("internal_linking")) nextUp.push("Improving internal page connections");
-      if (pendingTypes.has("content_support")) nextUp.push("Preparing next month's content strategy");
-      if (pendingTypes.has("schema_basic")) nextUp.push("Enhancing search result visibility");
-      if (nextUp.length === 0 && totalTasks > 0 && doneTasks < totalTasks) nextUp.push("Finalizing this month's SEO improvements");
-      if (nextUp.length === 0 && doneTasks === totalTasks) nextUp.push("Reviewing keyword progress for next month");
-
-      // Ranking highlights (from signals table)
-      const signals = await storage.getSignalSummary(clientId);
-      const rankingHighlights: string[] = [];
-      if (signals) {
-        if (signals.keywords_top_10 > 0) rankingHighlights.push(`${signals.keywords_top_10} keyword${signals.keywords_top_10 > 1 ? "s" : ""} in top 10`);
-        if (signals.keywords_improved > 0) rankingHighlights.push(`${signals.keywords_improved} keyword${signals.keywords_improved > 1 ? "s" : ""} improved this month`);
-        if (signals.pages_indexed > 0) rankingHighlights.push(`${signals.pages_indexed} page${signals.pages_indexed > 1 ? "s" : ""} indexed on Google`);
-        if (signals.keywords_top_20 > signals.keywords_top_10) rankingHighlights.push(`${signals.keywords_top_20} keyword${signals.keywords_top_20 > 1 ? "s" : ""} in top 20`);
-      }
-
-      // Indexing summary
-      const pages = await storage.listPagesByClient(clientId);
-      const indexedPages = pages.filter(p => p.indexed).length;
-      const pendingIndex = pages.length - indexedPages;
-
-      // Monthly narrative (rule-based)
-      const narrativeParts: string[] = [];
-      if (doneTasks > 0) narrativeParts.push(`This month we completed ${doneTasks} SEO improvement${doneTasks > 1 ? "s" : ""}`);
-      if (pagesCreated > 0) narrativeParts.push(`created ${pagesCreated} new page${pagesCreated > 1 ? "s" : ""}`);
-      if (citationsBuilt > 0) narrativeParts.push(`built ${citationsBuilt} local listing${citationsBuilt > 1 ? "s" : ""}`);
-      if (signals?.keywords_improved && signals.keywords_improved > 0) narrativeParts.push(`${signals.keywords_improved} keyword${signals.keywords_improved > 1 ? "s" : ""} improved in Google`);
-      if (indexedPages > 0) narrativeParts.push(`${indexedPages} page${indexedPages > 1 ? "s are" : " is"} indexed on Google`);
-      let narrative = narrativeParts.length > 0
-        ? narrativeParts.join(", ") + "."
-        : "We are setting up your SEO plan and will begin work shortly.";
-      // Capitalize first letter
-      narrative = narrative.charAt(0).toUpperCase() + narrative.slice(1);
+      const noResponse = (reviewStats?.total ?? 0) - (reviewStats?.withResponse ?? 0);
 
       res.json({
-        active: profile.enabled,
-        plan_tier: profile.plan_tier,
-        month,
-        statusLine,
-        narrative,
-        metrics: {
-          tasksCompleted: doneTasks,
-          totalTasks,
-          pagesCreated,
-          citationsBuilt,
-          progressPct,
+        reviews: {
+          total: reviewStats?.total ?? 0,
+          averageRating: reviewStats?.averageRating ?? 0,
+          last30Days: reviewStats?.last30Days ?? 0,
+          last7Days: reviewStats?.last7Days ?? 0,
+          withoutResponse: noResponse,
+          lowRatingNoResponse: reviewStats?.lowRatingNoResponse ?? 0,
+          withDraft: reviewStats?.withDraft ?? 0,
         },
-        ranking: {
-          highlights: rankingHighlights,
-          keywordsTracked: signals?.total_keywords || 0,
-          keywordsTop10: signals?.keywords_top_10 || 0,
-          keywordsTop20: signals?.keywords_top_20 || 0,
-          keywordsImproved: signals?.keywords_improved || 0,
-          avgPosition: signals?.avg_position ? Number(signals.avg_position) : null,
+        requests: {
+          totalSent: requestStats?.totalSent ?? 0,
+          pendingFollowups: requestStats?.pendingFollowups ?? 0,
+          routedPositive: requestStats?.routedPositive ?? 0,
+          feedbackCaptured: feedbackCount?.total ?? 0,
         },
-        indexing: {
-          totalPages: pages.length,
-          indexed: indexedPages,
-          pending: pendingIndex,
-        },
-        completed: completedItems,
-        inProgress: inProgressItems,
-        nextUp,
       });
     } catch (err: any) {
-      console.error("[portal-rankflow] error:", err.message);
-      res.status(500).json({ error: "Failed to load RankFlow dashboard" });
+      console.error("[portal] reputation overview error:", err.message);
+      res.status(500).json({ error: "Failed to load reputation data" });
     }
   });
 
-  /* ═══════════════════════════════════════════
-     RankFlow Onboarding
-     ═══════════════════════════════════════════ */
-
-  app.post("/api/portal/rankflow/onboard", requireClient, async (req: Request, res: Response) => {
+  /**
+   * GET /api/portal/reputation/reviews
+   * Recent public reviews for the client.
+   */
+  app.get("/api/portal/reputation/reviews", requireClient, async (req, res) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const { business_name, website_url, niche, location, additional_services, additional_locations, plan_tier } = req.body;
+      const limit = Math.min(50, parseInt(req.query.limit as string) || 20);
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
 
-      if (!business_name || !website_url || !niche || !location) {
-        return res.status(400).json({ error: "business_name, website_url, niche, and location are required" });
+      const rows = await db.select({
+        id: monitoredReviews.id,
+        reviewer_name: monitoredReviews.reviewer_name,
+        rating: monitoredReviews.rating,
+        review_text: monitoredReviews.review_text,
+        published_at: monitoredReviews.published_at,
+        response_text: monitoredReviews.response_text,
+        response_date: monitoredReviews.response_date,
+        is_new: monitoredReviews.is_new,
+        draft_response: monitoredReviews.draft_response,
+        platform: monitoredReviews.platform,
+        first_seen_at: monitoredReviews.first_seen_at,
+      }).from(monitoredReviews)
+        .where(eq(monitoredReviews.client_id, clientId))
+        .orderBy(desc(monitoredReviews.published_at))
+        .limit(limit).offset(offset);
+
+      const [countRow] = await db.select({ total: sql<number>`count(*)::int` })
+        .from(monitoredReviews)
+        .where(eq(monitoredReviews.client_id, clientId));
+
+      res.json({ data: rows, total: countRow?.total ?? 0 });
+    } catch (err: any) {
+      console.error("[portal] reputation reviews error:", err.message);
+      res.status(500).json({ error: "Failed to load reviews" });
+    }
+  });
+
+  /**
+   * GET /api/portal/reputation/feedback
+   * Private feedback captured through the sentiment gate.
+   */
+  app.get("/api/portal/reputation/feedback", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const rows = await db.select({
+        id: reviewRequests.id,
+        customer_name: reviewRequests.customer_name,
+        internal_feedback: reviewRequests.internal_feedback,
+        sentiment: reviewRequests.sentiment,
+        trigger_source: reviewRequests.trigger_source,
+        created_at: reviewRequests.created_at,
+        completed_at: reviewRequests.completed_at,
+      }).from(reviewRequests)
+        .where(and(
+          eq(reviewRequests.client_id, clientId),
+          sql`${reviewRequests.internal_feedback} is not null`,
+        ))
+        .orderBy(desc(reviewRequests.completed_at))
+        .limit(20);
+
+      res.json({ data: rows });
+    } catch (err: any) {
+      console.error("[portal] reputation feedback error:", err.message);
+      res.status(500).json({ error: "Failed to load feedback" });
+    }
+  });
+
+  /**
+   * GET /api/portal/reputation/config
+   * Returns client's ReputationShield tier, features, and settings.
+   */
+  app.get("/api/portal/reputation/config", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { extractTier, canAccessFeature, mergeSettings, TIER_LABELS, FEATURE_LABELS, FEATURE_MIN_TIER, TIER_FEATURES } = await import("@shared/reputationConfig");
+      const { storage } = await import("../storage");
+
+      const svc = await storage.getClientReputationService(clientId);
+      if (!svc) {
+        return res.json({ active: false, tier: null, features: {}, settings: null });
       }
 
-      // Check if profile already exists and is enabled
-      const existing = await storage.getRankFlowProfile(clientId);
-      if (existing?.enabled) {
-        return res.status(409).json({ error: "RankFlow is already active for this client" });
-      }
+      const tier = extractTier(svc.serviceId);
+      const settings = mergeSettings(svc.metadata?.reputation_settings);
+      const features = tier ? TIER_FEATURES[tier] : {};
 
-      // Derive target services and locations
-      const targetServices = deriveTargetServices(niche, additional_services);
-      const targetLocations = [location, ...(additional_locations || [])].filter(Boolean);
-
-      // Create or update profile
-      const profile = await storage.upsertRankFlowProfile(clientId, {
-        niche,
-        location,
-        website_url,
-        target_services: targetServices,
-        target_locations: targetLocations,
-        plan_tier: plan_tier || "starter",
-        enabled: true,
-      });
-
-      // Generate initial monthly plan + tasks
-      const month = new Date().toISOString().slice(0, 7);
-      let planResult = null;
-
-      const existingPlan = await storage.getMonthlyPlan(clientId, month);
-      if (!existingPlan) {
-        const planData = generateMonthlyPlan(profile);
-        const plan = await storage.createMonthlyPlan({
-          client_id: clientId,
-          month,
-          plan_data: planData,
-          status: "draft",
-        });
-
-        const taskDefs = generateTasksFromPlan(plan.id, planData, profile);
-        let tasksCreated = 0;
-        for (const t of taskDefs) {
-          await storage.createRankFlowTask(t as any);
-          tasksCreated++;
+      // Build upgrade hints for locked features
+      const upgradeHints: Record<string, string> = {};
+      if (tier) {
+        for (const [feature, minTier] of Object.entries(FEATURE_MIN_TIER)) {
+          if (!canAccessFeature(tier, feature as any)) {
+            upgradeHints[feature] = `Available on ${TIER_LABELS[minTier as keyof typeof TIER_LABELS]} plan`;
+          }
         }
-
-        await storage.updateMonthlyPlanStatus(plan.id, "active");
-        planResult = { planId: plan.id, month, tasksCreated };
       }
 
-      // Generate structured keyword targets and save to tracking table
-      const keywords = generateKeywordTargets(niche, location, additional_locations, additional_services);
-      const clusters = clusterKeywords(keywords);
-
-      // Save keywords to tracking table (max 40)
-      const kwToSave = keywords.slice(0, 40).map(k => ({
-        client_id: clientId,
-        keyword: k.keyword,
-        cluster: k.cluster,
-        priority: k.priority,
-      }));
-      await storage.createKeywords(kwToSave);
-
-      console.log(`[rankflow-onboard] Client ${clientId} onboarded — ${kwToSave.length} keywords saved, ${clusters.length} clusters, plan: ${planResult ? "created" : "already exists"}`);
-
-      res.status(201).json({
-        profile,
-        plan: planResult,
-        keywords_saved: kwToSave.length,
-        clusters: clusters.length,
+      res.json({
+        active: true,
+        tier,
+        tierLabel: tier ? TIER_LABELS[tier] : null,
+        features,
+        settings,
+        upgradeHints,
       });
     } catch (err: any) {
-      console.error("[rankflow-onboard] error:", err.message);
-      res.status(500).json({ error: "Failed to complete onboarding" });
+      console.error("[portal] reputation config error:", err.message);
+      res.status(500).json({ error: "Failed to load config" });
+    }
+  });
+
+  /**
+   * PATCH /api/portal/reputation/settings
+   * Update client's ReputationShield settings (channel, reminders, etc).
+   */
+  app.patch("/api/portal/reputation/settings", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { mergeSettings } = await import("@shared/reputationConfig");
+      const { storage } = await import("../storage");
+
+      const svc = await storage.getClientReputationService(clientId);
+      if (!svc) {
+        return res.status(404).json({ error: "No ReputationShield service found" });
+      }
+
+      const current = svc.metadata?.reputation_settings ?? {};
+      const updated = mergeSettings({ ...current, ...req.body });
+      const metadata = { ...svc.metadata, reputation_settings: updated };
+
+      await storage.updateClientServiceMetadata(clientId, svc.serviceId, metadata);
+
+      res.json({ ok: true, settings: updated });
+    } catch (err: any) {
+      console.error("[portal] reputation settings error:", err.message);
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  /**
+   * GET /api/portal/reputation/widget
+   * Returns widget setup info: token, embed code, current settings.
+   */
+  app.get("/api/portal/reputation/widget", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { extractTier, canAccessFeature, mergeWidgetSettings } = await import("@shared/reputationConfig");
+      const { storage } = await import("../storage");
+
+      // Check feature access
+      const svc = await storage.getClientReputationService(clientId);
+      const tier = svc ? extractTier(svc.serviceId) : null;
+
+      // Badge available on all tiers; carousel on Pro+
+      const badgeAccess = !!tier;
+      const carouselAccess = canAccessFeature(tier, "reviewWidget");
+
+      if (!tier) {
+        return res.json({ active: false, widgetAccess: false });
+      }
+
+      // Ensure widget token exists
+      const widgetToken = await storage.ensureWidgetToken(clientId);
+
+      // Load widget settings
+      const ws = mergeWidgetSettings(svc?.metadata?.reputation_settings?.widget);
+
+      // Build base URL for embed code
+      const origin = req.headers.origin || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : `${req.protocol}://${req.get("host")}`);
+
+      res.json({
+        active: true,
+        widgetToken,
+        badgeAccess,
+        carouselAccess,
+        settings: ws,
+        embedCode: {
+          badge: `<script src="${origin}/widget/embed.js" data-wft-widget="badge" data-wft-token="${widgetToken}"></script>`,
+          carousel: carouselAccess
+            ? `<script src="${origin}/widget/embed.js" data-wft-widget="carousel" data-wft-token="${widgetToken}"></script>`
+            : null,
+        },
+      });
+    } catch (err: any) {
+      console.error("[portal] widget info error:", err.message);
+      res.status(500).json({ error: "Failed to load widget info" });
+    }
+  });
+
+  /**
+   * PATCH /api/portal/reputation/widget
+   * Update widget settings.
+   */
+  app.patch("/api/portal/reputation/widget", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { mergeSettings, mergeWidgetSettings } = await import("@shared/reputationConfig");
+      const { storage } = await import("../storage");
+
+      const svc = await storage.getClientReputationService(clientId);
+      if (!svc) return res.status(404).json({ error: "No ReputationShield service found" });
+
+      const currentSettings = svc.metadata?.reputation_settings ?? {};
+      const currentWidget = currentSettings.widget ?? {};
+      const updatedWidget = mergeWidgetSettings({ ...currentWidget, ...req.body });
+      const updatedSettings = mergeSettings({ ...currentSettings, widget: updatedWidget });
+      const metadata = { ...svc.metadata, reputation_settings: updatedSettings };
+
+      await storage.updateClientServiceMetadata(clientId, svc.serviceId, metadata);
+
+      res.json({ ok: true, settings: updatedWidget });
+    } catch (err: any) {
+      console.error("[portal] widget settings error:", err.message);
+      res.status(500).json({ error: "Failed to update widget settings" });
+    }
+  });
+
+  // ═══════════════════════════════════════════════
+  // Manual Review Requests + QR
+  // ═══════════════════════════════════════════════
+
+  /** Rate limit: max 20 manual requests per client per day. */
+  const manualRequestCounts = new Map<string, { count: number; resets: number }>();
+  const MANUAL_DAILY_LIMIT = 20;
+
+  function checkManualRateLimit(clientId: number): boolean {
+    const key = `manual:${clientId}`;
+    const now = Date.now();
+    const entry = manualRequestCounts.get(key);
+    if (!entry || now > entry.resets) {
+      manualRequestCounts.set(key, { count: 1, resets: now + 24 * 60 * 60 * 1000 });
+      return true;
+    }
+    if (entry.count >= MANUAL_DAILY_LIMIT) return false;
+    entry.count++;
+    return true;
+  }
+
+  /**
+   * POST /api/portal/reputation/request-review
+   * Client sends a review request to a specific customer.
+   */
+  app.post("/api/portal/reputation/request-review", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { customer_name, customer_email, customer_phone, job_label } = req.body;
+
+      if (!customer_name || typeof customer_name !== "string" || customer_name.trim().length < 2) {
+        return res.status(400).json({ error: "Customer name is required" });
+      }
+      if (!customer_email && !customer_phone) {
+        return res.status(400).json({ error: "Email or phone number is required" });
+      }
+
+      // Rate limit
+      if (!checkManualRateLimit(clientId)) {
+        return res.status(429).json({ error: "Daily limit reached (20 review requests per day). Try again tomorrow." });
+      }
+
+      const { createManualReviewRequest, processReviewRequest } = await import("../services/reviewRequestService");
+
+      const result = await createManualReviewRequest({
+        clientId,
+        customerName: customer_name.trim(),
+        customerEmail: customer_email?.trim() || undefined,
+        customerPhone: customer_phone?.trim() || undefined,
+        jobLabel: job_label?.trim() || undefined,
+        triggerSource: "portal_manual",
+      });
+
+      if (!result.created) {
+        return res.status(409).json({ error: result.reason });
+      }
+
+      // Send immediately
+      if (result.reviewRequest) {
+        processReviewRequest(result.reviewRequest).catch((err: any) => {
+          console.error("[portal] Review request send error:", err.message);
+        });
+      }
+
+      res.status(201).json({ ok: true, id: result.reviewRequest?.id });
+    } catch (err: any) {
+      console.error("[portal] request-review error:", err.message);
+      res.status(500).json({ error: "Failed to send review request" });
+    }
+  });
+
+  /**
+   * GET /api/portal/reputation/qr
+   * Returns the client's QR review collection URL and widget token.
+   */
+  app.get("/api/portal/reputation/qr", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { storage } = await import("../storage");
+      const widgetToken = await storage.ensureWidgetToken(clientId);
+
+      const origin = req.headers.origin
+        || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : `${req.protocol}://${req.get("host")}`);
+
+      const qrUrl = `${origin}/review/qr/${widgetToken}`;
+
+      res.json({ qrUrl, widgetToken });
+    } catch (err: any) {
+      console.error("[portal] qr config error:", err.message);
+      res.status(500).json({ error: "Failed to load QR config" });
+    }
+  });
+
+  /**
+   * GET /api/portal/reputation/request-stats
+   * Source breakdown for review requests.
+   */
+  app.get("/api/portal/reputation/request-stats", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const [row] = await db.select({
+        total: sql<number>`count(*)::int`,
+        job_complete: sql<number>`count(*) filter (where ${reviewRequests.trigger_source} = 'job_complete')::int`,
+        portal_manual: sql<number>`count(*) filter (where ${reviewRequests.trigger_source} = 'portal_manual')::int`,
+        admin_manual: sql<number>`count(*) filter (where ${reviewRequests.trigger_source} = 'manual')::int`,
+        qr_scan: sql<number>`count(*) filter (where ${reviewRequests.trigger_source} = 'qr_scan')::int`,
+      }).from(reviewRequests)
+        .where(eq(reviewRequests.client_id, clientId));
+
+      res.json(row || { total: 0, job_complete: 0, portal_manual: 0, admin_manual: 0, qr_scan: 0 });
+    } catch (err: any) {
+      console.error("[portal] request-stats error:", err.message);
+      res.status(500).json({ error: "Failed to load stats" });
+    }
+  });
+
+  // ═══════════════════════════════════════════════
+  // Google Business Connection (Portal)
+  // ═══════════════════════════════════════════════
+
+  /**
+   * GET /api/portal/reputation/google-status
+   * Returns Google connection status for the authenticated client.
+   */
+  app.get("/api/portal/reputation/google-status", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { isGoogleOAuthConfigured } = await import("../services/googleBusinessService");
+      const { storage } = await import("../storage");
+      const client = await storage.getClientById(clientId);
+      const creds = client?.google_credentials as any;
+
+      const connected = !!(creds?.refresh_token || creds?.access_token);
+      const expired = connected && creds?.expiry_date && new Date(creds.expiry_date).getTime() < Date.now() && !creds?.refresh_token;
+
+      res.json({
+        oauthConfigured: isGoogleOAuthConfigured(),
+        connected,
+        connectedAt: creds?.connected_at || null,
+        needsReconnect: expired,
+      });
+    } catch (err: any) {
+      console.error("[portal] google-status error:", err.message);
+      res.status(500).json({ error: "Failed to check connection" });
+    }
+  });
+
+  /**
+   * GET /api/portal/reputation/google-connect
+   * Initiates Google OAuth flow for the authenticated client.
+   */
+  app.get("/api/portal/reputation/google-connect", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { isGoogleOAuthConfigured, getGoogleAuthUrl } = await import("../services/googleBusinessService");
+      if (!isGoogleOAuthConfigured()) {
+        return res.status(503).json({ error: "Google connection is not available right now" });
+      }
+
+      const state = JSON.stringify({ clientId, source: "portal" });
+      const authUrl = getGoogleAuthUrl(state);
+      res.json({ authUrl });
+    } catch (err: any) {
+      console.error("[portal] google-connect error:", err.message);
+      res.status(500).json({ error: "Failed to start connection" });
+    }
+  });
+
+  /**
+   * POST /api/portal/reputation/google-disconnect
+   * Disconnects Google for the authenticated client.
+   */
+  app.post("/api/portal/reputation/google-disconnect", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { storage } = await import("../storage");
+      await storage.updateClient(clientId, { google_credentials: null } as any);
+
+      await storage.logAdminActivity({
+        actor_type: "client",
+        actor_id: (req.user as any)?.id,
+        actor_name: null,
+        action: "google.disconnected",
+        entity_type: "client",
+        entity_id: clientId,
+        summary: `Google Business disconnected by client (portal)`,
+      });
+
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[portal] google-disconnect error:", err.message);
+      res.status(500).json({ error: "Failed to disconnect" });
     }
   });
 }
