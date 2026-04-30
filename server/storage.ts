@@ -91,6 +91,9 @@ type User, type InsertUser,
   type ContentDraft, type InsertContentDraft,
   type ContentApproval, type InsertContentApproval,
   type ContentAsset, type InsertContentAsset,
+  // Integration error logs (Phase 3)
+  integrationErrorLogs,
+  type IntegrationErrorLog, type InsertIntegrationErrorLog, type IntegrationErrorSeverity,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -361,6 +364,24 @@ export interface IStorage {
   // ─── Stripe webhook idempotency ───
   findProcessedStripeEvent(stripeEventId: string): Promise<ProcessedStripeEvent | undefined>;
   markStripeEventProcessed(data: InsertProcessedStripeEvent): Promise<ProcessedStripeEvent>;
+
+  // ─── Integration error logs (Phase 3) ───
+  logIntegrationError(data: InsertIntegrationErrorLog): Promise<IntegrationErrorLog>;
+  listIntegrationErrors(opts?: {
+    since?: Date;
+    integration?: string;
+    severities?: IntegrationErrorSeverity[];
+    limit?: number;
+  }): Promise<IntegrationErrorLog[]>;
+  summarizeIntegrationErrors(since: Date): Promise<Array<{
+    integration_name: string;
+    severity: string;
+    count: number;
+  }>>;
+  countIntegrationErrors(opts: {
+    since: Date;
+    severities?: IntegrationErrorSeverity[];
+  }): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3366,6 +3387,71 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`markStripeEventProcessed: insert returned no row and lookup failed for ${data.stripe_event_id}`);
     }
     return existing;
+  }
+
+  // ─── Integration error logs (Phase 3) ───
+  async logIntegrationError(data: InsertIntegrationErrorLog): Promise<IntegrationErrorLog> {
+    const [row] = await db.insert(integrationErrorLogs).values(data).returning();
+    return row;
+  }
+
+  async listIntegrationErrors(opts: {
+    since?: Date;
+    integration?: string;
+    severities?: IntegrationErrorSeverity[];
+    limit?: number;
+  } = {}): Promise<IntegrationErrorLog[]> {
+    const conditions: any[] = [];
+    if (opts.since) conditions.push(gte(integrationErrorLogs.created_at, opts.since));
+    if (opts.integration) conditions.push(eq(integrationErrorLogs.integration_name, opts.integration));
+    if (opts.severities && opts.severities.length > 0) {
+      conditions.push(sql`${integrationErrorLogs.severity} = ANY(${opts.severities})`);
+    }
+    const limit = Math.max(1, Math.min(500, opts.limit ?? 50));
+
+    const query = db
+      .select()
+      .from(integrationErrorLogs)
+      .orderBy(desc(integrationErrorLogs.created_at))
+      .limit(limit);
+
+    if (conditions.length === 0) return query;
+    return query.where(conditions.length === 1 ? conditions[0] : and(...conditions));
+  }
+
+  async summarizeIntegrationErrors(since: Date): Promise<Array<{
+    integration_name: string;
+    severity: string;
+    count: number;
+  }>> {
+    const rows: any = await db.execute(sql`
+      SELECT integration_name, severity, COUNT(*)::int AS count
+      FROM integration_error_logs
+      WHERE created_at >= ${since.toISOString()}::timestamptz
+      GROUP BY integration_name, severity
+      ORDER BY integration_name, severity
+    `);
+    const list: any[] = (rows?.rows ?? rows) as any[];
+    return list.map((r) => ({
+      integration_name: String(r.integration_name),
+      severity: String(r.severity),
+      count: Number(r.count ?? 0),
+    }));
+  }
+
+  async countIntegrationErrors(opts: {
+    since: Date;
+    severities?: IntegrationErrorSeverity[];
+  }): Promise<number> {
+    const conditions: any[] = [gte(integrationErrorLogs.created_at, opts.since)];
+    if (opts.severities && opts.severities.length > 0) {
+      conditions.push(sql`${integrationErrorLogs.severity} = ANY(${opts.severities})`);
+    }
+    const [row] = await db
+      .select({ count: count() })
+      .from(integrationErrorLogs)
+      .where(conditions.length === 1 ? conditions[0] : and(...conditions));
+    return Number(row?.count ?? 0);
   }
 }
 
