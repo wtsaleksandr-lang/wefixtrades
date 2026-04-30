@@ -137,7 +137,7 @@ export default function CaseStudiesPage() {
               margin: "0 0 16px",
             }}
           >
-            Pilot program · Early access
+            Illustrative scenarios — not customer case studies
           </p>
           <h1
             data-testid="text-case-studies-title"
@@ -156,9 +156,10 @@ export default function CaseStudiesPage() {
             data-testid="text-case-studies-subtitle"
             style={{ fontSize: 17, color: mkt.onDarkMuted, margin: 0, lineHeight: 1.6 }}
           >
-            These are scenarios from the early-access pilot program. Business names and specific
-            dollar figures are withheld per pilot agreement — we'll publish fully attributed studies
-            as customers sign public releases.
+            <strong style={{ color: mkt.onDark }}>These are illustrative pilot scenarios — not verified customer case studies.</strong>
+            {" "}They describe realistic outcomes from the early-access build phase. Business names
+            and specific dollar figures are withheld. We will publish fully attributed studies as
+            customers sign public releases.
           </p>
         </div>
       </div>

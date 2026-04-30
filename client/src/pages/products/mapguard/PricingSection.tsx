@@ -175,7 +175,7 @@ export default function PricingSection() {
               </ul>
 
               <Link
-                href="/signup"
+                href="/pricing"
                 style={{
                   display: "flex",
                   alignItems: "center",

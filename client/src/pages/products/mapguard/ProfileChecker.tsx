@@ -479,7 +479,7 @@ export default function ProfileChecker() {
 
             {/* CTAs */}
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Link href="/signup" onClick={() => trackEvent("mapguard_primary_cta_clicked", { target: "/signup" })} style={{
+              <Link href="/pricing" onClick={() => trackEvent("mapguard_primary_cta_clicked", { target: "/pricing" })} style={{
                 display: "inline-flex", alignItems: "center", gap: 6,
                 padding: "10px 20px", borderRadius: 10,
                 background: mkt.accent, color: mkt.dark,

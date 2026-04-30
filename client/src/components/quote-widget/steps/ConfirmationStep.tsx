@@ -137,8 +137,8 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
             QuoteQuick lets your customers get prices in seconds and sends every lead straight to you.
           </p>
           <a
-            href="/signup?product=quotequick"
-            onClick={() => trackEvent("demo_primary_cta_clicked", { target: "/signup?product=quotequick" })}
+            href="/wizard"
+            onClick={() => trackEvent("demo_primary_cta_clicked", { target: "/wizard" })}
             style={{
               display: 'inline-flex',
               alignItems: 'center',

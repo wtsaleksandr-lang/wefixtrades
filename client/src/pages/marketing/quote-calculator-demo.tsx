@@ -442,7 +442,7 @@ export default function QuoteCalculatorDemo() {
 
           {/* ─── CTA ─── */}
           <div style={{ maxWidth: 640, margin: "0 auto" }}>
-            <Link href="/signup?product=quotequick" style={{ textDecoration: "none", display: "block", marginBottom: 16 }}>
+            <Link href="/wizard" style={{ textDecoration: "none", display: "block", marginBottom: 16 }}>
               <div className="demo-cta-wrap" style={{
                 background: CYAN,
                 borderRadius: 16,

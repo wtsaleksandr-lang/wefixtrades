@@ -145,7 +145,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "We manage your Google Maps presence for you. Profile optimization, weekly monitoring, issue fixing, and monthly reporting for trades businesses.",
     category: "growth",
     heroVisualType: "dashboard",
-    primaryCTA: { label: "Get Started", href: "/Wizard" },
+    primaryCTA: { label: "Run a Free Audit", href: "/tools/free-audit" },
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
       "Full Google Business Profile optimization and rebuild",
@@ -186,8 +186,8 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "We keep your website updated, secure, and working — so you never have to think about it. Built for trades businesses. No contracts.",
     category: "growth",
     heroVisualType: "dashboard",
-    primaryCTA: { label: "Get Started", href: "/Wizard" },
-    secondaryCTA: { label: "See Pricing", href: "/pricing" },
+    primaryCTA: { label: "See Pricing", href: "/pricing" },
+    secondaryCTA: { label: "Talk to Us", href: "/contact" },
     highlights: [
       "Your website stays updated and working — we handle it every month",
       "Security patches and backups applied automatically",
@@ -232,7 +232,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Get a professional, mobile-first trade website with built-in lead capture \u2014 custom designed, SEO-ready, and live in 5 business days. You own it. No contracts.",
     category: "core",
     heroVisualType: "website",
-    primaryCTA: { label: "Get Your Website Built", href: "/Wizard" },
+    primaryCTA: { label: "See Pricing", href: "/pricing" },
     secondaryCTA: { label: "See What\u2019s Included", href: "#sitelaunch-included" },
     highlights: [
       "Mobile-first design \u2014 Most of your customers will find you on their phone. Your site works perfectly on every screen.",
@@ -280,8 +280,8 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Stay active online without doing it yourself. We create and post content across Facebook, Instagram, and Google \u2014 so you stay visible and trusted.",
     category: "growth",
     heroVisualType: "social",
-    primaryCTA: { label: "Start SocialSync", href: "/Wizard" },
-    secondaryCTA: { label: "See Pricing", href: "/pricing" },
+    primaryCTA: { label: "See Pricing", href: "/pricing" },
+    secondaryCTA: { label: "Talk to Us", href: "/contact" },
     highlights: [
       "Stay visible online without thinking about it",
       "Build trust before customers call you",
@@ -325,7 +325,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Automated review requests, private feedback shield, AI responses, and Google posting. Built for plumbers, electricians, and trades businesses. From $79/mo.",
     category: "reputation",
     heroVisualType: "reviews",
-    primaryCTA: { label: "Start Getting Reviews \u2014 Free Trial", href: "/Wizard" },
+    primaryCTA: { label: "See Pricing", href: "/pricing" },
     secondaryCTA: { label: "Compare Plans", href: "#pricing" },
     highlights: [
       "Customers get a friendly SMS or email after every job \u2014 automatically",
@@ -372,7 +372,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Done-for-you local SEO for trades businesses. We handle keyword targeting, page optimization, local listings, and monthly progress reporting so you can focus on jobs.",
     category: "growth",
     heroVisualType: "dashboard",
-    primaryCTA: { label: "Get Started", href: "/Wizard" },
+    primaryCTA: { label: "Run a Free Audit", href: "/tools/free-audit" },
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
       "Keyword research targeting your services and service area",
@@ -419,8 +419,8 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Done-for-you Google and Facebook ads built for trades businesses. We handle everything \u2014 setup, targeting, optimization, and reporting.",
     category: "growth",
     heroVisualType: "dashboard",
-    primaryCTA: { label: "Start Getting Leads", href: "/Wizard" },
-    secondaryCTA: { label: "See Pricing", href: "/pricing" },
+    primaryCTA: { label: "See Pricing", href: "/pricing" },
+    secondaryCTA: { label: "Talk to Us", href: "/contact" },
     highlights: [
       "Google Ads campaigns targeting homeowners who need your services",
       "Facebook & Instagram ads to reach local customers",

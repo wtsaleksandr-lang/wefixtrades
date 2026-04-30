@@ -66,7 +66,7 @@ export default function FinalCta() {
         </p>
 
         <Link
-          href="/signup"
+          href="/tools/free-audit"
           style={{
             display: "inline-flex",
             alignItems: "center",

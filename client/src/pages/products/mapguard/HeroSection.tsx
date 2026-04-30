@@ -137,7 +137,7 @@ export default function HeroSection() {
           {/* CTAs */}
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             <Link
-              href="/signup"
+              href="/pricing"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
