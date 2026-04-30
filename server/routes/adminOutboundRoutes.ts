@@ -39,6 +39,7 @@ import {
 } from "../services/outboundSafety";
 import { assignTargetOffer, computePriorityScore } from "../services/prospectTargeting";
 import { classifyReplyFull } from "../services/replyIntelligence";
+import { logIntegrationError } from "../services/integrationErrors";
 
 /* ─── helpers ─── */
 
@@ -945,6 +946,13 @@ export function registerAdminOutboundRoutes(app: Express): void {
         console.error(
           "[outbound/webhook] PROD misconfiguration: OUTREACH_WEBHOOK_SECRET is not set — rejecting webhook",
         );
+        void logIntegrationError({
+          integration: "outreach",
+          area: "webhook_secret_missing",
+          severity: "critical",
+          message: "OUTREACH_WEBHOOK_SECRET is not set in production — rejecting webhook",
+          metadata: { platform },
+        });
         return res.status(503).json({ error: "Webhook secret not configured" });
       }
       console.warn(
@@ -953,6 +961,14 @@ export function registerAdminOutboundRoutes(app: Express): void {
     } else {
       const provided = req.headers["x-webhook-secret"] || req.headers["x-api-key"];
       if (provided !== secret) {
+        void logIntegrationError({
+          integration: "outreach",
+          area: "secret_mismatch",
+          severity: "critical",
+          message: "Outreach webhook arrived with wrong shared-secret header",
+          statusCode: 401,
+          metadata: { platform },
+        });
         return res.status(401).json({ error: "Unauthorized" });
       }
     }

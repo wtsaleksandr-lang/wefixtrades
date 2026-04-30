@@ -20,6 +20,7 @@ import {
   scheduleCardExpiringEmail,
   cancelPendingForSubscription,
 } from "../services/dunningService";
+import { logIntegrationError } from "../services/integrationErrors";
 import { getTradeLineDefaultConfig } from "@shared/schema";
 
 function getStripe(): Stripe | null {
@@ -141,10 +142,24 @@ export function registerStripeBillingRoutes(app: Express): void {
     // Phase 1 safety — production must be fully signed.
     if (isProd && !webhookSecret) {
       console.error("[billing-webhook] PROD misconfiguration: STRIPE_BILLING_WEBHOOK_SECRET is not set");
+      logIntegrationError({
+        integration: "stripe",
+        area: "webhook_secret_missing",
+        severity: "critical",
+        message: "STRIPE_BILLING_WEBHOOK_SECRET is not set in production — refusing webhook",
+        statusCode: 500,
+      });
       return res.status(500).send("Webhook secret not configured");
     }
     if (isProd && !sig) {
       console.warn("[billing-webhook] PROD request rejected: missing stripe-signature header");
+      logIntegrationError({
+        integration: "stripe",
+        area: "missing_signature_header",
+        severity: "warning",
+        message: "Production webhook request had no stripe-signature header",
+        statusCode: 400,
+      });
       return res.status(400).send("Missing signature");
     }
 
@@ -160,6 +175,13 @@ export function registerStripeBillingRoutes(app: Express): void {
         );
       } catch (err: any) {
         console.error("[billing-webhook] Signature verification failed:", err.message);
+        logIntegrationError({
+          integration: "stripe",
+          area: "signature_verification_failed",
+          severity: "critical",
+          message: err?.message ?? "stripe signature verification threw",
+          statusCode: 400,
+        });
         return res.status(400).send("Invalid signature");
       }
     } else {
@@ -252,6 +274,15 @@ export function registerStripeBillingRoutes(app: Express): void {
       res.json({ received: true });
     } catch (err: any) {
       console.error(`[billing-webhook] Error handling ${event.type}:`, err.message);
+      logIntegrationError({
+        integration: "stripe",
+        area: "handler_failed",
+        severity: "error",
+        message: err?.message ?? "stripe webhook handler threw",
+        errorCode: event.type,
+        requestId: event.id,
+        statusCode: 500,
+      });
       res.status(500).json({ error: "Webhook handler failed" });
     }
   });

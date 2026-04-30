@@ -21,6 +21,7 @@
 import { storage } from "../../storage";
 import { renderArticleHtml } from "./articleHtml";
 import { decryptToken, isEncryptionConfigured } from "../socialSync/tokenEncryption";
+import { logIntegrationError } from "../integrationErrors";
 import type { ContentDraft } from "@shared/schema";
 
 /* ─── Public types ──────────────────────────────────────────────────── */
@@ -190,6 +191,14 @@ export async function publishDraftToWordpress(
   try {
     appPassword = decryptToken(creds.cms_app_password);
   } catch (err: any) {
+    void logIntegrationError({
+      integration: "wordpress",
+      area: "decrypt_failed",
+      severity: "error",
+      message: `failed to decrypt stored WP credentials for client ${draft.client_id}`,
+      clientId: draft.client_id,
+      metadata: { draftId },
+    });
     return { ok: false, reason: "decrypt_failed", message: `failed to decrypt stored credentials: ${err.message}` };
   }
 
@@ -322,6 +331,10 @@ export async function publishDraftToWordpress(
  * Persist a publish failure into the draft's metadata so the admin UI can
  * surface the error and offer a Retry. Status stays 'approved' (not flipped
  * to 'failed') so the regular publish path can be retried.
+ *
+ * Phase 3: also writes to integration_error_logs so the system-health
+ * endpoint can surface aggregate failure counts without scanning every
+ * content_drafts row.
  */
 async function persistFailure(draftId: number, errorMsg: string): Promise<void> {
   try {
@@ -337,6 +350,14 @@ async function persistFailure(draftId: number, errorMsg: string): Promise<void> 
           attempted_at: new Date().toISOString(),
         },
       },
+    });
+    void logIntegrationError({
+      integration: "wordpress",
+      area: "publish_failed",
+      severity: "error",
+      message: errorMsg,
+      clientId: draft.client_id,
+      metadata: { draftId },
     });
   } catch (err: any) {
     console.error(`[contentflow] WP publish: failed to persist failure metadata for draft ${draftId}: ${err.message}`);

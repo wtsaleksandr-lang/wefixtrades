@@ -22,6 +22,7 @@ import type { AssistantRequest } from "./assistant";
 import type { ChatMessage } from "./aiService";
 import { buildSystemPrompt, type TradeLineContext } from "./promptBuilder";
 import { storage } from "../storage";
+import { logIntegrationError } from "./integrationErrors";
 import type { TradelineConfig, ClientService, Client } from "@shared/schema";
 
 /* ─── Vapi Config ─── */
@@ -184,6 +185,12 @@ export function verifyWebhookSignature(
       console.error(
         "[vapi] PROD misconfiguration: VAPI_WEBHOOK_SECRET is not set — rejecting webhook",
       );
+      void logIntegrationError({
+        integration: "vapi",
+        area: "webhook_secret_missing",
+        severity: "critical",
+        message: "VAPI_WEBHOOK_SECRET is not set in production — rejecting webhook",
+      });
       return false;
     }
     console.warn(
@@ -193,6 +200,14 @@ export function verifyWebhookSignature(
   }
 
   if (!signature) {
+    if (isProd) {
+      void logIntegrationError({
+        integration: "vapi",
+        area: "missing_signature_header",
+        severity: "warning",
+        message: "Vapi webhook arrived without x-vapi-signature header",
+      });
+    }
     return false;
   }
 
@@ -200,6 +215,12 @@ export function verifyWebhookSignature(
     console.error(
       "[vapi] Cannot verify signature: raw request body was not captured by the route.",
     );
+    void logIntegrationError({
+      integration: "vapi",
+      area: "raw_body_missing",
+      severity: "error",
+      message: "Vapi webhook route did not capture rawBody — cannot verify signature",
+    });
     return false;
   }
 
@@ -218,9 +239,23 @@ export function verifyWebhookSignature(
 
     const sigBuf = Buffer.from(signature, "hex");
     const expBuf = Buffer.from(expected, "hex");
-    if (sigBuf.length !== expBuf.length) return false;
-    return crypto.timingSafeEqual(sigBuf, expBuf);
-  } catch {
+    const ok = sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
+    if (!ok) {
+      void logIntegrationError({
+        integration: "vapi",
+        area: "signature_mismatch",
+        severity: "critical",
+        message: "Vapi webhook signature did not match expected HMAC",
+      });
+    }
+    return ok;
+  } catch (err: any) {
+    void logIntegrationError({
+      integration: "vapi",
+      area: "signature_verification_threw",
+      severity: "error",
+      message: err?.message ?? "vapi signature verification threw",
+    });
     return false;
   }
 }

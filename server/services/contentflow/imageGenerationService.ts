@@ -27,6 +27,7 @@ import { storage } from "../../storage";
 import type { ContentDraft } from "@shared/schema";
 import { readBrandProfile } from "./brandProfile";
 import { resolveOpenAiKey } from "../../openaiClient";
+import { logIntegrationError } from "../integrationErrors";
 
 /* ─── Config ───────────────────────────────────────────────────────── */
 
@@ -357,6 +358,14 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
         provider = "openai+r2";
       } else {
         console.warn(`[contentflow][image-gen] draft=${draftId} R2 upload failed (${upload.error}) — falling back to provider URL`);
+        void logIntegrationError({
+          integration: "cloudflare_r2",
+          area: "upload_failed",
+          severity: "warning",
+          message: upload.error || "R2 upload failed; falling back to provider URL (~1h TTL)",
+          metadata: { draftId, clientId: draft.client_id, key },
+          clientId: draft.client_id,
+        });
       }
     }
 
