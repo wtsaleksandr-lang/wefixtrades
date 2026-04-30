@@ -44,9 +44,8 @@ export default function FinalCta() {
             marginBottom: 16,
           }}
         >
-          Start Getting Found
-          <br />
-          <span style={{ color: mkt.accent }}>on Google.</span>
+          Let Us Manage{" "}
+          <span style={{ color: mkt.accent }}>Your Google Visibility.</span>
         </h2>
 
         <p
@@ -59,10 +58,10 @@ export default function FinalCta() {
             margin: "0 auto 36px",
           }}
         >
-          Get your free audit and see exactly what's missing from your Google Business Profile.
+          Get a free audit of your Google Business Profile and see exactly where you stand.
           <br />
           <span style={{ fontSize: 14, opacity: 0.8 }}>
-            See what's missing before another nearby customer finds someone else.
+            We'll show you what's holding you back — and handle the fix for you.
           </span>
         </p>
 

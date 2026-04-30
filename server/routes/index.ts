@@ -22,6 +22,7 @@ import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
 import { registerPortalRoutes } from "./portalRoutes";
 import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
 import { registerDemoLeadRoutes } from "./demoLeadRoutes";
+import { registerMapguardRoutes } from "./mapguardRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -49,6 +50,7 @@ export async function registerRoutes(
   registerPortalRoutes(app);
   registerMissedCallLeadRoutes(app);
   registerDemoLeadRoutes(app);
+  registerMapguardRoutes(app);
 
   return httpServer;
 }

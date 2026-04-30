@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { requireClient, hashPassword, verifyPassword } from "../auth";
 import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../services/threadService";
+import { chat as aiChat } from "../services/aiService";
 import { authRateLimiter } from "../services/rateLimiter";
 import {
   clients,
@@ -18,11 +18,13 @@ import {
   deploymentStatus,
   supportTickets,
   passwordResetTokens,
-  getTradeLineReadiness,
-  mapOnboardingToTradeLineConfig,
-  advanceSetupStage,
+  mapguardSnapshots,
+  mapguardTasks,
 } from "@shared/schema";
-import { storage } from "../storage";
+import { compileMonthlyReport } from "../services/mapguardReports";
+import { getExecutionUsage } from "../services/mapguardTaskEngine";
+import { generateClientActivityFeed } from "../services/mapguardRetention";
+import { getClientPerformanceSummary } from "../services/mapguardMonitor";
 
 /* ─── Helpers ─── */
 
@@ -527,7 +529,6 @@ export function registerPortalRoutes(app: Express) {
 
       res.json({
         id: submission.id,
-        client_service_id: submission.client_service_id,
         status: submission.status === "not_sent" || submission.status === "sent" ? "viewed" : submission.status,
         service_name: svc?.name ?? null,
         service_id: cs?.service_id ?? null,
@@ -592,36 +593,6 @@ export function registerPortalRoutes(app: Express) {
           .update(onboardingSubmissions)
           .set({ responses, status: "submitted", submitted_at: new Date(), updated_at: new Date() })
           .where(eq(onboardingSubmissions.id, submissionId));
-
-        // Map onboarding answers into TradeLine config if applicable
-        if (submission.client_service_id) {
-          try {
-            const cs = await storage.getClientServiceById(submission.client_service_id);
-            if (cs && cs.service_id.startsWith("tradeline")) {
-              const config = await storage.getTradeLineConfig(cs.id);
-              if (config) {
-                const updates = mapOnboardingToTradeLineConfig(responses, config.variant);
-                // Use safe stage advancement — never regress
-                if (updates.setupStage) {
-                  updates.setupStage = advanceSetupStage(config.setupStage, updates.setupStage);
-                }
-                if (Object.keys(updates).length > 0) {
-                  await storage.updateTradeLineConfig(cs.id, updates);
-                }
-              }
-
-              // Trigger assistant build (non-blocking)
-              import("../services/vapiService").then(({ provisionTradeLineAssistant }) => {
-                provisionTradeLineAssistant(cs.id).catch(err =>
-                  console.warn(`[tradeline] Auto-build assistant failed for service #${cs.id}:`, err.message),
-                );
-              });
-            }
-          } catch (err) {
-            console.warn("Portal onboarding: failed to map TradeLine config:", err);
-          }
-        }
-
         res.json({ ok: true, status: "submitted", mode: "submit" });
       }
     } catch (err) {
@@ -755,203 +726,305 @@ export function registerPortalRoutes(app: Express) {
     }
   });
 
-  /* ═══════════════════════════════════════════
-     TradeLine
-     ═══════════════════════════════════════════ */
-
-  /** Verify a TradeLine client_service belongs to the authenticated client. */
-  async function verifyTradeLineOwnership(
-    req: Request,
-    res: Response,
-    clientServiceId: number,
-  ): Promise<{ clientId: number; clientServiceId: number } | null> {
-    const clientId = await withClientId(req, res);
-    if (!clientId) return null;
-
-    const [cs] = await db
-      .select({ id: clientServices.id, client_id: clientServices.client_id, service_id: clientServices.service_id })
-      .from(clientServices)
-      .where(and(eq(clientServices.id, clientServiceId), eq(clientServices.client_id, clientId)))
-      .limit(1);
-
-    if (!cs || !cs.service_id.startsWith("tradeline")) {
-      res.status(404).json({ error: "TradeLine service not found" });
-      return null;
-    }
-
-    return { clientId, clientServiceId: cs.id };
-  }
-
   /**
-   * GET /api/portal/tradeline/:clientServiceId
-   * Returns TradeLine config, latest usage, and recent calls.
+   * POST /api/portal/ai-chat
+   * Context-aware AI assistant for onboarding or general help.
    */
-  app.get("/api/portal/tradeline/:clientServiceId", requireClient, async (req: Request, res: Response) => {
+  app.post("/api/portal/ai-chat", requireClient, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
-      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+      const { messages, context } = req.body;
 
-      const ownership = await verifyTradeLineOwnership(req, res, csId);
-      if (!ownership) return;
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({ error: "messages array is required" });
+      }
 
-      const [config, usage, calls] = await Promise.all([
-        storage.getTradeLineConfig(csId),
-        storage.getTradeLineUsage(csId),
-        storage.listTradeLineCalls(csId, 10),
-      ]);
+      // Validate and sanitize message roles — only allow user/assistant
+      const allowedRoles = new Set(["user", "assistant"]);
+      const sanitizedMessages = messages
+        .filter((m: any) => m && typeof m.content === "string" && allowedRoles.has(m.role))
+        .slice(-10);
 
-      res.json({
-        config: config ?? null,
-        usage: usage ?? null,
-        recentCalls: calls,
-        setupStage: config?.setupStage ?? "not_started",
-        readiness: config ? getTradeLineReadiness(config) : null,
-        assistantStatus: config?.assistant?.status ?? "not_built",
+      let systemPrompt: string;
+
+      if (context?.surface === "help") {
+        // General help context
+        systemPrompt = `You are a helpful support assistant for WeFixTrades, a company that provides digital marketing services for trade businesses (plumbers, electricians, builders, etc.).
+
+Services include: MapGuard (Google Business Profile), MapSetup (one-time GBP optimization), TradeLine (AI phone/chat), QuoteQuick (quote calculators), RankFlow (ongoing SEO), AdFlow (done-for-you ads), ReputationShield (review management), SocialSync (social media), SiteLaunch (website builds), WebCare (website maintenance), and WebFix (one-time website fixes).
+
+Your job:
+- Answer questions about how services work
+- Explain billing, onboarding, and service delivery
+- Help clients understand their portal and dashboard
+- Keep answers short and practical (2-4 sentences)
+- Use Australian English
+- If you don't know something specific to their account, suggest they submit a ticket
+
+Do NOT:
+- Make up account-specific details (balances, dates, statuses)
+- Provide legal or financial advice
+- Discuss internal pricing or margins`;
+      } else {
+        // Onboarding context
+        const fieldList = (context?.fields ?? [])
+          .map((f: { key: string; label: string; required: boolean }) =>
+            `- ${f.label}${f.required ? " (required)" : " (optional)"}`)
+          .join("\n");
+
+        const currentValues = context?.current_responses
+          ? Object.entries(context.current_responses)
+              .filter(([, v]) => v !== "" && v !== false)
+              .map(([k, v]) => `- ${k}: ${v}`)
+              .join("\n")
+          : "None filled yet.";
+
+        systemPrompt = `You are a helpful onboarding assistant for WeFixTrades, a company that provides digital marketing and trade business services.
+
+The client is filling out an onboarding form for: ${context?.service_name ?? "a service"} (${context?.service_id ?? ""}).
+
+The form fields are:
+${fieldList}
+
+What the client has filled in so far:
+${currentValues}
+
+Your job:
+- Help explain what each field means in simple terms
+- Suggest answers based on the client's business
+- Ask clarifying questions to help them think
+- Keep answers short and practical (1-3 sentences)
+- Use Australian English
+- Never auto-submit or override their input
+- If they seem stuck, ask "What services bring you most jobs?" or similar to get them started
+
+Do NOT:
+- Make up specific business details
+- Provide legal or financial advice
+- Discuss pricing of WeFixTrades services`;
+      }
+
+      const reply = await aiChat({
+        system: systemPrompt,
+        messages: sanitizedMessages.map((m: { role: string; content: string }) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+        maxTokens: 300,
       });
+
+      res.json({ reply });
     } catch (err) {
-      console.error("Portal tradeline GET error:", err);
-      res.status(500).json({ error: "Failed to load TradeLine data" });
+      console.error("Portal AI chat error:", err);
+      res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
     }
   });
 
   /**
-   * POST /api/portal/tradeline/:clientServiceId/mode
-   * Switch TradeLine mode (available / on_the_job / after_hours).
+   * GET /api/portal/mapguard
+   * Client-safe MapGuard dashboard data.
+   * Returns snapshots, health, and trend data — no tasks, alerts, or supplier info.
    */
-  app.post("/api/portal/tradeline/:clientServiceId/mode", requireClient, async (req: Request, res: Response) => {
+  app.get("/api/portal/mapguard", requireClient, async (req: Request, res: Response) => {
     try {
-      const csId = parseInt(req.params.clientServiceId);
-      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
 
-      const ownership = await verifyTradeLineOwnership(req, res, csId);
-      if (!ownership) return;
-
-      const { newMode } = req.body;
-      const validModes = ["available", "on_the_job", "after_hours"];
-      if (!newMode || !validModes.includes(newMode)) {
-        return res.status(400).json({ error: "newMode must be one of: available, on_the_job, after_hours" });
-      }
-
-      const modeLog = await storage.setTradeLineMode(csId, newMode, "client");
-      const config = await storage.getTradeLineConfig(csId);
-
-      res.json({ config, modeLog });
-    } catch (err) {
-      console.error("Portal tradeline mode error:", err);
-      res.status(500).json({ error: "Failed to update mode" });
-    }
-  });
-
-  /**
-   * POST /api/portal/tradeline/:clientServiceId/settings
-   * Client-facing config update for voice, personality, and widget style.
-   * Only allows updating curated fields — not raw config.
-   */
-  app.post("/api/portal/tradeline/:clientServiceId/settings", requireClient, async (req: Request, res: Response) => {
-    try {
-      const csId = parseInt(req.params.clientServiceId);
-      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
-
-      const ownership = await verifyTradeLineOwnership(req, res, csId);
-      if (!ownership) return;
-
-      const { voice, personality, widgetStyle } = req.body;
-      const update: Record<string, any> = {};
-
-      if (voice && typeof voice === "object") update.voice = voice;
-      if (personality && typeof personality === "object") update.personality = personality;
-      if (widgetStyle && typeof widgetStyle === "object") update.widgetStyle = widgetStyle;
-
-      if (Object.keys(update).length === 0) {
-        return res.status(400).json({ error: "No valid settings provided" });
-      }
-
-      const config = await storage.updateTradeLineConfig(csId, update);
-      res.json({ config });
-    } catch (err) {
-      console.error("Portal tradeline settings error:", err);
-      res.status(500).json({ error: "Failed to update settings" });
-    }
-  });
-
-  /**
-   * GET /api/portal/tradeline/:clientServiceId/calls
-   * Paginated call log list.
-   */
-  app.get("/api/portal/tradeline/:clientServiceId/calls", requireClient, async (req: Request, res: Response) => {
-    try {
-      const csId = parseInt(req.params.clientServiceId);
-      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
-
-      const ownership = await verifyTradeLineOwnership(req, res, csId);
-      if (!ownership) return;
-
-      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
-      const calls = await storage.listTradeLineCalls(csId, limit);
-
-      res.json({ calls });
-    } catch (err) {
-      console.error("Portal tradeline calls error:", err);
-      res.status(500).json({ error: "Failed to load call log" });
-    }
-  });
-
-  /**
-   * GET /api/portal/tradeline/:clientServiceId/widget-config
-   * Minimal config payload for future widget embed / hosted fallback.
-   */
-  app.get("/api/portal/tradeline/:clientServiceId/widget-config", requireClient, async (req: Request, res: Response) => {
-    try {
-      const csId = parseInt(req.params.clientServiceId);
-      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
-
-      const ownership = await verifyTradeLineOwnership(req, res, csId);
-      if (!ownership) return;
-
-      const config = await storage.getTradeLineConfig(csId);
-      if (!config) return res.status(404).json({ error: "TradeLine not configured" });
-
-      // Get business name from client record
-      const [client] = await db
-        .select({ business_name: clients.business_name })
-        .from(clients)
-        .where(eq(clients.id, ownership.clientId))
+      // Check if client has active MapGuard service
+      const [mgService] = await db.select({ id: clientServices.id, status: clientServices.status })
+        .from(clientServices)
+        .innerJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
+        .where(and(
+          eq(clientServices.client_id, clientId),
+          sql`${serviceCatalog.id} LIKE 'mapguard%'`,
+          sql`${clientServices.status} IN ('active', 'onboarding')`,
+        ))
         .limit(1);
 
+      if (!mgService) {
+        return res.json({ active: false, snapshots: [], health: null });
+      }
+
+      // Get last 12 snapshots (newest first)
+      const snapshots = await db.select({
+        id: mapguardSnapshots.id,
+        captured_at: mapguardSnapshots.captured_at,
+        rating: mapguardSnapshots.rating,
+        review_count: mapguardSnapshots.review_count,
+        photo_count: mapguardSnapshots.photo_count,
+        has_website: mapguardSnapshots.has_website,
+        has_description: mapguardSnapshots.has_description,
+        keywords_in_local_pack: mapguardSnapshots.keywords_in_local_pack,
+        keywords_in_top_10: mapguardSnapshots.keywords_in_top_10,
+        score_total: mapguardSnapshots.score_total,
+        score_grade: mapguardSnapshots.score_grade,
+        score_google_maps: mapguardSnapshots.score_google_maps,
+        score_search_visibility: mapguardSnapshots.score_search_visibility,
+        changes: mapguardSnapshots.changes,
+      })
+      .from(mapguardSnapshots)
+      .where(eq(mapguardSnapshots.client_id, clientId))
+      .orderBy(desc(mapguardSnapshots.captured_at))
+      .limit(12);
+
+      const latest = snapshots[0] || null;
+      const previous = snapshots[1] || null;
+
+      // Compute client-safe health status
+      let health: string = "monitoring";
+      if (latest && previous) {
+        const changes = latest.changes as any;
+        const scoreDelta = changes?.score_delta ?? null;
+        if (scoreDelta !== null && scoreDelta > 5) health = "improving";
+        else if (scoreDelta !== null && scoreDelta < -8) health = "needs_attention";
+        else if (scoreDelta !== null && scoreDelta < -3) health = "watch_closely";
+        else health = "healthy";
+      } else if (latest) {
+        health = "healthy";
+      }
+
+      // Build client-safe snapshot data (strip internal fields)
+      const clientSnapshots = snapshots.map(s => ({
+        captured_at: s.captured_at,
+        score: s.score_total,
+        grade: s.score_grade,
+        rating: s.rating,
+        review_count: s.review_count,
+        keywords_in_local_pack: s.keywords_in_local_pack,
+        keywords_in_top_10: s.keywords_in_top_10,
+      }));
+
+      // Compute simple deltas for display
+      const deltas = latest && previous ? {
+        score: (latest.changes as any)?.score_delta ?? null,
+        rating: (latest.changes as any)?.rating_delta ?? null,
+        reviews: (latest.changes as any)?.reviews_delta ?? null,
+        local_pack: (latest.changes as any)?.local_pack_delta ?? null,
+      } : null;
+
+      // Build client-friendly activity list from recent tasks
+      const TASK_TYPE_TRANSLATIONS: Record<string, string> = {
+        baseline_audit_review: "Reviewing your visibility data and planning improvements",
+        gbp_optimization: "Optimizing your Google Business profile",
+        citation_cleanup: "Improving your online listings consistency",
+        review_issue_response: "Handling and improving your customer reviews",
+        competitor_reaction: "Monitoring competitors and adjusting your visibility strategy",
+        profile_content_update: "Updating your profile content for better performance",
+        photo_upload: "Refreshing your business photos",
+        post_scheduling: "Creating and scheduling posts for your profile",
+        suspension_support: "Resolving a profile issue with Google",
+        monthly_report_review: "Preparing your monthly performance review",
+        manual_followup: "Following up on an improvement action",
+      };
+
+      const recentTaskTypes = await db.selectDistinct({ task_type: mapguardTasks.task_type })
+        .from(mapguardTasks)
+        .where(and(
+          eq(mapguardTasks.client_id, clientId),
+          sql`${mapguardTasks.status} NOT IN ('completed', 'cancelled')`,
+        ))
+        .limit(5);
+
+      const activities = recentTaskTypes
+        .map(r => TASK_TYPE_TRANSLATIONS[r.task_type])
+        .filter(Boolean);
+
+      // Add recent completions as past-tense signals
+      const [recentCompleted] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(mapguardTasks)
+        .where(and(
+          eq(mapguardTasks.client_id, clientId),
+          eq(mapguardTasks.status, "completed"),
+          sql`${mapguardTasks.completed_at} > NOW() - INTERVAL '30 days'`,
+        ));
+      const completedCount = recentCompleted?.count || 0;
+
+      // Client-safe execution progress (no internal limits exposed)
+      let executionProgress: { completed: number; pending: number; has_more: boolean } | null = null;
+      try {
+        const usage = await getExecutionUsage(clientId);
+        executionProgress = {
+          completed: usage.used,
+          pending: usage.backlog_count,
+          has_more: usage.upgrade_recommended,
+        };
+      } catch { /* skip on error */ }
+
       res.json({
-        channels: config.channels,
-        embedMode: config.website.embedMode,
-        hostedUrl: config.website.hostedUrl || null,
-        businessName: client?.business_name ?? null,
-        mode: config.currentMode,
+        active: true,
+        health,
+        last_scan: latest?.captured_at || null,
+        activities,
+        completed_last_30d: completedCount,
+        execution_progress: executionProgress,
+        activity_feed: await generateClientActivityFeed(clientId, 8),
+        since_start: await (async () => {
+          try {
+            const perf = await getClientPerformanceSummary(clientId);
+            if (!perf || perf.score_change == null) return null;
+            return { score_change: perf.score_change, reviews_gained: perf.reviews_gained, days_active: perf.days_active };
+          } catch { return null; }
+        })(),
+        current: latest ? {
+          score: latest.score_total,
+          grade: latest.score_grade,
+          rating: latest.rating,
+          review_count: latest.review_count,
+          photo_count: latest.photo_count,
+          has_website: latest.has_website,
+          has_description: latest.has_description,
+          keywords_in_local_pack: latest.keywords_in_local_pack,
+          keywords_in_top_10: latest.keywords_in_top_10,
+        } : null,
+        deltas,
+        snapshots: clientSnapshots.reverse(), // chronological for charts
       });
-    } catch (err) {
-      console.error("Portal tradeline widget-config error:", err);
-      res.status(500).json({ error: "Failed to load widget config" });
+    } catch (err: any) {
+      console.error("Portal MapGuard error:", err);
+      res.status(500).json({ error: "Failed to load MapGuard data" });
     }
   });
 
   /**
-   * GET /api/portal/thread/messages
-   * Returns the active thread's message history for the authenticated portal user.
-   * Used by PortalChatWidget to hydrate on mount (source of truth for persistence).
+   * GET /api/portal/mapguard/report/:year/:month
+   * Client-safe monthly report data.
    */
-  app.get("/api/portal/thread/messages", requireClient, async (req: Request, res: Response) => {
+  app.get("/api/portal/mapguard/report/:year/:month", requireClient, async (req: Request, res: Response) => {
     try {
-      const userId = req.user!.id;
-      const page = typeof req.query.page === "string" ? req.query.page : undefined;
-      const pageCtx = derivePageContext(page);
-      const { id: threadId, isNew } = await getOrCreateThread(userId, "portal", pageCtx);
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
 
-      if (isNew) {
-        return res.json({ threadId, messages: [], pageContext: pageCtx });
+      const year = parseInt(req.params.year as string);
+      const month = parseInt(req.params.month as string);
+      if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+        return res.status(400).json({ error: "Invalid date parameters" });
       }
 
-      const messages = await loadThreadMessages(threadId);
-      res.json({ threadId, messages, pageContext: pageCtx });
-    } catch (err) {
-      console.error("Portal thread messages error:", err);
-      res.status(500).json({ error: "Failed to load conversation" });
+      const report = await compileMonthlyReport(clientId, year, month);
+      if (!report) return res.status(404).json({ error: "No report data for this month" });
+
+      // Return client-safe subset (strip internal counts)
+      res.json({
+        month_label: report.month_label,
+        business_name: report.business_name,
+        score_end: report.score_end,
+        score_delta: report.score_delta,
+        grade_end: report.grade_end,
+        rating_end: report.rating_end,
+        rating_delta: report.rating_delta,
+        reviews_end: report.reviews_end,
+        reviews_gained: report.reviews_gained,
+        local_pack_end: report.local_pack_end,
+        scans_this_month: report.scans_this_month,
+        has_website: report.has_website,
+        has_description: report.has_description,
+        photo_count: report.photo_count,
+        completed_actions: report.completed_actions,
+        active_work: report.active_work,
+        movement: report.movement,
+      });
+    } catch (err: any) {
+      console.error("Portal MapGuard report error:", err);
+      res.status(500).json({ error: "Failed to load report" });
     }
   });
 }
