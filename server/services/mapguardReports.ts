@@ -470,13 +470,17 @@ export function buildMonthlyReportEmail(
 
 /**
  * Send a MapGuard monthly report for one client.
+ *
+ * Phase-2: idempotent per period via the client_service's
+ * `metadata.last_mapguard_report_period`. Re-running the cron (or hand-firing
+ * the admin "send all" endpoint twice in the same month) will not double-email.
  */
 export async function sendMonthlyReportEmail(
   clientId: number,
   recipientEmail: string,
   year: number,
   month: number,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; skipped?: boolean }> {
   if (await isEmailUnsubscribed(recipientEmail)) {
     console.log(`[mapguard-report] Recipient ${recipientEmail} is unsubscribed — skipping`);
     return { ok: false, error: "Recipient unsubscribed" };
@@ -485,10 +489,29 @@ export async function sendMonthlyReportEmail(
   const data = await compileMonthlyReport(clientId, year, month);
   if (!data) return { ok: false, error: "Could not compile report data" };
 
+  // Look up the active MapGuard client_service for the idempotency token.
+  const [cs] = await db.select({ id: clientServices.id, metadata: clientServices.metadata })
+    .from(clientServices)
+    .where(and(
+      eq(clientServices.client_id, clientId),
+      eq(clientServices.status, "active"),
+      eq(clientServices.enabled, true),
+      sql`${clientServices.service_id} LIKE 'mapguard%'`,
+    ))
+    .orderBy(desc(clientServices.created_at))
+    .limit(1);
+
+  const csMeta = (cs?.metadata as Record<string, any>) || {};
+  if (cs && csMeta.last_mapguard_report_period === data.month_label) {
+    console.log(`[mapguard-report] Skipping client ${clientId} — already sent ${data.month_label}`);
+    return { ok: false, skipped: true, error: "already_sent_this_period" };
+  }
+
   const transporter = getEmailTransporter();
   if (!transporter) return { ok: false, error: "SMTP not configured" };
 
   const portalUrl = process.env.APP_URL
+    || process.env.APP_PUBLIC_URL
     || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
 
   const chartUrl = await tryGenerateScoreChart(clientId, data);
@@ -501,6 +524,16 @@ export async function sendMonthlyReportEmail(
       subject,
       html,
     });
+
+    if (cs) {
+      await db.update(clientServices)
+        .set({
+          metadata: { ...csMeta, last_mapguard_report_period: data.month_label, last_mapguard_report_sent_at: new Date().toISOString() },
+          updated_at: new Date(),
+        } as any)
+        .where(eq(clientServices.id, cs.id));
+    }
+
     return { ok: true };
   } catch (err: any) {
     console.error(`[mapguard-report] Email send failed for client ${clientId}:`, err.message);
@@ -554,6 +587,8 @@ export async function sendAllMonthlyReports(): Promise<{
     if (result.ok) {
       sent++;
       console.log(`[mapguard-report] Sent monthly report to ${client.business_name} (${client.contact_email})`);
+    } else if (result.skipped) {
+      skipped++;
     } else {
       errors.push(`${client.business_name}: ${result.error}`);
     }

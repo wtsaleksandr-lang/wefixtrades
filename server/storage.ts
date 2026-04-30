@@ -91,6 +91,33 @@ type User, type InsertUser,
   type ContentAsset, type InsertContentAsset,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
+import { kickoffMapguardService } from "./services/mapguardTaskEngine";
+
+/**
+ * Phase-2.1: fire MapGuard kickoff whenever a MapGuard client_service
+ * becomes active, regardless of which code path got it there. The kickoff
+ * itself is idempotent via clientServices.metadata.mapguard_kickoff_at,
+ * so safe to call multiple times. Never throws.
+ */
+async function fireMapguardKickoffIfActive(
+  clientServiceId: number,
+): Promise<void> {
+  try {
+    const [cs] = await db.select({
+      id: clientServices.id,
+      client_id: clientServices.client_id,
+      service_id: clientServices.service_id,
+      status: clientServices.status,
+      enabled: clientServices.enabled,
+    }).from(clientServices).where(eq(clientServices.id, clientServiceId)).limit(1);
+    if (!cs) return;
+    if (!cs.service_id?.startsWith("mapguard")) return;
+    if (cs.status !== "active" || cs.enabled !== true) return;
+    await kickoffMapguardService(cs.client_id, cs.id, cs.service_id);
+  } catch (err: any) {
+    console.warn(`[storage] MapGuard kickoff hook failed for cs ${clientServiceId}: ${err.message}`);
+  }
+}
 
 export interface IStorage {
   createCalculator(data: InsertCalculator): Promise<Calculator>;
@@ -1255,11 +1282,19 @@ export class DatabaseStorage implements IStorage {
 
   async createClientService(data: InsertClientService): Promise<ClientService> {
     const [row] = await db.insert(clientServices).values(data).returning();
+    // Phase-2.1: fire MapGuard kickoff if the new row is already active.
+    if (row?.status === "active" && row?.enabled === true) {
+      await fireMapguardKickoffIfActive(row.id);
+    }
     return row;
   }
 
   async updateClientService(id: number, updates: Partial<InsertClientService>): Promise<ClientService | undefined> {
     const [row] = await db.update(clientServices).set({ ...updates, updated_at: new Date() }).where(eq(clientServices.id, id)).returning();
+    // Phase-2.1: fire MapGuard kickoff if this update brought the service to active.
+    if (row?.status === "active" && row?.enabled === true) {
+      await fireMapguardKickoffIfActive(row.id);
+    }
     return row;
   }
 
@@ -1693,6 +1728,13 @@ export class DatabaseStorage implements IStorage {
     await db.update(clientServices)
       .set({ status: newStatus, completed_at: serviceCompleted ? new Date() : undefined, updated_at: new Date() })
       .where(eq(clientServices.id, clientServiceId));
+
+    // Phase-2.1: belt-and-suspenders — fire MapGuard kickoff if the
+    // setup-completion cascade just promoted the service to active.
+    // Idempotent guard inside kickoffMapguardService prevents double-fire.
+    if (serviceActivated) {
+      await fireMapguardKickoffIfActive(clientServiceId);
+    }
 
     // Check if client should be moved to "active"
     // (only if they're still in "onboarding" and have no pending/onboarding services left)
