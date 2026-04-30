@@ -6,7 +6,8 @@ import { processNotificationQueue } from "./notificationWorker";
 import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
-import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
+import { processRankFlowPlans } from "./rankflowWorker";
+import { processRankFlowTracking } from "./trackingWorker";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -130,25 +131,32 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
-  // Trial lifecycle emails — runs daily at 9 AM UTC (~4-5 AM EST)
-  cron.schedule("0 9 * * *", async () => {
-    console.log("[Scheduler] Running trial lifecycle worker...");
+  // RankFlow weekly plan generation — runs every Monday at 4 AM UTC
+  cron.schedule("0 4 * * 1", async () => {
+    console.log("[Scheduler] Running RankFlow plan generation...");
     try {
-      await runJob("trial_lifecycle", async () => {
-        const emailResult = await processTrialLifecycle();
-        const pauseResult = await pauseExpiredTrials();
-        return { ...emailResult, paused: pauseResult.paused, pauseErrors: pauseResult.errors };
-      });
+      await runJob("rankflow_plan_generation", processRankFlowPlans);
     } catch (err: any) {
-      console.error("[Scheduler] trial_lifecycle cron handler error:", err.message);
+      console.error("[Scheduler] rankflow_plan_generation cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  // RankFlow weekly tracking — runs every Wednesday at 5 AM UTC
+  cron.schedule("0 5 * * 3", async () => {
+    console.log("[Scheduler] Running RankFlow tracking...");
+    try {
+      await runJob("rankflow_tracking", processRankFlowTracking);
+    } catch (err: any) {
+      console.error("[Scheduler] rankflow_tracking cron handler error:", err.message);
     }
   }, { timezone: "UTC" });
 
   console.log("[Scheduler] Jobs scheduled:");
   console.log("  - Daily aggregation: 02:00 UTC every day");
   console.log("  - Chat memory cleanup: 03:00 UTC every day");
-  console.log("  - Trial lifecycle emails: 09:00 UTC every day");
   console.log("  - Weekly email report: 13:00 UTC every Monday (~8AM EST)");
+  console.log("  - RankFlow plan generation: 04:00 UTC every Monday");
+  console.log("  - RankFlow tracking: 05:00 UTC every Wednesday");
   console.log("  - Notification queue worker: every minute");
   console.log("  - Follow-up jobs worker: every minute");
   console.log("  - Audit follow-up worker: every minute");

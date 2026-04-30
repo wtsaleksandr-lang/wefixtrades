@@ -5,13 +5,13 @@ import {
   CreditCard,
   Settings,
   HelpCircle,
-  Shield,
   ChevronLeft,
   Menu,
   LogOut,
+  TrendingUp,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useState, lazy, Suspense } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,13 +22,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const PortalChatWidget = lazy(() => import("./PortalChatWidget"));
-import { OnboardingProvider } from "@/context/OnboardingContext";
-
 const NAV_ITEMS = [
   { label: "Overview", href: "/portal", icon: LayoutDashboard },
   { label: "Services", href: "/portal/services", icon: Wrench },
-  { label: "MapGuard", href: "/portal/mapguard", icon: Shield },
+  { label: "SEO", href: "/portal/rankflow", icon: TrendingUp },
   { label: "Billing", href: "/portal/billing", icon: CreditCard },
   { label: "Help", href: "/portal/help", icon: HelpCircle },
   { label: "Settings", href: "/portal/settings", icon: Settings },
@@ -59,7 +56,6 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const initials = (user?.name || user?.email || "C").charAt(0).toUpperCase();
 
   return (
-    <OnboardingProvider>
     <div className="flex h-screen bg-[#F6F7F9] overflow-hidden">
       {/* Mobile overlay */}
       {mobileOpen && (
@@ -179,12 +175,6 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           {children}
         </main>
       </div>
-
-      {/* Global portal AI assistant */}
-      <Suspense fallback={null}>
-        <PortalChatWidget />
-      </Suspense>
     </div>
-    </OnboardingProvider>
   );
 }

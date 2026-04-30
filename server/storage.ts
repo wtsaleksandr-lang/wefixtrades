@@ -1,5 +1,4 @@
 import crypto from "crypto";
-import { hashPassword } from "./auth";
 import { db } from "./db";
 import {
   calculators, leads, analyticsEvents, deploymentStatus,
@@ -29,9 +28,6 @@ import {
   suppliers, fulfillmentTasks, onboardingSubmissions, onboardingTemplates,
   clientPayments, internalNotes, adminActivityLog,
   serviceTaskTemplates,
-  // TradeLine
-  tradelineUsage, tradelineCallLog, tradelineModeLog,
-  tradelineConfigSchema,
   type Client, type InsertClient,
   type ClientService, type InsertClientService,
   type ServiceCatalogRow, type InsertServiceCatalog,
@@ -45,10 +41,19 @@ import {
   type AdminActivityLog, type InsertAdminActivityLog,
   type ServiceTaskTemplate,
   type OnboardingTemplate,
-  type TradelineConfig,
-  type TradelineUsage, type InsertTradelineUsage,
-  type TradelineCallLog, type InsertTradelineCallLog,
-  type TradelineModeLog, type InsertTradelineModeLog,
+  // RankFlow
+  rankflowProfiles, rankflowMonthlyPlans, rankflowTasks, rankflowQaChecks, rankflowProgress,
+  rankflowVendorBatches, rankflowKeywords, rankflowRankings, rankflowPages, rankflowSignals,
+  type RankflowProfile, type InsertRankflowProfile,
+  type RankflowMonthlyPlan, type InsertRankflowMonthlyPlan,
+  type RankflowTask, type InsertRankflowTask,
+  type RankflowQaCheck, type InsertRankflowQaCheck,
+  type RankflowProgress, type InsertRankflowProgress,
+  type RankflowVendorBatch, type InsertRankflowVendorBatch,
+  type RankflowKeyword, type InsertRankflowKeyword,
+  type RankflowRanking, type InsertRankflowRanking,
+  type RankflowPage, type InsertRankflowPage,
+  type RankflowSignal, type InsertRankflowSignal,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -77,7 +82,6 @@ export interface IStorage {
   upsertDeploymentStatus(data: InsertDeploymentStatus): Promise<DeploymentStatus>;
 
   getAllCalculatorsWithEmail(): Promise<Calculator[]>;
-  getAllCalculatorsForAdmin(): Promise<any[]>;
   upsertAnalyticsSummary(data: InsertAnalyticsSummary): Promise<AnalyticsSummary>;
   getAnalyticsSummary(calculatorId: number): Promise<AnalyticsSummary | undefined>;
   getDailyEventCounts(calculatorId: number, date: Date): Promise<{ views: number; leads: number; quotes: number }>;
@@ -206,26 +210,6 @@ export interface IStorage {
     recentClients: { id: number; business_name: string; status: string; created_at: Date | null }[];
     recentTasks: { id: number; title: string; status: string; priority: string; client_id: number; client_name: string | null; due_at: Date | null }[];
   }>;
-
-  // Portal account
-  ensurePortalAccount(clientId: number): Promise<{ user: User; created: boolean; tempPassword?: string }>;
-
-  // Fulfillment helpers
-  countPendingTasks(clientServiceId: number): Promise<number>;
-
-  // Raw metadata
-  updateClientServiceMetadata(clientServiceId: number, metadata: Record<string, any>): Promise<void>;
-
-  // ─── TradeLine ───
-  getTradeLineConfig(clientServiceId: number): Promise<TradelineConfig | undefined>;
-  updateTradeLineConfig(clientServiceId: number, partialConfig: Partial<TradelineConfig>): Promise<TradelineConfig>;
-  setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string): Promise<TradelineModeLog>;
-  createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog | null>;
-  listTradeLineCalls(clientServiceId: number, limit?: number): Promise<TradelineCallLog[]>;
-  upsertTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date): Promise<TradelineUsage>;
-  getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined>;
-  listTradeLineModeChanges(clientServiceId: number, limit?: number): Promise<TradelineModeLog[]>;
-  incrementTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date, increments: { voiceMinutes?: number; calls?: number; sms?: number }): Promise<TradelineUsage>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -256,7 +240,6 @@ export class DatabaseStorage implements IStorage {
     await db.update(calculators).set({ is_duplicated: true }).where(eq(calculators.id, id));
 
     const [newCalc] = await db.insert(calculators).values({
-      user_id: original.user_id,
       slug: newSlug,
       business_name: original.business_name,
       trade_type: original.trade_type,
@@ -276,7 +259,6 @@ export class DatabaseStorage implements IStorage {
       is_duplicated: false,
       total_views: 0,
       show_powered_by_badge: original.show_powered_by_badge,
-      plan_tier: original.plan_tier,
     }).returning();
     return newCalc;
   }
@@ -398,39 +380,6 @@ export class DatabaseStorage implements IStorage {
 
   async getAllCalculatorsWithEmail(): Promise<Calculator[]> {
     return db.select().from(calculators).where(isNotNull(calculators.owner_email));
-  }
-
-  async getAllCalculatorsForAdmin(): Promise<any[]> {
-    const allCalcs = await db.select({
-      id: calculators.id,
-      user_id: calculators.user_id,
-      business_name: calculators.business_name,
-      trade_type: calculators.trade_type,
-      slug: calculators.slug,
-      owner_email: calculators.owner_email,
-      plan_tier: calculators.plan_tier,
-      total_views: calculators.total_views,
-      created_at: calculators.created_at,
-    }).from(calculators).orderBy(desc(calculators.created_at));
-
-    const PLAN_REVENUE: Record<string, number> = { 'free': 0, 'starter': 4900, 'business': 9900 };
-    const QQ_COST_CENTS = 500;
-
-    const results = [];
-    for (const calc of allCalcs) {
-      const deploy = await this.getDeploymentStatus(calc.id);
-      const [leadRow] = await db.select({ count: sql<number>`count(*)::int` })
-        .from(leads).where(eq(leads.calculator_id, calc.id));
-      const tier = (calc.plan_tier as string) ?? 'free';
-      results.push({
-        ...calc,
-        total_leads: leadRow?.count ?? 0,
-        status: deploy?.status ?? 'draft',
-        price_cents: PLAN_REVENUE[tier] ?? 0,
-        cost_cents: tier === 'free' ? 0 : QQ_COST_CENTS,
-      });
-    }
-    return results;
   }
 
   async upsertAnalyticsSummary(data: InsertAnalyticsSummary): Promise<AnalyticsSummary> {
@@ -776,48 +725,6 @@ export class DatabaseStorage implements IStorage {
     return row?.total ?? 0;
   }
 
-  /**
-   * Ensure the client has a portal login. If one already exists, returns it.
-   * Otherwise creates a user record with a temp password and links it.
-   * Returns { user, created, tempPassword? }.
-   */
-  async ensurePortalAccount(clientId: number): Promise<{ user: User; created: boolean; tempPassword?: string }> {
-    const client = await this.getClientById(clientId);
-    if (!client) throw new Error(`Client ${clientId} not found`);
-
-    // Already linked
-    if (client.user_id) {
-      const existing = await this.getUserById(client.user_id);
-      if (existing) return { user: existing, created: false };
-    }
-
-    const email = client.contact_email;
-    if (!email) throw new Error(`Client ${clientId} has no contact email`);
-
-    // Check if user with this email already exists
-    const existingByEmail = await this.getUserByEmail(email.toLowerCase().trim());
-    if (existingByEmail) {
-      if (existingByEmail.role === "client") {
-        await this.updateClient(clientId, { user_id: existingByEmail.id });
-        return { user: existingByEmail, created: false };
-      }
-      // Non-client role — don't overwrite, skip silently
-      throw new Error(`User with email ${email} exists with role "${existingByEmail.role}"`);
-    }
-
-    // Create new portal user
-    const tempPassword = crypto.randomBytes(6).toString("base64url");
-    const user = await this.createUser({
-      email: email.toLowerCase().trim(),
-      password_hash: hashPassword(tempPassword),
-      name: client.contact_name || client.business_name,
-      role: "client",
-    });
-    await this.updateClient(clientId, { user_id: user.id });
-
-    return { user, created: true, tempPassword };
-  }
-
   async getCalculatorsByUserId(userId: number): Promise<Calculator[]> {
     return db.select().from(calculators).where(eq(calculators.user_id, userId)).orderBy(desc(calculators.id));
   }
@@ -955,17 +862,6 @@ export class DatabaseStorage implements IStorage {
   async updateClientService(id: number, updates: Partial<InsertClientService>): Promise<ClientService | undefined> {
     const [row] = await db.update(clientServices).set({ ...updates, updated_at: new Date() }).where(eq(clientServices.id, id)).returning();
     return row;
-  }
-
-  /**
-   * Update the raw metadata JSONB for a client service.
-   * Unlike updateTradeLineConfig (which deep-merges the tradeline sub-key),
-   * this replaces the entire metadata object.
-   */
-  async updateClientServiceMetadata(clientServiceId: number, metadata: Record<string, any>): Promise<void> {
-    await db.update(clientServices)
-      .set({ metadata, updated_at: new Date() })
-      .where(eq(clientServices.id, clientServiceId));
   }
 
   async getActiveServiceCount(): Promise<number> {
@@ -1304,20 +1200,6 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  /**
-   * Count non-delivered, non-cancelled tasks for a client service.
-   * Used by go-live validation to ensure setup tasks are complete.
-   */
-  async countPendingTasks(clientServiceId: number): Promise<number> {
-    const [row] = await db.select({ total: sql<number>`count(*)::int` })
-      .from(fulfillmentTasks)
-      .where(and(
-        eq(fulfillmentTasks.client_service_id, clientServiceId),
-        sql`${fulfillmentTasks.status} NOT IN ('delivered', 'cancelled')`,
-      ));
-    return row?.total ?? 0;
-  }
-
   // ─── Check completion cascade ───
   async checkAndCompleteService(clientServiceId: number): Promise<{ serviceCompleted: boolean; serviceActivated: boolean; clientActivated: boolean }> {
     // Count non-delivered tasks for this client_service
@@ -1392,191 +1274,354 @@ export class DatabaseStorage implements IStorage {
     return { serviceCompleted, serviceActivated, clientActivated };
   }
 
-  // ─── TradeLine ───
+  /* ═══════════════════════════════════════════
+     RankFlow
+     ═══════════════════════════════════════════ */
 
-  async getTradeLineConfig(clientServiceId: number): Promise<TradelineConfig | undefined> {
-    const cs = await this.getClientServiceById(clientServiceId);
-    if (!cs) return undefined;
-    const raw = (cs.metadata as Record<string, any>)?.tradeline;
-    if (!raw) return undefined;
-    return tradelineConfigSchema.parse(raw);
+  async getRankFlowProfile(clientId: number): Promise<RankflowProfile | undefined> {
+    const [row] = await db.select().from(rankflowProfiles).where(eq(rankflowProfiles.client_id, clientId)).limit(1);
+    return row;
   }
 
-  async updateTradeLineConfig(clientServiceId: number, partialConfig: Partial<TradelineConfig>): Promise<TradelineConfig> {
-    const cs = await this.getClientServiceById(clientServiceId);
-    const existing = (cs?.metadata as Record<string, any>) ?? {};
-    const current = existing.tradeline
-      ? tradelineConfigSchema.parse(existing.tradeline)
-      : tradelineConfigSchema.parse({});
-
-    // Deep merge: for plain-object sub-keys (channels, website, phoneRouting, etc.)
-    // spread-merge instead of overwriting, so partial updates don't wipe sibling fields.
-    const merged: Record<string, any> = { ...current };
-    for (const [key, value] of Object.entries(partialConfig)) {
-      const cur = (current as Record<string, any>)[key];
-      if (value != null && typeof value === "object" && !Array.isArray(value) && cur && typeof cur === "object" && !Array.isArray(cur)) {
-        merged[key] = { ...cur, ...value };
-      } else {
-        merged[key] = value;
-      }
-    }
-
-    const updated = { ...existing, tradeline: merged };
-    await db.update(clientServices)
-      .set({ metadata: updated, updated_at: new Date() })
-      .where(eq(clientServices.id, clientServiceId));
-    return tradelineConfigSchema.parse(merged);
-  }
-
-  async setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string): Promise<TradelineModeLog> {
-    const config = await this.getTradeLineConfig(clientServiceId) ?? tradelineConfigSchema.parse({});
-    const oldMode = config.currentMode;
-
-    // Update the config
-    await this.updateTradeLineConfig(clientServiceId, { currentMode: newMode as TradelineConfig["currentMode"] });
-
-    // Log the change
-    const [log] = await db.insert(tradelineModeLog).values({
-      client_service_id: clientServiceId,
-      old_mode: oldMode,
-      new_mode: newMode,
-      changed_by: changedBy,
-    }).returning();
-    return log;
-  }
-
-  async createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog | null> {
-    // Idempotent: skip if a row with the same vapi_call_id already exists
-    const rows = await db.insert(tradelineCallLog).values(data)
-      .onConflictDoNothing({ target: tradelineCallLog.vapi_call_id })
-      .returning();
-    return rows[0] ?? null;
-  }
-
-  async listTradeLineCalls(clientServiceId: number, limit = 50): Promise<TradelineCallLog[]> {
-    return db.select().from(tradelineCallLog)
-      .where(eq(tradelineCallLog.client_service_id, clientServiceId))
-      .orderBy(desc(tradelineCallLog.created_at))
-      .limit(limit);
-  }
-
-  async upsertTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date): Promise<TradelineUsage> {
-    // Try to find existing usage row for this period
-    const [existing] = await db.select().from(tradelineUsage)
-      .where(and(
-        eq(tradelineUsage.client_service_id, clientServiceId),
-        eq(tradelineUsage.period_start, periodStart),
-      ))
-      .limit(1);
-
+  async upsertRankFlowProfile(clientId: number, data: Partial<InsertRankflowProfile>): Promise<RankflowProfile> {
+    const existing = await this.getRankFlowProfile(clientId);
     if (existing) {
-      const [updated] = await db.update(tradelineUsage)
-        .set({ updated_at: new Date() })
-        .where(eq(tradelineUsage.id, existing.id))
+      const [updated] = await db.update(rankflowProfiles)
+        .set({ ...data, updated_at: new Date() })
+        .where(eq(rankflowProfiles.client_id, clientId))
         .returning();
       return updated;
     }
+    const [created] = await db.insert(rankflowProfiles)
+      .values({ ...data, client_id: clientId } as InsertRankflowProfile)
+      .returning();
+    return created;
+  }
 
-    const [row] = await db.insert(tradelineUsage).values({
-      client_service_id: clientServiceId,
-      period_start: periodStart,
-      period_end: periodEnd,
-    }).returning();
+  async listEnabledRankFlowProfiles(): Promise<RankflowProfile[]> {
+    return db.select().from(rankflowProfiles).where(eq(rankflowProfiles.enabled, true));
+  }
+
+  async createMonthlyPlan(data: InsertRankflowMonthlyPlan): Promise<RankflowMonthlyPlan> {
+    const [row] = await db.insert(rankflowMonthlyPlans).values(data).returning();
     return row;
   }
 
-  async getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined> {
-    if (periodStart) {
-      const [row] = await db.select().from(tradelineUsage)
-        .where(and(
-          eq(tradelineUsage.client_service_id, clientServiceId),
-          eq(tradelineUsage.period_start, periodStart),
-        ))
-        .limit(1);
-      return row;
-    }
-    // Default: most recent period
-    const [row] = await db.select().from(tradelineUsage)
-      .where(eq(tradelineUsage.client_service_id, clientServiceId))
-      .orderBy(desc(tradelineUsage.period_start))
+  async getMonthlyPlan(clientId: number, month: string): Promise<RankflowMonthlyPlan | undefined> {
+    const [row] = await db.select().from(rankflowMonthlyPlans)
+      .where(and(eq(rankflowMonthlyPlans.client_id, clientId), eq(rankflowMonthlyPlans.month, month)))
       .limit(1);
     return row;
   }
 
-  async listTradeLineModeChanges(clientServiceId: number, limit = 50): Promise<TradelineModeLog[]> {
-    return db.select().from(tradelineModeLog)
-      .where(eq(tradelineModeLog.client_service_id, clientServiceId))
-      .orderBy(desc(tradelineModeLog.created_at))
-      .limit(limit);
+  async updateMonthlyPlanStatus(planId: number, status: string): Promise<void> {
+    await db.update(rankflowMonthlyPlans).set({ status }).where(eq(rankflowMonthlyPlans.id, planId));
   }
 
-  async incrementTradeLineUsage(
-    clientServiceId: number,
-    periodStart: Date,
-    periodEnd: Date,
-    increments: { voiceMinutes?: number; calls?: number; sms?: number },
-  ): Promise<TradelineUsage> {
-    // Ensure usage row exists
-    const usage = await this.upsertTradeLineUsage(clientServiceId, periodStart, periodEnd);
-
-    const newVoiceMinutes = (usage.voice_minutes_used ?? 0) + (increments.voiceMinutes ?? 0);
-    const newCalls = (usage.calls_count ?? 0) + (increments.calls ?? 0);
-    const newSms = (usage.sms_count ?? 0) + (increments.sms ?? 0);
-    const includedMinutes = usage.included_minutes ?? 200;
-    const overage = Math.max(0, newVoiceMinutes - includedMinutes);
-
-    const [updated] = await db.update(tradelineUsage)
-      .set({
-        voice_minutes_used: newVoiceMinutes,
-        calls_count: newCalls,
-        sms_count: newSms,
-        overage_minutes: overage,
-        updated_at: new Date(),
-      })
-      .where(eq(tradelineUsage.id, usage.id))
-      .returning();
-
-    return updated;
+  async createRankFlowTask(data: InsertRankflowTask): Promise<RankflowTask> {
+    const [row] = await db.insert(rankflowTasks).values(data).returning();
+    return row;
   }
 
-  /**
-   * Calculate TradeLine profitability for a client service.
-   * Uses current period usage data + service price.
-   *
-   * Cost rates (internal, not exposed to clients):
-   *   Voice: $0.08/min  (Vapi + ElevenLabs + Deepgram blended)
-   *   SMS:   $0.02/msg  (Twilio outbound)
-   *   AI:    estimated from call count at ~$0.03/call (LLM tokens)
-   */
-  async getTradeLineProfitability(clientServiceId: number): Promise<{
-    revenue: number;
-    voiceCost: number;
-    smsCost: number;
-    aiCost: number;
-    totalCost: number;
-    profit: number;
-    margin: number;
-  }> {
-    const COST_PER_VOICE_MINUTE = 8;   // cents
-    const COST_PER_SMS = 2;            // cents
-    const COST_PER_CALL_AI = 3;        // cents (avg LLM cost per call)
+  async listTasksByClient(clientId: number): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks)
+      .where(eq(rankflowTasks.client_id, clientId))
+      .orderBy(desc(rankflowTasks.created_at));
+  }
 
-    const cs = await this.getClientServiceById(clientServiceId);
-    const revenue = cs?.price_cents ?? 0;
+  async listTasksByPlan(planId: number): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks)
+      .where(eq(rankflowTasks.plan_id, planId))
+      .orderBy(rankflowTasks.priority);
+  }
 
-    const usage = await this.getTradeLineUsage(clientServiceId);
-    if (!usage) {
-      return { revenue, voiceCost: 0, smsCost: 0, aiCost: 0, totalCost: 0, profit: revenue, margin: revenue > 0 ? 100 : 0 };
+  async updateRankFlowTaskStatus(taskId: number, status: string): Promise<RankflowTask | undefined> {
+    const updates: Record<string, any> = { status };
+    if (status === "done") updates.completed_at = new Date();
+    const [row] = await db.update(rankflowTasks).set(updates).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async createQACheck(data: InsertRankflowQaCheck): Promise<RankflowQaCheck> {
+    const [row] = await db.insert(rankflowQaChecks).values(data).returning();
+    return row;
+  }
+
+  async listQAChecks(taskId: number): Promise<RankflowQaCheck[]> {
+    return db.select().from(rankflowQaChecks).where(eq(rankflowQaChecks.task_id, taskId));
+  }
+
+  async getRankFlowTaskById(taskId: number): Promise<RankflowTask | undefined> {
+    const [row] = await db.select().from(rankflowTasks).where(eq(rankflowTasks.id, taskId)).limit(1);
+    return row;
+  }
+
+  async assignRankflowTask(taskId: number, assignedTo: string): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "assigned",
+      assigned_to: assignedTo,
+      assigned_at: new Date(),
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async startRankflowTask(taskId: number): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "in_progress",
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async submitRankflowTask(taskId: number, proofData: any): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "submitted",
+      submitted_at: new Date(),
+      proof_data: proofData,
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async updateRankflowTaskQA(taskId: number, qaStatus: string, qaNotes: string | null): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "qa_review",
+      qa_status: qaStatus,
+      qa_notes: qaNotes,
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async approveRankflowTask(taskId: number, actualCost?: string): Promise<RankflowTask | undefined> {
+    const updates: Record<string, any> = {
+      status: "done",
+      qa_status: "passed",
+      completed_at: new Date(),
+    };
+    if (actualCost !== undefined) updates.actual_cost = actualCost;
+    const [row] = await db.update(rankflowTasks).set(updates).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async rejectRankflowTask(taskId: number, rejectionReason: string): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "assigned",
+      qa_status: "failed",
+      rejection_reason: rejectionReason,
+      submitted_at: null,
+      proof_data: null,
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async listPendingAITasks(planId: number): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks).where(
+      and(
+        eq(rankflowTasks.plan_id, planId),
+        eq(rankflowTasks.execution_mode, "ai"),
+        eq(rankflowTasks.status, "pending"),
+      )
+    );
+  }
+
+  async upsertMonthlyProgress(clientId: number, month: string, data: Partial<InsertRankflowProgress>): Promise<RankflowProgress> {
+    const [existing] = await db.select().from(rankflowProgress)
+      .where(and(eq(rankflowProgress.client_id, clientId), eq(rankflowProgress.month, month)))
+      .limit(1);
+    if (existing) {
+      const [updated] = await db.update(rankflowProgress)
+        .set(data)
+        .where(eq(rankflowProgress.id, existing.id))
+        .returning();
+      return updated;
     }
+    const [created] = await db.insert(rankflowProgress)
+      .values({ client_id: clientId, month, ...data } as InsertRankflowProgress)
+      .returning();
+    return created;
+  }
 
-    const voiceCost = (usage.voice_minutes_used ?? 0) * COST_PER_VOICE_MINUTE;
-    const smsCost = (usage.sms_count ?? 0) * COST_PER_SMS;
-    const aiCost = (usage.calls_count ?? 0) * COST_PER_CALL_AI;
-    const totalCost = voiceCost + smsCost + aiCost;
-    const profit = revenue - totalCost;
-    const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
+  async getMonthlyProgress(clientId: number, month: string): Promise<RankflowProgress | undefined> {
+    const [row] = await db.select().from(rankflowProgress)
+      .where(and(eq(rankflowProgress.client_id, clientId), eq(rankflowProgress.month, month)))
+      .limit(1);
+    return row;
+  }
 
-    return { revenue, voiceCost, smsCost, aiCost, totalCost, profit, margin };
+  /* ═══════════════════════════════════════════
+     RankFlow Vendor Batches
+     ═══════════════════════════════════════════ */
+
+  async createRankflowVendorBatch(data: InsertRankflowVendorBatch): Promise<RankflowVendorBatch> {
+    const [row] = await db.insert(rankflowVendorBatches).values(data).returning();
+    return row;
+  }
+
+  async getRankflowVendorBatch(batchId: number): Promise<RankflowVendorBatch | undefined> {
+    const [row] = await db.select().from(rankflowVendorBatches).where(eq(rankflowVendorBatches.id, batchId)).limit(1);
+    return row;
+  }
+
+  async listRankflowVendorBatches(filters?: { status?: string; vendor_type?: string }): Promise<RankflowVendorBatch[]> {
+    const conditions = [];
+    if (filters?.status) conditions.push(eq(rankflowVendorBatches.status, filters.status));
+    if (filters?.vendor_type) conditions.push(eq(rankflowVendorBatches.vendor_type, filters.vendor_type));
+    if (conditions.length > 0) {
+      return db.select().from(rankflowVendorBatches)
+        .where(and(...conditions))
+        .orderBy(desc(rankflowVendorBatches.created_at));
+    }
+    return db.select().from(rankflowVendorBatches).orderBy(desc(rankflowVendorBatches.created_at));
+  }
+
+  async updateRankflowVendorBatchStatus(batchId: number, status: string, extra?: Record<string, any>): Promise<RankflowVendorBatch | undefined> {
+    const updates: Record<string, any> = { status, updated_at: new Date(), ...extra };
+    const [row] = await db.update(rankflowVendorBatches).set(updates).where(eq(rankflowVendorBatches.id, batchId)).returning();
+    return row;
+  }
+
+  async submitRankflowVendorBatch(batchId: number, proofData: any): Promise<RankflowVendorBatch | undefined> {
+    const [row] = await db.update(rankflowVendorBatches).set({
+      status: "submitted",
+      proof_data: proofData,
+      submitted_at: new Date(),
+      updated_at: new Date(),
+    }).where(eq(rankflowVendorBatches.id, batchId)).returning();
+    return row;
+  }
+
+  async linkTaskToBatch(taskId: number, batchId: number): Promise<void> {
+    await db.update(rankflowTasks).set({ batch_id: batchId }).where(eq(rankflowTasks.id, taskId));
+  }
+
+  async listTasksByBatch(batchId: number): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks)
+      .where(eq(rankflowTasks.batch_id, batchId))
+      .orderBy(rankflowTasks.id);
+  }
+
+  async completeRankflowVendorBatch(batchId: number, actualCost?: string): Promise<RankflowVendorBatch | undefined> {
+    const updates: Record<string, any> = {
+      status: "completed",
+      qa_status: "passed",
+      completed_at: new Date(),
+      updated_at: new Date(),
+    };
+    if (actualCost !== undefined) updates.actual_cost = actualCost;
+    const [row] = await db.update(rankflowVendorBatches).set(updates).where(eq(rankflowVendorBatches.id, batchId)).returning();
+    return row;
+  }
+
+  async listUnbatchedOutsourcedTasks(): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks).where(
+      and(
+        eq(rankflowTasks.execution_mode, "outsourced"),
+        eq(rankflowTasks.status, "pending"),
+        sql`${rankflowTasks.batch_id} IS NULL`,
+      )
+    );
+  }
+
+  async getVendorStats(vendorType?: string): Promise<{
+    vendor_type: string;
+    total_batches: number;
+    completed: number;
+    failed: number;
+    avg_cost: number | null;
+  }[]> {
+    const rows = await db.select({
+      vendor_type: rankflowVendorBatches.vendor_type,
+      total_batches: sql<number>`count(*)::int`,
+      completed: sql<number>`count(*) filter (where ${rankflowVendorBatches.status} = 'completed')::int`,
+      failed: sql<number>`count(*) filter (where ${rankflowVendorBatches.status} = 'failed')::int`,
+      avg_cost: sql<number>`avg(${rankflowVendorBatches.actual_cost}::numeric)`,
+    }).from(rankflowVendorBatches)
+      .groupBy(rankflowVendorBatches.vendor_type);
+    return rows.map(r => ({
+      vendor_type: r.vendor_type,
+      total_batches: r.total_batches,
+      completed: r.completed,
+      failed: r.failed,
+      avg_cost: r.avg_cost ? Number(r.avg_cost) : null,
+    }));
+  }
+
+  /* ═══════════════════════════════════════════
+     RankFlow Tracking
+     ═══════════════════════════════════════════ */
+
+  async createKeywords(data: InsertRankflowKeyword[]): Promise<RankflowKeyword[]> {
+    if (data.length === 0) return [];
+    const rows = await db.insert(rankflowKeywords).values(data).returning();
+    return rows;
+  }
+
+  async listKeywordsByClient(clientId: number): Promise<RankflowKeyword[]> {
+    return db.select().from(rankflowKeywords)
+      .where(eq(rankflowKeywords.client_id, clientId))
+      .orderBy(desc(rankflowKeywords.priority));
+  }
+
+  async insertRankingRecord(data: InsertRankflowRanking): Promise<RankflowRanking> {
+    const [row] = await db.insert(rankflowRankings).values(data).returning();
+    return row;
+  }
+
+  async getLastRankingForKeyword(keywordId: number): Promise<RankflowRanking | undefined> {
+    const [row] = await db.select().from(rankflowRankings)
+      .where(eq(rankflowRankings.keyword_id, keywordId))
+      .orderBy(desc(rankflowRankings.checked_at))
+      .limit(1);
+    return row;
+  }
+
+  async upsertPage(clientId: number, url: string, data: Partial<InsertRankflowPage>): Promise<RankflowPage> {
+    const [existing] = await db.select().from(rankflowPages)
+      .where(and(eq(rankflowPages.client_id, clientId), eq(rankflowPages.url, url)))
+      .limit(1);
+    if (existing) {
+      const [updated] = await db.update(rankflowPages)
+        .set(data)
+        .where(eq(rankflowPages.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(rankflowPages)
+      .values({ client_id: clientId, url, ...data } as InsertRankflowPage)
+      .returning();
+    return created;
+  }
+
+  async listPagesByClient(clientId: number): Promise<RankflowPage[]> {
+    return db.select().from(rankflowPages)
+      .where(eq(rankflowPages.client_id, clientId))
+      .orderBy(desc(rankflowPages.created_at));
+  }
+
+  async updatePageIndexStatus(pageId: number, indexed: boolean): Promise<void> {
+    await db.update(rankflowPages).set({ indexed, last_checked_at: new Date() }).where(eq(rankflowPages.id, pageId));
+  }
+
+  async upsertSignalSummary(clientId: number, data: Partial<InsertRankflowSignal>): Promise<RankflowSignal> {
+    const [existing] = await db.select().from(rankflowSignals)
+      .where(eq(rankflowSignals.client_id, clientId))
+      .limit(1);
+    if (existing) {
+      const [updated] = await db.update(rankflowSignals)
+        .set({ ...data, last_updated: new Date() })
+        .where(eq(rankflowSignals.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(rankflowSignals)
+      .values({ client_id: clientId, ...data } as InsertRankflowSignal)
+      .returning();
+    return created;
+  }
+
+  async getSignalSummary(clientId: number): Promise<RankflowSignal | undefined> {
+    const [row] = await db.select().from(rankflowSignals)
+      .where(eq(rankflowSignals.client_id, clientId))
+      .limit(1);
+    return row;
   }
 }
 

@@ -14,7 +14,7 @@ import {
   DollarSign,
   Sparkles,
   Wrench,
-  Shield,
+  TrendingUp,
   User,
   Settings,
   KeyRound,
@@ -50,8 +50,8 @@ const NAV_ITEMS = [
   { label: "Inbox", href: "/admin/crm/inbox", icon: Inbox },
   { label: "Billing", href: "/admin/crm/billing", icon: CreditCard },
   { label: "Suppliers", href: "/admin/crm/suppliers", icon: Factory },
+  { label: "RankFlow", href: "/admin/crm/rankflow", icon: TrendingUp },
   { label: "Services", href: "/admin/crm/services", icon: Wrench },
-  { label: "MapGuard", href: "/admin/crm/mapguard", icon: Shield },
 ];
 
 const SECONDARY_ITEMS = [

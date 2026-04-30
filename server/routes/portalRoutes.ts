@@ -3,6 +3,10 @@ import { requireClient, hashPassword, verifyPassword } from "../auth";
 import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { chat as aiChat } from "../services/aiService";
+import { storage } from "../storage";
+import { generateMonthlyPlan } from "../services/rankflow/planGenerator";
+import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
+import { generateKeywordTargets, clusterKeywords, deriveTargetServices } from "../services/rankflow/keywordHelper";
 import { authRateLimiter } from "../services/rateLimiter";
 import {
   clients,
@@ -18,13 +22,11 @@ import {
   deploymentStatus,
   supportTickets,
   passwordResetTokens,
-  mapguardSnapshots,
-  mapguardTasks,
+  rankflowProfiles,
+  rankflowTasks,
+  rankflowProgress,
+  rankflowMonthlyPlans,
 } from "@shared/schema";
-import { compileMonthlyReport } from "../services/mapguardReports";
-import { getExecutionUsage } from "../services/mapguardTaskEngine";
-import { generateClientActivityFeed } from "../services/mapguardRetention";
-import { getClientPerformanceSummary } from "../services/mapguardMonitor";
 
 /* ─── Helpers ─── */
 
@@ -640,23 +642,16 @@ export function registerPortalRoutes(app: Express) {
         .from(leads)
         .where(eq(leads.calculator_id, calc.id));
 
-      const tokenExpired = new Date() > new Date(calc.token_expires_at);
-
       res.json({
         calculator: {
           id: calc.id,
           business_name: calc.business_name,
-          trade_type: calc.trade_type,
           slug: calc.slug,
+          edit_token: calc.edit_token,
           plan_tier: calc.plan_tier ?? "free",
           total_views: calc.total_views ?? 0,
           total_leads: leadCount?.count ?? 0,
           status: deploy?.status ?? "draft",
-          calculator_url: `/calculator?slug=${calc.slug}`,
-          edit_url: tokenExpired ? null : `/EditCalculator?token=${calc.edit_token}`,
-          preview_url: tokenExpired ? null : `/calculator?slug=${calc.slug}&preview=${calc.edit_token}`,
-          edit_token_expired: tokenExpired,
-          created_at: calc.created_at,
         },
       });
     } catch (err) {
@@ -826,212 +821,232 @@ Do NOT:
     }
   });
 
-  /**
-   * GET /api/portal/mapguard
-   * Client-safe MapGuard dashboard data.
-   * Returns snapshots, health, and trend data — no tasks, alerts, or supplier info.
-   */
-  app.get("/api/portal/mapguard", requireClient, async (req: Request, res: Response) => {
+  /* ═══════════════════════════════════════════
+     RankFlow Client Dashboard
+     ═══════════════════════════════════════════ */
+
+  const TASK_TYPE_LABELS: Record<string, string> = {
+    page_create: "Page created",
+    meta_fix: "Page optimization",
+    citation_build: "Directory listing",
+    internal_linking: "Internal linking",
+    content_support: "SEO content support",
+    schema_basic: "Search visibility improvement",
+  };
+
+  app.get("/api/portal/rankflow", requireClient, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      // Check if client has active MapGuard service
-      const [mgService] = await db.select({ id: clientServices.id, status: clientServices.status })
-        .from(clientServices)
-        .innerJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
-        .where(and(
-          eq(clientServices.client_id, clientId),
-          sql`${serviceCatalog.id} LIKE 'mapguard%'`,
-          sql`${clientServices.status} IN ('active', 'onboarding')`,
-        ))
+      const month = new Date().toISOString().slice(0, 7);
+
+      // Profile
+      const [profile] = await db.select().from(rankflowProfiles)
+        .where(eq(rankflowProfiles.client_id, clientId)).limit(1);
+
+      if (!profile) return res.json({ active: false });
+
+      // Current month plan
+      const [plan] = await db.select().from(rankflowMonthlyPlans)
+        .where(and(eq(rankflowMonthlyPlans.client_id, clientId), eq(rankflowMonthlyPlans.month, month)))
         .limit(1);
 
-      if (!mgService) {
-        return res.json({ active: false, snapshots: [], health: null });
-      }
+      // Tasks for this month (only done or in-progress — hide internal clutter)
+      const allTasks = plan
+        ? await db.select().from(rankflowTasks).where(eq(rankflowTasks.plan_id, plan.id))
+        : [];
 
-      // Get last 12 snapshots (newest first)
-      const snapshots = await db.select({
-        id: mapguardSnapshots.id,
-        captured_at: mapguardSnapshots.captured_at,
-        rating: mapguardSnapshots.rating,
-        review_count: mapguardSnapshots.review_count,
-        photo_count: mapguardSnapshots.photo_count,
-        has_website: mapguardSnapshots.has_website,
-        has_description: mapguardSnapshots.has_description,
-        keywords_in_local_pack: mapguardSnapshots.keywords_in_local_pack,
-        keywords_in_top_10: mapguardSnapshots.keywords_in_top_10,
-        score_total: mapguardSnapshots.score_total,
-        score_grade: mapguardSnapshots.score_grade,
-        score_google_maps: mapguardSnapshots.score_google_maps,
-        score_search_visibility: mapguardSnapshots.score_search_visibility,
-        changes: mapguardSnapshots.changes,
-      })
-      .from(mapguardSnapshots)
-      .where(eq(mapguardSnapshots.client_id, clientId))
-      .orderBy(desc(mapguardSnapshots.captured_at))
-      .limit(12);
+      const completed = allTasks.filter(t => t.status === "done");
+      const inProgress = allTasks.filter(t => ["assigned", "in_progress", "submitted", "qa_review", "pending"].includes(t.status));
 
-      const latest = snapshots[0] || null;
-      const previous = snapshots[1] || null;
-
-      // Compute client-safe health status
-      let health: string = "monitoring";
-      if (latest && previous) {
-        const changes = latest.changes as any;
-        const scoreDelta = changes?.score_delta ?? null;
-        if (scoreDelta !== null && scoreDelta > 5) health = "improving";
-        else if (scoreDelta !== null && scoreDelta < -8) health = "needs_attention";
-        else if (scoreDelta !== null && scoreDelta < -3) health = "watch_closely";
-        else health = "healthy";
-      } else if (latest) {
-        health = "healthy";
-      }
-
-      // Build client-safe snapshot data (strip internal fields)
-      const clientSnapshots = snapshots.map(s => ({
-        captured_at: s.captured_at,
-        score: s.score_total,
-        grade: s.score_grade,
-        rating: s.rating,
-        review_count: s.review_count,
-        keywords_in_local_pack: s.keywords_in_local_pack,
-        keywords_in_top_10: s.keywords_in_top_10,
+      // Transform to client-safe language
+      const completedItems = completed.map(t => ({
+        label: TASK_TYPE_LABELS[t.type] || t.type.replace(/_/g, " "),
+        detail: t.title.replace(/^(Create SEO page|Optimize title tag|Build citation|Add internal links|Add schema markup|Content recommendation).*?—?\s*/i, "").trim() || t.title,
+        completedAt: t.completed_at,
       }));
 
-      // Compute simple deltas for display
-      const deltas = latest && previous ? {
-        score: (latest.changes as any)?.score_delta ?? null,
-        rating: (latest.changes as any)?.rating_delta ?? null,
-        reviews: (latest.changes as any)?.reviews_delta ?? null,
-        local_pack: (latest.changes as any)?.local_pack_delta ?? null,
-      } : null;
+      const inProgressItems = inProgress.map(t => ({
+        label: TASK_TYPE_LABELS[t.type] || t.type.replace(/_/g, " "),
+        detail: t.title,
+      }));
 
-      // Build client-friendly activity list from recent tasks
-      const TASK_TYPE_TRANSLATIONS: Record<string, string> = {
-        baseline_audit_review: "Reviewing your visibility data and planning improvements",
-        gbp_optimization: "Optimizing your Google Business profile",
-        citation_cleanup: "Improving your online listings consistency",
-        review_issue_response: "Handling and improving your customer reviews",
-        competitor_reaction: "Monitoring competitors and adjusting your visibility strategy",
-        profile_content_update: "Updating your profile content for better performance",
-        photo_upload: "Refreshing your business photos",
-        post_scheduling: "Creating and scheduling posts for your profile",
-        suspension_support: "Resolving a profile issue with Google",
-        monthly_report_review: "Preparing your monthly performance review",
-        manual_followup: "Following up on an improvement action",
-      };
+      // Progress stats
+      const totalTasks = allTasks.length;
+      const doneTasks = completed.length;
+      const pagesCreated = completed.filter(t => t.type === "page_create").length;
+      const citationsBuilt = completed.filter(t => t.type === "citation_build").length;
+      const progressPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
-      const recentTaskTypes = await db.selectDistinct({ task_type: mapguardTasks.task_type })
-        .from(mapguardTasks)
-        .where(and(
-          eq(mapguardTasks.client_id, clientId),
-          sql`${mapguardTasks.status} NOT IN ('completed', 'cancelled')`,
-        ))
-        .limit(5);
+      // Status line
+      let statusLine = "Work is underway this month";
+      if (!profile.enabled) statusLine = "RankFlow is currently paused";
+      else if (!plan) statusLine = "This month's plan is being prepared";
+      else if (doneTasks === totalTasks && totalTasks > 0) statusLine = "This month's SEO work is complete";
+      else if (doneTasks === 0) statusLine = "Work is starting this month";
 
-      const activities = recentTaskTypes
-        .map(r => TASK_TYPE_TRANSLATIONS[r.task_type])
-        .filter(Boolean);
+      // What's next (simple narrative)
+      const nextUp: string[] = [];
+      const pendingTypes = new Set(inProgress.map(t => t.type));
+      if (pendingTypes.has("page_create")) nextUp.push("Creating optimized service pages");
+      if (pendingTypes.has("meta_fix")) nextUp.push("Optimizing page titles and descriptions");
+      if (pendingTypes.has("citation_build")) nextUp.push("Expanding local directory coverage");
+      if (pendingTypes.has("internal_linking")) nextUp.push("Improving internal page connections");
+      if (pendingTypes.has("content_support")) nextUp.push("Preparing next month's content strategy");
+      if (pendingTypes.has("schema_basic")) nextUp.push("Enhancing search result visibility");
+      if (nextUp.length === 0 && totalTasks > 0 && doneTasks < totalTasks) nextUp.push("Finalizing this month's SEO improvements");
+      if (nextUp.length === 0 && doneTasks === totalTasks) nextUp.push("Reviewing keyword progress for next month");
 
-      // Add recent completions as past-tense signals
-      const [recentCompleted] = await db.select({ count: sql<number>`count(*)::int` })
-        .from(mapguardTasks)
-        .where(and(
-          eq(mapguardTasks.client_id, clientId),
-          eq(mapguardTasks.status, "completed"),
-          sql`${mapguardTasks.completed_at} > NOW() - INTERVAL '30 days'`,
-        ));
-      const completedCount = recentCompleted?.count || 0;
+      // Ranking highlights (from signals table)
+      const signals = await storage.getSignalSummary(clientId);
+      const rankingHighlights: string[] = [];
+      if (signals) {
+        if (signals.keywords_top_10 > 0) rankingHighlights.push(`${signals.keywords_top_10} keyword${signals.keywords_top_10 > 1 ? "s" : ""} in top 10`);
+        if (signals.keywords_improved > 0) rankingHighlights.push(`${signals.keywords_improved} keyword${signals.keywords_improved > 1 ? "s" : ""} improved this month`);
+        if (signals.pages_indexed > 0) rankingHighlights.push(`${signals.pages_indexed} page${signals.pages_indexed > 1 ? "s" : ""} indexed on Google`);
+        if (signals.keywords_top_20 > signals.keywords_top_10) rankingHighlights.push(`${signals.keywords_top_20} keyword${signals.keywords_top_20 > 1 ? "s" : ""} in top 20`);
+      }
 
-      // Client-safe execution progress (no internal limits exposed)
-      let executionProgress: { completed: number; pending: number; has_more: boolean } | null = null;
-      try {
-        const usage = await getExecutionUsage(clientId);
-        executionProgress = {
-          completed: usage.used,
-          pending: usage.backlog_count,
-          has_more: usage.upgrade_recommended,
-        };
-      } catch { /* skip on error */ }
+      // Indexing summary
+      const pages = await storage.listPagesByClient(clientId);
+      const indexedPages = pages.filter(p => p.indexed).length;
+      const pendingIndex = pages.length - indexedPages;
+
+      // Monthly narrative (rule-based)
+      const narrativeParts: string[] = [];
+      if (doneTasks > 0) narrativeParts.push(`This month we completed ${doneTasks} SEO improvement${doneTasks > 1 ? "s" : ""}`);
+      if (pagesCreated > 0) narrativeParts.push(`created ${pagesCreated} new page${pagesCreated > 1 ? "s" : ""}`);
+      if (citationsBuilt > 0) narrativeParts.push(`built ${citationsBuilt} local listing${citationsBuilt > 1 ? "s" : ""}`);
+      if (signals?.keywords_improved && signals.keywords_improved > 0) narrativeParts.push(`${signals.keywords_improved} keyword${signals.keywords_improved > 1 ? "s" : ""} improved in Google`);
+      if (indexedPages > 0) narrativeParts.push(`${indexedPages} page${indexedPages > 1 ? "s are" : " is"} indexed on Google`);
+      let narrative = narrativeParts.length > 0
+        ? narrativeParts.join(", ") + "."
+        : "We are setting up your SEO plan and will begin work shortly.";
+      // Capitalize first letter
+      narrative = narrative.charAt(0).toUpperCase() + narrative.slice(1);
 
       res.json({
-        active: true,
-        health,
-        last_scan: latest?.captured_at || null,
-        activities,
-        completed_last_30d: completedCount,
-        execution_progress: executionProgress,
-        activity_feed: await generateClientActivityFeed(clientId, 8),
-        since_start: await (async () => {
-          try {
-            const perf = await getClientPerformanceSummary(clientId);
-            if (!perf || perf.score_change == null) return null;
-            return { score_change: perf.score_change, reviews_gained: perf.reviews_gained, days_active: perf.days_active };
-          } catch { return null; }
-        })(),
-        current: latest ? {
-          score: latest.score_total,
-          grade: latest.score_grade,
-          rating: latest.rating,
-          review_count: latest.review_count,
-          photo_count: latest.photo_count,
-          has_website: latest.has_website,
-          has_description: latest.has_description,
-          keywords_in_local_pack: latest.keywords_in_local_pack,
-          keywords_in_top_10: latest.keywords_in_top_10,
-        } : null,
-        deltas,
-        snapshots: clientSnapshots.reverse(), // chronological for charts
+        active: profile.enabled,
+        plan_tier: profile.plan_tier,
+        month,
+        statusLine,
+        narrative,
+        metrics: {
+          tasksCompleted: doneTasks,
+          totalTasks,
+          pagesCreated,
+          citationsBuilt,
+          progressPct,
+        },
+        ranking: {
+          highlights: rankingHighlights,
+          keywordsTracked: signals?.total_keywords || 0,
+          keywordsTop10: signals?.keywords_top_10 || 0,
+          keywordsTop20: signals?.keywords_top_20 || 0,
+          keywordsImproved: signals?.keywords_improved || 0,
+          avgPosition: signals?.avg_position ? Number(signals.avg_position) : null,
+        },
+        indexing: {
+          totalPages: pages.length,
+          indexed: indexedPages,
+          pending: pendingIndex,
+        },
+        completed: completedItems,
+        inProgress: inProgressItems,
+        nextUp,
       });
     } catch (err: any) {
-      console.error("Portal MapGuard error:", err);
-      res.status(500).json({ error: "Failed to load MapGuard data" });
+      console.error("[portal-rankflow] error:", err.message);
+      res.status(500).json({ error: "Failed to load RankFlow dashboard" });
     }
   });
 
-  /**
-   * GET /api/portal/mapguard/report/:year/:month
-   * Client-safe monthly report data.
-   */
-  app.get("/api/portal/mapguard/report/:year/:month", requireClient, async (req: Request, res: Response) => {
+  /* ═══════════════════════════════════════════
+     RankFlow Onboarding
+     ═══════════════════════════════════════════ */
+
+  app.post("/api/portal/rankflow/onboard", requireClient, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const year = parseInt(req.params.year as string);
-      const month = parseInt(req.params.month as string);
-      if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
-        return res.status(400).json({ error: "Invalid date parameters" });
+      const { business_name, website_url, niche, location, additional_services, additional_locations, plan_tier } = req.body;
+
+      if (!business_name || !website_url || !niche || !location) {
+        return res.status(400).json({ error: "business_name, website_url, niche, and location are required" });
       }
 
-      const report = await compileMonthlyReport(clientId, year, month);
-      if (!report) return res.status(404).json({ error: "No report data for this month" });
+      // Check if profile already exists and is enabled
+      const existing = await storage.getRankFlowProfile(clientId);
+      if (existing?.enabled) {
+        return res.status(409).json({ error: "RankFlow is already active for this client" });
+      }
 
-      // Return client-safe subset (strip internal counts)
-      res.json({
-        month_label: report.month_label,
-        business_name: report.business_name,
-        score_end: report.score_end,
-        score_delta: report.score_delta,
-        grade_end: report.grade_end,
-        rating_end: report.rating_end,
-        rating_delta: report.rating_delta,
-        reviews_end: report.reviews_end,
-        reviews_gained: report.reviews_gained,
-        local_pack_end: report.local_pack_end,
-        scans_this_month: report.scans_this_month,
-        has_website: report.has_website,
-        has_description: report.has_description,
-        photo_count: report.photo_count,
-        completed_actions: report.completed_actions,
-        active_work: report.active_work,
-        movement: report.movement,
+      // Derive target services and locations
+      const targetServices = deriveTargetServices(niche, additional_services);
+      const targetLocations = [location, ...(additional_locations || [])].filter(Boolean);
+
+      // Create or update profile
+      const profile = await storage.upsertRankFlowProfile(clientId, {
+        niche,
+        location,
+        website_url,
+        target_services: targetServices,
+        target_locations: targetLocations,
+        plan_tier: plan_tier || "starter",
+        enabled: true,
+      });
+
+      // Generate initial monthly plan + tasks
+      const month = new Date().toISOString().slice(0, 7);
+      let planResult = null;
+
+      const existingPlan = await storage.getMonthlyPlan(clientId, month);
+      if (!existingPlan) {
+        const planData = generateMonthlyPlan(profile);
+        const plan = await storage.createMonthlyPlan({
+          client_id: clientId,
+          month,
+          plan_data: planData,
+          status: "draft",
+        });
+
+        const taskDefs = generateTasksFromPlan(plan.id, planData, profile);
+        let tasksCreated = 0;
+        for (const t of taskDefs) {
+          await storage.createRankFlowTask(t as any);
+          tasksCreated++;
+        }
+
+        await storage.updateMonthlyPlanStatus(plan.id, "active");
+        planResult = { planId: plan.id, month, tasksCreated };
+      }
+
+      // Generate structured keyword targets and save to tracking table
+      const keywords = generateKeywordTargets(niche, location, additional_locations, additional_services);
+      const clusters = clusterKeywords(keywords);
+
+      // Save keywords to tracking table (max 40)
+      const kwToSave = keywords.slice(0, 40).map(k => ({
+        client_id: clientId,
+        keyword: k.keyword,
+        cluster: k.cluster,
+        priority: k.priority,
+      }));
+      await storage.createKeywords(kwToSave);
+
+      console.log(`[rankflow-onboard] Client ${clientId} onboarded — ${kwToSave.length} keywords saved, ${clusters.length} clusters, plan: ${planResult ? "created" : "already exists"}`);
+
+      res.status(201).json({
+        profile,
+        plan: planResult,
+        keywords_saved: kwToSave.length,
+        clusters: clusters.length,
       });
     } catch (err: any) {
-      console.error("Portal MapGuard report error:", err);
-      res.status(500).json({ error: "Failed to load report" });
+      console.error("[rankflow-onboard] error:", err.message);
+      res.status(500).json({ error: "Failed to complete onboarding" });
     }
   });
 }

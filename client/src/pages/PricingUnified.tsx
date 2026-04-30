@@ -110,11 +110,11 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
   },
   rankflow: {
     name: "RankFlow\u2122",
-    headline: "Rank higher on Google and get found by local customers",
-    bullets: ["Keyword research for your services and area", "SEO content that ranks", "On-page optimization every month", "Ranking reports showing real progress"],
+    headline: "Done-for-you local SEO that improves your visibility every month",
+    bullets: ["Keyword targeting for your services and area", "Page optimization and SEO page creation", "Local citation and directory building", "Monthly progress dashboard"],
     href: "/products/rankflow",
-    trustLine: "Trades businesses ranking higher month after month",
-    bestFor: "long-term SEO growth",
+    trustLine: "Trades businesses improving local visibility month after month",
+    bestFor: "ongoing local SEO",
   },
   adflow: {
     name: "AdFlow\u2122",
