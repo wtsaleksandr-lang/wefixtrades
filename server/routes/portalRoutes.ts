@@ -1,7 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { requireClient, hashPassword, verifyPassword } from "../auth";
+import { storage } from "../storage";
 import { db } from "../db";
-import { eq, and, desc, sql, gte } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { chat as aiChat } from "../services/aiService";
 import { authRateLimiter } from "../services/rateLimiter";
 import {
@@ -18,8 +19,6 @@ import {
   deploymentStatus,
   supportTickets,
   passwordResetTokens,
-  reviewRequests,
-  monitoredReviews,
 } from "@shared/schema";
 
 /* ─── Helpers ─── */
@@ -815,508 +814,295 @@ Do NOT:
     }
   });
 
-  // ═══════════════════════════════════════════════
-  // ReputationShield — Client Portal
-  // ═══════════════════════════════════════════════
-
   /**
-   * GET /api/portal/reputation/overview
-   * Summary metrics for the client's reputation status.
+   * GET /api/portal/reputation
+   * Client-facing reputation report — clean, positive-framed metrics.
+   * No internal noise (errors, queue states, system details).
    */
-  app.get("/api/portal/reputation/overview", requireClient, async (req, res) => {
+  app.get("/api/portal/reputation", requireClient, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const now = new Date();
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const allReviews = await storage.listReviews(clientId, { limit: 200 });
+      const requests = await storage.listReviewRequests(clientId, 200);
 
-      // Reviews stats
-      const [reviewStats] = await db.select({
-        total: sql<number>`count(*)::int`,
-        averageRating: sql<number>`coalesce(round(avg(${monitoredReviews.rating})::numeric, 2), 0)::float`,
-        withResponse: sql<number>`count(*) filter (where ${monitoredReviews.response_text} is not null)::int`,
-        last30Days: sql<number>`count(*) filter (where ${monitoredReviews.first_seen_at} >= ${thirtyDaysAgo})::int`,
-        last7Days: sql<number>`count(*) filter (where ${monitoredReviews.first_seen_at} >= ${sevenDaysAgo})::int`,
-        lowRatingNoResponse: sql<number>`count(*) filter (where ${monitoredReviews.rating} <= 2 and ${monitoredReviews.response_text} is null)::int`,
-        withDraft: sql<number>`count(*) filter (where ${monitoredReviews.draft_response} is not null)::int`,
-      }).from(monitoredReviews)
-        .where(eq(monitoredReviews.client_id, clientId));
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+      const thirtyDays = 30 * day;
 
-      // Review requests stats
-      const [requestStats] = await db.select({
-        totalSent: sql<number>`count(*) filter (where ${reviewRequests.status} != 'pending')::int`,
-        pendingFollowups: sql<number>`count(*) filter (where ${reviewRequests.status} = 'sent' and ${reviewRequests.next_followup_at} is not null)::int`,
-        routedPositive: sql<number>`count(*) filter (where ${reviewRequests.status} = 'routed_positive')::int`,
-        feedbackCaptured: sql<number>`count(*) filter (where ${reviewRequests.status} = 'feedback_captured')::int`,
-      }).from(reviewRequests)
-        .where(eq(reviewRequests.client_id, clientId));
+      // Review metrics
+      const recentReviews = allReviews.filter(r => r.review_time && (now - new Date(r.review_time).getTime()) < thirtyDays);
+      const prevMonthReviews = allReviews.filter(r => r.review_time && (now - new Date(r.review_time).getTime()) >= thirtyDays && (now - new Date(r.review_time).getTime()) < 2 * thirtyDays);
+      const ratings = allReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+      const recentRatings = recentReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+      const prevRatings = prevMonthReviews.filter(r => r.star_rating).map(r => r.star_rating!);
+      const avgRating = ratings.length > 0 ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10 : null;
+      const avgRatingRecent = recentRatings.length > 0 ? Math.round((recentRatings.reduce((a, b) => a + b, 0) / recentRatings.length) * 10) / 10 : null;
+      const avgRatingPrev = prevRatings.length > 0 ? Math.round((prevRatings.reduce((a, b) => a + b, 0) / prevRatings.length) * 10) / 10 : null;
 
-      // Private feedback count
-      const [feedbackCount] = await db.select({
-        total: sql<number>`count(*) filter (where ${reviewRequests.internal_feedback} is not null)::int`,
-      }).from(reviewRequests)
-        .where(eq(reviewRequests.client_id, clientId));
+      // Replies — client-friendly language
+      const repliedCount = allReviews.filter(r => r.reply_status === "auto_replied" || r.reply_status === "manually_replied" || r.has_existing_owner_reply).length;
+      const replyRate = allReviews.length > 0 ? Math.round((repliedCount / allReviews.length) * 100) : null;
 
-      const noResponse = (reviewStats?.total ?? 0) - (reviewStats?.withResponse ?? 0);
+      // Requests — client-friendly
+      const sentRequests = requests.filter(r => r.status === "sent" || r.status === "delivered");
+      const attributed = sentRequests.filter(r => r.attributed_review_id);
+      const responseRate = sentRequests.length > 0 ? Math.round((attributed.length / sentRequests.length) * 100) : null;
 
-      res.json({
-        reviews: {
-          total: reviewStats?.total ?? 0,
-          averageRating: reviewStats?.averageRating ?? 0,
-          last30Days: reviewStats?.last30Days ?? 0,
-          last7Days: reviewStats?.last7Days ?? 0,
-          withoutResponse: noResponse,
-          lowRatingNoResponse: reviewStats?.lowRatingNoResponse ?? 0,
-          withDraft: reviewStats?.withDraft ?? 0,
-        },
-        requests: {
-          totalSent: requestStats?.totalSent ?? 0,
-          pendingFollowups: requestStats?.pendingFollowups ?? 0,
-          routedPositive: requestStats?.routedPositive ?? 0,
-          feedbackCaptured: feedbackCount?.total ?? 0,
-        },
-      });
-    } catch (err: any) {
-      console.error("[portal] reputation overview error:", err.message);
-      res.status(500).json({ error: "Failed to load reputation data" });
-    }
-  });
-
-  /**
-   * GET /api/portal/reputation/reviews
-   * Recent public reviews for the client.
-   */
-  app.get("/api/portal/reputation/reviews", requireClient, async (req, res) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const limit = Math.min(50, parseInt(req.query.limit as string) || 20);
-      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
-
-      const rows = await db.select({
-        id: monitoredReviews.id,
-        reviewer_name: monitoredReviews.reviewer_name,
-        rating: monitoredReviews.rating,
-        review_text: monitoredReviews.review_text,
-        published_at: monitoredReviews.published_at,
-        response_text: monitoredReviews.response_text,
-        response_date: monitoredReviews.response_date,
-        is_new: monitoredReviews.is_new,
-        draft_response: monitoredReviews.draft_response,
-        platform: monitoredReviews.platform,
-        first_seen_at: monitoredReviews.first_seen_at,
-      }).from(monitoredReviews)
-        .where(eq(monitoredReviews.client_id, clientId))
-        .orderBy(desc(monitoredReviews.published_at))
-        .limit(limit).offset(offset);
-
-      const [countRow] = await db.select({ total: sql<number>`count(*)::int` })
-        .from(monitoredReviews)
-        .where(eq(monitoredReviews.client_id, clientId));
-
-      res.json({ data: rows, total: countRow?.total ?? 0 });
-    } catch (err: any) {
-      console.error("[portal] reputation reviews error:", err.message);
-      res.status(500).json({ error: "Failed to load reviews" });
-    }
-  });
-
-  /**
-   * GET /api/portal/reputation/feedback
-   * Private feedback captured through the sentiment gate.
-   */
-  app.get("/api/portal/reputation/feedback", requireClient, async (req, res) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const rows = await db.select({
-        id: reviewRequests.id,
-        customer_name: reviewRequests.customer_name,
-        internal_feedback: reviewRequests.internal_feedback,
-        sentiment: reviewRequests.sentiment,
-        trigger_source: reviewRequests.trigger_source,
-        created_at: reviewRequests.created_at,
-        completed_at: reviewRequests.completed_at,
-      }).from(reviewRequests)
-        .where(and(
-          eq(reviewRequests.client_id, clientId),
-          sql`${reviewRequests.internal_feedback} is not null`,
-        ))
-        .orderBy(desc(reviewRequests.completed_at))
-        .limit(20);
-
-      res.json({ data: rows });
-    } catch (err: any) {
-      console.error("[portal] reputation feedback error:", err.message);
-      res.status(500).json({ error: "Failed to load feedback" });
-    }
-  });
-
-  /**
-   * GET /api/portal/reputation/config
-   * Returns client's ReputationShield tier, features, and settings.
-   */
-  app.get("/api/portal/reputation/config", requireClient, async (req, res) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const { extractTier, canAccessFeature, mergeSettings, TIER_LABELS, FEATURE_LABELS, FEATURE_MIN_TIER, TIER_FEATURES } = await import("@shared/reputationConfig");
-      const { storage } = await import("../storage");
-
-      const svc = await storage.getClientReputationService(clientId);
-      if (!svc) {
-        return res.json({ active: false, tier: null, features: {}, settings: null });
-      }
-
-      const tier = extractTier(svc.serviceId);
-      const settings = mergeSettings(svc.metadata?.reputation_settings);
-      const features = tier ? TIER_FEATURES[tier] : {};
-
-      // Build upgrade hints for locked features
-      const upgradeHints: Record<string, string> = {};
-      if (tier) {
-        for (const [feature, minTier] of Object.entries(FEATURE_MIN_TIER)) {
-          if (!canAccessFeature(tier, feature as any)) {
-            upgradeHints[feature] = `Available on ${TIER_LABELS[minTier as keyof typeof TIER_LABELS]} plan`;
+      // Avg days to review
+      const daysList: number[] = [];
+      for (const req of attributed) {
+        if (req.sent_at) {
+          const matchedReview = allReviews.find(r => r.id === req.attributed_review_id);
+          if (matchedReview?.review_time) {
+            const d = (new Date(matchedReview.review_time).getTime() - new Date(req.sent_at).getTime()) / day;
+            if (d >= 0) daysList.push(d);
           }
         }
       }
+      const avgDays = daysList.length > 0 ? Math.round((daysList.reduce((a, b) => a + b, 0) / daysList.length) * 10) / 10 : null;
 
-      res.json({
-        active: true,
-        tier,
-        tierLabel: tier ? TIER_LABELS[tier] : null,
-        features,
-        settings,
-        upgradeHints,
-      });
-    } catch (err: any) {
-      console.error("[portal] reputation config error:", err.message);
-      res.status(500).json({ error: "Failed to load config" });
-    }
-  });
-
-  /**
-   * PATCH /api/portal/reputation/settings
-   * Update client's ReputationShield settings (channel, reminders, etc).
-   */
-  app.patch("/api/portal/reputation/settings", requireClient, async (req, res) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const { mergeSettings } = await import("@shared/reputationConfig");
-      const { storage } = await import("../storage");
-
-      const svc = await storage.getClientReputationService(clientId);
-      if (!svc) {
-        return res.status(404).json({ error: "No ReputationShield service found" });
+      // Weekly trend (last 8 weeks)
+      const weeklyTrend: { week: string; reviews: number }[] = [];
+      for (let i = 7; i >= 0; i--) {
+        const weekStart = now - (i + 1) * 7 * day;
+        const weekEnd = now - i * 7 * day;
+        const count = allReviews.filter(r => r.review_time && new Date(r.review_time).getTime() >= weekStart && new Date(r.review_time).getTime() < weekEnd).length;
+        weeklyTrend.push({ week: new Date(weekStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }), reviews: count });
       }
 
-      const current = svc.metadata?.reputation_settings ?? {};
-      const updated = mergeSettings({ ...current, ...req.body });
-      const metadata = { ...svc.metadata, reputation_settings: updated };
+      // Latest positive reviews (client-safe subset)
+      const latestPositive = allReviews
+        .filter(r => (r.star_rating || 0) >= 4 && r.review_text)
+        .slice(0, 5)
+        .map(r => ({
+          reviewer: r.reviewer_name || "A customer",
+          rating: r.star_rating,
+          text: (r.review_text || "").slice(0, 150) + ((r.review_text || "").length > 150 ? "..." : ""),
+          date: r.review_time ? new Date(r.review_time).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null,
+          replied: r.reply_status === "auto_replied" || r.reply_status === "manually_replied" || r.has_existing_owner_reply,
+        }));
 
-      await storage.updateClientServiceMetadata(clientId, svc.serviceId, metadata);
-
-      res.json({ ok: true, settings: updated });
-    } catch (err: any) {
-      console.error("[portal] reputation settings error:", err.message);
-      res.status(500).json({ error: "Failed to update settings" });
-    }
-  });
-
-  /**
-   * GET /api/portal/reputation/widget
-   * Returns widget setup info: token, embed code, current settings.
-   */
-  app.get("/api/portal/reputation/widget", requireClient, async (req, res) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const { extractTier, canAccessFeature, mergeWidgetSettings } = await import("@shared/reputationConfig");
-      const { storage } = await import("../storage");
-
-      // Check feature access
-      const svc = await storage.getClientReputationService(clientId);
-      const tier = svc ? extractTier(svc.serviceId) : null;
-
-      // Badge available on all tiers; carousel on Pro+
-      const badgeAccess = !!tier;
-      const carouselAccess = canAccessFeature(tier, "reviewWidget");
-
-      if (!tier) {
-        return res.json({ active: false, widgetAccess: false });
-      }
-
-      // Ensure widget token exists
-      const widgetToken = await storage.ensureWidgetToken(clientId);
-
-      // Load widget settings
-      const ws = mergeWidgetSettings(svc?.metadata?.reputation_settings?.widget);
-
-      // Build base URL for embed code
-      const origin = req.headers.origin || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : `${req.protocol}://${req.get("host")}`);
+      // Recent replies we posted
+      const recentReplies = allReviews
+        .filter(r => (r.reply_status === "auto_replied" || r.reply_status === "manually_replied") && r.reply_posted_at)
+        .sort((a, b) => new Date(b.reply_posted_at!).getTime() - new Date(a.reply_posted_at!).getTime())
+        .slice(0, 3)
+        .map(r => ({
+          reviewer: r.reviewer_name || "A customer",
+          rating: r.star_rating,
+          date: r.reply_posted_at ? new Date(r.reply_posted_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null,
+        }));
 
       res.json({
-        active: true,
-        widgetToken,
-        badgeAccess,
-        carouselAccess,
-        settings: ws,
-        embedCode: {
-          badge: `<script src="${origin}/widget/embed.js" data-wft-widget="badge" data-wft-token="${widgetToken}"></script>`,
-          carousel: carouselAccess
-            ? `<script src="${origin}/widget/embed.js" data-wft-widget="carousel" data-wft-token="${widgetToken}"></script>`
-            : null,
+        summary: {
+          reviews_this_month: recentReviews.length,
+          reviews_last_month: prevMonthReviews.length,
+          reviews_change: recentReviews.length - prevMonthReviews.length,
+          total_reviews: allReviews.length,
+          average_rating: avgRating,
+          average_rating_this_month: avgRatingRecent,
+          average_rating_last_month: avgRatingPrev,
+          reply_rate: replyRate,
         },
+        activity: {
+          reviews_responded_to: repliedCount,
+          review_requests_sent: sentRequests.length,
+          reviews_generated: attributed.length,
+          estimated_response_rate: responseRate,
+          avg_days_to_review: avgDays,
+        },
+        weekly_trend: weeklyTrend,
+        latest_reviews: latestPositive,
+        recent_replies: recentReplies,
       });
     } catch (err: any) {
-      console.error("[portal] widget info error:", err.message);
-      res.status(500).json({ error: "Failed to load widget info" });
+      console.error("Portal reputation error:", err);
+      res.status(500).json({ error: "Failed to load reputation report" });
     }
   });
 
   /**
-   * PATCH /api/portal/reputation/widget
-   * Update widget settings.
+   * GET /api/portal/socialsync-profile
+   * Get the client's SocialSync profile.
    */
-  app.patch("/api/portal/reputation/widget", requireClient, async (req, res) => {
+  app.get("/api/portal/socialsync-profile", requireClient, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const { mergeSettings, mergeWidgetSettings } = await import("@shared/reputationConfig");
-      const { storage } = await import("../storage");
-
-      const svc = await storage.getClientReputationService(clientId);
-      if (!svc) return res.status(404).json({ error: "No ReputationShield service found" });
-
-      const currentSettings = svc.metadata?.reputation_settings ?? {};
-      const currentWidget = currentSettings.widget ?? {};
-      const updatedWidget = mergeWidgetSettings({ ...currentWidget, ...req.body });
-      const updatedSettings = mergeSettings({ ...currentSettings, widget: updatedWidget });
-      const metadata = { ...svc.metadata, reputation_settings: updatedSettings };
-
-      await storage.updateClientServiceMetadata(clientId, svc.serviceId, metadata);
-
-      res.json({ ok: true, settings: updatedWidget });
+      const profile = await storage.getSocialSyncProfile(clientId);
+      if (!profile) return res.json({ exists: false });
+      res.json(profile);
     } catch (err: any) {
-      console.error("[portal] widget settings error:", err.message);
-      res.status(500).json({ error: "Failed to update widget settings" });
+      res.status(500).json({ error: "Failed to load profile" });
     }
   });
 
-  // ═══════════════════════════════════════════════
-  // Manual Review Requests + QR
-  // ═══════════════════════════════════════════════
-
-  /** Rate limit: max 20 manual requests per client per day. */
-  const manualRequestCounts = new Map<string, { count: number; resets: number }>();
-  const MANUAL_DAILY_LIMIT = 20;
-
-  function checkManualRateLimit(clientId: number): boolean {
-    const key = `manual:${clientId}`;
-    const now = Date.now();
-    const entry = manualRequestCounts.get(key);
-    if (!entry || now > entry.resets) {
-      manualRequestCounts.set(key, { count: 1, resets: now + 24 * 60 * 60 * 1000 });
-      return true;
-    }
-    if (entry.count >= MANUAL_DAILY_LIMIT) return false;
-    entry.count++;
-    return true;
-  }
-
   /**
-   * POST /api/portal/reputation/request-review
-   * Client sends a review request to a specific customer.
+   * POST /api/portal/socialsync-setup
+   * Create or update SocialSync profile from onboarding wizard.
    */
-  app.post("/api/portal/reputation/request-review", requireClient, async (req, res) => {
+  app.post("/api/portal/socialsync-setup", requireClient, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const { customer_name, customer_email, customer_phone, job_label } = req.body;
+      const { niche, location, services, service_focus, tone, frequency, platform_preferences, enabled, autopilot } = req.body;
 
-      if (!customer_name || typeof customer_name !== "string" || customer_name.trim().length < 2) {
-        return res.status(400).json({ error: "Customer name is required" });
-      }
-      if (!customer_email && !customer_phone) {
-        return res.status(400).json({ error: "Email or phone number is required" });
-      }
+      const profile = await storage.upsertSocialSyncProfile({
+        client_id: clientId,
+        enabled: enabled ?? true,
+        niche: niche || null,
+        location: location || null,
+        services: services || null,
+        service_focus: service_focus || null,
+        tone: tone || "professional",
+        frequency: frequency || "3_per_week",
+        autopilot: autopilot ?? false,
+        platform_preferences: platform_preferences || ["facebook", "instagram"],
+      } as any);
 
-      // Rate limit
-      if (!checkManualRateLimit(clientId)) {
-        return res.status(429).json({ error: "Daily limit reached (20 review requests per day). Try again tomorrow." });
-      }
-
-      const { createManualReviewRequest, processReviewRequest } = await import("../services/reviewRequestService");
-
-      const result = await createManualReviewRequest({
-        clientId,
-        customerName: customer_name.trim(),
-        customerEmail: customer_email?.trim() || undefined,
-        customerPhone: customer_phone?.trim() || undefined,
-        jobLabel: job_label?.trim() || undefined,
-        triggerSource: "portal_manual",
+      await storage.createSocialSyncLog({
+        client_id: clientId,
+        entity_type: "profile",
+        entity_id: profile.id,
+        action: "profile.onboarding_completed",
+        status: "success",
+        details: { source: "portal_setup" },
       });
 
-      if (!result.created) {
-        return res.status(409).json({ error: result.reason });
-      }
-
-      // Send immediately
-      if (result.reviewRequest) {
-        processReviewRequest(result.reviewRequest).catch((err: any) => {
-          console.error("[portal] Review request send error:", err.message);
-        });
-      }
-
-      res.status(201).json({ ok: true, id: result.reviewRequest?.id });
+      res.status(201).json(profile);
     } catch (err: any) {
-      console.error("[portal] request-review error:", err.message);
-      res.status(500).json({ error: "Failed to send review request" });
+      console.error("Portal SocialSync setup error:", err);
+      res.status(500).json({ error: "Failed to save profile" });
     }
   });
 
   /**
-   * GET /api/portal/reputation/qr
-   * Returns the client's QR review collection URL and widget token.
+   * GET /api/portal/socialsync-connections/:platform
+   * Check if a platform is connected for the client.
    */
-  app.get("/api/portal/reputation/qr", requireClient, async (req, res) => {
+  app.get("/api/portal/socialsync-connections/:platform", requireClient, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const { storage } = await import("../storage");
-      const widgetToken = await storage.ensureWidgetToken(clientId);
-
-      const origin = req.headers.origin
-        || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : `${req.protocol}://${req.get("host")}`);
-
-      const qrUrl = `${origin}/review/qr/${widgetToken}`;
-
-      res.json({ qrUrl, widgetToken });
-    } catch (err: any) {
-      console.error("[portal] qr config error:", err.message);
-      res.status(500).json({ error: "Failed to load QR config" });
-    }
-  });
-
-  /**
-   * GET /api/portal/reputation/request-stats
-   * Source breakdown for review requests.
-   */
-  app.get("/api/portal/reputation/request-stats", requireClient, async (req, res) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const [row] = await db.select({
-        total: sql<number>`count(*)::int`,
-        job_complete: sql<number>`count(*) filter (where ${reviewRequests.trigger_source} = 'job_complete')::int`,
-        portal_manual: sql<number>`count(*) filter (where ${reviewRequests.trigger_source} = 'portal_manual')::int`,
-        admin_manual: sql<number>`count(*) filter (where ${reviewRequests.trigger_source} = 'manual')::int`,
-        qr_scan: sql<number>`count(*) filter (where ${reviewRequests.trigger_source} = 'qr_scan')::int`,
-      }).from(reviewRequests)
-        .where(eq(reviewRequests.client_id, clientId));
-
-      res.json(row || { total: 0, job_complete: 0, portal_manual: 0, admin_manual: 0, qr_scan: 0 });
-    } catch (err: any) {
-      console.error("[portal] request-stats error:", err.message);
-      res.status(500).json({ error: "Failed to load stats" });
-    }
-  });
-
-  // ═══════════════════════════════════════════════
-  // Google Business Connection (Portal)
-  // ═══════════════════════════════════════════════
-
-  /**
-   * GET /api/portal/reputation/google-status
-   * Returns Google connection status for the authenticated client.
-   */
-  app.get("/api/portal/reputation/google-status", requireClient, async (req, res) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const { isGoogleOAuthConfigured } = await import("../services/googleBusinessService");
-      const { storage } = await import("../storage");
-      const client = await storage.getClientById(clientId);
-      const creds = client?.google_credentials as any;
-
-      const connected = !!(creds?.refresh_token || creds?.access_token);
-      const expired = connected && creds?.expiry_date && new Date(creds.expiry_date).getTime() < Date.now() && !creds?.refresh_token;
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const conn = connections.find(c => c.platform === req.params.platform);
 
       res.json({
-        oauthConfigured: isGoogleOAuthConfigured(),
-        connected,
-        connectedAt: creds?.connected_at || null,
-        needsReconnect: expired,
+        connected: conn?.connection_status === "connected" || conn?.connection_status === "expiring_soon",
+        status: conn?.connection_status || "not_connected",
       });
     } catch (err: any) {
-      console.error("[portal] google-status error:", err.message);
       res.status(500).json({ error: "Failed to check connection" });
     }
   });
 
   /**
-   * GET /api/portal/reputation/google-connect
-   * Initiates Google OAuth flow for the authenticated client.
+   * GET /api/portal/socialsync
+   * Client-facing SocialSync activity report.
    */
-  app.get("/api/portal/reputation/google-connect", requireClient, async (req, res) => {
+  app.get("/api/portal/socialsync", requireClient, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const { isGoogleOAuthConfigured, getGoogleAuthUrl } = await import("../services/googleBusinessService");
-      if (!isGoogleOAuthConfigured()) {
-        return res.status(503).json({ error: "Google connection is not available right now" });
-      }
+      const profile = await storage.getSocialSyncProfile(clientId);
+      const posts = await storage.listSocialSyncPosts(clientId, { limit: 100 });
+      const connections = await storage.listSocialSyncConnections(clientId);
 
-      const state = JSON.stringify({ clientId, source: "portal" });
-      const authUrl = getGoogleAuthUrl(state);
-      res.json({ authUrl });
-    } catch (err: any) {
-      console.error("[portal] google-connect error:", err.message);
-      res.status(500).json({ error: "Failed to start connection" });
-    }
-  });
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+      const thirtyDays = 30 * day;
 
-  /**
-   * POST /api/portal/reputation/google-disconnect
-   * Disconnects Google for the authenticated client.
-   */
-  app.post("/api/portal/reputation/google-disconnect", requireClient, async (req, res) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
+      // Metrics
+      const publishedPosts = posts.filter(p => p.status === "published");
+      const publishedThisMonth = publishedPosts.filter(p => p.published_at && (now - new Date(p.published_at).getTime()) < thirtyDays);
+      const queuedPosts = posts.filter(p => p.status === "queued" && p.scheduled_for);
 
-      const { storage } = await import("../storage");
-      await storage.updateClient(clientId, { google_credentials: null } as any);
+      // Next scheduled
+      const nextPost = queuedPosts
+        .filter(p => p.scheduled_for && new Date(p.scheduled_for).getTime() > now)
+        .sort((a, b) => new Date(a.scheduled_for!).getTime() - new Date(b.scheduled_for!).getTime())[0];
 
-      await storage.logAdminActivity({
-        actor_type: "client",
-        actor_id: (req.user as any)?.id,
-        actor_name: null,
-        action: "google.disconnected",
-        entity_type: "client",
-        entity_id: clientId,
-        summary: `Google Business disconnected by client (portal)`,
+      // Platforms
+      const platforms = ["facebook", "instagram", "google_business"].map(p => {
+        const conn = connections.find(c => c.platform === p);
+        return {
+          platform: p === "google_business" ? "Google Business" : p.charAt(0).toUpperCase() + p.slice(1),
+          connected: conn?.connection_status === "connected" || conn?.connection_status === "expiring_soon",
+        };
       });
 
-      res.json({ ok: true });
+      // Client-safe status
+      let status: "setup_in_progress" | "needs_connection" | "ready" | "active";
+      if (!profile?.niche || !profile?.location) {
+        status = "setup_in_progress";
+      } else if (!platforms.some(p => p.connected)) {
+        status = "needs_connection";
+      } else if (publishedPosts.length === 0) {
+        status = "ready";
+      } else {
+        status = "active";
+      }
+
+      // Frequency label
+      const freqLabels: Record<string, string> = {
+        daily: "Daily", "3_per_week": "3x per week", "2_per_week": "2x per week", weekly: "Weekly",
+      };
+
+      // Recent published posts (client-safe)
+      const recentPosts = publishedPosts.slice(0, 8).map(p => ({
+        id: p.id,
+        platform: p.platform === "google_business" ? "Google Business" : p.platform.charAt(0).toUpperCase() + p.platform.slice(1),
+        caption: (p.caption || p.post_text).slice(0, 120) + ((p.caption || p.post_text).length > 120 ? "..." : ""),
+        full_text: p.post_text,
+        hashtags: p.hashtags as string[] | null,
+        published_at: p.published_at ? new Date(p.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null,
+        has_image: !!(p.media_plan as any)?.image_url,
+        image_url: (p.media_plan as any)?.image_url || null,
+      }));
+
+      // Upcoming scheduled posts
+      const upcomingPosts = queuedPosts
+        .filter(p => p.scheduled_for && new Date(p.scheduled_for).getTime() > now)
+        .sort((a, b) => new Date(a.scheduled_for!).getTime() - new Date(b.scheduled_for!).getTime())
+        .slice(0, 12)
+        .map(p => ({
+          id: p.id,
+          platform: p.platform === "google_business" ? "Google Business" : p.platform.charAt(0).toUpperCase() + p.platform.slice(1),
+          caption: (p.caption || p.post_text).slice(0, 120) + ((p.caption || p.post_text).length > 120 ? "..." : ""),
+          full_text: p.post_text,
+          hashtags: p.hashtags as string[] | null,
+          scheduled_for: new Date(p.scheduled_for!).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+          scheduled_date: new Date(p.scheduled_for!).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }),
+          has_image: !!(p.media_plan as any)?.image_url,
+          image_url: (p.media_plan as any)?.image_url || null,
+        }));
+
+      res.json({
+        status,
+        summary: {
+          posts_this_month: publishedThisMonth.length,
+          total_published: publishedPosts.length,
+          active_platforms: platforms.filter(p => p.connected).length,
+          posting_frequency: freqLabels[profile?.frequency || "3_per_week"] || "3x per week",
+          autopilot: profile?.autopilot || false,
+        },
+        next_scheduled: nextPost ? {
+          platform: nextPost.platform === "google_business" ? "Google Business" : nextPost.platform.charAt(0).toUpperCase() + nextPost.platform.slice(1),
+          scheduled_for: new Date(nextPost.scheduled_for!).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+        } : null,
+        platforms,
+        recent_posts: recentPosts,
+        upcoming_posts: upcomingPosts,
+      });
     } catch (err: any) {
-      console.error("[portal] google-disconnect error:", err.message);
-      res.status(500).json({ error: "Failed to disconnect" });
+      console.error("Portal SocialSync report error:", err);
+      res.status(500).json({ error: "Failed to load SocialSync report" });
     }
   });
 }

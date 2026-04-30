@@ -48,6 +48,7 @@ export const clients = pgTable("clients", {
   stripe_customer_id: text("stripe_customer_id"),
   automation_enabled: boolean("automation_enabled").notNull().default(true),
   human_override: boolean("human_override").notNull().default(false),
+  demo_mode: boolean("demo_mode").notNull().default(false),
   metadata: jsonb("metadata"),                             // flexible extra data
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),

@@ -14,13 +14,13 @@ import {
   DollarSign,
   Sparkles,
   Wrench,
-  TrendingUp,
+  Share2,
+  Target,
   User,
   Settings,
   KeyRound,
   LogOut,
   ExternalLink,
-  Star,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -51,9 +51,9 @@ const NAV_ITEMS = [
   { label: "Inbox", href: "/admin/crm/inbox", icon: Inbox },
   { label: "Billing", href: "/admin/crm/billing", icon: CreditCard },
   { label: "Suppliers", href: "/admin/crm/suppliers", icon: Factory },
-  { label: "RankFlow", href: "/admin/crm/rankflow", icon: TrendingUp },
   { label: "Services", href: "/admin/crm/services", icon: Wrench },
-  { label: "Reviews", href: "/admin/crm/reviews", icon: Star },
+  { label: "SocialSync", href: "/admin/crm/socialsync", icon: Share2 },
+  { label: "Sales", href: "/admin/crm/sales", icon: Target },
 ];
 
 const SECONDARY_ITEMS = [

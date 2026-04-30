@@ -5,12 +5,13 @@ import { sendWeeklyReports } from "./weeklyReport";
 import { processNotificationQueue } from "./notificationWorker";
 import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
-import { processReviewFollowups } from "./reviewFollowupWorker";
-import { processReviewMonitoring } from "./reviewMonitorWorker";
-import { processReputationReports } from "./reputationReportWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
-import { processRankFlowPlans } from "./rankflowWorker";
-import { processRankFlowTracking } from "./trackingWorker";
+import { processSocialSyncQueue } from "./socialSyncWorker";
+import { generateAllDue } from "../services/socialSync/orchestrator";
+import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
+import { cleanupOldMedia } from "../services/socialSync/mediaService";
+import { processAllClientReviews } from "../services/reputation/reviewOrchestrator";
+import { processReviewRequests } from "../services/reputation/reviewRequestService";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -121,34 +122,6 @@ export function initScheduler() {
     }
   });
 
-  cron.schedule("* * * * *", async () => {
-    try {
-      await processReviewFollowups();
-    } catch (err: any) {
-      console.error("[Scheduler] review_followup_worker error:", err.message);
-    }
-  });
-
-  // Review monitoring — runs every 6 hours, fetches new Google reviews for clients
-  cron.schedule("0 */6 * * *", async () => {
-    console.log("[Scheduler] Running review monitoring...");
-    try {
-      await runJob("review_monitoring", processReviewMonitoring);
-    } catch (err: any) {
-      console.error("[Scheduler] review_monitoring cron handler error:", err.message);
-    }
-  }, { timezone: "UTC" });
-
-  // Reputation reports — runs daily at 9 AM UTC, sends periodic reports to eligible clients
-  cron.schedule("0 9 * * *", async () => {
-    console.log("[Scheduler] Running reputation reports...");
-    try {
-      await runJob("reputation_reports", processReputationReports);
-    } catch (err: any) {
-      console.error("[Scheduler] reputation_reports cron handler error:", err.message);
-    }
-  }, { timezone: "UTC" });
-
   // Chat memory cleanup — runs daily at 3 AM UTC, removes expired 7-day records
   cron.schedule("0 3 * * *", async () => {
     console.log("[Scheduler] Running chat memory cleanup...");
@@ -162,23 +135,33 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
-  // RankFlow weekly plan generation — runs every Monday at 4 AM UTC
-  cron.schedule("0 4 * * 1", async () => {
-    console.log("[Scheduler] Running RankFlow plan generation...");
+  // SocialSync publish queue — runs every 2 minutes
+  cron.schedule("*/2 * * * *", async () => {
     try {
-      await runJob("rankflow_plan_generation", processRankFlowPlans);
+      await runJob("socialsync_queue_worker", processSocialSyncQueue);
     } catch (err: any) {
-      console.error("[Scheduler] rankflow_plan_generation cron handler error:", err.message);
+      console.error("[Scheduler] socialsync_queue_worker error:", err.message);
+    }
+  });
+
+  // SocialSync content generation — runs weekly on Sunday at 6 AM UTC
+  // Generates the upcoming week's content for all autopilot clients
+  cron.schedule("0 6 * * 0", async () => {
+    console.log("[Scheduler] Running SocialSync weekly content generation...");
+    try {
+      await runJob("socialsync_weekly_generation", generateAllDue);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_weekly_generation error:", err.message);
     }
   }, { timezone: "UTC" });
 
-  // RankFlow weekly tracking — runs every Wednesday at 5 AM UTC
-  cron.schedule("0 5 * * 3", async () => {
-    console.log("[Scheduler] Running RankFlow tracking...");
+  // SocialSync connection expiry check — runs daily at 4 AM UTC
+  cron.schedule("0 4 * * *", async () => {
+    console.log("[Scheduler] Running SocialSync connection expiry check...");
     try {
-      await runJob("rankflow_tracking", processRankFlowTracking);
+      await runJob("socialsync_expiry_check", checkConnectionExpiry);
     } catch (err: any) {
-      console.error("[Scheduler] rankflow_tracking cron handler error:", err.message);
+      console.error("[Scheduler] socialsync_expiry_check error:", err.message);
     }
   }, { timezone: "UTC" });
 
@@ -186,12 +169,45 @@ export function initScheduler() {
   console.log("  - Daily aggregation: 02:00 UTC every day");
   console.log("  - Chat memory cleanup: 03:00 UTC every day");
   console.log("  - Weekly email report: 13:00 UTC every Monday (~8AM EST)");
-  console.log("  - RankFlow plan generation: 04:00 UTC every Monday");
-  console.log("  - RankFlow tracking: 05:00 UTC every Wednesday");
   console.log("  - Notification queue worker: every minute");
   console.log("  - Follow-up jobs worker: every minute");
   console.log("  - Audit follow-up worker: every minute");
-  console.log("  - Review follow-up worker: every minute");
-  console.log("  - Review monitoring: every 6 hours");
-  console.log("  - Reputation reports: 09:00 UTC daily");
+  console.log("  - SocialSync queue worker: every 2 minutes");
+  console.log("  - SocialSync weekly generation: 06:00 UTC every Sunday");
+  console.log("  - SocialSync expiry check: 04:00 UTC every day");
+
+  // SocialSync media cleanup — runs daily at 5 AM UTC
+  cron.schedule("0 5 * * *", async () => {
+    console.log("[Scheduler] Running SocialSync media cleanup...");
+    try {
+      await runJob("socialsync_media_cleanup", cleanupOldMedia);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_media_cleanup error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  console.log("  - SocialSync media cleanup: 05:00 UTC every day");
+
+  // SocialSync review automation — runs every 6 hours
+  cron.schedule("0 */6 * * *", async () => {
+    console.log("[Scheduler] Running SocialSync review automation...");
+    try {
+      await runJob("socialsync_review_automation", processAllClientReviews);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_review_automation error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  console.log("  - SocialSync review automation: every 6 hours");
+
+  // Review request delivery — runs every 15 minutes
+  cron.schedule("*/15 * * * *", async () => {
+    try {
+      await runJob("review_request_delivery", processReviewRequests);
+    } catch (err: any) {
+      console.error("[Scheduler] review_request_delivery error:", err.message);
+    }
+  });
+
+  console.log("  - Review request delivery: every 15 minutes");
 }
