@@ -40,6 +40,10 @@ export interface ChatOptions {
   system: string;
   messages: ChatMessage[];
   maxTokens?: number;
+  /** Tool definitions to pass to the model (Anthropic tool format) */
+  tools?: any[];
+  /** Override the default model for this request */
+  modelOverride?: string;
 }
 
 /* ─── Helpers ─── */
@@ -54,12 +58,14 @@ function sleep(ms: number): Promise<void> {
 /* ─── Streaming chat (returns Anthropic stream, caller handles events) ─── */
 export function streamChat(opts: ChatOptions) {
   const client = getClient();
-  return client.messages.stream({
-    model: getModel(),
+  const params: Parameters<typeof client.messages.stream>[0] = {
+    model: opts.modelOverride || getModel(),
     max_tokens: opts.maxTokens || DEFAULT_MAX_TOKENS,
     system: opts.system,
     messages: mapMessages(opts.messages),
-  });
+  };
+  if (opts.tools?.length) (params as any).tools = opts.tools;
+  return client.messages.stream(params);
 }
 
 /* ─── Non-streaming chat with retry ─── */
@@ -69,12 +75,14 @@ export async function chat(opts: ChatOptions): Promise<string> {
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await client.messages.create({
-        model: getModel(),
+      const params: Parameters<typeof client.messages.create>[0] = {
+        model: opts.modelOverride || getModel(),
         max_tokens: opts.maxTokens || DEFAULT_MAX_TOKENS,
         system: opts.system,
         messages: mapMessages(opts.messages),
-      });
+      };
+      if (opts.tools?.length) (params as any).tools = opts.tools;
+      const response = await client.messages.create(params);
       const block = response.content[0];
       return block.type === "text" ? block.text : "";
     } catch (err: any) {

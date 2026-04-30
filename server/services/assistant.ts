@@ -8,9 +8,8 @@
  */
 
 import { streamChat, chat, validateConfig, getModel, type ChatMessage, type ChatOptions } from "./aiService";
-import { buildSystemPrompt, type ChatSurface, type AuditContext, type MemoryContext, type PageContext, type PortalContext } from "./promptBuilder";
-import { getMemory, getMemoryByUserId, saveMemory, extractMemorySignals } from "./chatMemory";
-import { getOrCreateThread, loadThreadMessages, appendTurn, appendMessage, derivePageContext } from "./threadService";
+import { buildSystemPrompt, type ChatSurface, type AuditContext, type MemoryContext, type PageContext } from "./promptBuilder";
+import { getMemory, saveMemory, extractMemorySignals } from "./chatMemory";
 import { logUsage } from "./usageTracker";
 import { evaluateAndArchive } from "./conversationArchiver";
 
@@ -28,16 +27,14 @@ export interface AssistantRequest {
   auditContext?: AuditContext;
   /** Admin page context (only for surface="admin") */
   pageContext?: PageContext;
-  /** Portal page context (only for surface="portal") */
-  portalContext?: PortalContext;
   /** Report ID to load context from DB */
   reportId?: string;
   /** Override max tokens for this request */
   maxTokens?: number;
-  /** Resolved thread ID (set internally by buildContext for portal) */
-  _threadId?: number;
-  /** True when buildContext detected the user message is already in the thread */
-  _isDuplicateTurn?: boolean;
+  /** Tool definitions to inject (admin surface only, when shouldInjectTools passes) */
+  tools?: any[];
+  /** Model override — used to switch to Sonnet for tool-enabled admin sessions */
+  model?: string;
 }
 
 export interface AssistantStreamResult {
@@ -63,60 +60,7 @@ async function buildContext(req: AssistantRequest): Promise<{
   chatMessages: ChatMessage[];
   memoryContext?: MemoryContext;
 }> {
-  // Portal surface with authenticated user: use thread-based persistence
-  if (req.surface === "portal" && req.userId) {
-    try {
-      const pageCtx = derivePageContext(req.portalContext?.page);
-      const { id: threadId } = await getOrCreateThread(req.userId, "portal", pageCtx);
-      req._threadId = threadId;
-
-      // Load thread history from DB — this is the source of truth
-      const threadMessages = await loadThreadMessages(threadId);
-
-      // The client sends the full conversation including the new user message.
-      // Thread history is authoritative for past turns; the client's latest
-      // user message is the new one we haven't persisted yet.
-      const clientMessages = req.messages;
-      const lastClientMsg = clientMessages[clientMessages.length - 1];
-      const isNewUserTurn = lastClientMsg?.role === "user";
-
-      // Dedup guard: if the thread already ends with the same user message
-      // (e.g. retry after partial failure), don't append it again.
-      const lastThreadMsg = threadMessages[threadMessages.length - 1];
-      const isDuplicate = isNewUserTurn
-        && lastThreadMsg?.role === "user"
-        && lastThreadMsg.content === lastClientMsg.content;
-
-      // Merge: thread history + new user message (if not duplicate)
-      req._isDuplicateTurn = isDuplicate;
-      const merged = isNewUserTurn && !isDuplicate
-        ? [...threadMessages, lastClientMsg]
-        : threadMessages.length > 0 ? threadMessages : clientMessages;
-
-      // Load chatMemory for memory context (personality signals) as fallback
-      const stored = await getMemory(req.sessionId).catch(() => null)
-        || await getMemoryByUserId(req.userId).catch(() => null);
-
-      const systemPrompt = buildSystemPrompt(
-        req.surface,
-        req.auditContext,
-        stored?.memory,
-        req.pageContext,
-        req.portalContext,
-      );
-
-      return { systemPrompt, chatMessages: merged.slice(-20), memoryContext: stored?.memory };
-    } catch (err) {
-      console.error("[assistant] Thread load failed, falling back to chatMemory:", err);
-      // Fall through to chatMemory path below
-    }
-  }
-
-  // Non-portal surfaces or thread fallback: use chatMemory
-  const stored = await getMemory(req.sessionId).catch(() => null)
-    || (req.surface === "portal" && req.userId
-        ? await getMemoryByUserId(req.userId).catch(() => null)
-        : null);
+  const stored = await getMemory(req.sessionId).catch(() => null);
   const memoryContext = stored?.memory;
 
   const systemPrompt = buildSystemPrompt(
@@ -124,7 +68,6 @@ async function buildContext(req: AssistantRequest): Promise<{
     req.auditContext,
     memoryContext,
     req.pageContext,
-    req.portalContext,
   );
 
   const chatMessages = req.messages.slice(-20);
@@ -139,23 +82,6 @@ function createOnComplete(req: AssistantRequest, chatMessages: ChatMessage[]) {
       ...chatMessages,
       { role: "assistant" as const, content: fullReply },
     ];
-
-    // Thread persistence (portal): save user message + assistant reply
-    if (req._threadId) {
-      if (req._isDuplicateTurn) {
-        // User message already in thread (retry) — only append the assistant reply
-        await appendMessage(req._threadId, "assistant", fullReply)
-          .catch((err) => console.error("[assistant] Thread append error:", err));
-      } else {
-        const lastUserMsg = chatMessages[chatMessages.length - 1];
-        if (lastUserMsg?.role === "user") {
-          await appendTurn(req._threadId, lastUserMsg.content, fullReply)
-            .catch((err) => console.error("[assistant] Thread append error:", err));
-        }
-      }
-    }
-
-    // chatMemory: still save for memory signals extraction (all surfaces)
     const signals = extractMemorySignals(allMessages);
     await saveMemory(req.sessionId, allMessages, {
       reportId: req.reportId,
@@ -184,6 +110,8 @@ export async function assistantStream(req: AssistantRequest): Promise<AssistantS
     system: systemPrompt,
     messages: chatMessages,
     maxTokens: req.maxTokens,
+    tools: req.tools,
+    modelOverride: req.model,
   });
 
   const onComplete = async (fullReply: string) => {
@@ -195,8 +123,9 @@ export async function assistantStream(req: AssistantRequest): Promise<AssistantS
     // Log usage (stream finalMessage has token counts)
     try {
       const finalMessage = await stream.finalMessage();
+      const hadToolCall = finalMessage.stop_reason === "tool_use";
       logUsage({
-        model: getModel(),
+        model: req.model || getModel(),
         surface: req.surface,
         sessionId: req.sessionId,
         userId: req.userId,
@@ -205,11 +134,11 @@ export async function assistantStream(req: AssistantRequest): Promise<AssistantS
         outputTokens: finalMessage.usage?.output_tokens,
         latencyMs,
         success: true,
+        metadata: hadToolCall ? { had_tool_call: true } : undefined,
       });
     } catch {
-      // If finalMessage fails, log what we can
       logUsage({
-        model: getModel(),
+        model: req.model || getModel(),
         surface: req.surface,
         sessionId: req.sessionId,
         userId: req.userId,

@@ -15,6 +15,7 @@ import { registerTwilioRoutes } from "./twilioRoutes";
 import { registerChatRoutes } from "./chatRoutes";
 import { registerAdminRoutes } from "./adminRoutes";
 import { registerAdminCrmRoutes } from "./adminCrmRoutes";
+import { registerAdminToolRoutes } from "./adminToolRoutes";
 import { registerStripeBillingRoutes } from "./stripeBillingRoutes";
 import { registerOnboardingPublicRoutes } from "./onboardingPublicRoutes";
 import { registerVapiRoutes } from "./vapiRoutes";
@@ -43,6 +44,7 @@ export async function registerRoutes(
   registerChatRoutes(app);
   registerAdminRoutes(app);
   registerAdminCrmRoutes(app);
+  registerAdminToolRoutes(app);
   registerStripeBillingRoutes(app);
   registerOnboardingPublicRoutes(app);
   registerVapiRoutes(app);
