@@ -1,8 +1,10 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Settings } from "lucide-react";
 
 export default function SettingsPage() {
+  usePageTitle("Settings");
   return (
     <AdminLayout pageContext={{ page: "settings" }}>
       <div className="max-w-2xl mx-auto space-y-4">

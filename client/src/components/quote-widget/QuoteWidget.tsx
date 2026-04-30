@@ -9,7 +9,6 @@ import { WidgetProvider } from './WidgetContext';
 import { useWidgetState } from './useWidgetState';
 import StepRenderer from './StepRenderer';
 import StepHelp from './StepHelp';
-import { evaluateVisibility } from './visibility';
 import type { CalculatorData, WidgetConfig } from './types';
 
 import { eff } from './designTokens';
@@ -90,6 +89,7 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
       promotionsEnabled: calcSettings.promotions?.enabled === true,
       quoteRules: calcSettings.quote_rules,
       serviceTypes: calcSettings.serviceTypes,
+      tradeInputs: calcSettings.trade_inputs,
     };
 
     const flow = buildWidgetFlow(pricingConfig, template, flowSettings);
@@ -107,10 +107,20 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
     return { calculator, pricingConfig, template, flow, isEmbed };
   }, [calculator, isEmbed]);
 
-  const theme = useMemo(
-    () => getWidgetTheme(calculator.theme_overrides as any, calculator.primary_color),
-    [calculator.theme_overrides, calculator.primary_color],
-  );
+  const theme = useMemo(() => {
+    const calcSettings = (calculator.calculator_settings || {}) as Record<string, any>;
+    const appearance = calcSettings.appearance || {};
+    // Merge appearance settings into theme config
+    const themeConfig = {
+      ...(calculator.theme_overrides as any || {}),
+      accent: appearance.accent_color || undefined,
+      font: appearance.font || undefined,
+      buttonStyle: appearance.button_style || undefined,
+      surfaceVariant: appearance.surface_style || undefined,
+      radius: appearance.border_radius || undefined,
+    };
+    return getWidgetTheme(themeConfig, calculator.primary_color);
+  }, [calculator.theme_overrides, calculator.primary_color, calculator.calculator_settings]);
 
   const demoTracked = useRef(false);
   useEffect(() => {
@@ -157,6 +167,8 @@ function WidgetCard({
     isLastStep,
     answers,
     config,
+    visibleStepCount,
+    visibleStepPosition,
   } = useWidgetState();
 
   const accentColor = theme.colors.primary;
@@ -171,12 +183,6 @@ function WidgetCard({
       trackEvent('wizard_preview_interacted');
     }
   }, [isPreview, answerCount, currentStepIndex]);
-
-  // Filter visible steps for progress display
-  const visibleStepCount = config.flow.steps.filter((s) => {
-    if (!s.visible_when?.length) return true;
-    return evaluateVisibility(s.visible_when, answers);
-  }).length;
 
   const showProgress =
     currentStep.config.show_progress &&
@@ -283,7 +289,7 @@ function WidgetCard({
               letterSpacing: '0.01em',
               fontFamily: eff.font,
             }}>
-              Step {currentStepIndex + 1} of {visibleStepCount}
+              Step {visibleStepPosition} of {visibleStepCount}
             </span>
           </div>
           <div style={{
@@ -297,7 +303,7 @@ function WidgetCard({
                 height: '100%',
                 borderRadius: '2px',
                 transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                width: `${((currentStepIndex + 1) / visibleStepCount) * 100}%`,
+                width: `${(visibleStepPosition / visibleStepCount) * 100}%`,
                 background: eff.buttonBg,
               }}
             />

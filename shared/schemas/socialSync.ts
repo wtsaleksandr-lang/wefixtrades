@@ -68,6 +68,8 @@ export const socialsyncPosts = pgTable("socialsync_posts", {
   publish_result: jsonb("publish_result"),                     // response from publishing API (future)
   failure_reason: text("failure_reason"),
   created_by_system: boolean("created_by_system").notNull().default(true),
+  // ContentFlow linkage (nullable; FK enforced at DB level to avoid circular imports)
+  content_draft_id: integer("content_draft_id"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -75,7 +77,13 @@ export const insertSocialSyncPostSchema = createInsertSchema(socialsyncPosts).om
 export type InsertSocialSyncPost = z.infer<typeof insertSocialSyncPostSchema>;
 export type SocialSyncPost = typeof socialsyncPosts.$inferSelect;
 
-/* ─── SocialSync Publish Queue (job queue) ─── */
+/* ─── SocialSync Publish Queue (job queue) ───
+ *
+ * @deprecated Sprint 10 — SocialSync publish jobs are now tracked in
+ *   content_drafts.metadata.{facebook|instagram|gbp_post}.queue_status
+ *   under ContentFlow's unified publishQueue. The cron worker that
+ *   drained this table is retired. Table retained one release cycle
+ *   for rollback safety; slated for DROP in Sprint 11/12. */
 export const socialsyncPublishQueue = pgTable("socialsync_publish_queue", {
   id: serial("id").primaryKey(),
   client_id: integer("client_id").notNull().references(() => clients.id),

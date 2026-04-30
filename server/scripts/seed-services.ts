@@ -58,7 +58,7 @@ function buildServiceRows() {
 
 const SERVICES = buildServiceRows();
 
-/* ─── TradeLine capability variants (operational service entries) ─── */
+/* ─── Operational service variants (not in public pricing, selectable by admin) ─── */
 const TRADELINE_VARIANTS = [
   {
     id: "tradeline-call-backup",
@@ -93,6 +93,17 @@ const TRADELINE_VARIANTS = [
     delivery_pattern: "always_on",
     sort_order: 202,
   },
+  {
+    id: "sitelaunch-template",
+    name: "SiteLaunch (Template)",
+    tagline: "Fast-launch site from a proven trade template",
+    description: "Website built from a pre-built trade template. Content inserted from onboarding, brand color matched. 3-5 day turnaround.",
+    category: "website",
+    default_price: 49700, // $497 — template path, cheaper than custom
+    billing_period: "one-time",
+    delivery_pattern: "one_time",
+    sort_order: 210,
+  },
 ];
 
 async function main() {
@@ -113,7 +124,9 @@ async function main() {
         billing_period: svc.billing_period,
         delivery_pattern: (svc as any).delivery_pattern || "one_time",
         sort_order: svc.sort_order,
-        is_active: true,
+        // is_active intentionally NOT set on conflict — preserves admin
+        // soft-retire decisions across re-seeds. New rows still default to
+        // is_active=true via the values() call above.
         updated_at: new Date(),
       },
     });
@@ -136,7 +149,8 @@ async function main() {
         billing_period: svc.billing_period,
         delivery_pattern: svc.delivery_pattern,
         sort_order: svc.sort_order,
-        is_active: true,
+        // is_active intentionally NOT set on conflict — preserves admin
+        // soft-retire decisions across re-seeds.
         updated_at: new Date(),
       },
     });
@@ -279,6 +293,52 @@ async function main() {
       { title: "Local SEO optimization", sort_order: 10, default_handled_by: "internal" },
       { title: "Send weekly ranking report", sort_order: 11, default_handled_by: "internal" },
     ],
+    "adflow-starter": [
+      { title: "Collect onboarding info & ad goals", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
+      { title: "Brief white-label agency on campaign goals", sort_order: 2, default_priority: "high", default_handled_by: "internal", is_recurring: false },
+      { title: "Agency sets up ad account + conversion tracking", sort_order: 3, default_handled_by: "supplier", is_recurring: false },
+      { title: "Agency designs ad creatives & copy", sort_order: 4, default_handled_by: "supplier" },
+      { title: "Client approves creatives", sort_order: 5, default_waiting_on: "client" },
+      { title: "Launch campaigns (1 platform)", sort_order: 6, default_handled_by: "supplier" },
+      { title: "Weekly bid / audience optimization", sort_order: 7, default_handled_by: "supplier" },
+      { title: "Monthly performance report (internal QA)", sort_order: 8, default_handled_by: "internal", human_review_required: true },
+    ],
+    "adflow-growth": [
+      { title: "Collect onboarding info & ad goals", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
+      { title: "Brief white-label agency on campaign goals", sort_order: 2, default_priority: "high", default_handled_by: "internal", is_recurring: false },
+      { title: "Agency sets up ad accounts + conversion tracking", sort_order: 3, default_handled_by: "supplier", is_recurring: false },
+      { title: "Agency designs ad creatives & copy (A/B pairs)", sort_order: 4, default_handled_by: "supplier" },
+      { title: "Client approves creatives", sort_order: 5, default_waiting_on: "client" },
+      { title: "Launch campaigns (Google + Meta)", sort_order: 6, default_handled_by: "supplier" },
+      { title: "Weekly optimization + creative refresh", sort_order: 7, default_handled_by: "supplier" },
+      { title: "A/B test analysis & winner rollout", sort_order: 8, default_handled_by: "supplier" },
+      { title: "Monthly performance report (internal QA + forward to client)", sort_order: 9, default_handled_by: "internal", human_review_required: true },
+    ],
+    "adflow-pro": [
+      { title: "Collect onboarding info & ad goals", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
+      { title: "Brief white-label agency on multi-platform strategy", sort_order: 2, default_priority: "high", default_handled_by: "internal", is_recurring: false },
+      { title: "Agency sets up all ad accounts + advanced tracking", sort_order: 3, default_handled_by: "supplier", is_recurring: false },
+      { title: "Agency designs ad creatives & video assets", sort_order: 4, default_handled_by: "supplier" },
+      { title: "Client approves creatives", sort_order: 5, default_waiting_on: "client" },
+      { title: "Launch multi-platform campaigns (Google + Meta + YouTube)", sort_order: 6, default_handled_by: "supplier" },
+      { title: "Daily optimization + bid management", sort_order: 7, default_handled_by: "supplier" },
+      { title: "Weekly A/B test cycles + creative rotation", sort_order: 8, default_handled_by: "supplier" },
+      { title: "Landing page conversion optimization", sort_order: 9, default_handled_by: "supplier" },
+      { title: "Bi-weekly performance review call with client", sort_order: 10, default_handled_by: "internal", human_review_required: true },
+      { title: "Monthly performance report (internal QA + forward to client)", sort_order: 11, default_handled_by: "internal", human_review_required: true },
+    ],
+    "sitelaunch-template": [
+      { title: "Collect onboarding info & content brief", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
+      { title: "Pick matching trade template from library", sort_order: 2, default_handled_by: "internal", is_recurring: false },
+      { title: "Domain & hosting setup", sort_order: 3, default_handled_by: "internal", is_recurring: false },
+      { title: "Populate template with onboarding content", sort_order: 4, default_handled_by: "automation", is_recurring: false },
+      { title: "Apply brand colors + logo", sort_order: 5, default_handled_by: "automation", is_recurring: false },
+      { title: "Add contact forms, CTAs & lead capture", sort_order: 6, default_handled_by: "automation", is_recurring: false },
+      { title: "On-page SEO (title, meta, schema)", sort_order: 7, default_handled_by: "automation", is_recurring: false },
+      { title: "Client review & revision round", sort_order: 8, default_waiting_on: "client", is_recurring: false },
+      { title: "Launch & DNS cutover", sort_order: 9, default_handled_by: "internal", human_review_required: true, is_recurring: false },
+      { title: "Post-launch QA & handoff", sort_order: 10, default_handled_by: "internal", human_review_required: true, is_recurring: false },
+    ],
   };
 
   for (const [serviceId, tasks] of Object.entries(TASK_TEMPLATES)) {
@@ -324,16 +384,12 @@ async function main() {
       ],
     },
     "mapguard-ongoing": {
-      name: "MapGuard Ongoing Onboarding",
+      name: "MapGuard Ongoing — Monthly Check-in",
       steps: [
-        { key: "business_name", label: "Business name", type: "text", required: true },
-        { key: "business_address", label: "Full business address", type: "text", required: true },
-        { key: "service_areas", label: "Areas you serve", type: "text", required: true },
-        { key: "services", label: "Your main services", type: "text", required: true },
-        { key: "google_account_email", label: "Google account email (for GBP access)", type: "text", required: true },
-        { key: "keywords", label: "Keywords you want to rank for", type: "text", required: false },
-        { key: "competitors", label: "Top 2-3 local competitors", type: "text", required: false },
-        { key: "photos", label: "Business photos available", type: "checkbox", required: false },
+        { key: "any_changes", label: "Any changes since last month? (new services, pricing, hours, areas)", type: "text", required: false },
+        { key: "promotions_next_30_days", label: "Seasonal offers or promotions for the next 30 days", type: "text", required: false },
+        { key: "new_photos", label: "New work/business photos available to upload?", type: "checkbox", required: false },
+        { key: "focus_keyword", label: "Any keyword you'd like us to focus on this cycle?", type: "text", required: false },
       ],
     },
     "tradeline": {
@@ -421,9 +477,13 @@ async function main() {
       name: "WebFix Onboarding",
       steps: [
         { key: "website_url", label: "Website URL", type: "text", required: true },
-        { key: "access_available", label: "Can you provide hosting/CMS access?", type: "select", required: true },
-        { key: "main_issue", label: "Main issue", type: "select", required: true },
-        { key: "keywords", label: "Target keywords", type: "text", required: false },
+        { key: "access_available", label: "Can you provide hosting / CMS access? (yes / need help / admin login)", type: "select", required: true },
+        { key: "main_issue", label: "Main issue (speed / SEO / broken pages / design / security / other)", type: "select", required: true },
+        { key: "specific_problems", label: "Describe exactly what you want fixed", type: "text", required: true },
+        { key: "pages_affected", label: "Pages or URLs affected (one per line)", type: "text", required: false },
+        { key: "target_keywords", label: "If SEO-related: keywords you want to rank for", type: "text", required: false },
+        { key: "brand_assets", label: "Logo / brand colors available if design changes needed?", type: "checkbox", required: false },
+        { key: "urgency", label: "Timeline (ASAP / within a week / flexible)", type: "select", required: true },
       ],
     },
     "reputationshield": {
@@ -431,33 +491,42 @@ async function main() {
       steps: [
         { key: "business_name", label: "Business name", type: "text", required: true },
         { key: "google_profile_link", label: "Google Business Profile link", type: "text", required: true },
-        { key: "review_strategy", label: "Review request approach", type: "select", required: true },
-        { key: "tone", label: "Response tone preference", type: "text", required: false },
-        { key: "platforms", label: "Other review platforms", type: "text", required: false },
+        { key: "other_review_platforms", label: "Other review platforms (Yelp, Facebook, Trustpilot, etc.)", type: "text", required: false },
+        { key: "customer_source", label: "How we get customer contacts (CSV upload / manual add / job-completion trigger)", type: "select", required: true },
+        { key: "review_frequency", label: "Send requests (immediately after job / weekly batch / monthly batch)", type: "select", required: true },
+        { key: "response_tone", label: "Reply tone (professional / friendly / direct)", type: "select", required: true },
+        { key: "negative_handling", label: "For reviews under 4 stars (alert me first / route to private feedback form / auto-reply + alert)", type: "select", required: true },
+        { key: "current_review_count", label: "Approximate current Google review count", type: "text", required: false },
       ],
     },
     "socialsync": {
       name: "SocialSync Onboarding",
       steps: [
-        { key: "platforms", label: "Social media platforms", type: "text", required: true },
-        { key: "posting_frequency", label: "Preferred posting frequency", type: "text", required: true },
-        { key: "business_type", label: "Type of business", type: "text", required: true },
-        { key: "content_style", label: "Content style", type: "text", required: true },
-        { key: "photos", label: "Photos or brand assets available", type: "checkbox", required: false },
-        { key: "branding_notes", label: "Branding notes or guidelines", type: "text", required: false },
+        { key: "trade_type", label: "Your trade / service type", type: "text", required: true },
+        { key: "platforms", label: "Platforms to post on (Facebook, Instagram, LinkedIn)", type: "text", required: true },
+        { key: "handle_urls", label: "Page URLs or handles for each platform (one per line)", type: "text", required: true },
+        { key: "posting_frequency", label: "Posts per week (2 / 3 / 5 / daily)", type: "select", required: true },
+        { key: "content_style", label: "Content style (tips & how-to / project showcases / promotions / mixed)", type: "select", required: true },
+        { key: "seasonal_themes", label: "Seasonal campaigns or topics to emphasize", type: "text", required: false },
+        { key: "photos", label: "Do you have work photos we can use?", type: "checkbox", required: false },
+        { key: "branding_notes", label: "Brand voice notes / topics to avoid", type: "text", required: false },
       ],
     },
     "sitelaunch": {
-      name: "SiteLaunch Onboarding",
+      name: "SiteLaunch (Custom) Onboarding",
       steps: [
         { key: "business_name", label: "Business name", type: "text", required: true },
-        { key: "services", label: "Services to feature", type: "text", required: true },
+        { key: "tagline", label: "Tagline / one-liner for hero section", type: "text", required: false },
+        { key: "services", label: "Services to feature (one per line)", type: "text", required: true },
         { key: "service_area", label: "Service area", type: "text", required: true },
         { key: "contact_info", label: "Phone, email, address for the site", type: "text", required: true },
-        { key: "style_preference", label: "Style preference", type: "text", required: true },
+        { key: "business_hours", label: "Business hours", type: "text", required: false },
+        { key: "style_preference", label: "Style preference (modern / classic / bold / minimal)", type: "select", required: true },
+        { key: "brand_colors", label: "Brand colors (hex codes or description)", type: "text", required: false },
         { key: "logo", label: "Logo available", type: "checkbox", required: false },
-        { key: "competitors", label: "Competitor websites you like", type: "text", required: false },
-        { key: "extra_pages", label: "Extra pages needed", type: "text", required: false },
+        { key: "page_count", label: "Number of pages (3 / 5 / 8 / 10+)", type: "select", required: true },
+        { key: "extra_features", label: "Extra features needed (blog, booking, gallery, testimonials, live chat)", type: "text", required: false },
+        { key: "competitors", label: "Competitor websites you like the look of", type: "text", required: false },
       ],
     },
     "rankflow-starter": {
@@ -499,6 +568,76 @@ async function main() {
         { key: "existing_seo", label: "Current SEO provider or past SEO work", type: "text", required: false },
       ],
     },
+    "adflow-starter": {
+      name: "AdFlow Starter Onboarding",
+      steps: [
+        { key: "business_name", label: "Business name", type: "text", required: true },
+        { key: "trade_type", label: "Trade / industry", type: "text", required: true },
+        { key: "main_offer", label: "Main service or offer to advertise", type: "text", required: true },
+        { key: "service_areas", label: "Target service areas (cities / zip codes)", type: "text", required: true },
+        { key: "monthly_ad_budget", label: "Monthly ad budget (USD)", type: "text", required: true },
+        { key: "preferred_platform", label: "Preferred platform (Google / Meta / Not sure)", type: "select", required: true },
+        { key: "has_ad_accounts", label: "Do you have existing Google or Meta ad accounts?", type: "select", required: true },
+        { key: "lead_destination", label: "Where should leads go? (phone / email / form)", type: "text", required: true },
+        { key: "brand_assets", label: "Logo / brand photos available?", type: "checkbox", required: false },
+        { key: "past_ad_notes", label: "Any past ad performance notes or campaigns we should know about?", type: "text", required: false },
+        { key: "launch_urgency", label: "When do you want campaigns live? (ASAP / 2 weeks / flexible)", type: "select", required: true },
+      ],
+    },
+    "adflow-growth": {
+      name: "AdFlow Growth Onboarding",
+      steps: [
+        { key: "business_name", label: "Business name", type: "text", required: true },
+        { key: "trade_type", label: "Trade / industry", type: "text", required: true },
+        { key: "main_offer", label: "Main service or offer to advertise", type: "text", required: true },
+        { key: "secondary_offers", label: "Secondary offers for A/B testing", type: "text", required: false },
+        { key: "service_areas", label: "Target service areas (cities / zip codes)", type: "text", required: true },
+        { key: "monthly_ad_budget", label: "Monthly ad budget (USD)", type: "text", required: true },
+        { key: "platforms", label: "Platforms to run on (Google + Meta recommended)", type: "text", required: true },
+        { key: "has_ad_accounts", label: "Do you have existing ad accounts?", type: "select", required: true },
+        { key: "lead_destination", label: "Where should leads go?", type: "text", required: true },
+        { key: "landing_page_url", label: "Landing page URL (if applicable)", type: "text", required: false },
+        { key: "brand_assets", label: "Logo / photos / video available?", type: "checkbox", required: false },
+        { key: "past_ad_notes", label: "Past ad performance notes", type: "text", required: false },
+      ],
+    },
+    "adflow-pro": {
+      name: "AdFlow Pro Onboarding",
+      steps: [
+        { key: "business_name", label: "Business name", type: "text", required: true },
+        { key: "trade_type", label: "Trade / industry", type: "text", required: true },
+        { key: "main_offer", label: "Main service or offer to advertise", type: "text", required: true },
+        { key: "secondary_offers", label: "Secondary offers / campaigns", type: "text", required: false },
+        { key: "service_areas", label: "Target service areas (cities / zip codes / radius)", type: "text", required: true },
+        { key: "monthly_ad_budget", label: "Monthly ad budget (USD)", type: "text", required: true },
+        { key: "platforms", label: "Platforms (Google / Meta / YouTube / all)", type: "text", required: true },
+        { key: "has_ad_accounts", label: "Do you have existing ad accounts?", type: "select", required: true },
+        { key: "lead_destination", label: "Where should leads go?", type: "text", required: true },
+        { key: "landing_page_url", label: "Landing page URL (or should we build one?)", type: "text", required: false },
+        { key: "video_assets", label: "Do you have video content available?", type: "checkbox", required: false },
+        { key: "brand_assets", label: "Logo / photos / video available?", type: "checkbox", required: false },
+        { key: "competitors", label: "Main competitors (for competitive targeting)", type: "text", required: false },
+        { key: "target_audience", label: "Target customer profile (demographics, intent)", type: "text", required: false },
+        { key: "past_ad_notes", label: "Past ad campaigns — what worked / what didn't", type: "text", required: false },
+      ],
+    },
+    "sitelaunch-template": {
+      name: "SiteLaunch Template Onboarding",
+      steps: [
+        { key: "business_name", label: "Business name", type: "text", required: true },
+        { key: "trade_type", label: "Trade (we'll match you to a template)", type: "text", required: true },
+        { key: "tagline", label: "Tagline / one-liner for hero section", type: "text", required: false },
+        { key: "services", label: "Services to feature (comma-separated)", type: "text", required: true },
+        { key: "service_area", label: "Service area", type: "text", required: true },
+        { key: "contact_info", label: "Phone, email, address for the site", type: "text", required: true },
+        { key: "business_hours", label: "Business hours", type: "text", required: false },
+        { key: "brand_colors", label: "Brand colors (hex codes or description)", type: "text", required: false },
+        { key: "logo", label: "Logo available", type: "checkbox", required: false },
+        { key: "photos", label: "Business / work photos available", type: "checkbox", required: false },
+        { key: "domain_preference", label: "Do you have a domain, or want us to suggest one?", type: "select", required: true },
+        { key: "extra_pages", label: "Extra pages needed beyond home/services/contact?", type: "text", required: false },
+      ],
+    },
   };
 
   for (const [serviceId, template] of Object.entries(ONBOARDING)) {
@@ -508,15 +647,30 @@ async function main() {
       console.log(`  ○ ${template.name} — skipped (${serviceId} not in service_catalog)`);
       continue;
     }
-    // Delete existing, re-insert
-    await db.delete(onboardingTemplates).where(eq(onboardingTemplates.service_id, serviceId));
-    await db.insert(onboardingTemplates).values({
-      service_id: serviceId,
-      name: template.name,
-      steps: template.steps,
-      is_active: true,
-    });
-    console.log(`  ✓ ${template.name}`);
+    // Update in place if exists (preserves row id → preserves onboarding_submissions FK refs)
+    const existing = await db.select({ id: onboardingTemplates.id })
+      .from(onboardingTemplates)
+      .where(eq(onboardingTemplates.service_id, serviceId))
+      .limit(1);
+    if (existing.length > 0) {
+      await db.update(onboardingTemplates)
+        .set({
+          name: template.name,
+          steps: template.steps,
+          is_active: true,
+          updated_at: new Date(),
+        })
+        .where(eq(onboardingTemplates.id, existing[0].id));
+      console.log(`  ✓ ${template.name} (updated)`);
+    } else {
+      await db.insert(onboardingTemplates).values({
+        service_id: serviceId,
+        name: template.name,
+        steps: template.steps,
+        is_active: true,
+      });
+      console.log(`  ✓ ${template.name} (inserted)`);
+    }
   }
 
   console.log(`\nDone — services, task templates, and onboarding templates seeded.`);
@@ -525,5 +679,16 @@ async function main() {
 
 main().catch((err) => {
   console.error("Failed to seed services:", err.message);
+  // Surface underlying PostgreSQL details (code, detail, hint, table, column)
+  // Drizzle wraps the original error on .cause; postgres-js exposes code/detail/hint directly.
+  const cause = (err as any).cause ?? err;
+  if (cause) {
+    console.error("Underlying error:");
+    for (const key of ["code", "detail", "hint", "table", "column", "constraint", "routine", "severity"]) {
+      const val = cause[key];
+      if (val !== undefined && val !== null) console.error(`  ${key}: ${val}`);
+    }
+    if (cause.stack) console.error(cause.stack.split("\n").slice(0, 5).join("\n"));
+  }
   process.exit(1);
 });

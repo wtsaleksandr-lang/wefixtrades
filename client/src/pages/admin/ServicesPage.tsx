@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
@@ -47,6 +48,7 @@ function fmt(cents: number | null) {
 }
 
 export default function ServicesPage() {
+  usePageTitle("Services");
   const { data: catalog, isLoading } = useQuery<ServiceCatalogItem[]>({
     queryKey: ["/api/admin/crm/services"],
   });
@@ -125,7 +127,7 @@ export default function ServicesPage() {
                       <span className="text-[10px] font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">Inactive</span>
                     )}
                     {!svc.inDatabase && (
-                      <span className="text-[10px] text-gray-300">Not in DB</span>
+                      <span className="text-[10px] text-gray-300">Not yet active</span>
                     )}
                   </div>
                 </div>
@@ -136,7 +138,7 @@ export default function ServicesPage() {
 
         <Card className="p-4">
           <p className="text-xs text-gray-400">
-            Services are defined in the business catalog. To add a service to the database for client assignment, use the service catalog API or seed script. Services marked "Not in DB" are defined in the UI only and need to be seeded.
+            These are all available services in your catalog. Services marked "Not yet active" need to be set up before they can be assigned to clients. Contact support if you need help activating a service.
           </p>
         </Card>
       </div>

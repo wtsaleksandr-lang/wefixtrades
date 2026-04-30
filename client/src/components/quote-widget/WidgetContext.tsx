@@ -1,4 +1,4 @@
-import { createContext, useReducer, useMemo, type ReactNode } from 'react';
+import { createContext, useReducer, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import type {
   WidgetState,
   WidgetAction,
@@ -6,6 +6,7 @@ import type {
   WidgetAnswers,
 } from './types';
 import type { WizardFlow, StepDefinition } from '@shared/wizardSchema';
+import { evaluateVisibility, getNearestVisibleStepIndex } from './visibility';
 
 /* ─── Initial State ─── */
 
@@ -91,6 +92,49 @@ function updateEstimateInputs(
   return current;
 }
 
+/**
+ * Rebuild estimateInputs from scratch by replaying all remaining answers
+ * against question definitions. Used after clearing hidden answers.
+ */
+function rebuildEstimateInputs(
+  flow: WizardFlow,
+  answers: WidgetAnswers,
+): WidgetState['estimateInputs'] {
+  const inputs: WidgetState['estimateInputs'] = {
+    quantity: 1,
+    selectedTierIndex: 0,
+    selectedAddOnIds: [],
+    selectedDifficultyId: '',
+    isAfterHours: false,
+  };
+  for (const step of flow.steps) {
+    if (!Array.isArray(step.questions)) continue;
+    for (const q of step.questions) {
+      const val = answers[q.id];
+      if (val !== undefined && q.maps_to) {
+        switch (q.maps_to) {
+          case 'quantity':
+            inputs.quantity = typeof val === 'number' ? val : Number(val) || 1;
+            break;
+          case 'selected_tier_index':
+            inputs.selectedTierIndex = typeof val === 'number' ? val : Number(val) || 0;
+            break;
+          case 'selected_add_on_ids':
+            inputs.selectedAddOnIds = Array.isArray(val) ? val : [String(val)];
+            break;
+          case 'selected_difficulty_id':
+            inputs.selectedDifficultyId = String(val);
+            break;
+          case 'is_after_hours':
+            inputs.isAfterHours = Boolean(val);
+            break;
+        }
+      }
+    }
+  }
+  return inputs;
+}
+
 /* ─── Reducer ─── */
 
 function createWidgetReducer(flow: WizardFlow) {
@@ -116,17 +160,22 @@ function createWidgetReducer(flow: WizardFlow) {
           currentStepIndex: Math.max(0, Math.min(action.index, totalSteps - 1)),
         };
 
-      case 'NEXT_STEP':
+      case 'CLEAR_HIDDEN_ANSWERS': {
+        const newAnswers = { ...state.answers };
+        let changed = false;
+        for (const id of action.questionIds) {
+          if (newAnswers[id] !== undefined) {
+            delete newAnswers[id];
+            changed = true;
+          }
+        }
+        if (!changed) return state;
         return {
           ...state,
-          currentStepIndex: Math.min(state.currentStepIndex + 1, totalSteps - 1),
+          answers: newAnswers,
+          estimateInputs: rebuildEstimateInputs(flow, newAnswers),
         };
-
-      case 'PREV_STEP':
-        return {
-          ...state,
-          currentStepIndex: Math.max(state.currentStepIndex - 1, 0),
-        };
+      }
 
       case 'SET_ESTIMATE':
         return { ...state, estimate: action.estimate };
@@ -300,8 +349,44 @@ export function WidgetProvider({ config, children }: WidgetProviderProps) {
 
   const steps = config.flow.steps;
   const safeIndex = Math.max(0, Math.min(state.currentStepIndex, steps.length - 1));
-  const currentStep = steps[safeIndex] ?? steps[0];
+
+  // Snap to nearest visible step if current one is hidden by visible_when
+  const resolvedIndex = getNearestVisibleStepIndex(steps, safeIndex, state.answers);
+  const currentStep = steps[resolvedIndex] ?? steps[0];
   const totalSteps = steps.length;
+
+  // Auto-correct state index when it points to a hidden step
+  // (e.g. user goes back and changes an answer that hides the step they were on)
+  useEffect(() => {
+    if (resolvedIndex !== state.currentStepIndex) {
+      dispatch({ type: 'GO_TO_STEP', index: resolvedIndex });
+    }
+  }, [resolvedIndex, state.currentStepIndex]);
+
+  // Clear answers from hidden steps so stale data doesn't affect pricing.
+  // Only fires when the set of hidden question IDs actually changes.
+  const prevHiddenRef = useRef<string>('');
+  useEffect(() => {
+    const hiddenIds: string[] = [];
+    for (const step of steps) {
+      if (!evaluateVisibility(step.visible_when, state.answers)) {
+        if (Array.isArray(step.questions)) {
+          for (const q of step.questions) {
+            if (state.answers[q.id] !== undefined) {
+              hiddenIds.push(q.id);
+            }
+          }
+        }
+      }
+    }
+    const key = hiddenIds.join(',');
+    if (hiddenIds.length > 0 && key !== prevHiddenRef.current) {
+      prevHiddenRef.current = key;
+      dispatch({ type: 'CLEAR_HIDDEN_ANSWERS', questionIds: hiddenIds });
+    } else if (hiddenIds.length === 0) {
+      prevHiddenRef.current = '';
+    }
+  }, [state.answers, steps]);
 
   const value = useMemo<WidgetContextValue>(
     () => ({ state, dispatch, config, currentStep, totalSteps }),

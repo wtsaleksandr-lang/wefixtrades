@@ -1,6 +1,20 @@
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, jsonb, json, boolean, uuid, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+/* ─── Sessions (managed by connect-pg-simple) ─── */
+// This table is created/managed automatically by connect-pg-simple when
+// `createTableIfMissing: true` is set on the PgStore. We declare it here
+// so Drizzle push/migrate doesn't flag it as an unknown table and try to
+// drop it. Do NOT modify these columns — they must match what
+// connect-pg-simple expects.
+export const session = pgTable("session", {
+  sid: varchar("sid").primaryKey().notNull(),
+  sess: json("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+}, (table) => ({
+  expireIdx: index("IDX_session_expire").on(table.expire),
+}));
 
 /* ─── Users ─── */
 export const users = pgTable("users", {
@@ -590,3 +604,37 @@ export const insertAssistantMessageSchema = createInsertSchema(assistantMessages
 });
 export type InsertAssistantMessage = z.infer<typeof insertAssistantMessageSchema>;
 export type AssistantMessage = typeof assistantMessages.$inferSelect;
+
+/* ─── Email Tracking Events ───────────────────────────────────────────
+ *
+ * Lightweight open + click tracking for outbound transactional /
+ * admin-alert emails. One row per pixel hit or link click.
+ *
+ * `email_id` is an opaque short ID generated per send (~22 base64url
+ * chars from 16 random bytes). The same email_id can appear many
+ * times — typically one `open` row plus N `click` rows as the
+ * recipient interacts.
+ *
+ * `metadata` shape:
+ *   - opens : { user_agent? }
+ *   - clicks: { user_agent?, target_url }
+ *
+ * No PII beyond UA — IP intentionally omitted to limit GDPR exposure.
+ *
+ * ─────────────────────────────────────────────────────────────────── */
+export const emailEvents = pgTable("email_events", {
+  id: serial("id").primaryKey(),
+  email_id: varchar("email_id", { length: 64 }).notNull(),
+  type: varchar("type", { length: 16 }).notNull(),
+  // open | click
+  created_at: timestamp("created_at").defaultNow(),
+  metadata: jsonb("metadata"),
+}, (t) => ({
+  byEmailId: index("email_events_email_id_idx").on(t.email_id),
+}));
+export const insertEmailEventSchema = createInsertSchema(emailEvents).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertEmailEvent = z.infer<typeof insertEmailEventSchema>;
+export type EmailEvent = typeof emailEvents.$inferSelect;

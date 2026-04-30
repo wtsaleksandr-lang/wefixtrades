@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PortalLayout from "@/components/portal/PortalLayout";
@@ -116,6 +117,7 @@ function UpgradeBanner({ feature, hint }: { feature: string; hint: string }) {
 }
 
 export default function PortalReviews() {
+  usePageTitle("Reviews");
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [expandedReview, setExpandedReview] = useState<number | null>(null);

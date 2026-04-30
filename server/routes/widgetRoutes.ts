@@ -49,7 +49,7 @@ export function registerWidgetRoutes(app: Express): void {
     res.setHeader("Cache-Control", "public, max-age=300");
 
     try {
-      const token = req.params.token;
+      const token = req.params.token as string;
       if (!token || token.length < 16) {
         return res.status(400).json({ error: "Invalid token" });
       }

@@ -15,7 +15,7 @@ export function SurfaceSection({
     <section
       style={{
         width: "100%",
-        background: mkt.darkBg,
+        background: mkt.sectionLight,
         borderRadius: "28px 28px 0 0",
         marginTop: -28,
         position: "relative",

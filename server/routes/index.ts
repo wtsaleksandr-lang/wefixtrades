@@ -17,13 +17,28 @@ import { registerAdminRoutes } from "./adminRoutes";
 import { registerAdminCrmRoutes } from "./adminCrmRoutes";
 import { registerAdminToolRoutes } from "./adminToolRoutes";
 import { registerStripeBillingRoutes } from "./stripeBillingRoutes";
+import { registerBillingPortalRoute } from "./billingPortalRoute";
+import { registerEmailTrackingRoutes } from "./emailTrackingRoutes";
 import { registerOnboardingPublicRoutes } from "./onboardingPublicRoutes";
 import { registerVapiRoutes } from "./vapiRoutes";
 import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
 import { registerPortalRoutes } from "./portalRoutes";
+import { registerAdminSupportRoutes } from "./adminSupportRoutes";
 import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
 import { registerDemoLeadRoutes } from "./demoLeadRoutes";
+import { registerAdminOpsRoutes } from "./adminOpsRoutes";
 import { registerAdminOutboundRoutes } from "./adminOutboundRoutes";
+import { registerReviewPublicRoutes } from "./reviewPublicRoutes";
+import { registerWidgetRoutes } from "./widgetRoutes";
+import { registerMapguardRoutes } from "./mapguardRoutes";
+import { registerSocialSyncRoutes } from "./socialSyncRoutes";
+import { registerReputationRoutes } from "./reputationRoutes";
+import { registerSalesRoutes } from "./salesRoutes";
+import { registerMediaRoute } from "../services/socialSync/mediaService";
+import { registerRankFlowRoutes } from "./rankflowRoutes";
+import { registerContentFlowRoutes } from "./contentflowRoutes";
+import { registerUnsubscribeRoutes } from "./unsubscribeRoutes";
+import { registerEmailChartsRoute } from "../services/emailCharts";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -33,6 +48,7 @@ export async function registerRoutes(
 
   registerAuthRoutes(app);
   registerMarketingRoutes(app);
+  registerUnsubscribeRoutes(app);
   registerAiRoutes(app);
   registerCalculatorRoutes(app);
   registerLeadRoutes(app);
@@ -46,13 +62,27 @@ export async function registerRoutes(
   registerAdminCrmRoutes(app);
   registerAdminToolRoutes(app);
   registerStripeBillingRoutes(app);
+  registerBillingPortalRoute(app);
+  registerEmailTrackingRoutes(app);
   registerOnboardingPublicRoutes(app);
   registerVapiRoutes(app);
   registerPublicCheckoutRoutes(app);
   registerPortalRoutes(app);
+  registerAdminSupportRoutes(app);
   registerMissedCallLeadRoutes(app);
   registerDemoLeadRoutes(app);
+  registerAdminOpsRoutes(app);
   registerAdminOutboundRoutes(app);
+  registerMapguardRoutes(app);
+  registerSocialSyncRoutes(app);
+  registerReputationRoutes(app);
+  registerSalesRoutes(app);
+  registerMediaRoute(app);
+  registerReviewPublicRoutes(app);
+  registerWidgetRoutes(app);
+  registerRankFlowRoutes(app);
+  registerContentFlowRoutes(app);
+  registerEmailChartsRoute(app);
 
   return httpServer;
 }

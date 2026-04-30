@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import QuestionRenderer from '../QuestionRenderer';
 import { useWidgetState } from '../useWidgetState';
 import { stepTitleStyle, stepSubtitleStyle } from '../designTokens';
@@ -16,10 +17,13 @@ interface MultiQuestionStepProps {
 export default function MultiQuestionStep({ step, accentColor }: MultiQuestionStepProps) {
   const { getAnswer, setAnswer, answers } = useWidgetState();
 
-  const visibleQuestions = step.questions.filter((q) => {
-    if (!q.visible_when?.length) return true;
-    return evaluateVisibility(q.visible_when, answers);
-  });
+  const visibleQuestions = useMemo(
+    () => step.questions.filter((q) => {
+      if (!q.visible_when?.length) return true;
+      return evaluateVisibility(q.visible_when, answers);
+    }),
+    [step.questions, answers],
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

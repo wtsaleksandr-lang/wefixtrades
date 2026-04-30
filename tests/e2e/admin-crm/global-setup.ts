@@ -11,6 +11,10 @@ import { chromium, type FullConfig } from "@playwright/test";
 import { execSync } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+
+// Load .env so child processes (seed scripts) get DATABASE_URL etc.
+dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../.env") });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,6 +37,7 @@ async function globalSetup(_config: FullConfig) {
       cwd: root,
       stdio: "pipe",
       timeout: 15_000,
+      env: { ...process.env },
     });
   } catch (e: any) {
     console.warn("[global-setup] cleanup warning:", e.stderr?.toString().trim() || e.message);
@@ -42,7 +47,7 @@ async function globalSetup(_config: FullConfig) {
   try {
     execSync(
       `npx tsx server/scripts/seed-admin.ts "${ADMIN_EMAIL}" "${ADMIN_PASSWORD}" "PW Admin"`,
-      { cwd: root, stdio: "pipe", timeout: 30_000 }
+      { cwd: root, stdio: "pipe", timeout: 30_000, env: { ...process.env } }
     );
   } catch (e: any) {
     console.warn("[global-setup] seed-admin warning:", e.stderr?.toString().trim() || e.message);
@@ -53,6 +58,7 @@ async function globalSetup(_config: FullConfig) {
       cwd: root,
       stdio: "pipe",
       timeout: 30_000,
+      env: { ...process.env },
     });
   } catch (e: any) {
     console.warn("[global-setup] seed-services warning:", e.stderr?.toString().trim() || e.message);

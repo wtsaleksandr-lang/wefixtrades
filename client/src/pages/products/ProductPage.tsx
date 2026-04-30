@@ -97,7 +97,7 @@ function PricingSection({ product, pricingIntro }: { product: ProductConfig; pri
   return (
     <section
       style={{
-        background: `linear-gradient(180deg, ${mkt.darkHover} 0%, ${mkt.dark} 100%)`,
+        background: `linear-gradient(180deg, ${mkt.sectionLighter} 0%, ${mkt.sectionLight} 100%)`,
         padding: "80px 28px",
       }}
       data-testid="product-pricing"
@@ -340,7 +340,7 @@ function TradeLineProblemSection() {
   ];
 
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="tradeline-problem">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="tradeline-problem">
       <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>The problem</SectionLabel>
         <h2
@@ -436,7 +436,7 @@ function TradeLineSolutionSection() {
   ];
 
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="tradeline-solution">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="tradeline-solution">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>The fix</SectionLabel>
         <h2
@@ -525,7 +525,7 @@ function TradeLineComparisonSection() {
   ];
 
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="tradeline-comparison">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="tradeline-comparison">
       <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Multi-channel</SectionLabel>
         <h2
@@ -603,7 +603,7 @@ function TradeLineVoicemailSection() {
   ];
 
   return (
-    <section style={{ background: mkt.bg, padding: "64px 28px" }} data-testid="tradeline-voicemail">
+    <section style={{ background: mkt.sectionLight, padding: "64px 28px" }} data-testid="tradeline-voicemail">
       <div style={{ maxWidth: 560, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Reality check</SectionLabel>
         <h2
@@ -655,7 +655,7 @@ function TradeLineVoicemailSection() {
 /* ---------- TradeLine: Results / Proof ---------- */
 function TradeLineResultsSection({ outcomes }: { outcomes: { title: string; desc: string }[] }) {
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="tradeline-results">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="tradeline-results">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Results</SectionLabel>
         <h2
@@ -720,7 +720,7 @@ function TradeLineResultsSection({ outcomes }: { outcomes: { title: string; desc
 /* ---------- TradeLine: Built For Trades ---------- */
 function TradeLineBuiltForSection({ trades }: { trades: string[] }) {
   return (
-    <section style={{ background: mkt.bg, padding: "56px 28px" }} data-testid="tradeline-built-for">
+    <section style={{ background: mkt.sectionLight, padding: "56px 28px" }} data-testid="tradeline-built-for">
       <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <p style={{ fontSize: 15, fontWeight: 600, color: mkt.textMuted, marginBottom: 20 }}>
           Built for businesses that can't afford to miss a call.
@@ -826,7 +826,7 @@ function TradeLinePricingIntro() {
 /* ---------- WebCare: Built For Trades ---------- */
 function WCBuiltForSection({ trades }: { trades: string[] }) {
   return (
-    <section style={{ background: mkt.bg, padding: "56px 28px" }} data-testid="webcare-built-for">
+    <section style={{ background: mkt.sectionLight, padding: "56px 28px" }} data-testid="webcare-built-for">
       <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <p style={{ fontSize: 15, fontWeight: 600, color: mkt.textMuted, marginBottom: 20 }}>
           Built for businesses that spend their day on job sites — not behind a desk.
@@ -866,7 +866,7 @@ function WCProblemSection() {
   ];
 
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="webcare-problem">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="webcare-problem">
       <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>The problem</SectionLabel>
         <h2
@@ -948,7 +948,7 @@ function WCWhatWeDoSection() {
   ];
 
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="webcare-whatwedo">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="webcare-whatwedo">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>What WebCare does</SectionLabel>
         <h2
@@ -1034,7 +1034,7 @@ function WCComparisonSection() {
   ];
 
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="webcare-comparison">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="webcare-comparison">
       <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>How we compare</SectionLabel>
         <h2
@@ -1101,7 +1101,7 @@ function WCComparisonSection() {
 /* ---------- WebCare: Results / Value Section ---------- */
 function WCResultsSection({ outcomes }: { outcomes: { title: string; desc: string }[] }) {
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="webcare-results">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="webcare-results">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Results</SectionLabel>
         <h2
@@ -1219,7 +1219,7 @@ function WCRiskReversal() {
 /* ---------- QuoteQuick: Built For Trades ---------- */
 function QQBuiltForSection({ trades }: { trades: string[] }) {
   return (
-    <section style={{ background: mkt.bg, padding: "56px 28px" }} data-testid="qq-built-for">
+    <section style={{ background: mkt.sectionLight, padding: "56px 28px" }} data-testid="qq-built-for">
       <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Built for trades</SectionLabel>
         <h2
@@ -1271,7 +1271,7 @@ function QQProblemSection() {
   ];
 
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="qq-problem">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="qq-problem">
       <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>The problem</SectionLabel>
         <h2
@@ -1355,7 +1355,7 @@ function QQSolutionSection() {
   ];
 
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="qq-solution">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="qq-solution">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>The fix</SectionLabel>
         <h2
@@ -1466,7 +1466,7 @@ const QQ_DEMO_CALCULATOR: CalculatorData = {
 
 function QQDemoSection() {
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="qq-demo">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="qq-demo">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Live preview</SectionLabel>
         <h2
@@ -1558,7 +1558,7 @@ function QQComparisonSection() {
     );
 
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="qq-comparison">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="qq-comparison">
       <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Why QuoteQuick</SectionLabel>
         <h2
@@ -1624,7 +1624,7 @@ function QQComparisonSection() {
 /* ---------- QuoteQuick: Results Section ---------- */
 function QQResultsSection({ outcomes }: { outcomes: { title: string; desc: string }[] }) {
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="qq-results">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="qq-results">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Results</SectionLabel>
         <h2
@@ -1753,7 +1753,7 @@ function QQRiskReversal() {
 /* ---------- ReputationShield: Problem Section ---------- */
 function RSProblemSection() {
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="rs-problem">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="rs-problem">
       <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>The problem</SectionLabel>
         <h2
@@ -1826,7 +1826,7 @@ function RSWhatWeDoSection() {
   ];
 
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="rs-whatwedo">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="rs-whatwedo">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>What we do</SectionLabel>
         <h2
@@ -1986,7 +1986,7 @@ function RSProductPreviewSection() {
   ];
 
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="rs-previews">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="rs-previews">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>See it in action</SectionLabel>
         <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 40 }}>
@@ -2048,7 +2048,7 @@ function RSComparisonSection() {
     );
 
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="rs-comparison">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="rs-comparison">
       <div style={{ maxWidth: 560, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>The difference</SectionLabel>
         <h2
@@ -2105,7 +2105,7 @@ function RSComparisonSection() {
 /* ---------- ReputationShield: Results ---------- */
 function RSResultsSection({ outcomes }: { outcomes: { title: string; desc: string }[] }) {
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="rs-results">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="rs-results">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Results</SectionLabel>
         <h2
@@ -2228,7 +2228,7 @@ function RSSocialProofSection() {
       </section>
 
       {/* Testimonials */}
-      <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="rs-testimonials">
+      <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="rs-testimonials">
         <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
           <SectionLabel>From real trades businesses</SectionLabel>
           <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 36 }}>
@@ -2274,7 +2274,7 @@ function RSSocialProofSection() {
       </section>
 
       {/* Before / After */}
-      <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="rs-before-after">
+      <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="rs-before-after">
         <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
           <SectionLabel>Average results</SectionLabel>
           <h2 style={{ fontSize: "clamp(22px, 2.8vw, 32px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 32 }}>
@@ -2381,7 +2381,7 @@ function RSRiskReversal() {
 /* ---------- SocialSync: Problem Section ---------- */
 function SSProblemSection() {
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="ss-problem">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="ss-problem">
       <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>The problem</SectionLabel>
         <h2
@@ -2451,7 +2451,7 @@ function SSWhatWeDoSection() {
   ];
 
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="ss-whatwedo">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="ss-whatwedo">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>What we do</SectionLabel>
         <h2
@@ -2549,7 +2549,7 @@ function SSComparisonSection() {
     );
 
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="ss-comparison">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="ss-comparison">
       <div style={{ maxWidth: 560, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>The difference</SectionLabel>
         <h2
@@ -2599,7 +2599,7 @@ function SSComparisonSection() {
 /* ---------- SocialSync: Results ---------- */
 function SSResultsSection({ outcomes }: { outcomes: { title: string; desc: string }[] }) {
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="ss-results">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="ss-results">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Results</SectionLabel>
         <h2
@@ -2726,7 +2726,7 @@ function SSTransparencySection() {
   ];
 
   return (
-    <section style={{ background: mkt.bg, padding: "56px 28px" }} data-testid="ss-transparency">
+    <section style={{ background: mkt.sectionLight, padding: "56px 28px" }} data-testid="ss-transparency">
       <div style={{ maxWidth: 600, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Clear expectations</SectionLabel>
         <h2
@@ -2780,7 +2780,7 @@ function SLProblemSection() {
   ];
 
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="sl-problem">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="sl-problem">
       <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>The problem</SectionLabel>
         <h2
@@ -2861,7 +2861,7 @@ function SLDifferentiationSection() {
   ];
 
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="sl-differentiation">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="sl-differentiation">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Why SiteLaunch</SectionLabel>
         <h2
@@ -2952,7 +2952,7 @@ function SLComparisonSection() {
   ];
 
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="sl-comparison">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="sl-comparison">
       <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>How it compares</SectionLabel>
         <h2
@@ -3031,7 +3031,7 @@ function SLComparisonSection() {
 /* ---------- SiteLaunch: Built For Trades ---------- */
 function SLBuiltForSection({ trades }: { trades: string[] }) {
   return (
-    <section style={{ background: mkt.bg, padding: "56px 28px" }} data-testid="sl-built-for">
+    <section style={{ background: mkt.sectionLight, padding: "56px 28px" }} data-testid="sl-built-for">
       <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Built for trades</SectionLabel>
         <h2
@@ -3077,7 +3077,7 @@ function SLBuiltForSection({ trades }: { trades: string[] }) {
 /* ---------- SiteLaunch: Results Section ---------- */
 function SLResultsSection({ outcomes }: { outcomes: { title: string; desc: string }[] }) {
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="sl-results">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="sl-results">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Results</SectionLabel>
         <h2
@@ -3214,7 +3214,7 @@ function SLRiskReversal() {
 /* ---------- WebBoost: Built For Trades ---------- */
 function WBBuiltForSection({ trades }: { trades: string[] }) {
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="wb-built-for">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="wb-built-for">
       <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Built for trades</SectionLabel>
         <h2
@@ -3248,7 +3248,7 @@ function WBProblemSection() {
   ];
 
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="wb-problem">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="wb-problem">
       <div style={{ maxWidth: 800, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>The problem</SectionLabel>
         <h2
@@ -3315,7 +3315,7 @@ function WBAlternativesSection() {
   ];
 
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="wb-alternatives">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="wb-alternatives">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>The alternatives</SectionLabel>
         <h2
@@ -3372,7 +3372,7 @@ function WBWhatWeDoSection() {
   ];
 
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="wb-whatwedo">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="wb-whatwedo">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>What we do</SectionLabel>
         <h2
@@ -3437,7 +3437,7 @@ function WBBenefitsSection() {
   ];
 
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="wb-benefits">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="wb-benefits">
       <div style={{ maxWidth: 680, margin: "0 auto" }} data-reveal="fade-up">
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <SectionLabel>Benefits</SectionLabel>
@@ -3496,7 +3496,7 @@ function WBComparisonSection() {
     );
 
   return (
-    <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="wb-comparison">
+    <section style={{ background: mkt.sectionLighter, padding: "72px 28px" }} data-testid="wb-comparison">
       <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>The difference</SectionLabel>
         <h2
@@ -3554,7 +3554,7 @@ function WBResultsSection({ outcomes }: { outcomes: { title: string; desc: strin
   ];
 
   return (
-    <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="wb-results">
+    <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="wb-results">
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
         <SectionLabel>Results</SectionLabel>
         <h2
@@ -3708,6 +3708,21 @@ export default function ProductPage() {
 
   return (
     <MarketingLayout>
+      <style>{`
+        [data-testid^="product-page-"] {
+          background: ${mkt.sectionLight};
+        }
+        @media (max-width: 640px) {
+          [data-testid^="product-page-"] section {
+            padding-top: 40px !important;
+            padding-bottom: 40px !important;
+          }
+          [data-testid^="product-page-"] section[data-testid="product-pricing"] {
+            padding-top: 48px !important;
+            padding-bottom: 48px !important;
+          }
+        }
+      `}</style>
       <div data-testid={`product-page-${product.slug}`}>
 
         {/* ── §1 HERO SHELL (merged with visual) ── */}
@@ -3971,45 +3986,17 @@ export default function ProductPage() {
           )}
         </ProductHeroShell>
 
-        {/* ── TradeLine: Built For + Problem + Solution (between hero and capabilities) ── */}
+        {/* ── TradeLine: Problem + Solution (between hero and capabilities) ── */}
         {isTradeLine && (
           <>
-            <TradeLineBuiltForSection trades={product.bestFor} />
             <TradeLineProblemSection />
             <TradeLineSolutionSection />
-
-            {/* Mid-page CTA */}
-            <div
-              style={{ background: mkt.surface, textAlign: "center", padding: "48px 28px" }}
-              data-reveal="fade-up"
-            >
-              <Link
-                href="/Wizard"
-                className="mkt-btn-primary"
-                style={{
-                  padding: "14px 32px",
-                  borderRadius: 9999,
-                  background: mkt.accent,
-                  color: mkt.buttonText,
-                  fontSize: 15,
-                  fontWeight: 700,
-                  textDecoration: "none",
-                  display: "inline-block",
-                }}
-              >
-                Start Your Free Trial
-              </Link>
-              <p style={{ fontSize: 13, color: mkt.textMuted, marginTop: 12, opacity: 0.75 }}>
-                Takes less than 15 minutes to set up
-              </p>
-            </div>
           </>
         )}
 
-        {/* ── QuoteQuick: Built For + Problem + Solution + Demo (between hero and capabilities) ── */}
+        {/* ── QuoteQuick: Problem + Solution (between hero and capabilities) ── */}
         {isQuoteQuick && (
           <>
-            <QQBuiltForSection trades={product.bestFor} />
             <QQProblemSection />
             <QQSolutionSection />
           </>
@@ -4032,19 +4019,17 @@ export default function ProductPage() {
           </>
         )}
 
-        {/* ── SiteLaunch: Built For + Problem + Differentiation (between hero and capabilities) ── */}
+        {/* ── SiteLaunch: Problem + Differentiation (between hero and capabilities) ── */}
         {isSiteLaunch && (
           <>
-            <SLBuiltForSection trades={product.bestFor} />
             <SLProblemSection />
             <SLDifferentiationSection />
           </>
         )}
 
-        {/* ── WebCare: Built For + Problem + What We Do (between hero and capabilities) ── */}
+        {/* ── WebCare: Problem + What We Do (between hero and capabilities) ── */}
         {isWebCare && (
           <>
-            <WCBuiltForSection trades={product.bestFor} />
             <WCProblemSection />
             <WCWhatWeDoSection />
           </>
@@ -4053,7 +4038,7 @@ export default function ProductPage() {
         {/* ── WebBoost: Built For + Problem + Alternatives + What We Do + Benefits ── */}
         {false /* WebBoost removed */ && (
           <>
-            <WBBuiltForSection trades={product.bestFor} />
+            <WBBuiltForSection trades={product?.bestFor ?? []} />
             <WBProblemSection />
             <WBAlternativesSection />
             <WBWhatWeDoSection />
@@ -4114,12 +4099,6 @@ export default function ProductPage() {
           </div>
         )}
 
-        {/* ── TradeLine: Multi-channel Comparison (after how-it-works) ── */}
-        {isTradeLine && <TradeLineComparisonSection />}
-
-        {/* ── TradeLine: Voicemail objection (after comparison) ── */}
-        {isTradeLine && <TradeLineVoicemailSection />}
-
         {/* ── QuoteQuick: Demo + Comparison (after how-it-works) ── */}
         {isQuoteQuick && (
           <>
@@ -4167,7 +4146,7 @@ export default function ProductPage() {
         {isWebCare && <WCResultsSection outcomes={product.outcomes} />}
 
         {/* ── WebBoost: Results (after reviews, before pricing) ── */}
-        {false /* WebBoost removed */ && <WBResultsSection outcomes={product.outcomes} />}
+        {false /* WebBoost removed */ && <WBResultsSection outcomes={product?.outcomes ?? []} />}
 
         {/* ── §5 PRICING (MANDATORY) ── */}
         <PricingSection
@@ -4207,7 +4186,7 @@ export default function ProductPage() {
         {/* ── §6 FAQ ── */}
         {product.faq.length > 0 && (
           <section
-            style={{ background: mkt.bg, padding: "72px 28px" }}
+            style={{ background: mkt.sectionLight, padding: "72px 28px" }}
             data-testid="product-faq"
           >
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
@@ -4259,22 +4238,22 @@ export default function ProductPage() {
         {isTradeLine ? (
           <CTASection
             heading="Stop Missing Calls. Start Winning More Jobs."
-            subtext="Try TradeLine free for 14 days. No credit card. No contracts."
-            ctaLabel="Start Your Free Trial"
+            subtext="Live in 30 minutes. 30-day money-back guarantee. No contracts."
+            ctaLabel="Get Started"
             ctaHref="/Wizard"
           />
         ) : isQuoteQuick ? (
           <CTASection
             heading="Stop losing leads to slow quotes."
-            subtext="Give your customers instant pricing — and turn more website visitors into real quote requests."
+            subtext="Give your customers instant pricing — and turn more website visitors into real quote requests. 14-day free trial, no card required."
             ctaLabel="Start Your Free Trial"
             ctaHref="/Wizard"
           />
         ) : isReputationShield ? (
           <CTASection
             heading="Your next 5-star review is one completed job away."
-            subtext="Start collecting reviews automatically. Catch complaints privately. Respond with AI. See the proof every month. From $79/mo — no contracts."
-            ctaLabel="Start Getting Reviews — Free Trial"
+            subtext="Start collecting reviews automatically. Catch complaints privately. Respond with AI. See the proof every month. From $79/mo — 30-day money-back guarantee."
+            ctaLabel="Get Started"
             ctaHref="/Wizard"
           />
         ) : isSocialSync ? (

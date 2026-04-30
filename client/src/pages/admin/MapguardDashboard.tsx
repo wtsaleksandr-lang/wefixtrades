@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 /**
  * MapGuard Portfolio Operations Dashboard
  *
@@ -139,6 +140,7 @@ function HealthBadge({ health }: { health: string }) {
 
 /* ─── Main Page ─── */
 export default function MapguardDashboard() {
+  usePageTitle("MapGuard");
   const [filter, setFilter] = useState<string>("all");
 
   const { data, isLoading } = useQuery<DashboardData>({

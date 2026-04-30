@@ -5,8 +5,34 @@ import { sendWeeklyReports } from "./weeklyReport";
 import { processNotificationQueue } from "./notificationWorker";
 import { processFollowupJobs } from "./followupWorker";
 import { processAuditFollowups } from "./auditFollowupWorker";
+import { processReviewFollowups } from "./reviewFollowupWorker";
+import { processReviewMonitoring } from "./reviewMonitorWorker";
+import { processReputationReports } from "./reputationReportWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
+import { runDailyOpsIntelligence } from "./opsIntelligenceJob";
 import { processOutboundSync } from "./outboundSyncWorker";
+import { processRankFlowPlans } from "./rankflowWorker";
+import { processRankFlowTracking } from "./trackingWorker";
+import { processMapguardScans } from "./mapguardScanWorker";
+import { processMapguardReports } from "./mapguardReportWorker";
+import { processRankflowReports } from "./rankflowReportWorker";
+import { processSocialsyncReports } from "./socialsyncReportWorker";
+import { processAdflowReports } from "./adflowReportWorker";
+import { processDunningQueue } from "./dunningWorker";
+import { processMapguardWeeklyUpdates } from "./mapguardWeeklyUpdateWorker";
+import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
+/* Sprint 15: deprecated processSocialSyncQueue + socialSyncWorker.ts
+ * deleted. SocialSync admin endpoints now route through ContentFlow's
+ * unified queue (processQueue below). No rollback path needed —
+ * Sprint 10 cron retirement was already in production. */
+import { processImageRetention } from "./imageRetentionWorker";
+import { processPerformanceQueue } from "./performanceWorker";
+import { processQueue as processWordpressPublishQueue } from "../services/contentflow/wordpressQueue";
+import { generateAllDue } from "../services/socialSync/orchestrator";
+import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
+import { cleanupOldMedia } from "../services/socialSync/mediaService";
+import { processAllClientReviews } from "../services/reputation/reviewOrchestrator";
+import { processReviewRequests } from "../services/reputation/reviewRequestService";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -25,7 +51,7 @@ async function withRetry<T>(
       lastError = err;
       console.error(`[Scheduler] ${jobName} attempt ${attempt}/${retries} failed:`, err.message);
       if (attempt < retries) {
-        await new Promise(r => setTimeout(r, RETRY_DELAY_MS * attempt));
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
       }
     }
   }
@@ -117,7 +143,43 @@ export function initScheduler() {
     }
   });
 
-  // Chat memory cleanup — runs daily at 3 AM UTC, removes expired 7-day records
+  // Background AI Ops Engine — runs daily at 07:00 UTC
+  cron.schedule("0 7 * * *", async () => {
+    console.log("[Scheduler] Running daily ops intelligence...");
+    try {
+      await runJob("ops_daily_intelligence", runDailyOpsIntelligence);
+    } catch (err: any) {
+      console.error("[Scheduler] ops_daily_intelligence cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  cron.schedule("* * * * *", async () => {
+    try {
+      await processReviewFollowups();
+    } catch (err: any) {
+      console.error("[Scheduler] review_followup_worker error:", err.message);
+    }
+  });
+
+  cron.schedule("0 */6 * * *", async () => {
+    console.log("[Scheduler] Running review monitoring...");
+    try {
+      await runJob("review_monitoring", processReviewMonitoring);
+    } catch (err: any) {
+      console.error("[Scheduler] review_monitoring cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  cron.schedule("0 9 * * *", async () => {
+    console.log("[Scheduler] Running reputation reports...");
+    try {
+      await runJob("reputation_reports", processReputationReports);
+    } catch (err: any) {
+      console.error("[Scheduler] reputation_reports cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+
   cron.schedule("0 3 * * *", async () => {
     console.log("[Scheduler] Running chat memory cleanup...");
     try {
@@ -139,12 +201,268 @@ export function initScheduler() {
     }
   });
 
+
+  cron.schedule("0 4 * * 1", async () => {
+    console.log("[Scheduler] Running RankFlow plan generation...");
+    try {
+      await runJob("rankflow_plan_generation", processRankFlowPlans);
+    } catch (err: any) {
+      console.error("[Scheduler] rankflow_plan_generation cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  cron.schedule("0 5 * * 3", async () => {
+    console.log("[Scheduler] Running RankFlow tracking...");
+    try {
+      await runJob("rankflow_tracking", processRankFlowTracking);
+    } catch (err: any) {
+      console.error("[Scheduler] rankflow_tracking cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  cron.schedule("0 4 * * 2", async () => {
+    console.log("[Scheduler] Running MapGuard weekly monitoring scan...");
+    try {
+      await runJob("mapguard_weekly_scan", processMapguardScans);
+    } catch (err: any) {
+      console.error("[Scheduler] mapguard_weekly_scan cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  cron.schedule("0 9 * * 5", async () => {
+    console.log("[Scheduler] Running MapGuard weekly client updates...");
+    try {
+      await runJob("mapguard_weekly_update", processMapguardWeeklyUpdates);
+    } catch (err: any) {
+      console.error("[Scheduler] mapguard_weekly_update cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  cron.schedule("0 10 2 * *", async () => {
+    console.log("[Scheduler] Running MapGuard monthly reports...");
+    try {
+      await runJob("mapguard_monthly_reports", processMapguardReports);
+    } catch (err: any) {
+      console.error("[Scheduler] mapguard_monthly_reports cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  // RankFlow monthly reports — 11:00 UTC on the 2nd of each month
+  // (one hour after MapGuard to spread the rollup-batch load).
+  // Idempotent per period via client_service.metadata.last_rankflow_report_period,
+  // so safe even if the cron fires twice or the deploy restarts mid-run.
+  cron.schedule("0 11 2 * *", async () => {
+    console.log("[Scheduler] Running RankFlow monthly reports...");
+    try {
+      await runJob("rankflow_monthly_reports", processRankflowReports);
+    } catch (err: any) {
+      console.error("[Scheduler] rankflow_monthly_reports cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  // SocialSync monthly reports — 12:00 UTC on the 2nd of each month
+  // (one hour after RankFlow to spread the rollup-batch load).
+  // Idempotent per period via client_service.metadata.last_socialsync_report_period,
+  // so safe even if the cron fires twice or the deploy restarts mid-run.
+  cron.schedule("0 12 2 * *", async () => {
+    console.log("[Scheduler] Running SocialSync monthly reports...");
+    try {
+      await runJob("socialsync_monthly_reports", processSocialsyncReports);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_monthly_reports cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  // AdFlow monthly reports — 13:00 UTC on the 2nd of each month
+  // (one hour after SocialSync to spread the rollup-batch load).
+  //
+  // STRICT-GATED — unlike the other monthly reports, AdFlow metrics are
+  // admin-entered, not auto-collected. The batch sender only fires for
+  // services where metadata.latest_report.period_start falls within the
+  // previous calendar month. Clients with missing or stale metrics are
+  // bucketed under skipped_missing_current_report (visible in job_logs)
+  // so ops can see who still needs metrics entered.
+  //
+  // Idempotent per period via client_service.metadata.last_report_period,
+  // so safe even if the cron fires twice or the deploy restarts mid-run.
+  // Existing admin-trigger path (task.delivered → compileAndSendAdFlowReport)
+  // is unaffected — this cron is a parallel sweep, not a replacement.
+  cron.schedule("0 13 2 * *", async () => {
+    console.log("[Scheduler] Running AdFlow monthly reports...");
+    try {
+      await runJob("adflow_monthly_reports", processAdflowReports);
+    } catch (err: any) {
+      console.error("[Scheduler] adflow_monthly_reports cron handler error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  cron.schedule("0 9 * * *", async () => {
+    console.log("[Scheduler] Running trial lifecycle worker...");
+    try {
+      await runJob("trial_lifecycle", async () => {
+        const emailResult = await processTrialLifecycle();
+        const pauseResult = await pauseExpiredTrials();
+        return { ...emailResult, paused: pauseResult.paused, pauseErrors: pauseResult.errors };
+      });
+    } catch (err: any) {
+      console.error("[Scheduler] trial_lifecycle cron handler error:", err.message);
+    }
+  });
+
+  /* Sprint 10/15: SocialSync legacy queue worker — REMOVED.
+   *
+   * Sprint 10 retired the cron entry; Sprint 15 deleted the worker
+   * file (server/jobs/socialSyncWorker.ts) and the legacy admin
+   * endpoints that still called it. SocialSync now publishes through
+   * ContentFlow's unified publishQueue (see below) via the facebook /
+   * instagram / gbp_post adapters. The socialsync_publish_queue
+   * table remains in the schema (no migration this sprint) but is
+   * orphaned — no code path writes to it. */
+
+  // Sprint 5/8/9/10: ContentFlow unified publish queue. Drains all 5
+  // channels (wordpress / gbp / facebook / instagram / gbp_post) per
+  // tick via atomic FOR UPDATE SKIP LOCKED claims. The `isRunning`
+  // guard prevents two ticks of the same cron from overlapping if a
+  // tick takes longer than the 2-minute interval.
+  let publishQueueRunning = false;
+  cron.schedule("*/2 * * * *", async () => {
+    if (publishQueueRunning) {
+      console.log("[Scheduler] contentflow_publish_queue skipped — previous tick still running");
+      return;
+    }
+    publishQueueRunning = true;
+    try {
+      await runJob("contentflow_publish_queue", processWordpressPublishQueue);
+    } catch (err: any) {
+      console.error("[Scheduler] contentflow_publish_queue error:", err.message);
+    } finally {
+      publishQueueRunning = false;
+    }
+  });
+
+  /* Sprint 17: ContentFlow performance worker. Pulls per-channel
+   * engagement signals into draft.metadata.performance, computes a
+   * 0-100 score, and stamps high/low_performer flags. Generators
+   * read these flags to inject "successful pattern" hints into
+   * future prompts. Cadence is 30 minutes — long enough to avoid
+   * external API abuse, short enough that the feedback loop stays
+   * meaningful for clients posting daily. Overlap-guarded. */
+  let performanceWorkerRunning = false;
+  cron.schedule("*/30 * * * *", async () => {
+    if (performanceWorkerRunning) {
+      console.log("[Scheduler] contentflow_performance skipped — previous tick still running");
+      return;
+    }
+    performanceWorkerRunning = true;
+    try {
+      await runJob("contentflow_performance", processPerformanceQueue);
+    } catch (err: any) {
+      console.error("[Scheduler] contentflow_performance error:", err.message);
+    } finally {
+      performanceWorkerRunning = false;
+    }
+  });
+
+  cron.schedule("0 6 * * 0", async () => {
+    console.log("[Scheduler] Running SocialSync weekly content generation...");
+    try {
+      await runJob("socialsync_weekly_generation", generateAllDue);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_weekly_generation error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  cron.schedule("0 4 * * *", async () => {
+    console.log("[Scheduler] Running SocialSync connection expiry check...");
+    try {
+      await runJob("socialsync_expiry_check", checkConnectionExpiry);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_expiry_check error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
   console.log("[Scheduler] Jobs scheduled:");
   console.log("  - Daily aggregation: 02:00 UTC every day");
   console.log("  - Chat memory cleanup: 03:00 UTC every day");
+  console.log("  - Background ops intelligence: 07:00 UTC every day");
+  console.log("  - Trial lifecycle emails: 09:00 UTC every day");
   console.log("  - Weekly email report: 13:00 UTC every Monday (~8AM EST)");
+  console.log("  - RankFlow plan generation: 04:00 UTC every Monday");
+  console.log("  - RankFlow tracking: 05:00 UTC every Wednesday");
+  console.log("  - MapGuard weekly scan: 04:00 UTC every Tuesday");
+  console.log("  - MapGuard weekly client update: 09:00 UTC every Friday");
+  console.log("  - MapGuard monthly reports: 10:00 UTC on the 2nd of each month");
   console.log("  - Notification queue worker: every minute");
   console.log("  - Follow-up jobs worker: every minute");
   console.log("  - Audit follow-up worker: every minute");
   console.log("  - Outbound sync worker: every 15 minutes");
+  console.log("  - Review follow-up worker: every minute");
+  console.log("  - Review monitoring: every 6 hours");
+  console.log("  - Reputation reports: 09:00 UTC daily");
+  console.log("  - SocialSync queue worker: every 2 minutes");
+  console.log("  - SocialSync weekly generation: 06:00 UTC every Sunday");
+  console.log("  - SocialSync expiry check: 04:00 UTC every day");
+  console.log("  - SocialSync monthly reports: 12:00 UTC on the 2nd of each month");
+  console.log("  - AdFlow monthly reports: 13:00 UTC on the 2nd of each month (strict-gated)");
+
+  cron.schedule("0 5 * * *", async () => {
+    console.log("[Scheduler] Running SocialSync media cleanup...");
+    try {
+      await runJob("socialsync_media_cleanup", cleanupOldMedia);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_media_cleanup error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  console.log("  - SocialSync media cleanup: 05:00 UTC every day");
+
+  cron.schedule("0 */6 * * *", async () => {
+    console.log("[Scheduler] Running SocialSync review automation...");
+    try {
+      await runJob("socialsync_review_automation", processAllClientReviews);
+    } catch (err: any) {
+      console.error("[Scheduler] socialsync_review_automation error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  console.log("  - SocialSync review automation: every 6 hours");
+
+  cron.schedule("*/15 * * * *", async () => {
+    try {
+      await runJob("review_request_delivery", processReviewRequests);
+    } catch (err: any) {
+      console.error("[Scheduler] review_request_delivery error:", err.message);
+    }
+  });
+
+  console.log("  - Review request delivery: every 15 minutes");
+
+  // Dunning queue worker — drains pending billing_dunning_events whose
+  // scheduled_for has elapsed. Runs every 5 minutes so reminders go out
+  // promptly when their day-2 / day-5 / day-7 window opens, while
+  // staying out of the per-minute critical-path workers' lane.
+  // Idempotent + 24h resend-guarded inside sendDunningRow().
+  cron.schedule("*/5 * * * *", async () => {
+    try {
+      await runJob("dunning_queue", processDunningQueue);
+    } catch (err: any) {
+      console.error("[Scheduler] dunning_queue error:", err.message);
+    }
+  });
+
+  console.log("  - Dunning queue worker: every 5 minutes");
+
+  /* Sprint 11: ContentFlow image retention sweep. Daily at 04:30 UTC
+   * (off-peak). Identifies generated images past retention thresholds
+   * (180 days for unpublished, 2 years for published), best-effort
+   * deletes from R2, and clears the URL pointers on the draft. */
+  cron.schedule("30 4 * * *", async () => {
+    try {
+      await runJob("contentflow_image_retention", processImageRetention);
+    } catch (err: any) {
+      console.error("[Scheduler] contentflow_image_retention error:", err.message);
+    }
+  }, { timezone: "UTC" });
+
+  console.log("  - ContentFlow image retention: daily at 04:30 UTC");
 }

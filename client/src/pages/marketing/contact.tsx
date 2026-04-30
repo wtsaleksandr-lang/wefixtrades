@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { Mail, Clock, LayoutDashboard } from "lucide-react";
+import { Mail, Clock, LayoutDashboard, Phone } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { mkt, colors, shadows, radius } from "@/theme/tokens";
 
 export default function ContactPage() {
   useEffect(() => {
-    document.title = "Contact — QuickQuotePro";
+    document.title = "Contact — WeFixTrades";
   }, []);
 
   const [form, setForm] = useState(() => {
@@ -61,11 +61,11 @@ export default function ContactPage() {
         {/* Page Header */}
         <section style={{ background: mkt.dark, padding: "72px 24px 64px" }}>
           <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
-            <h1 style={{ fontSize: 40, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2, marginBottom: 16, margin: "0 0 16px" }}>
-              Get in Touch
+            <h1 style={{ fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2, marginBottom: 16, margin: "0 0 16px" }} className="text-2xl sm:text-[40px]">
+              Talk to our team
             </h1>
             <p style={{ fontSize: 18, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, margin: 0 }}>
-              We'd love to hear from you. Drop us a message and we'll get back to you quickly.
+              Sales, support, partnerships, or a question before you sign up — we read every message and respond within one business day.
             </p>
           </div>
         </section>
@@ -76,9 +76,9 @@ export default function ContactPage() {
             maxWidth: 1000,
             margin: "0 auto",
             display: "grid",
-            gridTemplateColumns: "1fr 1.6fr",
+            gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.6fr)",
             gap: 48,
-          }}>
+          }} className="max-[640px]:!grid-cols-1">
             {/* Left: Contact Info */}
             <div>
               <h2 style={{ fontSize: 22, fontWeight: 700, color: mkt.text, marginBottom: 32, margin: "0 0 32px" }}>
@@ -97,12 +97,40 @@ export default function ContactPage() {
                     justifyContent: "center",
                     flexShrink: 0,
                   }}>
+                    <Phone size={18} color={mkt.accent} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>AI-answered line — 24/7</div>
+                    <a
+                      href="tel:+15551234567"
+                      data-testid="contact-phone"
+                      style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}
+                    >
+                      +1 (555) 123-4567
+                    </a>
+                    <div style={{ fontSize: 12, color: mkt.textMuted, marginTop: 4, lineHeight: 1.5 }}>
+                      Our AI answers any question about pricing, services, or how we'd help your business. Escalates to a human for anything complex.
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                  <div style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    background: mkt.accentTint,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}>
                     <Mail size={18} color={mkt.accent} />
                   </div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Email</div>
-                    <a href="mailto:contact@wefxtrades.com" style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}>
-                      contact@wefxtrades.com
+                    <a href="mailto:contact@wefixtrades.com" style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}>
+                      contact@wefixtrades.com
                     </a>
                   </div>
                 </div>
@@ -122,8 +150,8 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Response Time</div>
-                    <div style={{ fontSize: 15, color: mkt.textMuted, fontWeight: 500 }}>Usually within 2 hours</div>
-                    <div style={{ fontSize: 14, color: mkt.textMuted, marginTop: 2 }}>During business hours (Mon–Fri)</div>
+                    <div style={{ fontSize: 15, color: mkt.textMuted, fontWeight: 500 }}>Within one business day</div>
+                    <div style={{ fontSize: 14, color: mkt.textMuted, marginTop: 2 }}>Most replies land in a few hours</div>
                   </div>
                 </div>
 
@@ -156,11 +184,9 @@ export default function ContactPage() {
                 borderRadius: radius.md,
                 border: `1px solid ${mkt.accentGlow}`,
               }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: mkt.accent, marginBottom: 6 }}>Working Hours</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: mkt.accent, marginBottom: 6 }}>Already a customer?</div>
                 <div style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7 }}>
-                  Monday – Friday: 9am – 6pm AEST<br />
-                  Saturday: 10am – 2pm AEST<br />
-                  Sunday: Closed
+                  Open a support ticket from your portal for the fastest route — your message lands directly in your account file.
                 </div>
               </div>
             </div>
@@ -187,9 +213,9 @@ export default function ContactPage() {
                   }}>
                     <Mail size={24} color={mkt.accent} />
                   </div>
-                  <h3 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 12, margin: "0 0 12px" }}>Message Sent!</h3>
+                  <h3 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 12, margin: "0 0 12px" }}>Message received</h3>
                   <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, margin: 0 }}>
-                    Thanks for reaching out. We'll get back to you within 2 hours.
+                    Thanks — we've logged your message and a confirmation is on its way to your inbox. We reply within one business day.
                   </p>
                 </div>
               ) : (

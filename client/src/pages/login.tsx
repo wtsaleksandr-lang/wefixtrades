@@ -5,11 +5,13 @@ import { queryClient } from "@/lib/queryClient";
 import { getSessionId } from "@/lib/chatHelpers";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [, navigate] = useLocation();
+  usePageTitle("Sign In");
 
   const login = useMutation({
     mutationFn: async () => {
@@ -25,8 +27,10 @@ export default function LoginPage() {
       }
       return res.json();
     },
-    onSuccess: (data: { user: { role?: string } }) => {
-      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+    onSuccess: async (data: { user: { role?: string } }) => {
+      // Set the auth cache immediately so RequirePortal sees the user
+      queryClient.setQueryData(["auth", "me"], data.user);
+      await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
 
       // Best-effort: link anonymous website chat session to the newly logged-in user
       // so the portal assistant can resume context. Fire-and-forget.

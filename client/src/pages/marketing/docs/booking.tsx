@@ -3,7 +3,7 @@ import DocsLayout, { Step, InfoBox, DocH2, DocH3, Checklist, Accordion } from "@
 import { mkt } from "@/theme/tokens";
 
 export default function DocsBooking() {
-  useEffect(() => { document.title = "Booking + Deposits — QuickQuotePro Docs"; }, []);
+  useEffect(() => { document.title = "Booking + Deposits — QuoteQuick Pro Docs"; }, []);
 
   return (
     <DocsLayout
@@ -55,7 +55,7 @@ export default function DocsBooking() {
         "No deposit — collect booking only, no payment required",
       ]} />
       <InfoBox type="info">
-        Deposits go directly to your Stripe account via Stripe Connect Express. QuickQuotePro never holds your money — funds settle in your Stripe account within 2 business days.
+        Deposits go directly to your Stripe account via Stripe Connect Express. QuoteQuick Pro never holds your money — funds settle in your Stripe account within 2 business days.
       </InfoBox>
 
       <DocH2>Confirmations</DocH2>
@@ -98,7 +98,7 @@ export default function DocsBooking() {
 
       <Accordion title="Does it connect to Google Calendar or Outlook?" icon="📆">
         <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>
-          Google Calendar and Outlook sync are on our roadmap. Currently, bookings appear in your QuickQuotePro Dashboard only. You can export bookings as CSV from the Bookings tab.
+          Google Calendar and Outlook sync are on our roadmap. Currently, bookings appear in your QuoteQuick Pro Dashboard only. You can export bookings as CSV from the Bookings tab.
         </p>
       </Accordion>
 

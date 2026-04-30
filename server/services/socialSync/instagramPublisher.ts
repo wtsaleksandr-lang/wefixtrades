@@ -21,7 +21,14 @@ import { getInstagramPublishCredentials } from "./instagramService";
 import { ensureMediaReady } from "./mediaService";
 import type { SocialSyncPost } from "@shared/schema";
 
-const GRAPH_API_BASE = "https://graph.facebook.com/v21.0";
+/* Sprint 10: dev-test override (mirrors facebookPublisher pattern). */
+const GRAPH_API_BASE_DEFAULT = "https://graph.facebook.com/v21.0";
+function getGraphApiBase(): string {
+  if (process.env.NODE_ENV !== "production" && process.env.IG_GRAPH_API_BASE_OVERRIDE) {
+    return process.env.IG_GRAPH_API_BASE_OVERRIDE;
+  }
+  return GRAPH_API_BASE_DEFAULT;
+}
 
 /* ─── Content constraints ─── */
 
@@ -137,7 +144,7 @@ async function createMediaContainer(
   imageUrl: string,
   caption: string,
 ): Promise<{ id: string } | { error: any }> {
-  const url = new URL(`${GRAPH_API_BASE}/${igAccountId}/media`);
+  const url = new URL(`${getGraphApiBase()}/${igAccountId}/media`);
   url.searchParams.set("access_token", token);
 
   const res = await fetch(url.toString(), {
@@ -162,7 +169,7 @@ async function publishMediaContainer(
   token: string,
   containerId: string,
 ): Promise<{ id: string } | { error: any }> {
-  const url = new URL(`${GRAPH_API_BASE}/${igAccountId}/media_publish`);
+  const url = new URL(`${getGraphApiBase()}/${igAccountId}/media_publish`);
   url.searchParams.set("access_token", token);
 
   const res = await fetch(url.toString(), {

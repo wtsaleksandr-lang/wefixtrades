@@ -1,9 +1,11 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { User } from "lucide-react";
 
 export default function ProfilePage() {
+  usePageTitle("Profile");
   const { user } = useAuth();
 
   return (

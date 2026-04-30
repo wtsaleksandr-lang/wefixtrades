@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
@@ -5,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function ChangePasswordPage() {
+  usePageTitle("Change Password");
   return (
     <AdminLayout pageContext={{ page: "change_password" }}>
       <div className="max-w-2xl mx-auto space-y-4">

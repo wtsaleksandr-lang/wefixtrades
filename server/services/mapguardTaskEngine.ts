@@ -741,7 +741,7 @@ export async function getMapguardTaskSummary(clientId: number): Promise<Mapguard
   .orderBy(PRIORITY_ORDER, asc(mapguardTasks.sort_order))
   .limit(1);
 
-  return {
+  const result = {
     total,
     pending: counts.pending || 0,
     ready: counts.ready || 0,

@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -51,6 +52,7 @@ function fmtDate(d: string | null) {
 }
 
 export default function BillingPage() {
+  usePageTitle("Billing");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -75,6 +77,9 @@ export default function BillingPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/payments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
       toast({ title: "Payment updated", description: `Marked as ${status}` });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to update payment", description: err.message, variant: "destructive" });
     },
   });
 

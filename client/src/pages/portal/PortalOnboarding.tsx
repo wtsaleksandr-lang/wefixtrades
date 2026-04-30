@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, RefreshCw, Settings2, AlertTriangle } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import type { PortalChatContext } from "@/components/portal/PortalChatWidget";
 import { getFieldConfig } from "@/config/onboardingFields";
 import { useOnboardingResponses } from "@/context/OnboardingContext";
 
@@ -15,6 +16,7 @@ interface Step {
 
 interface OnboardingData {
   id: number;
+  client_service_id: number | null;
   status: string;
   service_name: string | null;
   service_id: string | null;
@@ -55,6 +57,7 @@ export default function PortalOnboarding() {
   const { setResponses: syncToContext } = useOnboardingResponses();
   const [validationError, setValidationError] = useState<string | null>(null);
   const [helpField, setHelpField] = useState<{ label: string; example?: string; helperText?: string } | null>(null);
+
   const { data, isLoading, error, refetch } = useQuery<OnboardingData>({
     queryKey: ["/api/portal/onboarding", submissionId],
     queryFn: async () => {
@@ -158,8 +161,19 @@ export default function PortalOnboarding() {
   const requiredSteps = data?.steps.filter((s) => s.required) ?? [];
   const optionalSteps = data?.steps.filter((s) => !s.required) ?? [];
 
+  // Build onboarding context for the global chat widget
+  const chatContext: PortalChatContext | undefined =
+    data && !isSubmitted
+      ? {
+          service_name: data.service_name ?? "service",
+          service_id: data.service_id ?? undefined,
+          fields: data.steps.map((s) => ({ key: s.key, label: s.label, required: s.required })),
+          current_responses: responses,
+        }
+      : undefined;
+
   return (
-    <PortalLayout>
+    <PortalLayout chatContext={chatContext}>
       <div className="max-w-2xl mx-auto space-y-6 pb-20">
         <Link href="/portal/services" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Services
@@ -173,32 +187,18 @@ export default function PortalOnboarding() {
 
         {error && (
           <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
-            <span>Failed to load the setup form.</span>
+            <span>We couldn't load your setup form. Refresh the page — if it keeps failing, the link may have expired and we can send a new one.</span>
             <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-              <RefreshCw className="w-3 h-3" /> Retry
+              <RefreshCw className="w-3 h-3" /> Try again
             </button>
           </div>
         )}
 
         {data && isSubmitted && (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-            <CheckCircle2 className="w-12 h-12 text-[#2D6A4F] mx-auto mb-4" />
-            <h1 className="text-lg font-semibold text-gray-900">Setup Form Submitted</h1>
-            <p className="text-sm text-gray-500 mt-2">
-              Your information for <span className="font-medium">{data.service_name}</span> has been submitted.
-              Our team will review it and get started.
-            </p>
-            {data.approved_at && (
-              <p className="text-xs text-emerald-600 mt-3">
-                Approved on {new Date(data.approved_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
-              </p>
-            )}
-            <Link href="/portal/services">
-              <button className="mt-6 px-4 py-2 text-sm font-medium text-[#2D6A4F] bg-[#F0F7F4] rounded-lg hover:bg-[#e0efe8] transition-colors">
-                Back to Services
-              </button>
-            </Link>
-          </div>
+          <PortalSetupProgress
+            clientServiceId={data.client_service_id}
+            approvedAt={data.approved_at}
+          />
         )}
 
         {data && !isSubmitted && (
@@ -281,10 +281,10 @@ export default function PortalOnboarding() {
                 >
                   {submitMutation.isPending ? (
                     <span className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
+                      <Loader2 className="w-4 h-4 animate-spin" /> Setting up...
                     </span>
                   ) : (
-                    "Submit"
+                    "Finish Setup"
                   )}
                 </button>
               </div>
@@ -304,10 +304,110 @@ export default function PortalOnboarding() {
 
       {/* Help modal */}
       {helpField && <HelpModal field={helpField} onClose={() => setHelpField(null)} />}
-
-      {/* Legacy AI Chat FAB + Panel removed — the global PortalChatWidget
-          now handles onboarding context via OnboardingContext (Phase 3). */}
     </PortalLayout>
+  );
+}
+
+/* ─── Post-Submit Progress — polls real backend status ─── */
+function PortalSetupProgress({ clientServiceId, approvedAt }: { clientServiceId: number | null; approvedAt: string | null }) {
+  const [status, setStatus] = useState<{
+    assistantStatus: string;
+    setupStage: string;
+  }>({ assistantStatus: "not_built", setupStage: "not_started" });
+
+  const isTradeLine = !!clientServiceId;
+  const isTerminal = status.setupStage === "ready_for_testing"
+    || status.setupStage === "live"
+    || status.assistantStatus === "failed";
+
+  useEffect(() => {
+    if (!isTradeLine) return;
+    let active = true;
+    async function poll() {
+      try {
+        const res = await fetch(`/api/portal/tradeline/${clientServiceId}`, { credentials: "include" });
+        if (res.ok && active) {
+          const data = await res.json();
+          setStatus({
+            assistantStatus: data.assistantStatus ?? data.config?.assistant?.status ?? "not_built",
+            setupStage: data.setupStage ?? data.config?.setupStage ?? "not_started",
+          });
+        }
+      } catch { /* ignore */ }
+    }
+    poll();
+    const id = setInterval(poll, 2500);
+    return () => { active = false; clearInterval(id); };
+  }, [clientServiceId, isTradeLine]);
+
+  const steps = isTradeLine ? [
+    { label: "Configuration received", done: true },
+    { label: "System being built", done: status.assistantStatus === "building" || status.assistantStatus === "built" },
+    { label: "Connecting channels", done: status.assistantStatus === "built" },
+    { label: "Ready", done: status.setupStage === "ready_for_testing" || status.setupStage === "live" },
+  ] : [
+    { label: "Configuration received", done: true },
+    { label: "Team notified", done: true },
+  ];
+
+  const allDone = steps.every(s => s.done);
+  const failed = status.assistantStatus === "failed";
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+      <div className="w-12 h-12 rounded-full bg-[#F0F7F4] flex items-center justify-center mx-auto mb-5">
+        {failed ? (
+          <AlertTriangle className="w-6 h-6 text-amber-500" />
+        ) : (
+          <Settings2 className={`w-6 h-6 text-[#2D6A4F] ${!allDone ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
+        )}
+      </div>
+      <h1 className="text-lg font-semibold text-gray-900">
+        {failed ? "Something needs attention" : allDone ? "Your system is ready" : "Your system is being prepared"}
+      </h1>
+      <p className="text-sm text-gray-500 mt-1.5 mb-6">
+        {failed ? "We hit a snag while setting things up." : allDone ? "Everything is configured." : "This usually takes about a minute."}
+      </p>
+
+      <div className="text-left space-y-3 max-w-xs mx-auto mb-6">
+        {steps.map((s, i) => (
+          <div key={i} className="flex items-center gap-3">
+            {s.done ? (
+              <CheckCircle2 className="w-4 h-4 text-[#2D6A4F] flex-shrink-0" />
+            ) : failed ? (
+              <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            ) : (
+              <Loader2 className="w-4 h-4 text-gray-300 animate-spin flex-shrink-0" />
+            )}
+            <span className={`text-sm ${s.done ? "text-gray-700" : failed ? "text-amber-600" : "text-gray-400"}`}>
+              {s.label}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {approvedAt && (
+        <p className="text-xs text-emerald-600 mb-4">
+          Approved on {new Date(approvedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
+        </p>
+      )}
+
+      {failed && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+          <p className="text-sm text-amber-700">
+            Our team has been notified and will take care of this.
+          </p>
+        </div>
+      )}
+
+      {(allDone || failed) && (
+        <Link href="/portal/services">
+          <button className="px-4 py-2 text-sm font-medium text-[#2D6A4F] bg-[#F0F7F4] rounded-lg hover:bg-[#e0efe8] transition-colors">
+            Back to Services
+          </button>
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -401,7 +501,7 @@ function FieldRow({
       <input
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={config.placeholder || (step.required ? "Required" : "Optional")}
+        placeholder={config.placeholder || (step.required ? "Type your answer here" : "Optional — skip if you're not sure")}
         className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] transition-colors"
       />
     </div>

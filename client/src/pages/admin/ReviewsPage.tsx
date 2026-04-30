@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
@@ -123,6 +124,7 @@ function needsAttention(r: MonitoredReview): boolean {
 }
 
 export default function ReviewsPage() {
+  usePageTitle("Reviews");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 

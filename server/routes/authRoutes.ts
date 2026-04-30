@@ -13,6 +13,26 @@ function getClientIp(req: Request): string {
   return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
 }
 
+/**
+ * Sprint 7: NODE_ENV-guarded test bypass for the auth rate limiter.
+ *
+ * Playwright runs many specs against a single localhost source IP and
+ * blew through the 10/15min budget when Sprint 7 was added on top of
+ * the existing portal-login load (Sprint 6 + per-test admin contexts).
+ *
+ * The bypass is INERT in production:
+ *   - process.env.NODE_ENV === "production" → header is ignored
+ *   - dev/test (or unset NODE_ENV) → presence of `x-test-bypass-rate-limit: 1`
+ *     skips the rate-limit check
+ *
+ * Production rate limits are not weakened. The header is only honored
+ * when NODE_ENV is non-production and is opt-in per request.
+ */
+function isTestRateLimitBypass(req: Request): boolean {
+  if (process.env.NODE_ENV === "production") return false;
+  return req.headers["x-test-bypass-rate-limit"] === "1";
+}
+
 export function registerAuthRoutes(app: Express) {
   /** Current session user (or null) */
   app.get("/api/auth/me", (req, res) => {
@@ -22,7 +42,7 @@ export function registerAuthRoutes(app: Express) {
   /** Email/password login */
   app.post("/api/auth/login", async (req, res, next) => {
     const ip = getClientIp(req);
-    if (!(await authRateLimiter.check(`login:${ip}`))) {
+    if (!isTestRateLimitBypass(req) && !(await authRateLimiter.check(`login:${ip}`))) {
       return res.status(429).json({ error: "Too many login attempts. Please wait 15 minutes." });
     }
     passport.authenticate(
@@ -88,21 +108,35 @@ export function registerAuthRoutes(app: Express) {
         const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
         await transporter.sendMail({
-          from: getFromAddress(),
+          from: `WeFixTrades <${getFromAddress()}>`,
           to: normalised,
           subject: "Reset your WeFixTrades password",
           html: `
-            <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
-              <h2 style="color: #1a1a1a; font-size: 18px;">Reset your password</h2>
-              <p style="color: #555; font-size: 14px; line-height: 1.6;">
-                Click the link below to set a new password. This link expires in 1 hour.
-              </p>
-              <a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background: #2D6A4F; color: white; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 500; margin: 16px 0;">
-                Reset Password
-              </a>
-              <p style="color: #999; font-size: 12px; margin-top: 24px;">
-                If you didn't request this, you can safely ignore this email.
-              </p>
+            <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
+              <div style="max-width:480px;margin:0 auto;">
+                <div style="text-align:center;margin-bottom:32px;">
+                  <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades</span>
+                </div>
+                <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
+                  <h1 style="font-size:22px;font-weight:700;color:#F0F0F0;margin:0 0 8px;line-height:1.3;">
+                    Reset your password
+                  </h1>
+                  <p style="font-size:14px;color:#CDD1D6;line-height:1.6;margin:0 0 24px;">
+                    Use the button below to set a new password. The link works for one hour, then expires.
+                  </p>
+                  <a href="${resetUrl}" style="display:inline-block;background:#66E8FA;color:#0B0F14;font-size:14px;font-weight:700;padding:13px 24px;border-radius:10px;text-decoration:none;">
+                    Set a new password
+                  </a>
+                  <div style="border-top:1px solid rgba(255,255,255,0.06);margin:28px 0 16px;"></div>
+                  <p style="font-size:12px;color:#8B919A;line-height:1.5;margin:0 0 8px;">
+                    Didn't request this? You can safely ignore this email — your password stays the same.
+                  </p>
+                  <p style="font-size:11px;color:#555B63;line-height:1.5;margin:12px 0 0;word-break:break-all;">
+                    Trouble with the button? Paste this link into your browser:<br/>
+                    <a href="${resetUrl}" style="color:#66E8FA;">${resetUrl}</a>
+                  </p>
+                </div>
+              </div>
             </div>
           `,
         });

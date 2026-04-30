@@ -83,3 +83,14 @@ export const authRateLimiter = new RateLimiter(
   10,        // max attempts
   15 * 60_000, // per 15-minute window
 );
+
+/**
+ * Sprint 8 — portal review actions (approve / request-changes / reject).
+ * Per-client cap; protects against a compromised portal token spamming
+ * decisions and burning admin notification emails.
+ */
+export const portalReviewRateLimiter = new RateLimiter(
+  defaultStore,
+  30,       // max actions
+  60_000,   // per 1-minute window
+);

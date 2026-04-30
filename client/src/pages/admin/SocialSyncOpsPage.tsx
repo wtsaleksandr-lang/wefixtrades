@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -20,6 +21,7 @@ interface OpsOverview {
     total_autopilot: number;
     fb_connected: number;
     ig_connected: number;
+    gbp_connected: number;
     expired_tokens: number;
     expiring_soon: number;
     queued_due_today: number;
@@ -27,6 +29,8 @@ interface OpsOverview {
     published_24h: number;
     published_7d: number;
     clients_at_risk: number;
+    clients_in_cooldown: number;
+    clients_suppressed: number;
   };
   clients: ClientSummary[];
 }
@@ -73,6 +77,7 @@ function ConnBadge({ status }: { status: string }) {
 /* ─── Page ─── */
 
 export default function SocialSyncOpsPage() {
+  usePageTitle("SocialSync");
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [filter, setFilter] = useState<string>("all");
@@ -366,7 +371,7 @@ export default function SocialSyncOpsPage() {
 
 /* ─── Sub-components ─── */
 
-function MetricCard({ label, value, color }: { label: string; value: number; color?: string }) {
+function MetricCard({ label, value, color }: { label: string; value: number | string; color?: string }) {
   const textColor = color === "emerald" ? "text-emerald-700" : color === "red" ? "text-red-600" : color === "amber" ? "text-amber-700" : color === "blue" ? "text-blue-700" : "text-gray-900";
   return (
     <Card className="p-3 text-center">

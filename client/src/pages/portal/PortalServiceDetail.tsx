@@ -415,9 +415,9 @@ export default function PortalServiceDetail() {
 
         {error && (
           <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
-            <span>Failed to load service.</span>
+            <span>We couldn't load this service. It may have been removed, or there's a brief hiccup — try again.</span>
             <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-              <RefreshCw className="w-3 h-3" /> Retry
+              <RefreshCw className="w-3 h-3" /> Try again
             </button>
           </div>
         )}

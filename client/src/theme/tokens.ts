@@ -185,6 +185,10 @@ export const mkt = {
   buttonHoverBg: colors.effortel.a200,
   darkBg: '#0d1514',
   lightBg: '#dfe8e6',
+  /** Lighter section background — visible contrast against mkt.bg */
+  sectionLight: '#242d30',
+  /** Even lighter — for alternating sections that need clear pop */
+  sectionLighter: '#2e393c',
 } as const;
 
 export const tokens = {

@@ -387,15 +387,27 @@ export default function SolutionPage() {
             background: `linear-gradient(180deg, ${mkt.darkHover} 0%, ${mkt.dark} 100%)`,
             padding: "64px 28px",
           }}
-          data-testid="solution-testimonial"
+          data-testid="solution-outcome-example"
         >
           <div style={{ maxWidth: 680, margin: "0 auto", textAlign: "center" }} data-reveal="fade-up">
-            <div style={{ fontSize: 48, color: mkt.accent, marginBottom: 16, lineHeight: 1 }}>&ldquo;</div>
-            <p style={{ fontSize: "clamp(17px, 2vw, 22px)", color: mkt.onDark, lineHeight: 1.6, fontWeight: 500, fontStyle: "italic", marginBottom: 20 }}>
+            <p
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: mkt.accent,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                margin: "0 0 14px",
+              }}
+            >
+              Sample outcome · {solution.trade}
+            </p>
+            <p style={{ fontSize: "clamp(17px, 2vw, 22px)", color: mkt.onDark, lineHeight: 1.6, fontWeight: 500, margin: "0 0 18px" }}>
               {solution.testimonialPlaceholder}
             </p>
-            <p style={{ fontSize: 14, color: mkt.onDarkFaint }}>
-              &mdash; Happy {solution.trade.toLowerCase().replace(/s$/, "")} customer
+            <p style={{ fontSize: 13, color: mkt.onDarkFaint, margin: 0, lineHeight: 1.6, maxWidth: 520, marginInline: "auto" }}>
+              Illustrative scenario built from the workflow above. We publish real customer stories
+              with full names once we have their written consent.
             </p>
           </div>
         </section>

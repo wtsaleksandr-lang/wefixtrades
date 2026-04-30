@@ -452,6 +452,7 @@ export function buildAssistantConfig(): Record<string, any> {
 
   return {
     assistant: {
+      name: "WeFixTrades Sales & Support",
       model: {
         provider: "custom-llm",
         url: config.serverUrl
@@ -460,14 +461,21 @@ export function buildAssistantConfig(): Record<string, any> {
       },
       voice: {
         provider: "11labs",
-        voiceId: "21m00Tcm4TlvDq8ikWAM",  // Placeholder — configure in Vapi dashboard
+        // Override in Vapi dashboard or via env to pick a branded voice.
+        voiceId: process.env.VAPI_WFT_VOICE_ID || "21m00Tcm4TlvDq8ikWAM",
       },
-      firstMessage: "Hi, thanks for calling WeFixTrades! I can help you learn about our services, get a quick estimate, or schedule a consultation. What can I help you with?",
+      firstMessage:
+        "WeFixTrades, this is Riley — how can I help?",
+      endCallMessage:
+        "Thanks for calling WeFixTrades. We'll follow up by email shortly — have a great rest of your day.",
+      maxDurationSeconds: 900, // 15 min hard cap
+      recordingEnabled: true,
       transcriber: {
         provider: "deepgram",
         model: "nova-2",
         language: "en",
       },
+      endCallPhrases: ["goodbye", "bye", "thanks bye"],
     },
   };
 }
@@ -646,16 +654,33 @@ export async function provisionTradeLineAssistant(
       assistantId = upsertResult.assistantId;
 
       // Store the Vapi assistant ID in config
+      const latestConfig = await storage.getTradeLineConfig(clientServiceId);
+      const currentAssistant = latestConfig?.assistant;
       await storage.updateTradeLineConfig(clientServiceId, {
-        assistant: { vapiAssistantId: assistantId },
+        assistant: {
+          status: currentAssistant?.status ?? "not_built",
+          templateId: currentAssistant?.templateId ?? "",
+          inputHash: currentAssistant?.inputHash ?? "",
+          vapiAssistantId: assistantId,
+          lastBuiltAt: currentAssistant?.lastBuiltAt ?? "",
+          lastBuildError: currentAssistant?.lastBuildError ?? "",
+          manualOverride: currentAssistant?.manualOverride ?? false,
+        },
       });
     } catch (err: any) {
       // Vapi push failed — mark assistant as failed
       console.error(`[vapi] Push to Vapi failed for service #${clientServiceId}:`, err.message);
+      const latestConfig = await storage.getTradeLineConfig(clientServiceId);
+      const currentAssistant = latestConfig?.assistant;
       await storage.updateTradeLineConfig(clientServiceId, {
         assistant: {
           status: "failed",
+          templateId: currentAssistant?.templateId ?? "",
+          inputHash: currentAssistant?.inputHash ?? "",
+          vapiAssistantId: currentAssistant?.vapiAssistantId ?? "",
+          lastBuiltAt: currentAssistant?.lastBuiltAt ?? "",
           lastBuildError: `Vapi push failed: ${err.message}`,
+          manualOverride: currentAssistant?.manualOverride ?? false,
         },
       });
 

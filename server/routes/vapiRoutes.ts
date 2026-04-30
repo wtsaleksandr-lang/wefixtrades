@@ -31,6 +31,7 @@ import {
 } from "../services/vapiService";
 import { logUsage } from "../services/usageTracker";
 import { getModel } from "../services/aiService";
+import { handleSalesCallEnded } from "../services/wftSalesLine";
 
 /**
  * Per-call cache of resolved TradeLine client context.
@@ -174,6 +175,13 @@ export function registerVapiRoutes(app: Express): void {
               tradeLineResolved.clientService.id,
               report,
               event.message.recordingUrl ?? undefined,
+            );
+          } else {
+            // Not a TradeLine customer — this was a call to the WeFixTrades
+            // company sales/support line. Extract caller info, log as sales
+            // lead, and email the team. Non-blocking.
+            handleSalesCallEnded(report).catch(err =>
+              console.warn(`[wft-sales-line] post-call handler failed for ${report.callId}:`, err.message),
             );
           }
 

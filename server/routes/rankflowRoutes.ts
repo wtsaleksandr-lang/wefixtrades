@@ -6,6 +6,8 @@ import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
 import { runQA } from "../services/rankflow/qaService";
 import { createVendorBatch, addTaskToBatch, buildDispatchPacket } from "../services/rankflow/batchService";
 import { getTierConfig } from "../services/rankflow/marginGuardrails";
+import { createDraftFromRankflowTask, generateArticleBody } from "../services/contentflow/articleService";
+import { encryptToken, isEncryptionConfigured } from "../services/socialSync/tokenEncryption";
 
 export function registerRankFlowRoutes(app: Express): void {
 
@@ -34,6 +36,91 @@ export function registerRankFlowRoutes(app: Express): void {
     }
   });
 
+  /**
+   * PUT /api/rankflow/clients/:id/cms-config
+   *
+   * Stores WordPress connection details for a RankFlow client. The
+   * application password is encrypted at rest via tokenEncryption
+   * (AES-256-GCM, TOKEN_ENCRYPTION_KEY). The plaintext password is never
+   * persisted, never returned, and never logged. Body:
+   *   { cms_url, cms_username, cms_app_password,
+   *     cms_default_status?: "draft"|"publish" }
+   *
+   * Returns: { ok: true, configured_at, cms_url, cms_username,
+   *            cms_default_status } — the password is NOT echoed back.
+   */
+  app.put(
+    "/api/rankflow/clients/:id/cms-config",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const clientId = parseInt(req.params.id as string);
+        const cmsUrl = typeof req.body?.cms_url === "string" ? req.body.cms_url.trim() : "";
+        const cmsUsername = typeof req.body?.cms_username === "string" ? req.body.cms_username.trim() : "";
+        const cmsAppPassword = typeof req.body?.cms_app_password === "string" ? req.body.cms_app_password : "";
+        const cmsDefaultStatus = req.body?.cms_default_status === "publish" ? "publish" : "draft";
+
+        if (!cmsUrl || !/^https?:\/\//i.test(cmsUrl)) {
+          return res.status(400).json({ error: "cms_url must be an http(s) URL" });
+        }
+        /* Sprint 8: HTTPS allowlist. We will not store or use credentials
+         * destined for a non-https URL. The dev-only WP mock at
+         * http://localhost:5000 is exempted under NODE_ENV !== "production"
+         * so the existing test harness still works. */
+        const isLocalhostDev =
+          process.env.NODE_ENV !== "production" && /^http:\/\/localhost(:\d+)?\//.test(cmsUrl);
+        if (!cmsUrl.startsWith("https://") && !isLocalhostDev) {
+          return res.status(422).json({ error: "cms_url must use https:// — refusing to send credentials over plaintext" });
+        }
+        if (!cmsUsername) return res.status(400).json({ error: "cms_username required" });
+        if (!cmsAppPassword) return res.status(400).json({ error: "cms_app_password required" });
+        if (!isEncryptionConfigured()) {
+          return res.status(500).json({ error: "TOKEN_ENCRYPTION_KEY is not configured on this server" });
+        }
+
+        const profile = await storage.getRankFlowProfile(clientId);
+        if (!profile) return res.status(404).json({ error: "RankFlow profile not found — create profile first" });
+
+        const encryptedPassword = encryptToken(cmsAppPassword);
+        const configuredAt = new Date().toISOString();
+        const existingCreds = (profile.credentials || {}) as Record<string, any>;
+
+        const updated = await storage.upsertRankFlowProfile(clientId, {
+          cms_type: "wordpress",
+          credentials: {
+            ...existingCreds,
+            wordpress: {
+              cms_url: cmsUrl,
+              cms_username: cmsUsername,
+              cms_app_password: encryptedPassword,
+              cms_default_status: cmsDefaultStatus,
+              configured_at: configuredAt,
+            },
+          },
+        } as any);
+
+        // Log only non-sensitive fields. NEVER log the application password.
+        console.log(
+          `[rankflow] cms-config saved: client=${clientId} cms_url=${cmsUrl} cms_username=${cmsUsername} cms_default_status=${cmsDefaultStatus}`,
+        );
+
+        res.json({
+          ok: true,
+          client_id: clientId,
+          cms_type: updated.cms_type ?? "wordpress",
+          cms_url: cmsUrl,
+          cms_username: cmsUsername,
+          cms_default_status: cmsDefaultStatus,
+          configured_at: configuredAt,
+        });
+      } catch (err: any) {
+        // Avoid surfacing sensitive details in error message.
+        console.error(`[rankflow] cms-config error: ${err.message}`);
+        res.status(500).json({ error: "Failed to save CMS config" });
+      }
+    },
+  );
+
   /* ═══════════════════════════════════════════
      Plan Generation
      ═══════════════════════════════════════════ */
@@ -41,7 +128,12 @@ export function registerRankFlowRoutes(app: Express): void {
   app.post("/api/rankflow/clients/:id/generate-plan", requireAdmin, async (req: Request, res: Response) => {
     try {
       const clientId = parseInt(req.params.id as string);
-      const month = req.body.month || new Date().toISOString().slice(0, 7);
+      // Accept month via JSON body or query string; fall back to current month.
+      // Defensive against empty-body POSTs (req.body undefined when no parser fires).
+      const month =
+        (req.body && typeof req.body.month === "string" ? req.body.month : null) ||
+        (typeof req.query.month === "string" ? req.query.month : null) ||
+        new Date().toISOString().slice(0, 7);
 
       const profile = await storage.getRankFlowProfile(clientId);
       if (!profile) return res.status(404).json({ error: "RankFlow profile not found" });
@@ -50,7 +142,11 @@ export function registerRankFlowRoutes(app: Express): void {
       const existing = await storage.getMonthlyPlan(clientId, month);
       if (existing) return res.status(409).json({ error: `Plan already exists for ${month}`, plan: existing });
 
-      const planData = generateMonthlyPlan(profile);
+      // Pass the requested month so rotation logic (Starter tier alternates
+      // page_create / citation_build by odd/even month) honors the caller's
+      // intent. Without this, rotation always used the *current* real month
+      // even for plans scheduled into the future.
+      const planData = generateMonthlyPlan(profile, month);
 
       const plan = await storage.createMonthlyPlan({
         client_id: clientId,
@@ -64,6 +160,16 @@ export function registerRankFlowRoutes(app: Express): void {
       for (const t of taskDefs) {
         const task = await storage.createRankFlowTask(t as any);
         tasks.push(task);
+        if (task.type === "page_create") {
+          try {
+            const draft = await createDraftFromRankflowTask({ task, profile });
+            generateArticleBody(draft.id).catch((err) =>
+              console.error(`[contentflow] background article generation rejected for draft ${draft.id}:`, err),
+            );
+          } catch (hookErr: any) {
+            console.error(`[contentflow] article hook failed for task ${task.id}:`, hookErr.message);
+          }
+        }
       }
 
       await storage.updateMonthlyPlanStatus(plan.id, "active");

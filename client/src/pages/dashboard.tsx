@@ -66,7 +66,7 @@ export default function Dashboard() {
         position: 'sticky', top: 0, height: '100vh',
       }}>
         <div style={{ padding: '0 20px 20px', borderBottom: `1px solid ${p.colors.borderLight}` }}>
-          <div style={{ ...p.typography.h3, fontSize: 15, color: p.colors.accent }}>QuickQuote</div>
+          <div style={{ ...p.typography.h3, fontSize: 15, color: p.colors.accent }}>QuoteQuick</div>
           <div style={{ ...p.typography.captionSm, marginTop: 2 }}>Dashboard</div>
         </div>
         <nav style={{ padding: '12px 8px', flex: 1 }}>
@@ -1267,12 +1267,12 @@ function SettingsSection({ token }: { token: string }) {
           <UpgradeGate
             currentPlan={data?.plan_tier || data?.calculator?.plan_tier || 'free'}
             feature="remove_branding"
-            featureLabel="Remove QuickQuotePro badge from your calculator"
+            featureLabel="Remove QuoteQuick Pro badge from your calculator"
             compact
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ ...p.typography.bodySm, color: p.colors.muted }}>
-                Hide the QuickQuotePro powered-by badge
+                Hide the QuoteQuick Pro powered-by badge
               </span>
               <span style={{ fontSize: 12, fontWeight: 600, color: p.colors.success }}>Enabled on your plan</span>
             </div>

@@ -1,8 +1,21 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
-import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw } from "lucide-react";
+import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw, PhoneCall, Clock, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { TASK_STATUS_STYLES, TASK_STATUS_LABELS, statusLabel } from "@/config/portalLabels";
+import ModeToggle from "@/components/portal/ModeToggle";
+
+interface PendingOnboardingRow {
+  id: number;
+  client_service_id: number;
+  service_id: string;
+  service_name: string;
+  status: string;
+  sent_at: string | null;
+  created_at: string;
+  has_draft: boolean;
+}
 
 interface OverviewData {
   business_name: string;
@@ -33,6 +46,28 @@ interface QuoteQuickData {
   } | null;
 }
 
+interface TradeLineService {
+  id: number;
+  service_id: string;
+  status: string;
+}
+
+interface TradeLineData {
+  config: {
+    currentMode: string;
+    variant: string;
+    channels: { voice: boolean; websiteChat: boolean; sms: boolean };
+    setupStage?: string;
+  } | null;
+  setupStage?: string;
+  usage: {
+    voice_minutes_used: number;
+    calls_count: number;
+    included_minutes: number;
+    overage_minutes?: number;
+  } | null;
+}
+
 function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
@@ -50,6 +85,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function PortalDashboard() {
+  usePageTitle("Dashboard");
   const { data, isLoading, error, refetch } = useQuery<OverviewData>({
     queryKey: ["/api/portal/overview"],
     queryFn: async () => {
@@ -68,6 +104,15 @@ export default function PortalDashboard() {
     },
   });
 
+  const { data: pendingOnboarding } = useQuery<{ submissions: PendingOnboardingRow[] }>({
+    queryKey: ["/api/portal/onboarding"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/onboarding", { credentials: "include" });
+      if (!res.ok) return { submissions: [] };
+      return res.json();
+    },
+  });
+
   const { data: qqData } = useQuery<QuoteQuickData>({
     queryKey: ["/api/portal/quotequick/summary"],
     queryFn: async () => {
@@ -75,6 +120,31 @@ export default function PortalDashboard() {
       if (!res.ok) return { calculator: null };
       return res.json();
     },
+  });
+
+  // Find TradeLine service from the services list
+  const { data: portalServices } = useQuery<TradeLineService[]>({
+    queryKey: ["/api/portal/services"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/services", { credentials: "include" });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data?.services ?? data ?? [];
+    },
+  });
+
+  const tradeLineService = (portalServices ?? []).find(
+    (s) => s.service_id?.startsWith("tradeline") && s.status !== "cancelled"
+  );
+
+  const { data: tlData } = useQuery<TradeLineData>({
+    queryKey: ["/api/portal/tradeline", tradeLineService?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/portal/tradeline/${tradeLineService!.id}`, { credentials: "include" });
+      if (!res.ok) return { config: null, usage: null };
+      return res.json();
+    },
+    enabled: !!tradeLineService,
   });
 
   return (
@@ -86,9 +156,9 @@ export default function PortalDashboard() {
       )}
       {error && (
         <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
-          <span>Failed to load dashboard.</span>
+          <span>We hit a snag loading your dashboard. A refresh usually fixes it.</span>
           <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-            <RefreshCw className="w-3 h-3" /> Retry
+            <RefreshCw className="w-3 h-3" /> Try again
           </button>
         </div>
       )}
@@ -115,6 +185,7 @@ export default function PortalDashboard() {
             <StatCard
               label="Setup Required"
               value={data.pending_onboarding}
+              subtitle="Forms to complete"
               icon={ClipboardList}
               color="text-amber-600"
               bgColor="bg-amber-50"
@@ -123,6 +194,7 @@ export default function PortalDashboard() {
             <StatCard
               label="Action Needed"
               value={data.action_needed}
+              subtitle="Waiting on you"
               icon={AlertCircle}
               color={data.action_needed > 0 ? "text-red-600" : "text-gray-400"}
               bgColor={data.action_needed > 0 ? "bg-red-50" : "bg-gray-50"}
@@ -137,6 +209,55 @@ export default function PortalDashboard() {
               href="/portal/billing"
             />
           </div>
+
+          {/* Pending onboarding card — only shows if there are any forms to complete */}
+          {pendingOnboarding?.submissions && pendingOnboarding.submissions.length > 0 && (
+            <div className="bg-white rounded-xl border border-amber-200 p-5">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
+                    <ClipboardList className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Complete your setup</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      We need a few details before we can launch your service
+                      {pendingOnboarding.submissions.length > 1 ? "s" : ""}.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="divide-y divide-gray-100 border-t border-gray-100">
+                {pendingOnboarding.submissions.map((sub) => (
+                  <Link
+                    key={sub.id}
+                    href={`/portal/onboarding/${sub.id}`}
+                    className="flex items-center justify-between py-3 hover:bg-gray-50 -mx-5 px-5 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{sub.service_name}</p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">
+                          {sub.has_draft ? "Draft saved — continue" : "Not started"}
+                          {sub.status === "viewed" && !sub.has_draft ? " · viewed" : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                        sub.has_draft
+                          ? "bg-blue-50 text-blue-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}>
+                        {sub.has_draft ? "In progress" : "Start"}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* QuoteQuick card */}
           {qqData?.calculator && (
@@ -201,6 +322,77 @@ export default function PortalDashboard() {
             </div>
           )}
 
+          {/* TradeLine card */}
+          {tradeLineService && tlData?.config && (() => {
+            const stage = tlData.setupStage || tlData.config.setupStage || tradeLineService.status;
+            const statusBadge = stage === "live"
+              ? { label: "Live", cls: "bg-emerald-50 text-emerald-700" }
+              : stage === "ready_for_testing"
+              ? { label: "Ready for testing", cls: "bg-amber-50 text-amber-700" }
+              : { label: "Setting up", cls: "bg-gray-100 text-gray-600" };
+
+            return (
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
+                      <PhoneCall className="w-5 h-5 text-teal-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">TradeLine</h3>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-teal-50 text-teal-700">
+                          {tlData.config.variant.replace(/_/g, " ")}
+                        </span>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${statusBadge.cls}`}>
+                          {statusBadge.label}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <Link href={`/portal/services/${tradeLineService.id}`}>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors">
+                      Details <ExternalLink className="w-3 h-3" />
+                    </span>
+                  </Link>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-gray-100 space-y-3">
+                  <ModeToggle
+                    currentMode={tlData.config.currentMode as any}
+                    clientServiceId={tradeLineService.id}
+                    apiBase="/api/portal/tradeline"
+                    onModeChanged={() => {}}
+                  />
+                  {tlData.usage ? (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Monthly usage</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center gap-2">
+                          <PhoneCall className="w-3.5 h-3.5 text-gray-400" />
+                          <span className="text-sm text-gray-600">{tlData.usage.calls_count} calls</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5 text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            {tlData.usage.voice_minutes_used} / {tlData.usage.included_minutes} minutes used
+                          </span>
+                        </div>
+                      </div>
+                      {(tlData.usage.overage_minutes ?? 0) > 0 && (
+                        <p className="text-xs text-amber-600 mt-1.5">
+                          {tlData.usage.overage_minutes} overage minutes
+                        </p>
+                      )}
+                      <p className="text-[10px] text-gray-300 mt-2">Minutes = total time your AI spends on calls this month.</p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400">No activity yet this month.</p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
           {/* SocialSync CTA */}
           {ssProfile && (ssProfile.exists === false || !ssProfile.niche) && (
             <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-center justify-between">
@@ -220,8 +412,9 @@ export default function PortalDashboard() {
               <h2 className="text-sm font-semibold text-gray-900">Recent Activity</h2>
             </div>
             {data.recent_activity.length === 0 ? (
-              <div className="px-5 py-8 text-center text-sm text-gray-400">
-                No activity yet. Your service updates will appear here.
+              <div className="px-5 py-8 text-center">
+                <p className="text-sm font-medium text-gray-700 mb-1">Nothing happening yet</p>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">Once your services go live, task updates, call logs, and new leads will land here in real time.</p>
               </div>
             ) : (
               <ul className="divide-y divide-gray-50">
@@ -252,6 +445,7 @@ export default function PortalDashboard() {
 function StatCard({
   label,
   value,
+  subtitle,
   icon: Icon,
   color,
   bgColor,
@@ -259,6 +453,7 @@ function StatCard({
 }: {
   label: string;
   value: string | number;
+  subtitle?: string;
   icon: React.ElementType;
   color: string;
   bgColor: string;
@@ -273,6 +468,7 @@ function StatCard({
         <div>
           <p className="text-xs text-gray-500">{label}</p>
           <p className="text-lg font-semibold text-gray-900">{value}</p>
+          {subtitle && <p className="text-[10px] text-gray-400 -mt-0.5">{subtitle}</p>}
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { Loader2, Check, RefreshCw, KeyRound } from "lucide-react";
@@ -14,6 +15,7 @@ interface SettingsData {
 }
 
 export default function PortalSettings() {
+  usePageTitle("Settings");
   const queryClient = useQueryClient();
   const [saved, setSaved] = useState(false);
 

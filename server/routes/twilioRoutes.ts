@@ -8,6 +8,7 @@ import {
   matchLeadByPhone,
   truncateSms,
   verifyTwilioSignature,
+  getTwilioFromNumber,
 } from "../twilioClient";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
 import { getOpenAI } from "../openaiClient";
@@ -109,7 +110,7 @@ export function registerTwilioRoutes(app: Express): void {
         direction: "outbound",
         channel,
         body: shortReply,
-        from_number: isWhatsapp ? process.env.TWILIO_WHATSAPP_NUMBER || null : process.env.TWILIO_FROM_NUMBER || null,
+        from_number: isWhatsapp ? process.env.TWILIO_WHATSAPP_NUMBER || null : getTwilioFromNumber(),
         to_number: cleanFrom,
         twilio_sid: null,
         is_ai: true,
@@ -145,7 +146,7 @@ export function registerTwilioRoutes(app: Express): void {
 
       res.json({
         configured: isTwilioConfigured(),
-        from_number: process.env.TWILIO_FROM_NUMBER || null,
+        from_number: getTwilioFromNumber(),
         whatsapp_number: process.env.TWILIO_WHATSAPP_NUMBER || null,
       });
     } catch (error: any) {

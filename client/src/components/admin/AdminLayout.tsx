@@ -14,16 +14,24 @@ import {
   DollarSign,
   Sparkles,
   Wrench,
+  TrendingUp,
+  Share2,
+  Target,
   User,
   Settings,
   KeyRound,
   LogOut,
   ExternalLink,
   Megaphone,
+  LifeBuoy,
+  Star,
+  Shield,
+  ChevronDown,
+  Layers,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -44,13 +52,28 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
-const NAV_ITEMS = [
+/* ─── Core nav — always visible ─── */
+const CORE_ITEMS = [
   { label: "Overview", href: "/admin/crm", icon: LayoutDashboard },
   { label: "Clients", href: "/admin/crm/clients", icon: Users },
   { label: "Inbox", href: "/admin/crm/inbox", icon: Inbox },
+  { label: "Support", href: "/admin/crm/support", icon: LifeBuoy, countKey: "support" as const },
+];
+
+/* ─── Collapsible groups ─── */
+const PRODUCTS_ITEMS = [
+  { label: "Services", href: "/admin/crm/services", icon: Wrench },
+  { label: "MapGuard", href: "/admin/crm/mapguard", icon: Shield },
+  { label: "RankFlow", href: "/admin/crm/rankflow", icon: TrendingUp },
+  { label: "Reviews", href: "/admin/crm/reviews", icon: Star },
+  { label: "SocialSync", href: "/admin/crm/socialsync", icon: Share2 },
+  { label: "ContentFlow", href: "/admin/contentflow", icon: Layers },
+];
+
+const FINANCE_ITEMS = [
   { label: "Billing", href: "/admin/crm/billing", icon: CreditCard },
   { label: "Suppliers", href: "/admin/crm/suppliers", icon: Factory },
-  { label: "Services", href: "/admin/crm/services", icon: Wrench },
+  { label: "Sales", href: "/admin/crm/sales", icon: Target },
 ];
 
 const OUTBOUND_ITEMS = [
@@ -64,9 +87,155 @@ const SECONDARY_ITEMS = [
   { label: "Client Portal", href: "/portal", icon: ExternalLink },
 ];
 
+/* Unified list for page title detection and other lookups */
+const NAV_ITEMS = [...CORE_ITEMS, ...PRODUCTS_ITEMS, ...FINANCE_ITEMS];
+
 function isActive(location: string, href: string): boolean {
   if (href === "/admin/crm") return location === "/admin/crm";
   return location.startsWith(href);
+}
+
+/* ─── Collapsible nav group ─── */
+function NavGroup({
+  label,
+  items,
+  location,
+  supportUnresolved,
+  onNavigate,
+  defaultOpen,
+}: {
+  label: string;
+  items: typeof CORE_ITEMS;
+  location: string;
+  supportUnresolved?: number;
+  onNavigate: () => void;
+  defaultOpen: boolean;
+}) {
+  const hasActiveChild = items.some((item) => isActive(location, item.href));
+  const [open, setOpen] = useState(defaultOpen || hasActiveChild);
+
+  // Auto-open when navigating into the group
+  useEffect(() => {
+    if (hasActiveChild && !open) setOpen(true);
+  }, [hasActiveChild]);
+
+  return (
+    <div className="mt-3">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-3 py-1.5 mb-0.5 group"
+      >
+        <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400 group-hover:text-gray-500 transition-colors">
+          {label}
+        </span>
+        <ChevronDown className={cn("w-3 h-3 text-gray-300 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="space-y-0.5">
+          {items.map((item) => {
+            const active = isActive(location, item.href);
+            const countKey = (item as any).countKey;
+            const badgeCount = countKey === "support" ? (supportUnresolved ?? 0) : 0;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px]",
+                  active
+                    ? "bg-[#F0F7F4] text-[#2D6A4F] font-medium"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                )}
+              >
+                <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
+                <span className="flex-1">{item.label}</span>
+                {badgeCount > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-red-500 text-white">
+                    {badgeCount}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Full sidebar nav ─── */
+function SidebarNav({
+  location,
+  supportUnresolved,
+  onNavigate,
+}: {
+  location: string;
+  supportUnresolved: number;
+  onNavigate: () => void;
+}) {
+  return (
+    <nav className="flex-1 overflow-y-auto py-3 px-2">
+      {/* Core — always expanded */}
+      <div className="space-y-0.5">
+        {CORE_ITEMS.map((item) => {
+          const active = isActive(location, item.href);
+          const countKey = (item as any).countKey;
+          const badgeCount = countKey === "support" ? supportUnresolved : 0;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onNavigate}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]",
+                active
+                  ? "bg-[#F0F7F4] text-[#2D6A4F] font-medium"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              )}
+            >
+              <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
+              <span className="flex-1">{item.label}</span>
+              {badgeCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-red-500 text-white">
+                  {badgeCount}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </div>
+
+      <NavGroup label="Products" items={PRODUCTS_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
+      <NavGroup label="Finance" items={FINANCE_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
+      <NavGroup label="Outbound" items={OUTBOUND_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
+
+      {/* Other */}
+      <div className="mt-4 pt-2 border-t border-gray-100">
+        <div className="space-y-0.5">
+          {SECONDARY_ITEMS.map((item) => {
+            const active = isActive(location, item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px]",
+                  active
+                    ? "bg-[#F0F7F4] text-[#2D6A4F] font-medium"
+                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                )}
+              >
+                <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </nav>
+  );
 }
 
 /* ─── Quick Add Dialogs ─── */
@@ -386,6 +555,18 @@ export default function AdminLayout({
   const [quickAdd, setQuickAdd] = useState<string | null>(null);
   const [copilotOpen, setCopilotOpen] = useState(false);
 
+  // Support ticket unresolved count for nav badge
+  const { data: supportCounts } = useQuery<{ open: number; in_progress: number; waiting_on_customer: number }>({
+    queryKey: ["/api/admin/crm/support/tickets/counts"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/crm/support/tickets/counts", { credentials: "include" });
+      if (!res.ok) return { open: 0, in_progress: 0, waiting_on_customer: 0 };
+      return res.json();
+    },
+    refetchInterval: 60000, // refresh every minute
+  });
+  const supportUnresolved = (supportCounts?.open ?? 0) + (supportCounts?.in_progress ?? 0) + (supportCounts?.waiting_on_customer ?? 0);
+
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
     navigate("/login");
@@ -442,83 +623,12 @@ export default function AdminLayout({
         </div>
 
         {/* Nav items */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2">
-          <div className="space-y-0.5">
-            {NAV_ITEMS.map((item) => {
-              const active = isActive(location, item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]",
-                    active
-                      ? "bg-[#F0F7F4] text-[#2D6A4F] font-medium"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  )}
-                >
-                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
+        <SidebarNav
+          location={location}
+          supportUnresolved={supportUnresolved}
+          onNavigate={() => setMobileOpen(false)}
+        />
 
-          <div className="mt-6 mb-2 px-3">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
-              Outbound
-            </span>
-          </div>
-          <div className="space-y-0.5">
-            {OUTBOUND_ITEMS.map((item) => {
-              const active = isActive(location, item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]",
-                    active
-                      ? "bg-[#F0F7F4] text-[#2D6A4F] font-medium"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  )}
-                >
-                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-
-          <div className="mt-6 mb-2 px-3">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
-              Other
-            </span>
-          </div>
-          <div className="space-y-0.5">
-            {SECONDARY_ITEMS.map((item) => {
-              const active = isActive(location, item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]",
-                    active
-                      ? "bg-[#F0F7F4] text-[#2D6A4F] font-medium"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  )}
-                >
-                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
 
         {/* Footer */}
         <div className="border-t border-gray-100 px-4 py-3">

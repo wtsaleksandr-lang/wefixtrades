@@ -53,9 +53,12 @@ export async function createPostJobReviewRequest(
       facebookPageUrl = client.facebook_page_url ?? null;
     }
   }
+  if (!clientId) {
+    return { created: false, reason: "No linked client found for calculator owner" };
+  }
 
   // Generate review URLs
-  const reviewUrl = generateGoogleReviewLink(googlePlaceId);
+  const reviewUrl = generateGoogleReviewLink(googlePlaceId) || "";
   const facebookReviewUrl = generateFacebookReviewLink(facebookPageUrl);
 
   // Load client settings if available
@@ -89,7 +92,9 @@ export async function createPostJobReviewRequest(
   const runAt = new Date(Date.now() + delayHours * 60 * 60 * 1000);
 
   const reviewRequest = await storage.createReviewRequest({
-    client_id: clientId ?? null,
+    client_id: clientId,
+    source_type: "booking",
+    source_id: booking.id,
     booking_id: booking.id,
     lead_id: booking.lead_id ?? null,
     customer_name: booking.customer_name,
@@ -100,6 +105,7 @@ export async function createPostJobReviewRequest(
     status: "pending",
     sentiment: null,
     google_place_id: googlePlaceId,
+    review_link: reviewUrl,
     review_url: reviewUrl,
     facebook_review_url: facebookReviewUrl ?? null,
     routed_platform: null,
@@ -163,11 +169,13 @@ export async function createManualReviewRequest(opts: {
     facebookReviewUrl = generateFacebookReviewLink(client.facebook_page_url);
   }
 
-  const reviewUrl = generateGoogleReviewLink(googlePlaceId);
+  const reviewUrl = generateGoogleReviewLink(googlePlaceId) || "";
   const channel = opts.channel || (opts.customerEmail ? "email" : "sms");
 
   const reviewRequest = await storage.createReviewRequest({
     client_id: opts.clientId,
+    source_type: source,
+    source_id: null,
     booking_id: null,
     lead_id: null,
     customer_name: opts.customerName,
@@ -178,6 +186,7 @@ export async function createManualReviewRequest(opts: {
     status: "pending",
     sentiment: null,
     google_place_id: googlePlaceId,
+    review_link: reviewUrl,
     review_url: reviewUrl,
     facebook_review_url: facebookReviewUrl,
     routed_platform: null,
@@ -213,11 +222,13 @@ export async function createQrReviewRequest(
   // Resolve client data
   const client = await storage.getClientById(clientId);
   const googlePlaceId = client?.google_place_id ?? null;
-  const reviewUrl = generateGoogleReviewLink(googlePlaceId);
+  const reviewUrl = generateGoogleReviewLink(googlePlaceId) || "";
   const facebookReviewUrl = generateFacebookReviewLink(client?.facebook_page_url);
 
   const reviewRequest = await storage.createReviewRequest({
     client_id: clientId,
+    source_type: "qr_scan",
+    source_id: null,
     booking_id: null,
     lead_id: null,
     customer_name: null,
@@ -228,6 +239,7 @@ export async function createQrReviewRequest(
     status: "sent", // Already "delivered" — the customer is on the page
     sentiment: null,
     google_place_id: googlePlaceId,
+    review_link: reviewUrl,
     review_url: reviewUrl,
     facebook_review_url: facebookReviewUrl ?? null,
     routed_platform: null,

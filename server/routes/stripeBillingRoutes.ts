@@ -11,6 +11,15 @@ import Stripe from "stripe";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
+import { sendPaymentReceipt } from "../lib/paymentReceiptEmail";
+import { sendAccountWelcome } from "../lib/accountWelcomeEmail";
+import { sendPaymentFailedEmail } from "../lib/paymentFailedEmail";
+import { sendCancellationEmail } from "../lib/cancellationEmail";
+import {
+  scheduleFailedPaymentSequence,
+  scheduleCardExpiringEmail,
+  cancelPendingForSubscription,
+} from "../services/dunningService";
 import { getTradeLineDefaultConfig } from "@shared/schema";
 
 function getStripe(): Stripe | null {
@@ -134,12 +143,34 @@ export function registerStripeBillingRoutes(app: Express): void {
           await handleInvoicePaid(event.data.object as Stripe.Invoice);
           break;
 
+        case "invoice.payment_succeeded":
+          // Cancels any pending dunning rows when a charge eventually
+          // goes through. Stripe fires this for both first-time + retry
+          // payments — handleInvoicePaid covers DB recording, this only
+          // touches the dunning queue.
+          await handleInvoiceSucceeded(event.data.object as Stripe.Invoice);
+          break;
+
         case "invoice.payment_failed":
-          await handleInvoiceFailed(event.data.object as Stripe.Invoice);
+          await handleInvoiceFailed(event.data.object as Stripe.Invoice, event.id);
+          break;
+
+        case "customer.source.expiring":
+          await handleCardExpiring(event.data.object as Stripe.Card | Stripe.Source, event.id);
+          break;
+
+        case "customer.subscription.updated":
+          // Only acts on past_due → active transitions (recovery) and
+          // active → canceled transitions (defensive cleanup). Most
+          // subscription updates are no-ops here.
+          await handleSubscriptionUpdated(
+            event.data.object as Stripe.Subscription,
+            event.data.previous_attributes as Partial<Stripe.Subscription> | undefined,
+          );
           break;
 
         case "customer.subscription.deleted":
-          await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
+          await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, event.id);
           break;
 
         default:
@@ -181,11 +212,17 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     await provisionOrConfirmService(session, clientId, serviceId, baseUrl);
   }
 
+  // Branded payment receipt — sent once per session, after all services provisioned.
+  // Stripe sends its own receipt; this one is on-brand and links back to the portal.
+  sendPaymentReceipt(session, clientId).catch(err =>
+    console.warn(`[payment-receipt] send failed for session ${session.id}:`, err.message),
+  );
+
   // Ensure portal login exists after payment is confirmed
   try {
-    const { created, tempPassword } = await storage.ensurePortalAccount(clientId);
+    const { user, created } = await storage.ensurePortalAccount(clientId);
     if (created) {
-      console.log(`[billing-webhook] Auto-created portal account for client #${clientId} (temp password generated)`);
+      console.log(`[billing-webhook] Auto-created portal account for client #${clientId}`);
       await storage.logAdminActivity({
         actor_type: "system",
         actor_name: "Stripe Webhook",
@@ -194,6 +231,15 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         entity_id: clientId,
         summary: `Auto-created portal account after payment`,
       });
+
+      // Send account-created welcome email with a magic "set password" link.
+      // We never email the temp password — the customer sets their own via the link.
+      const client = await storage.getClientById(clientId);
+      if (client) {
+        sendAccountWelcome({ user, client }).catch(err =>
+          console.warn(`[account-welcome] send failed for client #${clientId}:`, err.message),
+        );
+      }
     }
   } catch (err: any) {
     console.warn(`[billing-webhook] Could not auto-create portal account for client #${clientId}: ${err.message}`);
@@ -422,7 +468,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   console.log(`[billing-webhook] Recorded renewal payment for client ${client.id}: $${((invoice.amount_paid ?? 0) / 100).toFixed(2)}`);
 }
 
-async function handleInvoiceFailed(invoice: Stripe.Invoice) {
+async function handleInvoiceFailed(invoice: Stripe.Invoice, eventId: string) {
   const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
   if (!customerId) return;
 
@@ -439,12 +485,112 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice) {
     actor_type: "system",
   });
 
-  console.log(`[billing-webhook] Payment failed for client ${client.id}`);
+  // Day 0 — friendly heads-up email (immediate, idempotent per invoice).
+  // Existing module — kept as the immediate touchpoint for the failure.
+  sendPaymentFailedEmail({
+    clientId: client.id,
+    invoiceId: invoice.id || "",
+    amountCents: invoice.amount_due ?? 0,
+    nextAttemptAt: invoice.next_payment_attempt ? new Date(invoice.next_payment_attempt * 1000) : null,
+  }).catch(err => console.warn(`[payment-failed] email send failed:`, err.message));
+
+  // Day 2 / Day 5 / Day 7 — schedule the dunning sequence. Idempotent on
+  // (subscription, event_id, kind) so duplicate Stripe deliveries are
+  // safe. Day 0 is already covered by sendPaymentFailedEmail above.
+  const subscriptionId = typeof invoice.subscription === "string"
+    ? invoice.subscription
+    : invoice.subscription?.id ?? null;
+
+  scheduleFailedPaymentSequence({
+    stripeCustomerId: customerId,
+    stripeSubscriptionId: subscriptionId,
+    stripeInvoiceId: invoice.id || null,
+    triggerEventId: eventId,
+    amountCents: invoice.amount_due ?? undefined,
+    currency: invoice.currency ?? undefined,
+    clientId: client.id,
+  }).catch(err => console.warn(`[dunning] schedule failed:`, err.message));
+
+  console.log(`[billing-webhook] Payment failed for client ${client.id}, dunning sequence scheduled`);
 }
 
-async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+async function handleInvoiceSucceeded(invoice: Stripe.Invoice) {
+  const subscriptionId = typeof invoice.subscription === "string"
+    ? invoice.subscription
+    : invoice.subscription?.id;
+  if (!subscriptionId) return;
+
+  // Stop nagging — payment came through.
+  await cancelPendingForSubscription({
+    stripeSubscriptionId: subscriptionId,
+    reason: "payment_succeeded",
+  }).catch(err => console.warn(`[dunning] cancel-on-success failed:`, err.message));
+}
+
+async function handleCardExpiring(source: Stripe.Card | Stripe.Source, eventId: string) {
+  const customerId = typeof source.customer === "string" ? source.customer : source.customer?.id;
+  if (!customerId) return;
+
+  const client = await storage.findClientByStripeCustomerId(customerId);
+
+  // Pull card details — shape differs slightly between Card (legacy) and Source
+  const card = (source as any).card || source;
+  const last4 = card.last4 ?? undefined;
+  const brand = card.brand ?? undefined;
+  const expMonth = card.exp_month ?? undefined;
+  const expYear = card.exp_year ?? undefined;
+
+  await scheduleCardExpiringEmail({
+    stripeCustomerId: customerId,
+    triggerEventId: eventId,
+    clientId: client?.id ?? null,
+    cardLast4: last4,
+    cardBrand: brand,
+    expMonth,
+    expYear,
+  }).catch(err => console.warn(`[dunning] card-expiring schedule failed:`, err.message));
+
+  console.log(`[billing-webhook] Card expiring for customer ${customerId}, email queued`);
+}
+
+async function handleSubscriptionUpdated(
+  subscription: Stripe.Subscription,
+  previousAttrs: Partial<Stripe.Subscription> | undefined,
+) {
+  // Recovery path: past_due → active (a retry succeeded). Cancel any
+  // pending dunning rows even if Stripe didn't fire a fresh
+  // invoice.payment_succeeded for some reason.
+  if (previousAttrs?.status === "past_due" && subscription.status === "active") {
+    await cancelPendingForSubscription({
+      stripeSubscriptionId: subscription.id,
+      reason: "payment_succeeded",
+    }).catch(err => console.warn(`[dunning] cancel-on-recovery failed:`, err.message));
+  }
+
+  // Defensive: if we ever see active → canceled here (rare — usually
+  // subscription.deleted fires first), still cancel pending rows.
+  if (previousAttrs?.status && previousAttrs.status !== "canceled" && subscription.status === "canceled") {
+    await cancelPendingForSubscription({
+      stripeSubscriptionId: subscription.id,
+      reason: "subscription_canceled",
+    }).catch(err => console.warn(`[dunning] cancel-on-canceled-update failed:`, err.message));
+  }
+}
+
+async function handleSubscriptionDeleted(subscription: Stripe.Subscription, _eventId: string) {
   const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
   if (!customerId) return;
+
+  // Stop dunning sequence: a canceled subscription should not receive any
+  // remaining day_2 / day_5 / day_7 reminders. The existing per-service
+  // sendCancellationEmail (below) is the customer-facing cancel confirmation
+  // — we don't add a duplicate dunning canceled-email here. The
+  // scheduleSubscriptionCanceledEmail() helper remains in dunningService for
+  // future use (e.g. ops-initiated cancellation outside the existing flow).
+  cancelPendingForSubscription({
+    stripeSubscriptionId: subscription.id,
+    reason: "subscription_canceled",
+  }).catch(err => console.warn(`[dunning] cancel-pending-on-deleted failed:`, err.message));
 
   const client = await storage.findClientByStripeCustomerId(customerId);
   if (!client) return;
@@ -454,6 +600,12 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   for (const svc of services) {
     if (svc.billing_period === "monthly" && svc.status === "active") {
       await storage.updateClientService(svc.id, { status: "cancelled", cancelled_at: new Date() });
+
+      // Send branded cancellation confirmation + exit survey (non-blocking, idempotent per service)
+      sendCancellationEmail({
+        clientServiceId: svc.id,
+        cancellationContext: "stripe",
+      }).catch(err => console.warn(`[cancellation-email] send failed for service #${svc.id}:`, err.message));
     }
   }
 

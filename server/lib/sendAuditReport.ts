@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildAuditReportEmail } from "./reportEmailTemplate";
 import { generateReportPdf } from "./pdfGenerator";
+import { isEmailUnsubscribed } from "./unsubscribeStorage";
 
 const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -15,6 +16,11 @@ export async function sendAuditReportEmail(opts: {
   const transporter = getEmailTransporter();
   if (!transporter) {
     return { ok: false, error: "Email service not configured" };
+  }
+
+  if (await isEmailUnsubscribed(opts.recipientEmail)) {
+    console.log(`[audit-email] Recipient ${opts.recipientEmail} is unsubscribed — skipping`);
+    return { ok: false, error: "Recipient unsubscribed" };
   }
 
   const rows = await db
@@ -65,6 +71,7 @@ export async function sendAuditReportEmail(opts: {
     executiveSummary: narrative.executiveSummary || "",
     reportUrl,
     hasPdfAttachment: hasPdf,
+    recipientEmail: opts.recipientEmail,
   });
 
   await transporter.sendMail({

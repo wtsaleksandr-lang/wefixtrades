@@ -1,7 +1,8 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, Wrench, ClipboardList, Truck, CreditCard, TrendingUp } from "lucide-react";
+import { Users, Wrench, ClipboardList, Truck, CreditCard, TrendingUp, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 
@@ -14,6 +15,232 @@ interface Overview {
   monthlyRevenue: number;
   recentClients: { id: number; business_name: string; status: string; created_at: string }[];
   recentTasks: { id: number; title: string; status: string; priority: string; client_id: number; client_name: string | null; due_at: string | null }[];
+}
+
+/* ─── Ops Intelligence types ─── */
+interface OpsPriority {
+  title: string;
+  severity: "low" | "medium" | "high" | "critical";
+  reason: string;
+  related_entities: Array<{ type: string; id: number }>;
+}
+
+interface DailyOpsSummaryOutput {
+  summary: string;
+  priorities: OpsPriority[];
+  risks: string[];
+  recommendations: string[];
+}
+
+interface OpsSnapshotResponse {
+  snapshot: {
+    id: number;
+    snapshot_type: string;
+    generated_at: string;
+    signal_count: number;
+    ai_output: DailyOpsSummaryOutput | null;
+    prompt_version: string | null;
+    detector_version: string | null;
+    metadata: Record<string, any> | null;
+  } | null;
+}
+
+const SEVERITY_STYLES: Record<string, { badge: string; dot: string }> = {
+  critical: { badge: "bg-red-50 text-red-700 border border-red-200", dot: "bg-red-500" },
+  high:     { badge: "bg-orange-50 text-orange-700 border border-orange-200", dot: "bg-orange-500" },
+  medium:   { badge: "bg-amber-50 text-amber-700 border border-amber-200", dot: "bg-amber-400" },
+  low:      { badge: "bg-gray-50 text-gray-600 border border-gray-200", dot: "bg-gray-400" },
+};
+
+function SeverityBadge({ severity }: { severity: string }) {
+  const s = SEVERITY_STYLES[severity] ?? SEVERITY_STYLES.low;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${s.badge}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+      {severity}
+    </span>
+  );
+}
+
+function OpsIntelligenceWidget() {
+  const { data, isLoading, isError, refetch, isFetching } = useQuery<OpsSnapshotResponse>({
+    queryKey: ["/api/admin/ops/summary/daily"],
+    staleTime: 5 * 60 * 1000, // 5 min cache
+  });
+
+  const snapshot = data?.snapshot;
+  const aiOutput = snapshot?.ai_output;
+
+  const generatedAt = snapshot?.generated_at
+    ? new Date(snapshot.generated_at).toLocaleString("en-US", {
+        month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
+      })
+    : null;
+
+  return (
+    <Card className="p-0 overflow-hidden col-span-full">
+      <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-gray-100">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-[#2D6A4F] flex items-center justify-center">
+            <AlertTriangle className="w-3.5 h-3.5 text-white" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Daily Operations Summary</h3>
+            {generatedAt && (
+              <p className="text-[10px] text-gray-400">
+                Last run {generatedAt}
+                {snapshot?.signal_count != null && ` · ${snapshot.signal_count} signal${snapshot.signal_count !== 1 ? "s" : ""} detected`}
+                {snapshot?.detector_version && ` · ${snapshot.detector_version}`}
+              </p>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 disabled:opacity-40 transition-opacity"
+          title="Refresh"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
+      </div>
+
+      <div className="p-4">
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2 mt-3" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </div>
+        ) : isError ? (
+          <div className="flex items-center gap-2 text-sm text-red-600">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            Something went wrong loading the daily summary. Please try again later.
+          </div>
+        ) : !snapshot ? (
+          <div className="text-center py-6">
+            <p className="text-sm text-gray-500 mb-3">No daily summary yet. Run your first operations check.</p>
+            <TriggerOpsRunButton />
+          </div>
+        ) : !aiOutput ? (
+          <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium">AI summarization failed for this run.</p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                {snapshot.signal_count} issues were detected but the AI summary couldn't be generated. Try running again.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Narrative summary */}
+            <p className="text-sm text-gray-700 leading-relaxed">{aiOutput.summary}</p>
+
+            {/* Priorities */}
+            {aiOutput.priorities.length > 0 && (
+              <div>
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  Priorities ({aiOutput.priorities.length})
+                </p>
+                <div className="space-y-1.5">
+                  {aiOutput.priorities.map((p, i) => (
+                    <div key={i} className="flex items-start gap-2 rounded-lg bg-gray-50 px-3 py-2">
+                      <div className="pt-0.5">
+                        <SeverityBadge severity={p.severity} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-gray-800">{p.title}</p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">{p.reason}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Risks and Recommendations side by side */}
+            <div className="grid sm:grid-cols-2 gap-3">
+              {aiOutput.risks.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Risks</p>
+                  <ul className="space-y-1">
+                    {aiOutput.risks.map((r, i) => (
+                      <li key={i} className="flex items-start gap-1.5 text-[11px] text-gray-600">
+                        <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" />
+                        {r}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {aiOutput.recommendations.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Recommended Actions</p>
+                  <ul className="space-y-1">
+                    {aiOutput.recommendations.map((rec, i) => (
+                      <li key={i} className="flex items-start gap-1.5 text-[11px] text-gray-600">
+                        <CheckCircle className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
+                        {rec}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Footer meta */}
+            <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+              <p className="text-[10px] text-gray-400 italic">
+                AI-generated summary — review before acting. Signals detected by deterministic rules.
+              </p>
+              <TriggerOpsRunButton small />
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function TriggerOpsRunButton({ small }: { small?: boolean }) {
+  const { refetch: refetchSummary } = useQuery<OpsSnapshotResponse>({
+    queryKey: ["/api/admin/ops/summary/daily"],
+    enabled: false,
+  });
+
+  const handleRun = async () => {
+    try {
+      await fetch("/api/admin/ops/run", { method: "POST" });
+      refetchSummary();
+    } catch (err) {
+      console.error("[OpsWidget] Manual run failed:", err);
+    }
+  };
+
+  if (small) {
+    return (
+      <button
+        onClick={handleRun}
+        className="text-[10px] text-[#2D6A4F] hover:underline font-medium"
+      >
+        Run now
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleRun}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2D6A4F] text-white text-xs font-medium rounded-lg hover:bg-[#235c43] transition-colors"
+    >
+      <RefreshCw className="w-3 h-3" />
+      Run Ops Analysis
+    </button>
+  );
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -50,7 +277,7 @@ function StatCard({
   color: string;
 }) {
   const inner = (
-    <Card className="p-4 hover:shadow-sm transition-shadow cursor-default">
+    <Card className={`p-4 transition-all duration-150 ${href ? "cursor-pointer hover:border-gray-300 hover:shadow-md active:scale-[0.98]" : "cursor-default"}`}>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
@@ -62,11 +289,12 @@ function StatCard({
       </div>
     </Card>
   );
-  if (href) return <Link href={href}>{inner}</Link>;
+  if (href) return <Link href={href} className="block">{inner}</Link>;
   return inner;
 }
 
 export default function CrmOverview() {
+  usePageTitle("Overview");
   const { data, isLoading } = useQuery<Overview>({
     queryKey: ["/api/admin/crm/overview"],
   });
@@ -105,13 +333,18 @@ export default function CrmOverview() {
           ) : (
             <>
               <StatCard label="Clients" value={data?.totalClients ?? 0} icon={Users} href="/admin/crm/clients" color="bg-[#2D6A4F]" />
-              <StatCard label="Active Services" value={data?.activeServices ?? 0} icon={Wrench} color="bg-blue-500" />
-              <StatCard label="Onboarding" value={data?.pendingOnboarding ?? 0} icon={ClipboardList} color="bg-amber-500" />
+              <StatCard label="Active Services" value={data?.activeServices ?? 0} icon={Wrench} href="/admin/crm/services" color="bg-blue-500" />
+              <StatCard label="Onboarding" value={data?.pendingOnboarding ?? 0} icon={ClipboardList} href="/admin/crm/inbox" color="bg-amber-500" />
               <StatCard label="Open Tasks" value={data?.openFulfillment ?? 0} icon={Truck} href="/admin/crm/inbox" color="bg-purple-500" />
-              <StatCard label="Unpaid" value={formatCurrency(data?.unpaidAmount ?? 0)} icon={CreditCard} color="bg-red-500" />
-              <StatCard label="Revenue (Mo)" value={formatCurrency(data?.monthlyRevenue ?? 0)} icon={TrendingUp} color="bg-emerald-500" />
+              <StatCard label="Unpaid" value={formatCurrency(data?.unpaidAmount ?? 0)} icon={CreditCard} href="/admin/crm/billing" color="bg-red-500" />
+              <StatCard label="Revenue (Mo)" value={formatCurrency(data?.monthlyRevenue ?? 0)} icon={TrendingUp} href="/admin/crm/billing" color="bg-emerald-500" />
             </>
           )}
+        </div>
+
+        {/* Ops Intelligence Widget */}
+        <div className="grid grid-cols-1 gap-4">
+          <OpsIntelligenceWidget />
         </div>
 
         {/* Bottom panels */}
@@ -130,7 +363,7 @@ export default function CrmOverview() {
               </div>
             ) : !data?.recentClients?.length ? (
               <div className="px-4 pb-4">
-                <p className="text-sm text-gray-500">No clients yet.</p>
+                <p className="text-sm text-gray-500">No clients yet. <a href="/admin/crm/clients" className="text-[#2D6A4F] hover:underline">Add your first client</a> to get started.</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-50">

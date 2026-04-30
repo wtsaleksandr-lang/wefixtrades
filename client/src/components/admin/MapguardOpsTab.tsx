@@ -1014,7 +1014,7 @@ function TaskDetailDialog({
                     size="sm"
                     className="h-8 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]"
                     disabled={!newStatus || changeStatus.isPending}
-                    onClick={() => changeStatus.mutate()}
+                    onClick={() => changeStatus.mutate(undefined)}
                   >
                     Update
                   </Button>

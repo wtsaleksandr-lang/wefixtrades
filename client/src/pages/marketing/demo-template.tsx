@@ -283,7 +283,7 @@ export default function DemoTemplatePage() {
   }, [templateId]);
 
   useEffect(() => {
-    document.title = `${effectiveTemplate.name} Demo — QuickQuotePro`;
+    document.title = `${effectiveTemplate.name} Demo — QuoteQuick Pro`;
   }, [effectiveTemplate.name]);
 
   const { min, max } = calculateEstimate(effectiveTemplate, values);

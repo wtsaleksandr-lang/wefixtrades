@@ -6,11 +6,25 @@ import { smsMessages, leads } from "@shared/schema";
 import { eq, and, gte, sql, desc } from "drizzle-orm";
 import type { InsertSmsMessage } from "@shared/schema";
 
+/**
+ * Returns the configured Twilio sender phone number.
+ *
+ * Accepts either env-var name for compatibility with the two naming
+ * conventions in our infrastructure:
+ *   - TWILIO_FROM_NUMBER  (legacy name used in this codebase)
+ *   - TWILIO_PHONE_NUMBER (canonical Twilio name; what the Replit Secrets panel uses)
+ *
+ * Returns `null` if neither is set.
+ */
+export function getTwilioFromNumber(): string | null {
+  return process.env.TWILIO_FROM_NUMBER || process.env.TWILIO_PHONE_NUMBER || null;
+}
+
 export function isTwilioConfigured(): boolean {
   return !!(
     process.env.TWILIO_ACCOUNT_SID &&
     process.env.TWILIO_AUTH_TOKEN &&
-    process.env.TWILIO_FROM_NUMBER
+    getTwilioFromNumber()
   );
 }
 
@@ -32,13 +46,13 @@ export async function sendSMS(
   let toFormatted: string;
 
   if (channel === "whatsapp") {
-    const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER || process.env.TWILIO_FROM_NUMBER;
+    const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER || getTwilioFromNumber();
     if (!whatsappNumber) throw new Error("WhatsApp number not configured");
     from = `whatsapp:${whatsappNumber}`;
     toFormatted = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
   } else {
-    const fromNumber = process.env.TWILIO_FROM_NUMBER;
-    if (!fromNumber) throw new Error("TWILIO_FROM_NUMBER not configured");
+    const fromNumber = getTwilioFromNumber();
+    if (!fromNumber) throw new Error("TWILIO_FROM_NUMBER (or TWILIO_PHONE_NUMBER) not configured");
     from = fromNumber;
     toFormatted = to;
   }

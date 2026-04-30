@@ -7,11 +7,15 @@
  */
 import { storage } from "../../storage";
 import { getGoogleAccessToken } from "../socialSync/googleBusinessService";
-import { classifyReview, generateReply, shouldAutoReply, type ReplyContext } from "./reviewCore";
+import { classifyReview, generateReply, type ReplyContext } from "./reviewCore";
 import {
   sendAlert, buildNegativeReviewAlert, buildEscalatedReviewAlert, isAlertingConfigured,
 } from "../socialSync/alertService";
 import { attemptAttribution } from "./reviewAttribution";
+import { createReviewReplyDraft } from "../contentflow/draftService";
+import { autoApproveDraft } from "../contentflow/approvalService";
+import { decideAutoApprove, readClientPolicy } from "../contentflow/reviewReplyPolicy";
+import { enqueueGbpReviewReplyDraft } from "../contentflow/wordpressQueue";
 import type { Review } from "@shared/schema";
 
 const GBP_API_V4 = "https://mybusiness.googleapis.com/v4";
@@ -58,19 +62,25 @@ export async function postGBPReply(
   locationName: string,
   reviewId: string,
   replyText: string,
-): Promise<{ success: boolean; error?: string; result?: any }> {
+  opts: { apiBase?: string; fetchImpl?: typeof fetch } = {},
+): Promise<{ success: boolean; error?: string; result?: any; status?: number }> {
+  /* Sprint 9: optional apiBase override (or env var) lets the dev GBP
+   * mock take the call without touching the real Google endpoint.
+   * Defaults to the real My Business v4 base. */
+  const apiBase = opts.apiBase || process.env.GBP_API_BASE_OVERRIDE || GBP_API_V4;
+  const fetchImpl = opts.fetchImpl ?? fetch;
   try {
-    const url = `${GBP_API_V4}/${locationName}/reviews/${reviewId}/reply`;
-    const res = await fetch(url, {
+    const url = `${apiBase}/${locationName}/reviews/${reviewId}/reply`;
+    const res = await fetchImpl(url, {
       method: "PUT",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ comment: replyText }),
     });
     const data = await res.json().catch(() => ({})) as any;
     if (!res.ok) {
-      return { success: false, error: data?.error?.message || res.statusText, result: { status: res.status, error: data?.error } };
+      return { success: false, error: data?.error?.message || res.statusText, result: { status: res.status, error: data?.error }, status: res.status };
     }
-    return { success: true, result: { status: res.status, comment: data.comment } };
+    return { success: true, result: { status: res.status, comment: data.comment }, status: res.status };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
@@ -169,7 +179,7 @@ export async function syncGBPReviews(
         continue;
       }
 
-      // Generate reply
+      // Generate reply (existing AI generator — preserved verbatim).
       if (!review.reply_text) {
         try {
           const replyText = await generateReply(review, replyContext);
@@ -181,24 +191,47 @@ export async function syncGBPReviews(
         }
       }
 
-      // Auto-reply if policy allows
-      if (shouldAutoReply(review) && review.reply_text) {
-        try {
-          const posted = await postGBPReply(credentials.token, credentials.locationName, raw.reviewId, review.reply_text);
-          if (posted.success) {
-            await storage.updateReview(review.id, {
-              reply_status: "auto_replied",
-              reply_posted_at: new Date(),
-              reply_result: posted.result,
-            } as any);
-            result.replies_posted++;
-          } else {
-            await storage.updateReview(review.id, { reply_status: "failed", reply_result: posted.result } as any);
-            result.errors.push(`Reply post failed for review ${review.id}: ${posted.error}`);
-          }
-        } catch (err: any) {
-          result.errors.push(`Reply post error for review ${review.id}: ${err.message}`);
+      /* Sprint 9: route through ContentFlow.
+       *
+       * Replaces the pre-Sprint-9 inline auto-reply (postGBPReply at
+       * ingestion time, no audit trail). Now every reply becomes a
+       * content_drafts row of kind='review_reply'. The per-client
+       * policy (clients.metadata.review_reply_policy — default
+       * 'auto_high_star' preserves prior behaviour) decides whether
+       * to autoApprove + enqueue immediately or hold for manual
+       * approval via the admin queue / client portal.
+       *
+       * Actual GBP posting now happens on the next publish-queue tick
+       * (≤2 min latency), with full retry / dead-letter / audit trail. */
+      if (!review.reply_text) continue;
+
+      try {
+        const draft = await createReviewReplyDraft({
+          clientId,
+          reviewId: review.id,
+          externalReviewId: raw.reviewId,
+          starRating: review.star_rating,
+          replyText: review.reply_text,
+          source: "auto",
+        });
+
+        const client = await storage.getClientById(clientId);
+        const policy = readClientPolicy(client);
+        const decision = decideAutoApprove(policy, review);
+
+        if (decision.autoApprove) {
+          await autoApproveDraft({
+            draftId: draft.id,
+            notes: `auto-approved (${decision.reason})`,
+          });
+          await enqueueGbpReviewReplyDraft(draft.id);
+          result.replies_posted++; // Counted as queued for publish; the
+                                   // queue worker is what actually posts.
         }
+        /* else: draft is in 'draft' status awaiting manual approval —
+         * shows up in admin queue + client portal. */
+      } catch (err: any) {
+        result.errors.push(`ContentFlow draft creation failed for review ${review.id}: ${err.message}`);
       }
     } catch (err: any) {
       result.errors.push(`Review processing error: ${err.message}`);

@@ -109,11 +109,10 @@ export default function SupportTicketDetailPage() {
   const { data: adminUsers } = useQuery<AdminUser[]>({
     queryKey: ["/api/admin/crm/team"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/crm/clients?limit=0", { credentials: "include" });
-      // Fallback: we don't have a dedicated admin list endpoint; we'll use the user info
-      return [];
+      const res = await fetch("/api/admin/crm/team", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
     },
-    enabled: false, // disabled — we'll use a simpler approach
   });
 
   // Update ticket mutation
@@ -158,8 +157,12 @@ export default function SupportTicketDetailPage() {
     },
     onSuccess: () => {
       setReplyText("");
+      toast({ title: "Message sent" });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/support/tickets", ticketId] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/support/tickets"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to send message", description: err.message, variant: "destructive" });
     },
   });
 
@@ -382,6 +385,20 @@ export default function SupportTicketDetailPage() {
                       >
                         {CATEGORIES.map((c) => (
                           <option key={c.value} value={c.value}>{c.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">Assigned To</label>
+                      <select
+                        value={ticket.assigned_to ?? ""}
+                        onChange={(e) => updateTicket.mutate({ assigned_to: e.target.value ? Number(e.target.value) : null })}
+                        disabled={updateTicket.isPending}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
+                      >
+                        <option value="">Unassigned</option>
+                        {(adminUsers ?? []).map((u) => (
+                          <option key={u.id} value={u.id}>{u.name || u.email}</option>
                         ))}
                       </select>
                     </div>

@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
@@ -55,6 +56,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function ClientsPage() {
+  usePageTitle("Clients");
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -96,6 +98,9 @@ export default function ClientsPage() {
       setForm({ business_name: "", contact_name: "", contact_email: "", contact_phone: "", trade_type: "", status: "lead", source: "manual" });
       toast({ title: "Client created", description: name });
       navigate(`/admin/crm/clients/${data.id}`);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to create client", description: err.message, variant: "destructive" });
     },
   });
 

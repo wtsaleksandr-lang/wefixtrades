@@ -160,7 +160,7 @@ export function registerReviewPublicRoutes(app: Express): void {
 
   app.get("/api/review/qr/:widgetToken", async (req: Request, res: Response) => {
     try {
-      const widgetToken = req.params.widgetToken;
+      const widgetToken = req.params.widgetToken as string;
       if (!widgetToken || widgetToken.length < 16) {
         return res.status(400).json({ error: "Invalid token" });
       }

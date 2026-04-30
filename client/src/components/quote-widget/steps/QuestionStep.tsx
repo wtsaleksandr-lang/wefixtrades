@@ -1,5 +1,6 @@
 import QuestionRenderer from '../QuestionRenderer';
 import { useWidgetState } from '../useWidgetState';
+import { evaluateVisibility } from '../visibility';
 import { stepTitleStyle, stepSubtitleStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
 
@@ -9,15 +10,17 @@ interface QuestionStepProps {
 }
 
 /**
- * Renders a single question. Takes the first question from
- * the step's questions array.
+ * Renders a single question. Takes the first visible question from
+ * the step's questions array, respecting question-level visible_when.
  */
 export default function QuestionStep({ step, accentColor }: QuestionStepProps) {
-  const { getAnswer, setAnswer } = useWidgetState();
-  const question = step.questions[0];
+  const { getAnswer, setAnswer, answers } = useWidgetState();
+
+  // Find the first question whose visible_when passes (or has none)
+  const question = step.questions.find((q) => evaluateVisibility(q.visible_when, answers));
 
   if (!question) {
-    return <p style={{ fontSize: '14px', color: '#5f6f77' }}>No question defined for this step.</p>;
+    return <p style={{ fontSize: '14px', color: '#5f6f77' }}>No question to display.</p>;
   }
 
   return (

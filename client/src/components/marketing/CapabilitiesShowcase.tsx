@@ -6,9 +6,9 @@ const TABS = [
     key: "billing",
     label: "Billing",
     icon: Receipt,
-    accentColor: "#E05C6A",
-    iconColor: "#E05C6A",
-    badgeBg: "#fbcdcd",
+    accentColor: "#f87171",
+    iconColor: "#f87171",
+    badgeBg: "#fee0e0",
     sectorBg: "rgba(224, 92, 106, 0.30)",
     timelineBg: "rgba(224, 92, 106, 0.22)",
     title: "Billing Management",
@@ -18,8 +18,8 @@ const TABS = [
     key: "charging",
     label: "Charging",
     icon: Zap,
-    accentColor: "#D4A017",
-    iconColor: "#D4A017",
+    accentColor: "#f7b430",
+    iconColor: "#f7b430",
     badgeBg: "#fee09f",
     sectorBg: "rgba(212, 160, 23, 0.32)",
     timelineBg: "rgba(212, 160, 23, 0.22)",
@@ -30,9 +30,9 @@ const TABS = [
     key: "catalog",
     label: "Catalog",
     icon: Layers,
-    accentColor: "#2DB87C",
-    iconColor: "#2DB87C",
-    badgeBg: "#e3ffd1",
+    accentColor: "#4ade80",
+    iconColor: "#4ade80",
+    badgeBg: "#d4f5d0",
     sectorBg: "rgba(45, 184, 124, 0.30)",
     timelineBg: "rgba(45, 184, 124, 0.22)",
     title: "Product Catalog",
@@ -42,9 +42,9 @@ const TABS = [
     key: "events",
     label: "Events",
     icon: Bell,
-    accentColor: "#3BB5C8",
-    iconColor: "#3BB5C8",
-    badgeBg: "#9bf7ff",
+    accentColor: "#66e8fa",
+    iconColor: "#66e8fa",
+    badgeBg: "#dcf7fd",
     sectorBg: "rgba(59, 181, 200, 0.30)",
     timelineBg: "rgba(59, 181, 200, 0.22)",
     title: "Events & Notifications",
@@ -58,7 +58,7 @@ const CYCLE_MS = 8000;
 const BUTTON_H = 44; // height of each button strip (px)
 const SLIDER_H = 490; // total slider height (px)
 const GAP = 4;
-const BADGE_SIZE = 34; // icon badge width/height (px)
+const BADGE_SIZE = 40; // icon badge width/height (px)
 
 /* ── per-tab mockup panels ───────────────────────────────────────────── */
 
@@ -72,7 +72,7 @@ function BillingMockup() {
         background: "rgba(255,255,255,0.92)",
         borderRadius: 16,
         padding: "18px 16px",
-        boxShadow: "0 12px 40px rgba(0,0,0,0.10)",
+        boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase" }}>Invoice</span>
@@ -93,8 +93,8 @@ function BillingMockup() {
       </div>
       <div style={{
         position: "absolute", right: 0, bottom: 0,
-        background: "#1C2B33", borderRadius: 14, padding: "12px 14px",
-        boxShadow: "0 12px 32px rgba(0,0,0,0.22)", minWidth: 140,
+        background: "#22282a", borderRadius: 16, padding: "12px 14px",
+        boxShadow: "0 8px 24px rgba(34,40,42,0.12)", minWidth: 140,
       }}>
         <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>Last payment</div>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#34D399", marginBottom: 3 }}>$1,200.00</div>
@@ -114,7 +114,7 @@ function ChargingMockup() {
         background: "rgba(255,255,255,0.92)",
         borderRadius: 16,
         padding: "16px 14px",
-        boxShadow: "0 12px 40px rgba(0,0,0,0.10)",
+        boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <div style={{ display: "flex", gap: 4 }}>
@@ -140,8 +140,8 @@ function ChargingMockup() {
       </div>
       <div style={{
         position: "absolute", right: 0, bottom: 0,
-        width: 150, background: "#1C2B33", borderRadius: 20, padding: "12px 12px 16px",
-        boxShadow: "0 16px 48px rgba(0,0,0,0.25)",
+        width: 150, background: "#22282a", borderRadius: 16, padding: "12px 12px 16px",
+        boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
       }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
           <div style={{ position: "relative", width: 46, height: 46, flexShrink: 0 }}>
@@ -181,7 +181,7 @@ function CatalogMockup() {
         position: "absolute", left: "50%", top: "50%",
         transform: "translate(-50%, -50%)",
         width: 230, background: "rgba(255,255,255,0.92)", borderRadius: 16,
-        padding: "16px 14px", boxShadow: "0 12px 40px rgba(0,0,0,0.10)",
+        padding: "16px 14px", boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase" }}>Product Catalog</span>
@@ -207,8 +207,8 @@ function CatalogMockup() {
       </div>
       <div style={{
         position: "absolute", right: 0, bottom: 0,
-        background: "#1C2B33", borderRadius: 14, padding: "12px 14px",
-        boxShadow: "0 12px 32px rgba(0,0,0,0.22)", minWidth: 130,
+        background: "#22282a", borderRadius: 16, padding: "12px 14px",
+        boxShadow: "0 8px 24px rgba(34,40,42,0.12)", minWidth: 130,
       }}>
         <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>Catalog sync</div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -233,7 +233,7 @@ function EventsMockup() {
         position: "absolute", left: "50%", top: "50%",
         transform: "translate(-50%, -50%)",
         width: 230, background: "rgba(255,255,255,0.92)", borderRadius: 16,
-        padding: "16px 14px", boxShadow: "0 12px 40px rgba(0,0,0,0.10)",
+        padding: "16px 14px", boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase" }}>Event Stream</span>
@@ -260,8 +260,8 @@ function EventsMockup() {
       </div>
       <div style={{
         position: "absolute", right: 0, bottom: 0,
-        background: "#1C2B33", borderRadius: 14, padding: "12px 14px",
-        boxShadow: "0 12px 32px rgba(0,0,0,0.22)", minWidth: 136,
+        background: "#22282a", borderRadius: 16, padding: "12px 14px",
+        boxShadow: "0 8px 24px rgba(34,40,42,0.12)", minWidth: 136,
       }}>
         <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>Avg latency</div>
         <div style={{ fontSize: 18, fontWeight: 700, color: "#3BB5C8" }}>22ms</div>
@@ -318,8 +318,8 @@ export default function CapabilitiesShowcase() {
     <section
       data-testid="capabilities-showcase"
       style={{
-        background: "#dfe8e6",
-        padding: isMobile ? "64px 16px" : "96px 28px",
+        background: "#92a6b0",
+        padding: isMobile ? "64px 16px" : "80px 28px",
         borderRadius: "28px 28px 0 0",
         marginTop: -28,
         position: "relative",
@@ -362,10 +362,9 @@ export default function CapabilitiesShowcase() {
           display: grid;
           grid-template-rows: 0fr;
           transition: grid-template-rows 0.42s cubic-bezier(0.4, 0, 0.2, 1);
-          border-radius: 0 0 14px 14px;
-          background: rgba(255,255,255,0.36);
-          border: 1px solid rgba(255,255,255,0.28);
-          border-top: none;
+          border-radius: 0;
+          background: transparent;
+          border: none;
           overflow: hidden;
         }
         .cs-mob-content.cs-mob-open {
@@ -395,25 +394,26 @@ export default function CapabilitiesShowcase() {
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
         {/* ── heading ───────────────────────────────────────── */}
-        <div style={{ textAlign: "center", marginBottom: 52 }}>
+        <div style={{ textAlign: "left", marginBottom: 32 }}>
           <div style={{
-            fontSize: 12,
-            letterSpacing: "0.18em",
-            fontWeight: 600,
+            fontSize: "0.8em",
+            letterSpacing: "0.12em",
+            fontWeight: 800,
+            fontFamily: "monospace",
             textTransform: "uppercase" as const,
-            color: "rgba(15,30,35,0.50)",
-            marginBottom: 18,
+            color: "#92a6b0",
+            opacity: 0.7,
+            marginBottom: 8,
           }}>
-            &#123; Efficiency, Scalability, and Agility &#125;
+            [ Efficiency, Scalability, and Agility ]
           </div>
           <h2 style={{ margin: 0 }}>
             <span style={{
               display: "block",
               fontSize: "clamp(32px, 4.5vw, 54px)",
-              fontWeight: 400,
-              lineHeight: 1.1,
-              letterSpacing: "-0.025em",
-              color: "#0F1E23",
+              fontWeight: 800,
+              lineHeight: 1.05,
+              color: "#394247",
             }}>
               Unparalleled
             </span>
@@ -422,8 +422,7 @@ export default function CapabilitiesShowcase() {
               fontSize: "clamp(34px, 4.8vw, 58px)",
               fontWeight: 800,
               lineHeight: 1.05,
-              letterSpacing: "-0.03em",
-              color: "#0F1E23",
+              color: "#22282a",
             }}>
               BSS/OSS Capabilities
             </span>
@@ -432,12 +431,17 @@ export default function CapabilitiesShowcase() {
 
         {/* ── mobile accordion ──────────────────────────────── */}
         {isMobile && (
-          <div style={{ display: "flex", flexDirection: "column", gap: GAP }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {TABS.map((t, i) => {
               const Icon = t.icon;
               const isActive = i === active;
               return (
-                <div key={t.key}>
+                <div key={t.key} style={{
+                  borderRadius: 14,
+                  background: isActive ? "rgba(255,255,255,0.30)" : "transparent",
+                  border: "1px solid rgba(255,255,255,0.22)",
+                  overflow: "hidden",
+                }}>
                   {/* button strip */}
                   <div
                     role="button"
@@ -446,15 +450,10 @@ export default function CapabilitiesShowcase() {
                     onClick={() => startCycle(i)}
                     style={{
                       height: BUTTON_H,
-                      borderRadius: isActive ? "10px 10px 0 0" : 10,
-                      background: isActive
-                        ? "rgba(255,255,255,0.42)"
-                        : "rgba(255,255,255,0.16)",
-                      border: `1px solid ${isActive
-                        ? "rgba(255,255,255,0.55)"
-                        : "rgba(255,255,255,0.20)"}`,
-                      borderBottom: isActive ? "none" : undefined,
-                      boxShadow: isActive ? "0 2px 12px rgba(0,0,0,0.07)" : "none",
+                      borderRadius: 12,
+                      background: "transparent",
+                      border: "none",
+                      boxShadow: "none",
                       display: "flex",
                       alignItems: "center",
                       padding: 3, gap: 10,
@@ -466,7 +465,7 @@ export default function CapabilitiesShowcase() {
                     {/* timeline fill */}
                     <div style={{
                       position: "absolute", inset: 0,
-                      background: t.timelineBg,
+                      background: "rgba(255,255,255,0.42)",
                       width: isActive ? `${progress * 100}%` : "0%",
                       transition: isActive ? "width 60ms linear" : "none",
                       borderRadius: "inherit", zIndex: 0,
@@ -474,29 +473,23 @@ export default function CapabilitiesShowcase() {
                     {/* icon badge */}
                     <div style={{
                       width: BADGE_SIZE, height: BADGE_SIZE,
-                      borderRadius: 8, background: t.badgeBg,
+                      borderRadius: 10, background: t.badgeBg,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexShrink: 0, position: "relative", zIndex: 1,
                     }}>
-                      <Icon size={17} color={t.iconColor} strokeWidth={2} />
+                      <Icon size={17} color="#22282a" strokeWidth={2} />
                     </div>
                     {/* label */}
                     <span style={{
                       position: "relative", zIndex: 2,
-                      fontFamily: "Satoshi, sans-serif",
-                      fontSize: 13, fontWeight: 600, color: "#1C2B33",
+                      fontFamily: "'DM Mono', monospace",
+                      fontSize: 12, fontWeight: 500, color: "#394247",
+                      textTransform: "uppercase" as const,
+                      letterSpacing: "0.06em",
                       paddingRight: 14,
                     }}>
                       {t.label}
                     </span>
-                    {/* chevron */}
-                    <span style={{
-                      position: "absolute", right: 16, zIndex: 2,
-                      fontSize: 12, color: "#1C2B33",
-                      transform: isActive ? "rotate(180deg)" : "rotate(0deg)",
-                      transition: "transform 0.35s ease",
-                      opacity: 0.5,
-                    }}>▼</span>
                   </div>
 
                   {/* expandable content */}
@@ -541,18 +534,16 @@ export default function CapabilitiesShowcase() {
           style={{
             position: "relative",
             height: SLIDER_H,
-            borderRadius: 16,
-            overflow: "hidden",
           }}
         >
           {/* background card behind content area */}
           <div style={{
             position: "absolute",
-            top: CARD_TOP, left: 0, right: 0, bottom: 0,
-            background: "rgba(255,255,255,0.36)",
-            border: "1px solid rgba(255,255,255,0.28)",
-            borderRadius: 16,
-            boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+            top: CARD_TOP + 2, left: 0, right: 0, bottom: 0,
+            background: "#f5fcff",
+            border: "1px solid #d5e1e7",
+            borderRadius: 10,
+            boxShadow: "0 1px 3px rgba(34,40,42,0.06)",
           }} />
 
           {/* buttons row */}
@@ -579,9 +570,9 @@ export default function CapabilitiesShowcase() {
                     onClick={() => startCycle(i)}
                     style={{
                       height: BUTTON_H, borderRadius: 10,
-                      background: isActive ? "rgba(255,255,255,0.42)" : "rgba(255,255,255,0.16)",
-                      border: `1px solid ${isActive ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.20)"}`,
-                      boxShadow: isActive ? "0 2px 12px rgba(0,0,0,0.07)" : "none",
+                      background: "transparent",
+                      border: "1px solid rgba(255,255,255,0.22)",
+                      boxShadow: "none",
                       display: "flex", alignItems: "center",
                       padding: 3, gap: 10,
                       cursor: "pointer", position: "relative", overflow: "hidden",
@@ -590,7 +581,7 @@ export default function CapabilitiesShowcase() {
                     {/* timeline fill */}
                     <div style={{
                       position: "absolute", inset: 0,
-                      background: t.timelineBg,
+                      background: "rgba(255,255,255,0.42)",
                       width: isActive ? `${progress * 100}%` : "0%",
                       transition: isActive ? "width 60ms linear" : "none",
                       borderRadius: "inherit", zIndex: 0,
@@ -598,16 +589,18 @@ export default function CapabilitiesShowcase() {
                     {/* icon badge */}
                     <div style={{
                       width: BADGE_SIZE, height: BADGE_SIZE,
-                      borderRadius: 8, background: t.badgeBg,
+                      borderRadius: 10, background: t.badgeBg,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexShrink: 0, position: "relative", zIndex: 1,
                     }}>
-                      <Icon size={17} color={t.iconColor} strokeWidth={2} />
+                      <Icon size={17} color="#22282a" strokeWidth={2} />
                     </div>
                     <span style={{
                       position: "relative", zIndex: 2,
-                      fontFamily: "Satoshi, sans-serif",
-                      fontSize: 13, fontWeight: 600, color: "#1C2B33",
+                      fontFamily: "'DM Mono', monospace",
+                      fontSize: 12, fontWeight: 500, color: "#394247",
+                      textTransform: "uppercase" as const,
+                      letterSpacing: "0.06em",
                       whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                       paddingRight: 14,
                     }}>
@@ -649,14 +642,14 @@ export default function CapabilitiesShowcase() {
                   >
                     <h3 style={{
                       fontSize: "clamp(20px, 2.2vw, 28px)", fontWeight: 700,
-                      lineHeight: 1.2, color: "#0F1E23",
+                      lineHeight: 1.2, color: "#22282a",
                       letterSpacing: "-0.02em", margin: "0 0 16px",
                     }}>
                       {t.title}
                     </h3>
                     <p style={{
                       fontSize: 15, lineHeight: 1.7,
-                      color: "rgba(15,30,35,0.62)", margin: 0,
+                      color: "#5f6f77", margin: 0,
                     }}>
                       {t.desc}
                     </p>

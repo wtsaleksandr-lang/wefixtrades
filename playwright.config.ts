@@ -61,10 +61,10 @@ export default defineConfig({
    * Using webServer from Playwright may NOT have access to Replit Secrets.
    * Prefer MODE 1 when running on Replit.
    */
-  // webServer: {
-  //   command: 'npm run dev',
-  //   port: 5000,
-  //   reuseExistingServer: true,
-  //   timeout: 30_000,
-  // },
+  webServer: {
+    command: 'npm run dev',
+    port: 5000,
+    reuseExistingServer: true,
+    timeout: 30_000,
+  },
 });

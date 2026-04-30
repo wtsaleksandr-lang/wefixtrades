@@ -3,6 +3,11 @@ import { chat } from "../aiService";
 import { storage } from "../../storage";
 import { evaluateQuality, type QualityResult } from "./qualityGate";
 import { logAiContentCost } from "./costTracker";
+import { readBrandProfile, type BrandProfile } from "../contentflow/brandProfile";
+import {
+  buildPerformanceFeedback,
+  type PerformanceChannel,
+} from "../contentflow/performanceTracker";
 import type { SocialSyncProfile, SocialSyncTopic, SocialSyncPost } from "@shared/schema";
 
 /* ─── Platform-specific constraints ─── */
@@ -30,20 +35,33 @@ const PLATFORM_CONFIG: Record<string, { maxLength: number; maxHashtags: number; 
   },
 };
 
-function buildContentSystemPrompt(profile: SocialSyncProfile, platform: string): string {
+function buildContentSystemPrompt(
+  profile: SocialSyncProfile,
+  platform: string,
+  brand: BrandProfile = {},
+): string {
   const config = PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.facebook;
   const services = (profile.services as string[] | null) || [];
-  const location = profile.location || "the local area";
+  const location = brand.location_cue || profile.location || "the local area";
   const niche = profile.niche || "home services";
-  const tone = profile.tone || "professional";
+  const tone = brand.tone || profile.tone || "professional";
+  /* Sprint 16: layer in content_brand fields where present. Falls
+   * back to SocialSync profile fields so existing tests are unaffected. */
+  const styleKw = brand.style_keywords?.length ? brand.style_keywords.join(", ") : "";
+  const avoidKw = brand.avoid?.length ? brand.avoid.join(", ") : "";
+  const focusKw = brand.service_focus?.length ? brand.service_focus.join(", ") : services.join(", ");
+  const forbiddenClaims = brand.forbidden_claims?.length ? brand.forbidden_claims.join(", ") : "";
 
   return `You are writing a social media post for a real local ${niche} business.
 
 Business details:
 - Trade: ${niche}
 - Location: ${location}
-- Services: ${services.join(", ") || niche}
+- Services: ${focusKw || niche}
 - Brand tone: ${tone}
+${styleKw ? `- Style keywords: ${styleKw}` : ""}
+${avoidKw ? `- Avoid: ${avoidKw}` : ""}
+${forbiddenClaims ? `- Never claim (unless explicitly provided in topic): ${forbiddenClaims}` : ""}
 
 Platform: ${platform}
 Platform style: ${config.style}
@@ -68,10 +86,18 @@ function buildContentUserPrompt(
   topic: SocialSyncTopic,
   platform: string,
   recentTexts: string[],
+  performanceFeedback?: string,
 ): string {
   const config = PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.facebook;
   const avoidList = recentTexts.length > 0
     ? `\n\nAvoid phrasing similar to these recent posts:\n${recentTexts.slice(0, 5).map(t => `- "${t.slice(0, 100)}..."`).join("\n")}`
+    : "";
+
+  /* Sprint 17: feedback loop. When recent high-performer posts exist
+   * for this client+platform, inject their patterns as a STYLE hint
+   * — never copy text directly. */
+  const feedbackBlock = performanceFeedback
+    ? `\n\nUse patterns similar to these successful posts (style only, do NOT copy the wording): ${performanceFeedback}`
     : "";
 
   return `Write a ${platform} post about this topic:
@@ -80,7 +106,7 @@ Topic: "${topic.title}"
 Type: ${topic.type}
 Angle: ${topic.angle || "general"}
 Target service: ${topic.target_service || "general services"}
-Location context: ${topic.target_location || "local area"}
+Location context: ${topic.target_location || "local area"}${feedbackBlock}
 
 Return a JSON object with:
 - "post_text": string — the full post text (max ${config.maxLength} chars)
@@ -112,8 +138,20 @@ export async function generatePostFromTopic(
   // Get recent posts for dedup
   const recentPosts = await storage.listRecentSocialSyncPosts(profile.client_id, 30);
   const recentTexts = recentPosts.map(p => p.post_text);
-  const systemPrompt = buildContentSystemPrompt(profile, platform);
-  const userPrompt = buildContentUserPrompt(topic, platform, recentTexts);
+  /* Sprint 16: layer in content_brand from clients.metadata. */
+  const client = await storage.getClientById(profile.client_id);
+  const brand = readBrandProfile(client);
+  /* Sprint 17: layer in performance feedback (recent high-performers'
+   * patterns) for this client+platform. Empty string = no signal yet,
+   * which is fine — the prompt block is omitted entirely. */
+  const perfChannel: PerformanceChannel | null =
+    platform === "facebook" ? "facebook"
+    : platform === "instagram" ? "instagram"
+    : platform === "google_business" ? "google_business"
+    : null;
+  const performanceFeedback = await buildPerformanceFeedback(profile.client_id, perfChannel);
+  const systemPrompt = buildContentSystemPrompt(profile, platform, brand);
+  const userPrompt = buildContentUserPrompt(topic, platform, recentTexts, performanceFeedback);
 
   let raw: string;
   try {

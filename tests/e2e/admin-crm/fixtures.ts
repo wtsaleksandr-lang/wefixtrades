@@ -37,7 +37,13 @@ export const test = base.extend<AdminFixtures>({
   },
 
   apiContext: async ({ playwright }, use) => {
-    const ctx = await playwright.request.newContext({ baseURL: BASE_URL });
+    /* Sprint 7: bypass auth rate limiter (dev-only header — server gates on
+     * NODE_ENV !== "production"). Without this, parallel workers blow the
+     * 10/15min budget keyed on shared 127.0.0.1. */
+    const ctx = await playwright.request.newContext({
+      baseURL: BASE_URL,
+      extraHTTPHeaders: { "x-test-bypass-rate-limit": "1" },
+    });
 
     // Login via API to get session cookie
     const loginRes = await ctx.post("/api/auth/login", {

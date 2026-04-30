@@ -140,24 +140,24 @@ function visualStep(internalStep: number): number {
 
 const STEP_TITLES = [
   'What does your business do?',
-  'Preview & polish',
+  'Customize your calculator',
   'Set your pricing',
-  'Lead capture setup',
-  'Almost done!',
+  'Contact form setup',
+  'Quick accuracy check',
   'You\u2019re live!',
 ];
 const STEP_SUBTITLES = [
-  'Pick your trade and we\u2019ll set everything up for you.',
-  'This is what your customers will see. Tweak if needed.',
-  'Enter your rates. AI builds the pricing logic.',
-  'Choose what info to collect. Quick.',
-  'Run two test quotes to confirm your numbers.',
+  'Tell us your trade and we\u2019ll set everything up.',
+  'Pick your colors and branding. See changes live on the right.',
+  'Choose how you charge. We\u2019ll build the quote logic for you.',
+  'Choose what info to collect from customers.',
+  'Test a couple of quotes to make sure the numbers look right.',
   'Copy your link and start getting leads.',
 ];
 const STEP_HINTS = [
   'Next: set your pricing',
-  'Ready to publish',
-  'Next: preview your calculator',
+  'All set! Review and publish below.',
+  'Next: customize your calculator',
   '',
   'Publishing your calculator...',
   '',
@@ -179,6 +179,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const [pricingDraftLoading, setPricingDraftLoading] = useState(false);
   const [showCustomInHelp, setShowCustomInHelp] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [mobileMode, setMobileMode] = useState<'edit' | 'preview'>('edit');
   const saveFlashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -337,6 +339,13 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     }
 
     setValidationErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      setTimeout(() => {
+        const firstErr = document.querySelector('[data-error-field]');
+        firstErr?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+      return;
+    }
     if (Object.keys(errs).length === 0) {
       if (ws.isCustomTrade && ws.customTradeData.charge_method === 'not_sure') {
         triggerPricingDraft();
@@ -559,6 +568,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         let pricingConfig: any;
 
         if (ws.isCustomTrade && ws.customTradeData.charge_method !== 'not_sure') {
+          // Custom trade with explicit charge method → use mapper
           const mapResult = mapPricingIntakeToConfig(ws.customTradeData, ws.stage2Data);
           if (mapResult.success) {
             pricingConfig = mapResult.config;
@@ -567,17 +577,34 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             throw new Error(mapResult.errors[0] || 'Please go back and fill in all required pricing fields.');
           }
         } else if (ws.isCustomTrade && ws.calculatorSettings.pricing_draft?.status === 'ready' && ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType) {
+          // Custom trade with AI draft → use draft config
           pricingConfig = ws.calculatorSettings.pricing_draft.pricing_config;
           setGenProgress(50);
+        } else if (ws.calculatorSettings?.pricing_mode && ws.calculatorSettings.pricing_mode !== 'ai_suggested') {
+          // Standard trade with manual pricing mode → use resolvedPricingConfig (already computed)
+          pricingConfig = resolvedPricingConfig;
+          setGenProgress(50);
         } else {
-          const aiRes = await apiRequest('POST', '/api/ai/generate-pricing', {
-            trade_type: tradeLabel,
-            business_description: tradeLabel,
-            services: tradeLabel,
-          });
-          const aiData = await aiRes.json();
-          if (!aiData.success || !aiData.pricing_config) throw new Error(aiData.error || 'Failed to generate pricing.');
-          pricingConfig = aiData.pricing_config;
+          // AI-suggested mode → try AI generation, fall back to safe defaults if it fails
+          try {
+            const aiRes = await apiRequest('POST', '/api/ai/generate-pricing', {
+              trade_type: tradeLabel,
+              business_description: tradeLabel,
+              services: tradeLabel,
+            });
+            const aiData = await aiRes.json();
+            if (aiData.success && aiData.pricing_config) {
+              pricingConfig = aiData.pricing_config;
+            } else {
+              // AI returned but without valid config → use safe fallback
+              console.warn('[Wizard] AI pricing returned no config, using fallback');
+              pricingConfig = { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50, minQuantity: 1, maxQuantity: 12 };
+            }
+          } catch (aiErr) {
+            // AI endpoint failed entirely → use safe fallback instead of breaking
+            console.warn('[Wizard] AI pricing generation failed, using fallback:', aiErr);
+            pricingConfig = { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50, minQuantity: 1, maxQuantity: 12 };
+          }
         }
         setGenProgress(70);
         const createRes = await apiRequest('POST', '/api/calculators', {
@@ -637,17 +664,37 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const genError = generateMutation.error ? (generateMutation.error as Error).message : null;
 
   const resolvedPricingConfig = useMemo(() => {
+    // 1. Custom trade with explicit charge method → use mapper
     if (ws.isCustomTrade && ws.customTradeData.charge_method !== 'not_sure') {
       const mapResult = mapPricingIntakeToConfig(ws.customTradeData, ws.stage2Data);
       if (mapResult.success) return mapResult.config;
     }
+    // 2. Custom trade with AI draft → use draft config
     if (ws.isCustomTrade && ws.calculatorSettings.pricing_draft?.status === 'ready' && ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType) {
       return ws.calculatorSettings.pricing_draft.pricing_config;
     }
+    // 3. Standard trade with manual pricing mode → convert to PricingConfigV1
+    const mode = ws.calculatorSettings?.pricing_mode;
+    if (mode && mode !== 'ai_suggested') {
+      if (mode === 'hourly') {
+        const rate = ws.calculatorSettings?.manual_hourly_rate || 75;
+        return { pricingType: 'hourly', unitName: 'hour', rate, baseFee: 0, minQuantity: 1, maxQuantity: 12 };
+      }
+      if (mode === 'fixed') {
+        const price = ws.calculatorSettings?.manual_fixed_price || 200;
+        return { pricingType: 'price_range_only', rangeLabel: 'Estimated Cost', rangeMin: price, rangeMax: price };
+      }
+      if (mode === 'range') {
+        const min = ws.calculatorSettings?.manual_range_min || 100;
+        const max = ws.calculatorSettings?.manual_range_max || 500;
+        return { pricingType: 'price_range_only', rangeLabel: 'Estimated Cost', rangeMin: min, rangeMax: max };
+      }
+    }
+    // 4. Standard trade with AI mode or default → use trade defaults
     const trade = TRADES.find(tr => tr.id === ws.selectedTrade);
     if (trade && (trade as any).defaultPricing) return (trade as any).defaultPricing;
     return { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 };
-  }, [ws.isCustomTrade, ws.customTradeData, ws.stage2Data, ws.calculatorSettings.pricing_draft, ws.selectedTrade]);
+  }, [ws.isCustomTrade, ws.customTradeData, ws.stage2Data, ws.calculatorSettings.pricing_draft, ws.selectedTrade, ws.calculatorSettings?.pricing_mode, ws.calculatorSettings?.manual_hourly_rate, ws.calculatorSettings?.manual_fixed_price, ws.calculatorSettings?.manual_range_min, ws.calculatorSettings?.manual_range_max]);
 
   // Synthetic CalculatorData for live preview (no DB save required)
   const previewCalculatorData = useMemo<CalculatorData>(() => ({
@@ -759,8 +806,38 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     e.target.value = '';
   };
 
+  const showSidePreview = step > 0 && step !== 5;
+
   return (
     <>
+      {/* Mobile Edit/Preview toggle — only visible on small screens when preview is available */}
+      {showSidePreview && (
+        <div className="wizard-mobile-toggle" style={{
+          display: 'none', gap: 0, marginBottom: 12, borderRadius: 10, overflow: 'hidden',
+          border: `1px solid ${p.colors.border}`, background: '#F3F4F6',
+        }}>
+          <button onClick={() => setMobileMode('edit')} style={{
+            flex: 1, padding: '10px 0', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
+            background: mobileMode === 'edit' ? '#fff' : 'transparent',
+            color: mobileMode === 'edit' ? p.colors.heading : p.colors.muted,
+            boxShadow: mobileMode === 'edit' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+            borderRadius: mobileMode === 'edit' ? 8 : 0, margin: 2, transition: 'all 0.15s ease',
+          }}>
+            ✏️ Edit
+          </button>
+          <button onClick={() => setMobileMode('preview')} style={{
+            flex: 1, padding: '10px 0', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
+            background: mobileMode === 'preview' ? '#fff' : 'transparent',
+            color: mobileMode === 'preview' ? p.colors.heading : p.colors.muted,
+            boxShadow: mobileMode === 'preview' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+            borderRadius: mobileMode === 'preview' ? 8 : 0, margin: 2, transition: 'all 0.15s ease',
+          }}>
+            👁 Preview
+          </button>
+        </div>
+      )}
+
+      <div className={showSidePreview ? `wizard-dual-layout ${mobileMode === 'preview' ? 'wizard-mobile-preview' : 'wizard-mobile-edit'}` : ""}>
       <Shell step={visualStep(step)} total={TOTAL_STEPS} onHelp={() => setShowHelp(true)}
         title={STEP_TITLES[step]} subtitle={STEP_SUBTITLES[step]}
         generating={generateMutation.isPending} genProgress={genProgress}
@@ -866,19 +943,19 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                       <div style={{
                         position: 'absolute', top: '6px', right: '6px',
                         width: '20px', height: '20px', borderRadius: '50%',
-                        background: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: p.colors.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
                         <Check style={{ width: '12px', height: '12px', color: 'white' }} />
                       </div>
                     )}
                     <div data-testid={`icon-container-${cat.id}`} style={{
                       width: '40px', height: '40px', borderRadius: '12px',
-                      background: sel ? '#2D6A4F' : '#EF4444',
-                      border: `1.5px solid ${sel ? '#2D6A4F' : '#EF4444'}`,
+                      background: sel ? p.colors.accent : '#F3F4F6',
+                      border: `1.5px solid ${sel ? p.colors.accent : '#E5E7EB'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
+                      flexShrink: 0, transition: 'all 0.15s ease',
                     }}>
-                      <Icon style={{ width: '20px', height: '20px', color: 'white', flexShrink: 0 }} />
+                      <Icon style={{ width: '20px', height: '20px', color: sel ? 'white' : p.colors.muted, flexShrink: 0 }} />
                     </div>
                     <span style={{
                       fontSize: '12px', fontWeight: 600, textAlign: 'center', lineHeight: 1.3,
@@ -945,11 +1022,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           </div>
         )}
 
-        {/* Step 1: Preview & Polish (reframed from Design — now shows live preview first) */}
+        {/* Step 1: Preview & Polish (side panel shows live preview on desktop) */}
         {step === 1 && (
           <div>
-            {/* Live preview — real interactive QuoteWidget */}
-            <div className="animate-fade-in-up" style={{
+            {/* Mobile-only: inline preview (hidden on desktop where side panel shows) */}
+            <div className="lg:hidden animate-fade-in-up" style={{
               marginBottom: '24px', padding: '16px', borderRadius: p.radius.lg,
               border: `1px solid ${p.colors.border}`, background: p.colors.surfaceRaised,
             }}>
@@ -1058,8 +1135,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 userSelect: 'none',
               }}>
                 <ChevronDown style={{ width: '14px', height: '14px' }} />
-                Advanced design settings
-                <span style={{ fontSize: '11px', fontWeight: 400, color: p.colors.subtle }}>(optional)</span>
+                Customize look &amp; feel
+                <span style={{ fontSize: '11px', fontWeight: 400, color: p.colors.subtle }}>(recommended)</span>
               </summary>
               <DesignStudio
                 settings={ws.calculatorSettings}
@@ -1082,14 +1159,49 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               onMouseLeave={e => { e.currentTarget.style.color = p.colors.muted; }}
             >
               <Settings2 style={{ width: '13px', height: '13px' }} />
-              Customize lead form fields
+              Customize customer contact form
             </button>
 
-            {/* Publish directly from preview — no need for separate test step */}
+            {/* Publish with confirmation */}
             <div style={{ marginTop: '16px' }}>
+              {showPublishConfirm && !generateMutation.isPending && (
+                <div style={{
+                  padding: '16px', borderRadius: p.radius.md, marginBottom: '12px',
+                  background: '#F0FDF4', border: '1px solid #BBF7D0',
+                }}>
+                  <p style={{ fontSize: '14px', fontWeight: 600, color: '#065F46', marginBottom: '8px' }}>Ready to go live?</p>
+                  <div style={{ fontSize: '13px', color: '#047857', lineHeight: 1.8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                      <span>Trade</span><strong>{selectedTradeLabel || ws.customTradeData?.short_description || 'Custom'}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                      <span>Leads sent to</span><strong>{ws.ownerEmail}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', alignItems: 'center' }}>
+                      <span>Brand color</span><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: ws.primaryColor }} /><strong>{ws.primaryColor}</strong></div>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#059669', marginTop: '8px' }}>You can always edit after publishing.</p>
+                </div>
+              )}
               <button
                 data-testid="button-publish-from-preview"
-                onClick={() => generateMutation.mutate()}
+                onClick={() => {
+                  // Pre-publish validation
+                  if (!ws.businessName.trim()) {
+                    alert('Please enter your business name before publishing.');
+                    return;
+                  }
+                  if (!ws.ownerEmail.trim()) {
+                    alert('Please enter your email so leads can reach you.');
+                    return;
+                  }
+                  if (!showPublishConfirm && !generateMutation.isPending) {
+                    setShowPublishConfirm(true);
+                    return;
+                  }
+                  generateMutation.mutate();
+                }}
                 disabled={generateMutation.isPending}
                 style={{
                   width: '100%', padding: '16px', borderRadius: p.radius.lg,
@@ -1102,6 +1214,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               >
                 {generateMutation.isPending ? (
                   <><Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> Building your calculator...</>
+                ) : showPublishConfirm ? (
+                  <><Zap style={{ width: '16px', height: '16px' }} /> Confirm &amp; Publish</>
                 ) : (
                   <><Zap style={{ width: '16px', height: '16px' }} /> Publish My Calculator</>
                 )}
@@ -1153,10 +1267,14 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     }}>
                       <CheckCircle2 style={{ width: '18px', height: '18px', color: '#059669', flexShrink: 0, marginTop: '1px' }} />
                       <div>
-                        <p style={{ fontSize: '14px', fontWeight: 600, color: '#065F46', marginBottom: '4px' }}>AI Draft Ready</p>
+                        <p style={{ fontSize: '14px', fontWeight: 600, color: '#065F46', marginBottom: '4px' }}>Pricing ready for review</p>
                         <p style={{ fontSize: '13px', color: '#047857', lineHeight: 1.5 }}>
-                          Confidence: {Math.round((ws.calculatorSettings.pricing_draft?.confidence_score || 0) * 100)}%
-                          {ws.calculatorSettings.pricing_draft?.needs_human_review && ' — Review recommended'}
+                          {(() => {
+                            const score = Math.round((ws.calculatorSettings.pricing_draft?.confidence_score || 0) * 100);
+                            if (score >= 80) return 'Strong match — pricing looks accurate for your trade.';
+                            if (score >= 60) return 'Good match — we recommend reviewing the numbers below.';
+                            return 'Needs adjustment — please review carefully before continuing.';
+                          })()}
                         </p>
                       </div>
                     </div>
@@ -1203,9 +1321,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     }}>
                       <TriangleAlert style={{ width: '18px', height: '18px', color: '#D97706', flexShrink: 0, marginTop: '1px' }} />
                       <div>
-                        <p style={{ fontSize: '14px', fontWeight: 600, color: '#92400E', marginBottom: '4px' }}>Fallback Mode</p>
+                        <p style={{ fontSize: '14px', fontWeight: 600, color: '#92400E', marginBottom: '4px' }}>We'll use "Request a Quote" mode</p>
                         <p style={{ fontSize: '13px', color: '#A16207', lineHeight: 1.5 }}>
-                          AI couldn't generate high-confidence pricing. Your calculator will use a safe price range / request quote fallback.
+                          We couldn't auto-generate confident pricing for your trade. Instead, your calculator will ask customers to request a quote — you'll respond with a price. You can try again or continue.
                         </p>
                       </div>
                     </div>
@@ -1289,32 +1407,15 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 )}
               </>
             ) : (
-              <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                <div style={{
-                  width: '56px', height: '56px', borderRadius: '50%',
-                  background: p.colors.accentLighter,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 16px',
-                }}>
-                  <Zap style={{ width: '24px', height: '24px', color: p.colors.accent }} />
-                </div>
-                <h3 style={{ fontSize: '18px', fontWeight: 700, color: p.colors.heading, marginBottom: '8px' }}>
-                  Predefined Pricing Templates
-                </h3>
-                <p style={{ fontSize: '13px', color: p.colors.muted, lineHeight: 1.5, maxWidth: '340px', margin: '0 auto 20px' }}>
-                  Your trade ({selectedTradeLabel || 'selected'}) uses an optimized pricing template. AI will generate questions based on industry standards when you publish.
-                </p>
-                <div style={{
-                  padding: '14px 16px', borderRadius: p.radius.md,
-                  background: p.colors.accentLighter, border: `1px solid ${p.colors.accentLighter}`,
-                  display: 'flex', alignItems: 'flex-start', gap: '10px', textAlign: 'left',
-                }}>
-                  <Sparkles style={{ width: '16px', height: '16px', color: p.colors.accent, flexShrink: 0, marginTop: '1px' }} />
-                  <p style={{ fontSize: '13px', color: p.colors.accentDark, lineHeight: 1.5 }}>
-                    Pricing will be auto-generated in the final step. You'll be able to review before publishing.
-                  </p>
-                </div>
-              </div>
+              <PricingStrategySelector
+                trade={selectedTradeLabel || 'your trade'}
+                pricingMode={ws.calculatorSettings?.pricing_mode || 'ai_suggested'}
+                hourlyRate={ws.calculatorSettings?.manual_hourly_rate || 75}
+                fixedPrice={ws.calculatorSettings?.manual_fixed_price || 200}
+                rangeMin={ws.calculatorSettings?.manual_range_min || 100}
+                rangeMax={ws.calculatorSettings?.manual_range_max || 500}
+                onChange={(key, val) => set('calculatorSettings', { ...ws.calculatorSettings, [key]: val })}
+              />
             )}
             {Object.keys(validationErrors).some(k => k.startsWith('stage2')) && (
               <div data-testid="stage2-errors" style={{ marginTop: '12px', padding: '12px 14px', borderRadius: p.radius.md, background: '#FEF2F2', border: '1px solid #FECACA', display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -1387,10 +1488,73 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           </div>
         )}
 
-        <LivePreview ws={ws} tradeLabel={selectedTradeLabel} categoryLabel={selectedCategoryLabel}
-          isOpen={showPreview} onToggle={() => setShowPreview(p => !p)} step={step} />
+        {/* LivePreview accordion removed — real QuoteWidget is shown in:
+           1. Side panel (desktop, sticky right column)
+           2. Inline preview (mobile, inside Step 1)
+           The old LivePreview was a static summary, not the actual calculator. */}
 
       </Shell>
+
+      {/* Desktop side preview panel — sticky, visible from step 1 onward */}
+      {showSidePreview && (
+        <div className="wizard-side-preview">
+          <div style={{
+            position: 'sticky', top: 80,
+            borderRadius: '16px', overflow: 'hidden',
+            border: `1px solid ${p.colors.border}`,
+            background: '#fff',
+            boxShadow: p.shadows.wizardCard,
+          }}>
+            <div style={{
+              padding: '12px 16px',
+              borderBottom: `1px solid ${p.colors.borderLight}`,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <Eye style={{ width: 14, height: 14, color: p.colors.accent }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: p.colors.heading }}>Live Preview</span>
+              <span style={{ fontSize: 11, color: p.colors.muted, marginLeft: 'auto' }}>Customer view</span>
+            </div>
+            <div style={{ background: '#f8fafb' }} className="widget-scope">
+              <QuoteWidget calculator={previewCalculatorData} isEmbed />
+            </div>
+
+            {/* Feature toggle previews — show what enabled features will look like */}
+            <FeatureTogglePreviews layout={ws.calculatorSettings?.ui_template?.layout} primaryColor={ws.primaryColor} />
+          </div>
+        </div>
+      )}
+      </div>
+
+      {/* Dual-column + mobile toggle CSS */}
+      <style>{`
+        .wizard-dual-layout {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 24px;
+          align-items: start;
+        }
+        @media (min-width: 900px) {
+          .wizard-dual-layout {
+            grid-template-columns: minmax(400px, 480px) minmax(320px, 1fr);
+          }
+          .wizard-mobile-toggle { display: none !important; }
+        }
+        .wizard-side-preview {
+          display: none;
+        }
+        @media (min-width: 900px) {
+          .wizard-side-preview {
+            display: block;
+          }
+        }
+        /* Mobile: show toggle bar */
+        @media (max-width: 899px) {
+          .wizard-mobile-toggle { display: flex !important; }
+          .wizard-mobile-preview > .wizard-side-preview { display: block !important; }
+          .wizard-mobile-preview > div:first-child { display: none; }
+          .wizard-mobile-edit > .wizard-side-preview { display: none; }
+        }
+      `}</style>
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </>
@@ -1534,6 +1698,223 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+
+/* ─── Pricing Strategy Selector (Step 2 for standard trades) ─── */
+function PricingStrategySelector({
+  trade, pricingMode, hourlyRate, fixedPrice, rangeMin, rangeMax, onChange,
+}: {
+  trade: string;
+  pricingMode: string;
+  hourlyRate: number;
+  fixedPrice: number;
+  rangeMin: number;
+  rangeMax: number;
+  onChange: (key: string, val: any) => void;
+}) {
+  const modes = [
+    { id: 'ai_suggested', label: 'AI Suggested', desc: `We'll build pricing based on ${trade} industry data.`, icon: Sparkles },
+    { id: 'hourly', label: 'Hourly Rate', desc: 'Charge by the hour with a base fee.', icon: Clock },
+    { id: 'fixed', label: 'Fixed Price', desc: 'Set a flat rate per job type.', icon: DollarSign },
+    { id: 'range', label: 'Price Range', desc: 'Show a min–max estimate to customers.', icon: ArrowRight },
+  ];
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: p.colors.muted, marginBottom: 16, lineHeight: 1.5 }}>
+        Choose how you'd like to price your services. You can always adjust later.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+        {modes.map(m => {
+          const active = pricingMode === m.id;
+          return (
+            <button
+              key={m.id}
+              onClick={() => onChange('pricing_mode', m.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '14px 16px', borderRadius: 12,
+                border: active ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
+                background: active ? p.colors.accentLighter : '#fff',
+                cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s ease',
+              }}
+            >
+              <div style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: active ? p.colors.accent : p.colors.surfaceRaised,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <m.icon style={{ width: 16, height: 16, color: active ? '#fff' : p.colors.muted }} />
+              </div>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 600, color: p.colors.heading, margin: 0 }}>{m.label}</p>
+                <p style={{ fontSize: 12, color: p.colors.muted, margin: 0, lineHeight: 1.4 }}>{m.desc}</p>
+              </div>
+              {active && <Check style={{ width: 16, height: 16, color: p.colors.accent, marginLeft: 'auto', flexShrink: 0 }} />}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Mode-specific inputs */}
+      {pricingMode === 'ai_suggested' && (
+        <div style={{
+          padding: 14, borderRadius: 10,
+          background: p.colors.accentLighter, border: `1px solid ${p.colors.accentLighter}`,
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+        }}>
+          <Sparkles style={{ width: 16, height: 16, color: p.colors.accent, flexShrink: 0, marginTop: 1 }} />
+          <p style={{ fontSize: 13, color: p.colors.accentDark, lineHeight: 1.5, margin: 0 }}>
+            AI will generate optimized pricing for {trade} based on industry benchmarks. You'll review and adjust in the next step.
+          </p>
+        </div>
+      )}
+
+      {pricingMode === 'hourly' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <label style={{ ...p.typography.label, display: 'block', marginBottom: 6 }}>Hourly Rate ($)</label>
+            <input type="number" min="1" value={hourlyRate}
+              onChange={e => onChange('manual_hourly_rate', Number(e.target.value) || 0)}
+              className="premium-input" style={{ width: '100%', padding: '10px 14px', fontSize: 14 }} />
+            <p style={{ fontSize: 12, color: p.colors.muted, marginTop: 4 }}>
+              Example quote: ${hourlyRate * 2}–${hourlyRate * 4} for a typical {trade} job (2–4 hours)
+            </p>
+          </div>
+        </div>
+      )}
+
+      {pricingMode === 'fixed' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <label style={{ ...p.typography.label, display: 'block', marginBottom: 6 }}>Base Price ($)</label>
+            <input type="number" min="1" value={fixedPrice}
+              onChange={e => onChange('manual_fixed_price', Number(e.target.value) || 0)}
+              className="premium-input" style={{ width: '100%', padding: '10px 14px', fontSize: 14 }} />
+            <p style={{ fontSize: 12, color: p.colors.muted, marginTop: 4 }}>
+              Customers will see: "Starting from ${fixedPrice}"
+            </p>
+          </div>
+        </div>
+      )}
+
+      {pricingMode === 'range' && (
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ ...p.typography.label, display: 'block', marginBottom: 6 }}>Min ($)</label>
+            <input type="number" min="1" value={rangeMin}
+              onChange={e => onChange('manual_range_min', Number(e.target.value) || 0)}
+              className="premium-input" style={{ width: '100%', padding: '10px 14px', fontSize: 14 }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ ...p.typography.label, display: 'block', marginBottom: 6 }}>Max ($)</label>
+            <input type="number" min="1" value={rangeMax}
+              onChange={e => onChange('manual_range_max', Number(e.target.value) || 0)}
+              className="premium-input" style={{ width: '100%', padding: '10px 14px', fontSize: 14 }} />
+          </div>
+        </div>
+      )}
+
+      {pricingMode === 'range' && (
+        <p style={{ fontSize: 12, color: p.colors.muted, marginTop: 8 }}>
+          Customers will see: "${rangeMin}–${rangeMax}" as the estimated range
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* Need Clock icon for pricing selector */
+const Clock = ({ style, ...rest }: any) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} {...rest}>
+    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
+const DollarSign = ({ style, ...rest }: any) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} {...rest}>
+    <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  </svg>
+);
+
+/** Preview sections for enabled feature toggles — renders below the QuoteWidget */
+function FeatureTogglePreviews({ layout, primaryColor }: { layout?: any; primaryColor?: string }) {
+  const sticky = layout?.sticky_summary;
+  const breakdown = layout?.show_breakdown;
+  const trust = layout?.show_trust_block;
+  const testimonials = layout?.show_testimonials;
+  const accent = primaryColor || '#2D6A4F';
+
+  if (!sticky && !breakdown && !trust && !testimonials) return null;
+
+  return (
+    <div style={{ padding: '12px 14px', borderTop: `1px solid ${p.colors.borderLight}`, background: '#fff' }}>
+      <p style={{ fontSize: 10, fontWeight: 700, color: p.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+        Enabled features
+      </p>
+
+      {sticky && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 10, marginBottom: 8,
+          background: accent, color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 600 }}>Estimated Total</span>
+          <span style={{ fontSize: 16, fontWeight: 700 }}>$285</span>
+        </div>
+      )}
+
+      {breakdown && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8, marginBottom: 8,
+          border: `1px solid ${p.colors.borderLight}`, background: '#FAFBFC',
+        }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: p.colors.heading, marginBottom: 6 }}>Price Breakdown</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: p.colors.muted, marginBottom: 3 }}>
+            <span>Labor (3 hrs × $75)</span><span>$225</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: p.colors.muted, marginBottom: 3 }}>
+            <span>Call-out fee</span><span>$60</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 600, color: p.colors.heading, borderTop: `1px solid ${p.colors.borderLight}`, paddingTop: 4 }}>
+            <span>Total</span><span>$285</span>
+          </div>
+        </div>
+      )}
+
+      {trust && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8, marginBottom: 8,
+          border: `1px solid ${p.colors.borderLight}`, background: '#F0FDF4',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <Shield style={{ width: 14, height: 14, color: '#059669', flexShrink: 0 }} />
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 600, color: '#065F46', margin: 0 }}>Verified & Insured</p>
+            <p style={{ fontSize: 10, color: '#047857', margin: 0 }}>Licensed · Background checked · Satisfaction guaranteed</p>
+          </div>
+        </div>
+      )}
+
+      {testimonials && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8, marginBottom: 4,
+          border: `1px solid ${p.colors.borderLight}`, background: '#FFFBEB',
+        }}>
+          <div style={{ display: 'flex', gap: 2, marginBottom: 4 }}>
+            {[1,2,3,4,5].map(i => <span key={i} style={{ fontSize: 12, color: '#F59E0B' }}>★</span>)}
+          </div>
+          <p style={{ fontSize: 12, color: p.colors.body, lineHeight: 1.4, margin: 0, fontStyle: 'italic' }}>
+            "Fast, professional, and great price. Will definitely use again."
+          </p>
+          <p style={{ fontSize: 11, color: p.colors.muted, marginTop: 4 }}>— Recent customer</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function GeneratingAnimation({ progress, businessName }: { progress: number; businessName: string }) {
   const messages = [
@@ -1686,15 +2067,16 @@ function InputField({ id, testId, label, sublabel, required, value, onChange, pl
       {multiline ? (
         <textarea id={id} data-testid={testId} value={value}
           onChange={e => onChange(e.target.value)} placeholder={placeholder}
-          rows={rows || 3} className="premium-input" style={{ resize: 'vertical' }} />
+          rows={rows || 3} className="premium-input"
+          style={error ? { resize: 'vertical', borderColor: p.colors.danger, background: '#FEF2F2' } : { resize: 'vertical' }} />
       ) : (
         <input id={id} data-testid={testId} type={type || 'text'}
           value={value} onChange={e => onChange(e.target.value)}
           placeholder={placeholder} className="premium-input"
-          style={error ? { borderColor: p.colors.danger } : undefined}
+          style={error ? { borderColor: p.colors.danger, background: '#FEF2F2' } : undefined}
         />
       )}
-      {error && <p style={{ fontSize: '12px', color: p.colors.danger, marginTop: '4px' }}>{error}</p>}
+      {error && <p data-error-field={id} style={{ fontSize: '12px', color: p.colors.danger, marginTop: '4px', display: 'flex', alignItems: 'center', gap: 4 }}>⚠ {error}</p>}
     </div>
   );
 }
@@ -1848,9 +2230,9 @@ function Footer({ onBack, onNext, nextDisabled, backDisabled, children, hint }: 
           style={{
             display: 'flex', alignItems: 'center', gap: '6px',
             padding: '10px 16px', borderRadius: p.radius.md,
-            border: '1px solid #F5D76E', background: '#FEF9E7',
+            border: `1px solid ${p.colors.border}`, background: '#FFFFFF',
             cursor: backDisabled ? 'default' : 'pointer',
-            fontSize: '14px', fontWeight: 600, color: backDisabled ? p.colors.subtle : '#000000',
+            fontSize: '14px', fontWeight: 500, color: backDisabled ? p.colors.subtle : p.colors.muted,
             transition: p.transitions.fast, opacity: backDisabled ? 0.5 : 1,
             WebkitTapHighlightColor: 'transparent', minHeight: '44px',
           }}

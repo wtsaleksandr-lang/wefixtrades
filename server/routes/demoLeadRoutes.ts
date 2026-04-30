@@ -1,5 +1,4 @@
 import type { Express, Request, Response } from "express";
-import nodemailer from "nodemailer";
 import { storage } from "../storage";
 import { captureIntakeEvent } from "../services/intakeService";
 import {
@@ -7,20 +6,8 @@ import {
   buildInternalNotificationEmail,
   enqueueDemoQuoteFollowups,
 } from "../lib/demoQuoteFollowup";
-
-function getTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || "587", 10);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) return null;
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
-}
+import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { ADMIN_ALERT_FROM_NAME } from "../lib/adminAlertShell";
 
 const rateMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_WINDOW = 10 * 60 * 1000;
@@ -93,30 +80,38 @@ export function registerDemoLeadRoutes(app: Express): void {
         answers: answers || null,
       };
 
-      const mail = getTransporter();
-      const from =
-        process.env.SMTP_FROM ||
-        process.env.SMTP_USER ||
-        "noreply@wefixtrades.com";
-
-      // 2. Send immediate quote email to the lead (non-blocking)
-      if (mail && trimmedEmail) {
-        const { subject, html } = buildDemoQuoteEmail(ctx);
-        mail
-          .sendMail({ from, to: trimmedEmail, subject, html })
+      // 2. Send immediate quote email to the lead via shared transporter (non-blocking)
+      const customerMail = getEmailTransporter();
+      if (customerMail && trimmedEmail) {
+        const { subject, html, text } = buildDemoQuoteEmail(ctx);
+        customerMail
+          .sendMail({
+            from: `WeFixTrades <${getFromAddress()}>`,
+            to: trimmedEmail,
+            subject,
+            html,
+            text,
+          })
           .catch((err) => {
             console.error("[demo-lead] Quote email error:", err?.message);
           });
       }
 
       // 3. Send internal notification to WeFixTrades team (non-blocking)
-      if (mail && trimmedEmail) {
+      const internalMail = getEmailTransporter();
+      if (internalMail && trimmedEmail) {
         const internalTo =
           process.env.INTERNAL_LEAD_EMAIL || process.env.SMTP_USER || null;
         if (internalTo) {
-          const { subject, html } = buildInternalNotificationEmail(ctx);
-          mail
-            .sendMail({ from, to: internalTo, subject, html })
+          const { subject, html, text } = buildInternalNotificationEmail(ctx);
+          internalMail
+            .sendMail({
+              from: `${ADMIN_ALERT_FROM_NAME} <${getFromAddress()}>`,
+              to: internalTo,
+              subject,
+              html,
+              text,
+            })
             .catch((err) => {
               console.error(
                 "[demo-lead] Internal notification error:",

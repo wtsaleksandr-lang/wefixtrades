@@ -1,6 +1,7 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Share2, CheckCircle, Clock, Calendar, ImageIcon, Settings, X } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Share2, CheckCircle, Clock, Calendar, ImageIcon, Settings, X, ThumbsUp, ThumbsDown, Edit3, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
@@ -33,6 +34,16 @@ interface PostItem {
   image_url: string | null;
 }
 
+interface PendingPost {
+  id: number;
+  platform: string;
+  post_text: string;
+  hashtags: string[] | null;
+  media_plan: { prompt?: string } | null;
+  scheduled_for: string;
+  created_at: string;
+}
+
 const STATUS_MESSAGES: Record<string, { headline: string; sub: string }> = {
   active: { headline: "Your social media is on autopilot", sub: "We're creating and posting content for your business automatically." },
   ready: { headline: "Your accounts are connected and ready", sub: "Content will start being published soon." },
@@ -41,12 +52,62 @@ const STATUS_MESSAGES: Record<string, { headline: string; sub: string }> = {
 };
 
 export default function PortalSocialSync() {
+  usePageTitle("Social Media");
   const [selectedPost, setSelectedPost] = useState<PostItem | null>(null);
+  const [editingPostId, setEditingPostId] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
+  const [actionPostId, setActionPostId] = useState<number | null>(null);
+  const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery<SocialSyncReport>({
     queryKey: ["/api/portal/socialsync"],
     refetchInterval: 5 * 60 * 1000,
   });
+
+  const { data: pending } = useQuery<{ posts: PendingPost[] }>({
+    queryKey: ["/api/portal/socialsync/pending"],
+    refetchInterval: 2 * 60 * 1000,
+  });
+
+  async function callAction(postId: number, path: "approve" | "reject", body?: any) {
+    setActionPostId(postId);
+    try {
+      const res = await fetch(`/api/portal/socialsync/posts/${postId}/${path}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) throw new Error("action failed");
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/socialsync/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/socialsync"] });
+    } catch (err) {
+      console.error("Action failed:", err);
+    } finally {
+      setActionPostId(null);
+    }
+  }
+
+  async function saveEdit(postId: number) {
+    if (editText.trim().length < 10) return;
+    setActionPostId(postId);
+    try {
+      const res = await fetch(`/api/portal/socialsync/posts/${postId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ post_text: editText.trim() }),
+      });
+      if (!res.ok) throw new Error("edit failed");
+      setEditingPostId(null);
+      setEditText("");
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/socialsync/pending"] });
+    } catch (err) {
+      console.error("Edit failed:", err);
+    } finally {
+      setActionPostId(null);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -146,6 +207,108 @@ export default function PortalSocialSync() {
             ))}
           </div>
         </Card>
+
+        {/* Pending approval queue — customer can approve, reject, or edit before auto-publish */}
+        {pending?.posts && pending.posts.length > 0 && (
+          <Card className="p-5 border-amber-200 bg-amber-50/30">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Posts awaiting your review</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  We'll auto-publish these at their scheduled time unless you act.
+                </p>
+              </div>
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">
+                {pending.posts.length} pending
+              </span>
+            </div>
+            <div className="space-y-3">
+              {pending.posts.map(p => {
+                const isEditing = editingPostId === p.id;
+                const isBusy = actionPostId === p.id;
+                return (
+                  <div key={p.id} className="bg-white rounded-lg border border-gray-200 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-medium text-gray-500 capitalize">{p.platform}</span>
+                      <span className="text-[11px] text-gray-400">
+                        Scheduled {new Date(p.scheduled_for).toLocaleDateString()} {new Date(p.scheduled_for).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                      </span>
+                    </div>
+                    {isEditing ? (
+                      <textarea
+                        className="w-full text-sm text-gray-800 border border-gray-200 rounded-md p-2 font-sans resize-y min-h-[100px] focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20"
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        maxLength={3000}
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-800 whitespace-pre-wrap">{p.post_text}</p>
+                    )}
+                    {p.hashtags && p.hashtags.length > 0 && !isEditing && (
+                      <p className="text-xs text-[#2D6A4F] mt-2">{p.hashtags.map(h => `#${h}`).join(" ")}</p>
+                    )}
+                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                      {isEditing ? (
+                        <>
+                          <Button
+                            size="sm"
+                            className="bg-[#2D6A4F] hover:bg-[#1B4332] text-white text-xs"
+                            disabled={isBusy || editText.trim().length < 10}
+                            onClick={() => saveEdit(p.id)}
+                          >
+                            {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3 mr-1" />}
+                            Save & approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs text-gray-500"
+                            disabled={isBusy}
+                            onClick={() => { setEditingPostId(null); setEditText(""); }}
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            className="bg-[#2D6A4F] hover:bg-[#1B4332] text-white text-xs"
+                            disabled={isBusy}
+                            onClick={() => callAction(p.id, "approve")}
+                          >
+                            {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <ThumbsUp className="w-3 h-3 mr-1" />}
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs"
+                            disabled={isBusy}
+                            onClick={() => { setEditingPostId(p.id); setEditText(p.post_text); }}
+                          >
+                            <Edit3 className="w-3 h-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 ml-auto"
+                            disabled={isBusy}
+                            onClick={() => callAction(p.id, "reject")}
+                          >
+                            <ThumbsDown className="w-3 h-3 mr-1" />
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
 
         {/* Recent Posts */}
         {data.recent_posts.length > 0 && (

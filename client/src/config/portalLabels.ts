@@ -72,6 +72,29 @@ export const ONBOARDING_STATUS_LABELS: Record<string, string> = {
   needs_followup: "Needs attention",
 };
 
+/* ─── ContentFlow draft statuses ─── */
+export const CONTENT_DRAFT_STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  awaiting_admin: "Awaiting admin",
+  awaiting_client: "Awaiting client",
+  approved: "Approved",
+  rejected: "Rejected",
+  published: "Published",
+  delivered: "Delivered",
+  failed: "Failed",
+};
+
+export const CONTENT_DRAFT_STATUS_STYLES: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-600",
+  awaiting_admin: "bg-amber-50 text-amber-700",
+  awaiting_client: "bg-blue-50 text-blue-700",
+  approved: "bg-emerald-50 text-emerald-700",
+  rejected: "bg-red-50 text-red-700",
+  published: "bg-indigo-50 text-indigo-700",
+  delivered: "bg-indigo-50 text-indigo-700",
+  failed: "bg-red-50 text-red-700",
+};
+
 /* ─── Helper ─── */
 export function statusLabel(map: Record<string, string>, status: string): string {
   return map[status] || status.replace(/_/g, " ");

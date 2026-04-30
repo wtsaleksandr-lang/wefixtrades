@@ -17,7 +17,7 @@ interface StepTimelineProps {
 export default function StepTimeline({ steps, heading }: StepTimelineProps) {
   return (
     <section
-      style={{ background: mkt.surface, padding: "72px 28px" }}
+      style={{ background: mkt.sectionLighter, padding: "72px 28px" }}
       data-testid="product-how-it-works"
     >
       <div style={{ maxWidth: 900, margin: "0 auto" }}>

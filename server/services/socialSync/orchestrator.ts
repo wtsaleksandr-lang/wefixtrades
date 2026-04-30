@@ -2,6 +2,10 @@ import { storage } from "../../storage";
 import { generateTopics } from "./topicGenerator";
 import { generatePostFromTopic, type ContentGenerationResult } from "./contentGenerator";
 import { checkContentMix } from "./qualityGate";
+import { createDraftFromSocialPost } from "../contentflow/draftService";
+import { autoApproveDraft } from "../contentflow/approvalService";
+import { enqueueSocialSyncDraft } from "../contentflow/wordpressQueue";
+import { generateForDraft as generateImageForDraft } from "../contentflow/imageGenerationService";
 import type { SocialSyncProfile, SocialSyncTopic } from "@shared/schema";
 
 /* ─── Frequency mapping ─── */
@@ -241,22 +245,63 @@ export async function generateWeekForClient(
 
     result.posts_generated++;
 
-    // 7. Enqueue for publishing
+    // Sprint 10: route through ContentFlow's unified publish queue.
+    // Replaces the legacy socialsync_publish_queue insert.
+    //
+    // Flow:
+    //   1. Create the unified draft (kind='social_post').
+    //   2. Auto-approve (silence-as-consent remains the SocialSync default).
+    //   3. enqueueSocialSyncDraft sets metadata.<platform>.queue_status='queued'
+    //      with scheduled_for honoured by the queue worker.
+    //
+    // The legacy storage.enqueueSocialSyncJob call is GONE — no new
+    // socialsync_publish_queue rows are written. Existing rows in
+    // flight at deploy time drain via one final tick of the legacy
+    // worker before its cron is removed in scheduler.ts.
+    let draftIdForEnqueue: number | null = null;
     try {
-      await storage.enqueueSocialSyncJob({
-        client_id: clientId,
-        post_id: genResult.post.id,
-        platform,
-        status: "pending",
-        run_at: scheduledFor,
-        attempts: 0,
-        max_attempts: 3,
-      } as any);
+      const draft = await createDraftFromSocialPost({ post: genResult.post });
+      draftIdForEnqueue = draft.id;
 
-      await storage.updateSocialSyncPost(genResult.post.id, { status: "queued" } as any);
-      result.posts_queued++;
-    } catch (err: any) {
-      result.errors.push(`Enqueue failed for post ${genResult.post.id}: ${err.message}`);
+      /* Sprint 11/12: image generation. Fire SYNCHRONOUSLY before
+       * auto-approve so the queue worker sees the image_url when it
+       * dispatches. NEVER throws — generateForDraft is documented
+       * to swallow all failures and return a result marker.
+       *
+       * Sprint 11 covered FB / IG. Sprint 12 adds google_business —
+       * GBP local posts now get an image too, attached via the
+       * publisher's media field. If image gen fails for any of the
+       * three platforms:
+       *   - FB / GBP: draft publishes text-only (media optional)
+       *   - IG: draft fails its own validation gate cleanly —
+       *         isolated to the IG queue, does NOT block other
+       *         channel drains. */
+      const platformsWithImage = new Set(["facebook", "instagram", "google_business"]);
+      if (platformsWithImage.has(genResult.post.platform)) {
+        const imageRes = await generateImageForDraft(draft.id);
+        if (!imageRes.ok && imageRes.reason !== "skipped_already_has_image") {
+          console.warn(`[contentflow][image-gen] draft=${draft.id} platform=${genResult.post.platform} reason=${imageRes.reason} msg=${imageRes.message}`);
+        }
+      }
+
+      await autoApproveDraft({
+        draftId: draft.id,
+        notes: `SocialSync auto-approved — quality score ${genResult.post.quality_score ?? 0}`,
+      });
+    } catch (cfErr: any) {
+      result.errors.push(`ContentFlow draft failed for post ${genResult.post.id}: ${cfErr.message}`);
+    }
+
+    if (draftIdForEnqueue !== null) {
+      try {
+        await enqueueSocialSyncDraft(draftIdForEnqueue, {
+          scheduled_for: scheduledFor.toISOString(),
+        });
+        await storage.updateSocialSyncPost(genResult.post.id, { status: "pending_approval" } as any);
+        result.posts_queued++;
+      } catch (err: any) {
+        result.errors.push(`Enqueue failed for post ${genResult.post.id}: ${err.message}`);
+      }
     }
   }
 

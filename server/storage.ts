@@ -1,7 +1,8 @@
 import crypto from "crypto";
+import { hashPassword } from "./auth";
 import { db } from "./db";
 import {
-  calculators, leads, analyticsEvents, deploymentStatus,
+calculators, leads, analyticsEvents, deploymentStatus,
   calculatorAnalyticsSummary, jobLogs,
   notificationQueue, followupJobs, bookings,
   aiConversations, supportTickets, smsMessages,
@@ -21,7 +22,7 @@ import {
   type TicketMessage, type InsertTicketMessage,
   type TicketEvent, type InsertTicketEvent,
   type SmsMessage,
-  type User, type InsertUser,
+type User, type InsertUser,
   type AuditSubmission, type InsertAuditSubmission,
   type AuditFollowupEmail, type InsertAuditFollowupEmail,
   type MissedCallLead, type InsertMissedCallLead,
@@ -31,6 +32,9 @@ import {
   suppliers, fulfillmentTasks, onboardingSubmissions, onboardingTemplates,
   clientPayments, internalNotes, adminActivityLog,
   serviceTaskTemplates,
+  // TradeLine
+  tradelineUsage, tradelineCallLog, tradelineModeLog,
+  tradelineConfigSchema,
   type Client, type InsertClient,
   type ClientService, type InsertClientService,
   type ServiceCatalogRow, type InsertServiceCatalog,
@@ -44,7 +48,27 @@ import {
   type AdminActivityLog, type InsertAdminActivityLog,
   type ServiceTaskTemplate,
   type OnboardingTemplate,
-  // SocialSync
+  // RankFlow
+  rankflowProfiles, rankflowMonthlyPlans, rankflowTasks, rankflowQaChecks, rankflowProgress,
+  rankflowVendorBatches, rankflowKeywords, rankflowRankings, rankflowPages, rankflowSignals,
+  type RankflowProfile, type InsertRankflowProfile,
+  type RankflowMonthlyPlan, type InsertRankflowMonthlyPlan,
+  type RankflowTask, type InsertRankflowTask,
+  type RankflowQaCheck, type InsertRankflowQaCheck,
+  type RankflowProgress, type InsertRankflowProgress,
+  type RankflowVendorBatch, type InsertRankflowVendorBatch,
+  type RankflowKeyword, type InsertRankflowKeyword,
+  type RankflowRanking, type InsertRankflowRanking,
+  type RankflowPage, type InsertRankflowPage,
+  type RankflowSignal, type InsertRankflowSignal,
+  reviewRequests,
+  type ReviewRequest, type InsertReviewRequest,
+  monitoredReviews,
+  type MonitoredReview, type InsertMonitoredReview,
+  type TradelineConfig,
+  type TradelineUsage, type InsertTradelineUsage,
+  type TradelineCallLog, type InsertTradelineCallLog,
+  type TradelineModeLog, type InsertTradelineModeLog,
   socialsyncProfiles, socialsyncTopics, socialsyncPosts,
   socialsyncPublishQueue, socialsyncActivityLogs, socialsyncPlatformConnections,
   type SocialSyncProfile, type InsertSocialSyncProfile,
@@ -53,19 +77,18 @@ import {
   type SocialSyncQueueItem, type InsertSocialSyncQueueItem,
   type SocialSyncActivityLog, type InsertSocialSyncActivityLog,
   type SocialSyncConnection, type InsertSocialSyncConnection,
-  // Reviews
   reviews as reviewsTable, reviewSyncLogs,
   type Review, type InsertReview,
   type ReviewSyncLog, type InsertReviewSyncLog,
-  // Review Requests
-  reviewRequests,
-  type ReviewRequest, type InsertReviewRequest,
-  // Service Costs
   serviceCostLogs,
   type ServiceCostLog, type InsertServiceCostLog,
-  // Sales Leads
   salesLeads,
   type SalesLead, type InsertSalesLead,
+  // ContentFlow
+  contentDrafts, contentApprovals, contentAssets,
+  type ContentDraft, type InsertContentDraft,
+  type ContentApproval, type InsertContentApproval,
+  type ContentAsset, type InsertContentAsset,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -94,6 +117,7 @@ export interface IStorage {
   upsertDeploymentStatus(data: InsertDeploymentStatus): Promise<DeploymentStatus>;
 
   getAllCalculatorsWithEmail(): Promise<Calculator[]>;
+  getAllCalculatorsForAdmin(): Promise<any[]>;
   upsertAnalyticsSummary(data: InsertAnalyticsSummary): Promise<AnalyticsSummary>;
   getAnalyticsSummary(calculatorId: number): Promise<AnalyticsSummary | undefined>;
   getDailyEventCounts(calculatorId: number, date: Date): Promise<{ views: number; leads: number; quotes: number }>;
@@ -221,6 +245,37 @@ export interface IStorage {
   logAdminActivity(data: InsertAdminActivityLog): Promise<AdminActivityLog>;
   listAdminActivity(opts?: { entityType?: string; entityId?: number; limit?: number }): Promise<AdminActivityLog[]>;
 
+  // ─── Review Requests ───
+  createReviewRequest(data: InsertReviewRequest): Promise<ReviewRequest>;
+  findReviewRequestByIdempotencyKey(key: string): Promise<ReviewRequest | undefined>;
+  getReviewRequestByToken(token: string): Promise<ReviewRequest | undefined>;
+  getReviewRequestById(id: number): Promise<ReviewRequest | undefined>;
+  fetchDueReviewRequests(limit?: number): Promise<ReviewRequest[]>;
+  fetchDueReviewFollowups(limit?: number): Promise<ReviewRequest[]>;
+  updateReviewRequest(id: number, updates: Record<string, any>): Promise<ReviewRequest | undefined>;
+  listReviewRequests(opts?: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean; limit?: number; offset?: number }): Promise<ReviewRequest[]>;
+  countReviewRequests(opts?: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean }): Promise<number>;
+  getReviewRequestStats(): Promise<{ total: number; pending: number; sent: number; clicked: number; routed_positive: number; routed_negative: number; feedback_captured: number; completed: number; failed: number; stopped: number; due_for_followup: number }>;
+  stopReviewRequestsForBooking(bookingId: number): Promise<void>;
+  findClientByUserId(userId: number): Promise<Client | undefined>;
+
+  // ─── Monitored Reviews ───
+  upsertMonitoredReview(data: InsertMonitoredReview): Promise<{ review: MonitoredReview; isNew: boolean }>;
+  getMonitoredReviewById(id: number): Promise<MonitoredReview | undefined>;
+  updateMonitoredReview(id: number, updates: Record<string, any>): Promise<MonitoredReview | undefined>;
+  findMonitoredReviewByDedupKey(dedupKey: string): Promise<MonitoredReview | undefined>;
+  listMonitoredReviews(opts?: { clientId?: number; platform?: string; isNew?: boolean; minRating?: number; maxRating?: number; limit?: number; offset?: number }): Promise<MonitoredReview[]>;
+  countMonitoredReviews(opts?: { clientId?: number; isNew?: boolean }): Promise<number>;
+  getMonitoredReviewStats(clientId?: number): Promise<{ total: number; averageRating: number; newCount: number; withResponse: number; byRating: Record<number, number> }>;
+  markMonitoredReviewsAcknowledged(ids: number[]): Promise<void>;
+  listClientsForReviewSync(limit?: number): Promise<Client[]>;
+  getClientReputationService(clientId: number): Promise<{ serviceId: string; status: string; metadata: any } | null>;
+  updateClientServiceMetadata(clientId: number, serviceId: string, metadata: Record<string, any>): Promise<void>;
+  getClientByWidgetToken(token: string): Promise<Client | undefined>;
+  ensureWidgetToken(clientId: number): Promise<string>;
+  getWidgetReviews(clientId: number, minRating: number, limit: number): Promise<{ reviewer_name: string; rating: number; review_text: string | null; published_at: Date | null; platform: string }[]>;
+  countReviewsMissingGoogleName(clientId?: number): Promise<number>;
+
   // CRM Overview
   getCrmOverview(): Promise<{
     totalClients: number;
@@ -232,6 +287,26 @@ export interface IStorage {
     recentClients: { id: number; business_name: string; status: string; created_at: Date | null }[];
     recentTasks: { id: number; title: string; status: string; priority: string; client_id: number; client_name: string | null; due_at: Date | null }[];
   }>;
+
+  // Portal account
+  ensurePortalAccount(clientId: number): Promise<{ user: User; created: boolean; tempPassword?: string }>;
+
+  // Fulfillment helpers
+  countPendingTasks(clientServiceId: number): Promise<number>;
+
+  // Raw metadata
+  updateClientServiceMetadata(clientServiceId: number, metadata: Record<string, any>): Promise<void>;
+
+  // ─── TradeLine ───
+  getTradeLineConfig(clientServiceId: number): Promise<TradelineConfig | undefined>;
+  updateTradeLineConfig(clientServiceId: number, partialConfig: Partial<TradelineConfig>): Promise<TradelineConfig>;
+  setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string): Promise<TradelineModeLog>;
+  createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog | null>;
+  listTradeLineCalls(clientServiceId: number, limit?: number): Promise<TradelineCallLog[]>;
+  upsertTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date): Promise<TradelineUsage>;
+  getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined>;
+  listTradeLineModeChanges(clientServiceId: number, limit?: number): Promise<TradelineModeLog[]>;
+  incrementTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date, increments: { voiceMinutes?: number; calls?: number; sms?: number }): Promise<TradelineUsage>;
 
   // ─── SocialSync ───
   upsertSocialSyncProfile(data: InsertSocialSyncProfile): Promise<SocialSyncProfile>;
@@ -270,11 +345,6 @@ export interface IStorage {
   createReviewSyncLog(data: InsertReviewSyncLog): Promise<ReviewSyncLog>;
 
   // ─── Review Requests ───
-  createReviewRequest(data: InsertReviewRequest): Promise<ReviewRequest>;
-  fetchDueReviewRequests(limit?: number): Promise<ReviewRequest[]>;
-  updateReviewRequest(id: number, updates: Record<string, any>): Promise<void>;
-  listReviewRequests(clientId: number, limit?: number): Promise<ReviewRequest[]>;
-  getReviewRequestByDedupKey(key: string): Promise<ReviewRequest | undefined>;
 
   // ─── Service Costs ───
   logServiceCost(data: InsertServiceCostLog): Promise<ServiceCostLog>;
@@ -315,6 +385,7 @@ export class DatabaseStorage implements IStorage {
     await db.update(calculators).set({ is_duplicated: true }).where(eq(calculators.id, id));
 
     const [newCalc] = await db.insert(calculators).values({
+      user_id: original.user_id,
       slug: newSlug,
       business_name: original.business_name,
       trade_type: original.trade_type,
@@ -334,6 +405,7 @@ export class DatabaseStorage implements IStorage {
       is_duplicated: false,
       total_views: 0,
       show_powered_by_badge: original.show_powered_by_badge,
+      plan_tier: original.plan_tier,
     }).returning();
     return newCalc;
   }
@@ -455,6 +527,39 @@ export class DatabaseStorage implements IStorage {
 
   async getAllCalculatorsWithEmail(): Promise<Calculator[]> {
     return db.select().from(calculators).where(isNotNull(calculators.owner_email));
+  }
+
+  async getAllCalculatorsForAdmin(): Promise<any[]> {
+    const allCalcs = await db.select({
+      id: calculators.id,
+      user_id: calculators.user_id,
+      business_name: calculators.business_name,
+      trade_type: calculators.trade_type,
+      slug: calculators.slug,
+      owner_email: calculators.owner_email,
+      plan_tier: calculators.plan_tier,
+      total_views: calculators.total_views,
+      created_at: calculators.created_at,
+    }).from(calculators).orderBy(desc(calculators.created_at));
+
+    const PLAN_REVENUE: Record<string, number> = { 'free': 0, 'starter': 4900, 'business': 9900 };
+    const QQ_COST_CENTS = 500;
+
+    const results = [];
+    for (const calc of allCalcs) {
+      const deploy = await this.getDeploymentStatus(calc.id);
+      const [leadRow] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(leads).where(eq(leads.calculator_id, calc.id));
+      const tier = (calc.plan_tier as string) ?? 'free';
+      results.push({
+        ...calc,
+        total_leads: leadRow?.count ?? 0,
+        status: deploy?.status ?? 'draft',
+        price_cents: PLAN_REVENUE[tier] ?? 0,
+        cost_cents: tier === 'free' ? 0 : QQ_COST_CENTS,
+      });
+    }
+    return results;
   }
 
   async upsertAnalyticsSummary(data: InsertAnalyticsSummary): Promise<AnalyticsSummary> {
@@ -825,9 +930,10 @@ export class DatabaseStorage implements IStorage {
       .where(condition)
       .groupBy(supportTickets.status);
 
-    const counts: Record<string, number> = { open: 0, in_progress: 0, waiting_on_customer: 0, resolved: 0, closed: 0 };
+    const counts: Record<string, number> = { total: 0, open: 0, in_progress: 0, waiting_on_customer: 0, resolved: 0, closed: 0 };
     for (const row of rows) {
       counts[row.status] = row.count;
+      counts.total += row.count;
     }
     return counts;
   }
@@ -976,6 +1082,48 @@ export class DatabaseStorage implements IStorage {
     return row?.total ?? 0;
   }
 
+  /**
+   * Ensure the client has a portal login. If one already exists, returns it.
+   * Otherwise creates a user record with a temp password and links it.
+   * Returns { user, created, tempPassword? }.
+   */
+  async ensurePortalAccount(clientId: number): Promise<{ user: User; created: boolean; tempPassword?: string }> {
+    const client = await this.getClientById(clientId);
+    if (!client) throw new Error(`Client ${clientId} not found`);
+
+    // Already linked
+    if (client.user_id) {
+      const existing = await this.getUserById(client.user_id);
+      if (existing) return { user: existing, created: false };
+    }
+
+    const email = client.contact_email;
+    if (!email) throw new Error(`Client ${clientId} has no contact email`);
+
+    // Check if user with this email already exists
+    const existingByEmail = await this.getUserByEmail(email.toLowerCase().trim());
+    if (existingByEmail) {
+      if (existingByEmail.role === "client") {
+        await this.updateClient(clientId, { user_id: existingByEmail.id });
+        return { user: existingByEmail, created: false };
+      }
+      // Non-client role — don't overwrite, skip silently
+      throw new Error(`User with email ${email} exists with role "${existingByEmail.role}"`);
+    }
+
+    // Create new portal user
+    const tempPassword = crypto.randomBytes(6).toString("base64url");
+    const user = await this.createUser({
+      email: email.toLowerCase().trim(),
+      password_hash: hashPassword(tempPassword),
+      name: client.contact_name || client.business_name,
+      role: "client",
+    });
+    await this.updateClient(clientId, { user_id: user.id });
+
+    return { user, created: true, tempPassword };
+  }
+
   async getCalculatorsByUserId(userId: number): Promise<Calculator[]> {
     return db.select().from(calculators).where(eq(calculators.user_id, userId)).orderBy(desc(calculators.id));
   }
@@ -1113,6 +1261,33 @@ export class DatabaseStorage implements IStorage {
   async updateClientService(id: number, updates: Partial<InsertClientService>): Promise<ClientService | undefined> {
     const [row] = await db.update(clientServices).set({ ...updates, updated_at: new Date() }).where(eq(clientServices.id, id)).returning();
     return row;
+  }
+
+  /**
+   * Update the raw metadata JSONB for a client service.
+   * Unlike updateTradeLineConfig (which deep-merges the tradeline sub-key),
+   * this replaces the entire metadata object.
+   */
+  async updateClientServiceMetadata(clientServiceId: number, metadata: Record<string, any>): Promise<void>;
+  async updateClientServiceMetadata(clientId: number, serviceId: string, metadata: Record<string, any>): Promise<void>;
+  async updateClientServiceMetadata(
+    clientOrServiceId: number,
+    serviceIdOrMetadata: string | Record<string, any>,
+    maybeMetadata?: Record<string, any>,
+  ): Promise<void> {
+    if (typeof serviceIdOrMetadata === "string") {
+      await db.update(clientServices)
+        .set({ metadata: maybeMetadata ?? {}, updated_at: new Date() })
+        .where(and(
+          eq(clientServices.client_id, clientOrServiceId),
+          eq(clientServices.service_id, serviceIdOrMetadata),
+        ));
+      return;
+    }
+
+    await db.update(clientServices)
+      .set({ metadata: serviceIdOrMetadata, updated_at: new Date() })
+      .where(eq(clientServices.id, clientOrServiceId));
   }
 
   async getActiveServiceCount(): Promise<number> {
@@ -1451,6 +1626,20 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  /**
+   * Count non-delivered, non-cancelled tasks for a client service.
+   * Used by go-live validation to ensure setup tasks are complete.
+   */
+  async countPendingTasks(clientServiceId: number): Promise<number> {
+    const [row] = await db.select({ total: sql<number>`count(*)::int` })
+      .from(fulfillmentTasks)
+      .where(and(
+        eq(fulfillmentTasks.client_service_id, clientServiceId),
+        sql`${fulfillmentTasks.status} NOT IN ('delivered', 'cancelled')`,
+      ));
+    return row?.total ?? 0;
+  }
+
   // ─── Check completion cascade ───
   async checkAndCompleteService(clientServiceId: number): Promise<{ serviceCompleted: boolean; serviceActivated: boolean; clientActivated: boolean }> {
     // Count non-delivered tasks for this client_service
@@ -1523,6 +1712,542 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { serviceCompleted, serviceActivated, clientActivated };
+  }
+
+  /* ═══════════════════════════════════════════
+     RankFlow
+     ═══════════════════════════════════════════ */
+
+  async getRankFlowProfile(clientId: number): Promise<RankflowProfile | undefined> {
+    const [row] = await db.select().from(rankflowProfiles).where(eq(rankflowProfiles.client_id, clientId)).limit(1);
+    return row;
+  }
+
+  async upsertRankFlowProfile(clientId: number, data: Partial<InsertRankflowProfile>): Promise<RankflowProfile> {
+    const existing = await this.getRankFlowProfile(clientId);
+    if (existing) {
+      const [updated] = await db.update(rankflowProfiles)
+        .set({ ...data, updated_at: new Date() })
+        .where(eq(rankflowProfiles.client_id, clientId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(rankflowProfiles)
+      .values({ ...data, client_id: clientId } as InsertRankflowProfile)
+      .returning();
+    return created;
+  }
+
+  async listEnabledRankFlowProfiles(): Promise<RankflowProfile[]> {
+    return db.select().from(rankflowProfiles).where(eq(rankflowProfiles.enabled, true));
+  }
+
+  async createMonthlyPlan(data: InsertRankflowMonthlyPlan): Promise<RankflowMonthlyPlan> {
+    const [row] = await db.insert(rankflowMonthlyPlans).values(data).returning();
+    return row;
+  }
+
+  async getMonthlyPlan(clientId: number, month: string): Promise<RankflowMonthlyPlan | undefined> {
+    const [row] = await db.select().from(rankflowMonthlyPlans)
+      .where(and(eq(rankflowMonthlyPlans.client_id, clientId), eq(rankflowMonthlyPlans.month, month)))
+      .limit(1);
+    return row;
+  }
+
+  async updateMonthlyPlanStatus(planId: number, status: string): Promise<void> {
+    await db.update(rankflowMonthlyPlans).set({ status }).where(eq(rankflowMonthlyPlans.id, planId));
+  }
+
+  async createRankFlowTask(data: InsertRankflowTask): Promise<RankflowTask> {
+    const [row] = await db.insert(rankflowTasks).values(data).returning();
+    return row;
+  }
+
+  async listTasksByClient(clientId: number): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks)
+      .where(eq(rankflowTasks.client_id, clientId))
+      .orderBy(desc(rankflowTasks.created_at));
+  }
+
+  async listTasksByPlan(planId: number): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks)
+      .where(eq(rankflowTasks.plan_id, planId))
+      .orderBy(rankflowTasks.priority);
+  }
+
+  async updateRankFlowTaskStatus(taskId: number, status: string): Promise<RankflowTask | undefined> {
+    const updates: Record<string, any> = { status };
+    if (status === "done") updates.completed_at = new Date();
+    const [row] = await db.update(rankflowTasks).set(updates).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async createQACheck(data: InsertRankflowQaCheck): Promise<RankflowQaCheck> {
+    const [row] = await db.insert(rankflowQaChecks).values(data).returning();
+    return row;
+  }
+
+  async listQAChecks(taskId: number): Promise<RankflowQaCheck[]> {
+    return db.select().from(rankflowQaChecks).where(eq(rankflowQaChecks.task_id, taskId));
+  }
+
+  async getRankFlowTaskById(taskId: number): Promise<RankflowTask | undefined> {
+    const [row] = await db.select().from(rankflowTasks).where(eq(rankflowTasks.id, taskId)).limit(1);
+    return row;
+  }
+
+  async assignRankflowTask(taskId: number, assignedTo: string): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "assigned",
+      assigned_to: assignedTo,
+      assigned_at: new Date(),
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async startRankflowTask(taskId: number): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "in_progress",
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async submitRankflowTask(taskId: number, proofData: any): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "submitted",
+      submitted_at: new Date(),
+      proof_data: proofData,
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async updateRankflowTaskQA(taskId: number, qaStatus: string, qaNotes: string | null): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "qa_review",
+      qa_status: qaStatus,
+      qa_notes: qaNotes,
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async approveRankflowTask(taskId: number, actualCost?: string): Promise<RankflowTask | undefined> {
+    const updates: Record<string, any> = {
+      status: "done",
+      qa_status: "passed",
+      completed_at: new Date(),
+    };
+    if (actualCost !== undefined) updates.actual_cost = actualCost;
+    const [row] = await db.update(rankflowTasks).set(updates).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async rejectRankflowTask(taskId: number, rejectionReason: string): Promise<RankflowTask | undefined> {
+    const [row] = await db.update(rankflowTasks).set({
+      status: "assigned",
+      qa_status: "failed",
+      rejection_reason: rejectionReason,
+      submitted_at: null,
+      proof_data: null,
+    }).where(eq(rankflowTasks.id, taskId)).returning();
+    return row;
+  }
+
+  async listPendingAITasks(planId: number): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks).where(
+      and(
+        eq(rankflowTasks.plan_id, planId),
+        eq(rankflowTasks.execution_mode, "ai"),
+        eq(rankflowTasks.status, "pending"),
+      )
+    );
+  }
+
+  async upsertMonthlyProgress(clientId: number, month: string, data: Partial<InsertRankflowProgress>): Promise<RankflowProgress> {
+    const [existing] = await db.select().from(rankflowProgress)
+      .where(and(eq(rankflowProgress.client_id, clientId), eq(rankflowProgress.month, month)))
+      .limit(1);
+    if (existing) {
+      const [updated] = await db.update(rankflowProgress)
+        .set(data)
+        .where(eq(rankflowProgress.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(rankflowProgress)
+      .values({ client_id: clientId, month, ...data } as InsertRankflowProgress)
+      .returning();
+    return created;
+  }
+
+  async getMonthlyProgress(clientId: number, month: string): Promise<RankflowProgress | undefined> {
+    const [row] = await db.select().from(rankflowProgress)
+      .where(and(eq(rankflowProgress.client_id, clientId), eq(rankflowProgress.month, month)))
+      .limit(1);
+    return row;
+  }
+
+  // ─── TradeLine ───
+
+  async getTradeLineConfig(clientServiceId: number): Promise<TradelineConfig | undefined> {
+    const cs = await this.getClientServiceById(clientServiceId);
+    if (!cs) return undefined;
+    const raw = (cs.metadata as Record<string, any>)?.tradeline;
+    if (!raw) return undefined;
+    return tradelineConfigSchema.parse(raw);
+  }
+
+  async updateTradeLineConfig(clientServiceId: number, partialConfig: Partial<TradelineConfig>): Promise<TradelineConfig> {
+    const cs = await this.getClientServiceById(clientServiceId);
+    const existing = (cs?.metadata as Record<string, any>) ?? {};
+    const current = existing.tradeline
+      ? tradelineConfigSchema.parse(existing.tradeline)
+      : tradelineConfigSchema.parse({});
+
+    // Deep merge: for plain-object sub-keys (channels, website, phoneRouting, etc.)
+    // spread-merge instead of overwriting, so partial updates don't wipe sibling fields.
+    const merged: Record<string, any> = { ...current };
+    for (const [key, value] of Object.entries(partialConfig)) {
+      const cur = (current as Record<string, any>)[key];
+      if (value != null && typeof value === "object" && !Array.isArray(value) && cur && typeof cur === "object" && !Array.isArray(cur)) {
+        merged[key] = { ...cur, ...value };
+      } else {
+        merged[key] = value;
+      }
+    }
+
+    const updated = { ...existing, tradeline: merged };
+    await db.update(clientServices)
+      .set({ metadata: updated, updated_at: new Date() })
+      .where(eq(clientServices.id, clientServiceId));
+    return tradelineConfigSchema.parse(merged);
+  }
+
+  async setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string): Promise<TradelineModeLog> {
+    const config = await this.getTradeLineConfig(clientServiceId) ?? tradelineConfigSchema.parse({});
+    const oldMode = config.currentMode;
+
+    // Update the config
+    await this.updateTradeLineConfig(clientServiceId, { currentMode: newMode as TradelineConfig["currentMode"] });
+
+    // Log the change
+    const [log] = await db.insert(tradelineModeLog).values({
+      client_service_id: clientServiceId,
+      old_mode: oldMode,
+      new_mode: newMode,
+      changed_by: changedBy,
+    }).returning();
+    return log;
+  }
+
+  async createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog | null> {
+    // Idempotent: skip if a row with the same vapi_call_id already exists
+    const rows = await db.insert(tradelineCallLog).values(data)
+      .onConflictDoNothing({ target: tradelineCallLog.vapi_call_id })
+      .returning();
+    return rows[0] ?? null;
+  }
+
+  async listTradeLineCalls(clientServiceId: number, limit = 50): Promise<TradelineCallLog[]> {
+    return db.select().from(tradelineCallLog)
+      .where(eq(tradelineCallLog.client_service_id, clientServiceId))
+      .orderBy(desc(tradelineCallLog.created_at))
+      .limit(limit);
+  }
+
+  async upsertTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date): Promise<TradelineUsage> {
+    // Try to find existing usage row for this period
+    const [existing] = await db.select().from(tradelineUsage)
+      .where(and(
+        eq(tradelineUsage.client_service_id, clientServiceId),
+        eq(tradelineUsage.period_start, periodStart),
+      ))
+      .limit(1);
+
+    if (existing) {
+      const [updated] = await db.update(tradelineUsage)
+        .set({ updated_at: new Date() })
+        .where(eq(tradelineUsage.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    const [row] = await db.insert(tradelineUsage).values({
+      client_service_id: clientServiceId,
+      period_start: periodStart,
+      period_end: periodEnd,
+    }).returning();
+    return row;
+  }
+
+  async getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined> {
+    if (periodStart) {
+      const [row] = await db.select().from(tradelineUsage)
+        .where(and(
+          eq(tradelineUsage.client_service_id, clientServiceId),
+          eq(tradelineUsage.period_start, periodStart),
+        ))
+        .limit(1);
+      return row;
+    }
+    // Default: most recent period
+    const [row] = await db.select().from(tradelineUsage)
+      .where(eq(tradelineUsage.client_service_id, clientServiceId))
+      .orderBy(desc(tradelineUsage.period_start))
+      .limit(1);
+    return row;
+  }
+
+  /* ═══════════════════════════════════════════
+     RankFlow Vendor Batches
+     ═══════════════════════════════════════════ */
+
+  async createRankflowVendorBatch(data: InsertRankflowVendorBatch): Promise<RankflowVendorBatch> {
+    const [row] = await db.insert(rankflowVendorBatches).values(data).returning();
+    return row;
+  }
+
+  async getRankflowVendorBatch(batchId: number): Promise<RankflowVendorBatch | undefined> {
+    const [row] = await db.select().from(rankflowVendorBatches).where(eq(rankflowVendorBatches.id, batchId)).limit(1);
+    return row;
+  }
+
+  async listRankflowVendorBatches(filters?: { status?: string; vendor_type?: string }): Promise<RankflowVendorBatch[]> {
+    const conditions = [];
+    if (filters?.status) conditions.push(eq(rankflowVendorBatches.status, filters.status));
+    if (filters?.vendor_type) conditions.push(eq(rankflowVendorBatches.vendor_type, filters.vendor_type));
+    if (conditions.length > 0) {
+      return db.select().from(rankflowVendorBatches)
+        .where(and(...conditions))
+        .orderBy(desc(rankflowVendorBatches.created_at));
+    }
+    return db.select().from(rankflowVendorBatches).orderBy(desc(rankflowVendorBatches.created_at));
+  }
+
+  async updateRankflowVendorBatchStatus(batchId: number, status: string, extra?: Record<string, any>): Promise<RankflowVendorBatch | undefined> {
+    const updates: Record<string, any> = { status, updated_at: new Date(), ...extra };
+    const [row] = await db.update(rankflowVendorBatches).set(updates).where(eq(rankflowVendorBatches.id, batchId)).returning();
+    return row;
+  }
+
+  async submitRankflowVendorBatch(batchId: number, proofData: any): Promise<RankflowVendorBatch | undefined> {
+    const [row] = await db.update(rankflowVendorBatches).set({
+      status: "submitted",
+      proof_data: proofData,
+      submitted_at: new Date(),
+      updated_at: new Date(),
+    }).where(eq(rankflowVendorBatches.id, batchId)).returning();
+    return row;
+  }
+
+  async linkTaskToBatch(taskId: number, batchId: number): Promise<void> {
+    await db.update(rankflowTasks).set({ batch_id: batchId }).where(eq(rankflowTasks.id, taskId));
+  }
+
+  async listTasksByBatch(batchId: number): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks)
+      .where(eq(rankflowTasks.batch_id, batchId))
+      .orderBy(rankflowTasks.id);
+  }
+
+  async completeRankflowVendorBatch(batchId: number, actualCost?: string): Promise<RankflowVendorBatch | undefined> {
+    const updates: Record<string, any> = {
+      status: "completed",
+      qa_status: "passed",
+      completed_at: new Date(),
+      updated_at: new Date(),
+    };
+    if (actualCost !== undefined) updates.actual_cost = actualCost;
+    const [row] = await db.update(rankflowVendorBatches).set(updates).where(eq(rankflowVendorBatches.id, batchId)).returning();
+    return row;
+  }
+
+  async listUnbatchedOutsourcedTasks(): Promise<RankflowTask[]> {
+    return db.select().from(rankflowTasks).where(
+      and(
+        eq(rankflowTasks.execution_mode, "outsourced"),
+        eq(rankflowTasks.status, "pending"),
+        sql`${rankflowTasks.batch_id} IS NULL`,
+      )
+    );
+  }
+
+  async getVendorStats(vendorType?: string): Promise<{
+    vendor_type: string;
+    total_batches: number;
+    completed: number;
+    failed: number;
+    avg_cost: number | null;
+  }[]> {
+    const rows = await db.select({
+      vendor_type: rankflowVendorBatches.vendor_type,
+      total_batches: sql<number>`count(*)::int`,
+      completed: sql<number>`count(*) filter (where ${rankflowVendorBatches.status} = 'completed')::int`,
+      failed: sql<number>`count(*) filter (where ${rankflowVendorBatches.status} = 'failed')::int`,
+      avg_cost: sql<number>`avg(${rankflowVendorBatches.actual_cost}::numeric)`,
+    }).from(rankflowVendorBatches)
+      .groupBy(rankflowVendorBatches.vendor_type);
+    return rows.map(r => ({
+      vendor_type: r.vendor_type,
+      total_batches: r.total_batches,
+      completed: r.completed,
+      failed: r.failed,
+      avg_cost: r.avg_cost ? Number(r.avg_cost) : null,
+    }));
+  }
+
+  /* ═══════════════════════════════════════════
+     RankFlow Tracking
+     ═══════════════════════════════════════════ */
+
+  async createKeywords(data: InsertRankflowKeyword[]): Promise<RankflowKeyword[]> {
+    if (data.length === 0) return [];
+    const rows = await db.insert(rankflowKeywords).values(data).returning();
+    return rows;
+  }
+
+  async listKeywordsByClient(clientId: number): Promise<RankflowKeyword[]> {
+    return db.select().from(rankflowKeywords)
+      .where(eq(rankflowKeywords.client_id, clientId))
+      .orderBy(desc(rankflowKeywords.priority));
+  }
+
+  async insertRankingRecord(data: InsertRankflowRanking): Promise<RankflowRanking> {
+    const [row] = await db.insert(rankflowRankings).values(data).returning();
+    return row;
+  }
+
+  async getLastRankingForKeyword(keywordId: number): Promise<RankflowRanking | undefined> {
+    const [row] = await db.select().from(rankflowRankings)
+      .where(eq(rankflowRankings.keyword_id, keywordId))
+      .orderBy(desc(rankflowRankings.checked_at))
+      .limit(1);
+    return row;
+  }
+
+  async upsertPage(clientId: number, url: string, data: Partial<InsertRankflowPage>): Promise<RankflowPage> {
+    const [existing] = await db.select().from(rankflowPages)
+      .where(and(eq(rankflowPages.client_id, clientId), eq(rankflowPages.url, url)))
+      .limit(1);
+    if (existing) {
+      const [updated] = await db.update(rankflowPages)
+        .set(data)
+        .where(eq(rankflowPages.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(rankflowPages)
+      .values({ client_id: clientId, url, ...data } as InsertRankflowPage)
+      .returning();
+    return created;
+  }
+
+  async listPagesByClient(clientId: number): Promise<RankflowPage[]> {
+    return db.select().from(rankflowPages)
+      .where(eq(rankflowPages.client_id, clientId))
+      .orderBy(desc(rankflowPages.created_at));
+  }
+
+  async updatePageIndexStatus(pageId: number, indexed: boolean): Promise<void> {
+    await db.update(rankflowPages).set({ indexed, last_checked_at: new Date() }).where(eq(rankflowPages.id, pageId));
+  }
+
+  async upsertSignalSummary(clientId: number, data: Partial<InsertRankflowSignal>): Promise<RankflowSignal> {
+    const [existing] = await db.select().from(rankflowSignals)
+      .where(eq(rankflowSignals.client_id, clientId))
+      .limit(1);
+    if (existing) {
+      const [updated] = await db.update(rankflowSignals)
+        .set({ ...data, last_updated: new Date() })
+        .where(eq(rankflowSignals.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(rankflowSignals)
+      .values({ client_id: clientId, ...data } as InsertRankflowSignal)
+      .returning();
+    return created;
+  }
+
+  async getSignalSummary(clientId: number): Promise<RankflowSignal | undefined> {
+    const [row] = await db.select().from(rankflowSignals)
+      .where(eq(rankflowSignals.client_id, clientId))
+      .limit(1);
+    return row;
+  }
+  async listTradeLineModeChanges(clientServiceId: number, limit = 50): Promise<TradelineModeLog[]> {
+    return db.select().from(tradelineModeLog)
+      .where(eq(tradelineModeLog.client_service_id, clientServiceId))
+      .orderBy(desc(tradelineModeLog.created_at))
+      .limit(limit);
+  }
+
+  async incrementTradeLineUsage(
+    clientServiceId: number,
+    periodStart: Date,
+    periodEnd: Date,
+    increments: { voiceMinutes?: number; calls?: number; sms?: number },
+  ): Promise<TradelineUsage> {
+    // Ensure usage row exists
+    const usage = await this.upsertTradeLineUsage(clientServiceId, periodStart, periodEnd);
+
+    const newVoiceMinutes = (usage.voice_minutes_used ?? 0) + (increments.voiceMinutes ?? 0);
+    const newCalls = (usage.calls_count ?? 0) + (increments.calls ?? 0);
+    const newSms = (usage.sms_count ?? 0) + (increments.sms ?? 0);
+    const includedMinutes = usage.included_minutes ?? 200;
+    const overage = Math.max(0, newVoiceMinutes - includedMinutes);
+
+    const [updated] = await db.update(tradelineUsage)
+      .set({
+        voice_minutes_used: newVoiceMinutes,
+        calls_count: newCalls,
+        sms_count: newSms,
+        overage_minutes: overage,
+        updated_at: new Date(),
+      })
+      .where(eq(tradelineUsage.id, usage.id))
+      .returning();
+
+    return updated;
+  }
+
+  /**
+   * Calculate TradeLine profitability for a client service.
+   * Uses current period usage data + service price.
+   *
+   * Cost rates (internal, not exposed to clients):
+   *   Voice: $0.08/min  (Vapi + ElevenLabs + Deepgram blended)
+   *   SMS:   $0.02/msg  (Twilio outbound)
+   *   AI:    estimated from call count at ~$0.03/call (LLM tokens)
+   */
+  async getTradeLineProfitability(clientServiceId: number): Promise<{
+    revenue: number;
+    voiceCost: number;
+    smsCost: number;
+    aiCost: number;
+    totalCost: number;
+    profit: number;
+    margin: number;
+  }> {
+    const COST_PER_VOICE_MINUTE = 8;   // cents
+    const COST_PER_SMS = 2;            // cents
+    const COST_PER_CALL_AI = 3;        // cents (avg LLM cost per call)
+
+    const cs = await this.getClientServiceById(clientServiceId);
+    const revenue = cs?.price_cents ?? 0;
+
+    const usage = await this.getTradeLineUsage(clientServiceId);
+    if (!usage) {
+      return { revenue, voiceCost: 0, smsCost: 0, aiCost: 0, totalCost: 0, profit: revenue, margin: revenue > 0 ? 100 : 0 };
+    }
+
+    const voiceCost = (usage.voice_minutes_used ?? 0) * COST_PER_VOICE_MINUTE;
+    const smsCost = (usage.sms_count ?? 0) * COST_PER_SMS;
+    const aiCost = (usage.calls_count ?? 0) * COST_PER_CALL_AI;
+    const totalCost = voiceCost + smsCost + aiCost;
+    const profit = revenue - totalCost;
+    const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
+
+      return { revenue, voiceCost, smsCost, aiCost, totalCost, profit, margin };
   }
 
   // ─── SocialSync ───
@@ -1749,6 +2474,34 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  async findReviewRequestByIdempotencyKey(key: string): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.idempotency_key, key))
+      .limit(1);
+    return row;
+  }
+
+  async getReviewRequestByDedupKey(key: string): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.dedup_key, key))
+      .limit(1);
+    return row;
+  }
+
+  async getReviewRequestByToken(token: string): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.access_token, token))
+      .limit(1);
+    return row;
+  }
+
+  async getReviewRequestById(id: number): Promise<ReviewRequest | undefined> {
+    const [row] = await db.select().from(reviewRequests)
+      .where(eq(reviewRequests.id, id))
+      .limit(1);
+    return row;
+  }
+
   async fetchDueReviewRequests(limit = 20): Promise<ReviewRequest[]> {
     const now = new Date();
     return db.select().from(reviewRequests)
@@ -1761,22 +2514,291 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async updateReviewRequest(id: number, updates: Record<string, any>): Promise<void> {
-    await db.update(reviewRequests).set({ ...updates, updated_at: new Date() }).where(eq(reviewRequests.id, id));
-  }
-
-  async listReviewRequests(clientId: number, limit = 50): Promise<ReviewRequest[]> {
+  async fetchDueReviewFollowups(limit = 20): Promise<ReviewRequest[]> {
+    const now = new Date();
     return db.select().from(reviewRequests)
-      .where(eq(reviewRequests.client_id, clientId))
-      .orderBy(desc(reviewRequests.created_at))
+      .where(and(
+        eq(reviewRequests.status, "sent"),
+        sql`${reviewRequests.next_followup_at} IS NOT NULL`,
+        lte(reviewRequests.next_followup_at, now),
+        sql`${reviewRequests.sequence_step} < 2`,
+      ))
+      .orderBy(reviewRequests.next_followup_at)
       .limit(limit);
   }
 
-  async getReviewRequestByDedupKey(key: string): Promise<ReviewRequest | undefined> {
-    const [row] = await db.select().from(reviewRequests)
-      .where(eq(reviewRequests.dedup_key, key))
+  async updateReviewRequest(id: number, updates: Record<string, any>): Promise<ReviewRequest | undefined> {
+    const [row] = await db.update(reviewRequests)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(reviewRequests.id, id))
+      .returning();
+    return row;
+  }
+
+  private buildReviewRequestConditions(opts: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean }) {
+    const conditions = [];
+    if (opts.clientId) conditions.push(eq(reviewRequests.client_id, opts.clientId));
+    if (opts.status) conditions.push(eq(reviewRequests.status, opts.status));
+    if (opts.triggerSource) conditions.push(eq(reviewRequests.trigger_source, opts.triggerSource));
+    if (opts.hasFeedback === true) conditions.push(sql`${reviewRequests.internal_feedback} IS NOT NULL`);
+    if (opts.hasFeedback === false) conditions.push(sql`${reviewRequests.internal_feedback} IS NULL`);
+    if (opts.dueForFollowup) {
+      conditions.push(eq(reviewRequests.status, "sent"));
+      conditions.push(sql`${reviewRequests.next_followup_at} IS NOT NULL`);
+      conditions.push(lte(reviewRequests.next_followup_at, new Date()));
+      conditions.push(sql`${reviewRequests.sequence_step} < 2`);
+    }
+    return conditions.length ? and(...conditions) : undefined;
+  }
+
+  async listReviewRequests(clientId: number, limit?: number): Promise<ReviewRequest[]>;
+  async listReviewRequests(opts?: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean; limit?: number; offset?: number }): Promise<ReviewRequest[]>;
+  async listReviewRequests(
+    clientIdOrOpts: number | { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean; limit?: number; offset?: number } = {},
+    limitArg?: number,
+  ): Promise<ReviewRequest[]> {
+    const opts = typeof clientIdOrOpts === "number"
+      ? { clientId: clientIdOrOpts, limit: limitArg }
+      : clientIdOrOpts;
+    const { limit = 50, offset = 0 } = opts;
+    const where = this.buildReviewRequestConditions(opts);
+    return db.select().from(reviewRequests)
+      .where(where)
+      .orderBy(desc(reviewRequests.created_at))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async countReviewRequests(opts: { clientId?: number; status?: string; triggerSource?: string; hasFeedback?: boolean; dueForFollowup?: boolean } = {}): Promise<number> {
+    const where = this.buildReviewRequestConditions(opts);
+    const [row] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(reviewRequests)
+      .where(where);
+    return row?.count ?? 0;
+  }
+
+  async getReviewRequestStats(): Promise<{ total: number; pending: number; sent: number; clicked: number; routed_positive: number; routed_negative: number; feedback_captured: number; completed: number; failed: number; stopped: number; due_for_followup: number }> {
+    const now = new Date();
+    const [row] = await db.select({
+      total: sql<number>`count(*)::int`,
+      pending: sql<number>`count(*) filter (where ${reviewRequests.status} = 'pending')::int`,
+      sent: sql<number>`count(*) filter (where ${reviewRequests.status} = 'sent')::int`,
+      clicked: sql<number>`count(*) filter (where ${reviewRequests.status} = 'clicked')::int`,
+      routed_positive: sql<number>`count(*) filter (where ${reviewRequests.status} = 'routed_positive')::int`,
+      routed_negative: sql<number>`count(*) filter (where ${reviewRequests.status} = 'routed_negative')::int`,
+      feedback_captured: sql<number>`count(*) filter (where ${reviewRequests.status} = 'feedback_captured')::int`,
+      completed: sql<number>`count(*) filter (where ${reviewRequests.status} = 'completed')::int`,
+      failed: sql<number>`count(*) filter (where ${reviewRequests.status} = 'failed')::int`,
+      stopped: sql<number>`count(*) filter (where ${reviewRequests.status} = 'stopped')::int`,
+      due_for_followup: sql<number>`count(*) filter (where ${reviewRequests.status} = 'sent' and ${reviewRequests.next_followup_at} is not null and ${reviewRequests.next_followup_at} <= ${now} and ${reviewRequests.sequence_step} < 2)::int`,
+    }).from(reviewRequests);
+    return row || { total: 0, pending: 0, sent: 0, clicked: 0, routed_positive: 0, routed_negative: 0, feedback_captured: 0, completed: 0, failed: 0, stopped: 0, due_for_followup: 0 };
+  }
+
+  async stopReviewRequestsForBooking(bookingId: number): Promise<void> {
+    await db.update(reviewRequests)
+      .set({ status: "stopped", updated_at: new Date() })
+      .where(and(
+        eq(reviewRequests.booking_id, bookingId),
+        sql`${reviewRequests.status} IN ('pending', 'sent')`,
+      ));
+  }
+
+  async findClientByUserId(userId: number): Promise<Client | undefined> {
+    const [row] = await db.select().from(clients)
+      .where(eq(clients.user_id, userId))
       .limit(1);
     return row;
+  }
+
+  // ═══════════════════════════════════════════════
+  // Monitored Reviews
+  // ═══════════════════════════════════════════════
+
+  async upsertMonitoredReview(data: InsertMonitoredReview): Promise<{ review: MonitoredReview; isNew: boolean }> {
+    // Check if already exists
+    const existing = await this.findMonitoredReviewByDedupKey(data.dedup_key);
+    if (existing) {
+      // Update if response was added or review text changed
+      const updates: Record<string, any> = { last_synced_at: new Date(), updated_at: new Date() };
+      let changed = false;
+
+      if (data.response_text && !existing.response_text) {
+        updates.response_text = data.response_text;
+        updates.response_date = data.response_date;
+        updates.response_added = true;
+        changed = true;
+      }
+      if (data.review_text && data.review_text !== existing.review_text) {
+        updates.review_text = data.review_text;
+        changed = true;
+      }
+      if (data.raw_payload) {
+        updates.raw_payload = data.raw_payload;
+      }
+      // Backfill google_review_name if we now have it but didn't before
+      if (data.google_review_name && !existing.google_review_name) {
+        updates.google_review_name = data.google_review_name;
+      }
+
+      const [updated] = await db.update(monitoredReviews)
+        .set(updates)
+        .where(eq(monitoredReviews.id, existing.id))
+        .returning();
+      return { review: updated, isNew: false };
+    }
+
+    // Insert new
+    const [row] = await db.insert(monitoredReviews).values(data).returning();
+    return { review: row, isNew: true };
+  }
+
+  async getMonitoredReviewById(id: number): Promise<MonitoredReview | undefined> {
+    const [row] = await db.select().from(monitoredReviews)
+      .where(eq(monitoredReviews.id, id))
+      .limit(1);
+    return row;
+  }
+
+  async updateMonitoredReview(id: number, updates: Record<string, any>): Promise<MonitoredReview | undefined> {
+    const [row] = await db.update(monitoredReviews)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(monitoredReviews.id, id))
+      .returning();
+    return row;
+  }
+
+  async findMonitoredReviewByDedupKey(dedupKey: string): Promise<MonitoredReview | undefined> {
+    const [row] = await db.select().from(monitoredReviews)
+      .where(eq(monitoredReviews.dedup_key, dedupKey))
+      .limit(1);
+    return row;
+  }
+
+  async listMonitoredReviews(opts: { clientId?: number; platform?: string; isNew?: boolean; minRating?: number; maxRating?: number; limit?: number; offset?: number } = {}): Promise<MonitoredReview[]> {
+    const { clientId, platform, isNew, minRating, maxRating, limit = 50, offset = 0 } = opts;
+    const conditions = [];
+    if (clientId) conditions.push(eq(monitoredReviews.client_id, clientId));
+    if (platform) conditions.push(eq(monitoredReviews.platform, platform));
+    if (isNew !== undefined) conditions.push(eq(monitoredReviews.is_new, isNew));
+    if (minRating) conditions.push(sql`${monitoredReviews.rating} >= ${minRating}`);
+    if (maxRating) conditions.push(sql`${monitoredReviews.rating} <= ${maxRating}`);
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(monitoredReviews)
+      .where(where)
+      .orderBy(desc(monitoredReviews.published_at))
+      .limit(limit).offset(offset);
+  }
+
+  async countMonitoredReviews(opts: { clientId?: number; isNew?: boolean } = {}): Promise<number> {
+    const conditions = [];
+    if (opts.clientId) conditions.push(eq(monitoredReviews.client_id, opts.clientId));
+    if (opts.isNew !== undefined) conditions.push(eq(monitoredReviews.is_new, opts.isNew));
+    const where = conditions.length ? and(...conditions) : undefined;
+    const [row] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(monitoredReviews).where(where);
+    return row?.count ?? 0;
+  }
+
+  async getMonitoredReviewStats(clientId?: number): Promise<{ total: number; averageRating: number; newCount: number; withResponse: number; byRating: Record<number, number> }> {
+    const cond = clientId ? eq(monitoredReviews.client_id, clientId) : undefined;
+    const [row] = await db.select({
+      total: sql<number>`count(*)::int`,
+      averageRating: sql<number>`coalesce(round(avg(${monitoredReviews.rating})::numeric, 2), 0)::float`,
+      newCount: sql<number>`count(*) filter (where ${monitoredReviews.is_new} = true)::int`,
+      withResponse: sql<number>`count(*) filter (where ${monitoredReviews.response_text} is not null)::int`,
+      r1: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 1)::int`,
+      r2: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 2)::int`,
+      r3: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 3)::int`,
+      r4: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 4)::int`,
+      r5: sql<number>`count(*) filter (where ${monitoredReviews.rating} = 5)::int`,
+    }).from(monitoredReviews).where(cond);
+    return {
+      total: row?.total ?? 0,
+      averageRating: row?.averageRating ?? 0,
+      newCount: row?.newCount ?? 0,
+      withResponse: row?.withResponse ?? 0,
+      byRating: { 1: row?.r1 ?? 0, 2: row?.r2 ?? 0, 3: row?.r3 ?? 0, 4: row?.r4 ?? 0, 5: row?.r5 ?? 0 },
+    };
+  }
+
+  async markMonitoredReviewsAcknowledged(ids: number[]): Promise<void> {
+    if (ids.length === 0) return;
+    await db.update(monitoredReviews)
+      .set({ is_new: false, updated_at: new Date() })
+      .where(sql`${monitoredReviews.id} = ANY(ARRAY[${sql.raw(ids.join(","))}]::int[])`);
+  }
+
+  async listClientsForReviewSync(limit = 20): Promise<Client[]> {
+    return db.select().from(clients)
+      .where(and(
+        sql`(${clients.google_place_id} IS NOT NULL OR ${clients.facebook_page_url} IS NOT NULL)`,
+        sql`${clients.status} IN ('active', 'onboarding')`,
+      ))
+      .orderBy(sql`${clients.last_review_sync_at} ASC NULLS FIRST`)
+      .limit(limit);
+  }
+
+  async getClientReputationService(clientId: number): Promise<{ serviceId: string; status: string; metadata: any } | null> {
+    const [row] = await db.select({
+      serviceId: clientServices.service_id,
+      status: clientServices.status,
+      metadata: clientServices.metadata,
+    }).from(clientServices)
+      .where(and(
+        eq(clientServices.client_id, clientId),
+        sql`${clientServices.service_id} LIKE 'reputationshield-%'`,
+        sql`${clientServices.status} IN ('active', 'onboarding', 'pending')`,
+      ))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async getClientByWidgetToken(token: string): Promise<Client | undefined> {
+    const [row] = await db.select().from(clients)
+      .where(eq(clients.widget_token, token))
+      .limit(1);
+    return row;
+  }
+
+  async ensureWidgetToken(clientId: number): Promise<string> {
+    const [existing] = await db.select({ widget_token: clients.widget_token })
+      .from(clients).where(eq(clients.id, clientId)).limit(1);
+    if (existing?.widget_token) return existing.widget_token;
+    const token = crypto.randomUUID().replace(/-/g, "");
+    await db.update(clients).set({ widget_token: token, updated_at: new Date() })
+      .where(eq(clients.id, clientId));
+    return token;
+  }
+
+  async getWidgetReviews(clientId: number, minRating: number, limit: number): Promise<{ reviewer_name: string; rating: number; review_text: string | null; published_at: Date | null; platform: string }[]> {
+    return db.select({
+      reviewer_name: monitoredReviews.reviewer_name,
+      rating: monitoredReviews.rating,
+      review_text: monitoredReviews.review_text,
+      published_at: monitoredReviews.published_at,
+      platform: monitoredReviews.platform,
+    }).from(monitoredReviews)
+      .where(and(
+        eq(monitoredReviews.client_id, clientId),
+        sql`${monitoredReviews.rating} >= ${minRating}`,
+        sql`${monitoredReviews.review_text} IS NOT NULL`,
+        sql`length(${monitoredReviews.review_text}) > 10`,
+      ))
+      .orderBy(desc(monitoredReviews.published_at))
+      .limit(limit);
+  }
+
+  async countReviewsMissingGoogleName(clientId?: number): Promise<number> {
+    const conditions = [
+      eq(monitoredReviews.platform, "google"),
+      sql`${monitoredReviews.google_review_name} IS NULL`,
+      sql`${monitoredReviews.response_text} IS NULL`,
+    ];
+    if (clientId) conditions.push(eq(monitoredReviews.client_id, clientId));
+    const [row] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(monitoredReviews).where(and(...conditions));
+    return row?.count ?? 0;
   }
 
   // ─── Service Costs ───
@@ -1818,6 +2840,494 @@ export class DatabaseStorage implements IStorage {
   async getSalesLeadById(id: number): Promise<SalesLead | undefined> {
     const [row] = await db.select().from(salesLeads).where(eq(salesLeads.id, id)).limit(1);
     return row;
+  }
+
+  // ─── ContentFlow: Drafts ───
+
+  async createContentDraft(data: InsertContentDraft): Promise<ContentDraft> {
+    const [row] = await db.insert(contentDrafts).values(data).returning();
+    return row;
+  }
+
+  async getContentDraftById(id: number): Promise<ContentDraft | undefined> {
+    const [row] = await db.select().from(contentDrafts).where(eq(contentDrafts.id, id)).limit(1);
+    return row;
+  }
+
+  async getContentDraftBySocialPostId(postId: number): Promise<ContentDraft | undefined> {
+    const [row] = await db.select().from(contentDrafts)
+      .where(eq(contentDrafts.linked_social_post_id, postId))
+      .limit(1);
+    return row;
+  }
+
+  async getContentDraftByTaskId(taskId: number): Promise<ContentDraft | undefined> {
+    const [row] = await db.select().from(contentDrafts)
+      .where(eq(contentDrafts.linked_task_id, taskId))
+      .limit(1);
+    return row;
+  }
+
+  async listContentDrafts(opts: {
+    client_id?: number;
+    status?: string;
+    surface?: string;
+    kind?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<ContentDraft[]> {
+    const { client_id, status, surface, kind, limit = 50, offset = 0 } = opts;
+    const conditions = [];
+    if (client_id !== undefined) conditions.push(eq(contentDrafts.client_id, client_id));
+    if (status) conditions.push(eq(contentDrafts.status, status));
+    if (surface) conditions.push(eq(contentDrafts.surface, surface));
+    if (kind) conditions.push(eq(contentDrafts.kind, kind));
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(contentDrafts)
+      .where(where)
+      .orderBy(desc(contentDrafts.created_at))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async updateContentDraft(id: number, updates: Partial<InsertContentDraft>): Promise<ContentDraft | undefined> {
+    const [row] = await db.update(contentDrafts)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(contentDrafts.id, id))
+      .returning();
+    return row;
+  }
+
+  /**
+   * Sprint 5: find approved RankFlow article drafts whose
+   * metadata.wordpress.queue_status = 'queued' and whose scheduled_for
+   * is null OR has elapsed. Ordered by scheduled_for ASC NULLS FIRST so
+   * un-scheduled drafts (immediate publish) drain before timed ones.
+   *
+   * Drafts already containing a wordpress.post_id are excluded as a
+   * defence-in-depth against duplicate publishes — the worker also
+   * self-checks, but pre-filtering at the SQL layer is cheaper.
+   */
+  async findQueuedWordpressDrafts(opts: { limit?: number; now?: Date } = {}): Promise<ContentDraft[]> {
+    const { limit = 10, now = new Date() } = opts;
+    return db.select().from(contentDrafts)
+      .where(and(
+        eq(contentDrafts.status, "approved"),
+        eq(contentDrafts.kind, "article"),
+        eq(contentDrafts.surface, "rankflow"),
+        sql`${contentDrafts.metadata}->'wordpress'->>'queue_status' = 'queued'`,
+        sql`(${contentDrafts.metadata}->'wordpress'->>'scheduled_for' IS NULL
+             OR (${contentDrafts.metadata}->'wordpress'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)`,
+        sql`${contentDrafts.metadata}->'wordpress'->>'post_id' IS NULL`,
+      ))
+      .orderBy(sql`(${contentDrafts.metadata}->'wordpress'->>'scheduled_for')::timestamptz ASC NULLS FIRST`)
+      .limit(limit);
+  }
+
+  /**
+   * Sprint 8: atomic claim. Picks the next eligible draft, marks it
+   * `publishing` + stamps `locked_at`/`locked_by`, all in a single
+   * row-locked statement. SKIP LOCKED so concurrent workers never
+   * pick the same row.
+   *
+   * Eligibility:
+   *   - status='approved', kind='article', surface='rankflow'
+   *   - metadata.wordpress.queue_status='queued'
+   *   - scheduled_for IS NULL or elapsed
+   *   - post_id IS NULL (defence-in-depth — never re-publish)
+   *   - locked_at IS NULL OR older than the stale threshold (10 min)
+   *     so a crashed worker's claim auto-recovers.
+   *
+   * Returns the claimed row (now in `publishing` state) or null if
+   * the queue is empty or every eligible row is locked by another
+   * worker.
+   */
+  async claimNextWordpressJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    const now = opts.now ?? new Date();
+    const staleMs = opts.staleLockMs ?? 10 * 60_000;
+    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
+    const result: any = await db.execute(sql`
+      UPDATE content_drafts
+      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'wordpress',
+            COALESCE(metadata->'wordpress', '{}'::jsonb) || jsonb_build_object(
+              'queue_status', 'publishing',
+              'locked_at',    ${now.toISOString()}::text,
+              'locked_by',    ${workerId}::text,
+              'last_attempt_at', ${now.toISOString()}::text
+            )
+          ),
+          updated_at = NOW()
+      WHERE id = (
+        SELECT id FROM content_drafts
+        WHERE status = 'approved'
+          AND kind = 'article'
+          AND surface = 'rankflow'
+          AND metadata->'wordpress'->>'queue_status' = 'queued'
+          AND (metadata->'wordpress'->>'scheduled_for' IS NULL
+               OR (metadata->'wordpress'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
+          AND metadata->'wordpress'->>'post_id' IS NULL
+          AND (metadata->'wordpress'->>'locked_at' IS NULL
+               OR (metadata->'wordpress'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz)
+          /* Sprint 14: calendar gating */
+          AND (metadata->'calendar'->>'paused' IS NULL OR metadata->'calendar'->>'paused' != 'true')
+          AND (metadata->'calendar'->>'scheduled_for' IS NULL
+               OR (metadata->'calendar'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
+        ORDER BY (metadata->'wordpress'->>'scheduled_for')::timestamptz ASC NULLS FIRST, id ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      )
+      RETURNING *
+    `);
+    const rows: ContentDraft[] = (result?.rows ?? result) as ContentDraft[];
+    return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+  }
+
+  /**
+   * Sprint 8: recover claims abandoned by a crashed worker. Returns
+   * `publishing` rows whose `locked_at` is older than the stale
+   * threshold back to `queued` so the next tick can re-claim. Bumps
+   * attempts (so genuinely-broken jobs still hit the dead-letter
+   * ceiling). Idempotent — safe to call every tick.
+   */
+  async recoverStaleWordpressClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    const now = opts.now ?? new Date();
+    const staleMs = opts.staleLockMs ?? 10 * 60_000;
+    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
+    const result: any = await db.execute(sql`
+      UPDATE content_drafts
+      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'wordpress',
+            COALESCE(metadata->'wordpress', '{}'::jsonb) || jsonb_build_object(
+              'queue_status', 'queued',
+              'locked_at',  NULL::text,
+              'locked_by',  NULL::text,
+              'attempts',   COALESCE((metadata->'wordpress'->>'attempts')::int, 0) + 1,
+              'last_error', 'recovered from stale lock'
+            )
+          ),
+          updated_at = NOW()
+      WHERE status = 'approved'
+        AND kind = 'article'
+        AND surface = 'rankflow'
+        AND metadata->'wordpress'->>'queue_status' = 'publishing'
+        AND metadata->'wordpress'->>'locked_at' IS NOT NULL
+        AND (metadata->'wordpress'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz
+      RETURNING id
+    `);
+    const rows: any[] = (result?.rows ?? result) as any[];
+    return Array.isArray(rows) ? rows.length : 0;
+  }
+
+  /**
+   * Sprint 9: idempotency lookup for review-reply drafts. One draft
+   * per (clientId, externalReviewId). The external id lives in
+   * metadata.gbp.external_review_id (no new column).
+   */
+  async getReviewReplyDraft(clientId: number, externalReviewId: string): Promise<ContentDraft | undefined> {
+    const [row] = await db.select().from(contentDrafts)
+      .where(and(
+        eq(contentDrafts.client_id, clientId),
+        eq(contentDrafts.kind, "review_reply"),
+        eq(contentDrafts.surface, "reputationshield"),
+        sql`${contentDrafts.metadata}->'gbp'->>'external_review_id' = ${externalReviewId}`,
+      ))
+      .limit(1);
+    return row;
+  }
+
+  /**
+   * Sprint 9: atomic claim for GBP review-reply jobs. Mirrors
+   * claimNextWordpressJob but filters on kind='review_reply' /
+   * surface='reputationshield' and uses the metadata.gbp.* path.
+   * SKIP LOCKED is per-row, so the GBP and WP queues drain
+   * independently and never block each other.
+   *
+   * Eligibility:
+   *   - status='approved', kind='review_reply', surface='reputationshield'
+   *   - metadata.gbp.queue_status='queued'
+   *   - scheduled_for IS NULL or elapsed
+   *   - posted_at IS NULL (defence-in-depth — never re-post)
+   *   - locked_at IS NULL OR older than the stale threshold (10 min)
+   */
+  async claimNextGbpJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    const now = opts.now ?? new Date();
+    const staleMs = opts.staleLockMs ?? 10 * 60_000;
+    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
+    const result: any = await db.execute(sql`
+      UPDATE content_drafts
+      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'gbp',
+            COALESCE(metadata->'gbp', '{}'::jsonb) || jsonb_build_object(
+              'queue_status', 'publishing',
+              'locked_at',    ${now.toISOString()}::text,
+              'locked_by',    ${workerId}::text,
+              'last_attempt_at', ${now.toISOString()}::text
+            )
+          ),
+          updated_at = NOW()
+      WHERE id = (
+        SELECT id FROM content_drafts
+        WHERE status = 'approved'
+          AND kind = 'review_reply'
+          AND surface = 'reputationshield'
+          AND metadata->'gbp'->>'queue_status' = 'queued'
+          AND (metadata->'gbp'->>'scheduled_for' IS NULL
+               OR (metadata->'gbp'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
+          AND metadata->'gbp'->>'posted_at' IS NULL
+          AND (metadata->'gbp'->>'locked_at' IS NULL
+               OR (metadata->'gbp'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz)
+          /* Sprint 14: calendar gating */
+          AND (metadata->'calendar'->>'paused' IS NULL OR metadata->'calendar'->>'paused' != 'true')
+          AND (metadata->'calendar'->>'scheduled_for' IS NULL
+               OR (metadata->'calendar'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
+        ORDER BY (metadata->'gbp'->>'scheduled_for')::timestamptz ASC NULLS FIRST, id ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      )
+      RETURNING *
+    `);
+    const rows: ContentDraft[] = (result?.rows ?? result) as ContentDraft[];
+    return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+  }
+
+  /**
+   * Sprint 10: shared internal helper that builds the per-channel
+   * atomic claim. All 3 social adapters (facebook, instagram,
+   * gbp_post) plus future channels share this implementation —
+   * mirrors the Sprint 9 surgical-method approach but consolidates
+   * the SQL into one shape so we don't proliferate near-identical
+   * methods. Each public method below is a thin wrapper.
+   */
+  private async _claimNextSocialJob(
+    metadataKey: "facebook" | "instagram" | "gbp_post" | "email",
+    targetPlatform: string,
+    workerId: string,
+    opts: { now?: Date; staleLockMs?: number; kindFilter?: string[]; successField?: string } = {},
+  ): Promise<ContentDraft | null> {
+    const now = opts.now ?? new Date();
+    const staleMs = opts.staleLockMs ?? 10 * 60_000;
+    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
+    /* Default: social_post + carousel_post for fb/ig, google_post for gbp_post.
+     * Caller passes explicit kindFilter for clarity. Sprint 13: email
+     * uses 'email_post' kind + 'message_id' as the don't-republish marker. */
+    const kinds = opts.kindFilter ?? ["social_post"];
+    const kindList = sql.raw(kinds.map((k) => `'${k.replace(/'/g, "''")}'`).join(","));
+    /* successField is the metadata key that signals a successful publish
+     * (set by the adapter on success). Eligibility excludes any row
+     * already carrying it. Defaults to remote_post_id for social
+     * platforms; email overrides to message_id. */
+    const successField = opts.successField || "remote_post_id";
+    const result: any = await db.execute(sql`
+      UPDATE content_drafts
+      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            ${metadataKey}::text,
+            COALESCE(metadata->${metadataKey}::text, '{}'::jsonb) || jsonb_build_object(
+              'queue_status', 'publishing',
+              'locked_at',    ${now.toISOString()}::text,
+              'locked_by',    ${workerId}::text,
+              'last_attempt_at', ${now.toISOString()}::text
+            )
+          ),
+          updated_at = NOW()
+      WHERE id = (
+        SELECT id FROM content_drafts
+        WHERE status = 'approved'
+          AND kind IN (${kindList})
+          AND target_platform = ${targetPlatform}
+          AND metadata->${metadataKey}::text->>'queue_status' = 'queued'
+          AND (metadata->${metadataKey}::text->>'scheduled_for' IS NULL
+               OR (metadata->${metadataKey}::text->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
+          AND metadata->${metadataKey}::text->>${successField} IS NULL
+          AND (metadata->${metadataKey}::text->>'locked_at' IS NULL
+               OR (metadata->${metadataKey}::text->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz)
+          /* Sprint 14: calendar gating */
+          AND (metadata->'calendar'->>'paused' IS NULL OR metadata->'calendar'->>'paused' != 'true')
+          AND (metadata->'calendar'->>'scheduled_for' IS NULL
+               OR (metadata->'calendar'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
+        ORDER BY (metadata->${metadataKey}::text->>'scheduled_for')::timestamptz ASC NULLS FIRST, id ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      )
+      RETURNING *
+    `);
+    const rows: ContentDraft[] = (result?.rows ?? result) as ContentDraft[];
+    return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+  }
+
+  private async _recoverStaleSocialClaims(
+    metadataKey: "facebook" | "instagram" | "gbp_post" | "email",
+    targetPlatform: string,
+    opts: { now?: Date; staleLockMs?: number; kindFilter?: string[] } = {},
+  ): Promise<number> {
+    const now = opts.now ?? new Date();
+    const staleMs = opts.staleLockMs ?? 10 * 60_000;
+    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
+    const kinds = opts.kindFilter ?? ["social_post"];
+    const kindList = sql.raw(kinds.map((k) => `'${k.replace(/'/g, "''")}'`).join(","));
+    const result: any = await db.execute(sql`
+      UPDATE content_drafts
+      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            ${metadataKey}::text,
+            COALESCE(metadata->${metadataKey}::text, '{}'::jsonb) || jsonb_build_object(
+              'queue_status', 'queued',
+              'locked_at',  NULL::text,
+              'locked_by',  NULL::text,
+              'attempts',   COALESCE((metadata->${metadataKey}::text->>'attempts')::int, 0) + 1,
+              'last_error', 'recovered from stale lock'
+            )
+          ),
+          updated_at = NOW()
+      WHERE status = 'approved'
+        AND kind IN (${kindList})
+        AND target_platform = ${targetPlatform}
+        AND metadata->${metadataKey}::text->>'queue_status' = 'publishing'
+        AND metadata->${metadataKey}::text->>'locked_at' IS NOT NULL
+        AND (metadata->${metadataKey}::text->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz
+      RETURNING id
+    `);
+    const rows: any[] = (result?.rows ?? result) as any[];
+    return Array.isArray(rows) ? rows.length : 0;
+  }
+
+  async claimNextFacebookJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    return this._claimNextSocialJob("facebook", "facebook", workerId, { ...opts, kindFilter: ["social_post", "carousel_post"] });
+  }
+  async recoverStaleFacebookClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    return this._recoverStaleSocialClaims("facebook", "facebook", { ...opts, kindFilter: ["social_post", "carousel_post"] });
+  }
+
+  async claimNextInstagramJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    return this._claimNextSocialJob("instagram", "instagram", workerId, { ...opts, kindFilter: ["social_post", "carousel_post"] });
+  }
+  async recoverStaleInstagramClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    return this._recoverStaleSocialClaims("instagram", "instagram", { ...opts, kindFilter: ["social_post", "carousel_post"] });
+  }
+
+  async claimNextGbpPostJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    return this._claimNextSocialJob("gbp_post", "google_business", workerId, { ...opts, kindFilter: ["google_post", "social_post"] });
+  }
+  async recoverStaleGbpPostClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    return this._recoverStaleSocialClaims("gbp_post", "google_business", { ...opts, kindFilter: ["google_post", "social_post"] });
+  }
+
+  /* Sprint 13: email queue. metadata.email.* lifecycle, kind='email_post',
+   * target_platform='email'. Eligibility excludes rows with message_id
+   * already set. */
+  async claimNextEmailJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    return this._claimNextSocialJob("email", "email", workerId, {
+      ...opts,
+      kindFilter: ["email_post"],
+      successField: "message_id",
+    });
+  }
+  async recoverStaleEmailClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    return this._recoverStaleSocialClaims("email", "email", { ...opts, kindFilter: ["email_post"] });
+  }
+
+  /**
+   * Sprint 9: recover GBP claims abandoned by a crashed worker. Same
+   * shape as recoverStaleWordpressClaims, different jsonb path + kind
+   * filter.
+   */
+  async recoverStaleGbpClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    const now = opts.now ?? new Date();
+    const staleMs = opts.staleLockMs ?? 10 * 60_000;
+    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
+    const result: any = await db.execute(sql`
+      UPDATE content_drafts
+      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'gbp',
+            COALESCE(metadata->'gbp', '{}'::jsonb) || jsonb_build_object(
+              'queue_status', 'queued',
+              'locked_at',  NULL::text,
+              'locked_by',  NULL::text,
+              'attempts',   COALESCE((metadata->'gbp'->>'attempts')::int, 0) + 1,
+              'last_error', 'recovered from stale lock'
+            )
+          ),
+          updated_at = NOW()
+      WHERE status = 'approved'
+        AND kind = 'review_reply'
+        AND surface = 'reputationshield'
+        AND metadata->'gbp'->>'queue_status' = 'publishing'
+        AND metadata->'gbp'->>'locked_at' IS NOT NULL
+        AND (metadata->'gbp'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz
+      RETURNING id
+    `);
+    const rows: any[] = (result?.rows ?? result) as any[];
+    return Array.isArray(rows) ? rows.length : 0;
+  }
+
+  // ─── ContentFlow: Approvals ───
+
+  async createContentApproval(data: InsertContentApproval): Promise<ContentApproval> {
+    const [row] = await db.insert(contentApprovals).values(data).returning();
+    return row;
+  }
+
+  async listContentApprovals(draftId: number): Promise<ContentApproval[]> {
+    return db.select().from(contentApprovals)
+      .where(eq(contentApprovals.draft_id, draftId))
+      .orderBy(desc(contentApprovals.created_at));
+  }
+
+  // ─── ContentFlow: Assets ───
+
+  async createContentAsset(data: InsertContentAsset): Promise<ContentAsset> {
+    const [row] = await db.insert(contentAssets).values(data).returning();
+    return row;
+  }
+
+  async getContentAssetById(id: number): Promise<ContentAsset | undefined> {
+    const [row] = await db.select().from(contentAssets).where(eq(contentAssets.id, id)).limit(1);
+    return row;
+  }
+
+  async listContentAssets(clientId: number): Promise<ContentAsset[]> {
+    return db.select().from(contentAssets)
+      .where(eq(contentAssets.client_id, clientId))
+      .orderBy(desc(contentAssets.created_at));
+  }
+
+  /**
+   * Test/dev only — hard-delete a ContentFlow draft + its approvals and
+   * optionally the linked SocialSync post. Intended for Sprint 1
+   * verification scripts; never call from product code.
+   *
+   * Order is explicit: approvals → draft → post. The socialsync_posts
+   * FK to content_drafts is ON DELETE SET NULL so the draft can be
+   * removed before the post without a constraint violation.
+   */
+  async deleteContentDraftCascade(
+    draftId: number,
+    postId?: number,
+  ): Promise<{ deleted_draft: boolean; deleted_approvals: number; deleted_post: boolean }> {
+    const draft = await this.getContentDraftById(draftId);
+    const approvalsBefore = draft ? await this.listContentApprovals(draftId) : [];
+
+    if (approvalsBefore.length > 0) {
+      await db.delete(contentApprovals).where(eq(contentApprovals.draft_id, draftId));
+    }
+
+    let deleted_draft = false;
+    if (draft) {
+      await db.delete(contentDrafts).where(eq(contentDrafts.id, draftId));
+      deleted_draft = true;
+    }
+
+    const targetPostId = postId ?? draft?.linked_social_post_id ?? null;
+    let deleted_post = false;
+    if (targetPostId) {
+      await db.delete(socialsyncPosts).where(eq(socialsyncPosts.id, targetPostId));
+      deleted_post = true;
+    }
+
+    return {
+      deleted_draft,
+      deleted_approvals: approvalsBefore.length,
+      deleted_post,
+    };
   }
 }
 

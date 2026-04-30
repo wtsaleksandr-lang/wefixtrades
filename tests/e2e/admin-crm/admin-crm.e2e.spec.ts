@@ -50,7 +50,7 @@ test.describe("E2E: Client Management", () => {
     await adminPage.waitForURL("**/admin/crm/clients/**", { timeout: 10000 });
 
     // Client name and status must both be visible on detail page
-    await expect(adminPage.getByText(bizName)).toBeVisible({ timeout: 10000 });
+    await expect(adminPage.getByRole("heading", { name: bizName })).toBeVisible({ timeout: 10000 });
     await expect(
       adminPage.getByText("lead", { exact: false }).or(adminPage.getByText("Lead"))
     ).toBeVisible({ timeout: 5000 });

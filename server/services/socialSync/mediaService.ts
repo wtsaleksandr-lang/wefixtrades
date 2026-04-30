@@ -22,7 +22,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import type { Express } from "express";
+import express, { type Express } from "express";
 import { generateImageBuffer } from "../../replit_integrations/image/client";
 import { storage } from "../../storage";
 import { logAiImageCost } from "./costTracker";
@@ -57,7 +57,6 @@ function getPublicBaseUrl(): string {
  * Call this during app setup (in server/index.ts or routes registration).
  */
 export function registerMediaRoute(app: Express): void {
-  const express = require("express");
   const mediaDir = getMediaDir();
   app.use(MEDIA_URL_PREFIX, express.static(mediaDir, {
     maxAge: "7d",

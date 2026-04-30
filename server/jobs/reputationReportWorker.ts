@@ -58,12 +58,13 @@ async function findEligibleClients(): Promise<ClientReportCandidate[]> {
     const tier = extractTier(row.serviceId);
     if (!tier) continue;
 
-    const settings = mergeSettings(row.metadata?.reputation_settings);
+    const metadata = (row.metadata ?? {}) as Record<string, any>;
+    const settings = mergeSettings(metadata.reputation_settings);
     if (!settings.report_enabled) continue;
 
     const frequency = TIER_REPORT_FREQUENCY[tier];
     const minDays = FREQUENCY_DAYS[frequency];
-    const lastSent = row.metadata?.last_report_sent_at;
+    const lastSent = metadata.last_report_sent_at;
     const lastSentMs = lastSent ? new Date(lastSent).getTime() : 0;
     const daysSinceLast = (now - lastSentMs) / (1000 * 60 * 60 * 24);
 
@@ -71,7 +72,7 @@ async function findEligibleClients(): Promise<ClientReportCandidate[]> {
       eligible.push({
         clientId: row.clientId!,
         serviceId: row.serviceId,
-        metadata: row.metadata,
+        metadata,
       });
     }
   }

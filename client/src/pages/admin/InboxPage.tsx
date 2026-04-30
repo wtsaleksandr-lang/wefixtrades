@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
@@ -11,6 +12,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 export default function InboxPage() {
+  usePageTitle("Inbox");
   const [statusFilter, setStatusFilter] = useState<string>("open");
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -45,6 +47,9 @@ export default function InboxPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
       toast({ title: "Task updated", description: `Moved to ${status.replace(/_/g, " ")}` });
     },
+    onError: (err: Error) => {
+      toast({ title: "Failed to update task", description: err.message, variant: "destructive" });
+    },
   });
 
   const updateWaitingOn = useMutation({
@@ -55,6 +60,9 @@ export default function InboxPage() {
     onSuccess: (_data, { waiting_on }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
       toast({ title: "Waiting on updated", description: waiting_on ? `Now waiting on ${waiting_on}` : "Cleared" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to update", description: err.message, variant: "destructive" });
     },
   });
 
@@ -114,6 +122,12 @@ export default function InboxPage() {
               <SelectItem value="all">All</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Priority legend */}
+        <div className="flex items-center gap-4 text-[10px] text-gray-400">
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-500 shrink-0" /> Urgent</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400 shrink-0" /> High priority</span>
         </div>
 
         {/* Content */}

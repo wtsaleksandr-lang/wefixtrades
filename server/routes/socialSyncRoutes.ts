@@ -2,7 +2,15 @@ import type { Express, Request, Response } from "express";
 import crypto from "crypto";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
-import { processSocialSyncQueue } from "../jobs/socialSyncWorker";
+/* Sprint 15: legacy SocialSync queue worker is gone. The two admin
+ * endpoints below now route through ContentFlow's unified publish
+ * queue (server/services/contentflow/wordpressQueue.ts processQueue). */
+import {
+  processQueue as processContentFlowQueue,
+  enqueueSocialSyncDraft,
+} from "../services/contentflow/wordpressQueue";
+import { createDraftFromSocialPost } from "../services/contentflow/draftService";
+import { autoApproveDraft } from "../services/contentflow/approvalService";
 import { generateWeekForClient, generateAllDue } from "../services/socialSync/orchestrator";
 import { regeneratePost } from "../services/socialSync/contentGenerator";
 import {
@@ -16,7 +24,7 @@ import { disconnectPlatform, checkConnectionExpiry } from "../services/socialSyn
 import { clearCooldown, getCooldownSummary } from "../services/socialSync/cooldownManager";
 import {
   validateGoogleBusinessConfig, buildGoogleOAuthUrl, handleGoogleCallback,
-  selectGoogleLocation, validateGoogleConnection,
+  selectGoogleLocation, validateGoogleConnection, getGoogleAccessToken,
 } from "../services/socialSync/googleBusinessService";
 import { disconnectPlatform as disconnectPlatformFn } from "../services/socialSync/connectionLifecycle";
 import { getClientProfitability } from "../services/socialSync/costTracker";
@@ -289,28 +297,42 @@ export function registerSocialSyncRoutes(app: Express): void {
 
       const runAt = req.body.run_at ? new Date(req.body.run_at) : new Date();
 
-      const queueItem = await storage.enqueueSocialSyncJob({
-        client_id: clientId,
-        post_id: postId,
-        platform: post.platform,
-        status: "pending",
-        run_at: runAt,
-        attempts: 0,
-        max_attempts: 3,
-      } as any);
-
+      /* Sprint 15: route through ContentFlow's unified queue instead of
+       * the deprecated socialsync_publish_queue table. Flow:
+       *   1. Create / fetch the linked content_drafts row.
+       *   2. Auto-approve (silence-as-consent — SocialSync default).
+       *   3. enqueueSocialSyncDraft sets metadata.<platform>.queue_status='queued'
+       *      with scheduled_for honoured by the queue worker. */
+      const draft = await createDraftFromSocialPost({ post });
+      await autoApproveDraft({
+        draftId: draft.id,
+        notes: `SocialSync admin enqueue — quality score ${post.quality_score ?? 0}`,
+      });
+      await enqueueSocialSyncDraft(draft.id, { scheduled_for: runAt.toISOString() });
       await storage.updateSocialSyncPost(postId, { status: "queued" } as any);
 
       await storage.createSocialSyncLog({
         client_id: clientId,
         entity_type: "queue",
-        entity_id: queueItem.id,
+        entity_id: draft.id,
         action: "queue.enqueued",
         status: "success",
-        details: { post_id: postId, platform: post.platform, run_at: runAt.toISOString() },
+        details: {
+          post_id: postId,
+          platform: post.platform,
+          run_at: runAt.toISOString(),
+          content_draft_id: draft.id,
+          via: "contentflow_unified_queue",
+        },
       });
 
-      res.status(201).json(queueItem);
+      res.status(201).json({
+        ok: true,
+        content_draft_id: draft.id,
+        platform: post.platform,
+        run_at: runAt.toISOString(),
+        via: "contentflow_unified_queue",
+      });
     } catch (err: any) {
       console.error("[socialsync] Enqueue error:", err.message);
       res.status(500).json({ error: "Failed to enqueue post" });
@@ -331,11 +353,29 @@ export function registerSocialSyncRoutes(app: Express): void {
     }
   });
 
-  // 9. POST process due queue items (internal/manual trigger)
+  // 9. POST process due queue items (internal/manual trigger).
+  // Sprint 15: routes to ContentFlow's unified queue worker. The
+  // returned summary now covers all 6 channels (wordpress, gbp,
+  // facebook, instagram, gbp_post, email) — the SocialSync-shaped
+  // fields (processed/published/recovered) are mapped from it.
   app.post("/api/socialsync/internal/queue/process-due", requireAdmin, async (_req: Request, res: Response) => {
     try {
-      const result = await processSocialSyncQueue();
-      res.json(result);
+      const summary = await processContentFlowQueue();
+      const social =
+        (summary.channels?.facebook?.published ?? 0) +
+        (summary.channels?.instagram?.published ?? 0) +
+        (summary.channels?.gbp_post?.published ?? 0);
+      res.json({
+        processed: summary.scanned ?? 0,
+        published: social,
+        recovered: 0, /* recovery is now part of processQueue itself */
+        skipped_cooldown: (summary.channels?.facebook?.cooldown_skipped ?? 0)
+          + (summary.channels?.instagram?.cooldown_skipped ?? 0)
+          + (summary.channels?.gbp_post?.cooldown_skipped ?? 0),
+        errors: summary.errors ?? [],
+        via: "contentflow_unified_queue",
+        full: summary,
+      });
     } catch (err: any) {
       console.error("[socialsync] Queue process error:", err.message);
       res.status(500).json({ error: "Failed to process queue" });
