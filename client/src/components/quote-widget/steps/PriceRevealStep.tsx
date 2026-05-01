@@ -6,6 +6,7 @@ import { useWidgetState } from '../useWidgetState';
 import { calculateEstimate } from '@shared/calculateEstimate';
 import { eff, stepTitleStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
+import BookNowInlineWidget from './BookNowInlineWidget';
 
 interface PriceRevealStepProps {
   step: StepDefinition;
@@ -89,6 +90,14 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
             <HelpTip text="This price is calculated from the rates set by this business. The final amount may differ slightly after an on-site review of your specific project." />
           </span>
         </div>
+      )}
+
+      {/* Book Now inline — only when booking is configured for this calculator */}
+      {estimate && estimate.type !== 'call_for_quote' && (
+        <BookNowInlineWidget
+          calculatorId={config.calculator.id}
+          quoteAmount={estimate.total}
+        />
       )}
     </div>
   );

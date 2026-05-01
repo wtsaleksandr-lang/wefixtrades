@@ -24,8 +24,7 @@ function getNextNDays(n: number): string[] {
   const days: string[] = [];
   const now = new Date();
   for (let i = 0; i < n; i++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() + i);
+    const d = new Date(now); d.setDate(now.getDate() + i);
     days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
   }
   return days;

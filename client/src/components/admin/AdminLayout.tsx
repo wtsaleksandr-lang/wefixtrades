@@ -28,6 +28,7 @@ import {
   Shield,
   ChevronDown,
   Layers,
+  CalendarDays,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -63,6 +64,7 @@ const CORE_ITEMS = [
 /* ─── Collapsible groups ─── */
 const PRODUCTS_ITEMS = [
   { label: "Services", href: "/admin/crm/services", icon: Wrench },
+  { label: "Booking", href: "/admin/booking", icon: CalendarDays },
   { label: "MapGuard", href: "/admin/crm/mapguard", icon: Shield },
   { label: "RankFlow", href: "/admin/crm/rankflow", icon: TrendingUp },
   { label: "Reviews", href: "/admin/crm/reviews", icon: Star },
