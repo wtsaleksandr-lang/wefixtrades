@@ -25,6 +25,7 @@ import {
 } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { createLogger } from "../lib/logger";
+import { autoAssignSupplier } from "../services/supplierAssignment";
 
 const log = createLogger("RecurringTasks");
 
@@ -128,7 +129,7 @@ export async function processRecurringTasks(): Promise<RecurringTaskResult> {
 
       // Create fulfillment tasks from recurring templates
       for (const tmpl of templates) {
-        await storage.createFulfillmentTask({
+        const task = await storage.createFulfillmentTask({
           client_service_id: row.cs_id,
           client_id: row.cs_client_id,
           title: `${monthPrefix}: ${tmpl.title}`,
@@ -147,6 +148,11 @@ export async function processRecurringTasks(): Promise<RecurringTaskResult> {
             period: monthPrefix,
           },
         });
+
+        // Auto-assign supplier if template specifies handled_by = "supplier"
+        if (tmpl.default_handled_by === "supplier") {
+          try { await autoAssignSupplier(task); } catch (_) { /* fail-safe */ }
+        }
 
         result.tasksCreated++;
       }
