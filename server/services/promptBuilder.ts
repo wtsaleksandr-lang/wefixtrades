@@ -597,7 +597,13 @@ The business is closed for the day. Be helpful but honest about availability.
     const bookingMode = ctx.booking.mode === "book_if_available"
       ? "You can offer to book them into the calendar directly."
       : "You can take a booking request and the team will confirm it.";
-    parts.push(`\nBOOKING: ${bookingMode}`);
+    parts.push(`\nBOOKING: ${bookingMode}
+You can check appointment availability and book appointments for customers. When a customer wants to book:
+1. First check available slots using the checkAvailability function
+2. Present the options clearly — mention specific days and times
+3. Once they choose a time, confirm their name and contact details
+4. Create the booking using the createBooking function
+5. Confirm the booking details back to them`);
   }
 
   parts.push(`

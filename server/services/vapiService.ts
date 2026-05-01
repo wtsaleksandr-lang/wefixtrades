@@ -23,6 +23,7 @@ import type { ChatMessage } from "./aiService";
 import { buildSystemPrompt, type TradeLineContext } from "./promptBuilder";
 import { storage } from "../storage";
 import type { TradelineConfig, ClientService, Client } from "@shared/schema";
+import { VAPI_BOOKING_FUNCTIONS } from "./bookingTools";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("VapiService");
@@ -321,6 +322,36 @@ export function buildAssistantConfig(): Record<string, any> {
       endCallPhrases: ["goodbye", "bye", "thanks bye"],
     },
   };
+}
+
+/**
+ * Build Vapi assistant config for a TradeLine client, including booking
+ * functions when booking is enabled in the client's config.
+ */
+export function buildTradeLineAssistantConfig(resolved: ResolvedTradeLineClient): Record<string, any> {
+  const config = getVapiConfig();
+  const ctx = buildTradeLineContext(resolved);
+
+  const assistant: Record<string, any> = {
+    name: `TradeLine — ${resolved.client.business_name}`,
+    model: { provider: "custom-llm", url: config.serverUrl ? `${config.serverUrl}/api/vapi/conversation` : "/api/vapi/conversation" },
+    voice: { provider: "11labs", voiceId: process.env.VAPI_WFT_VOICE_ID || "21m00Tcm4TlvDq8ikWAM" },
+    firstMessage: ctx.mode === "after_hours"
+      ? `Hi, thanks for calling ${ctx.businessName}! We're closed for the day, but I can help make sure you're looked after.`
+      : `Hi, thanks for calling ${ctx.businessName}! How can I help you today?`,
+    endCallMessage: `Thanks for calling ${ctx.businessName}. We'll follow up shortly — have a great day.`,
+    maxDurationSeconds: 900, recordingEnabled: true,
+    transcriber: { provider: "deepgram", model: "nova-2", language: "en" },
+    endCallPhrases: ["goodbye", "bye", "thanks bye"],
+    serverUrl: config.serverUrl ? `${config.serverUrl}/api/vapi/webhook` : "/api/vapi/webhook",
+    metadata: { client_service_id: String(resolved.clientService.id) },
+  };
+
+  if (ctx.booking.enabled) {
+    assistant.functions = VAPI_BOOKING_FUNCTIONS;
+  }
+
+  return { assistant };
 }
 
 /* ─── Per-Client Vapi Assistant CRUD (with graceful fallback) ─── */

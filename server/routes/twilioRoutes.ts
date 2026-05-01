@@ -12,6 +12,7 @@ import {
 } from "../twilioClient";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
 import { getOpenAI } from "../openaiClient";
+import { formatWhatsAppBookingConfirmation } from "./twilioBookingHelper";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("Twilio");
@@ -128,7 +129,7 @@ export function registerTwilioRoutes(app: Express): void {
       }) + "\n\nIMPORTANT: This is an SMS/WhatsApp conversation. Keep ALL replies under 160 characters. Be very concise.";
 
       const chatMessages = [{ role: "user" as const, content: body }];
-      const { reply } = await runChatCompletion(
+      const { reply, toolResults } = await runChatCompletion(
         getOpenAI(),
         "client_ai_employee",
         chatMessages,
@@ -136,7 +137,16 @@ export function registerTwilioRoutes(app: Express): void {
         { calculatorId: lead.calculator_id, calculator, sessionId: `sms-${lead.id}` }
       );
 
-      const shortReply = truncateSms(reply);
+      // For WhatsApp: format booking confirmations with rich message
+      let formattedReply = reply;
+      if (isWhatsapp && toolResults) {
+        const bookingConfirmation = formatWhatsAppBookingConfirmation(toolResults);
+        if (bookingConfirmation) {
+          formattedReply = bookingConfirmation;
+        }
+      }
+
+      const shortReply = truncateSms(formattedReply);
 
       await storeSmsMessage({
         lead_id: lead.id,

@@ -21,6 +21,7 @@ import {
   handleTradeLineConversationTurn,
   extractCallReport,
   buildAssistantConfig,
+  buildTradeLineAssistantConfig,
   buildTradeLineContext,
   resolveTradeLineClient,
   logTradeLineCall,
@@ -32,6 +33,11 @@ import {
 import { logUsage } from "../services/usageTracker";
 import { getModel } from "../services/aiService";
 import { handleSalesCallEnded } from "../services/wftSalesLine";
+import {
+  executeCheckAvailability,
+  executeCreateBooking,
+} from "../services/bookingTools";
+import { storage } from "../storage";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("Vapi");
@@ -91,7 +97,10 @@ export function registerVapiRoutes(app: Express): void {
 
       switch (eventType) {
         case "assistant-request": {
-          // Vapi is asking for assistant configuration
+          if (tradeLineResolved) {
+            const tlConfig = buildTradeLineAssistantConfig(tradeLineResolved);
+            return res.json(tlConfig);
+          }
           const config = buildAssistantConfig();
           return res.json(config);
         }
@@ -113,10 +122,41 @@ export function registerVapiRoutes(app: Express): void {
         }
 
         case "function-call": {
-          // Future: handle server-side function calls from Vapi
           const fn = event.message.functionCall;
-          log.info("[vapi] Function call received:", { arg0: fn?.name, arg1: fn?.parameters });
-          return res.json({ result: "Function not yet implemented" });
+          log.info("[vapi] Function call received", { name: fn?.name, params: fn?.parameters });
+
+          if (!fn?.name) {
+            return res.json({ result: "No function specified" });
+          }
+
+          // Resolve calculator ID for booking operations
+          let bookingCalcId: number | null = null;
+          if (tradeLineResolved) {
+            const calcs = await storage.getCalculatorsByUserId(tradeLineResolved.client.user_id ?? 0);
+            bookingCalcId = calcs[0]?.id ?? null;
+          }
+
+          if (fn.name === "checkAvailability") {
+            if (!bookingCalcId) {
+              return res.json({ result: "Booking is not configured for this business. I can take your details instead." });
+            }
+            const result = await executeCheckAvailability(bookingCalcId, fn.parameters || {});
+            return res.json({ result: result.narrative });
+          }
+
+          if (fn.name === "createBooking") {
+            if (!bookingCalcId) {
+              return res.json({ result: "Booking is not configured. Let me take your details and someone will call you back." });
+            }
+            const params = { ...(fn.parameters || {}) };
+            if (!params.customer_phone && customerNumber) {
+              params.customer_phone = customerNumber;
+            }
+            const result = await executeCreateBooking(bookingCalcId, params);
+            return res.json({ result: result.narrative });
+          }
+
+          return res.json({ result: `Function ${fn.name} is not implemented` });
         }
 
         case "status-update": {
