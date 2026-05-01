@@ -20,6 +20,7 @@ import {
 } from "../services/contentflow/approvalService";
 import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../services/threadService";
 import { authRateLimiter, portalReviewRateLimiter } from "../services/rateLimiter";
+import { sendTicketCreatedEmail } from "../lib/supportTicketEmails";
 
 import {
   clients,
@@ -956,6 +957,24 @@ export function registerPortalRoutes(app: Express) {
         new_value: "open",
         summary: `Ticket created by customer via ${ticketSource}`,
       });
+
+      // Send ticket-created confirmation email (fail-safe, non-blocking)
+      try {
+        const [client] = await db.select({ contact_email: clients.contact_email })
+          .from(clients).where(eq(clients.id, clientId)).limit(1);
+        if (client?.contact_email) {
+          const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
+          sendTicketCreatedEmail(client.contact_email, {
+            ticketId: ticket.id,
+            subject: ticket.subject,
+            portalUrl: `${baseUrl}/portal`,
+          }).catch(err =>
+            console.warn(`[support-ticket-email] created email failed for ticket #${ticket.id}:`, err.message),
+          );
+        }
+      } catch (err: any) {
+        console.warn(`[support-ticket-email] lookup failed for ticket #${ticket.id}:`, err.message);
+      }
 
       res.status(201).json({
         id: ticket.id,

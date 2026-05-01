@@ -15,6 +15,7 @@ import { sendPaymentReceipt } from "../lib/paymentReceiptEmail";
 import { sendAccountWelcome } from "../lib/accountWelcomeEmail";
 import { sendPaymentFailedEmail } from "../lib/paymentFailedEmail";
 import { sendCancellationEmail } from "../lib/cancellationEmail";
+import { sendOrderConfirmationEmail } from "../lib/orderConfirmationEmail";
 import {
   scheduleFailedPaymentSequence,
   scheduleCardExpiringEmail,
@@ -221,6 +222,27 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   sendPaymentReceipt(session, clientId).catch(err =>
     console.warn(`[payment-receipt] send failed for session ${session.id}:`, err.message),
   );
+
+  // Order confirmation email — reassurance about what they bought and what's next.
+  // Fail-safe: non-blocking, never disrupts webhook processing.
+  try {
+    const client = await storage.getClientById(clientId);
+    if (client?.contact_email) {
+      const firstServiceId = serviceIds[0];
+      const service = firstServiceId ? await storage.getServiceById(firstServiceId) : null;
+      sendOrderConfirmationEmail(client.contact_email, {
+        businessName: client.business_name,
+        serviceName: service?.name || "WeFixTrades service",
+        amount: session.amount_total ?? 0,
+        currency: session.currency || "usd",
+        onboardingUrl: `${baseUrl}/portal`,
+      }).catch(err =>
+        console.warn(`[order-confirmation] send failed for session ${session.id}:`, err.message),
+      );
+    }
+  } catch (err: any) {
+    console.warn(`[order-confirmation] lookup failed for client #${clientId}:`, err.message);
+  }
 
   // Ensure portal login exists after payment is confirmed
   try {

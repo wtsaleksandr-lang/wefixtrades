@@ -3,6 +3,7 @@ import { storage } from "../storage";
 import { db } from "../db";
 import { calculators, deploymentStatus, leads, analyticsEvents } from "@shared/schema";
 import { eq, and, sql, gte, lte, isNotNull, desc } from "drizzle-orm";
+import { sendTrialExpiryEmail } from "../lib/trialExpiryEmail";
 
 /**
  * Trial Lifecycle Worker
@@ -258,6 +259,20 @@ export async function processTrialLifecycle(): Promise<{ processed: number; emai
         subject: email.subject,
         html: email.html,
       });
+
+      // On day 7+ (7 days remaining or less), also send a branded trial
+      // expiry warning via the transactional shell. Respects unsubscribe
+      // preferences. Non-blocking — never fails the main lifecycle email.
+      if (day >= 7 && calc.owner_email) {
+        const daysRemaining = Math.max(0, 14 - day);
+        sendTrialExpiryEmail(calc.owner_email, {
+          businessName: calc.business_name,
+          daysRemaining,
+          upgradeUrl: ctx.pricingUrl,
+        }).catch(err =>
+          console.warn(`[trial-expiry-email] failed for calc ${calc.id}:`, err.message),
+        );
+      }
 
       // Record that we sent this day's email
       await storage.trackEvent({

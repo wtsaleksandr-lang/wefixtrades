@@ -6,6 +6,7 @@
 import type { Express, Request, Response } from "express";
 import { storage } from "../storage";
 import { mapOnboardingToTradeLineConfig, advanceSetupStage } from "@shared/schema";
+import { sendOnboardingConfirmationEmail } from "../lib/onboardingConfirmationEmail";
 
 export function registerOnboardingPublicRoutes(app: Express): void {
 
@@ -78,6 +79,23 @@ export function registerOnboardingPublicRoutes(app: Express): void {
         status: "submitted",
         submitted_at: new Date(),
       });
+
+      // Send onboarding submission confirmation email (fail-safe, non-blocking)
+      try {
+        const client = await storage.getClientById(submission.client_id);
+        if (client?.contact_email) {
+          const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
+          sendOnboardingConfirmationEmail(client.contact_email, {
+            businessName: data.clientName,
+            serviceName: data.serviceName,
+            portalUrl: `${baseUrl}/portal`,
+          }).catch(err =>
+            console.warn(`[onboarding-confirmation] send failed for submission #${submission.id}:`, err.message),
+          );
+        }
+      } catch (err: any) {
+        console.warn(`[onboarding-confirmation] lookup failed for client #${submission.client_id}:`, err.message);
+      }
 
       // Service-specific post-submit orchestration
       if (submission.client_service_id) {

@@ -2,9 +2,10 @@ import type { Express, Request, Response } from "express";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
 import { db } from "../db";
-import { users } from "@shared/schema";
+import { users, clients } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { sendTicketReplyEmail, sendTicketResolvedEmail } from "../lib/supportTicketEmails";
 
 const VALID_STATUSES = ["open", "in_progress", "waiting_on_customer", "resolved", "closed"] as const;
 const VALID_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
@@ -126,6 +127,26 @@ export function registerAdminSupportRoutes(app: Express): void {
           new_value: status,
           summary: `Status changed from ${ticket.status} to ${status}`,
         });
+
+        // Send resolved/closed notification to client (fail-safe, non-blocking)
+        if (status === "resolved" || status === "closed") {
+          try {
+            const [client] = await db.select({ contact_email: clients.contact_email })
+              .from(clients).where(eq(clients.id, ticket.client_id)).limit(1);
+            if (client?.contact_email) {
+              const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
+              sendTicketResolvedEmail(client.contact_email, {
+                ticketId: ticket.id,
+                subject: ticket.subject,
+                portalUrl: `${baseUrl}/portal`,
+              }).catch(err =>
+                console.warn(`[support-ticket-email] resolved email failed for ticket #${ticket.id}:`, err.message),
+              );
+            }
+          } catch (emailErr: any) {
+            console.warn(`[support-ticket-email] resolved lookup failed for ticket #${ticket.id}:`, emailErr.message);
+          }
+        }
       }
 
       // Priority change
@@ -226,6 +247,27 @@ export function registerAdminSupportRoutes(app: Express): void {
 
       // Update ticket timestamp
       await storage.updateSupportTicket(ticketId, {});
+
+      // Send reply notification to client for customer-visible replies (fail-safe, non-blocking)
+      if (visibility === "customer") {
+        try {
+          const [client] = await db.select({ contact_email: clients.contact_email })
+            .from(clients).where(eq(clients.id, ticket.client_id)).limit(1);
+          if (client?.contact_email) {
+            const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
+            sendTicketReplyEmail(client.contact_email, {
+              ticketId: ticket.id,
+              subject: ticket.subject,
+              replyPreview: message.trim(),
+              portalUrl: `${baseUrl}/portal`,
+            }).catch(err =>
+              console.warn(`[support-ticket-email] reply email failed for ticket #${ticket.id}:`, err.message),
+            );
+          }
+        } catch (emailErr: any) {
+          console.warn(`[support-ticket-email] reply lookup failed for ticket #${ticket.id}:`, emailErr.message);
+        }
+      }
 
       res.status(201).json({ message: msg });
     } catch (err) {
