@@ -26,6 +26,7 @@ import { buildBillingPortalUrl } from "../lib/billingPortalToken";
 import { getTradeLineDefaultConfig } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 import { autoAssignSupplier } from "../services/supplierAssignment";
+import { runPreFixAudit } from "../services/webfixAuditService";
 
 const log = createLogger("StripeBilling");
 
@@ -427,6 +428,14 @@ async function provisionOrConfirmService(
   const client = await storage.getClientById(clientId);
   if (client && (client.status === "lead" || client.status === "onboarding")) {
     await storage.updateClient(clientId, { status: "onboarding" });
+  }
+
+  // WebFix pre-audit: auto-run PageSpeed audit after provisioning
+  // Non-blocking — enriches the first task with audit results for supplier brief
+  if (serviceId.startsWith("webfix")) {
+    runPreFixAudit(clientService.id).catch(err =>
+      log.warn(`[webfix-pre-audit] failed for client_service #${clientService.id}: ${err.message}`),
+    );
   }
 
   // Log activity

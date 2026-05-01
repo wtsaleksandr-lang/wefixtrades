@@ -6,6 +6,8 @@ import { dispatchTaskToSupplier } from "../services/supplierDispatch";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 import { sendWelcomePackage } from "../lib/welcomeEmail";
 import { sendApprovalNotificationEmail } from "../lib/approvalNotificationEmail";
+import { runSiteLaunchFinalization } from "../services/sitelaunchFinalization";
+import { runPreFixAudit, runPostFixAudit } from "../services/webfixAuditService";
 // AdFlow dropped (Sprint 1) — compileAndSendAdFlowReport import removed
 import crypto from "crypto";
 import { createLogger } from "../lib/logger";
@@ -347,6 +349,15 @@ export function registerAdminCrmRoutes(app: Express): void {
         });
       }
 
+      // SiteLaunch finalization: when a supplier task is submitted, auto-generate
+      // SEO meta tags, form embed instructions, and create a follow-up task.
+      // Non-blocking — runs in background, idempotent.
+      if (task.status === "submitted") {
+        runSiteLaunchFinalization(task.id).catch(err =>
+          log.warn(`[sitelaunch-finalization] failed for task #${task.id}:`, { error: err.message }),
+        );
+      }
+
       // Completion cascade: if task delivered, check if all tasks for this service are done
       let cascade;
       if (task.status === "delivered" && task.client_service_id) {
@@ -357,6 +368,12 @@ export function registerAdminCrmRoutes(app: Express): void {
         if (cascade?.serviceCompleted || cascade?.serviceActivated) {
           sendWelcomePackage(task.client_service_id).catch(err =>
             log.warn(`[welcome-email] send failed for client_service #${task.client_service_id}:`, err.message),
+          );
+
+          // WebFix post-audit: when a WebFix service completes, run post-fix
+          // PageSpeed audit and generate before/after report. Non-blocking.
+          runPostFixAudit(task.client_service_id).catch(err =>
+            log.warn(`[webfix-post-audit] failed for client_service #${task.client_service_id}:`, { error: err.message }),
           );
         }
 
@@ -662,7 +679,15 @@ export function registerAdminCrmRoutes(app: Express): void {
         await storage.updateClient(clientId, { status: "onboarding" });
       }
 
-      // 6. Log activity
+      // 6. WebFix pre-audit: auto-run PageSpeed audit after provisioning
+      // Non-blocking — enriches the first task with audit results for supplier brief
+      if (service_id.startsWith("webfix")) {
+        runPreFixAudit(clientService.id).catch(err =>
+          log.warn(`[webfix-pre-audit] failed for client_service #${clientService.id}:`, err.message),
+        );
+      }
+
+      // 7. Log activity
       await storage.logAdminActivity({
         actor_type: "human",
         actor_id: (req.user as any)?.id,

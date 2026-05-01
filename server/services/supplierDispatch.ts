@@ -16,13 +16,14 @@
  */
 
 import { db } from "../db";
-import { suppliers, clients, clientServices, serviceCatalog, fulfillmentTasks } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { suppliers, clients, clientServices, serviceCatalog, fulfillmentTasks, onboardingSubmissions } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { buildAdminAlertEmail, buildAdminAlertPlainText, ADMIN_ALERT_FROM_NAME, type AlertTone } from "../lib/adminAlertShell";
 import { storage } from "../storage";
 import type { FulfillmentTask, Supplier } from "@shared/schema";
 import { createLogger } from "../lib/logger";
+import { chat } from "./aiService";
 
 const log = createLogger("SupplierDispatch");
 
@@ -380,6 +381,187 @@ async function recordDispatch(task: FulfillmentTask, dispatchMethod: string, sup
   await storage.updateFulfillmentTask(task.id, { metadata: newMeta });
 }
 
+/* ─── Enhanced Brief Generation (SiteLaunch + WebFix) ─── */
+
+/**
+ * For SiteLaunch and WebFix tasks, generate AI-enhanced brief content
+ * to include in the supplier dispatch. This enriches the task description
+ * without changing the dispatch mechanism.
+ *
+ * Non-blocking: returns null on failure so dispatch still proceeds.
+ */
+async function generateEnhancedBrief(task: FulfillmentTask): Promise<string | null> {
+  try {
+    // Determine the service type
+    const [cs] = await db
+      .select({ service_id: clientServices.service_id })
+      .from(clientServices)
+      .where(eq(clientServices.id, task.client_service_id))
+      .limit(1);
+
+    if (!cs) return null;
+
+    const serviceId = cs.service_id;
+    const isSiteLaunch = serviceId.startsWith("sitelaunch");
+    const isWebFix = serviceId.startsWith("webfix");
+
+    if (!isSiteLaunch && !isWebFix) return null;
+
+    // Load client details
+    const [clientRow] = await db
+      .select()
+      .from(clients)
+      .where(eq(clients.id, task.client_id))
+      .limit(1);
+
+    if (!clientRow) return null;
+
+    // Load onboarding responses
+    const [onboarding] = await db
+      .select({ responses: onboardingSubmissions.responses })
+      .from(onboardingSubmissions)
+      .where(
+        and(
+          eq(onboardingSubmissions.client_service_id, task.client_service_id),
+          eq(onboardingSubmissions.status, "submitted"),
+        ),
+      )
+      .limit(1);
+
+    const onboardingData = (onboarding?.responses as Record<string, any>) || null;
+
+    if (isSiteLaunch) {
+      return await generateSiteLaunchBrief(clientRow, onboardingData);
+    } else {
+      return await generateWebFixBrief(clientRow, task);
+    }
+  } catch (err: any) {
+    log.warn(`Enhanced brief generation failed for task #${task.id}: ${err.message} — using standard brief`);
+    return null;
+  }
+}
+
+async function generateSiteLaunchBrief(
+  client: { business_name: string; trade_type: string | null; website_url: string | null; contact_email: string | null; metadata: any },
+  onboardingData: Record<string, any> | null,
+): Promise<string> {
+  const locationHint = onboardingData?.location
+    || onboardingData?.service_area
+    || onboardingData?.city
+    || "their local area";
+
+  // Generate AI context (color scheme, tone, competitor references)
+  let aiContext = "";
+  try {
+    const prompt = `You are a creative director briefing a web designer for a trades business website. Be concise.
+
+Business: ${client.business_name}
+Trade: ${client.trade_type || "general trades"}
+Location: ${locationHint}
+${onboardingData ? `Customer form responses: ${JSON.stringify(onboardingData)}` : ""}
+
+Provide a brief (under 300 words) with:
+1. Suggested color scheme (2-3 colors with hex codes, appropriate for the trade)
+2. Tone of voice for the site copy (professional but approachable, etc.)
+3. 2-3 competitor/reference examples to look at for inspiration (real trades business websites)
+4. Target audience description (homeowners, commercial, etc.)
+
+Keep it practical and actionable for a freelance web designer.`;
+
+    aiContext = await chat({
+      system: "You are a creative director for trades business websites. Be concise and actionable.",
+      messages: [{ role: "user", content: prompt }],
+      maxTokens: 800,
+    });
+  } catch (err: any) {
+    log.warn(`AI context generation failed for SiteLaunch brief: ${err.message}`);
+  }
+
+  const lines: string[] = [
+    "=== SITELAUNCH BRIEF ===",
+    "",
+    `Business Name: ${client.business_name}`,
+    `Trade Type: ${client.trade_type || "General trades"}`,
+    `Location: ${locationHint}`,
+    ...(client.website_url ? [`Current Website: ${client.website_url}`] : []),
+  ];
+
+  if (onboardingData) {
+    lines.push("", "--- CUSTOMER ONBOARDING RESPONSES ---");
+    for (const [key, val] of Object.entries(onboardingData)) {
+      if (val && typeof val === "object" && (val as any).value !== undefined) {
+        lines.push(`${key}: ${(val as any).value}`);
+      } else if (val != null) {
+        lines.push(`${key}: ${String(val)}`);
+      }
+    }
+  }
+
+  if (aiContext) {
+    lines.push("", "--- AI CREATIVE DIRECTION ---", aiContext);
+  }
+
+  lines.push(
+    "",
+    "--- DELIVERABLE EXPECTATIONS ---",
+    "1. Deliver WordPress site access credentials (admin URL, username, password)",
+    "2. Provide a screenshot of each completed page (homepage, about, services, contact)",
+    "3. Ensure the site is mobile-responsive",
+    "4. Reply to this email when work is complete",
+  );
+
+  return lines.join("\n");
+}
+
+async function generateWebFixBrief(
+  client: { business_name: string; website_url: string | null },
+  task: FulfillmentTask,
+): Promise<string> {
+  const lines: string[] = [
+    "=== WEBFIX BRIEF ===",
+    "",
+    `Business Name: ${client.business_name}`,
+    ...(client.website_url ? [`Website URL: ${client.website_url}`] : []),
+  ];
+
+  // Check if the task has pre-audit data
+  const meta = (task.metadata as Record<string, any>) || {};
+  if (meta.pre_audit) {
+    const audit = meta.pre_audit;
+    lines.push(
+      "",
+      "--- AUTOMATED PERFORMANCE AUDIT ---",
+      `Performance Score: ${audit.metrics?.performance_score || "N/A"}/100`,
+      `FCP: ${audit.metrics?.fcp_ms ? Math.round(audit.metrics.fcp_ms) + "ms" : "N/A"}`,
+      `LCP: ${audit.metrics?.lcp_ms ? Math.round(audit.metrics.lcp_ms) + "ms" : "N/A"}`,
+      `CLS: ${audit.metrics?.cls != null ? audit.metrics.cls.toFixed(3) : "N/A"}`,
+      `TBT: ${audit.metrics?.tbt_ms ? Math.round(audit.metrics.tbt_ms) + "ms" : "N/A"}`,
+      `Speed Index: ${audit.metrics?.speed_index_ms ? Math.round(audit.metrics.speed_index_ms) + "ms" : "N/A"}`,
+    );
+
+    if (audit.ai_analysis) {
+      lines.push("", "Analysis: " + audit.ai_analysis);
+    }
+
+    if (audit.prioritized_fixes?.length) {
+      lines.push("", "--- PRIORITIZED FIX LIST ---");
+      for (let i = 0; i < audit.prioritized_fixes.length; i++) {
+        lines.push(`${i + 1}. ${audit.prioritized_fixes[i]}`);
+      }
+    }
+  }
+
+  lines.push(
+    "",
+    "--- DELIVERABLE EXPECTATIONS ---",
+    "1. Fix the issues listed above (or in the task description)",
+    "2. Ensure all PageSpeed scores improve",
+    "3. Reply to this email when fixes are complete",
+  );
+
+  return lines.join("\n");
+}
+
 /**
  * Dispatch a task to its assigned supplier. Safe to call multiple times —
  * short-circuits if the task isn't in a dispatchable state or already dispatched.
@@ -406,26 +588,32 @@ export async function dispatchTaskToSupplier(taskId: number): Promise<DispatchRe
 
   const adminContact = process.env.ADMIN_EMAIL || process.env.INTERNAL_LEAD_EMAIL || getFromAddress();
 
+  // Enhance the brief with AI context for SiteLaunch/WebFix tasks (non-blocking)
+  const enhancedBrief = await generateEnhancedBrief(task);
+  const enhancedTask = enhancedBrief
+    ? { ...task, description: [task.description, enhancedBrief].filter(Boolean).join("\n\n") }
+    : task;
+
   try {
     const supplierType = (supplier as any).supplier_type || "email";
     let result: DispatchResult;
 
     switch (supplierType) {
       case "fiverr":
-        result = await dispatchViaFiverr(task, supplier, clientName, serviceName, adminContact);
+        result = await dispatchViaFiverr(enhancedTask, supplier, clientName, serviceName, adminContact);
         break;
 
       case "api":
-        result = await dispatchViaApi(task, supplier, clientName, serviceName, adminContact);
+        result = await dispatchViaApi(enhancedTask, supplier, clientName, serviceName, adminContact);
         break;
 
       case "manual":
-        result = await dispatchManual(task, supplier);
+        result = await dispatchManual(enhancedTask, supplier);
         break;
 
       case "email":
       default:
-        result = await dispatchViaEmail(task, supplier, clientName, serviceName, adminContact);
+        result = await dispatchViaEmail(enhancedTask, supplier, clientName, serviceName, adminContact);
         break;
     }
 
