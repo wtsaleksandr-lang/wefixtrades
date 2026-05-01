@@ -5,12 +5,12 @@ import { mkt, shadows } from "@/theme/tokens";
 import { ArrowRight } from "lucide-react";
 
 const PLACEHOLDER_POSTS = [
-  { title: "5 Ways to Turn Website Visitors into Booked Jobs", category: "Growth", date: "Coming Soon" },
-  { title: "Why Every Plumber Needs an Instant Quote Widget", category: "Product", date: "Coming Soon" },
-  { title: "Google Maps Ranking: The Trades Business Playbook", category: "SEO", date: "Coming Soon" },
-  { title: "How to Automate Follow-Ups Without Losing the Personal Touch", category: "Automation", date: "Coming Soon" },
-  { title: "Reputation Management 101 for Home-Service Pros", category: "Marketing", date: "Coming Soon" },
-  { title: "The True Cost of Not Having an Online Booking System", category: "Strategy", date: "Coming Soon" },
+  { title: "5 Ways to Turn Website Visitors into Booked Jobs", category: "Growth", date: "May 2026", summary: "Practical tactics to convert casual browsers into paying customers, from live chat to instant quoting." },
+  { title: "Why Every Plumber Needs an Instant Quote Widget", category: "Product", date: "May 2026", summary: "How an embedded calculator can shorten your sales cycle and filter out tyre-kickers before they call." },
+  { title: "Google Maps Ranking: The Trades Business Playbook", category: "SEO", date: "Jun 2026", summary: "Step-by-step guidance on local pack rankings, GBP optimisation, and citation building for trades." },
+  { title: "How to Automate Follow-Ups Without Losing the Personal Touch", category: "Automation", date: "Jun 2026", summary: "Striking the right balance between speed and authenticity in your post-enquiry communication." },
+  { title: "Reputation Management 101 for Home-Service Pros", category: "Marketing", date: "Jul 2026", summary: "Turn happy customers into 5-star reviews and handle the occasional negative feedback gracefully." },
+  { title: "The True Cost of Not Having an Online Booking System", category: "Strategy", date: "Jul 2026", summary: "Quantifying the leads you lose when prospects can't book instantly from your website." },
 ];
 
 export default function BlogPage() {
@@ -91,6 +91,7 @@ export default function BlogPage() {
               <div style={{ padding: "20px 24px 24px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
                 <span style={{ fontSize: 12, color: mkt.textMuted, fontWeight: 500 }}>{post.date}</span>
                 <h3 style={{ fontSize: 17, fontWeight: 650, color: mkt.text, margin: 0, lineHeight: 1.3 }}>{post.title}</h3>
+                <p style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.5, margin: 0 }}>{post.summary}</p>
                 <div style={{ flex: 1 }} />
                 <span
                   style={{
