@@ -10,6 +10,39 @@ import { initScheduler } from "./jobs/scheduler";
 import { pool } from "./db";
 import { setupPassport } from "./auth";
 
+/* ─── Startup Environment Validation ─── */
+function validateEnv(): void {
+  const isProduction = process.env.NODE_ENV === "production";
+
+  const critical = [
+    "DATABASE_URL",
+    "SESSION_SECRET",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "STRIPE_BILLING_WEBHOOK_SECRET",
+    "ANTHROPIC_API_KEY",
+  ];
+
+  const missing = critical.filter((key) => !process.env[key]);
+
+  if (missing.length === 0) return;
+
+  if (isProduction) {
+    console.error(
+      `[Startup] FATAL: Missing required environment variables in production:\n` +
+        missing.map((v) => `  - ${v}`).join("\n"),
+    );
+    process.exit(1);
+  } else {
+    console.warn(
+      `[Startup] Warning: Missing environment variables (non-fatal in development):\n` +
+        missing.map((v) => `  - ${v}`).join("\n"),
+    );
+  }
+}
+
+validateEnv();
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -31,10 +64,22 @@ app.use(express.urlencoded({ extended: false }));
 
 /* ─── Session + Passport ─── */
 const PgStore = connectPgSimple(session);
+
+// SESSION_SECRET: hard-fail in production (also caught by validateEnv above),
+// fall back to dev-only default otherwise with a warning.
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret && process.env.NODE_ENV === "production") {
+  console.error("[Startup] FATAL: SESSION_SECRET is not set. Refusing to start in production.");
+  process.exit(1);
+}
+if (!sessionSecret) {
+  console.warn("[Startup] Warning: SESSION_SECRET not set — using insecure dev default. Do NOT run this in production.");
+}
+
 app.use(
   session({
     store: new PgStore({ pool, createTableIfMissing: true }),
-    secret: process.env.SESSION_SECRET || "wft-dev-secret-change-in-prod",
+    secret: sessionSecret || "wft-dev-secret-change-in-prod",
     resave: false,
     saveUninitialized: false,
     cookie: {
