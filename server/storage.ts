@@ -207,6 +207,9 @@ export interface IStorage {
   // Service catalog
   listServiceCatalog(): Promise<ServiceCatalogRow[]>;
   upsertServiceCatalog(data: InsertServiceCatalog): Promise<ServiceCatalogRow>;
+  getServiceById(serviceId: string): Promise<ServiceCatalogRow | undefined>;
+  updateServiceCatalog(id: string, updates: Partial<InsertServiceCatalog>): Promise<ServiceCatalogRow | undefined>;
+  listServicesWithClientCounts(): Promise<(ServiceCatalogRow & { active_client_count: number })[]>;
 
   // Client services
   listClientServices(clientId: number): Promise<(ClientService & { service_name?: string })[]>;
@@ -1236,6 +1239,42 @@ export class DatabaseStorage implements IStorage {
       .onConflictDoUpdate({ target: serviceCatalog.id, set: { ...data, updated_at: new Date() } })
       .returning();
     return row;
+  }
+
+  async updateServiceCatalog(id: string, updates: Partial<InsertServiceCatalog>): Promise<ServiceCatalogRow | undefined> {
+    const [row] = await db.update(serviceCatalog)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(serviceCatalog.id, id))
+      .returning();
+    return row;
+  }
+
+  async listServicesWithClientCounts(): Promise<(ServiceCatalogRow & { active_client_count: number })[]> {
+    const rows = await db.select({
+      id: serviceCatalog.id,
+      name: serviceCatalog.name,
+      tagline: serviceCatalog.tagline,
+      description: serviceCatalog.description,
+      category: serviceCatalog.category,
+      default_price: serviceCatalog.default_price,
+      billing_period: serviceCatalog.billing_period,
+      delivery_pattern: serviceCatalog.delivery_pattern,
+      is_active: serviceCatalog.is_active,
+      stripe_product_id: serviceCatalog.stripe_product_id,
+      stripe_price_id: serviceCatalog.stripe_price_id,
+      stripe_yearly_price_id: serviceCatalog.stripe_yearly_price_id,
+      cost_amount: serviceCatalog.cost_amount,
+      cost_type: serviceCatalog.cost_type,
+      sort_order: serviceCatalog.sort_order,
+      created_at: serviceCatalog.created_at,
+      updated_at: serviceCatalog.updated_at,
+      active_client_count: sql<number>`count(case when ${clientServices.status} = 'active' then 1 end)::int`,
+    })
+    .from(serviceCatalog)
+    .leftJoin(clientServices, eq(serviceCatalog.id, clientServices.service_id))
+    .groupBy(serviceCatalog.id)
+    .orderBy(serviceCatalog.sort_order);
+    return rows as any;
   }
 
   // ─── Client Services ───

@@ -72,6 +72,7 @@ const PRODUCTS_ITEMS = [
 
 const FINANCE_ITEMS = [
   { label: "Billing", href: "/admin/crm/billing", icon: CreditCard },
+  { label: "Pricing", href: "/admin/services/pricing", icon: DollarSign },
   { label: "Suppliers", href: "/admin/crm/suppliers", icon: Factory },
   { label: "Sales", href: "/admin/crm/sales", icon: Target },
 ];
