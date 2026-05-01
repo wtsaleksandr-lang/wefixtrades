@@ -146,7 +146,7 @@ function NavGroup({
           {items.map((item) => {
             const active = isActive(location, item.href);
             const countKey = (item as any).countKey;
-            const badgeCount = countKey === "support" ? (supportUnresolved ?? 0) : 0;
+            const badgeCount = countKey === "support" ? (supportUnresolved ?? 0) : countKey === "alerts" ? (alertCount ?? 0) : 0;
             return (
               <Link
                 key={item.href}
@@ -192,7 +192,7 @@ function SidebarNav({
         {CORE_ITEMS.map((item) => {
           const active = isActive(location, item.href);
           const countKey = (item as any).countKey;
-          const badgeCount = countKey === "support" ? supportUnresolved : 0;
+          const badgeCount = countKey === "support" ? supportUnresolved : countKey === "alerts" ? alertCount : 0;
           return (
             <Link
               key={item.href}
@@ -578,6 +578,17 @@ export default function AdminLayout({
     refetchInterval: 60000, // refresh every minute
   });
   const supportUnresolved = (supportCounts?.open ?? 0) + (supportCounts?.in_progress ?? 0) + (supportCounts?.waiting_on_customer ?? 0);
+
+  const { data: alertCountData } = useQuery<{ count: number }>({
+    queryKey: ["/api/admin/alerts/count"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/alerts/count", { credentials: "include" });
+      if (!res.ok) return { count: 0 };
+      return res.json();
+    },
+    refetchInterval: 60000,
+  });
+  const alertCount = alertCountData?.count ?? 0;
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});

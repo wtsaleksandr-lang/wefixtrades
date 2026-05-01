@@ -25,6 +25,7 @@ import { sendPaymentSucceededEmail } from "../lib/paymentSucceededEmail";
 import { buildBillingPortalUrl } from "../lib/billingPortalToken";
 import { getTradeLineDefaultConfig } from "@shared/schema";
 import { createLogger } from "../lib/logger";
+import { fireAlert } from "../services/alertService";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 import { runPreFixAudit } from "../services/webfixAuditService";
 import { buildLoginToken, storeCheckoutLoginToken } from "../lib/loginToken";
@@ -200,6 +201,7 @@ export function registerStripeBillingRoutes(app: Express): void {
       res.json({ received: true });
     } catch (err: any) {
       log.error(`[billing-webhook] Error handling ${event.type}:`, err.message);
+      fireAlert({ severity: "critical", category: "stripe_error", title: `Stripe webhook handler failed: ${event.type}`, details: err.message, metadata: { event_type: event.type, event_id: event.id } }).catch(() => {});
       res.status(500).json({ error: "Webhook handler failed" });
     }
   });

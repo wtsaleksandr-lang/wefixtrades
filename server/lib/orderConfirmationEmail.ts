@@ -12,6 +12,7 @@
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import { createLogger } from "./logger";
+import { queueEmail } from "../services/emailQueueService";
 
 const log = createLogger("order-confirmation");
 
@@ -80,39 +81,16 @@ export async function sendOrderConfirmationEmail(
   data: OrderConfirmationData,
 ): Promise<boolean> {
   try {
-    const transporter = getEmailTransporter();
-    if (!transporter) {
-      log.warn("SMTP not configured — skipping order confirmation");
-      return false;
-    }
-
     if (!recipientEmail) {
       log.warn("No recipient email — skipping order confirmation");
       return false;
     }
-
     const amount = formatCurrency(data.amount, data.currency);
-
-    await transporter.sendMail({
-      from: `WeFixTrades <${getFromAddress()}>`,
-      to: recipientEmail,
-      replyTo: process.env.ADMIN_EMAIL || process.env.INTERNAL_LEAD_EMAIL || getFromAddress(),
-      subject: `Order confirmed — ${data.serviceName}`,
-      html: buildHtml(recipientEmail, data),
-      text: buildPlainText({
-        headline: `You're in, ${data.businessName}`,
-        intro: `Your purchase of ${data.serviceName} (${amount}) has been confirmed.`,
-        bodyText: "What happens next:\n  1. Complete a quick setup form (2-3 minutes)\n  2. Our team reviews your info and configures your service\n  3. You get a notification when everything is live\n\nMost services activate within 24-48 hours after you submit your setup info.",
-        ctaLabel: "Start Setup",
-        ctaUrl: data.onboardingUrl,
-        supportNote: "Questions? Reply to this email or reach us at support@wefixtrades.com.",
-      }),
-    });
-
-    log.info(`Sent to ${recipientEmail} for ${data.serviceName}`);
+    await queueEmail(recipientEmail, `Order confirmed — ${data.serviceName}`, buildHtml(recipientEmail, data), buildPlainText({ headline: `You're in, ${data.businessName}`, intro: `Your purchase of ${data.serviceName} (${amount}) has been confirmed.`, bodyText: "What happens next:\n  1. Complete a quick setup form (2-3 minutes)\n  2. Our team reviews your info and configures your service\n  3. You get a notification when everything is live\n\nMost services activate within 24-48 hours after you submit your setup info.", ctaLabel: "Start Setup", ctaUrl: data.onboardingUrl, supportNote: "Questions? Reply to this email or reach us at support@wefixtrades.com." }), { source: "order_confirmation", entity_type: "order" });
+    log.info(`Queued order confirmation to ${recipientEmail} for ${data.serviceName}`);
     return true;
   } catch (err: any) {
-    log.error(`Send failed for ${recipientEmail}: ${err.message}`);
+    log.error(`Queue failed for ${recipientEmail}: ${err.message}`);
     return false;
   }
 }

@@ -13,6 +13,7 @@
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import { createLogger } from "./logger";
+import { queueEmail } from "../services/emailQueueService";
 
 const log = createLogger("support-ticket-email");
 
@@ -58,34 +59,10 @@ export async function sendTicketCreatedEmail(
   data: TicketCreatedData,
 ): Promise<boolean> {
   try {
-    const transporter = getEmailTransporter();
-    if (!transporter) {
-      log.warn("SMTP not configured — skipping ticket created email");
-      return false;
-    }
-    if (!recipientEmail) {
-      log.warn("No recipient email — skipping ticket created email");
-      return false;
-    }
-
+    if (!recipientEmail) { log.warn("No recipient email — skipping ticket created email"); return false; }
     const ticketRef = `#${data.ticketId}`;
-
-    await transporter.sendMail({
-      from: `WeFixTrades <${getFromAddress()}>`,
-      to: recipientEmail,
-      replyTo: process.env.ADMIN_EMAIL || process.env.INTERNAL_LEAD_EMAIL || getFromAddress(),
-      subject: `We received your request — ${ticketRef}`,
-      html: buildTicketCreatedHtml(recipientEmail, data),
-      text: buildPlainText({
-        headline: "We received your request",
-        intro: `Your support ticket "${data.subject}" (${ticketRef}) has been created. Our team typically responds within a few hours.`,
-        ctaLabel: "View Ticket",
-        ctaUrl: `${data.portalUrl}/support/${data.ticketId}`,
-        supportNote: "You can reply directly from your portal. We'll keep you updated at every step.",
-      }),
-    });
-
-    log.info(`Ticket created email sent to ${recipientEmail} for ticket ${ticketRef}`);
+    await queueEmail(recipientEmail, `We received your request — ${ticketRef}`, buildTicketCreatedHtml(recipientEmail, data), buildPlainText({ headline: "We received your request", intro: `Your support ticket "${data.subject}" (${ticketRef}) has been created. Our team typically responds within a few hours.`, ctaLabel: "View Ticket", ctaUrl: `${data.portalUrl}/support/${data.ticketId}`, supportNote: "You can reply directly from your portal. We'll keep you updated at every step." }), { source: "support_ticket_created", entity_type: "support_ticket", entity_id: data.ticketId });
+    log.info(`Ticket created email queued for ${recipientEmail} — ticket ${ticketRef}`);
     return true;
   } catch (err: any) {
     log.error(`Ticket created email failed for ${recipientEmail}: ${err.message}`);
@@ -134,35 +111,10 @@ export async function sendTicketReplyEmail(
   data: TicketReplyData,
 ): Promise<boolean> {
   try {
-    const transporter = getEmailTransporter();
-    if (!transporter) {
-      log.warn("SMTP not configured — skipping ticket reply email");
-      return false;
-    }
-    if (!recipientEmail) {
-      log.warn("No recipient email — skipping ticket reply email");
-      return false;
-    }
-
+    if (!recipientEmail) { log.warn("No recipient email — skipping ticket reply email"); return false; }
     const ticketRef = `#${data.ticketId}`;
-
-    await transporter.sendMail({
-      from: `WeFixTrades <${getFromAddress()}>`,
-      to: recipientEmail,
-      replyTo: process.env.ADMIN_EMAIL || process.env.INTERNAL_LEAD_EMAIL || getFromAddress(),
-      subject: `New reply on ticket ${ticketRef} — ${data.subject}`,
-      html: buildTicketReplyHtml(recipientEmail, data),
-      text: buildPlainText({
-        headline: "New reply on your ticket",
-        intro: `Our team has replied to "${data.subject}" (${ticketRef}).`,
-        bodyText: data.replyPreview.length > 300 ? data.replyPreview.slice(0, 300) + "..." : data.replyPreview,
-        ctaLabel: "View Full Reply",
-        ctaUrl: `${data.portalUrl}/support/${data.ticketId}`,
-        supportNote: "Reply from your portal to continue the conversation.",
-      }),
-    });
-
-    log.info(`Ticket reply email sent to ${recipientEmail} for ticket ${ticketRef}`);
+    await queueEmail(recipientEmail, `New reply on ticket ${ticketRef} — ${data.subject}`, buildTicketReplyHtml(recipientEmail, data), buildPlainText({ headline: "New reply on your ticket", intro: `Our team has replied to "${data.subject}" (${ticketRef}).`, bodyText: data.replyPreview.length > 300 ? data.replyPreview.slice(0, 300) + "..." : data.replyPreview, ctaLabel: "View Full Reply", ctaUrl: `${data.portalUrl}/support/${data.ticketId}`, supportNote: "Reply from your portal to continue the conversation." }), { source: "support_ticket_reply", entity_type: "support_ticket", entity_id: data.ticketId });
+    log.info(`Ticket reply email queued for ${recipientEmail} — ticket ${ticketRef}`);
     return true;
   } catch (err: any) {
     log.error(`Ticket reply email failed for ${recipientEmail}: ${err.message}`);
@@ -208,35 +160,10 @@ export async function sendTicketResolvedEmail(
   data: TicketResolvedData,
 ): Promise<boolean> {
   try {
-    const transporter = getEmailTransporter();
-    if (!transporter) {
-      log.warn("SMTP not configured — skipping ticket resolved email");
-      return false;
-    }
-    if (!recipientEmail) {
-      log.warn("No recipient email — skipping ticket resolved email");
-      return false;
-    }
-
+    if (!recipientEmail) { log.warn("No recipient email — skipping ticket resolved email"); return false; }
     const ticketRef = `#${data.ticketId}`;
-
-    await transporter.sendMail({
-      from: `WeFixTrades <${getFromAddress()}>`,
-      to: recipientEmail,
-      replyTo: process.env.ADMIN_EMAIL || process.env.INTERNAL_LEAD_EMAIL || getFromAddress(),
-      subject: `Ticket ${ticketRef} resolved — ${data.subject}`,
-      html: buildTicketResolvedHtml(recipientEmail, data),
-      text: buildPlainText({
-        headline: "Your ticket has been resolved",
-        intro: `Your support request "${data.subject}" (${ticketRef}) has been marked as resolved.`,
-        bodyText: "If this doesn't look right or you need more help, just reply from your portal and we'll reopen the ticket.",
-        ctaLabel: "View Ticket Details",
-        ctaUrl: `${data.portalUrl}/support/${data.ticketId}`,
-        supportNote: "Thank you for reaching out. We're always here if you need anything else.",
-      }),
-    });
-
-    log.info(`Ticket resolved email sent to ${recipientEmail} for ticket ${ticketRef}`);
+    await queueEmail(recipientEmail, `Ticket ${ticketRef} resolved — ${data.subject}`, buildTicketResolvedHtml(recipientEmail, data), buildPlainText({ headline: "Your ticket has been resolved", intro: `Your support request "${data.subject}" (${ticketRef}) has been marked as resolved.`, bodyText: "If this doesn't look right or you need more help, just reply from your portal and we'll reopen the ticket.", ctaLabel: "View Ticket Details", ctaUrl: `${data.portalUrl}/support/${data.ticketId}`, supportNote: "Thank you for reaching out. We're always here if you need anything else." }), { source: "support_ticket_resolved", entity_type: "support_ticket", entity_id: data.ticketId });
+    log.info(`Ticket resolved email queued for ${recipientEmail} — ticket ${ticketRef}`);
     return true;
   } catch (err: any) {
     log.error(`Ticket resolved email failed for ${recipientEmail}: ${err.message}`);

@@ -428,6 +428,19 @@ export async function sendDunningRow(row: BillingDunningEvent): Promise<{
       .where(eq(billingDunningEvents.id, row.id));
 
     log.info(`[dunning] sent ${row.kind} to ${client.contact_email} (row #${row.id}, client #${clientId})`);
+
+    // Fire payment_at_risk alert on day_7_warning (3rd and final dunning step)
+    if (row.kind === "day_7_warning") {
+      const { fireAlert } = await import("./alertService");
+      fireAlert({
+        severity: "critical",
+        category: "payment_at_risk",
+        title: `Payment at risk: ${client.business_name || `Client #${clientId}`}`,
+        details: `Day-7 final warning sent to ${client.contact_email}. Subscription ${row.stripe_subscription_id || "unknown"} may churn.`,
+        metadata: { client_id: clientId, stripe_subscription_id: row.stripe_subscription_id, dunning_row_id: row.id },
+      }).catch(() => {});
+    }
+
     return { outcome: "sent" };
   } catch (err: any) {
     await db.update(billingDunningEvents)

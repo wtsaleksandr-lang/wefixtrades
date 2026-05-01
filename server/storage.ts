@@ -8,6 +8,9 @@ calculators, leads, analyticsEvents, deploymentStatus,
   aiConversations, supportTickets, smsMessages,
   ticketMessages, ticketEvents,
   users, auditSubmissions, auditFollowupEmails, demoQuoteLeads, missedCallLeads,
+  systemAlerts, emailQueue,
+  type SystemAlert, type InsertSystemAlert,
+  type EmailQueueItem, type InsertEmailQueue,
   type Calculator, type InsertCalculator,
   type Lead, type InsertLead,
   type AnalyticsEvent, type InsertAnalyticsEvent,
@@ -3718,6 +3721,46 @@ export class DatabaseStorage implements IStorage {
       .where(eq(calendarConnections.id, id))
       .returning();
     return conn;
+  }
+
+  // ─── System Alerts ───
+  async createSystemAlert(data: InsertSystemAlert): Promise<SystemAlert> {
+    const [alert] = await db.insert(systemAlerts).values(data).returning();
+    return alert;
+  }
+  async listSystemAlerts(opts: { severity?: string; category?: string; acknowledged?: boolean; limit?: number; offset?: number } = {}): Promise<SystemAlert[]> {
+    const conditions: any[] = [];
+    if (opts.severity) conditions.push(eq(systemAlerts.severity, opts.severity));
+    if (opts.category) conditions.push(eq(systemAlerts.category, opts.category));
+    if (opts.acknowledged !== undefined) conditions.push(eq(systemAlerts.acknowledged, opts.acknowledged));
+    const q = db.select().from(systemAlerts);
+    const filtered = conditions.length > 0 ? q.where(and(...conditions)) : q;
+    return filtered.orderBy(desc(systemAlerts.created_at)).limit(opts.limit ?? 100).offset(opts.offset ?? 0);
+  }
+  async acknowledgeSystemAlert(id: number, userId: number): Promise<SystemAlert | undefined> {
+    const [alert] = await db.update(systemAlerts).set({ acknowledged: true, acknowledged_by: userId, acknowledged_at: new Date() }).where(eq(systemAlerts.id, id)).returning();
+    return alert;
+  }
+  async getUnacknowledgedAlertCount(): Promise<number> {
+    const [result] = await db.select({ count: count() }).from(systemAlerts).where(eq(systemAlerts.acknowledged, false));
+    return result?.count ?? 0;
+  }
+  async findRecentAlert(category: string, title: string, withinMs: number = 3600000): Promise<SystemAlert | undefined> {
+    const cutoff = new Date(Date.now() - withinMs);
+    const [alert] = await db.select().from(systemAlerts).where(and(eq(systemAlerts.category, category), eq(systemAlerts.title, title), gte(systemAlerts.created_at, cutoff))).orderBy(desc(systemAlerts.created_at)).limit(1);
+    return alert;
+  }
+
+  // ─── Email Queue ───
+  async enqueueEmail(data: InsertEmailQueue): Promise<EmailQueueItem> {
+    const [item] = await db.insert(emailQueue).values(data).returning();
+    return item;
+  }
+  async fetchPendingEmails(limit: number = 10): Promise<EmailQueueItem[]> {
+    return db.select().from(emailQueue).where(eq(emailQueue.status, "pending")).orderBy(emailQueue.created_at).limit(limit);
+  }
+  async updateEmailQueueItem(id: number, updates: Partial<{ status: string; attempts: number; last_error: string | null; sent_at: Date | null }>): Promise<void> {
+    await db.update(emailQueue).set(updates).where(eq(emailQueue.id, id));
   }
 }
 

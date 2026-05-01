@@ -19,6 +19,7 @@
 import { storage } from "../../storage";
 import { sendMetaReauthEmail } from "../../lib/metaReauthEmail";
 import { createLogger } from "../../lib/logger";
+import { fireAlert } from "../alertService";
 
 const log = createLogger("ConnectionLifecycle");
 
@@ -223,6 +224,7 @@ export async function checkConnectionExpiry(): Promise<ExpiryCheckResult> {
 
         // Send re-auth email to admin
         await sendReauthEmailForConnection(conn, 0);
+        fireAlert({ severity: "warning", category: "oauth_expiry", title: `${conn.platform} token expired for client #${conn.client_id}`, details: `Token expired. Reconnection required.`, metadata: { client_id: conn.client_id, platform: conn.platform } }).catch(() => {});
 
         result.expired++;
       } else if (health.status === "expiring_soon" && conn.connection_status === "connected") {
@@ -247,6 +249,7 @@ export async function checkConnectionExpiry(): Promise<ExpiryCheckResult> {
 
         // Send re-auth email to admin
         await sendReauthEmailForConnection(conn, health.days_until_expiry ?? 0);
+        fireAlert({ severity: "info", category: "oauth_expiry", title: `${conn.platform} token expiring soon for client #${conn.client_id}`, details: `Token expires in ${health.days_until_expiry} day(s).`, metadata: { client_id: conn.client_id, platform: conn.platform } }).catch(() => {});
 
         result.expiring_soon++;
       }

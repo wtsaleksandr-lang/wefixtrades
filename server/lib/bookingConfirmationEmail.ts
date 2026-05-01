@@ -9,6 +9,7 @@
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { createLogger } from "./logger";
+import { queueEmail } from "../services/emailQueueService";
 import { db } from "../db";
 import { eq } from "drizzle-orm";
 import { clients } from "@shared/schema";
@@ -115,16 +116,10 @@ export async function sendBookingConfirmationToCustomer(params: CustomerEmailPar
   });
 
   try {
-    await transporter.sendMail({
-      from: getFromAddress(),
-      to: params.customerEmail,
-      subject: `Booking Confirmed — ${params.businessName}`,
-      html,
-      text,
-    });
-    log.info("Sent booking confirmation to customer", { email: params.customerEmail });
+    await queueEmail(params.customerEmail!, `Booking Confirmed — ${params.businessName}`, html, text, { source: "booking_confirmation", entity_type: "appointment", entity_id: params.appointmentId });
+    log.info("Queued booking confirmation to customer", { email: params.customerEmail });
   } catch (err: any) {
-    log.error("Failed to send customer confirmation email", { error: err.message });
+    log.error("Failed to queue customer confirmation email", { error: err.message });
     throw err;
   }
 }

@@ -46,6 +46,7 @@ import { registerApprovalRoutes } from "./approvalRoutes";
 import { registerDemoRoutes } from "./demoRoutes";
 import { registerBookingApiRoutes } from "./bookingApiRoutes";
 import { registerBookflowRoutes } from "./bookflowRoutes";
+import { registerAdminAlertRoutes } from "./adminAlertRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -97,6 +98,7 @@ export async function registerRoutes(
   registerDemoRoutes(app);
   registerBookingApiRoutes(app);
   registerBookflowRoutes(app);
+  registerAdminAlertRoutes(app);
 
   return httpServer;
 }
